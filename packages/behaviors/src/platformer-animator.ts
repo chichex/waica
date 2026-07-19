@@ -8,9 +8,9 @@ import {
 import { PlatformerMovement } from './platformer-movement'
 
 /**
- * Contrato de animaciones del arquetipo plataformero: esto es lo que el
- * motor le pide al usuario para su personaje. Con menos clips el juego
- * sigue andando por la cadena de fallbacks.
+ * The platformer archetype's animation contract: this is what the engine
+ * asks the user for their character. With fewer clips the game keeps
+ * working through the fallback chain.
  */
 export const PLATFORMER_ANIMATION_CONTRACT: AnimationContract = {
   required: ['idle', 'run', 'jump', 'fall'],
@@ -23,21 +23,21 @@ export interface PlatformerAnimState {
   vy: number
 }
 
-/** Estado del movimiento → clip deseado. Pura, para testear sin motor. */
+/** Movement state → desired clip. Pure, testable without the engine. */
 export function pickClip(state: PlatformerAnimState, runThreshold: number): string {
   if (!state.grounded) return state.vy > 0 ? 'jump' : 'fall'
   return Math.abs(state.vx) > runThreshold ? 'run' : 'idle'
 }
 
 /**
- * Conecta PlatformerMovement con AnimatedSprite según el contrato del
- * arquetipo. El flip izquierda/derecha ya lo hace el movimiento con la
- * escala de la entidad — acá solo se elige el clip.
+ * Wires PlatformerMovement to AnimatedSprite following the archetype's
+ * contract. The left/right flip is already handled by the movement via
+ * the entity scale — this only picks the clip.
  */
 export class PlatformerAnimator extends Component {
   static override componentName = 'PlatformerAnimator'
   static override params = {
-    runThreshold: { label: 'Umbral de correr', min: 0, max: 5, step: 0.1 },
+    runThreshold: { label: 'Run threshold', min: 0, max: 5, step: 0.1 },
   }
 
   runThreshold = 0.5
@@ -49,7 +49,7 @@ export class PlatformerAnimator extends Component {
     const missing = missingClips(this.contract, Object.keys(sprite.clips))
     if (missing.length > 0) {
       console.warn(
-        `[waica] "${this.entity.name}": faltan clips del contrato plataformero: ${missing.join(', ')} — se usan fallbacks`,
+        `[waica] "${this.entity.name}": missing clips from the platformer contract: ${missing.join(', ')} — falling back`,
       )
     }
   }

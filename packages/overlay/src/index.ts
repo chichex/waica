@@ -1,7 +1,7 @@
 import type { Component, ComponentClass, Game, ParamSpec } from '@waica/engine'
 
 export interface OverlayOptions {
-  /** KeyboardEvent.code que abre/cierra el panel. */
+  /** KeyboardEvent.code that opens/closes the panel. */
   toggleCode?: string
 }
 
@@ -47,12 +47,12 @@ const CSS = `
 `
 
 /**
- * Inspector in-game: lista las entidades, expone los parámetros declarados
- * por cada componente (static params) para editarlos en vivo, y persiste
- * los cambios al proyecto vía el plugin de dev (@waica/overlay/vite).
+ * In-game inspector: lists the entities, exposes the parameters each
+ * component declares (static params) for live editing, and persists the
+ * changes to the project via the dev plugin (@waica/overlay/vite).
  *
- * Es el embrión del editor (DESIGN.md, decisión 9): jugar-ajustar-guardar
- * sin salir del juego.
+ * It's the editor's embryo (DESIGN.md, decision 9): play-tweak-save
+ * without leaving the game.
  */
 export function attachOverlay(game: Game, options: OverlayOptions = {}): () => void {
   const { toggleCode = 'Backquote' } = options
@@ -64,7 +64,7 @@ export function attachOverlay(game: Game, options: OverlayOptions = {}): () => v
   const toggle = document.createElement('button')
   toggle.className = 'waica-toggle'
   toggle.textContent = '🐕'
-  toggle.title = 'Inspector de Waica (~)'
+  toggle.title = 'Waica inspector (~)'
 
   const panel = document.createElement('div')
   panel.className = 'waica-panel'
@@ -80,7 +80,7 @@ export function attachOverlay(game: Game, options: OverlayOptions = {}): () => v
 
   let saveTimer: ReturnType<typeof setTimeout> | undefined
   const scheduleSave = (): void => {
-    status.textContent = 'guardando…'
+    status.textContent = 'saving…'
     clearTimeout(saveTimer)
     saveTimer = setTimeout(async () => {
       try {
@@ -89,9 +89,9 @@ export function attachOverlay(game: Game, options: OverlayOptions = {}): () => v
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify(game.paramOverrides),
         })
-        status.textContent = res.ok ? 'guardado ✓' : 'sin persistencia'
+        status.textContent = res.ok ? 'saved ✓' : 'no persistence'
       } catch {
-        status.textContent = 'sin persistencia'
+        status.textContent = 'no persistence'
       }
     }, 500)
   }

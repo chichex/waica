@@ -8,8 +8,8 @@ declare module '*.png' {
   export default url
 }
 
-// File System Access API (Chromium). Declaraciones mínimas por si la lib DOM
-// de TypeScript no las trae completas.
+// File System Access API (Chromium). Minimal declarations in case
+// TypeScript's DOM lib doesn't ship them completely.
 interface Window {
   showDirectoryPicker?: (options?: {
     mode?: 'read' | 'readwrite'

@@ -7,22 +7,22 @@ import { Emitter } from './events'
 import { Input } from './input'
 
 export interface GameOptions {
-  /** Canvas donde se dibuja el juego. */
+  /** Canvas the game draws into. */
   canvas: HTMLCanvasElement
-  /** Color de fondo de la escena. */
+  /** Scene background color. */
   background?: THREE.ColorRepresentation
-  /** Altura visible del mundo en unidades; la cámara 2D encuadra esto. */
+  /** Visible world height in units; the 2D camera frames this. */
   viewHeight?: number
 }
 
 export type UpdateFn = (dt: number) => void
 
-/** Overrides persistidos: entity → componentName → prop → valor. */
+/** Persisted overrides: entity → componentName → prop → value. */
 export type ParamOverrides = Record<string, Record<string, Record<string, number | boolean>>>
 
 /**
- * Núcleo del motor: loop, escena three unificada 2D/3D, cámara ortográfica,
- * entidades con componentes e input. Ver DESIGN.md.
+ * Engine core: loop, unified 2D/3D three scene, orthographic camera,
+ * entities with components, and input. See DESIGN.md.
  */
 export class Game {
   readonly scene = new THREE.Scene()
@@ -32,12 +32,12 @@ export class Game {
   readonly events = new Emitter()
   paramOverrides: ParamOverrides = {}
   /**
-   * Con false, el loop sigue renderizando pero no corre updates de
-   * componentes ni colisiones — el modo edición del editor.
+   * With false, the loop keeps rendering but runs no component updates
+   * or collisions — the editor's edit mode.
    */
   simulate = true
 
-  // TODO(H1): migrar a WebGPURenderer (three/webgpu) con fallback WebGL2 automático.
+  // TODO(H1): migrate to WebGPURenderer (three/webgpu) with automatic WebGL2 fallback.
   private readonly renderer: THREE.WebGLRenderer
   private readonly updateFns = new Set<UpdateFn>()
   private viewHeight: number
@@ -55,7 +55,7 @@ export class Game {
     new ResizeObserver(() => this.resize()).observe(canvas)
   }
 
-  /** Crea una entidad viva en la escena. */
+  /** Creates a live entity in the scene. */
   spawn(name: string): Entity {
     const entity = new Entity(this, name)
     this.entities.push(entity)
@@ -63,29 +63,29 @@ export class Game {
     return entity
   }
 
-  /** Busca una entidad por nombre. */
+  /** Finds an entity by name. */
   find(name: string): Entity | undefined {
     return this.entities.find((e) => e.name === name)
   }
 
-  /** Carga overrides de parámetros persistidos (waica.params.json). */
+  /** Loads persisted parameter overrides (waica.params.json). */
   async loadParams(url: string): Promise<void> {
     try {
       const res = await fetch(url)
       if (res.ok) this.paramOverrides = (await res.json()) as ParamOverrides
     } catch {
-      // sin archivo de params: se usan los defaults del arquetipo
+      // no params file: the archetype defaults apply
     }
   }
 
-  /** Aplica overrides persistidos a un componente recién agregado. */
+  /** Applies persisted overrides to a freshly added component. */
   applyParamOverrides(entity: Entity, component: Component): void {
     const Class = component.constructor as unknown as ComponentClass
     const override = this.paramOverrides[entity.name]?.[Class.componentName]
     if (override) Object.assign(component, override)
   }
 
-  /** Registra una función que corre una vez por frame. Devuelve el de-registro. */
+  /** Registers a function that runs once per frame. Returns the unsubscribe. */
   onUpdate(fn: UpdateFn): () => void {
     this.updateFns.add(fn)
     return () => this.updateFns.delete(fn)
@@ -99,13 +99,13 @@ export class Game {
     this.renderer.setAnimationLoop(null)
   }
 
-  /** Interno: Entity.destroy() lo llama. */
+  /** Internal: called by Entity.destroy(). */
   removeEntity(entity: Entity): void {
     const i = this.entities.indexOf(entity)
     if (i !== -1) this.entities.splice(i, 1)
   }
 
-  /** Altura visible del mundo (zoom de la cámara 2D). */
+  /** Visible world height (2D camera zoom). */
   get view(): number {
     return this.viewHeight
   }
@@ -115,7 +115,7 @@ export class Game {
     this.resize()
   }
 
-  /** Apaga el juego por completo (loop, input, GPU). */
+  /** Shuts the game down completely (loop, input, GPU). */
   dispose(): void {
     this.stop()
     this.input.dispose()
@@ -124,7 +124,7 @@ export class Game {
   }
 
   private tick(time: number): void {
-    // Clamp del dt: cambiar de pestaña o pausar no dispara la simulación.
+    // Clamp dt: switching tabs or pausing doesn't fast-forward the simulation.
     const dt = Math.min((time - this.lastTime) / 1000, 0.1)
     this.lastTime = time
     if (this.simulate) {

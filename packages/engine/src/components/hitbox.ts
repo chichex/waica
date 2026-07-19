@@ -1,9 +1,9 @@
 import { Component } from '../component'
 
 /**
- * Caja de trigger (no sólida): el Game detecta superposiciones entre
- * Hitboxes y llama onCollide(other) en los componentes de ambas
- * entidades. Para colisión física estática ver Solid.
+ * Trigger box (not solid): the Game detects overlaps between Hitboxes
+ * and calls onCollide(other) on both entities' components. For static
+ * physical collision see Solid.
  */
 export class Hitbox extends Component {
   static override componentName = 'Hitbox'

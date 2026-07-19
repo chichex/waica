@@ -1,22 +1,22 @@
-# Mi juego 🐕
+# My game 🐕
 
-Hecho con [Waica](https://github.com/chichex/waica), el motor de juegos web guiado por arquetipos.
+Made with [Waica](https://github.com/chichex/waica), the archetype-driven web game engine.
 
-## Correr
+## Run
 
 ```bash
 npm install
 npm run dev
 ```
 
-- **← →** moverte · **espacio** saltar · **~** abre el inspector
-- Lo que ajustes en el inspector se guarda en `public/waica.params.json` — lo que tuneás jugando es lo que exportás.
-- Tu personaje es la perrita placeholder: reemplazala en `src/main.ts` manteniendo los clips del contrato (`idle`, `run`, `jump`, `fall`).
+- **← →** move · **space** jump · **~** opens the inspector
+- Whatever you tweak in the inspector is saved to `public/waica.params.json` — what you tune while playing is what you export.
+- Your character is the placeholder dog: replace it in `src/main.ts` keeping the contract clips (`idle`, `run`, `jump`, `fall`).
 
-## Exportar para la web
+## Export for the web
 
 ```bash
 npm run build
 ```
 
-La carpeta `dist/` queda lista para subir a itch.io o cualquier hosting estático.
+The `dist/` folder is ready to upload to itch.io or any static hosting.

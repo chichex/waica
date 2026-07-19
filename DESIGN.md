@@ -1,156 +1,156 @@
-# Waica — Motor de juegos web guiado por arquetipos
+# Waica — Archetype-driven web game engine
 
-> Estado: **borrador vivo**. Decisiones tomadas el 2026-07-18 en sesión de diseño inicial.
-> Nombre: **Waica**, por la perra de la infancia de Ayrton — la perrita es la mascota natural del motor (logo).
-> Handles verificados 2026-07-18: `waica` y `create-waica` libres en npm (scope `@waica` sin paquetes), org `waica` libre en GitHub, `waica.dev` / `.io` / `.games` sin registrar (`waica.org` tomado por un tercero ajeno al rubro).
+> Status: **living draft**. Decisions made on 2026-07-18 in the initial design session.
+> Name: **Waica**, after Ayrton's childhood dog — she's the engine's natural mascot (logo).
+> Handles verified 2026-07-18: `waica` and `create-waica` free on npm (`@waica` scope with no packages), `waica` org free on GitHub, `waica.dev` / `.io` / `.games` unregistered (`waica.org` taken by an unrelated third party).
 
-## 1. Visión
+## 1. Vision
 
-Motor de videojuegos **open source (MIT)**, **web-first**, para juegos **2D y 3D**, centrado en la experiencia del usuario. No es un lienzo en blanco: es un motor **opinionado por arquetipos de juego** que te guía a construir lo que efectivamente necesitás, con salida limpia a código real (TypeScript) cuando querés salirte del riel.
+An **open source (MIT)**, **web-first** engine for **2D and 3D** games, centered on user experience. Not a blank canvas: an engine **opinionated through game archetypes** that guides you to build what you actually need, with a clean exit to real code (TypeScript) when you want off the rails.
 
-Anti-objetivo explícito: **no** ser "Godot pero web". Godot optimiza para generalidad (cualquier juego posible) al costo de que todo requiere decisiones y la curva de entrada es enorme. Nosotros optimizamos el camino feliz de géneros concretos, con el capó abierto.
+Explicit anti-goal: **not** being "Godot but web". Godot optimizes for generality (any possible game) at the cost that everything requires decisions and the entry curve is enormous. We optimize the happy path of concrete genres, with the hood open.
 
-## 2. Tesis de producto: arquetipos
+## 2. Product thesis: archetypes
 
-El flujo de creación define el producto:
+The creation flow defines the product:
 
-1. Elegís **2D o 3D**.
-2. Elegís el **arquetipo** (género + cámara): plataformero, top-down, isométrico, pantallas fijas, … (3D: tercera persona, primera persona, …).
-3. Esa elección **configura todo**: modelo de movimiento, contrato de animaciones, física, cámara, input map, assets que el motor te pide, y hasta el vocabulario de la UI del editor.
+1. You pick **2D or 3D**.
+2. You pick the **archetype** (genre + camera): platformer, top-down, isometric, flip screen, … (3D: third person, first person, …).
+3. That choice **configures everything**: movement model, animation contract, physics, camera, input map, the assets the engine asks you for, and even the editor UI's vocabulary.
 
-Ejemplos del efecto en cascada:
+Examples of the cascade effect:
 
-- **Isométrico** → movimiento 8 direcciones → el motor te pide animaciones en 8 direcciones (y espeja NE→NO si falta el asset).
-- **Top-down** → movimiento 4 direcciones → animaciones `idle/walk × N/S/E/O`, colisión por tiles, sin gravedad.
-- **Plataformero** → izquierda/derecha con flip automático → clips `idle/run/jump/fall`, gravedad tuneada, cámara con deadzone y lookahead.
-- **Pantallas fijas** → cámara con transición al borde (estilo Zelda NES).
+- **Isometric** → 8-direction movement → the engine asks you for 8-direction animations (and mirrors NE→NW when the asset is missing).
+- **Top-down** → 4-direction movement → `idle/walk × N/S/E/W` animations, tile collision, no gravity.
+- **Platformer** → left/right with automatic flip → `idle/run/jump/fall` clips, tuned gravity, camera with deadzone and lookahead.
+- **Flip screen** → camera cuts at the screen edge (NES Zelda style).
 
-Regla de oro anti-trampa: el arquetipo **no es un generador de boilerplate ni un fork del motor**. Es un **paquete declarativo vivo sobre el core genérico**. Si fuera un template que te vomita código, al primer cambio el usuario queda solo (el acantilado de RPG Maker). Como es configuración viva, ajustar un slider y reescribir el behavior son el mismo sistema.
+Golden anti-trap rule: an archetype **is neither a boilerplate generator nor an engine fork**. It's a **living declarative package on top of the generic core**. If it were a template that vomits code at you, the user would be on their own after the first change (the RPG Maker cliff). Since it's living configuration, tweaking a slider and rewriting the behavior are the same system.
 
-Referencias del patrón: **GB Studio** (scene types que definen controles y física — prueba viva de que funciona, limitado a Game Boy), **RPG Maker** (el poder de un solo arquetipo y el techo de no tener salida a código).
+Pattern references: **GB Studio** (scene types that define controls and physics — living proof that it works, limited to Game Boy), **RPG Maker** (the power of a single archetype, and the ceiling of having no exit to code).
 
-## 3. Los tres niveles de usuario (sin acantilados)
+## 3. The three user levels (no cliffs)
 
-1. **Riel**: seguís el arquetipo, ajustás parámetros con sliders, reemplazás placeholders por tu arte.
-2. **Composición**: mezclás y configurás behaviors de la librería, agregás entidades propias.
-3. **Código**: escribís tus behaviors en TypeScript (Monaco embebido, hot-reload).
+1. **Rails**: you follow the archetype, tune parameters with sliders, replace placeholders with your art.
+2. **Composition**: you mix and configure behaviors from the library, add entities of your own.
+3. **Code**: you write your behaviors in TypeScript (embedded Monaco, hot reload).
 
-El slider "jump height" del nivel 1 edita el mismo behavior TS que podrías reescribir en el nivel 3. Mismo proyecto siempre; nunca "exportar y no volver".
+The level-1 "jump height" slider edits the same TS behavior you could rewrite at level 3. Always the same project; never "export and never come back".
 
-Bonus estratégico: los arquetipos dan **contexto semántico para agentes AI** ("esto es un plataformero; el player tiene estos behaviors") — "agregame doble salto" funciona mucho mejor con ese vocabulario. Proyecto en texto plano + API chica y tipada + CLI headless = el motor más cómodo para trabajar con AI. Ninguno de los grandes lo tiene como principio fundacional.
+Strategic bonus: archetypes provide **semantic context for AI agents** ("this is a platformer; the player has these behaviors") — "add a double jump" works much better with that vocabulary. Plain-text project + small typed API + headless CLI = the most comfortable engine to work on with AI. None of the big ones has this as a founding principle.
 
-## 4. Anatomía de un arquetipo
+## 4. Anatomy of an archetype
 
-Un arquetipo es un paquete (npm) declarativo que contiene:
+An archetype is a declarative (npm) package containing:
 
-- **Behaviors preconfigurados** con defaults de *game feel* curados (ej. plataformero: coyote time, jump buffering, curvas de aceleración — lo que un principiante no sabe que necesita).
-- **Contrato de animaciones**: qué clips necesita cada personaje; el editor muestra los huecos ("te falta walk-NO") y aplica fallbacks (espejado automático).
-- **Placeholders CC0** (ej. Kenney): el juego funciona desde el minuto cero; el usuario reemplaza pieza por pieza. Nunca hay pantalla vacía.
-- **Input map por defecto** (WASD/flechas/gamepad ya mapeados).
-- **Preset de física y cámara** del género.
-- **Template de escena/proyecto** inicial.
-- **Especialización de la UI del editor** (vocabulario, paneles, wizards con mini-demos animadas).
+- **Preconfigured behaviors** with curated *game feel* defaults (e.g. platformer: coyote time, jump buffering, acceleration curves — what a beginner doesn't know they need).
+- **Animation contract**: which clips each character needs; the editor shows the gaps ("you're missing walk-NW") and applies fallbacks (automatic mirroring).
+- **CC0 placeholders** (e.g. Kenney): the game works from minute zero; the user replaces them piece by piece. There's never an empty screen.
+- **Default input map** (WASD/arrows/gamepad pre-mapped).
+- **Genre physics and camera presets**.
+- **Initial scene/project template**.
+- **Editor UI specialization** (vocabulary, panels, wizards with animated mini-demos).
 
-El formato es abierto para que la comunidad publique arquetipos propios (shoot 'em up, cartas roguelike, point & click, …).
+The format is open so the community can publish archetypes of their own (shoot 'em up, roguelike deckbuilder, point & click, …).
 
-Estrategia de lanzamiento: **2 arquetipos excelentes > 6 mediocres**. Cada arquetipo es game design curado, no solo código.
+Launch strategy: **2 excellent archetypes > 6 mediocre ones**. Each archetype is curated game design, not just code.
 
-## 5. Mapa competitivo y hueco (julio 2026)
+## 5. Competitive map and the gap (July 2026)
 
-| Proyecto | Qué es | Su debilidad |
+| Project | What it is | Its weakness |
 |---|---|---|
-| Godot | Open source dominante, desktop-first | No web-native; curva de entrada enorme |
-| GDevelop | Open source, editor web+desktop, no-code; desde 5.6 (dic 2025) con editor 3D real y física Jolt | Código = ciudadano de segunda; event-sheets first; 2 renderers (Pixi+three) |
-| Construct 3 | La referencia de UX editor-en-browser | Cerrado, suscripción |
-| PlayCanvas | Engine 3D MIT; frontend del editor abierto (jul 2025) | El editor depende de su backend SaaS |
-| three.js / Babylon | Infraestructura de render | No son motores con editor |
-| Phaser | 2D code-first popular | Sin 3D; editor aparte |
-| GB Studio | Arquetipos bien hechos, MIT | Limitado a Game Boy |
+| Godot | Dominant open source, desktop-first | Not web-native; enormous entry curve |
+| GDevelop | Open source, web+desktop editor, no-code; since 5.6 (Dec 2025) with a real 3D editor and Jolt physics | Code = second-class citizen; event-sheets first; 2 renderers (Pixi+three) |
+| Construct 3 | The reference in editor-in-browser UX | Closed, subscription |
+| PlayCanvas | MIT 3D engine; editor frontend opened (Jul 2025) | The editor depends on their SaaS backend |
+| three.js / Babylon | Render infrastructure | Not engines with an editor |
+| Phaser | Popular code-first 2D | No 3D; separate editor |
+| GB Studio | Archetypes done right, MIT | Limited to Game Boy |
 
-**El cuadrante vacío que ocupamos**: code-first TS + editor que vive en el browser y es local-first (tus archivos, tu git, sin cuenta ni backend) + 2D/3D unificado + open source completo + **arquetipos opinionados como concepto de primera clase**.
+**The empty quadrant we occupy**: code-first TS + an editor that lives in the browser and is local-first (your files, your git, no account, no backend) + unified 2D/3D + fully open source + **opinionated archetypes as a first-class concept**.
 
-## 6. Decisiones tomadas
+## 6. Decisions made
 
-| # | Decisión | Elección | Por qué |
+| # | Decision | Choice | Why |
 |---|---|---|---|
-| 1 | Estrategia de editor | Browser-first, local-first; empaquetable a desktop después | Hueco del mercado; "abrí un link y editá" |
-| 2 | Base de render | three.js — WebGPU con fallback WebGL2, **un solo pipeline 2D+3D** | 2D = quads + cámara ortográfica (como Unity: Hollow Knight/Cuphead); evita mantener 2 renderers como GDevelop; luces/post/mezcla 2D+3D gratis; three es detalle de implementación detrás de la API del motor (reversible) |
-| 3 | Scripting del usuario | TypeScript first-class + behaviors parametrizables | Cubre de principiante a pro; 80% del valor del visual scripting al 20% del costo; AI-friendly |
-| 4 | Alcance inicial | Core unificado 2D+3D; primer pulido en 2D | Evita la reescritura "2D primero, 3D imposible después" |
-| 5 | Tesis de producto | **Motor guiado por arquetipos** ("rieles con capó abierto") | Ver §2 |
-| 6 | Modelo de objetos | Entity + Components (Unity-like) | Arquetipo = entidades con behaviors enchufados; mapea 1:1 al inspector; familiar |
-| 7 | Licencia | MIT | Norma del nicho (three, Phaser, GB Studio); máxima adopción |
-| 8 | Primer arquetipo | **Plataformero** | Género "mi primer juego"; assets baratos (2 dir + flip); donde el game feel más se luce |
-| 9 | Forma del hito 1 | Juego + **inspector overlay** (no editor completo aún) | Valida la magia jugar-ajustar-guardar sin el costo del editor |
-| 10 | Nombre | **Waica** | Corto, pronunciable en español e inglés, con historia real detrás y mascota incluida; handles npm/GitHub/dominios libres |
+| 1 | Editor strategy | Browser-first, local-first; packageable to desktop later | Market gap; "open a link and edit" |
+| 2 | Render base | three.js — WebGPU with WebGL2 fallback, **a single 2D+3D pipeline** | 2D = quads + orthographic camera (like Unity: Hollow Knight/Cuphead); avoids maintaining 2 renderers like GDevelop; lights/post/2D+3D mixing for free; three stays an implementation detail behind the engine API (reversible) |
+| 3 | User scripting | First-class TypeScript + parameterizable behaviors | Covers beginner to pro; 80% of visual scripting's value at 20% of its cost; AI-friendly |
+| 4 | Initial scope | Unified 2D+3D core; first polish on 2D | Avoids the "2D first, 3D impossible later" rewrite |
+| 5 | Product thesis | **Archetype-driven engine** ("rails with the hood open") | See §2 |
+| 6 | Object model | Entity + Components (Unity-like) | Archetype = entities with plugged-in behaviors; maps 1:1 to the inspector; familiar |
+| 7 | License | MIT | The niche's norm (three, Phaser, GB Studio); maximum adoption |
+| 8 | First archetype | **Platformer** | The "my first game" genre; cheap assets (2 directions + flip); where game feel shines brightest |
+| 9 | Milestone 1 shape | Game + **inspector overlay** (not the full editor yet) | Validates the play-tweak-save magic without the editor's cost |
+| 10 | Name | **Waica** | Short, pronounceable in Spanish and English, with a real story behind it and a mascot included; npm/GitHub/domain handles free |
 
-## 7. Stack técnico
+## 7. Tech stack
 
-- **Lenguaje**: TypeScript en todo (motor, editor, juegos de usuario).
-- **Render**: three.js (WebGPU → WebGL2 automático). Sprites vía instancing/batching + atlas; pixel-perfect con NearestFilter y snapping; capas 2D con renderOrder; texto SDF (troika).
-- **Física**: Rapier (Rust→WASM, Apache-2.0) — 2D y 3D con la misma API; character controller para el plataformero.
-- **Audio**: Web Audio API con capa fina.
-- **Dev**: Vite (dev server + HMR de behaviors); el overlay persiste cambios al disco vía plugin del dev server (File System Access API llega con el editor standalone).
-- **Formato de proyecto**: JSON/texto plano, git-friendly, diffs limpios.
-- **Export**: HTML = bundle estático. Steam/Epic = Electron + steamworks.js. Móvil (futuro) = Capacitor.
-- **Repo**: monorepo pnpm + Vitest + Playwright; changesets para versionado.
+- **Language**: TypeScript everywhere (engine, editor, user games).
+- **Render**: three.js (WebGPU → automatic WebGL2). Sprites via instancing/batching + atlases; pixel-perfect with NearestFilter and snapping; 2D layers with renderOrder; SDF text (troika).
+- **Physics**: Rapier (Rust→WASM, Apache-2.0) — 2D and 3D with the same API; character controller for the platformer.
+- **Audio**: Web Audio API behind a thin layer.
+- **Dev**: Vite (dev server + behavior HMR); the overlay persists changes to disk via a dev-server plugin (File System Access API arrives with the standalone editor).
+- **Project format**: JSON/plain text, git-friendly, clean diffs.
+- **Export**: HTML = static bundle. Steam/Epic = Electron + steamworks.js. Mobile (future) = Capacitor.
+- **Repo**: pnpm monorepo + Vitest + Playwright; changesets for versioning.
 
-Estructura objetivo del monorepo (el hito 1 puede arrancar con menos paquetes y dividir cuando duela):
+Target monorepo structure (milestone 1 can start with fewer packages and split when it hurts):
 
 ```
 packages/
-  engine/            # core: loop, escena, Entity+Components, assets, input, audio
-                     # + render (three) + physics (Rapier) — dividir después si crece
-  behaviors/         # librería: PlatformerMovement, CameraFollow, Health, Spawner…
-  archetype-platformer/  # el primer arquetipo (formato de arquetipo nace acá)
-  overlay/           # inspector overlay in-game: edita behaviors en vivo + persiste
-  create/            # create-waica: wizard de arquetipo (`npm create waica`)
-  exporter-html/     # build estático
-examples/            # incluye un smoke test 3D del core unificado
-docs/                # docs vivas con ejemplos ejecutables
+  engine/            # core: loop, scene, Entity+Components, assets, input, audio
+                     # + render (three) + physics (Rapier) — split later if it grows
+  behaviors/         # library: PlatformerMovement, CameraFollow, Health, Spawner…
+  archetype-platformer/  # the first archetype (the archetype format is born here)
+  overlay/           # in-game inspector overlay: edits behaviors live + persists
+  create/            # create-waica: archetype wizard (`npm create waica`)
+  exporter-html/     # static build
+examples/            # includes a 3D smoke test of the unified core
+docs/                # living docs with runnable examples
 ```
 
-## 8. Hito 1 — "Plataformero de punta a punta" (definition of done)
+## 8. Milestone 1 — "Platformer end to end" (definition of done)
 
-1. `npm create waica` → wizard: nombre, arquetipo (plataformero; el resto "coming soon"), ¿pixel art? → proyecto generado.
-2. `npm run dev` → en el browser: **plataformero jugable con placeholders CC0**: correr, saltar (coyote time + jump buffering), plataformas, monedas, un enemigo, muerte/respawn, un par de pantallas de nivel.
-3. **Overlay** (tecla `~`): árbol de entidades + parámetros de behaviors editables en vivo (sliders) + **persistencia al proyecto** a través del dev server.
-4. **Hot-reload** de behaviors TS del usuario.
-5. `npm run build` → carpeta estática lista para itch.io / cualquier hosting.
-6. `examples/` incluye una escena 3D mínima que usa el mismo core (smoke test del diseño unificado; no es feature de usuario todavía).
+1. `npm create waica` → wizard: name, archetype (platformer; the rest "coming soon"), pixel art? → generated project.
+2. `npm run dev` → in the browser: a **playable platformer with CC0 placeholders**: run, jump (coyote time + jump buffering), platforms, coins, one enemy, death/respawn, a couple of level screens.
+3. **Overlay** (`~` key): entity tree + behavior parameters editable live (sliders) + **persistence to the project** through the dev server.
+4. **Hot reload** of the user's TS behaviors.
+5. `npm run build` → static folder ready for itch.io / any hosting.
+6. `examples/` includes a minimal 3D scene using the same core (smoke test of the unified design; not a user feature yet).
 
-Fuera del hito 1 (explícito): edición visual de niveles (los niveles del template vienen como assets JSON; import de Tiled como puente para técnicos). La edición visual llega con el editor.
+Out of milestone 1 (explicit): visual level editing (template levels ship as JSON assets; Tiled import as a bridge for technical users). Visual editing arrives with the editor.
 
 ## 9. Roadmap
 
-- **H1**: plataformero de punta a punta (§8).
-- **H2**: editor web local-first — el juego como viewport, jerarquía, inspector real, edición de niveles/tilemaps, play-in-editor; File System Access API (fallback para Safari/Firefox).
-- **H3**: segundo arquetipo (**top-down**) → fuerza a generalizar el formato de arquetipo (recién con dos ejemplos se sabe qué abstraer). Contrato de animaciones 4-dir con espejado.
-- **H4**: export desktop (Electron + steamworks.js), librería de behaviors ampliada, tooling del contrato de animaciones.
-- **H5**: primer arquetipo 3D (tercera persona), pipeline glTF, isométrico 8-dir.
-- **Continuo**: docs vivas, templates, time-to-first-game < 5 min, comunidad de arquetipos.
+- **H1**: platformer end to end (§8).
+- **H2**: local-first web editor — the game as viewport, hierarchy, a real inspector, level/tilemap editing, play-in-editor; File System Access API (fallback for Safari/Firefox).
+- **H3**: second archetype (**top-down**) → forces generalizing the archetype format (only with two examples do you know what to abstract). 4-direction animation contract with mirroring.
+- **H4**: desktop export (Electron + steamworks.js), expanded behavior library, animation-contract tooling.
+- **H5**: first 3D archetype (third person), glTF pipeline, 8-direction isometric.
+- **Ongoing**: living docs, templates, time-to-first-game < 5 min, an archetype community.
 
-Estrategia transversal: **cada capa útil por sí sola** (el framework sirve sin editor; el overlay sirve sin editor completo) y **dogfooding** — hacer juegos reales con el motor en cada hito.
+Cross-cutting strategy: **every layer useful on its own** (the framework works without the editor; the overlay works without the full editor) and **dogfooding** — making real games with the engine at every milestone.
 
-## 10. Límites honestos / no-objetivos
+## 10. Honest limits / non-goals
 
-- **Consolas**: Switch/PlayStation no tienen camino oficial para web-tech; Xbox es posible vía UWP/WebView2 con limitaciones. Prometemos: web, Steam, Epic, Itch, móvil. Consolas no.
-- **Performance**: JS + WebGPU cubre ~95% de los juegos indie; AAA no es el target.
-- **v1 no incluye**: visual scripting (evaluar post-editor), multiplayer, asset store.
-- El editor completo es ~80% del esfuerzo total: por eso el orden runtime → overlay → editor.
-- La adopción la ganan templates, docs y time-to-first-game — no el core técnico.
+- **Consoles**: Switch/PlayStation have no official path for web tech; Xbox is possible via UWP/WebView2 with limitations. We promise: web, Steam, Epic, Itch, mobile. Not consoles.
+- **Performance**: JS + WebGPU covers ~95% of indie games; AAA is not the target.
+- **v1 does not include**: visual scripting (to evaluate post-editor), multiplayer, an asset store.
+- The full editor is ~80% of the total effort: hence the order runtime → overlay → editor.
+- Adoption is won by templates, docs and time-to-first-game — not by the technical core.
 
-## 11. Pendientes
+## 11. Pending
 
-- [x] **Nombre del proyecto**: Waica (2026-07-18).
-- [x] `git init` + repo público: `github.com/chichex/waica` (2026-07-18; migrar a la org `waica` cuando esté reservada).
-- [x] Bootstrap del monorepo (2026-07-18): `engine` (loop, Entity+Components, input, Sprite, Solid), `behaviors` (`PlatformerMovement` con coyote/buffer/jump-cut/squash, `CameraFollow`), `archetype-platformer`, `overlay` (inspector in-game con persistencia; round-trip verificado con browser real).
-- [ ] **Publicar a npm** (solo Ayrton): crear la org `@waica` en npmjs + `npm login` + `pnpm release` (buildea y publica los 5 paquetes reales, ya no placeholders). Después: org `waica` en GitHub y registrar `waica.dev` (opcional `.io`/`.games`).
-- [x] Contrato de animaciones v0 (2026-07-18): `AnimationContract` + `resolveClip`/`missingClips` con fallbacks, `AnimatedSprite` (spritesheet en grilla, pixel-perfect), `PlatformerAnimator` (estado→clip) y el spritesheet placeholder de la mascota generado por script (`scripts/generate-dog-sheet.mjs`). Vitest en marcha (14 tests). Verificado e2e con browser: ciclo idle→jump→fall→idle y flip automático.
-- [x] Gameplay del arquetipo completo (2026-07-18): sistema de triggers (`Hitbox` + hook `onCollide` en el core), behaviors `Collectible`/`Patrol`/`Hazard` (stomp Mario-style)/`Respawnable`, nivel con pozo, monedas y slimes (sprites generados por script), HUD de monedas. 22 tests unitarios; verificado e2e: recoger, daño lateral→respawn, stomp y muerte por caída.
-- [x] Wizard `create-waica` (2026-07-18): CLI con @clack/prompts (pelado = interactivo; `create-waica <dir>` = power-user), template completo, y los paquetes convertidos a **publicables** (build tsc a dist/ + d.ts, exports duales dev/publish vía publishConfig, v0.1.0). Verificado e2e con tarballs de `pnpm pack`: el proyecto generado instala, typechequea, buildea y corre con overlay. Pendiente manual: completar el flujo interactivo una vez en un terminal real (el render está verificado; expect no pudo automatizar clack).
-- [x] **Editor v0 — H2 arrancado** (2026-07-18, prioridad redefinida por Ayrton: la app primero): escenas serializadas a JSON (`loadScene` + registry en el engine; `src/scenes/main.scene.json` como fuente de verdad de cada proyecto), y la app `@waica/editor` (React + Monaco): crear proyecto en carpeta real (File System Access) / abrir / demo en memoria, árbol de archivos, jerarquía de entidades, viewport con selección + drag + pan + zoom + gizmo, paleta arrastrable, inspector completo (props, agregar/quitar componentes, renombrar, eliminar), play-in-editor con Stop que restaura, autosave y editor de código Monaco. Verificado e2e con browser: drag persiste al JSON, drop crea entidades, play recoge la moneda creada (🪙 1), Monaco muestra el JSON actualizado. Pendiente de prueba manual: flujo con carpetas reales (picker no automatizable headless).
-- [ ] **Editor siguiente**: hot-reload de behaviors TS del usuario en el viewport (esbuild-wasm), assets del usuario (PNG de la carpeta como texturas), export HTML desde el editor, undo/redo, multiselección.
-- [ ] **Hito 1 restante**: props reactivas de Sprite; smoke test 3D del core unificado; migración a WebGPURenderer con fallback.
-- [ ] Definir formato v0 del manifest de arquetipo (nace con `archetype-platformer`, se generaliza en H3).
-- [ ] Elegir set de placeholders CC0 (candidato: Kenney) y convención de nombres del contrato de animaciones.
+- [x] **Project name**: Waica (2026-07-18).
+- [x] `git init` + public repo: `github.com/chichex/waica` (2026-07-18; migrate to the `waica` org once it's reserved).
+- [x] Monorepo bootstrap (2026-07-18): `engine` (loop, Entity+Components, input, Sprite, Solid), `behaviors` (`PlatformerMovement` with coyote/buffer/jump-cut/squash, `CameraFollow`), `archetype-platformer`, `overlay` (in-game inspector with persistence; round-trip verified with a real browser).
+- [ ] **Publish to npm** (Ayrton only): create the `@waica` org on npmjs + `npm login` + `pnpm release` (builds and publishes the 5 real packages, no longer placeholders). Then: `waica` org on GitHub and register `waica.dev` (optionally `.io`/`.games`).
+- [x] Animation contract v0 (2026-07-18): `AnimationContract` + `resolveClip`/`missingClips` with fallbacks, `AnimatedSprite` (grid spritesheet, pixel-perfect), `PlatformerAnimator` (state→clip) and the mascot's placeholder spritesheet generated by script (`scripts/generate-dog-sheet.mjs`). Vitest running (14 tests). Verified e2e with a browser: idle→jump→fall→idle cycle and automatic flip.
+- [x] Full archetype gameplay (2026-07-18): trigger system (`Hitbox` + `onCollide` hook in the core), `Collectible`/`Patrol`/`Hazard` (Mario-style stomp)/`Respawnable` behaviors, a level with a pit, coins and slimes (script-generated sprites), coin HUD. 22 unit tests; verified e2e: collecting, side damage→respawn, stomp and death by falling.
+- [x] `create-waica` wizard (2026-07-18): CLI with @clack/prompts (bare = interactive; `create-waica <dir>` = power-user), full template, and the packages converted to **publishable** (tsc build to dist/ + d.ts, dual dev/publish exports via publishConfig, v0.1.0). Verified e2e with `pnpm pack` tarballs: the generated project installs, typechecks, builds and runs with the overlay. Manual pending: walk through the interactive flow once in a real terminal (rendering is verified; expect couldn't automate clack).
+- [x] **Editor v0 — H2 kicked off** (2026-07-18, priority redefined by Ayrton: the app first): scenes serialized to JSON (`loadScene` + registry in the engine; `src/scenes/main.scene.json` as each project's source of truth), and the `@waica/editor` app (React + Monaco): create a project in a real folder (File System Access) / open / in-memory demo, file tree, entity hierarchy, viewport with selection + drag + pan + zoom + gizmo, draggable palette, full inspector (props, add/remove components, rename, delete), play-in-editor with a restoring Stop, autosave, and the Monaco code editor. Verified e2e with a browser: dragging persists to the JSON, dropping creates entities, play collects the created coin (🪙 1), Monaco shows the updated JSON. Manual test pending: the real-folder flow (the picker isn't automatable headless).
+- [ ] **Editor next**: hot reload of user TS behaviors in the viewport (esbuild-wasm), user assets (folder PNGs as textures), HTML export from the editor, undo/redo, multi-selection.
+- [ ] **Milestone 1 remaining**: reactive Sprite props; the 3D smoke test of the unified core; migration to WebGPURenderer with fallback.
+- [ ] Define v0 of the archetype manifest format (born with `archetype-platformer`, generalized in H3).
+- [ ] Pick the CC0 placeholder set (candidate: Kenney) and the animation-contract naming convention.

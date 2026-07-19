@@ -7,31 +7,31 @@ const CONTRACT: AnimationContract = {
 }
 
 describe('resolveClip', () => {
-  it('devuelve el clip pedido si existe', () => {
+  it('returns the requested clip if it exists', () => {
     expect(resolveClip(CONTRACT, ['idle', 'run'], 'run')).toBe('run')
   })
 
-  it('degrada por la cadena de fallbacks', () => {
+  it('degrades along the fallback chain', () => {
     expect(resolveClip(CONTRACT, ['idle'], 'run')).toBe('idle')
     // fall → jump → idle
     expect(resolveClip(CONTRACT, ['idle'], 'fall')).toBe('idle')
   })
 
-  it('cae al primer clip disponible si la cadena no resuelve', () => {
+  it('falls back to the first available clip if the chain fails', () => {
     expect(resolveClip(CONTRACT, ['walk'], 'run')).toBe('walk')
   })
 
-  it('devuelve undefined sin clips disponibles', () => {
+  it('returns undefined with no clips available', () => {
     expect(resolveClip(CONTRACT, [], 'run')).toBeUndefined()
   })
 })
 
 describe('missingClips', () => {
-  it('lista los huecos del contrato', () => {
+  it('lists the contract gaps', () => {
     expect(missingClips(CONTRACT, ['idle', 'jump'])).toEqual(['run', 'fall'])
   })
 
-  it('vacío cuando el contrato está completo', () => {
+  it('empty when the contract is complete', () => {
     expect(missingClips(CONTRACT, ['idle', 'run', 'jump', 'fall', 'extra'])).toEqual([])
   })
 })

@@ -1,14 +1,14 @@
 import { Component } from '@waica/engine'
 
 /**
- * Patrulla horizontal en riel: va y vuelve `distance` unidades desde su
- * posición inicial, dándose vuelta en los extremos (con flip de sprite).
+ * Horizontal rail patrol: goes back and forth `distance` units from its
+ * starting position, turning around at the ends (with a sprite flip).
  */
 export class Patrol extends Component {
   static override componentName = 'Patrol'
   static override params = {
-    distance: { label: 'Distancia', min: 0.5, max: 20, step: 0.5 },
-    speed: { label: 'Velocidad', min: 0.5, max: 15, step: 0.5 },
+    distance: { label: 'Distance', min: 0.5, max: 20, step: 0.5 },
+    speed: { label: 'Speed', min: 0.5, max: 15, step: 0.5 },
   }
 
   distance = 3

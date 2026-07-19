@@ -4,18 +4,18 @@ import { Component } from '../component'
 const loader = new THREE.TextureLoader()
 
 /**
- * Quad texturado o de color plano. En el pipeline unificado, un sprite 2D
- * es un plano frente a la cámara ortográfica (ver DESIGN.md §6, decisión 2).
+ * Textured or flat-color quad. In the unified pipeline, a 2D sprite is a
+ * plane in front of the orthographic camera (see DESIGN.md §6, decision 2).
  */
 export class Sprite extends Component {
   static override componentName = 'Sprite'
-  // Sin params en el inspector por ahora: el mesh se crea en onReady y
-  // cambiar width/height en vivo no lo reconstruiría. TODO(H1): props reactivas.
+  // No inspector params for now: the mesh is built in onReady and changing
+  // width/height live wouldn't rebuild it. TODO(H1): reactive props.
 
   width = 1
   height = 1
   color: number = 0xffffff
-  /** URL de textura opcional; con pixelArt activado filtra en nearest. */
+  /** Optional texture URL; with pixelArt on it filters in nearest. */
   texture?: string
   pixelArt = false
   layer = 0

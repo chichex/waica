@@ -1,6 +1,6 @@
 type Handler = (...args: unknown[]) => void
 
-/** Bus de eventos mínimo del juego (p. ej. 'collect' al juntar una moneda). */
+/** The game's minimal event bus (e.g. 'collect' when picking up a coin). */
 export class Emitter {
   private readonly handlers = new Map<string, Set<Handler>>()
 

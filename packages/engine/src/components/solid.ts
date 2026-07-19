@@ -1,13 +1,13 @@
 import { Component } from '../component'
 
 /**
- * Caja de colisión estática (AABB). Plataformas, pisos y paredes.
- * Los character controllers (p. ej. PlatformerMovement) colisionan
- * contra todos los Solid de la escena.
+ * Static collision box (AABB). Platforms, floors and walls.
+ * Character controllers (e.g. PlatformerMovement) collide against
+ * every Solid in the scene.
  *
- * TODO(H1): cuerpos dinámicos generales via Rapier; los controllers de
- * personaje del género siguen siendo AABB a mano, como en el estándar
- * del género (la física "realista" no hace buenos plataformeros).
+ * TODO(H1): general dynamic bodies via Rapier; genre character
+ * controllers stay hand-rolled AABB, as the genre standard dictates
+ * ("realistic" physics doesn't make good platformers).
  */
 export class Solid extends Component {
   static override componentName = 'Solid'

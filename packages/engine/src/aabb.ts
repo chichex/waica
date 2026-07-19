@@ -1,4 +1,4 @@
-/** ¿Se superponen dos AABB definidos por centro y tamaño? Bordes que solo se tocan no cuentan. */
+/** Do two center+size AABBs overlap? Edges that merely touch don't count. */
 export function aabbOverlap(
   ax: number,
   ay: number,

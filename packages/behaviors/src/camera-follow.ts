@@ -2,16 +2,17 @@ import { Component, THREE } from '@waica/engine'
 import { PlatformerMovement } from './platformer-movement'
 
 /**
- * Cámara que sigue a su entidad con deadzone (zona muerta donde no se
- * mueve), lookahead hacia donde vas y suavizado exponencial.
+ * Camera that follows its entity with a deadzone (dead area where it
+ * doesn't move), lookahead toward where you're going and exponential
+ * smoothing.
  */
 export class CameraFollow extends Component {
   static override componentName = 'CameraFollow'
   static override params = {
-    deadzoneWidth: { label: 'Deadzone ancho', min: 0, max: 10, step: 0.25 },
-    deadzoneHeight: { label: 'Deadzone alto', min: 0, max: 10, step: 0.25 },
+    deadzoneWidth: { label: 'Deadzone width', min: 0, max: 10, step: 0.25 },
+    deadzoneHeight: { label: 'Deadzone height', min: 0, max: 10, step: 0.25 },
     lookahead: { label: 'Lookahead', min: 0, max: 6, step: 0.25 },
-    smoothing: { label: 'Suavizado', min: 1, max: 20, step: 0.5 },
+    smoothing: { label: 'Smoothing', min: 1, max: 20, step: 0.5 },
   }
 
   deadzoneWidth = 2

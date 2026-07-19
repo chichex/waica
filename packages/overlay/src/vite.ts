@@ -28,15 +28,15 @@ function paramsMiddleware(root: string): Connect.NextHandleFunction {
 }
 
 /**
- * Plugin de dev de Waica: recibe los overrides del inspector overlay y los
- * persiste en public/waica.params.json — que viaja al build, así lo que
- * tuneaste jugando es lo que exportás.
+ * Waica dev plugin: receives the overlay inspector's overrides and
+ * persists them to public/waica.params.json — which ships with the build,
+ * so what you tuned while playing is what you export.
  */
 export function waicaDev(): Plugin {
   return {
     name: 'waica-dev',
     config() {
-      // El guardado no debe recargar la página (el juego seguiría de largo).
+      // Saving must not reload the page (the game would just keep going).
       return { server: { watch: { ignored: ['**/waica.params.json'] } } }
     },
     configureServer(server) {

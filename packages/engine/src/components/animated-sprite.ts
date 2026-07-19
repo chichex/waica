@@ -5,18 +5,18 @@ import { ClipPlayer, type ClipDef } from '../animation/clip-player'
 const loader = new THREE.TextureLoader()
 
 /**
- * Sprite animado por spritesheet en grilla. Cada instancia clona la
- * textura para animar sus UV de forma independiente.
+ * Sprite animated from a grid spritesheet. Each instance clones the
+ * texture to animate its UVs independently.
  */
 export class AnimatedSprite extends Component {
   static override componentName = 'AnimatedSprite'
 
-  /** URL del spritesheet. */
+  /** Spritesheet URL. */
   texture = ''
-  /** Dimensiones de la grilla del sheet. */
+  /** Sheet grid dimensions. */
   cols = 1
   rows = 1
-  /** Tamaño en unidades de mundo. */
+  /** Size in world units. */
   width = 1
   height = 1
   pixelArt = true
@@ -24,7 +24,7 @@ export class AnimatedSprite extends Component {
   clips: Record<string, ClipDef> = {}
   initialClip?: string
 
-  /** Clip actualmente en reproducción. */
+  /** Clip currently playing. */
   current?: string
 
   private readonly player = new ClipPlayer()
@@ -46,7 +46,7 @@ export class AnimatedSprite extends Component {
     if (this.initialClip) this.play(this.initialClip)
   }
 
-  /** Cambia de clip; repetir el mismo nombre no reinicia la animación. */
+  /** Switches clip; repeating the same name doesn't restart the animation. */
   play(name: string): void {
     if (this.current === name) return
     const clip = this.clips[name]

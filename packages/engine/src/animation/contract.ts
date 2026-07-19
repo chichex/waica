@@ -1,20 +1,21 @@
 /**
- * Contrato de animaciones: el arquetipo declara qué clips necesita un
- * personaje y cómo degradar cuando falta uno. Es la pieza central de la
- * tesis "el motor te dice qué assets necesitás" (DESIGN.md §2 y §4):
- * el juego funciona desde el minuto cero con lo que haya, y el editor
- * (H2) va a mostrar los huecos como una checklist.
+ * Animation contract: the archetype declares which clips a character
+ * needs and how to degrade when one is missing. It's the centerpiece of
+ * the "the engine tells you which assets you need" thesis (DESIGN.md §2
+ * and §4): the game works from minute zero with whatever is there, and
+ * the editor (H2) will show the gaps as a checklist.
  */
 export interface AnimationContract {
-  /** Clips que el arquetipo espera que existan. */
+  /** Clips the archetype expects to exist. */
   required: string[]
-  /** Cadena de degradación: si falta un clip, con cuál se reemplaza. */
+  /** Degradation chain: if a clip is missing, which one replaces it. */
   fallbacks: Record<string, string>
 }
 
 /**
- * Resuelve qué clip reproducir: el pedido si existe, si no sigue la
- * cadena de fallbacks, y como último recurso el primer clip disponible.
+ * Resolves which clip to play: the requested one if it exists, otherwise
+ * it follows the fallback chain, and as a last resort the first available
+ * clip.
  */
 export function resolveClip(
   contract: AnimationContract,
@@ -33,7 +34,7 @@ export function resolveClip(
   return first
 }
 
-/** Qué clips del contrato faltan — lo que el editor mostrará como huecos. */
+/** Which contract clips are missing — what the editor will show as gaps. */
 export function missingClips(contract: AnimationContract, available: Iterable<string>): string[] {
   const set = new Set(available)
   return contract.required.filter((clip) => !set.has(clip))

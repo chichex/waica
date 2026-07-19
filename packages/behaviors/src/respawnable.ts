@@ -2,16 +2,16 @@ import { Component, THREE } from '@waica/engine'
 import { PlatformerMovement } from './platformer-movement'
 
 /**
- * Memoriza el punto de aparición y devuelve la entidad ahí al morir
- * (caerse del mundo o tocar un Hazard).
+ * Remembers the spawn point and puts the entity back there on death
+ * (falling off the world or touching a Hazard).
  */
 export class Respawnable extends Component {
   static override componentName = 'Respawnable'
   static override params = {
-    killY: { label: 'Altura de muerte', min: -50, max: 0, step: 1 },
+    killY: { label: 'Kill height', min: -50, max: 0, step: 1 },
   }
 
-  /** Caer por debajo de esta altura respawnea. */
+  /** Falling below this height respawns. */
   killY = -12
 
   private spawn = new THREE.Vector3()

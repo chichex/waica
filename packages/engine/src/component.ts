@@ -1,7 +1,7 @@
 import type { Entity } from './entity'
 import type { Game } from './game'
 
-/** Metadata de un parámetro editable desde el inspector. */
+/** Metadata for a parameter editable from the inspector. */
 export interface ParamSpec {
   label?: string
   min?: number
@@ -12,17 +12,17 @@ export interface ParamSpec {
 export interface ComponentClass<T extends Component = Component> {
   new (): T
   /**
-   * Nombre estable del componente (sobrevive a la minificación).
-   * Se usa para los overrides de `waica.params.json` y el inspector.
+   * Stable component name (survives minification).
+   * Used for `waica.params.json` overrides and the inspector.
    */
   componentName: string
-  /** Qué propiedades expone el inspector, con sus rangos. */
+  /** Which properties the inspector exposes, with their ranges. */
   params?: Record<string, ParamSpec>
 }
 
 /**
- * Pieza enchufable de una entidad. Los behaviors del usuario y los del
- * motor son la misma cosa: subclases de Component con props públicas.
+ * A pluggable piece of an entity. User behaviors and engine ones are the
+ * same thing: Component subclasses with public props.
  */
 export abstract class Component {
   static componentName = 'Component'
@@ -31,12 +31,12 @@ export abstract class Component {
   entity!: Entity
   game!: Game
 
-  /** Corre cuando el componente ya está montado en su entidad. */
+  /** Runs once the component is mounted on its entity. */
   onReady?(): void
-  /** Corre una vez por frame. */
+  /** Runs once per frame. */
   onUpdate?(dt: number): void
-  /** Corre cuando la Hitbox de esta entidad se superpone con la de otra. */
+  /** Runs when this entity's Hitbox overlaps another one's. */
   onCollide?(other: Entity): void
-  /** Corre al destruir la entidad o remover el componente. */
+  /** Runs when the entity is destroyed or the component removed. */
   onDestroy?(): void
 }

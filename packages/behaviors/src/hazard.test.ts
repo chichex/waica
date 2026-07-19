@@ -2,19 +2,19 @@ import { describe, expect, it } from 'vitest'
 import { resolveHazardTouch } from './hazard'
 
 describe('resolveHazardTouch', () => {
-  it('cayendo desde arriba → stomp', () => {
+  it('falling from above → stomp', () => {
     expect(resolveHazardTouch(-5, 0.5, 0, true)).toBe('stomp')
   })
 
-  it('subiendo → hurt (no se pisa desde abajo)', () => {
+  it('rising → hurt (no stomping from below)', () => {
     expect(resolveHazardTouch(6, 0.5, 0, true)).toBe('hurt')
   })
 
-  it('de costado, con los pies por debajo del centro → hurt', () => {
+  it('from the side, with feet below the center → hurt', () => {
     expect(resolveHazardTouch(-1, -0.4, 0, true)).toBe('hurt')
   })
 
-  it('no stompable siempre lastima', () => {
+  it('non-stompable always hurts', () => {
     expect(resolveHazardTouch(-5, 0.5, 0, false)).toBe('hurt')
   })
 })

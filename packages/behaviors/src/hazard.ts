@@ -5,9 +5,9 @@ import { Respawnable } from './respawnable'
 export type HazardTouch = 'stomp' | 'hurt'
 
 /**
- * Al tocar un hazard pisándolo desde arriba (cayendo, con los pies por
- * encima de su centro) se aplasta; cualquier otro contacto lastima.
- * Pura, para testear la decisión sin motor.
+ * Touching a hazard by stomping it from above (falling, with the feet
+ * above its center) squashes it; any other contact hurts.
+ * Pure, so the decision is testable without the engine.
  */
 export function resolveHazardTouch(
   playerVy: number,
@@ -20,13 +20,13 @@ export function resolveHazardTouch(
 }
 
 /**
- * Daña al player al contacto. Si es stompable (Mario-style), pisarlo lo
- * destruye y rebota al player. Requiere Hitbox en ambas entidades.
+ * Hurts the player on contact. If stompable (Mario-style), stomping it
+ * destroys it and bounces the player. Requires Hitbox on both entities.
  */
 export class Hazard extends Component {
   static override componentName = 'Hazard'
   static override params = {
-    bounce: { label: 'Rebote al pisar', min: 0, max: 30, step: 0.5 },
+    bounce: { label: 'Stomp bounce', min: 0, max: 30, step: 0.5 },
   }
 
   stompable = true

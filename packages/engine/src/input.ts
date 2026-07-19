@@ -7,8 +7,8 @@ const DEFAULT_BINDINGS: Record<string, string[]> = {
 }
 
 /**
- * Input por acciones con bindings por defecto del arquetipo.
- * v0: teclado. TODO(H1): gamepad y touch.
+ * Action-based input with archetype default bindings.
+ * v0: keyboard. TODO(H1): gamepad and touch.
  */
 export class Input {
   private readonly bindings = new Map<string, Set<string>>()
@@ -23,22 +23,22 @@ export class Input {
     window.addEventListener('keyup', this.onKeyUp)
   }
 
-  /** ¿La acción está sostenida este frame? */
+  /** Is the action held this frame? */
   held(action: ActionName): boolean {
     return this.isActive(action, this.down)
   }
 
-  /** ¿La acción se presionó exactamente este frame? */
+  /** Was the action pressed exactly this frame? */
   justPressed(action: ActionName): boolean {
     return this.isActive(action, this.justDown)
   }
 
-  /** Eje -1..1 a partir de dos acciones (left/right por defecto). */
+  /** -1..1 axis from two actions (left/right by default). */
   axis(negative: ActionName = 'left', positive: ActionName = 'right'): number {
     return (this.held(positive) ? 1 : 0) - (this.held(negative) ? 1 : 0)
   }
 
-  /** El Game la llama al final de cada frame. */
+  /** Called by the Game at the end of each frame. */
   endFrame(): void {
     this.justDown.clear()
   }

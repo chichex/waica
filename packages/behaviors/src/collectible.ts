@@ -2,13 +2,13 @@ import { Component, type Entity } from '@waica/engine'
 import { PlatformerMovement } from './platformer-movement'
 
 /**
- * Se recoge al tocarlo el player (la entidad con PlatformerMovement):
- * dispara onCollect y se destruye. Requiere Hitbox en ambas entidades.
+ * Collected when the player (the entity with PlatformerMovement) touches
+ * it: fires onCollect and destroys itself. Requires Hitbox on both entities.
  */
 export class Collectible extends Component {
   static override componentName = 'Collectible'
   static override params = {
-    value: { label: 'Valor', min: 1, max: 100, step: 1 },
+    value: { label: 'Value', min: 1, max: 100, step: 1 },
   }
 
   value = 1

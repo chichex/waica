@@ -1,9 +1,9 @@
-// Genera los spritesheets placeholder oficiales de Waica en pixel art,
-// sin dependencias (PNG writer a mano). Salidas en
+// Generates Waica's official placeholder pixel-art spritesheets, with no
+// dependencies (hand-rolled PNG writer). Outputs in
 // packages/archetype-platformer/assets/:
-//   waica-dog.png   64×64 — la perrita: idle ×4 / run ×4 / jump ×2 / fall ×2
-//   waica-coin.png  32×8  — moneda girando ×4
-//   waica-slime.png 64×16 — slime rebotando ×4
+//   waica-dog.png   64×64 — the dog: idle ×4 / run ×4 / jump ×2 / fall ×2
+//   waica-coin.png  32×8  — spinning coin ×4
+//   waica-slime.png 64×16 — bouncing slime ×4
 //
 //   node scripts/generate-sprites.mjs
 
@@ -13,15 +13,15 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const PALETTE = {
-  '.': [0, 0, 0, 0], // transparente
-  O: [255, 183, 3, 255], // naranja waica
-  D: [127, 79, 36, 255], // marrón (orejas, cola, bordes)
-  K: [26, 26, 46, 255], // casi negro (ojos, nariz)
-  W: [255, 244, 214, 255], // brillo
-  R: [230, 57, 70, 255], // rojo slime
+  '.': [0, 0, 0, 0], // transparent
+  O: [255, 183, 3, 255], // waica orange
+  D: [127, 79, 36, 255], // brown (ears, tail, edges)
+  K: [26, 26, 46, 255], // near black (eyes, nose)
+  W: [255, 244, 214, 255], // shine
+  R: [230, 57, 70, 255], // slime red
 }
 
-// ---------- la perrita (16×16, grilla 4×4) ----------
+// ---------- the dog (16×16, 4×4 grid) ----------
 
 const DOG_SIZE = 16
 const DOG_BASE = [
@@ -110,7 +110,7 @@ const DOG_FRAMES = [
   null,
 ]
 
-// ---------- la moneda (8×8, 4 frames de giro) ----------
+// ---------- the coin (8×8, 4 spin frames) ----------
 
 function coinFrame(width, highlight) {
   const S = 8
@@ -129,7 +129,7 @@ function coinFrame(width, highlight) {
 
 const COIN_FRAMES = [coinFrame(6, true), coinFrame(4, false), coinFrame(2, false), coinFrame(4, false)]
 
-// ---------- el slime (16×16, 4 frames de rebote) ----------
+// ---------- the slime (16×16, 4 bounce frames) ----------
 
 function slimeFrame(squash) {
   const S = 16
@@ -140,7 +140,7 @@ function slimeFrame(squash) {
   const x0 = Math.floor((S - width) / 2)
   for (let i = 0; i < height; i++) {
     const y = bottom - i
-    // redondeo: las filas de arriba son más angostas
+    // rounding: the top rows are narrower
     const inset = i === height - 1 ? 2 : i === height - 2 ? 1 : 0
     for (let x = x0 + inset; x <= x0 + width - 1 - inset; x++) m[y][x] = 'R'
   }
@@ -152,7 +152,7 @@ function slimeFrame(squash) {
 
 const SLIME_FRAMES = [slimeFrame(0), slimeFrame(1), slimeFrame(2), slimeFrame(1)]
 
-// ---------- PNG writer mínimo (RGBA, sin filtros) ----------
+// ---------- minimal PNG writer (RGBA, no filters) ----------
 
 const CRC_TABLE = new Int32Array(256)
 for (let n = 0; n < 256; n++) {
@@ -192,7 +192,7 @@ function png(width, height, rgba) {
   ])
 }
 
-// ---------- componer sheets y escribir ----------
+// ---------- compose sheets and write ----------
 
 function sheet(frames, size, cols) {
   const rows = Math.ceil(frames.length / cols)

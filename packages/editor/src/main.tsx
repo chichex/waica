@@ -4,5 +4,5 @@ import './monaco'
 import './styles.css'
 
 const root = document.querySelector('#root')
-if (!root) throw new Error('falta #root')
+if (!root) throw new Error('missing #root')
 createRoot(root).render(<App />)

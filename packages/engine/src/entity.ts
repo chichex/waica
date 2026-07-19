@@ -3,8 +3,8 @@ import type { Component, ComponentClass } from './component'
 import type { Game } from './game'
 
 /**
- * Nodo vivo de la escena: un transform (three Group) + componentes.
- * Se crea con `game.spawn(name)`.
+ * A live scene node: a transform (three Group) + components.
+ * Created with `game.spawn(name)`.
  */
 export class Entity {
   readonly node = new THREE.Group()

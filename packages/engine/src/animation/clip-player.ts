@@ -1,14 +1,14 @@
 export interface ClipDef {
-  /** Índices de frame dentro del spritesheet (fila×cols + col). */
+  /** Frame indices inside the spritesheet (row×cols + col). */
   frames: number[]
   fps: number
-  /** Por defecto true; en false se clava en el último frame. */
+  /** Defaults to true; with false it sticks on the last frame. */
   loop?: boolean
 }
 
 /**
- * Avance de un clip en el tiempo. Lógica pura (sin three ni DOM) para
- * poder testearla determinísticamente.
+ * Advances a clip through time. Pure logic (no three, no DOM) so it can
+ * be tested deterministically.
  */
 export class ClipPlayer {
   private frames: number[] = [0]
@@ -23,7 +23,7 @@ export class ClipPlayer {
     this.t = 0
   }
 
-  /** Avanza el reloj y devuelve el frame del sheet a mostrar. */
+  /** Advances the clock and returns the sheet frame to show. */
   advance(dt: number): number {
     this.t += dt
     const idx = Math.floor(this.t * this.fps)

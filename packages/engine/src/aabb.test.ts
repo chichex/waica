@@ -2,19 +2,19 @@ import { describe, expect, it } from 'vitest'
 import { aabbOverlap } from './aabb'
 
 describe('aabbOverlap', () => {
-  it('detecta superposición', () => {
+  it('detects overlap', () => {
     expect(aabbOverlap(0, 0, 2, 2, 1, 1, 2, 2)).toBe(true)
   })
 
-  it('no detecta cajas separadas', () => {
+  it('does not detect separate boxes', () => {
     expect(aabbOverlap(0, 0, 2, 2, 5, 0, 2, 2)).toBe(false)
   })
 
-  it('bordes que solo se tocan no cuentan', () => {
+  it('edges that merely touch do not count', () => {
     expect(aabbOverlap(0, 0, 2, 2, 2, 0, 2, 2)).toBe(false)
   })
 
-  it('una caja contenida en otra cuenta', () => {
+  it('a box contained in another counts', () => {
     expect(aabbOverlap(0, 0, 10, 10, 1, 1, 2, 2)).toBe(true)
   })
 })

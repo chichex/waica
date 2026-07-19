@@ -6,7 +6,7 @@ Pick what you're making — a platformer, a top-down adventure, an isometric gam
 
 **Status: milestone 1 in progress.** The platformer archetype already runs with factory game feel — coyote time, jump buffering, jump cut, squash & stretch — and the in-game inspector (press `~`) live-edits behavior params and persists them to the project (`waica.params.json`). No visual editor yet; that's milestone 2.
 
-- Design doc (Spanish, for now): [DESIGN.md](./DESIGN.md)
+- Design doc: [DESIGN.md](./DESIGN.md)
 - Stack: TypeScript · three.js (WebGPU → WebGL2 planned) · Vite
 - Exports: web (static HTML) now; desktop via Electron (Steam/Epic) planned
 - License: MIT
