@@ -35,6 +35,8 @@ export abstract class Component {
   onReady?(): void
   /** Corre una vez por frame. */
   onUpdate?(dt: number): void
+  /** Corre cuando la Hitbox de esta entidad se superpone con la de otra. */
+  onCollide?(other: Entity): void
   /** Corre al destruir la entidad o remover el componente. */
   onDestroy?(): void
 }

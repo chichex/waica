@@ -11,6 +11,10 @@ export class Entity {
   readonly components: Component[] = []
   private destroyed = false
 
+  get alive(): boolean {
+    return !this.destroyed
+  }
+
   constructor(
     readonly game: Game,
     readonly name: string,

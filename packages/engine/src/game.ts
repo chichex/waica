@@ -1,5 +1,7 @@
 import * as THREE from 'three'
+import { aabbOverlap } from './aabb'
 import type { Component, ComponentClass } from './component'
+import { Hitbox } from './components/hitbox'
 import { Entity } from './entity'
 import { Input } from './input'
 
@@ -103,9 +105,32 @@ export class Game {
     for (const entity of [...this.entities]) {
       for (const component of [...entity.components]) component.onUpdate?.(dt)
     }
+    this.dispatchCollisions()
     for (const fn of this.updateFns) fn(dt)
     this.input.endFrame()
     this.renderer.render(this.scene, this.camera)
+  }
+
+  private dispatchCollisions(): void {
+    const boxed = this.entities.filter((e) => e.has(Hitbox))
+    for (let i = 0; i < boxed.length; i++) {
+      for (let j = i + 1; j < boxed.length; j++) {
+        const a = boxed[i]
+        const b = boxed[j]
+        if (!a?.alive || !b?.alive) continue
+        const ha = a.get(Hitbox)
+        const hb = b.get(Hitbox)
+        if (!ha || !hb) continue
+        const hit = aabbOverlap(
+          a.position.x, a.position.y, ha.width, ha.height,
+          b.position.x, b.position.y, hb.width, hb.height,
+        )
+        if (!hit) continue
+        for (const c of [...a.components]) c.onCollide?.(b)
+        if (!a.alive || !b.alive) continue
+        for (const c of [...b.components]) c.onCollide?.(a)
+      }
+    }
   }
 
   private resize(): void {
