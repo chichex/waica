@@ -12,15 +12,36 @@ importers:
         specifier: ^7.0.2
         version: 7.0.2
 
-  examples/hello:
+  examples/platformer:
     dependencies:
+      '@waica/archetype-platformer':
+        specifier: workspace:*
+        version: link:../../packages/archetype-platformer
       '@waica/engine':
         specifier: workspace:*
         version: link:../../packages/engine
+      '@waica/overlay':
+        specifier: workspace:*
+        version: link:../../packages/overlay
     devDependencies:
       vite:
         specifier: ^8.1.5
-        version: 8.1.5
+        version: 8.1.5(@types/node@24.13.3)
+
+  packages/archetype-platformer:
+    dependencies:
+      '@waica/behaviors':
+        specifier: workspace:*
+        version: link:../behaviors
+      '@waica/engine':
+        specifier: workspace:*
+        version: link:../engine
+
+  packages/behaviors:
+    dependencies:
+      '@waica/engine':
+        specifier: workspace:*
+        version: link:../engine
 
   packages/engine:
     dependencies:
@@ -31,6 +52,19 @@ importers:
       '@types/three':
         specifier: ^0.185.1
         version: 0.185.1
+
+  packages/overlay:
+    dependencies:
+      '@waica/engine':
+        specifier: workspace:*
+        version: link:../engine
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.3
+      vite:
+        specifier: ^8.1.5
+        version: 8.1.5(@types/node@24.13.3)
 
 packages:
 
@@ -158,6 +192,9 @@ packages:
 
   '@tybys/wasm-util@0.10.3':
     resolution: {integrity: sha512-F3fo1MYrRJYL3zER0OUOmkutjr1Vp23m7OsSgp7nq4SP6OqX6C/56XFIPAl5bt3zaBRjmW7SGz3u/6LwFpYcOg==}
+
+  '@types/node@24.13.3':
+    resolution: {integrity: sha512-Dh8vAsV36ig5wa9OX4pXvMc9D3Veibfw2wix0CUwYODLD8nkj9UsLjASr49nPg+2eKzxhBV+v7L8pXvT4e639Q==}
 
   '@types/stats.js@0.17.4':
     resolution: {integrity: sha512-jIBvWWShCvlBqBNIZt0KAshWpvSjhkwkEu4ZUcASoAvhmrgAUI2t1dXrjSL4xXVLB4FznPrIsX3nKXFl/Dt4vA==}
@@ -426,6 +463,9 @@ packages:
     engines: {node: '>=16.20.0'}
     hasBin: true
 
+  undici-types@7.18.2:
+    resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
+
   vite@8.1.5:
     resolution: {integrity: sha512-7ULLwsCdYx/nRyrpiEwvqb5TFHrMVZyBt+rg/OAXT7rgj/z+DtTDyKFeLAdDkubDVDKD8jOsndmy7m55XcfUsw==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -555,6 +595,10 @@ snapshots:
     dependencies:
       tslib: 2.8.1
     optional: true
+
+  '@types/node@24.13.3':
+    dependencies:
+      undici-types: 7.18.2
 
   '@types/stats.js@0.17.4': {}
 
@@ -759,7 +803,9 @@ snapshots:
       '@typescript/typescript-win32-arm64': 7.0.2
       '@typescript/typescript-win32-x64': 7.0.2
 
-  vite@8.1.5:
+  undici-types@7.18.2: {}
+
+  vite@8.1.5(@types/node@24.13.3):
     dependencies:
       lightningcss: 1.32.0
       picomatch: 4.0.5
@@ -767,4 +813,5 @@ snapshots:
       rolldown: 1.1.5
       tinyglobby: 0.2.17
     optionalDependencies:
+      '@types/node': 24.13.3
       fsevents: 2.3.3

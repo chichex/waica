@@ -1,0 +1,22 @@
+{
+  "name": "@waica/overlay",
+  "version": "0.0.0",
+  "description": "Waica in-game inspector overlay — live-edit behavior params and persist them to the project",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./vite": "./src/vite.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@waica/engine": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "vite": "^8.1.5"
+  }
+}

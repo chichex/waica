@@ -143,8 +143,9 @@ Estrategia transversal: **cada capa útil por sí sola** (el framework sirve sin
 ## 11. Pendientes
 
 - [x] **Nombre del proyecto**: Waica (2026-07-18).
+- [x] `git init` + repo público: `github.com/chichex/waica` (2026-07-18; migrar a la org `waica` cuando esté reservada).
+- [x] Bootstrap del monorepo (2026-07-18): `engine` (loop, Entity+Components, input, Sprite, Solid), `behaviors` (`PlatformerMovement` con coyote/buffer/jump-cut/squash, `CameraFollow`), `archetype-platformer`, `overlay` (inspector in-game con persistencia; round-trip verificado con browser real).
 - [ ] **Reservar handles** (cuanto antes, evita squatting): org `waica` en GitHub; en npm publicar placeholders 0.0.0 de `waica` y `create-waica` + crear la org para el scope `@waica`; registrar `waica.dev` (opcional: `.io`, `.games`).
-- [ ] Bootstrap del monorepo (pnpm + Vite + Vitest, `packages/engine`).
+- [ ] **Hito 1 restante**: wizard `create-waica`; monedas/enemigo/muerte/respawn en el arquetipo; texturas + contrato de animaciones v0; props reactivas de Sprite; smoke test 3D del core unificado; migración a WebGPURenderer con fallback; Vitest para la lógica del engine/behaviors.
 - [ ] Definir formato v0 del manifest de arquetipo (nace con `archetype-platformer`, se generaliza en H3).
 - [ ] Elegir set de placeholders CC0 (candidato: Kenney) y convención de nombres del contrato de animaciones.
-- [ ] `git init` + repo público en `github.com/waica`.

@@ -4,7 +4,7 @@
   "type": "module",
   "packageManager": "pnpm@11.4.0",
   "scripts": {
-    "dev": "pnpm --filter @waica/example-hello dev",
+    "dev": "pnpm --filter @waica/example-platformer dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck"
   },
