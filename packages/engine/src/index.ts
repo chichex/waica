@@ -7,6 +7,11 @@ export { Input } from './input'
 export type { ActionName } from './input'
 export { Sprite } from './components/sprite'
 export { Solid } from './components/solid'
+export { AnimatedSprite } from './components/animated-sprite'
+export { ClipPlayer } from './animation/clip-player'
+export type { ClipDef } from './animation/clip-player'
+export { resolveClip, missingClips } from './animation/contract'
+export type { AnimationContract } from './animation/contract'
 
 // Escape hatch explícito mientras la API propia crece: una sola fuente de three
 // para todo el workspace. La tesis es que three sea detalle de implementación.

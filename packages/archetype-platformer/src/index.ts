@@ -1,5 +1,6 @@
-import { Game, Solid, Sprite, type Entity } from '@waica/engine'
-import { CameraFollow, PlatformerMovement } from '@waica/behaviors'
+import { AnimatedSprite, Game, Solid, Sprite, type Entity } from '@waica/engine'
+import { CameraFollow, PlatformerAnimator, PlatformerMovement } from '@waica/behaviors'
+import dogSheet from '../assets/waica-dog.png'
 
 // TODO(H3): cuando exista el segundo arquetipo (top-down), esto se
 // generaliza a un manifest declarativo (behaviors + contrato de
@@ -27,8 +28,25 @@ function block(game: Game, name: string, x: number, y: number, w: number, h: num
 export function setupPlatformer(game: Game): PlatformerSetup {
   const player = game.spawn('Player')
   player.position.set(0, -1, 0)
-  player.add(Sprite, { width: 0.9, height: 0.95, color: 0xffb703 })
+  // La perrita placeholder cumple el contrato de animaciones del arquetipo:
+  // el usuario la reemplaza por su personaje manteniendo los nombres de clip.
+  player.add(AnimatedSprite, {
+    texture: dogSheet,
+    cols: 4,
+    rows: 4,
+    width: 1.4,
+    height: 1.4,
+    pixelArt: true,
+    clips: {
+      idle: { frames: [0, 1, 2, 3], fps: 5 },
+      run: { frames: [4, 5, 6, 7], fps: 10 },
+      jump: { frames: [8, 9], fps: 8, loop: false },
+      fall: { frames: [12, 13], fps: 8 },
+    },
+    initialClip: 'idle',
+  })
   player.add(PlatformerMovement)
+  player.add(PlatformerAnimator)
   player.add(CameraFollow)
 
   block(game, 'Ground', 0, -5, 40, 2, 0x2a9d8f)

@@ -14,6 +14,8 @@ setupPlatformer(game)
 if (import.meta.env.DEV) {
   const { attachOverlay } = await import('@waica/overlay')
   attachOverlay(game)
+  // Acceso de debug para devtools y tests e2e.
+  ;(window as unknown as Record<string, unknown>).__waica = { game }
 }
 
 game.start()

@@ -13,5 +13,8 @@
   },
   "dependencies": {
     "@waica/engine": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
   }
 }

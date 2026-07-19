@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "pnpm --filter @waica/example-platformer dev",
     "build": "pnpm -r build",
+    "test": "vitest run",
     "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   }
 }
