@@ -7,7 +7,8 @@
     "dev": "pnpm --filter @waica/example-platformer dev",
     "build": "pnpm -r build",
     "test": "vitest run",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "release": "pnpm -r --filter './packages/*' build && pnpm -r publish --access public"
   },
   "devDependencies": {
     "typescript": "^7.0.2",

@@ -1,21 +1,37 @@
 {
   "name": "@waica/engine",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Waica game engine core — archetype-driven, web-first, 2D & 3D",
   "license": "MIT",
-  "private": true,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chichex/waica",
+    "directory": "packages/engine"
+  },
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": "./src/index.ts"
   },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@types/three": "^0.185.1",
     "three": "^0.185.1"
   },
   "devDependencies": {
-    "@types/three": "^0.185.1",
     "vitest": "^4.1.10"
   }
 }

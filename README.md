@@ -13,7 +13,15 @@ Pick what you're making — a platformer, a top-down adventure, an isometric gam
 
 Named after a childhood dog. She was a good girl.
 
-## Run it
+## Create a game
+
+```bash
+npm create waica
+```
+
+Pick an archetype, get a playable project. *(Not published to npm yet — coming with 0.1.0.)*
+
+## Run this repo
 
 ```bash
 pnpm install
@@ -28,3 +36,4 @@ pnpm dev   # platformer archetype — ← → move · space jump · ~ inspector
 | `@waica/behaviors` | Curated game-feel library: `PlatformerMovement`, `PlatformerAnimator`, `CameraFollow`, … |
 | `@waica/archetype-platformer` | Opinionated platformer setup — playable from minute zero. The placeholder hero is Waica herself (pixel art, script-generated) |
 | `@waica/overlay` | In-game inspector: live-edit params, persisted via the dev plugin |
+| `create-waica` | The wizard: `npm create waica` → pick an archetype → playable project |

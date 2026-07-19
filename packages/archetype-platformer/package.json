@@ -1,18 +1,35 @@
 {
   "name": "@waica/archetype-platformer",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Waica platformer archetype — opinionated setup for side-scrolling platformers",
   "license": "MIT",
-  "private": true,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chichex/waica",
+    "directory": "packages/archetype-platformer"
+  },
+  "files": [
+    "dist",
+    "assets"
+  ],
   "exports": {
     ".": "./src/index.ts"
   },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@waica/behaviors": "workspace:*",
-    "@waica/engine": "workspace:*"
+    "@waica/behaviors": "workspace:^",
+    "@waica/engine": "workspace:^"
   }
 }

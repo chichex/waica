@@ -1,0 +1,29 @@
+{
+  "name": "create-waica",
+  "version": "0.1.0",
+  "description": "Create a Waica game in seconds — pick an archetype, get a playable project",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chichex/waica",
+    "directory": "packages/create-waica"
+  },
+  "bin": {
+    "create-waica": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "template"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3"
+  }
+}

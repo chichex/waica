@@ -1,18 +1,34 @@
 {
   "name": "@waica/behaviors",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Waica built-in behaviors — the curated game-feel library",
   "license": "MIT",
-  "private": true,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chichex/waica",
+    "directory": "packages/behaviors"
+  },
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": "./src/index.ts"
   },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@waica/engine": "workspace:*"
+    "@waica/engine": "workspace:^"
   },
   "devDependencies": {
     "vitest": "^4.1.10"

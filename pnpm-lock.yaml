@@ -34,31 +34,41 @@ importers:
   packages/archetype-platformer:
     dependencies:
       '@waica/behaviors':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../behaviors
       '@waica/engine':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../engine
 
   packages/behaviors:
     dependencies:
       '@waica/engine':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../engine
     devDependencies:
       vitest:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@24.13.3)(vite@8.1.5(@types/node@24.13.3))
 
+  packages/create-waica:
+    dependencies:
+      '@clack/prompts':
+        specifier: ^0.11.0
+        version: 0.11.0
+    devDependencies:
+      '@types/node':
+        specifier: ^24.13.3
+        version: 24.13.3
+
   packages/engine:
     dependencies:
+      '@types/three':
+        specifier: ^0.185.1
+        version: 0.185.1
       three:
         specifier: ^0.185.1
         version: 0.185.1
     devDependencies:
-      '@types/three':
-        specifier: ^0.185.1
-        version: 0.185.1
       vitest:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@24.13.3)(vite@8.1.5(@types/node@24.13.3))
@@ -66,7 +76,7 @@ importers:
   packages/overlay:
     dependencies:
       '@waica/engine':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../engine
     devDependencies:
       '@types/node':
@@ -77,6 +87,12 @@ importers:
         version: 8.1.5(@types/node@24.13.3)
 
 packages:
+
+  '@clack/core@0.5.0':
+    resolution: {integrity: sha512-p3y0FIOwaYRUPRcMO7+dlmLh8PSRcrjuTndsiA0WAFbWES0mLZlrjVoBRZ9DzkPFJZG6KGkJmoEAY0ZcVWTkow==}
+
+  '@clack/prompts@0.11.0':
+    resolution: {integrity: sha512-pMN5FcrEw9hUkZA4f+zLlzivQSeQf5dRGJjSUbvVYDLvpKCdQx5OaknvKzgbtXOizhP+SJJJjqEbOe55uKKfAw==}
 
   '@dimforge/rapier3d-compat@0.12.0':
     resolution: {integrity: sha512-uekIGetywIgopfD97oDL5PfeezkFpNhwlzlaEYNOA0N6ghdsOvh/HYjSMek5Q2O1PYvRSDFcqFVJl4r4ZBwOow==}
@@ -532,6 +548,9 @@ packages:
   siginfo@2.0.0:
     resolution: {integrity: sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g==}
 
+  sisteransi@1.0.5:
+    resolution: {integrity: sha512-bLGGlR1QxBcynn2d5YmDX4MGjlZvy2MRBDRNHLJ8VI6l6+9FUiyTFNJ0IveOSP0bcXgVDPRcfGqA0pjaqUpfVg==}
+
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
     engines: {node: '>=0.10.0'}
@@ -661,6 +680,17 @@ packages:
     hasBin: true
 
 snapshots:
+
+  '@clack/core@0.5.0':
+    dependencies:
+      picocolors: 1.1.1
+      sisteransi: 1.0.5
+
+  '@clack/prompts@0.11.0':
+    dependencies:
+      '@clack/core': 0.5.0
+      picocolors: 1.1.1
+      sisteransi: 1.0.5
 
   '@dimforge/rapier3d-compat@0.12.0': {}
 
@@ -996,6 +1026,8 @@ snapshots:
       '@rolldown/binding-win32-x64-msvc': 1.1.5
 
   siginfo@2.0.0: {}
+
+  sisteransi@1.0.5: {}
 
   source-map-js@1.2.1: {}
 
