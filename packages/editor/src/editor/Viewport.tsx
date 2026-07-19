@@ -1,26 +1,30 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
-import { Game, loadScene, THREE, type Entity, type SceneJson } from '@waica/engine'
-import { PLATFORMER_REGISTRY } from '@waica/archetype-platformer'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { Game, loadScene, THREE, type Entity, type SceneJson, type SceneRegistry } from '@waica/engine'
+import { ACTIVE_ARCHETYPE } from '../project/archetype'
 
 export interface ViewportHandle {
-  /** Aplica un cambio de prop a la instancia viva (sin recrear el juego). */
+  /** Applies a prop change to the live instance (without recreating the game). */
   applyProp(entity: string, componentType: string, key: string, value: unknown): void
   applyMove(entity: string, x: number, y: number): void
 }
 
 interface Props {
   scene: SceneJson
-  /** Cambios estructurales (crear/borrar) suben el epoch y recrean el juego. */
+  /** Components + prefabs to load the scene with (defaults to the archetype's). */
+  registry?: SceneRegistry
+  /** Structural changes (create/delete) bump the epoch and recreate the game. */
   epoch: number
   mode: 'edit' | 'play'
+  /** Initial camera height in world units (zoom still applies). */
+  viewHeight?: number
   selected: string | null
   onSelect(name: string | null): void
   onMoved(name: string, position: [number, number]): void
-  onDropTemplate(label: string, world: [number, number]): void
-  onCollect(): void
+  /** Accepts 'waica/prefab' drops (refs); omit to reject drops (prefab stage). */
+  onDropPrefab?(ref: string, world: [number, number]): void
 }
 
-/** Tamaño visual de una entidad (para pick y gizmo): el mayor de sus cajas. */
+/** An entity's visual size (for picking and the gizmo): the largest of its boxes. */
 function entityBounds(entity: Entity): [number, number] {
   let w = 0.6
   let h = 0.6
@@ -35,19 +39,22 @@ function entityBounds(entity: Entity): [number, number] {
 }
 
 export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
-  { scene, epoch, mode, selected, onSelect, onMoved, onDropTemplate, onCollect },
+  { scene, registry = ACTIVE_ARCHETYPE.registry, epoch, mode, viewHeight = 12, selected, onSelect, onMoved, onDropPrefab },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const gameRef = useRef<Game | null>(null)
   const sceneRef = useRef(scene)
+  const registryRef = useRef(registry)
   const selectedRef = useRef(selected)
   const modeRef = useRef(mode)
-  const cam = useRef({ x: 0, y: 0, view: 12 })
+  const [dropHover, setDropHover] = useState(false)
+  const cam = useRef({ x: 0, y: 0, view: viewHeight })
   const drag = useRef<{ name: string; ox: number; oy: number } | null>(null)
   const pan = useRef<{ px: number; py: number } | null>(null)
 
   sceneRef.current = scene
+  registryRef.current = registry
   selectedRef.current = selected
   modeRef.current = mode
 
@@ -56,15 +63,13 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
     if (!canvas) return
     const game = new Game({ canvas, viewHeight: cam.current.view, background: 0x1a1a2e })
     gameRef.current = game
-    loadScene(game, sceneRef.current, PLATFORMER_REGISTRY)
+    loadScene(game, sceneRef.current, registryRef.current)
     game.simulate = mode === 'play'
     if (mode === 'edit') {
       game.camera.position.x = cam.current.x
       game.camera.position.y = cam.current.y
     }
-    const offCollect = game.events.on('collect', () => onCollect())
-
-    // Gizmo de selección: un rectángulo alrededor de la entidad.
+    // Selection gizmo: a rectangle around the entity.
     const gizmoGeo = new THREE.BufferGeometry().setFromPoints([
       new THREE.Vector3(-0.5, -0.5, 0),
       new THREE.Vector3(0.5, -0.5, 0),
@@ -98,7 +103,6 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
 
     game.start()
     return () => {
-      offCollect()
       game.dispose()
       gameRef.current = null
     }
@@ -149,7 +153,7 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
   return (
     <canvas
       ref={canvasRef}
-      className={`ed-viewport ${mode === 'edit' ? 'is-edit' : 'is-play'}`}
+      className={`ed-viewport ${mode === 'edit' ? 'is-edit' : 'is-play'} ${dropHover ? 'is-dropping' : ''}`}
       onPointerDown={(e) => {
         if (modeRef.current !== 'edit') return
         const [wx, wy] = toWorld(e)
@@ -157,7 +161,7 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
         try {
           e.currentTarget.setPointerCapture(e.pointerId)
         } catch {
-          // eventos sintéticos o punteros ya liberados: el drag funciona igual
+          // synthetic events or already-released pointers: the drag works anyway
         }
         if (hit) {
           onSelect(hit.name)
@@ -210,13 +214,19 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
         cam.current.view = game.view
       }}
       onDragOver={(e) => {
+        if (!onDropPrefab || modeRef.current !== 'edit') return
         e.preventDefault()
         e.dataTransfer.dropEffect = 'copy'
+        setDropHover(true)
       }}
+      onDragLeave={() => setDropHover(false)}
       onDrop={(e) => {
+        setDropHover(false)
+        if (!onDropPrefab) return
         e.preventDefault()
-        const label = e.dataTransfer.getData('waica/template')
-        if (label) onDropTemplate(label, toWorld(e))
+        // 'waica/template' is the pre-explorer label format, still accepted.
+        const ref = e.dataTransfer.getData('waica/prefab') || e.dataTransfer.getData('waica/template')
+        if (ref) onDropPrefab(ref, toWorld(e))
       }}
     />
   )

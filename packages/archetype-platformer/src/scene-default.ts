@@ -1,6 +1,6 @@
-import type { SceneEntityJson, SceneJson } from '@waica/engine'
+import type { SceneJson } from '@waica/engine'
 
-/** Clips del contrato plataformero, aplicados a la perrita placeholder. */
+/** Clips from the platformer animation contract, applied to the placeholder dog. */
 export const DOG_SPRITE = {
   texture: 'waica:dog',
   cols: 4,
@@ -16,98 +16,71 @@ export const DOG_SPRITE = {
   initialClip: 'idle',
 }
 
-function block(name: string, x: number, y: number, w: number, h: number, color: number): SceneEntityJson {
-  return {
-    name,
-    position: [x, y],
-    components: [
-      { type: 'Sprite', props: { width: w, height: h, color } },
-      { type: 'Solid', props: { width: w, height: h } },
-    ],
-  }
-}
-
-function coin(index: number, x: number, y: number): SceneEntityJson {
-  return {
-    name: `Coin-${index}`,
-    position: [x, y],
-    components: [
-      {
-        type: 'AnimatedSprite',
-        props: {
-          texture: 'waica:coin',
-          cols: 4,
-          rows: 1,
-          width: 0.6,
-          height: 0.6,
-          clips: { spin: { frames: [0, 1, 2, 3], fps: 8 } },
-          initialClip: 'spin',
-        },
-      },
-      { type: 'Hitbox', props: { width: 0.5, height: 0.5 } },
-      { type: 'Collectible', props: { value: 1 } },
-    ],
-  }
-}
-
-function slime(index: number, x: number, y: number, distance: number, speed: number): SceneEntityJson {
-  return {
-    name: `Slime-${index}`,
-    position: [x, y],
-    components: [
-      {
-        type: 'AnimatedSprite',
-        props: {
-          texture: 'waica:slime',
-          cols: 4,
-          rows: 1,
-          width: 1.1,
-          height: 1.1,
-          clips: { idle: { frames: [0, 1, 2, 3], fps: 6 } },
-          initialClip: 'idle',
-        },
-      },
-      { type: 'Hitbox', props: { width: 0.9, height: 0.6 } },
-      { type: 'Patrol', props: { distance, speed } },
-      { type: 'Hazard', props: { stompable: true, bounce: 10 } },
-    ],
-  }
-}
-
 /**
- * La escena inicial del arquetipo plataformero, como datos. Es lo que el
- * wizard copia a `src/scenes/main.scene.json` y lo que el editor edita.
+ * The platformer archetype's starting scene, as data: prefab refs plus the
+ * per-entity overrides that differ from the prefab. This is what the wizard
+ * copies into `src/scenes/main.scene.json` and what the editor edits.
  */
 export const PLATFORMER_SCENE: SceneJson = {
-  waicaScene: 1,
+  waicaScene: 2,
   entities: [
+    { name: 'Player', prefab: 'characters/player', position: [0, -1] },
     {
-      name: 'Player',
-      position: [0, -1],
-      components: [
-        { type: 'AnimatedSprite', props: DOG_SPRITE },
-        { type: 'PlatformerMovement' },
-        { type: 'PlatformerAnimator' },
-        { type: 'Hitbox', props: { width: 0.9, height: 0.95 } },
-        { type: 'Respawnable', props: { killY: -12 } },
-        { type: 'CameraFollow' },
-      ],
+      name: 'Ground-A',
+      prefab: 'tiles/platform',
+      position: [-6, -5],
+      overrides: { Sprite: { width: 16, height: 2 }, Solid: { width: 16, height: 2 } },
     },
-    block('Ground-A', -6, -5, 16, 2, 0x2a9d8f),
-    block('Ground-B', 16, -5, 16, 2, 0x2a9d8f),
-    block('Platform-1', 5, -2.5, 4, 0.5, 0x2a9d8f),
-    block('Platform-2', 9.5, -0.5, 3, 0.5, 0x2a9d8f),
-    block('Platform-3', -5.5, -1.5, 3, 0.5, 0x2a9d8f),
-    block('Platform-4', 14, 1.5, 3, 0.5, 0x264653),
-    block('Wall-Left', -15.5, 0, 2, 12, 0x264653),
-    block('Wall-Right', 25.5, 0, 2, 12, 0x264653),
-    coin(1, -5.5, -0.5),
-    coin(2, -2, -3.2),
-    coin(3, 5, -1.7),
-    coin(4, 9.5, 0.3),
-    coin(5, 14, 2.3),
-    coin(6, 19, -3.2),
-    slime(1, -9, -3.55, 2, 1.5),
-    slime(2, 17, -3.55, 2.5, 2.5),
+    {
+      name: 'Ground-B',
+      prefab: 'tiles/platform',
+      position: [16, -5],
+      overrides: { Sprite: { width: 16, height: 2 }, Solid: { width: 16, height: 2 } },
+    },
+    {
+      name: 'Platform-1',
+      prefab: 'tiles/platform',
+      position: [5, -2.5],
+      overrides: { Sprite: { width: 4 }, Solid: { width: 4 } },
+    },
+    { name: 'Platform-2', prefab: 'tiles/platform', position: [9.5, -0.5] },
+    { name: 'Platform-3', prefab: 'tiles/platform', position: [-5.5, -1.5] },
+    {
+      name: 'Platform-4',
+      prefab: 'tiles/block',
+      position: [14, 1.5],
+      overrides: { Sprite: { width: 3, height: 0.5 }, Solid: { width: 3, height: 0.5 } },
+    },
+    {
+      name: 'Wall-Left',
+      prefab: 'tiles/block',
+      position: [-15.5, 0],
+      overrides: { Sprite: { height: 12 }, Solid: { height: 12 } },
+    },
+    {
+      name: 'Wall-Right',
+      prefab: 'tiles/block',
+      position: [25.5, 0],
+      overrides: { Sprite: { height: 12 }, Solid: { height: 12 } },
+    },
+    { name: 'Coin-1', prefab: 'objects/coin', position: [-5.5, -0.5] },
+    { name: 'Coin-2', prefab: 'objects/coin', position: [-2, -3.2] },
+    { name: 'Coin-3', prefab: 'objects/coin', position: [5, -1.7] },
+    { name: 'Coin-4', prefab: 'objects/coin', position: [9.5, 0.3] },
+    { name: 'Coin-5', prefab: 'objects/coin', position: [14, 2.3] },
+    { name: 'Coin-6', prefab: 'objects/coin', position: [19, -3.2] },
+    {
+      name: 'Slime-1',
+      prefab: 'characters/slime',
+      position: [-9, -3.55],
+      overrides: { Patrol: { speed: 1.5 } },
+    },
+    {
+      name: 'Slime-2',
+      prefab: 'characters/slime',
+      position: [17, -3.55],
+      overrides: { Patrol: { distance: 2.5, speed: 2.5 } },
+    },
+    { name: 'Hud', prefab: 'ui/coin-counter', position: [0, 0] },
   ],
 }

@@ -1,0 +1,13 @@
+{
+  "waicaPrefab": 1,
+  "type": "ui",
+  "components": [
+    {
+      "type": "HudCounter",
+      "props": {
+        "icon": "🪙",
+        "anchor": "top-left"
+      }
+    }
+  ]
+}

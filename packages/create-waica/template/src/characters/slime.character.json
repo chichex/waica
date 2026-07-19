@@ -1,0 +1,49 @@
+{
+  "waicaPrefab": 1,
+  "type": "character",
+  "components": [
+    {
+      "type": "AnimatedSprite",
+      "props": {
+        "texture": "waica:slime",
+        "cols": 4,
+        "rows": 1,
+        "width": 1.1,
+        "height": 1.1,
+        "clips": {
+          "idle": {
+            "frames": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "fps": 6
+          }
+        },
+        "initialClip": "idle"
+      }
+    },
+    {
+      "type": "Hitbox",
+      "props": {
+        "width": 0.9,
+        "height": 0.6
+      }
+    },
+    {
+      "type": "Patrol",
+      "props": {
+        "distance": 2,
+        "speed": 2
+      }
+    },
+    {
+      "type": "Hazard",
+      "props": {
+        "stompable": true,
+        "bounce": 10
+      }
+    }
+  ]
+}

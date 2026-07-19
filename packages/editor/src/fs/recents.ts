@@ -26,6 +26,17 @@ export async function saveRecent(name: string, handle: FileSystemDirectoryHandle
   })
 }
 
+/** Removes a project from the recents list (doesn't touch the disk folder). */
+export async function removeRecent(name: string): Promise<void> {
+  const db = await openDb()
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite')
+    tx.objectStore(STORE).delete(name)
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error as Error)
+  })
+}
+
 export async function listRecents(): Promise<RecentProject[]> {
   try {
     const db = await openDb()
@@ -40,7 +51,7 @@ export async function listRecents(): Promise<RecentProject[]> {
   }
 }
 
-/** Re-pide permiso de lectura/escritura sobre un handle guardado. */
+/** Re-requests read/write permission on a stored handle. */
 export async function ensurePermission(handle: FileSystemDirectoryHandle): Promise<boolean> {
   const desc = { mode: 'readwrite' as const }
   if ((await handle.queryPermission?.(desc)) === 'granted') return true

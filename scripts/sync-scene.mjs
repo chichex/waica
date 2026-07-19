@@ -1,24 +1,47 @@
-// Sincroniza la escena default del arquetipo (fuente de verdad en TS) a
-// los JSON de proyecto: el example del repo y el template del wizard.
-// Requiere el build del arquetipo: pnpm --filter @waica/archetype-platformer build
+// Syncs the archetype's defaults (source of truth in TS) to the project
+// JSONs — the scene plus one file per prefab (src/<key>.<type>.json, the
+// same layout the editor's projectFiles() emits) — into the repo example
+// and the wizard template.
+// Requires the archetype build: pnpm --filter @waica/archetype-platformer build
 //
 //   node scripts/sync-scene.mjs
 
 import { mkdirSync, writeFileSync } from 'node:fs'
+import { registerHooks } from 'node:module'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { PLATFORMER_SCENE } from '../packages/archetype-platformer/dist/scene-default.js'
+
+// The archetype dist targets bundlers: its relative imports are extensionless
+// ('./scene-default'), which node's ESM resolver rejects. Append '.js' here.
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier.startsWith('.') && !specifier.endsWith('.js')) {
+      return nextResolve(`${specifier}.js`, context)
+    }
+    return nextResolve(specifier, context)
+  },
+})
+
+const { PLATFORMER_SCENE } = await import('../packages/archetype-platformer/dist/scene-default.js')
+const { PLATFORMER_PREFABS } = await import('../packages/archetype-platformer/dist/prefabs.js')
 
 const here = dirname(fileURLToPath(import.meta.url))
 const root = join(here, '..')
-const json = JSON.stringify(PLATFORMER_SCENE, null, 2) + '\n'
+
+const FILES = { 'scenes/main.scene.json': PLATFORMER_SCENE }
+for (const [key, prefab] of Object.entries(PLATFORMER_PREFABS)) {
+  FILES[`${key}.${prefab.type}.json`] = prefab
+}
 
 const TARGETS = [
-  join(root, 'examples', 'platformer', 'src', 'scenes', 'main.scene.json'),
-  join(root, 'packages', 'create-waica', 'template', 'src', 'scenes', 'main.scene.json'),
+  join(root, 'examples', 'platformer', 'src'),
+  join(root, 'packages', 'create-waica', 'template', 'src'),
 ]
-for (const target of TARGETS) {
-  mkdirSync(dirname(target), { recursive: true })
-  writeFileSync(target, json)
-  console.log(`escena → ${target}`)
+for (const srcDir of TARGETS) {
+  for (const [rel, data] of Object.entries(FILES)) {
+    const target = join(srcDir, rel)
+    mkdirSync(dirname(target), { recursive: true })
+    writeFileSync(target, JSON.stringify(data, null, 2) + '\n')
+    console.log(`sync → ${target}`)
+  }
 }

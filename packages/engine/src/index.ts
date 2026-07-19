@@ -11,13 +11,13 @@ export { Hitbox } from './components/hitbox'
 export { AnimatedSprite } from './components/animated-sprite'
 export { aabbOverlap } from './aabb'
 export { Emitter } from './events'
-export { loadScene, spawnFromJson } from './scene'
-export type { SceneJson, SceneEntityJson, SceneComponentJson, SceneRegistry } from './scene'
+export { loadScene, spawnFromJson, resolveEntityComponents } from './scene'
+export type { SceneJson, SceneEntityJson, SceneComponentJson, SceneRegistry, PrefabJson } from './scene'
 export { ClipPlayer } from './animation/clip-player'
 export type { ClipDef } from './animation/clip-player'
 export { resolveClip, missingClips } from './animation/contract'
 export type { AnimationContract } from './animation/contract'
 
-// Escape hatch explícito mientras la API propia crece: una sola fuente de three
-// para todo el workspace. La tesis es que three sea detalle de implementación.
+// Explicit escape hatch while our own API grows: a single source of three
+// for the whole workspace. The thesis is that three stays an implementation detail.
 export * as THREE from 'three'

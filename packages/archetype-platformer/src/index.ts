@@ -3,16 +3,21 @@ import { PLATFORMER_SCENE } from './scene-default'
 import { PLATFORMER_REGISTRY } from './registry'
 
 export { PLATFORMER_SCENE, DOG_SPRITE } from './scene-default'
+export { PLATFORMER_PREFABS } from './prefabs'
 export { PLATFORMER_REGISTRY, PLATFORMER_PALETTE } from './registry'
 export type { EntityTemplate } from './registry'
 
 export interface PlatformerSetup {
   player: Entity
-  /** Marcador de monedas recogidas, para HUD y tests. */
+  /** Collected-coin counter, for the HUD and tests. */
   score: { coins: number }
 }
 
-/** HUD mínimo de monedas, conectado al evento 'collect' del juego. */
+/**
+ * Minimal coin HUD, wired to the game's 'collect' event. Kept for older
+ * projects: new scenes ship a Hud entity (the 'ui/coin-counter' prefab)
+ * that renders the counter instead.
+ */
 export function attachCoinHud(game: Game): { coins: number } {
   const score = { coins: 0 }
   const hud = document.createElement('div')
@@ -29,13 +34,17 @@ export function attachCoinHud(game: Game): { coins: number } {
 }
 
 /**
- * Arma la escena base del arquetipo plataformero cargando la escena
- * default (los proyectos reales cargan su propio src/scenes/*.json).
+ * Sets up the platformer archetype's base scene by loading the default
+ * scene (real projects load their own src/scenes/*.json). The scene's Hud
+ * entity renders the coin counter; the returned score just tracks it.
  */
 export function setupPlatformer(game: Game): PlatformerSetup {
   loadScene(game, PLATFORMER_SCENE, PLATFORMER_REGISTRY)
-  const score = attachCoinHud(game)
+  const score = { coins: 0 }
+  game.events.on('collect', (value) => {
+    score.coins += typeof value === 'number' ? value : 1
+  })
   const player = game.find('Player')
-  if (!player) throw new Error('la escena default no tiene Player')
+  if (!player) throw new Error('default scene has no Player')
   return { player, score }
 }

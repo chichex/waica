@@ -1,0 +1,74 @@
+{
+  "waicaPrefab": 1,
+  "type": "character",
+  "components": [
+    {
+      "type": "AnimatedSprite",
+      "props": {
+        "texture": "waica:dog",
+        "cols": 4,
+        "rows": 4,
+        "width": 1.4,
+        "height": 1.4,
+        "clips": {
+          "idle": {
+            "frames": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "fps": 5
+          },
+          "run": {
+            "frames": [
+              4,
+              5,
+              6,
+              7
+            ],
+            "fps": 10
+          },
+          "jump": {
+            "frames": [
+              8,
+              9
+            ],
+            "fps": 8,
+            "loop": false
+          },
+          "fall": {
+            "frames": [
+              12,
+              13
+            ],
+            "fps": 8
+          }
+        },
+        "initialClip": "idle"
+      }
+    },
+    {
+      "type": "PlatformerMovement"
+    },
+    {
+      "type": "PlatformerAnimator"
+    },
+    {
+      "type": "Hitbox",
+      "props": {
+        "width": 0.9,
+        "height": 0.95
+      }
+    },
+    {
+      "type": "Respawnable",
+      "props": {
+        "killY": -12
+      }
+    },
+    {
+      "type": "CameraFollow"
+    }
+  ]
+}

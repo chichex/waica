@@ -3,6 +3,7 @@ import {
   Hitbox,
   Solid,
   Sprite,
+  type PrefabJson,
   type SceneEntityJson,
   type SceneRegistry,
 } from '@waica/engine'
@@ -10,11 +11,13 @@ import {
   CameraFollow,
   Collectible,
   Hazard,
+  HudCounter,
   Patrol,
   PlatformerAnimator,
   PlatformerMovement,
   Respawnable,
 } from '@waica/behaviors'
+import { PLATFORMER_PREFABS } from './prefabs'
 import dogSheet from '../assets/waica-dog.png'
 import coinSheet from '../assets/waica-coin.png'
 import slimeSheet from '../assets/waica-slime.png'
@@ -25,7 +28,7 @@ const BUILTIN_ASSETS: Record<string, string> = {
   'waica:slime': slimeSheet,
 }
 
-/** Componentes disponibles en el arquetipo plataformero + sus assets. */
+/** Components, prefabs and assets available in the platformer archetype. */
 export const PLATFORMER_REGISTRY: SceneRegistry = {
   components: {
     Sprite,
@@ -39,94 +42,39 @@ export const PLATFORMER_REGISTRY: SceneRegistry = {
     Patrol,
     Hazard,
     Respawnable,
+    HudCounter,
   },
   resolveAsset: (uri) => BUILTIN_ASSETS[uri] ?? uri,
+  prefabs: PLATFORMER_PREFABS,
 }
 
 export interface EntityTemplate {
   label: string
   icon: string
-  /** Crea el JSON de una instancia nueva (sin posición; la pone el editor). */
+  category: PrefabJson['type']
+  /** Builds the JSON for a new instance (no position; the editor sets it). */
   make: () => SceneEntityJson
 }
 
-/** La paleta del editor: piezas arrastrables al viewport. */
-export const PLATFORMER_PALETTE: EntityTemplate[] = [
-  {
-    label: 'Plataforma',
-    icon: '▬',
-    make: () => ({
-      name: 'Platform',
-      components: [
-        { type: 'Sprite', props: { width: 3, height: 0.5, color: 0x2a9d8f } },
-        { type: 'Solid', props: { width: 3, height: 0.5 } },
-      ],
-    }),
+const PALETTE_ICONS: Record<string, string> = {
+  player: '🐕',
+  slime: '👾',
+  coin: '🪙',
+  platform: '▬',
+  block: '■',
+  decor: '▢',
+  'coin-counter': '🔢',
+}
+
+/** The editor palette: pieces you can drag into the viewport, one per prefab. */
+export const PLATFORMER_PALETTE: EntityTemplate[] = Object.entries(PLATFORMER_PREFABS).map(
+  ([key, prefab]) => {
+    const base = key.slice(key.indexOf('/') + 1)
+    return {
+      label: base,
+      icon: PALETTE_ICONS[base] ?? '▣',
+      category: prefab.type,
+      make: () => ({ name: base.charAt(0).toUpperCase() + base.slice(1), prefab: key }),
+    }
   },
-  {
-    label: 'Bloque',
-    icon: '■',
-    make: () => ({
-      name: 'Block',
-      components: [
-        { type: 'Sprite', props: { width: 2, height: 2, color: 0x264653 } },
-        { type: 'Solid', props: { width: 2, height: 2 } },
-      ],
-    }),
-  },
-  {
-    label: 'Moneda',
-    icon: '🪙',
-    make: () => ({
-      name: 'Coin',
-      components: [
-        {
-          type: 'AnimatedSprite',
-          props: {
-            texture: 'waica:coin',
-            cols: 4,
-            rows: 1,
-            width: 0.6,
-            height: 0.6,
-            clips: { spin: { frames: [0, 1, 2, 3], fps: 8 } },
-            initialClip: 'spin',
-          },
-        },
-        { type: 'Hitbox', props: { width: 0.5, height: 0.5 } },
-        { type: 'Collectible', props: { value: 1 } },
-      ],
-    }),
-  },
-  {
-    label: 'Slime',
-    icon: '👾',
-    make: () => ({
-      name: 'Slime',
-      components: [
-        {
-          type: 'AnimatedSprite',
-          props: {
-            texture: 'waica:slime',
-            cols: 4,
-            rows: 1,
-            width: 1.1,
-            height: 1.1,
-            clips: { idle: { frames: [0, 1, 2, 3], fps: 6 } },
-            initialClip: 'idle',
-          },
-        },
-        { type: 'Hitbox', props: { width: 0.9, height: 0.6 } },
-        { type: 'Patrol', props: { distance: 2, speed: 2 } },
-        { type: 'Hazard', props: { stompable: true, bounce: 10 } },
-      ],
-    }),
-  },
-  {
-    label: 'Decorado',
-    icon: '▢',
-    make: () => ({
-      name: 'Deco',
-      components: [{ type: 'Sprite', props: { width: 1, height: 1, color: 0x8ecae6 } }],
-    }),
-  },
-]
+)

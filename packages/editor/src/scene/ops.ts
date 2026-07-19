@@ -1,12 +1,36 @@
-import type { SceneEntityJson, SceneJson } from '@waica/engine'
+import {
+  resolveEntityComponents,
+  type PrefabJson,
+  type SceneComponentJson,
+  type SceneEntityJson,
+  type SceneJson,
+} from '@waica/engine'
 
-/** Mutaciones puras sobre la escena (la fuente de verdad del editor). */
+/** Pure mutations over the scene (the editor's source of truth). */
+
+function prefabOwns(
+  entity: SceneEntityJson,
+  componentType: string,
+  prefabs?: Record<string, PrefabJson>,
+): boolean {
+  if (!entity.prefab) return false
+  const prefab = prefabs?.[entity.prefab]
+  return prefab?.components.some((c) => c.type === componentType) ?? false
+}
+
+/** Merged component list of an entity (prefab + overrides + inline extras), for the UI. */
+export function resolveComponents(
+  entity: SceneEntityJson,
+  prefabs?: Record<string, PrefabJson>,
+): SceneComponentJson[] {
+  return resolveEntityComponents(entity, prefabs)
+}
 
 export function findEntity(scene: SceneJson, name: string): SceneEntityJson | undefined {
   return scene.entities.find((e) => e.name === name)
 }
 
-/** Nombre único: "Coin" → "Coin-3" si ya existe. */
+/** Unique name: "Coin" → "Coin-3" if it already exists. */
 export function uniqueName(scene: SceneJson, base: string): string {
   const names = new Set(scene.entities.map((e) => e.name))
   if (!names.has(base)) return base
@@ -43,11 +67,21 @@ export function setComponentProp(
   componentType: string,
   key: string,
   value: unknown,
+  prefabs?: Record<string, PrefabJson>,
 ): SceneJson {
   return {
     ...scene,
     entities: scene.entities.map((e) => {
       if (e.name !== entityName) return e
+      if (prefabOwns(e, componentType, prefabs)) {
+        return {
+          ...e,
+          overrides: {
+            ...e.overrides,
+            [componentType]: { ...e.overrides?.[componentType], [key]: value },
+          },
+        }
+      }
       return {
         ...e,
         components: (e.components ?? []).map((c) =>
@@ -69,7 +103,16 @@ export function addComponent(scene: SceneJson, entityName: string, type: string)
   }
 }
 
-export function removeComponent(scene: SceneJson, entityName: string, type: string): SceneJson {
+export function removeComponent(
+  scene: SceneJson,
+  entityName: string,
+  type: string,
+  prefabs?: Record<string, PrefabJson>,
+): SceneJson {
+  const entity = scene.entities.find((e) => e.name === entityName)
+  // Per-instance removal of a prefab-owned component is out of scope for now:
+  // it would need a "disabled components" marker in the overrides format.
+  if (entity && prefabOwns(entity, type, prefabs)) return scene
   return {
     ...scene,
     entities: scene.entities.map((e) =>

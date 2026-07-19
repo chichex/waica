@@ -1,0 +1,21 @@
+{
+  "waicaPrefab": 1,
+  "type": "tile",
+  "components": [
+    {
+      "type": "Sprite",
+      "props": {
+        "width": 2,
+        "height": 2,
+        "color": 2508371
+      }
+    },
+    {
+      "type": "Solid",
+      "props": {
+        "width": 2,
+        "height": 2
+      }
+    }
+  ]
+}

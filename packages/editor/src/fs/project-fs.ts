@@ -9,9 +9,9 @@ export const SCENE_PATH = 'src/scenes/main.scene.json'
 const EXCLUDED_DIRS = new Set(['node_modules', '.git', 'dist', '.vite', '.DS_Store'])
 
 /**
- * Sistema de archivos de un proyecto abierto en el editor. Dos
- * implementaciones: carpeta real del disco (File System Access API,
- * Chromium) y memoria (modo demo / navegadores sin la API).
+ * File system of a project opened in the editor. Two implementations:
+ * a real disk folder (File System Access API, Chromium) and in-memory
+ * (demo mode / browsers without the API).
  */
 export interface ProjectFS {
   readonly name: string
@@ -68,9 +68,9 @@ export class RealFS implements ProjectFS {
   async writeText(path: string, content: string): Promise<void> {
     const parts = path.split('/')
     const file = parts.pop()
-    if (!file) throw new Error(`ruta inválida: ${path}`)
+    if (!file) throw new Error(`invalid path: ${path}`)
     const dir = await this.dir(parts, true)
-    if (!dir) throw new Error(`no se pudo crear el directorio de ${path}`)
+    if (!dir) throw new Error(`could not create the directory for ${path}`)
     const handle = await dir.getFileHandle(file, { create: true })
     const writable = await handle.createWritable()
     await writable.write(content)
