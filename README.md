@@ -13,7 +13,16 @@ Pick what you're making — a platformer, a top-down adventure, an isometric gam
 
 Named after a childhood dog. She was a good girl.
 
-## Create a game
+## The Editor
+
+```bash
+pnpm install
+pnpm editor
+```
+
+The Waica Editor runs in your browser, local-first: create a project into any empty folder (File System Access API), open it, see its file tree, drag pieces from the palette into the viewport, select and drag entities, edit every behavior param in the inspector, press **Play** to test in place, and edit the code with Monaco. Scenes are plain JSON in your project — what you edit is what you commit.
+
+## Create a game (CLI)
 
 ```bash
 npm create waica
@@ -21,10 +30,9 @@ npm create waica
 
 Pick an archetype, get a playable project. *(Not published to npm yet — coming with 0.1.0.)*
 
-## Run this repo
+## Run the example
 
 ```bash
-pnpm install
 pnpm dev   # platformer archetype — ← → move · space jump · ~ inspector
 ```
 
@@ -37,3 +45,4 @@ pnpm dev   # platformer archetype — ← → move · space jump · ~ inspector
 | `@waica/archetype-platformer` | Opinionated platformer setup — playable from minute zero. The placeholder hero is Waica herself (pixel art, script-generated) |
 | `@waica/overlay` | In-game inspector: live-edit params, persisted via the dev plugin |
 | `create-waica` | The wizard: `npm create waica` → pick an archetype → playable project |
+| `@waica/editor` | The app: create/open projects, drag entities, inspector, play-in-editor, Monaco |

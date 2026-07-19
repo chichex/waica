@@ -17,6 +17,7 @@ export class Collectible extends Component {
   override onCollide(other: Entity): void {
     if (!other.has(PlatformerMovement)) return
     this.onCollect?.(this.value)
+    this.game.events.emit('collect', this.value)
     this.entity.destroy()
   }
 }

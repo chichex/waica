@@ -1,11 +1,11 @@
-import { Game } from '@waica/engine'
-import { setupPlatformer } from '@waica/archetype-platformer'
+import { Game, loadScene } from '@waica/engine'
+import { attachCoinHud, PLATFORMER_REGISTRY } from '@waica/archetype-platformer'
+import scene from './scenes/main.scene.json'
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')
 if (!canvas) throw new Error('falta el <canvas id="game">')
 
-// Un solo juego por página: si el módulo se re-ejecuta (p. ej. HMR),
-// dos loops sobre el mismo canvas corromperían la escena.
+// Un solo juego por página (protege contra re-ejecuciones del módulo).
 if (canvas.dataset.waica) {
   location.reload()
 } else {
@@ -19,13 +19,14 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   // Los parámetros tuneados desde el inspector pisan los defaults del arquetipo.
   await game.loadParams('/waica.params.json')
 
-  const setup = setupPlatformer(game)
+  // La escena vive en src/scenes/main.scene.json — editable con el editor de Waica.
+  loadScene(game, scene as never, PLATFORMER_REGISTRY)
+  attachCoinHud(game)
 
   if (import.meta.env.DEV) {
     const { attachOverlay } = await import('@waica/overlay')
     attachOverlay(game)
-    // Acceso de debug para devtools y tests e2e.
-    ;(window as unknown as Record<string, unknown>).__waica = { game, setup }
+    ;(window as unknown as Record<string, unknown>).__waica = { game }
   }
 
   game.start()

@@ -1,0 +1,642 @@
+{
+  "waicaScene": 1,
+  "entities": [
+    {
+      "name": "Player",
+      "position": [
+        0,
+        -1
+      ],
+      "components": [
+        {
+          "type": "AnimatedSprite",
+          "props": {
+            "texture": "waica:dog",
+            "cols": 4,
+            "rows": 4,
+            "width": 1.4,
+            "height": 1.4,
+            "clips": {
+              "idle": {
+                "frames": [
+                  0,
+                  1,
+                  2,
+                  3
+                ],
+                "fps": 5
+              },
+              "run": {
+                "frames": [
+                  4,
+                  5,
+                  6,
+                  7
+                ],
+                "fps": 10
+              },
+              "jump": {
+                "frames": [
+                  8,
+                  9
+                ],
+                "fps": 8,
+                "loop": false
+              },
+              "fall": {
+                "frames": [
+                  12,
+                  13
+                ],
+                "fps": 8
+              }
+            },
+            "initialClip": "idle"
+          }
+        },
+        {
+          "type": "PlatformerMovement"
+        },
+        {
+          "type": "PlatformerAnimator"
+        },
+        {
+          "type": "Hitbox",
+          "props": {
+            "width": 0.9,
+            "height": 0.95
+          }
+        },
+        {
+          "type": "Respawnable",
+          "props": {
+            "killY": -12
+          }
+        },
+        {
+          "type": "CameraFollow"
+        }
+      ]
+    },
+    {
+      "name": "Ground-A",
+      "position": [
+        -6,
+        -5
+      ],
+      "components": [
+        {
+          "type": "Sprite",
+          "props": {
+            "width": 16,
+            "height": 2,
+            "color": 2792847
+          }
+        },
+        {
+          "type": "Solid",
+          "props": {
+            "width": 16,
+            "height": 2
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ground-B",
+      "position": [
+        16,
+        -5
+      ],
+      "components": [
+        {
+          "type": "Sprite",
+          "props": {
+            "width": 16,
+            "height": 2,
+            "color": 2792847
+          }
+        },
+        {
+          "type": "Solid",
+          "props": {
+            "width": 16,
+            "height": 2
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform-1",
+      "position": [
+        5,
+        -2.5
+      ],
+      "components": [
+        {
+          "type": "Sprite",
+          "props": {
+            "width": 4,
+            "height": 0.5,
+            "color": 2792847
+          }
+        },
+        {
+          "type": "Solid",
+          "props": {
+            "width": 4,
+            "height": 0.5
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform-2",
+      "position": [
+        9.5,
+        -0.5
+      ],
+      "components": [
+        {
+          "type": "Sprite",
+          "props": {
+            "width": 3,
+            "height": 0.5,
+            "color": 2792847
+          }
+        },
+        {
+          "type": "Solid",
+          "props": {
+            "width": 3,
+            "height": 0.5
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform-3",
+      "position": [
+        -5.5,
+        -1.5
+      ],
+      "components": [
+        {
+          "type": "Sprite",
+          "props": {
+            "width": 3,
+            "height": 0.5,
+            "color": 2792847
+          }
+        },
+        {
+          "type": "Solid",
+          "props": {
+            "width": 3,
+            "height": 0.5
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform-4",
+      "position": [
+        14,
+        1.5
+      ],
+      "components": [
+        {
+          "type": "Sprite",
+          "props": {
+            "width": 3,
+            "height": 0.5,
+            "color": 2508371
+          }
+        },
+        {
+          "type": "Solid",
+          "props": {
+            "width": 3,
+            "height": 0.5
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wall-Left",
+      "position": [
+        -15.5,
+        0
+      ],
+      "components": [
+        {
+          "type": "Sprite",
+          "props": {
+            "width": 2,
+            "height": 12,
+            "color": 2508371
+          }
+        },
+        {
+          "type": "Solid",
+          "props": {
+            "width": 2,
+            "height": 12
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wall-Right",
+      "position": [
+        25.5,
+        0
+      ],
+      "components": [
+        {
+          "type": "Sprite",
+          "props": {
+            "width": 2,
+            "height": 12,
+            "color": 2508371
+          }
+        },
+        {
+          "type": "Solid",
+          "props": {
+            "width": 2,
+            "height": 12
+          }
+        }
+      ]
+    },
+    {
+      "name": "Coin-1",
+      "position": [
+        -5.5,
+        -0.5
+      ],
+      "components": [
+        {
+          "type": "AnimatedSprite",
+          "props": {
+            "texture": "waica:coin",
+            "cols": 4,
+            "rows": 1,
+            "width": 0.6,
+            "height": 0.6,
+            "clips": {
+              "spin": {
+                "frames": [
+                  0,
+                  1,
+                  2,
+                  3
+                ],
+                "fps": 8
+              }
+            },
+            "initialClip": "spin"
+          }
+        },
+        {
+          "type": "Hitbox",
+          "props": {
+            "width": 0.5,
+            "height": 0.5
+          }
+        },
+        {
+          "type": "Collectible",
+          "props": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "Coin-2",
+      "position": [
+        -2,
+        -3.2
+      ],
+      "components": [
+        {
+          "type": "AnimatedSprite",
+          "props": {
+            "texture": "waica:coin",
+            "cols": 4,
+            "rows": 1,
+            "width": 0.6,
+            "height": 0.6,
+            "clips": {
+              "spin": {
+                "frames": [
+                  0,
+                  1,
+                  2,
+                  3
+                ],
+                "fps": 8
+              }
+            },
+            "initialClip": "spin"
+          }
+        },
+        {
+          "type": "Hitbox",
+          "props": {
+            "width": 0.5,
+            "height": 0.5
+          }
+        },
+        {
+          "type": "Collectible",
+          "props": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "Coin-3",
+      "position": [
+        5,
+        -1.7
+      ],
+      "components": [
+        {
+          "type": "AnimatedSprite",
+          "props": {
+            "texture": "waica:coin",
+            "cols": 4,
+            "rows": 1,
+            "width": 0.6,
+            "height": 0.6,
+            "clips": {
+              "spin": {
+                "frames": [
+                  0,
+                  1,
+                  2,
+                  3
+                ],
+                "fps": 8
+              }
+            },
+            "initialClip": "spin"
+          }
+        },
+        {
+          "type": "Hitbox",
+          "props": {
+            "width": 0.5,
+            "height": 0.5
+          }
+        },
+        {
+          "type": "Collectible",
+          "props": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "Coin-4",
+      "position": [
+        9.5,
+        0.3
+      ],
+      "components": [
+        {
+          "type": "AnimatedSprite",
+          "props": {
+            "texture": "waica:coin",
+            "cols": 4,
+            "rows": 1,
+            "width": 0.6,
+            "height": 0.6,
+            "clips": {
+              "spin": {
+                "frames": [
+                  0,
+                  1,
+                  2,
+                  3
+                ],
+                "fps": 8
+              }
+            },
+            "initialClip": "spin"
+          }
+        },
+        {
+          "type": "Hitbox",
+          "props": {
+            "width": 0.5,
+            "height": 0.5
+          }
+        },
+        {
+          "type": "Collectible",
+          "props": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "Coin-5",
+      "position": [
+        14,
+        2.3
+      ],
+      "components": [
+        {
+          "type": "AnimatedSprite",
+          "props": {
+            "texture": "waica:coin",
+            "cols": 4,
+            "rows": 1,
+            "width": 0.6,
+            "height": 0.6,
+            "clips": {
+              "spin": {
+                "frames": [
+                  0,
+                  1,
+                  2,
+                  3
+                ],
+                "fps": 8
+              }
+            },
+            "initialClip": "spin"
+          }
+        },
+        {
+          "type": "Hitbox",
+          "props": {
+            "width": 0.5,
+            "height": 0.5
+          }
+        },
+        {
+          "type": "Collectible",
+          "props": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "Coin-6",
+      "position": [
+        19,
+        -3.2
+      ],
+      "components": [
+        {
+          "type": "AnimatedSprite",
+          "props": {
+            "texture": "waica:coin",
+            "cols": 4,
+            "rows": 1,
+            "width": 0.6,
+            "height": 0.6,
+            "clips": {
+              "spin": {
+                "frames": [
+                  0,
+                  1,
+                  2,
+                  3
+                ],
+                "fps": 8
+              }
+            },
+            "initialClip": "spin"
+          }
+        },
+        {
+          "type": "Hitbox",
+          "props": {
+            "width": 0.5,
+            "height": 0.5
+          }
+        },
+        {
+          "type": "Collectible",
+          "props": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "Slime-1",
+      "position": [
+        -9,
+        -3.55
+      ],
+      "components": [
+        {
+          "type": "AnimatedSprite",
+          "props": {
+            "texture": "waica:slime",
+            "cols": 4,
+            "rows": 1,
+            "width": 1.1,
+            "height": 1.1,
+            "clips": {
+              "idle": {
+                "frames": [
+                  0,
+                  1,
+                  2,
+                  3
+                ],
+                "fps": 6
+              }
+            },
+            "initialClip": "idle"
+          }
+        },
+        {
+          "type": "Hitbox",
+          "props": {
+            "width": 0.9,
+            "height": 0.6
+          }
+        },
+        {
+          "type": "Patrol",
+          "props": {
+            "distance": 2,
+            "speed": 1.5
+          }
+        },
+        {
+          "type": "Hazard",
+          "props": {
+            "stompable": true,
+            "bounce": 10
+          }
+        }
+      ]
+    },
+    {
+      "name": "Slime-2",
+      "position": [
+        17,
+        -3.55
+      ],
+      "components": [
+        {
+          "type": "AnimatedSprite",
+          "props": {
+            "texture": "waica:slime",
+            "cols": 4,
+            "rows": 1,
+            "width": 1.1,
+            "height": 1.1,
+            "clips": {
+              "idle": {
+                "frames": [
+                  0,
+                  1,
+                  2,
+                  3
+                ],
+                "fps": 6
+              }
+            },
+            "initialClip": "idle"
+          }
+        },
+        {
+          "type": "Hitbox",
+          "props": {
+            "width": 0.9,
+            "height": 0.6
+          }
+        },
+        {
+          "type": "Patrol",
+          "props": {
+            "distance": 2.5,
+            "speed": 2.5
+          }
+        },
+        {
+          "type": "Hazard",
+          "props": {
+            "stompable": true,
+            "bounce": 10
+          }
+        }
+      ]
+    }
+  ]
+}

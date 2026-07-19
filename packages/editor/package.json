@@ -1,0 +1,29 @@
+{
+  "name": "@waica/editor",
+  "version": "0.1.0",
+  "description": "Waica Editor — create projects, drag entities, edit scenes and code, play in place",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "@waica/archetype-platformer": "workspace:^",
+    "@waica/behaviors": "workspace:^",
+    "@waica/engine": "workspace:^",
+    "monaco-editor": "^0.52.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "vite": "^8.1.5"
+  }
+}

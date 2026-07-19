@@ -3,6 +3,7 @@ import { aabbOverlap } from './aabb'
 import type { Component, ComponentClass } from './component'
 import { Hitbox } from './components/hitbox'
 import { Entity } from './entity'
+import { Emitter } from './events'
 import { Input } from './input'
 
 export interface GameOptions {
@@ -28,12 +29,18 @@ export class Game {
   readonly camera: THREE.OrthographicCamera
   readonly input = new Input()
   readonly entities: Entity[] = []
+  readonly events = new Emitter()
   paramOverrides: ParamOverrides = {}
+  /**
+   * Con false, el loop sigue renderizando pero no corre updates de
+   * componentes ni colisiones — el modo edición del editor.
+   */
+  simulate = true
 
   // TODO(H1): migrar a WebGPURenderer (three/webgpu) con fallback WebGL2 automático.
   private readonly renderer: THREE.WebGLRenderer
   private readonly updateFns = new Set<UpdateFn>()
-  private readonly viewHeight: number
+  private viewHeight: number
   private lastTime = 0
 
   constructor(options: GameOptions) {
@@ -98,14 +105,34 @@ export class Game {
     if (i !== -1) this.entities.splice(i, 1)
   }
 
+  /** Altura visible del mundo (zoom de la cámara 2D). */
+  get view(): number {
+    return this.viewHeight
+  }
+
+  setViewHeight(value: number): void {
+    this.viewHeight = Math.min(Math.max(value, 2), 80)
+    this.resize()
+  }
+
+  /** Apaga el juego por completo (loop, input, GPU). */
+  dispose(): void {
+    this.stop()
+    this.input.dispose()
+    for (const entity of [...this.entities]) entity.destroy()
+    this.renderer.dispose()
+  }
+
   private tick(time: number): void {
     // Clamp del dt: cambiar de pestaña o pausar no dispara la simulación.
     const dt = Math.min((time - this.lastTime) / 1000, 0.1)
     this.lastTime = time
-    for (const entity of [...this.entities]) {
-      for (const component of [...entity.components]) component.onUpdate?.(dt)
+    if (this.simulate) {
+      for (const entity of [...this.entities]) {
+        for (const component of [...entity.components]) component.onUpdate?.(dt)
+      }
+      this.dispatchCollisions()
     }
-    this.dispatchCollisions()
     for (const fn of this.updateFns) fn(dt)
     this.input.endFrame()
     this.renderer.render(this.scene, this.camera)
