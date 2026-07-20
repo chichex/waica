@@ -13,7 +13,6 @@ const ENTITY_ICONS: Record<string, string> = {
   PlatformerMovement: '🐕',
   Collectible: '🪙',
   Hazard: '👾',
-  HudCounter: '🔢',
 }
 
 export const ACTIVE_ARCHETYPE = {

@@ -25,13 +25,15 @@ export interface SceneEntityJson {
 /** A reusable entity template: a typed bag of components a scene can reference. */
 export interface PrefabJson {
   waicaPrefab: 1
-  type: 'character' | 'object' | 'tile' | 'ui'
+  type: 'character' | 'object' | 'tile'
   components: SceneComponentJson[]
 }
 
 export interface SceneJson {
   waicaScene: 1 | 2
   entities: SceneEntityJson[]
+  /** UI pieces (src/ui/*.html) mounted visible when the scene loads. */
+  ui?: string[]
 }
 
 /** Which components exist and how to resolve archetype assets (waica:*). */
@@ -41,6 +43,8 @@ export interface SceneRegistry {
   resolveAsset?: (uri: string) => string
   /** Prefab definitions keyed by ref ("characters/slime"). */
   prefabs?: Record<string, PrefabJson>
+  /** UI piece sources keyed by name ("coin-counter" → its HTML). */
+  ui?: Record<string, string>
 }
 
 function resolveProps(
@@ -99,4 +103,6 @@ export function spawnFromJson(game: Game, json: SceneEntityJson, registry: Scene
 /** Loads a full scene into the game. */
 export function loadScene(game: Game, scene: SceneJson, registry: SceneRegistry): void {
   for (const entityJson of scene.entities) spawnFromJson(game, entityJson, registry)
+  if (registry.ui) game.ui.defineAll(registry.ui)
+  for (const name of scene.ui ?? []) game.ui.show(name)
 }

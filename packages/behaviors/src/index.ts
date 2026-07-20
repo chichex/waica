@@ -4,7 +4,6 @@ export { Collectible } from './collectible'
 export { Patrol } from './patrol'
 export { Hazard, resolveHazardTouch, type HazardTouch } from './hazard'
 export { Respawnable } from './respawnable'
-export { HudCounter } from './hud-counter'
 export {
   PlatformerAnimator,
   PLATFORMER_ANIMATION_CONTRACT,

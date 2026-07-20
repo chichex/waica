@@ -81,9 +81,4 @@ export const PLATFORMER_PREFABS: Record<string, PrefabJson> = {
     type: 'tile',
     components: [{ type: 'Sprite', props: { width: 1, height: 1, color: 0x8ecae6 } }],
   },
-  'ui/coin-counter': {
-    waicaPrefab: 1,
-    type: 'ui',
-    components: [{ type: 'HudCounter', props: { icon: '🪙', anchor: 'top-left', stat: 'points' } }],
-  },
 }

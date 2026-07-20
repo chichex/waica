@@ -81,6 +81,6 @@ export const PLATFORMER_SCENE: SceneJson = {
       position: [17, -3.55],
       overrides: { Patrol: { distance: 2.5, speed: 2.5 } },
     },
-    { name: 'Hud', prefab: 'ui/coin-counter', position: [0, 0] },
   ],
+  ui: ['coin-counter'],
 }

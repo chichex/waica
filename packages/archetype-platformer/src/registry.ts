@@ -11,13 +11,13 @@ import {
   CameraFollow,
   Collectible,
   Hazard,
-  HudCounter,
   Patrol,
   PlatformerAnimator,
   PlatformerMovement,
   Respawnable,
 } from '@waica/behaviors'
 import { PLATFORMER_PREFABS } from './prefabs'
+import { PLATFORMER_UI } from './ui'
 import dogSheet from '../assets/waica-dog.png'
 import coinSheet from '../assets/waica-coin.png'
 import slimeSheet from '../assets/waica-slime.png'
@@ -42,10 +42,10 @@ export const PLATFORMER_REGISTRY: SceneRegistry = {
     Patrol,
     Hazard,
     Respawnable,
-    HudCounter,
   },
   resolveAsset: (uri) => BUILTIN_ASSETS[uri] ?? uri,
   prefabs: PLATFORMER_PREFABS,
+  ui: PLATFORMER_UI,
 }
 
 export interface EntityTemplate {
@@ -63,7 +63,6 @@ const PALETTE_ICONS: Record<string, string> = {
   platform: '▬',
   block: '■',
   decor: '▢',
-  'coin-counter': '🔢',
 }
 
 /** The editor palette: pieces you can drag into the viewport, one per prefab. */

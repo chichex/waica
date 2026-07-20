@@ -36,5 +36,9 @@ export function projectFiles(name: string): Record<string, string> {
   for (const [key, prefab] of Object.entries(ACTIVE_ARCHETYPE.registry.prefabs ?? {})) {
     files[`src/${key}.${prefab.type}.json`] = JSON.stringify(prefab, null, 2) + '\n'
   }
+  // UI pieces are plain HTML files: presentation only, toggled from code.
+  for (const [name, html] of Object.entries(ACTIVE_ARCHETYPE.registry.ui ?? {})) {
+    files[`src/ui/${name}.html`] = html
+  }
   return files
 }

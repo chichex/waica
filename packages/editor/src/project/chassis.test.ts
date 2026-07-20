@@ -21,7 +21,6 @@ describe('componentRole', () => {
     expect(componentRole('Hitbox')).toBe('collision')
     expect(componentRole('PlatformerAnimator')).toBe('animator')
     expect(componentRole('Patrol')).toBe('behaviour')
-    expect(componentRole('HudCounter')).toBe('behaviour')
   })
 })
 
@@ -78,7 +77,6 @@ describe('newPrefabComponents', () => {
     ])
     expect(newPrefabComponents('object').map((c) => c.type)).toEqual(['Sprite', 'Hitbox'])
     expect(newPrefabComponents('tile').map((c) => c.type)).toEqual(['Sprite', 'Solid'])
-    expect(newPrefabComponents('ui').map((c) => c.type)).toEqual(['HudCounter'])
   })
 
   it('clones the character sprite so prefabs never share clip objects', () => {
@@ -165,8 +163,6 @@ describe('setCollisionEnabled', () => {
       components: [{ type: 'AnimatedSprite' }, { type: 'Hitbox' }],
     }
     expect(setCollisionEnabled(character, false)).toBe(character)
-    const ui: PrefabJson = { waicaPrefab: 1, type: 'ui', components: [{ type: 'HudCounter' }] }
-    expect(setCollisionEnabled(ui, false)).toBe(ui)
   })
 
   it('does not mutate its input', () => {

@@ -41,7 +41,6 @@ export const CHASSIS: Record<PrefabType, ChassisRule> = {
   character: { appearance: 'fixed-animated', collision: { type: 'Hitbox', optional: false } },
   object: { appearance: 'switchable', collision: { type: 'Hitbox', optional: true } },
   tile: { appearance: 'fixed-static', collision: { type: 'Solid', optional: true } },
-  ui: { appearance: 'none', collision: null },
 }
 
 const DEFAULT_SPRITE = { width: 1, height: 1, color: 0x8ecae6 }
@@ -65,8 +64,6 @@ export function newPrefabComponents(type: PrefabType): SceneComponentJson[] {
         { type: 'Sprite', props: { ...DEFAULT_SPRITE } },
         { type: 'Solid', props: { width: 1, height: 1 } },
       ]
-    case 'ui':
-      return [{ type: 'HudCounter', props: {} }]
   }
 }
 

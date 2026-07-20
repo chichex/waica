@@ -6,6 +6,7 @@ import { Entity } from './entity'
 import { Emitter } from './events'
 import { Input, type InputBindings } from './input'
 import { Stats, type StatValue } from './stats'
+import { GameUi } from './ui'
 
 export interface GameOptions {
   /** Canvas the game draws into. */
@@ -36,6 +37,8 @@ export class Game {
   readonly entities: Entity[] = []
   readonly events = new Emitter()
   readonly stats: Stats
+  /** The HTML UI layer: presentation-only pieces toggled from code. */
+  readonly ui: GameUi
   paramOverrides: ParamOverrides = {}
   /**
    * With false, the loop keeps rendering but runs no component updates
@@ -54,6 +57,7 @@ export class Game {
     this.viewHeight = viewHeight
     this.input = new Input(options.bindings)
     this.stats = new Stats(options.stats)
+    this.ui = new GameUi(this.stats, () => canvas.parentElement ?? document.body)
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this.scene.background = new THREE.Color(background)
@@ -127,6 +131,7 @@ export class Game {
   dispose(): void {
     this.stop()
     this.input.dispose()
+    this.ui.dispose()
     for (const entity of [...this.entities]) entity.destroy()
     this.renderer.dispose()
   }
@@ -141,6 +146,8 @@ export class Game {
       }
       this.dispatchCollisions()
     }
+    // The UI must react to the pause itself (hide until resumed).
+    this.ui.setActive(this.simulate)
     for (const fn of this.updateFns) fn(dt)
     this.input.endFrame()
     this.renderer.render(this.scene, this.camera)

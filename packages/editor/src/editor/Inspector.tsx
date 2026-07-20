@@ -13,6 +13,7 @@ import type { ClipDef, InputBindings, ParamSpec, StatValue } from '@waica/engine
 export type InspectorSelection =
   | { kind: 'entity'; entity: SceneEntityJson }
   | { kind: 'prefab'; ref: string; prefab: PrefabJson }
+  | { kind: 'ui'; name: string }
   | { kind: 'script'; name: string }
   | { kind: 'art'; label: string; dims: [number, number] | null }
   | { kind: 'controls'; bindings: InputBindings }
@@ -666,7 +667,7 @@ function PrefabInspector({
         id={refName}
         comps={[...split.behaviours, ...split.extras]}
         present={new Set(prefab.components.map((c) => c.type))}
-        canRemove={(c) => !(prefab.type === 'ui' && c.type === 'HudCounter')}
+        canRemove={() => true}
         onProp={onProp}
         onRemove={onRemove}
         onAdd={onAdd}
@@ -898,6 +899,16 @@ export function Inspector(props: Props) {
           onSetCollision={(enabled) => props.onPrefabSetCollision(selection.ref, enabled)}
           onEditAnimation={() => props.onEditAnimation({ kind: 'prefab', ref: selection.ref })}
         />
+      )}
+      {selection?.kind === 'ui' && (
+        <div className="ed-pad">
+          <RoRow label="name" value={selection.name} />
+          <div className="ed-hint">
+            a UI piece is plain HTML: markup, styles and {'{{stat}}'} bindings — presentation
+            only. Scenes list the pieces they start with; code toggles them with
+            game.ui.show / hide / toggle.
+          </div>
+        </div>
       )}
       {selection?.kind === 'script' && <ScriptInspector name={selection.name} />}
       {selection?.kind === 'controls' && (

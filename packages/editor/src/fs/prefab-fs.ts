@@ -7,7 +7,6 @@ export const PREFAB_DIRS = {
   characters: 'character',
   objects: 'object',
   tiles: 'tile',
-  ui: 'ui',
 } as const
 
 function findDir(nodes: TreeNode[] | undefined, name: string): TreeNode | undefined {

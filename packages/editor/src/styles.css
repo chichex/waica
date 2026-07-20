@@ -866,6 +866,13 @@ select {
   font-size: 10px;
 }
 
+/* "starts visible in the open scene" marker on UI piece rows */
+.ed-x-flag {
+  margin-left: auto;
+  color: var(--gold);
+  font-size: 8px;
+}
+
 .ed-x-subtree {
   margin: 2px 0 4px;
 }
@@ -1267,4 +1274,33 @@ select {
   justify-content: center;
   gap: 14px;
   color: var(--text-dim);
+}
+
+/* ui piece pane: Monaco + live preview */
+
+.ed-ui-pane {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+}
+
+.ed-ui-code {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  border-right: 1px solid var(--line);
+}
+
+.ed-ui-preview {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  background: #1a1a2e;
+}
+
+.ed-ui-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
 }

@@ -3,6 +3,7 @@ import type { InputBindings, PrefabJson, SceneJson } from '@waica/engine'
 import { ACTIVE_ARCHETYPE } from '../project/archetype'
 import type { ProjectFS } from '../fs/project-fs'
 import { listScenes, loadPrefabLib, savePrefab, prefabPath, PREFAB_DIRS } from '../fs/prefab-fs'
+import { loadUiLib, saveUi, uiPath, NEW_UI_HTML } from '../fs/ui-fs'
 import { newPrefabComponents, setCollisionEnabled, toggleAnimated } from '../project/chassis'
 import { CONTROLS_PATH, parseControls, serializeControls } from '../project/controls'
 import { STATS_PATH, parseStats, serializeStats, type ProjectStats } from '../project/stats'
@@ -14,12 +15,15 @@ import { Explorer, refBase, type ExplorerView } from './Explorer'
 import { Inspector, type AnimTarget, type InspectorSelection } from './Inspector'
 import { AnimationEditor } from './AnimationEditor'
 import { CodePane } from './CodePane'
+import { UiPane } from './UiPane'
 import { scriptSource } from './script-sources'
 import { useProjectArt, type ArtItem } from './use-project-art'
 
 type SaveState = 'saved' | 'saving' | 'error'
 
 const EMPTY_SCENE: SceneJson = { waicaScene: 2, entities: [] }
+/** Stable fallback: a fresh {} per render would loop the UiPane preview effect. */
+const EMPTY_STATS: ProjectStats = {}
 
 function setPrefabProp(
   prefab: PrefabJson,
@@ -76,6 +80,9 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const [saveState, setSaveState] = useState<SaveState>('saved')
   const [artDims, setArtDims] = useState<[number, number] | null>(null)
   const [prefabLib, setPrefabLib] = useState<Record<string, PrefabJson>>(ACTIVE_ARCHETYPE.prefabs)
+  const [uiLib, setUiLib] = useState<Record<string, string>>({
+    ...ACTIVE_ARCHETYPE.registry.ui,
+  })
   const [animTarget, setAnimTarget] = useState<AnimTarget | null>(null)
   /** null until src/controls.json is read (or defaulted). */
   const [controls, setControls] = useState<InputBindings | null>(null)
@@ -89,6 +96,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   // this content, not the stale file on disk.
   const pendingScenes = useRef(new Map<string, SceneJson>())
   const prefabTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  const uiTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
   const projectArt = useProjectArt(fs)
 
   // Textures referencing freshly scanned art need the stage to rebind them.
@@ -103,6 +111,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       // The viewport may have loaded with the archetype defaults already.
       setEpoch((e) => e + 1)
     })
+    void loadUiLib(fs).then(setUiLib)
     void fs.readText(CONTROLS_PATH).then((text) => setControls(parseControls(text)))
     void fs.readText(STATS_PATH).then((text) => setStats(parseStats(text)))
   }, [fs])
@@ -201,10 +210,30 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     )
   }
 
+  const commitUi = (name: string, html: string): void => {
+    setUiLib((lib) => ({ ...lib, [name]: html }))
+    setSaveState('saving')
+    clearTimeout(uiTimers.current.get(name))
+    uiTimers.current.set(
+      name,
+      setTimeout(() => {
+        uiTimers.current.delete(name)
+        saveUi(fs, name, html)
+          .then(() => setSaveState('saved'))
+          .catch(() => setSaveState('error'))
+      }, 600),
+    )
+  }
+
   const registryWithPrefabs = useMemo(
     // urlFor resolves project-art paths (src/art/*.png) on top of waica:* assets.
-    () => ({ ...ACTIVE_ARCHETYPE.registry, prefabs: prefabLib, resolveAsset: projectArt.urlFor }),
-    [prefabLib, projectArt.urlFor],
+    () => ({
+      ...ACTIVE_ARCHETYPE.registry,
+      prefabs: prefabLib,
+      ui: uiLib,
+      resolveAsset: projectArt.urlFor,
+    }),
+    [prefabLib, uiLib, projectArt.urlFor],
   )
 
   const prefabScene = useMemo<SceneJson | null>(() => {
@@ -339,6 +368,47 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     if (view?.kind === 'prefab' && view.ref === ref) setView(null)
   }
 
+  const createUi = (): void => {
+    let n = 1
+    while (uiLib[`ui-${n}`]) n++
+    const name = `ui-${n}`
+    commitUi(name, NEW_UI_HTML)
+    openView({ kind: 'ui', name })
+  }
+
+  const duplicateUi = (name: string): void => {
+    const html = uiLib[name]
+    if (html == null) return
+    let copy = `${name}-copy`
+    for (let n = 2; uiLib[copy]; n++) copy = `${name}-copy-${n}`
+    commitUi(copy, html)
+    openView({ kind: 'ui', name: copy })
+  }
+
+  const deleteUi = async (name: string): Promise<void> => {
+    if (!window.confirm(`Delete ${name}? Scenes listing it will skip it with a warning.`)) return
+    clearTimeout(uiTimers.current.get(name))
+    uiTimers.current.delete(name)
+    // The file may not exist yet (debounced save cancelled above): ignore.
+    await fs.deleteFile(uiPath(name)).catch(() => {})
+    setUiLib((lib) => {
+      const next = { ...lib }
+      delete next[name]
+      return next
+    })
+    if (view?.kind === 'ui' && view.name === name) setView(null)
+  }
+
+  const toggleUiInScene = (name: string): void => {
+    if (!scene || !openScenePath) return
+    const current = scene.ui ?? []
+    const ui = current.includes(name) ? current.filter((n) => n !== name) : [...current, name]
+    const next = { ...scene }
+    if (ui.length > 0) next.ui = ui
+    else delete next.ui
+    commit(next)
+  }
+
   const addPrefabToScene = (ref: string): void => {
     if (!scene || !openScenePath) return
     const base = refBase(ref)
@@ -359,6 +429,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       const prefab = prefabLib[view.ref]
       return prefab ? { kind: 'prefab', ref: view.ref, prefab } : null
     }
+    if (view?.kind === 'ui') return { kind: 'ui', name: view.name }
     if (view?.kind === 'script') return { kind: 'script', name: view.name }
     if (view?.kind === 'art') return { kind: 'art', label: view.label, dims: artDims }
     if (view?.kind === 'controls') {
@@ -458,6 +529,21 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
         </>
       )
     }
+    if (view.kind === 'ui') {
+      const html = uiLib[view.name]
+      if (html == null) {
+        return <div className="ed-vp-hint">this UI piece no longer exists</div>
+      }
+      return (
+        <UiPane
+          key={`ui:${view.name}`}
+          name={view.name}
+          html={html}
+          stats={stats ?? EMPTY_STATS}
+          onChange={(next) => commitUi(view.name, next)}
+        />
+      )
+    }
     if (view.kind === 'script') {
       const src = scriptSource(view.name)
       return <CodePane path={`scripts/${src.file}`} source={src.source} readOnly />
@@ -520,6 +606,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             view={view}
             selected={selected}
             prefabLib={prefabLib}
+            uiLib={uiLib}
             art={projectArt.art}
             onImportArt={projectArt.importArt}
             onRefreshArt={projectArt.refresh}
@@ -544,6 +631,11 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             onDuplicatePrefab={duplicatePrefab}
             onDeletePrefab={(ref) => void deletePrefab(ref)}
             onAddPrefabToScene={addPrefabToScene}
+            onOpenUi={(name) => openView({ kind: 'ui', name })}
+            onCreateUi={createUi}
+            onDuplicateUi={duplicateUi}
+            onDeleteUi={(name) => void deleteUi(name)}
+            onToggleUiInScene={toggleUiInScene}
             onArtDeleted={(label) => {
               if (view?.kind === 'art' && view.label === label) setView(null)
             }}

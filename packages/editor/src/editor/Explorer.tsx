@@ -11,6 +11,7 @@ import type { ArtItem } from './use-project-art'
 export type ExplorerView =
   | { kind: 'scene'; path: string }
   | { kind: 'prefab'; ref: string }
+  | { kind: 'ui'; name: string }
   | { kind: 'script'; name: string }
   | { kind: 'art'; label: string; url: string }
   | { kind: 'controls' }
@@ -20,7 +21,6 @@ const PREFAB_GROUPS: Array<{ title: string; type: PrefabJson['type']; createLabe
   { title: 'Characters', type: 'character', createLabel: 'New character' },
   { title: 'Objects', type: 'object', createLabel: 'New object' },
   { title: 'Tiles', type: 'tile', createLabel: 'New tile' },
-  { title: 'UI', type: 'ui', createLabel: 'New UI element' },
 ]
 
 const PREFAB_ICONS = new Map(ACTIVE_ARCHETYPE.palette.map((t) => [t.label, t.icon]))
@@ -57,6 +57,7 @@ export function Explorer({
   view,
   selected,
   prefabLib,
+  uiLib,
   art,
   onImportArt,
   onRefreshArt,
@@ -77,6 +78,11 @@ export function Explorer({
   onDuplicatePrefab,
   onDeletePrefab,
   onAddPrefabToScene,
+  onOpenUi,
+  onCreateUi,
+  onDuplicateUi,
+  onDeleteUi,
+  onToggleUiInScene,
   onArtDeleted,
 }: {
   fs: ProjectFS
@@ -87,6 +93,7 @@ export function Explorer({
   view: ExplorerView | null
   selected: string | null
   prefabLib: Record<string, PrefabJson>
+  uiLib: Record<string, string>
   art: ArtItem[]
   onImportArt(files: File[]): Promise<void>
   onRefreshArt(): void
@@ -107,6 +114,12 @@ export function Explorer({
   onDuplicatePrefab(ref: string): void
   onDeletePrefab(ref: string): void
   onAddPrefabToScene(ref: string): void
+  onOpenUi(name: string): void
+  onCreateUi(): void
+  onDuplicateUi(name: string): void
+  onDeleteUi(name: string): void
+  /** Adds/removes the piece from the open scene's "ui" start list. */
+  onToggleUiInScene(name: string): void
   onArtDeleted(label: string): void
 }) {
   const [dropping, setDropping] = useState(false)
@@ -283,6 +296,63 @@ export function Explorer({
           </div>
         </section>
       ))}
+
+      <section
+        className="ed-panel"
+        onContextMenu={(e) =>
+          openMenu(e, [{ label: 'New UI piece', icon: '＋', onClick: onCreateUi }])
+        }
+      >
+        <header className="ed-panel-head">
+          <span>UI</span>
+          <button className="ed-mini" title="New UI piece" onClick={onCreateUi}>
+            ＋
+          </button>
+        </header>
+        <div className="ed-x-list">
+          {Object.keys(uiLib)
+            .sort()
+            .map((name) => {
+              const inScene = scene?.ui?.includes(name) ?? false
+              const builtin = name in (ACTIVE_ARCHETYPE.registry.ui ?? {})
+              return (
+                <button
+                  key={name}
+                  className={`ed-x-item ${view?.kind === 'ui' && view.name === name ? 'is-selected' : ''}`}
+                  title={inScene ? 'starts visible in the open scene' : undefined}
+                  onClick={() => onOpenUi(name)}
+                  onContextMenu={(e) =>
+                    openMenu(e, [
+                      { label: 'Open', icon: '🧩', onClick: () => onOpenUi(name) },
+                      {
+                        label: inScene ? 'Remove from scene' : 'Add to scene',
+                        icon: inScene ? '−' : '＋',
+                        disabled: !scene,
+                        onClick: () => onToggleUiInScene(name),
+                      },
+                      { label: 'Duplicate', icon: '⧉', onClick: () => onDuplicateUi(name) },
+                      'sep',
+                      { label: 'New UI piece', icon: '＋', onClick: onCreateUi },
+                      'sep',
+                      {
+                        label: 'Delete',
+                        icon: '🗑',
+                        danger: true,
+                        disabled: builtin,
+                        title: builtin ? 'Built-in UI pieces cannot be deleted' : undefined,
+                        onClick: () => onDeleteUi(name),
+                      },
+                    ])
+                  }
+                >
+                  <span className="ed-x-ico">🧩</span>
+                  {name}
+                  {inScene && <span className="ed-x-flag">●</span>}
+                </button>
+              )
+            })}
+        </div>
+      </section>
 
       <section
         className="ed-panel"

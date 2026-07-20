@@ -12,6 +12,7 @@
     "release": "pnpm -r --filter './packages/*' build && pnpm -r publish --access public"
   },
   "devDependencies": {
+    "happy-dom": "^20.11.0",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"
   }

@@ -5,7 +5,6 @@
 import cameraFollow from '../../../behaviors/src/camera-follow.ts?raw'
 import collectible from '../../../behaviors/src/collectible.ts?raw'
 import hazard from '../../../behaviors/src/hazard.ts?raw'
-import hudCounter from '../../../behaviors/src/hud-counter.ts?raw'
 import patrol from '../../../behaviors/src/patrol.ts?raw'
 import platformerAnimator from '../../../behaviors/src/platformer-animator.ts?raw'
 import platformerMovement from '../../../behaviors/src/platformer-movement.ts?raw'
@@ -20,7 +19,6 @@ export const SCRIPT_SOURCES: Record<string, ScriptSource> = {
   CameraFollow: { file: 'camera-follow.ts', source: cameraFollow },
   Collectible: { file: 'collectible.ts', source: collectible },
   Hazard: { file: 'hazard.ts', source: hazard },
-  HudCounter: { file: 'hud-counter.ts', source: hudCounter },
   Patrol: { file: 'patrol.ts', source: patrol },
   PlatformerAnimator: { file: 'platformer-animator.ts', source: platformerAnimator },
   PlatformerMovement: { file: 'platformer-movement.ts', source: platformerMovement },
