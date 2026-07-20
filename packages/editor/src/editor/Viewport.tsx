@@ -1,6 +1,8 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
-import { Game, loadScene, THREE, type Entity, type InputBindings, type SceneJson, type SceneRegistry, type StatValue } from '@waica/engine'
+import { Game, GameUi, loadScene, resolveSceneCamera, THREE, type Entity, type GameResolution, type InputBindings, type SceneJson, type SceneRegistry, type StatValue } from '@waica/engine'
 import { ACTIVE_ARCHETYPE } from '../project/archetype'
+import { CAMERA_NODE } from '../scene/ops'
+import { uiFrameLayout } from './ui-preview'
 
 export interface ViewportHandle {
   /** Applies a prop change to the live instance (without recreating the game). */
@@ -21,9 +23,17 @@ interface Props {
   stats?: Record<string, StatValue>
   /** Initial camera height in world units (zoom still applies). */
   viewHeight?: number
+  /** Fixed game resolution (Project → game): letterboxes play mode. */
+  resolution?: GameResolution
+  /** Draws the scene camera's frame gizmo (scene viewports; not the prefab stage). */
+  showCamera?: boolean
+  /** The selected entity name, or CAMERA_NODE for the scene camera. */
   selected: string | null
   onSelect(name: string | null): void
+  onSelectCamera?(): void
   onMoved(name: string, position: [number, number]): void
+  /** Reports a scene-camera drag on pointer-up. */
+  onCameraMoved?(position: [number, number]): void
   /** Reports a collision-box resize (corner-handle drag) on pointer-up. */
   onCollisionResized?(name: string, componentType: 'Hitbox' | 'Solid', size: [number, number]): void
   /** Accepts 'waica/prefab' drops (refs); omit to reject drops (prefab stage). */
@@ -80,7 +90,7 @@ function findCollision(
 }
 
 export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
-  { scene, registry = ACTIVE_ARCHETYPE.registry, epoch, mode, bindings, stats, viewHeight = 12, selected, onSelect, onMoved, onCollisionResized, onDropPrefab },
+  { scene, registry = ACTIVE_ARCHETYPE.registry, epoch, mode, bindings, stats, viewHeight = 12, resolution, showCamera = false, selected, onSelect, onSelectCamera, onMoved, onCameraMoved, onCollisionResized, onDropPrefab },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -89,18 +99,28 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
   const registryRef = useRef(registry)
   const bindingsRef = useRef(bindings)
   const statsRef = useRef(stats)
+  const resolutionRef = useRef(resolution)
   const selectedRef = useRef(selected)
   const modeRef = useRef(mode)
   const [dropHover, setDropHover] = useState(false)
   const cam = useRef({ x: 0, y: 0, view: viewHeight })
+  /** The edit camera starts framed like the scene camera, once per mount. */
+  const camSeeded = useRef(false)
   const drag = useRef<{ name: string; ox: number; oy: number } | null>(null)
   const pan = useRef<{ px: number; py: number } | null>(null)
   const resize = useRef<{ name: string; compType: 'Hitbox' | 'Solid' } | null>(null)
+  const camDrag = useRef<{ ox: number; oy: number } | null>(null)
+  /** Live scene-camera position while dragging its gizmo (committed on up). */
+  const camLive = useRef<{ x: number; y: number } | null>(null)
+  /** Edit-mode UI preview: frame-anchored box and the scaled reference box. */
+  const uiFrameRef = useRef<HTMLDivElement>(null)
+  const uiScaleRef = useRef<HTMLDivElement>(null)
 
   sceneRef.current = scene
   registryRef.current = registry
   bindingsRef.current = bindings
   statsRef.current = stats
+  resolutionRef.current = resolution
   selectedRef.current = selected
   modeRef.current = mode
 
@@ -112,6 +132,8 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
       canvas,
       viewHeight: cam.current.view,
       background: 0x1a1a2e,
+      // Edit mode always fills the canvas; play previews the real letterbox.
+      resolution: mode === 'play' ? resolutionRef.current : undefined,
       bindings: bindingsRef.current,
       stats: statsRef.current,
     })
@@ -119,8 +141,18 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
     loadScene(game, sceneRef.current, registryRef.current)
     game.simulate = mode === 'play'
     if (mode === 'edit') {
+      if (!camSeeded.current) {
+        camSeeded.current = true
+        // loadScene framed the scene camera (centered on its follow target):
+        // the editor view starts there.
+        if (showCamera && sceneRef.current.camera) {
+          cam.current = { x: game.camera.position.x, y: game.camera.position.y, view: game.view }
+        }
+      }
+      // Restore the editor's own pan/zoom over whatever loadScene framed.
       game.camera.position.x = cam.current.x
       game.camera.position.y = cam.current.y
+      game.setViewHeight(cam.current.view)
     }
     // Selection gizmo: a rectangle around the entity.
     const gizmo = rectLoop(0xffb703)
@@ -147,6 +179,36 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
       })
       return { type, loop, handles }
     })
+
+    // Scene-camera gizmo: the frame the game will show, its center marker,
+    // and (when selected, with limits on) the world bounds.
+    const camGizmo = showCamera
+      ? {
+          frame: rectLoop(0x8d79f0),
+          marker: new THREE.Mesh(
+            new THREE.PlaneGeometry(1, 1),
+            new THREE.MeshBasicMaterial({ color: 0x8d79f0 }),
+          ),
+          limits: rectLoop(0xef476f),
+        }
+      : null
+    if (camGizmo) {
+      camGizmo.frame.position.z = 4.5
+      camGizmo.marker.position.z = 4.6
+      camGizmo.limits.position.z = 4.4
+      camGizmo.frame.visible = false
+      camGizmo.marker.visible = false
+      camGizmo.limits.visible = false
+      game.scene.add(camGizmo.frame, camGizmo.marker, camGizmo.limits)
+    }
+
+    // Edit-mode UI preview: the scene's UI pieces as live HTML anchored to
+    // the camera frame — the same runtime play uses, scaled into the gizmo.
+    const uiPreview =
+      mode === 'edit' && showCamera ? new GameUi(game.stats, () => uiScaleRef.current ?? canvas.parentElement ?? document.body) : null
+    /** Pieces currently shown, and the last piece catalog fed to defineAll. */
+    const uiShown = new Set<string>()
+    let uiCatalog: Record<string, string> | undefined
 
     game.onUpdate(() => {
       const name = selectedRef.current
@@ -183,6 +245,96 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
           for (const handle of g.handles) handle.visible = false
         }
       }
+      if (camGizmo) {
+        const editView = modeRef.current === 'edit'
+        camGizmo.frame.visible = editView
+        camGizmo.marker.visible = editView
+        if (editView) {
+          const sceneCam = resolveSceneCamera(sceneRef.current.camera)
+          // Following: the frame rides the target and cannot be dragged, so
+          // the viewport always shows the framing play would start with.
+          const target = sceneCam.follow ? game.find(sceneCam.follow) : undefined
+          const pos = target
+            ? { x: target.position.x, y: target.position.y }
+            : (camLive.current ?? { x: sceneCam.position[0], y: sceneCam.position[1] })
+          const res = resolutionRef.current
+          const aspect = res
+            ? res.width / res.height
+            : (game.camera.right - game.camera.left) / (game.camera.top - game.camera.bottom)
+          const color = selectedRef.current === CAMERA_NODE ? 0xffb703 : 0x8d79f0
+          ;(camGizmo.frame.material as THREE.LineBasicMaterial).color.setHex(color)
+          camGizmo.marker.material.color.setHex(color)
+          camGizmo.frame.position.set(pos.x, pos.y, 4.5)
+          camGizmo.frame.scale.set(sceneCam.zoom * aspect, sceneCam.zoom, 1)
+          // The marker is the camera's drag handle: while following it would
+          // just sit on the target and steal its clicks — hide it.
+          camGizmo.marker.visible = !target
+          const ms = game.view * 0.03
+          camGizmo.marker.position.set(pos.x, pos.y, 4.6)
+          camGizmo.marker.scale.set(ms, ms, 1)
+          const limits = selectedRef.current === CAMERA_NODE ? sceneCam.limits : null
+          camGizmo.limits.visible = limits != null
+          if (limits) {
+            camGizmo.limits.position.set(
+              (limits.minX + limits.maxX) / 2,
+              (limits.minY + limits.maxY) / 2,
+              4.4,
+            )
+            camGizmo.limits.scale.set(limits.maxX - limits.minX, limits.maxY - limits.minY, 1)
+          }
+
+          // The scene's UI pieces ride the frame, live HTML previewing play.
+          const frameBox = uiFrameRef.current
+          const scaleBox = uiScaleRef.current
+          if (uiPreview && frameBox && scaleBox) {
+            const pieces = sceneRef.current.ui ?? []
+            const catalog = registryRef.current.ui ?? {}
+            if (uiCatalog !== catalog) {
+              uiCatalog = catalog
+              uiPreview.defineAll(catalog)
+            }
+            // Pieces missing from the catalog are skipped, not warned: the
+            // scene may list a piece deleted from the project.
+            for (const name of pieces) {
+              if (!uiShown.has(name) && name in catalog) {
+                uiPreview.show(name)
+                uiShown.add(name)
+              }
+            }
+            for (const name of [...uiShown]) {
+              if (!pieces.includes(name)) {
+                uiPreview.hide(name)
+                uiShown.delete(name)
+              }
+            }
+            if (uiShown.size === 0) {
+              frameBox.style.display = 'none'
+            } else {
+              // The HTML is authored against play's canvas: the fixed game
+              // resolution, or (filling play) this same viewport panel.
+              const canvasSize = { width: canvas.clientWidth, height: canvas.clientHeight }
+              const reference = res ?? canvasSize
+              const c = game.camera
+              const layout = uiFrameLayout(
+                { left: c.left, right: c.right, top: c.top, bottom: c.bottom, x: c.position.x, y: c.position.y },
+                { x: pos.x, y: pos.y, width: sceneCam.zoom * aspect, height: sceneCam.zoom },
+                canvasSize,
+                reference,
+              )
+              frameBox.style.display = 'block'
+              frameBox.style.left = `${layout.left}px`
+              frameBox.style.top = `${layout.top}px`
+              frameBox.style.width = `${layout.width}px`
+              frameBox.style.height = `${layout.height}px`
+              scaleBox.style.width = `${reference.width}px`
+              scaleBox.style.height = `${reference.height}px`
+              scaleBox.style.transform = `scale(${layout.scale})`
+            }
+          }
+        } else {
+          camGizmo.limits.visible = false
+        }
+      }
       if (modeRef.current === 'edit') {
         cam.current.x = game.camera.position.x
         cam.current.y = game.camera.position.y
@@ -191,6 +343,7 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
 
     game.start()
     return () => {
+      uiPreview?.dispose()
       game.dispose()
       gameRef.current = null
     }
@@ -262,7 +415,30 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
     return null
   }
 
+  const zoomBy = (factor: number): void => {
+    const game = gameRef.current
+    if (!game || modeRef.current !== 'edit') return
+    game.setViewHeight(game.view * factor)
+    cam.current.view = game.view
+  }
+
+  /** Jumps the editor view to the scene camera's framing (its target's, when following). */
+  const frameCamera = (): void => {
+    const game = gameRef.current
+    if (!game || modeRef.current !== 'edit') return
+    const sceneCam = resolveSceneCamera(sceneRef.current.camera)
+    const target = sceneCam.follow ? game.find(sceneCam.follow) : undefined
+    const [x, y] = target
+      ? [target.position.x, target.position.y]
+      : sceneCam.position
+    game.camera.position.x = x
+    game.camera.position.y = y
+    game.setViewHeight(sceneCam.zoom)
+    cam.current = { x, y, view: game.view }
+  }
+
   return (
+    <>
     <canvas
       ref={canvasRef}
       className={`ed-viewport ${mode === 'edit' ? 'is-edit' : 'is-play'} ${dropHover ? 'is-dropping' : ''}`}
@@ -278,6 +454,20 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
         if (handle) {
           resize.current = handle
           return
+        }
+        // The camera's center marker sits above entities: it wins the pick.
+        // While following there is no marker — the camera rides its target
+        // and is only selectable from the Explorer.
+        const game = gameRef.current
+        if (showCamera && onSelectCamera && game) {
+          const sceneCam = resolveSceneCamera(sceneRef.current.camera)
+          const [px, py] = sceneCam.position
+          const hs = game.view * 0.035
+          if (!sceneCam.follow && Math.abs(wx - px) <= hs && Math.abs(wy - py) <= hs) {
+            onSelectCamera()
+            camDrag.current = { ox: wx - px, oy: wy - py }
+            return
+          }
         }
         const hit = pickAt(wx, wy)
         if (hit) {
@@ -307,6 +497,16 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
             comp.width = Math.max(0.1, w)
             comp.height = Math.max(0.1, h)
           }
+        } else if (camDrag.current) {
+          const [wx, wy] = toWorld(e)
+          const snap = e.shiftKey ? 0.5 : 0
+          let x = wx - camDrag.current.ox
+          let y = wy - camDrag.current.oy
+          if (snap) {
+            x = Math.round(x / snap) * snap
+            y = Math.round(y / snap) * snap
+          }
+          camLive.current = { x, y }
         } else if (drag.current) {
           const [wx, wy] = toWorld(e)
           const snap = e.shiftKey ? 0.5 : 0
@@ -346,9 +546,17 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
             ])
           }
         }
+        if (camDrag.current && camLive.current) {
+          onCameraMoved?.([
+            Math.round(camLive.current.x * 100) / 100,
+            Math.round(camLive.current.y * 100) / 100,
+          ])
+        }
         resize.current = null
         drag.current = null
         pan.current = null
+        camDrag.current = null
+        camLive.current = null
       }}
       onWheel={(e) => {
         const game = gameRef.current
@@ -373,5 +581,26 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
         if (ref) onDropPrefab(ref, toWorld(e))
       }}
     />
+    {mode === 'edit' && showCamera && (
+      <div ref={uiFrameRef} className="ed-vp-ui">
+        <div ref={uiScaleRef} />
+      </div>
+    )}
+    {mode === 'edit' && (
+      <div className="ed-vp-nav">
+        <button title="Zoom in" onClick={() => zoomBy(1 / 1.25)}>
+          ＋
+        </button>
+        <button title="Zoom out" onClick={() => zoomBy(1.25)}>
+          −
+        </button>
+        {showCamera && (
+          <button title="Go to the scene camera's framing" onClick={frameCamera}>
+            🎥
+          </button>
+        )}
+      </div>
+    )}
+    </>
   )
 })

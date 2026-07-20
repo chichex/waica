@@ -3,6 +3,7 @@ import { PLATFORMER_REGISTRY } from '@waica/archetype-platformer'
 import scene from './scenes/main.scene.json'
 import controls from './controls.json'
 import stats from './stats.json'
+import settings from './game.json'
 
 // The project's prefab files (src/characters|objects|tiles/*.json) override
 // the archetype defaults, so the game runs what the editor saved.
@@ -43,12 +44,12 @@ if (canvas.dataset.waica) {
 }
 
 async function main(canvas: HTMLCanvasElement): Promise<void> {
-  // Controls and stats come from src/controls.json and src/stats.json
-  // (the editor's Project → controls / stats views).
+  // Controls, stats and game settings come from src/*.json (the editor's
+  // Project views). The camera (start framing, zoom, follow) lives in the scene.
   const game = new Game({
     canvas,
-    viewHeight: 12,
     background: 0x1a1a2e,
+    resolution: settings.resolution.mode === 'fixed' ? settings.resolution : undefined,
     bindings: controls.bindings,
     stats: stats.stats,
   })

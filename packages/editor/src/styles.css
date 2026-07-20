@@ -442,6 +442,46 @@ select {
   outline-offset: -6px;
 }
 
+/* Edit-mode UI preview: the scene's UI pieces as HTML, clipped to the
+   camera-frame gizmo. Inner box = play's canvas size, scaled to fit. */
+.ed-vp-ui {
+  position: absolute;
+  overflow: hidden;
+  pointer-events: none;
+  display: none;
+}
+
+.ed-vp-ui > div {
+  position: relative;
+  transform-origin: 0 0;
+}
+
+.ed-vp-nav {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ed-vp-nav button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(20, 20, 31, 0.85);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ed-vp-nav button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .ed-stage-caption {
   position: absolute;
   left: 0;
@@ -1099,13 +1139,24 @@ select {
 }
 
 .ed-row input[type='number'],
-.ed-row input[type='text'] {
+.ed-row input[type='text'],
+.ed-row select {
   width: 100%;
   background: #0e0e16;
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 4px 7px;
   font-size: 12px;
+}
+
+/* Native selects render washed-out on dark backgrounds: draw our own. */
+.ed-row select {
+  appearance: none;
+  color: var(--text);
+  padding-right: 22px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%239a9ab0'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 7px center;
 }
 
 .ed-row input[type='checkbox'] {

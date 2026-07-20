@@ -16,7 +16,6 @@ export const PLATFORMER_PREFABS: Record<string, PrefabJson> = {
       { type: 'PlatformerAnimator' },
       { type: 'Hitbox', props: { width: 0.9, height: 0.95 } },
       { type: 'Respawnable', props: { killY: -12 } },
-      { type: 'CameraFollow' },
     ],
   },
   'characters/slime': {

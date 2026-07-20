@@ -1,3 +1,4 @@
+import type { SceneCameraJson } from './camera'
 import type { ComponentClass } from './component'
 import type { Entity } from './entity'
 import type { Game } from './game'
@@ -30,7 +31,9 @@ export interface PrefabJson {
 }
 
 export interface SceneJson {
-  waicaScene: 1 | 2
+  waicaScene: 1 | 2 | 3
+  /** The scene's built-in camera (v3); absent = the host keeps control. */
+  camera?: SceneCameraJson
   entities: SceneEntityJson[]
   /** UI pieces (src/ui/*.html) mounted visible when the scene loads. */
   ui?: string[]
@@ -103,6 +106,8 @@ export function spawnFromJson(game: Game, json: SceneEntityJson, registry: Scene
 /** Loads a full scene into the game. */
 export function loadScene(game: Game, scene: SceneJson, registry: SceneRegistry): void {
   for (const entityJson of scene.entities) spawnFromJson(game, entityJson, registry)
+  // After the spawns: with a follow target, the camera starts centered on it.
+  game.setSceneCamera(scene.camera)
   if (registry.ui) game.ui.defineAll(registry.ui)
   for (const name of scene.ui ?? []) game.ui.show(name)
 }

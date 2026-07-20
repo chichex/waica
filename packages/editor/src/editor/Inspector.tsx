@@ -1,23 +1,26 @@
 import { useEffect, useState } from 'react'
-import { missingClips, type PrefabJson, type SceneComponentJson, type SceneEntityJson } from '@waica/engine'
+import { missingClips, resolveSceneCamera, type PrefabJson, type SceneCameraJson, type SceneComponentJson, type SceneEntityJson } from '@waica/engine'
 import { PLATFORMER_ANIMATION_CONTRACT } from '@waica/behaviors'
 import { ACTIVE_ARCHETYPE } from '../project/archetype'
 import { prefabOwns, resolveComponents } from '../scene/ops'
 import { behaviourTypes, CHASSIS, splitComponents } from '../project/chassis'
 import { clipSummary } from '../project/clips'
 import { ACTION_LABELS, keyLabel, parseControls } from '../project/controls'
+import type { GameSettings } from '../project/game'
 import type { ProjectStats } from '../project/stats'
 import type { ClipDef, InputBindings, ParamSpec, StatValue } from '@waica/engine'
 
 /** What the inspector is editing, mirroring the explorer view. */
 export type InspectorSelection =
   | { kind: 'entity'; entity: SceneEntityJson }
+  | { kind: 'camera'; camera: SceneCameraJson | undefined; entityNames: string[] }
   | { kind: 'prefab'; ref: string; prefab: PrefabJson }
   | { kind: 'ui'; name: string }
   | { kind: 'script'; name: string }
   | { kind: 'art'; label: string; dims: [number, number] | null }
   | { kind: 'controls'; bindings: InputBindings }
   | { kind: 'stats'; stats: ProjectStats }
+  | { kind: 'game'; settings: GameSettings }
   | null
 
 /** Whose AnimatedSprite the animation editor should open on. */
@@ -52,6 +55,9 @@ interface Props {
   onEditAnimation(target: AnimTarget): void
   onBindingsChange(next: InputBindings): void
   onStatsChange(next: ProjectStats): void
+  /** Sets one prop of the open scene's camera block (undefined deletes it). */
+  onCameraProp(key: string, value: unknown): void
+  onGameSettingsChange(next: GameSettings): void
 }
 
 function componentKeys(comp: SceneComponentJson): string[] {
@@ -676,6 +682,198 @@ function PrefabInspector({
   )
 }
 
+/** Inspector metadata for the camera's tunable numbers (sliders). */
+const CAMERA_SPECS: Record<string, ParamSpec> = {
+  zoom: { label: 'Zoom (world height)', min: 2, max: 40, step: 0.5 },
+  deadzoneWidth: { label: 'Deadzone width', min: 0, max: 10, step: 0.25 },
+  deadzoneHeight: { label: 'Deadzone height', min: 0, max: 10, step: 0.25 },
+  lookahead: { label: 'Lookahead', min: 0, max: 6, step: 0.25 },
+  smoothing: { label: 'Smoothing', min: 1, max: 20, step: 0.5 },
+}
+
+/** Fresh limits when the user turns them on: roomy around the origin. */
+const DEFAULT_LIMITS = { minX: -20, maxX: 20, minY: -12, maxY: 12 }
+
+function CameraInspector({
+  camera,
+  entityNames,
+  onProp,
+}: {
+  camera: SceneCameraJson | undefined
+  entityNames: string[]
+  onProp(key: string, value: unknown): void
+}) {
+  const cam = resolveSceneCamera(camera)
+  const [x, y] = cam.position
+  const slider = (key: 'zoom' | 'deadzoneWidth' | 'deadzoneHeight' | 'lookahead' | 'smoothing') => (
+    <PropRow
+      key={key}
+      label={key}
+      spec={CAMERA_SPECS[key]}
+      value={cam[key]}
+      onChange={(value) => onProp(key, value)}
+    />
+  )
+  const limitRow = (key: keyof typeof DEFAULT_LIMITS, label: string) => (
+    <label className="ed-row" key={key}>
+      <span>{label}</span>
+      <input
+        type="number"
+        step={0.5}
+        value={cam.limits?.[key] ?? 0}
+        onChange={(e) => onProp('limits', { ...cam.limits, [key]: Number(e.target.value) })}
+      />
+    </label>
+  )
+  return (
+    <div className="ed-pad">
+      <RoRow label="name" value="Camera" />
+      <div className="ed-hint">
+        built-in — every scene has exactly one camera: this frame is what the player sees when
+        the game runs
+      </div>
+      {cam.follow ? (
+        // Following: the camera rides its target, so a manual position would
+        // be a lie — the game overrides it the moment play starts.
+        <RoRow label="position" value={`on ${cam.follow}`} />
+      ) : (
+        <div className="ed-row ed-row-xy">
+          <span>position</span>
+          <input
+            type="number"
+            step={0.5}
+            value={x}
+            onChange={(e) => onProp('position', [Number(e.target.value), y])}
+          />
+          <input
+            type="number"
+            step={0.5}
+            value={y}
+            onChange={(e) => onProp('position', [x, Number(e.target.value)])}
+          />
+        </div>
+      )}
+      <div className="ed-section">
+        <header className="ed-sec-head">Framing</header>
+        {slider('zoom')}
+      </div>
+      <div className="ed-section">
+        <header className="ed-sec-head">Follow</header>
+        <label className="ed-row">
+          <span>target</span>
+          <select
+            value={cam.follow}
+            onChange={(e) => onProp('follow', e.target.value || undefined)}
+          >
+            <option value="">none — fixed camera</option>
+            {entityNames.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {cam.follow ? (
+          <>
+            {slider('deadzoneWidth')}
+            {slider('deadzoneHeight')}
+            {slider('lookahead')}
+            {slider('smoothing')}
+          </>
+        ) : (
+          <div className="ed-hint">pick a target and the camera will chase it while playing</div>
+        )}
+      </div>
+      <div className="ed-section">
+        <header className="ed-sec-head">Limits</header>
+        <label className="ed-row">
+          <span>limit the view</span>
+          <input
+            type="checkbox"
+            checked={cam.limits != null}
+            onChange={(e) => onProp('limits', e.target.checked ? DEFAULT_LIMITS : undefined)}
+          />
+        </label>
+        {cam.limits ? (
+          <>
+            {limitRow('minX', 'left')}
+            {limitRow('maxX', 'right')}
+            {limitRow('minY', 'bottom')}
+            {limitRow('maxY', 'top')}
+            <div className="ed-hint">
+              while playing, the camera never shows anything outside these world bounds
+            </div>
+          </>
+        ) : (
+          <div className="ed-hint">no limits — the camera can go anywhere</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function GameSettingsInspector({
+  settings,
+  onChange,
+}: {
+  settings: GameSettings
+  onChange(next: GameSettings): void
+}) {
+  const res = settings.resolution
+  const setRes = (patch: Partial<GameSettings['resolution']>): void =>
+    onChange({ ...settings, resolution: { ...res, ...patch } })
+  return (
+    <div className="ed-pad">
+      <div className="ed-hint">
+        global settings of the shipped game — every scene plays with these
+      </div>
+      <div className="ed-section">
+        <header className="ed-sec-head">Resolution</header>
+        <label className="ed-row">
+          <span>mode</span>
+          <select
+            value={res.mode}
+            onChange={(e) => setRes({ mode: e.target.value as 'fill' | 'fixed' })}
+          >
+            <option value="fill">fill the window</option>
+            <option value="fixed">fixed (letterbox)</option>
+          </select>
+        </label>
+        {res.mode === 'fixed' ? (
+          <>
+            <label className="ed-row">
+              <span>width</span>
+              <input
+                type="number"
+                step={1}
+                min={1}
+                value={res.width}
+                onChange={(e) => setRes({ width: Math.max(1, Number(e.target.value)) })}
+              />
+            </label>
+            <label className="ed-row">
+              <span>height</span>
+              <input
+                type="number"
+                step={1}
+                min={1}
+                value={res.height}
+                onChange={(e) => setRes({ height: Math.max(1, Number(e.target.value)) })}
+              />
+            </label>
+            <div className="ed-hint">
+              the game always shows a {res.width}×{res.height} view, with bars when the window
+              has a different shape
+            </div>
+          </>
+        ) : (
+          <div className="ed-hint">the view stretches to whatever window the game runs in</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function ControlsInspector({
   bindings,
   onChange,
@@ -888,6 +1086,13 @@ export function Inspector(props: Props) {
       <header className="ed-panel-head">Inspector</header>
       {selection == null && <div className="ed-hint ed-pad">nothing selected</div>}
       {selection?.kind === 'entity' && <EntityInspector {...props} entity={selection.entity} />}
+      {selection?.kind === 'camera' && (
+        <CameraInspector
+          camera={selection.camera}
+          entityNames={selection.entityNames}
+          onProp={props.onCameraProp}
+        />
+      )}
       {selection?.kind === 'prefab' && (
         <PrefabInspector
           refName={selection.ref}
@@ -916,6 +1121,9 @@ export function Inspector(props: Props) {
       )}
       {selection?.kind === 'stats' && (
         <StatsInspector stats={selection.stats} onChange={props.onStatsChange} />
+      )}
+      {selection?.kind === 'game' && (
+        <GameSettingsInspector settings={selection.settings} onChange={props.onGameSettingsChange} />
       )}
       {selection?.kind === 'art' && (
         <div className="ed-pad">

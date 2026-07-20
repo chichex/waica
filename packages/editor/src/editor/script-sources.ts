@@ -2,7 +2,6 @@
 // Imported relatively: @waica/behaviors only exports its index, so a deep
 // '@waica/behaviors/src/*.ts?raw' import would not resolve through the
 // package exports map. Vite bundles ?raw sources at build time.
-import cameraFollow from '../../../behaviors/src/camera-follow.ts?raw'
 import collectible from '../../../behaviors/src/collectible.ts?raw'
 import hazard from '../../../behaviors/src/hazard.ts?raw'
 import patrol from '../../../behaviors/src/patrol.ts?raw'
@@ -16,7 +15,6 @@ export interface ScriptSource {
 }
 
 export const SCRIPT_SOURCES: Record<string, ScriptSource> = {
-  CameraFollow: { file: 'camera-follow.ts', source: cameraFollow },
   Collectible: { file: 'collectible.ts', source: collectible },
   Hazard: { file: 'hazard.ts', source: hazard },
   Patrol: { file: 'patrol.ts', source: patrol },

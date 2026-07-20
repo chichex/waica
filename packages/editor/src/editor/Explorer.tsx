@@ -3,7 +3,7 @@ import type { PrefabJson, SceneEntityJson, SceneJson } from '@waica/engine'
 import { ACTIVE_ARCHETYPE } from '../project/archetype'
 import type { ProjectFS } from '../fs/project-fs'
 import { behaviourTypes } from '../project/chassis'
-import { resolveComponents } from '../scene/ops'
+import { CAMERA_NODE, resolveComponents } from '../scene/ops'
 import { ContextMenu, type MenuEntry, type MenuState } from './ContextMenu'
 import type { ArtItem } from './use-project-art'
 
@@ -16,6 +16,7 @@ export type ExplorerView =
   | { kind: 'art'; label: string; url: string }
   | { kind: 'controls' }
   | { kind: 'stats' }
+  | { kind: 'game' }
 
 const PREFAB_GROUPS: Array<{ title: string; type: PrefabJson['type']; createLabel: string }> = [
   { title: 'Characters', type: 'character', createLabel: 'New character' },
@@ -63,6 +64,7 @@ export function Explorer({
   onRefreshArt,
   onOpenScene,
   onSelectEntity,
+  onSelectCamera,
   onAddEntity,
   onCreateScene,
   onOpenPrefab,
@@ -70,6 +72,7 @@ export function Explorer({
   onOpenArt,
   onOpenControls,
   onOpenStats,
+  onOpenGame,
   onDuplicateScene,
   onDeleteScene,
   onDuplicateEntity,
@@ -99,6 +102,8 @@ export function Explorer({
   onRefreshArt(): void
   onOpenScene(path: string): void
   onSelectEntity(name: string): void
+  /** Selects the open scene's built-in camera. */
+  onSelectCamera(): void
   onAddEntity(): void
   onCreateScene(): void
   onOpenPrefab(ref: string): void
@@ -106,6 +111,7 @@ export function Explorer({
   onOpenArt(item: ArtItem): void
   onOpenControls(): void
   onOpenStats(): void
+  onOpenGame(): void
   onDuplicateScene(path: string): void
   onDeleteScene(path: string): void
   onDuplicateEntity(name: string): void
@@ -195,6 +201,52 @@ export function Explorer({
                 </div>
                 {open && scene && (
                   <div className="ed-x-subtree">
+                    <button
+                      className={`ed-x-item ${
+                        view?.kind === 'scene' && selected === CAMERA_NODE ? 'is-selected' : ''
+                      }`}
+                      onClick={onSelectCamera}
+                      onContextMenu={(e) => {
+                        onSelectCamera()
+                        openMenu(e, [
+                          {
+                            label: 'Delete',
+                            icon: '🗑',
+                            danger: true,
+                            disabled: true,
+                            title: 'The camera is built-in — every scene has exactly one',
+                            onClick: () => {},
+                          },
+                        ])
+                      }}
+                    >
+                      <span className="ed-x-ico">🎥</span>
+                      Camera
+                    </button>
+                    {(scene.ui ?? []).map((name) => (
+                      <button
+                        key={`ui:${name}`}
+                        className={`ed-x-item ${
+                          view?.kind === 'ui' && view.name === name ? 'is-selected' : ''
+                        }`}
+                        title="UI piece — starts visible in this scene"
+                        onClick={() => onOpenUi(name)}
+                        onContextMenu={(e) =>
+                          openMenu(e, [
+                            { label: 'Open', icon: '🧩', onClick: () => onOpenUi(name) },
+                            'sep',
+                            {
+                              label: 'Remove from scene',
+                              icon: '−',
+                              onClick: () => onToggleUiInScene(name),
+                            },
+                          ])
+                        }
+                      >
+                        <span className="ed-x-ico">🧩</span>
+                        {name}
+                      </button>
+                    ))}
                     {scene.entities.map((entity) => (
                       <button
                         key={entity.name}
@@ -495,6 +547,13 @@ export function Explorer({
           >
             <span className="ed-x-ico">📊</span>
             stats
+          </button>
+          <button
+            className={`ed-x-item ${view?.kind === 'game' ? 'is-selected' : ''}`}
+            onClick={onOpenGame}
+          >
+            <span className="ed-x-ico">🕹️</span>
+            game
           </button>
         </div>
       </section>

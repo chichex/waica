@@ -8,7 +8,6 @@ import {
   type SceneRegistry,
 } from '@waica/engine'
 import {
-  CameraFollow,
   Collectible,
   Hazard,
   Patrol,
@@ -37,7 +36,6 @@ export const PLATFORMER_REGISTRY: SceneRegistry = {
     Hitbox,
     PlatformerMovement,
     PlatformerAnimator,
-    CameraFollow,
     Collectible,
     Patrol,
     Hazard,

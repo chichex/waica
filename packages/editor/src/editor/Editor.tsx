@@ -6,6 +6,7 @@ import { listScenes, loadPrefabLib, savePrefab, prefabPath, PREFAB_DIRS } from '
 import { loadUiLib, saveUi, uiPath, NEW_UI_HTML } from '../fs/ui-fs'
 import { newPrefabComponents, setCollisionEnabled, toggleAnimated } from '../project/chassis'
 import { CONTROLS_PATH, parseControls, serializeControls } from '../project/controls'
+import { GAME_PATH, parseGameSettings, serializeGameSettings, type GameSettings } from '../project/game'
 import { STATS_PATH, parseStats, serializeStats, type ProjectStats } from '../project/stats'
 import * as ops from '../scene/ops'
 import { PLATFORMER_ANIMATION_CONTRACT } from '@waica/behaviors'
@@ -21,7 +22,7 @@ import { useProjectArt, type ArtItem } from './use-project-art'
 
 type SaveState = 'saved' | 'saving' | 'error'
 
-const EMPTY_SCENE: SceneJson = { waicaScene: 2, entities: [] }
+const EMPTY_SCENE: SceneJson = { waicaScene: 3, entities: [] }
 /** Stable fallback: a fresh {} per render would loop the UiPane preview effect. */
 const EMPTY_STATS: ProjectStats = {}
 
@@ -88,9 +89,12 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const [controls, setControls] = useState<InputBindings | null>(null)
   /** null until src/stats.json is read (or defaulted). */
   const [stats, setStats] = useState<ProjectStats | null>(null)
+  /** null until src/game.json is read (or defaulted). */
+  const [gameSettings, setGameSettings] = useState<GameSettings | null>(null)
   const viewport = useRef<ViewportHandle>(null)
   const controlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const statsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const gameTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const saveTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
   // Committed scenes whose write hasn't landed yet: reopening one must show
   // this content, not the stale file on disk.
@@ -114,6 +118,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     void loadUiLib(fs).then(setUiLib)
     void fs.readText(CONTROLS_PATH).then((text) => setControls(parseControls(text)))
     void fs.readText(STATS_PATH).then((text) => setStats(parseStats(text)))
+    void fs.readText(GAME_PATH).then((text) => setGameSettings(parseGameSettings(text)))
   }, [fs])
 
   const commitControls = (next: InputBindings): void => {
@@ -140,6 +145,18 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     }, 600)
   }
 
+  const commitGameSettings = (next: GameSettings): void => {
+    setGameSettings(next)
+    setSaveState('saving')
+    if (gameTimer.current) clearTimeout(gameTimer.current)
+    gameTimer.current = setTimeout(() => {
+      gameTimer.current = null
+      fs.writeText(GAME_PATH, serializeGameSettings(next))
+        .then(() => setSaveState('saved'))
+        .catch(() => setSaveState('error'))
+    }, 600)
+  }
+
   useEffect(() => {
     if (!openScenePath) return
     const pending = pendingScenes.current.get(openScenePath)
@@ -155,7 +172,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       if (stale) return
       try {
         if (text == null) throw new Error('missing')
-        setScene(JSON.parse(text) as SceneJson)
+        setScene(ops.migrateScene(JSON.parse(text) as SceneJson))
       } catch {
         setSceneFailed(true)
       }
@@ -438,6 +455,16 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     if (view?.kind === 'stats') {
       return stats ? { kind: 'stats', stats } : null
     }
+    if (view?.kind === 'game') {
+      return gameSettings ? { kind: 'game', settings: gameSettings } : null
+    }
+    if (view?.kind === 'scene' && scene && selected === ops.CAMERA_NODE) {
+      return {
+        kind: 'camera',
+        camera: scene.camera,
+        entityNames: scene.entities.map((e) => e.name),
+      }
+    }
     if (view?.kind === 'scene' && scene && selected) {
       const entity = scene.entities.find((e) => e.name === selected)
       return entity ? { kind: 'entity', entity } : null
@@ -465,9 +492,18 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
           mode={mode}
           bindings={controls ?? undefined}
           stats={stats ?? undefined}
+          resolution={
+            gameSettings?.resolution.mode === 'fixed' ? gameSettings.resolution : undefined
+          }
+          showCamera
           selected={selected}
           onSelect={setSelected}
+          onSelectCamera={() => {
+            setView({ kind: 'scene', path: view.path })
+            setSelected(ops.CAMERA_NODE)
+          }}
           onMoved={(name, position) => commit(ops.moveEntity(scene, name, position))}
+          onCameraMoved={(position) => commit(ops.moveCamera(scene, position))}
           onCollisionResized={(name, compType, [w, h]) => {
             // The viewport already holds the live values: non-structural commit.
             commit(
@@ -562,6 +598,13 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
         </div>
       )
     }
+    if (view.kind === 'game') {
+      return (
+        <div className="ed-vp-hint">
+          🕹️ set the game's global settings (resolution) in the Inspector — saved to {GAME_PATH}
+        </div>
+      )
+    }
     return (
       <ArtStage
         label={view.label}
@@ -616,6 +659,11 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
               setView({ kind: 'scene', path: openScenePath })
               setSelected(name)
             }}
+            onSelectCamera={() => {
+              if (!openScenePath) return
+              setView({ kind: 'scene', path: openScenePath })
+              setSelected(ops.CAMERA_NODE)
+            }}
             onAddEntity={addEntity}
             onCreateScene={() => void createScene()}
             onOpenPrefab={(ref) => openView({ kind: 'prefab', ref })}
@@ -623,6 +671,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             onOpenArt={(item: ArtItem) => openView({ kind: 'art', ...item })}
             onOpenControls={() => openView({ kind: 'controls' })}
             onOpenStats={() => openView({ kind: 'stats' })}
+            onOpenGame={() => openView({ kind: 'game' })}
             onDuplicateScene={(path) => void duplicateScene(path)}
             onDeleteScene={(path) => void deleteScene(path)}
             onDuplicateEntity={duplicateEntity}
@@ -732,6 +781,10 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             }}
             onBindingsChange={commitControls}
             onStatsChange={commitStats}
+            onCameraProp={(key, value) => {
+              if (scene) commit(ops.setCameraProp(scene, key, value))
+            }}
+            onGameSettingsChange={commitGameSettings}
           />
         </aside>
       </div>

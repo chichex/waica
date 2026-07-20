@@ -1,5 +1,13 @@
 {
-  "waicaScene": 2,
+  "waicaScene": 3,
+  "camera": {
+    "position": [
+      0,
+      -1
+    ],
+    "zoom": 12,
+    "follow": "Player"
+  },
   "entities": [
     {
       "name": "Player",

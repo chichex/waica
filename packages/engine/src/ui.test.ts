@@ -120,7 +120,7 @@ describe('GameUi', () => {
 
   it('loadScene registers the registry catalog and shows the scene list', () => {
     const { ui } = makeUi({ points: 3 })
-    const game = { ui } as unknown as Parameters<typeof loadScene>[0]
+    const game = { ui, setSceneCamera: () => {} } as unknown as Parameters<typeof loadScene>[0]
     const scene: SceneJson = { waicaScene: 2, entities: [], ui: ['coin-counter'] }
     loadScene(game, scene, { components: {}, ui: { 'coin-counter': COUNTER, 'pause-menu': '<div/>' } })
     expect(ui.isVisible('coin-counter')).toBe(true)

@@ -8,6 +8,44 @@ import {
 
 /** Pure mutations over the scene (the editor's source of truth). */
 
+/**
+ * The scene camera's slot in the editor's selection model. Not an entity
+ * name: the camera is built-in, singular and cannot be deleted.
+ */
+export const CAMERA_NODE = '::camera'
+
+/**
+ * Sets one camera prop (undefined deletes it). Writing the camera block
+ * makes the file a v3 scene.
+ */
+export function setCameraProp(scene: SceneJson, key: string, value: unknown): SceneJson {
+  const camera = { ...scene.camera, [key]: value } as NonNullable<SceneJson['camera']>
+  if (value === undefined) delete camera[key as keyof typeof camera]
+  return { ...scene, waicaScene: 3, camera }
+}
+
+export function moveCamera(scene: SceneJson, position: [number, number]): SceneJson {
+  return setCameraProp(scene, 'position', position)
+}
+
+/**
+ * In-memory upgrade of a freshly loaded scene. Pre-HTML-UI projects kept
+ * the HUD as entities with a 'ui/<piece>' prefab — a prefab type that no
+ * longer exists; those become entries in the scene's "ui" list. The
+ * rewrite reaches disk with the scene's next commit.
+ */
+export function migrateScene(scene: SceneJson): SceneJson {
+  const isLegacyUi = (e: SceneEntityJson): boolean => e.prefab?.startsWith('ui/') ?? false
+  const legacy = scene.entities.filter(isLegacyUi)
+  if (legacy.length === 0) return scene
+  const ui = [...(scene.ui ?? [])]
+  for (const entity of legacy) {
+    const piece = (entity.prefab as string).slice('ui/'.length)
+    if (!ui.includes(piece)) ui.push(piece)
+  }
+  return { ...scene, entities: scene.entities.filter((e) => !isLegacyUi(e)), ui }
+}
+
 export function prefabOwns(
   entity: SceneEntityJson,
   componentType: string,
@@ -48,10 +86,13 @@ export function removeEntity(scene: SceneJson, name: string): SceneJson {
 }
 
 export function renameEntity(scene: SceneJson, from: string, to: string): SceneJson {
-  return {
+  const next = {
     ...scene,
     entities: scene.entities.map((e) => (e.name === from ? { ...e, name: to } : e)),
   }
+  // The camera follows entities by name: renames must not break the link.
+  if (scene.camera?.follow === from) return setCameraProp(next, 'follow', to)
+  return next
 }
 
 export function moveEntity(scene: SceneJson, name: string, position: [number, number]): SceneJson {

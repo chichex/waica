@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { aabbOverlap } from './aabb'
+import { resolveSceneCamera, stepSceneCamera, type ResolvedSceneCamera, type SceneCameraJson } from './camera'
 import type { Component, ComponentClass } from './component'
 import { Hitbox } from './components/hitbox'
 import { Entity } from './entity'
@@ -8,6 +9,12 @@ import { Input, type InputBindings } from './input'
 import { Stats, type StatValue } from './stats'
 import { GameUi } from './ui'
 
+/** Fixed game resolution: the view keeps this aspect, letterboxed. */
+export interface GameResolution {
+  width: number
+  height: number
+}
+
 export interface GameOptions {
   /** Canvas the game draws into. */
   canvas: HTMLCanvasElement
@@ -15,6 +22,8 @@ export interface GameOptions {
   background?: THREE.ColorRepresentation
   /** Visible world height in units; the 2D camera frames this. */
   viewHeight?: number
+  /** Fixed resolution (from the project's game.json); absent = fill the canvas. */
+  resolution?: GameResolution
   /** Control overrides (action → key codes) on top of the defaults. */
   bindings?: InputBindings
   /** Initial stat values (points, lives…) from the project's stats.json. */
@@ -49,12 +58,15 @@ export class Game {
   // TODO(H1): migrate to WebGPURenderer (three/webgpu) with automatic WebGL2 fallback.
   private readonly renderer: THREE.WebGLRenderer
   private readonly updateFns = new Set<UpdateFn>()
+  private readonly resolution: GameResolution | null
   private viewHeight: number
+  private sceneCamera: ResolvedSceneCamera | null = null
   private lastTime = 0
 
   constructor(options: GameOptions) {
     const { canvas, background = 0x1a1a2e, viewHeight = 10 } = options
     this.viewHeight = viewHeight
+    this.resolution = options.resolution ?? null
     this.input = new Input(options.bindings)
     this.stats = new Stats(options.stats)
     this.ui = new GameUi(this.stats, () => canvas.parentElement ?? document.body)
@@ -103,6 +115,28 @@ export class Game {
     return () => this.updateFns.delete(fn)
   }
 
+  /**
+   * Adopts a scene's camera block: jumps to its framing and, while
+   * simulating, follows/clamps per its settings. Called by loadScene.
+   */
+  setSceneCamera(json?: SceneCameraJson): void {
+    // No camera block: leave the camera to the host (constructor viewHeight).
+    if (!json) {
+      this.sceneCamera = null
+      return
+    }
+    this.sceneCamera = resolveSceneCamera(json)
+    // With a follow target the declared position is moot: start centered on
+    // the target so play begins framed like the editor shows it.
+    const followed = this.sceneCamera.follow ? this.find(this.sceneCamera.follow) : undefined
+    const [x, y] = followed
+      ? [followed.position.x, followed.position.y]
+      : this.sceneCamera.position
+    this.camera.position.x = x
+    this.camera.position.y = y
+    this.setViewHeight(this.sceneCamera.zoom)
+  }
+
   start(): void {
     this.renderer.setAnimationLoop((time) => this.tick(time))
   }
@@ -145,12 +179,40 @@ export class Game {
         for (const component of [...entity.components]) component.onUpdate?.(dt)
       }
       this.dispatchCollisions()
+      this.updateSceneCamera(dt)
     }
     // The UI must react to the pause itself (hide until resumed).
     this.ui.setActive(this.simulate)
     for (const fn of this.updateFns) fn(dt)
     this.input.endFrame()
+    if (this.resolution) {
+      // Letterbox bars: clear the whole canvas, then render inside the scissor.
+      this.renderer.setScissorTest(false)
+      this.renderer.setClearColor(0x000000, 1)
+      this.renderer.clear(true, false, false)
+      this.renderer.setScissorTest(true)
+    }
     this.renderer.render(this.scene, this.camera)
+  }
+
+  private updateSceneCamera(dt: number): void {
+    const cam = this.sceneCamera
+    if (!cam) return
+    const followed = cam.follow ? this.find(cam.follow) : undefined
+    const mover = followed?.components.find(
+      (c) => typeof (c as unknown as { vx?: unknown }).vx === 'number',
+    ) as unknown as { vx: number } | undefined
+    const next = stepSceneCamera(cam, {
+      x: this.camera.position.x,
+      y: this.camera.position.y,
+      halfW: (this.camera.right - this.camera.left) / 2,
+      halfH: this.viewHeight / 2,
+      target: followed ? { x: followed.position.x, y: followed.position.y } : null,
+      vx: mover?.vx ?? 0,
+      dt,
+    })
+    this.camera.position.x = next.x
+    this.camera.position.y = next.y
   }
 
   private dispatchCollisions(): void {
@@ -180,8 +242,19 @@ export class Game {
     const { clientWidth: w, clientHeight: h } = canvas
     if (w === 0 || h === 0) return
     this.renderer.setSize(w, h, false)
+    let aspect = w / h
+    if (this.resolution) {
+      // Fixed resolution: the largest rect with its aspect, centered (letterbox).
+      aspect = this.resolution.width / this.resolution.height
+      const vw = Math.min(w, h * aspect)
+      const vh = vw / aspect
+      const vx = (w - vw) / 2
+      const vy = (h - vh) / 2
+      this.renderer.setViewport(vx, vy, vw, vh)
+      this.renderer.setScissor(vx, vy, vw, vh)
+    }
     const halfH = this.viewHeight / 2
-    const halfW = halfH * (w / h)
+    const halfW = halfH * aspect
     this.camera.left = -halfW
     this.camera.right = halfW
     this.camera.top = halfH

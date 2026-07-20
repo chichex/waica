@@ -22,7 +22,8 @@ export const DOG_SPRITE = {
  * copies into `src/scenes/main.scene.json` and what the editor edits.
  */
 export const PLATFORMER_SCENE: SceneJson = {
-  waicaScene: 2,
+  waicaScene: 3,
+  camera: { position: [0, -1], zoom: 12, follow: 'Player' },
   entities: [
     { name: 'Player', prefab: 'characters/player', position: [0, -1] },
     {

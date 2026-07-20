@@ -101,7 +101,7 @@ Target monorepo structure (milestone 1 can start with fewer packages and split w
 packages/
   engine/            # core: loop, scene, Entity+Components, assets, input, audio
                      # + render (three) + physics (Rapier) — split later if it grows
-  behaviors/         # library: PlatformerMovement, CameraFollow, Health, Spawner…
+  behaviors/         # library: PlatformerMovement, Patrol, Health, Spawner…
   archetype-platformer/  # the first archetype (the archetype format is born here)
   overlay/           # in-game inspector overlay: edits behaviors live + persists
   create/            # create-waica: archetype wizard (`npm create waica`)

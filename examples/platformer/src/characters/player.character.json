@@ -66,9 +66,6 @@
       "props": {
         "killY": -12
       }
-    },
-    {
-      "type": "CameraFollow"
     }
   ]
 }
