@@ -16,6 +16,18 @@ async function isEmptyDir(handle: FileSystemDirectoryHandle): Promise<boolean> {
   return true
 }
 
+/** Cancelling the picker throws AbortError: that one stays silent. */
+function reportPickerError(err: unknown): void {
+  if ((err as DOMException | null)?.name === 'AbortError') return
+  console.error(err)
+  const message = err instanceof Error ? err.message : String(err)
+  alert(
+    `Could not open the folder picker: ${message}\n\n` +
+      'If the editor is running inside an embedded preview (IDE browser, iframe), ' +
+      'open it in a regular Chrome/Edge tab instead.',
+  )
+}
+
 export function Home({ onOpen }: { onOpen(fs: ProjectFS): void }) {
   const canFS = typeof window.showDirectoryPicker === 'function'
   const [recents, setRecents] = useState<RecentProject[]>([])
@@ -46,8 +58,8 @@ export function Home({ onOpen }: { onOpen(fs: ProjectFS): void }) {
       }
       await saveRecent(name, dir)
       onOpen(fs)
-    } catch {
-      // picker cancelled
+    } catch (err) {
+      reportPickerError(err)
     } finally {
       setBusy(null)
     }
@@ -68,8 +80,8 @@ export function Home({ onOpen }: { onOpen(fs: ProjectFS): void }) {
       }
       await saveRecent(handle.name, handle)
       onOpen(fs)
-    } catch {
-      // picker cancelled
+    } catch (err) {
+      reportPickerError(err)
     }
   }
 

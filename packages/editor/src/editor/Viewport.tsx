@@ -20,6 +20,8 @@ interface Props {
   selected: string | null
   onSelect(name: string | null): void
   onMoved(name: string, position: [number, number]): void
+  /** Reports a collision-box resize (corner-handle drag) on pointer-up. */
+  onCollisionResized?(name: string, componentType: 'Hitbox' | 'Solid', size: [number, number]): void
   /** Accepts 'waica/prefab' drops (refs); omit to reject drops (prefab stage). */
   onDropPrefab?(ref: string, world: [number, number]): void
 }
@@ -38,8 +40,43 @@ function entityBounds(entity: Entity): [number, number] {
   return [w, h]
 }
 
+function rectLoop(color: number): THREE.LineLoop {
+  const geo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-0.5, -0.5, 0),
+    new THREE.Vector3(0.5, -0.5, 0),
+    new THREE.Vector3(0.5, 0.5, 0),
+    new THREE.Vector3(-0.5, 0.5, 0),
+  ])
+  return new THREE.LineLoop(geo, new THREE.LineBasicMaterial({ color }))
+}
+
+const CORNERS: ReadonlyArray<readonly [number, number]> = [
+  [-0.5, -0.5],
+  [0.5, -0.5],
+  [0.5, 0.5],
+  [-0.5, 0.5],
+]
+
+/** Hitbox first: when both boxes share a corner, its handle wins the hit-test. */
+const COLLISION_KINDS = [
+  { type: 'Hitbox', color: 0xef476f },
+  { type: 'Solid', color: 0x06d6a0 },
+] as const
+
+/** The entity's live collision component of the given kind, if any. */
+function findCollision(
+  entity: Entity,
+  type: 'Hitbox' | 'Solid',
+): { width: number; height: number } | null {
+  const comp = entity.components.find(
+    (c) => (c.constructor as { componentName?: string }).componentName === type,
+  ) as unknown as { width?: unknown; height?: unknown } | undefined
+  if (typeof comp?.width !== 'number' || typeof comp.height !== 'number') return null
+  return comp as { width: number; height: number }
+}
+
 export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
-  { scene, registry = ACTIVE_ARCHETYPE.registry, epoch, mode, viewHeight = 12, selected, onSelect, onMoved, onDropPrefab },
+  { scene, registry = ACTIVE_ARCHETYPE.registry, epoch, mode, viewHeight = 12, selected, onSelect, onMoved, onCollisionResized, onDropPrefab },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -52,6 +89,7 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
   const cam = useRef({ x: 0, y: 0, view: viewHeight })
   const drag = useRef<{ name: string; ox: number; oy: number } | null>(null)
   const pan = useRef<{ px: number; py: number } | null>(null)
+  const resize = useRef<{ name: string; compType: 'Hitbox' | 'Solid' } | null>(null)
 
   sceneRef.current = scene
   registryRef.current = registry
@@ -70,30 +108,65 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
       game.camera.position.y = cam.current.y
     }
     // Selection gizmo: a rectangle around the entity.
-    const gizmoGeo = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(-0.5, -0.5, 0),
-      new THREE.Vector3(0.5, -0.5, 0),
-      new THREE.Vector3(0.5, 0.5, 0),
-      new THREE.Vector3(-0.5, 0.5, 0),
-    ])
-    const gizmo = new THREE.LineLoop(
-      gizmoGeo,
-      new THREE.LineBasicMaterial({ color: 0xffb703 }),
-    )
+    const gizmo = rectLoop(0xffb703)
     gizmo.position.z = 5
     gizmo.visible = false
     game.scene.add(gizmo)
 
+    // Collision gizmos: the selected entity's Hitbox/Solid boxes, with corner
+    // handles to resize them by dragging.
+    const collisionGizmos = COLLISION_KINDS.map(({ type, color }) => {
+      const loop = rectLoop(color)
+      loop.position.z = 5
+      loop.visible = false
+      game.scene.add(loop)
+      const handles = CORNERS.map(() => {
+        const handle = new THREE.Mesh(
+          new THREE.PlaneGeometry(1, 1),
+          new THREE.MeshBasicMaterial({ color }),
+        )
+        handle.position.z = 5.1
+        handle.visible = false
+        game.scene.add(handle)
+        return handle
+      })
+      return { type, loop, handles }
+    })
+
     game.onUpdate(() => {
       const name = selectedRef.current
       const entity = name ? game.find(name) : undefined
-      if (entity && modeRef.current === 'edit') {
+      const editing = entity && modeRef.current === 'edit'
+      if (editing) {
         const [w, h] = entityBounds(entity)
         gizmo.visible = true
         gizmo.position.set(entity.position.x, entity.position.y, 5)
         gizmo.scale.set(w + 0.2, h + 0.2, 1)
       } else {
         gizmo.visible = false
+      }
+      // Handles keep a constant screen size regardless of zoom.
+      const hs = game.view * 0.018
+      for (const g of collisionGizmos) {
+        const comp = editing ? findCollision(entity, g.type) : null
+        if (editing && comp) {
+          g.loop.visible = true
+          g.loop.position.set(entity.position.x, entity.position.y, 5)
+          g.loop.scale.set(comp.width, comp.height, 1)
+          g.handles.forEach((handle, i) => {
+            const [cx, cy] = CORNERS[i] ?? [0, 0]
+            handle.visible = true
+            handle.position.set(
+              entity.position.x + cx * comp.width,
+              entity.position.y + cy * comp.height,
+              5.1,
+            )
+            handle.scale.set(hs, hs, 1)
+          })
+        } else {
+          g.loop.visible = false
+          for (const handle of g.handles) handle.visible = false
+        }
       }
       if (modeRef.current === 'edit') {
         cam.current.x = game.camera.position.x
@@ -150,6 +223,30 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
     return null
   }
 
+  /** A collision-box corner handle of the selected entity under the pointer. */
+  const hitHandle = (wx: number, wy: number): { name: string; compType: 'Hitbox' | 'Solid' } | null => {
+    const game = gameRef.current
+    const name = selectedRef.current
+    if (!game || !name) return null
+    const entity = game.find(name)
+    if (!entity) return null
+    // Slightly larger than the visual handle so it's easy to grab.
+    const hs = game.view * 0.02
+    for (const { type } of COLLISION_KINDS) {
+      const comp = findCollision(entity, type)
+      if (!comp) continue
+      for (const [cx, cy] of CORNERS) {
+        if (
+          Math.abs(wx - (entity.position.x + cx * comp.width)) <= hs &&
+          Math.abs(wy - (entity.position.y + cy * comp.height)) <= hs
+        ) {
+          return { name, compType: type }
+        }
+      }
+    }
+    return null
+  }
+
   return (
     <canvas
       ref={canvasRef}
@@ -157,12 +254,17 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
       onPointerDown={(e) => {
         if (modeRef.current !== 'edit') return
         const [wx, wy] = toWorld(e)
-        const hit = pickAt(wx, wy)
         try {
           e.currentTarget.setPointerCapture(e.pointerId)
         } catch {
           // synthetic events or already-released pointers: the drag works anyway
         }
+        const handle = hitHandle(wx, wy)
+        if (handle) {
+          resize.current = handle
+          return
+        }
+        const hit = pickAt(wx, wy)
         if (hit) {
           onSelect(hit.name)
           drag.current = { name: hit.name, ox: wx - hit.position.x, oy: wy - hit.position.y }
@@ -174,7 +276,23 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
       onPointerMove={(e) => {
         const game = gameRef.current
         if (!game || modeRef.current !== 'edit') return
-        if (drag.current) {
+        if (resize.current) {
+          const [wx, wy] = toWorld(e)
+          const entity = game.find(resize.current.name)
+          const comp = entity && findCollision(entity, resize.current.compType)
+          if (entity && comp) {
+            // Boxes are centered on the entity, so a corner drag resizes symmetrically.
+            const snap = e.shiftKey ? 0.25 : 0
+            let w = Math.abs(wx - entity.position.x) * 2
+            let h = Math.abs(wy - entity.position.y) * 2
+            if (snap) {
+              w = Math.round(w / snap) * snap
+              h = Math.round(h / snap) * snap
+            }
+            comp.width = Math.max(0.1, w)
+            comp.height = Math.max(0.1, h)
+          }
+        } else if (drag.current) {
           const [wx, wy] = toWorld(e)
           const snap = e.shiftKey ? 0.5 : 0
           let x = wx - drag.current.ox
@@ -194,6 +312,16 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
         }
       }}
       onPointerUp={() => {
+        if (resize.current) {
+          const entity = gameRef.current?.find(resize.current.name)
+          const comp = entity && findCollision(entity, resize.current.compType)
+          if (comp) {
+            onCollisionResized?.(resize.current.name, resize.current.compType, [
+              Math.round(comp.width * 100) / 100,
+              Math.round(comp.height * 100) / 100,
+            ])
+          }
+        }
         if (drag.current) {
           const entity = gameRef.current?.find(drag.current.name)
           if (entity) {
@@ -203,6 +331,7 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
             ])
           }
         }
+        resize.current = null
         drag.current = null
         pan.current = null
       }}

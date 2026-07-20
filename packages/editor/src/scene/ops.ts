@@ -8,7 +8,7 @@ import {
 
 /** Pure mutations over the scene (the editor's source of truth). */
 
-function prefabOwns(
+export function prefabOwns(
   entity: SceneEntityJson,
   componentType: string,
   prefabs?: Record<string, PrefabJson>,
@@ -89,6 +89,28 @@ export function setComponentProp(
         ),
       }
     }),
+  }
+}
+
+/** Replaces an inline component's props wholesale (animation editor save). */
+export function setComponentProps(
+  scene: SceneJson,
+  entityName: string,
+  componentType: string,
+  props: Record<string, unknown>,
+): SceneJson {
+  return {
+    ...scene,
+    entities: scene.entities.map((e) =>
+      e.name === entityName
+        ? {
+            ...e,
+            components: (e.components ?? []).map((c) =>
+              c.type === componentType ? { ...c, props: structuredClone(props) } : c,
+            ),
+          }
+        : e,
+    ),
   }
 }
 

@@ -2,13 +2,18 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PrefabJson, SceneJson } from '@waica/engine'
 import { ACTIVE_ARCHETYPE } from '../project/archetype'
 import type { ProjectFS } from '../fs/project-fs'
-import { listScenes, loadPrefabLib, savePrefab } from '../fs/prefab-fs'
+import { listScenes, loadPrefabLib, savePrefab, prefabPath, PREFAB_DIRS } from '../fs/prefab-fs'
+import { newPrefabComponents, setCollisionEnabled, toggleAnimated } from '../project/chassis'
 import * as ops from '../scene/ops'
+import { PLATFORMER_ANIMATION_CONTRACT } from '@waica/behaviors'
+import { toAnimatedProps } from '../project/clips'
 import { Viewport, type ViewportHandle } from './Viewport'
-import { Explorer, refBase, type ArtItem, type ExplorerView } from './Explorer'
-import { Inspector, type InspectorSelection } from './Inspector'
+import { Explorer, refBase, type ExplorerView } from './Explorer'
+import { Inspector, type AnimTarget, type InspectorSelection } from './Inspector'
+import { AnimationEditor } from './AnimationEditor'
 import { CodePane } from './CodePane'
 import { scriptSource } from './script-sources'
+import { useProjectArt, type ArtItem } from './use-project-art'
 
 type SaveState = 'saved' | 'saving' | 'error'
 
@@ -69,12 +74,19 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const [saveState, setSaveState] = useState<SaveState>('saved')
   const [artDims, setArtDims] = useState<[number, number] | null>(null)
   const [prefabLib, setPrefabLib] = useState<Record<string, PrefabJson>>(ACTIVE_ARCHETYPE.prefabs)
+  const [animTarget, setAnimTarget] = useState<AnimTarget | null>(null)
   const viewport = useRef<ViewportHandle>(null)
   const saveTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
   // Committed scenes whose write hasn't landed yet: reopening one must show
   // this content, not the stale file on disk.
   const pendingScenes = useRef(new Map<string, SceneJson>())
   const prefabTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  const projectArt = useProjectArt(fs)
+
+  // Textures referencing freshly scanned art need the stage to rebind them.
+  useEffect(() => {
+    setEpoch((e) => e + 1)
+  }, [projectArt.art])
 
   useEffect(() => {
     void listScenes(fs).then(setScenePaths)
@@ -156,8 +168,9 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   }
 
   const registryWithPrefabs = useMemo(
-    () => ({ ...ACTIVE_ARCHETYPE.registry, prefabs: prefabLib }),
-    [prefabLib],
+    // urlFor resolves project-art paths (src/art/*.png) on top of waica:* assets.
+    () => ({ ...ACTIVE_ARCHETYPE.registry, prefabs: prefabLib, resolveAsset: projectArt.urlFor }),
+    [prefabLib, projectArt.urlFor],
   )
 
   const prefabScene = useMemo<SceneJson | null>(() => {
@@ -203,6 +216,104 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     openView({ kind: 'scene', path })
   }
 
+  const duplicateScene = async (path: string): Promise<void> => {
+    // A pending debounced save is newer than the file on disk.
+    const pending = pendingScenes.current.get(path)
+    const text = pending ? JSON.stringify(pending, null, 2) + '\n' : await fs.readText(path)
+    if (text == null) return
+    const names = new Set(scenePaths.map((p) => p.slice(p.lastIndexOf('/') + 1)))
+    const base = path.slice(path.lastIndexOf('/') + 1).replace(/\.scene\.json$/, '')
+    let copy = `${base}-copy`
+    for (let n = 2; names.has(`${copy}.scene.json`); n++) copy = `${base}-copy-${n}`
+    const newPath = `src/scenes/${copy}.scene.json`
+    await fs.writeText(newPath, text)
+    setScenePaths(await listScenes(fs))
+    openView({ kind: 'scene', path: newPath })
+  }
+
+  const deleteScene = async (path: string): Promise<void> => {
+    const label = path.slice(path.lastIndexOf('/') + 1)
+    if (!window.confirm(`Delete ${label}? This cannot be undone.`)) return
+    clearTimeout(saveTimers.current.get(path))
+    saveTimers.current.delete(path)
+    pendingScenes.current.delete(path)
+    await fs.deleteFile(path)
+    setScenePaths(await listScenes(fs))
+    if (openScenePath === path) {
+      setOpenScenePath(null)
+      setScene(null)
+      setSelected(null)
+    }
+    if (view?.kind === 'scene' && view.path === path) setView(null)
+  }
+
+  const duplicateEntity = (name: string): void => {
+    if (!scene || !openScenePath) return
+    const entity = ops.findEntity(scene, name)
+    if (!entity) return
+    const copy = structuredClone(entity)
+    copy.name = ops.uniqueName(scene, name)
+    // Nudge the copy so it doesn't hide exactly behind the original.
+    const [x, y] = entity.position ?? [0, 0]
+    copy.position = [x + 0.5, y]
+    commit(ops.addEntity(scene, copy), true)
+    setView({ kind: 'scene', path: openScenePath })
+    setSelected(copy.name)
+  }
+
+  const deleteEntity = (name: string): void => {
+    if (!scene) return
+    commit(ops.removeEntity(scene, name), true)
+    setSelected((s) => (s === name ? null : s))
+  }
+
+  const createPrefab = (type: PrefabJson['type']): void => {
+    const dir = Object.entries(PREFAB_DIRS).find(([, cat]) => cat === type)?.[0]
+    if (!dir) return
+    let n = 1
+    while (prefabLib[`${dir}/${type}-${n}`]) n++
+    const ref = `${dir}/${type}-${n}`
+    commitPrefab(ref, { waicaPrefab: 1, type, components: newPrefabComponents(type) }, true)
+    openView({ kind: 'prefab', ref })
+  }
+
+  const duplicatePrefab = (ref: string): void => {
+    const prefab = prefabLib[ref]
+    if (!prefab) return
+    const dir = ref.slice(0, ref.indexOf('/'))
+    const base = refBase(ref)
+    let copyRef = `${dir}/${base}-copy`
+    for (let n = 2; prefabLib[copyRef]; n++) copyRef = `${dir}/${base}-copy-${n}`
+    commitPrefab(copyRef, structuredClone(prefab), true)
+    openView({ kind: 'prefab', ref: copyRef })
+  }
+
+  const deletePrefab = async (ref: string): Promise<void> => {
+    if (!window.confirm(`Delete ${refBase(ref)}? Entities using it will lose its components.`)) {
+      return
+    }
+    clearTimeout(prefabTimers.current.get(ref))
+    prefabTimers.current.delete(ref)
+    // The file may not exist yet (debounced save cancelled above): ignore.
+    await fs.deleteFile(prefabPath(ref)).catch(() => {})
+    setPrefabLib((lib) => {
+      const next = { ...lib }
+      delete next[ref]
+      return next
+    })
+    setEpoch((e) => e + 1)
+    if (view?.kind === 'prefab' && view.ref === ref) setView(null)
+  }
+
+  const addPrefabToScene = (ref: string): void => {
+    if (!scene || !openScenePath) return
+    const base = refBase(ref)
+    const name = ops.uniqueName(scene, base.charAt(0).toUpperCase() + base.slice(1))
+    commit(ops.addEntity(scene, { name, prefab: ref, position: [0, 0] }), true)
+    setView({ kind: 'scene', path: openScenePath })
+    setSelected(name)
+  }
+
   const play = (): void => {
     setSelected(null)
     setMode('play')
@@ -244,6 +355,19 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
           selected={selected}
           onSelect={setSelected}
           onMoved={(name, position) => commit(ops.moveEntity(scene, name, position))}
+          onCollisionResized={(name, compType, [w, h]) => {
+            // The viewport already holds the live values: non-structural commit.
+            commit(
+              ops.setComponentProp(
+                ops.setComponentProp(scene, name, compType, 'width', w, prefabLib),
+                name,
+                compType,
+                'height',
+                h,
+                prefabLib,
+              ),
+            )
+          }}
           onDropPrefab={(data, world) => {
             // Legacy 'waica/template' payloads carry the base name, not the ref.
             const ref = prefabLib[data]
@@ -279,6 +403,14 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             selected={refBase(view.ref)}
             onSelect={() => {}}
             onMoved={() => {}}
+            onCollisionResized={(_name, compType, [w, h]) => {
+              const prefab = prefabLib[view.ref]
+              if (!prefab) return
+              commitPrefab(
+                view.ref,
+                setPrefabProp(setPrefabProp(prefab, compType, 'width', w), compType, 'height', h),
+              )
+            }}
           />
           <div className="ed-stage-caption">{view.ref.replace('/', ' / ')}</div>
         </>
@@ -332,6 +464,9 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             view={view}
             selected={selected}
             prefabLib={prefabLib}
+            art={projectArt.art}
+            onImportArt={projectArt.importArt}
+            onRefreshArt={projectArt.refresh}
             onOpenScene={(path) => openView({ kind: 'scene', path })}
             onSelectEntity={(name) => {
               if (!openScenePath) return
@@ -343,6 +478,17 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             onOpenPrefab={(ref) => openView({ kind: 'prefab', ref })}
             onOpenScript={(name) => openView({ kind: 'script', name })}
             onOpenArt={(item: ArtItem) => openView({ kind: 'art', ...item })}
+            onDuplicateScene={(path) => void duplicateScene(path)}
+            onDeleteScene={(path) => void deleteScene(path)}
+            onDuplicateEntity={duplicateEntity}
+            onDeleteEntity={deleteEntity}
+            onCreatePrefab={createPrefab}
+            onDuplicatePrefab={duplicatePrefab}
+            onDeletePrefab={(ref) => void deletePrefab(ref)}
+            onAddPrefabToScene={addPrefabToScene}
+            onArtDeleted={(label) => {
+              if (view?.kind === 'art' && view.label === label) setView(null)
+            }}
           />
         </aside>
 
@@ -374,11 +520,15 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             onRemoveComponent={(entity, type) => {
               if (scene) commit(ops.removeComponent(scene, entity, type, prefabLib), true)
             }}
-            onDelete={(name) => {
+            onSetEntityCollision={(entity, type) => {
               if (!scene) return
-              commit(ops.removeEntity(scene, name), true)
-              setSelected(null)
+              // Swap in one commit: chained handlers would each see a stale scene.
+              let next = scene
+              for (const t of ['Hitbox', 'Solid']) next = ops.removeComponent(next, entity, t, prefabLib)
+              if (type) next = ops.addComponent(next, entity, type)
+              commit(next, true)
             }}
+            onDelete={deleteEntity}
             onOpenPrefab={(ref) => openView({ kind: 'prefab', ref })}
             onPrefabProp={(ref, componentType, key, value) => {
               const prefab = prefabLib[ref]
@@ -405,9 +555,79 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
                 true,
               )
             }}
+            onPrefabToggleAnimated={(ref) => {
+              const prefab = prefabLib[ref]
+              if (!prefab) return
+              const anim = prefab.components.find((c) => c.type === 'AnimatedSprite')
+              const clipCount = Object.keys((anim?.props?.clips as object | undefined) ?? {}).length
+              if (
+                anim &&
+                clipCount > 0 &&
+                !window.confirm(`Switching to static discards ${clipCount} animation clip(s).`)
+              ) {
+                return
+              }
+              const next = toggleAnimated(prefab)
+              if (!next) return
+              commitPrefab(ref, next, true)
+              // Going animated drops you straight into the clip editor.
+              if (next.components.some((c) => c.type === 'AnimatedSprite')) {
+                setAnimTarget({ kind: 'prefab', ref })
+              }
+            }}
+            onEditAnimation={setAnimTarget}
+            onPrefabSetCollision={(ref, enabled) => {
+              const prefab = prefabLib[ref]
+              if (prefab) commitPrefab(ref, setCollisionEnabled(prefab, enabled), true)
+            }}
           />
         </aside>
       </div>
+
+      {animTarget &&
+        (() => {
+          const comp =
+            animTarget.kind === 'prefab'
+              ? prefabLib[animTarget.ref]?.components.find((c) => c.type === 'AnimatedSprite')
+              : scene?.entities
+                  .find((e) => e.name === animTarget.name)
+                  ?.components?.find((c) => c.type === 'AnimatedSprite')
+          if (!comp) return null
+          const isCharacter =
+            animTarget.kind === 'prefab' && prefabLib[animTarget.ref]?.type === 'character'
+          return (
+            <AnimationEditor
+              title={animTarget.kind === 'prefab' ? animTarget.ref : animTarget.name}
+              initial={toAnimatedProps(comp.props)}
+              contract={isCharacter ? PLATFORMER_ANIMATION_CONTRACT : undefined}
+              art={projectArt.art}
+              urlFor={projectArt.urlFor}
+              onImportArt={projectArt.importArt}
+              onSave={(next) => {
+                const props = next as unknown as Record<string, unknown>
+                if (animTarget.kind === 'prefab') {
+                  const prefab = prefabLib[animTarget.ref]
+                  if (prefab) {
+                    commitPrefab(
+                      animTarget.ref,
+                      {
+                        ...prefab,
+                        components: prefab.components.map((c) =>
+                          c.type === 'AnimatedSprite' ? { ...c, props } : c,
+                        ),
+                      },
+                      true,
+                    )
+                  }
+                } else if (scene) {
+                  commit(ops.setComponentProps(scene, animTarget.name, 'AnimatedSprite', props), true)
+                }
+                setAnimTarget(null)
+              }}
+              onCancel={() => setAnimTarget(null)}
+            />
+          )
+        })()}
     </div>
   )
 }

@@ -18,6 +18,10 @@ export interface ProjectFS {
   readonly kind: 'real' | 'memory'
   readText(path: string): Promise<string | null>
   writeText(path: string, content: string): Promise<void>
+  /** Raw bytes of a file (for binary assets like images), or null if missing. */
+  readFile(path: string): Promise<Uint8Array<ArrayBuffer> | null>
+  writeFile(path: string, bytes: Uint8Array<ArrayBuffer>): Promise<void>
+  deleteFile(path: string): Promise<void>
   tree(): Promise<TreeNode[]>
 }
 
@@ -77,6 +81,41 @@ export class RealFS implements ProjectFS {
     await writable.close()
   }
 
+  async readFile(path: string): Promise<Uint8Array<ArrayBuffer> | null> {
+    const parts = path.split('/')
+    const file = parts.pop()
+    if (!file) return null
+    const dir = await this.dir(parts, false)
+    if (!dir) return null
+    try {
+      const handle = await dir.getFileHandle(file)
+      return new Uint8Array(await (await handle.getFile()).arrayBuffer())
+    } catch {
+      return null
+    }
+  }
+
+  async writeFile(path: string, bytes: Uint8Array<ArrayBuffer>): Promise<void> {
+    const parts = path.split('/')
+    const file = parts.pop()
+    if (!file) throw new Error(`invalid path: ${path}`)
+    const dir = await this.dir(parts, true)
+    if (!dir) throw new Error(`could not create the directory for ${path}`)
+    const handle = await dir.getFileHandle(file, { create: true })
+    const writable = await handle.createWritable()
+    await writable.write(bytes)
+    await writable.close()
+  }
+
+  async deleteFile(path: string): Promise<void> {
+    const parts = path.split('/')
+    const file = parts.pop()
+    if (!file) throw new Error(`invalid path: ${path}`)
+    const dir = await this.dir(parts, false)
+    if (!dir) throw new Error(`no such directory for ${path}`)
+    await dir.removeEntry(file)
+  }
+
   async tree(): Promise<TreeNode[]> {
     const walk = async (dir: FileSystemDirectoryHandle, base: string): Promise<TreeNode[]> => {
       const nodes: TreeNode[] = []
@@ -103,6 +142,7 @@ export class RealFS implements ProjectFS {
 export class MemFS implements ProjectFS {
   readonly kind = 'memory'
   private readonly files: Map<string, string>
+  private readonly blobs = new Map<string, Uint8Array<ArrayBuffer>>()
 
   constructor(
     readonly name: string,
@@ -120,9 +160,27 @@ export class MemFS implements ProjectFS {
     return Promise.resolve()
   }
 
+  readFile(path: string): Promise<Uint8Array<ArrayBuffer> | null> {
+    const blob = this.blobs.get(path)
+    if (blob) return Promise.resolve(blob)
+    const text = this.files.get(path)
+    return Promise.resolve(text != null ? new TextEncoder().encode(text) : null)
+  }
+
+  writeFile(path: string, bytes: Uint8Array<ArrayBuffer>): Promise<void> {
+    this.blobs.set(path, bytes)
+    return Promise.resolve()
+  }
+
+  deleteFile(path: string): Promise<void> {
+    this.files.delete(path)
+    this.blobs.delete(path)
+    return Promise.resolve()
+  }
+
   tree(): Promise<TreeNode[]> {
     const root: TreeNode[] = []
-    for (const path of [...this.files.keys()].sort()) {
+    for (const path of [...this.files.keys(), ...this.blobs.keys()].sort()) {
       const parts = path.split('/')
       let level = root
       let acc = ''

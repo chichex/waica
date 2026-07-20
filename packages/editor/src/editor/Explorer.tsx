@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useRef, useState } from 'react'
 import type { PrefabJson, SceneEntityJson, SceneJson } from '@waica/engine'
 import { ACTIVE_ARCHETYPE } from '../project/archetype'
-import { RealFS, type ProjectFS, type TreeNode } from '../fs/project-fs'
+import type { ProjectFS } from '../fs/project-fs'
+import { behaviourTypes } from '../project/chassis'
 import { resolveComponents } from '../scene/ops'
+import { ContextMenu, type MenuEntry, type MenuState } from './ContextMenu'
+import type { ArtItem } from './use-project-art'
 
 /** What the center pane (and the inspector) is looking at. */
 export type ExplorerView =
@@ -11,31 +14,20 @@ export type ExplorerView =
   | { kind: 'script'; name: string }
   | { kind: 'art'; label: string; url: string }
 
-export interface ArtItem {
-  label: string
-  url: string
-}
-
-const PREFAB_GROUPS: Array<{ title: string; type: PrefabJson['type'] }> = [
-  { title: 'Characters', type: 'character' },
-  { title: 'Objects', type: 'object' },
-  { title: 'Tiles', type: 'tile' },
-  { title: 'UI', type: 'ui' },
+const PREFAB_GROUPS: Array<{ title: string; type: PrefabJson['type']; createLabel: string }> = [
+  { title: 'Characters', type: 'character', createLabel: 'New character' },
+  { title: 'Objects', type: 'object', createLabel: 'New object' },
+  { title: 'Tiles', type: 'tile', createLabel: 'New tile' },
+  { title: 'UI', type: 'ui', createLabel: 'New UI element' },
 ]
 
 const PREFAB_ICONS = new Map(ACTIVE_ARCHETYPE.palette.map((t) => [t.label, t.icon]))
 
-/** Registry components that declare inspector params are the editable "scripts". */
-const SCRIPTS = Object.entries(ACTIVE_ARCHETYPE.registry.components)
-  .filter(([, Class]) => Class.params && Object.keys(Class.params).length > 0)
-  .map(([name]) => name)
+/** Core chassis components (Sprite, Solid…) are not scripts: only behaviours list here. */
+const BUILTIN_COMPONENTS = behaviourTypes(Object.keys(ACTIVE_ARCHETYPE.registry.components))
 
-const resolveAsset = ACTIVE_ARCHETYPE.registry.resolveAsset ?? ((uri: string) => uri)
-const BUILTIN_ART: ArtItem[] = [
-  { label: 'waica-dog.png', url: resolveAsset('waica:dog') },
-  { label: 'waica-coin.png', url: resolveAsset('waica:coin') },
-  { label: 'waica-slime.png', url: resolveAsset('waica:slime') },
-]
+/** No project-authored components yet: this stays empty until that feature ships. */
+const CUSTOM_COMPONENTS: string[] = []
 
 export function refBase(ref: string): string {
   return ref.slice(ref.indexOf('/') + 1)
@@ -55,21 +47,6 @@ function entityIcon(entity: SceneEntityJson, prefabs: Record<string, PrefabJson>
   return '▢'
 }
 
-/** Blob URL for a binary project file (File System Access API only). */
-async function fileUrl(root: FileSystemDirectoryHandle, path: string): Promise<string | null> {
-  const parts = path.split('/')
-  const name = parts.pop()
-  if (!name) return null
-  let dir = root
-  try {
-    for (const part of parts) dir = await dir.getDirectoryHandle(part)
-    const file = await (await dir.getFileHandle(name)).getFile()
-    return URL.createObjectURL(file)
-  } catch {
-    return null
-  }
-}
-
 export function Explorer({
   fs,
   scenePaths,
@@ -78,6 +55,9 @@ export function Explorer({
   view,
   selected,
   prefabLib,
+  art,
+  onImportArt,
+  onRefreshArt,
   onOpenScene,
   onSelectEntity,
   onAddEntity,
@@ -85,6 +65,15 @@ export function Explorer({
   onOpenPrefab,
   onOpenScript,
   onOpenArt,
+  onDuplicateScene,
+  onDeleteScene,
+  onDuplicateEntity,
+  onDeleteEntity,
+  onCreatePrefab,
+  onDuplicatePrefab,
+  onDeletePrefab,
+  onAddPrefabToScene,
+  onArtDeleted,
 }: {
   fs: ProjectFS
   scenePaths: string[]
@@ -94,6 +83,9 @@ export function Explorer({
   view: ExplorerView | null
   selected: string | null
   prefabLib: Record<string, PrefabJson>
+  art: ArtItem[]
+  onImportArt(files: File[]): Promise<void>
+  onRefreshArt(): void
   onOpenScene(path: string): void
   onSelectEntity(name: string): void
   onAddEntity(): void
@@ -101,47 +93,47 @@ export function Explorer({
   onOpenPrefab(ref: string): void
   onOpenScript(name: string): void
   onOpenArt(item: ArtItem): void
+  onDuplicateScene(path: string): void
+  onDeleteScene(path: string): void
+  onDuplicateEntity(name: string): void
+  onDeleteEntity(name: string): void
+  onCreatePrefab(type: PrefabJson['type']): void
+  onDuplicatePrefab(ref: string): void
+  onDeletePrefab(ref: string): void
+  onAddPrefabToScene(ref: string): void
+  onArtDeleted(label: string): void
 }) {
-  const [art, setArt] = useState<ArtItem[]>(BUILTIN_ART)
+  const [dropping, setDropping] = useState(false)
+  const [menu, setMenu] = useState<MenuState | null>(null)
+  const filePicker = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    let cancelled = false
-    const created: string[] = []
-    const load = async (): Promise<ArtItem[]> => {
-      if (!(fs instanceof RealFS)) return []
-      const tree = await fs.tree()
-      const findDir = (nodes: TreeNode[] | undefined, name: string): TreeNode | undefined =>
-        nodes?.find((n) => n.kind === 'dir' && n.name === name)
-      const roots = [findDir(findDir(tree, 'src')?.children, 'art'), findDir(tree, 'public')]
-      const files: TreeNode[] = []
-      const walk = (nodes?: TreeNode[]): void => {
-        for (const node of nodes ?? []) {
-          if (node.kind === 'dir') walk(node.children)
-          else if (/\.(png|jpe?g)$/i.test(node.name)) files.push(node)
-        }
-      }
-      for (const root of roots) walk(root?.children)
-      const items: ArtItem[] = []
-      for (const file of files) {
-        const url = await fileUrl(fs.handle, file.path)
-        if (!url) continue
-        created.push(url)
-        items.push({ label: file.name, url })
-      }
-      return items
-    }
-    void load().then((items) => {
-      if (!cancelled) setArt([...BUILTIN_ART, ...items])
-    })
-    return () => {
-      cancelled = true
-      for (const url of created) URL.revokeObjectURL(url)
-    }
-  }, [fs])
+  const openMenu = (e: React.MouseEvent, entries: MenuEntry[]): void => {
+    e.preventDefault()
+    e.stopPropagation()
+    setMenu({ x: e.clientX, y: e.clientY, entries })
+  }
+
+  const pickImages = (): void => filePicker.current?.click()
+
+  const deleteArt = async (item: ArtItem): Promise<void> => {
+    if (!item.path) return
+    if (!window.confirm(`Delete ${item.label}? This cannot be undone.`)) return
+    await fs.deleteFile(item.path)
+    onArtDeleted(item.label)
+    onRefreshArt()
+  }
 
   return (
     <>
-      <section className="ed-panel">
+      <section
+        className="ed-panel"
+        onContextMenu={(e) =>
+          openMenu(e, [
+            { label: 'New scene', icon: '＋', onClick: onCreateScene },
+            { label: 'New entity', icon: '＋', disabled: !scene, onClick: onAddEntity },
+          ])
+        }
+      >
         <header className="ed-panel-head">
           <span>Scenes</span>
           <button className="ed-mini" title="New scene" onClick={onCreateScene}>
@@ -154,7 +146,24 @@ export function Explorer({
             return (
               <div key={path}>
                 <div className="ed-x-row">
-                  <button className="ed-x-item" onClick={() => onOpenScene(path)}>
+                  <button
+                    className="ed-x-item"
+                    onClick={() => onOpenScene(path)}
+                    onContextMenu={(e) =>
+                      openMenu(e, [
+                        { label: 'Open', icon: '🎬', onClick: () => onOpenScene(path) },
+                        { label: 'Duplicate', icon: '⧉', onClick: () => onDuplicateScene(path) },
+                        'sep',
+                        {
+                          label: 'Delete',
+                          icon: '🗑',
+                          danger: true,
+                          disabled: scenePaths.length <= 1,
+                          onClick: () => onDeleteScene(path),
+                        },
+                      ])
+                    }
+                  >
                     <span className="ed-x-caret">{open ? '▾' : '▸'}</span>
                     <span className="ed-x-ico">🎬</span>
                     {sceneLabel(path)}
@@ -174,6 +183,23 @@ export function Explorer({
                           view?.kind === 'scene' && selected === entity.name ? 'is-selected' : ''
                         }`}
                         onClick={() => onSelectEntity(entity.name)}
+                        onContextMenu={(e) => {
+                          onSelectEntity(entity.name)
+                          openMenu(e, [
+                            {
+                              label: 'Duplicate',
+                              icon: '⧉',
+                              onClick: () => onDuplicateEntity(entity.name),
+                            },
+                            'sep',
+                            {
+                              label: 'Delete',
+                              icon: '🗑',
+                              danger: true,
+                              onClick: () => onDeleteEntity(entity.name),
+                            },
+                          ])
+                        }}
                       >
                         <span className="ed-x-ico">{entityIcon(entity, prefabLib)}</span>
                         {entity.name}
@@ -187,10 +213,19 @@ export function Explorer({
         </div>
       </section>
 
-      {PREFAB_GROUPS.map(({ title, type }) => (
-        <section className="ed-panel" key={type}>
+      {PREFAB_GROUPS.map(({ title, type, createLabel }) => (
+        <section
+          className="ed-panel"
+          key={type}
+          onContextMenu={(e) =>
+            openMenu(e, [{ label: createLabel, icon: '＋', onClick: () => onCreatePrefab(type) }])
+          }
+        >
           <header className="ed-panel-head">
             <span>{title}</span>
+            <button className="ed-mini" title={createLabel} onClick={() => onCreatePrefab(type)}>
+              ＋
+            </button>
           </header>
           <div className="ed-x-list">
             {Object.entries(prefabLib)
@@ -209,6 +244,30 @@ export function Explorer({
                       e.dataTransfer.effectAllowed = 'copy'
                     }}
                     onClick={() => onOpenPrefab(ref)}
+                    onContextMenu={(e) => {
+                      const builtin = ref in ACTIVE_ARCHETYPE.prefabs
+                      openMenu(e, [
+                        { label: 'Open', icon: '▣', onClick: () => onOpenPrefab(ref) },
+                        {
+                          label: 'Add to scene',
+                          icon: '＋',
+                          disabled: !scene,
+                          onClick: () => onAddPrefabToScene(ref),
+                        },
+                        { label: 'Duplicate', icon: '⧉', onClick: () => onDuplicatePrefab(ref) },
+                        'sep',
+                        { label: createLabel, icon: '＋', onClick: () => onCreatePrefab(type) },
+                        'sep',
+                        {
+                          label: 'Delete',
+                          icon: '🗑',
+                          danger: true,
+                          disabled: builtin,
+                          title: builtin ? 'Built-in prefabs cannot be deleted' : undefined,
+                          onClick: () => onDeletePrefab(ref),
+                        },
+                      ])
+                    }}
                   >
                     <span className="ed-x-ico">{PREFAB_ICONS.get(base) ?? '▣'}</span>
                     {base}
@@ -219,30 +278,97 @@ export function Explorer({
         </section>
       ))}
 
-      <section className="ed-panel">
+      <section
+        className="ed-panel"
+        onContextMenu={(e) =>
+          openMenu(e, [
+            { label: 'New component (coming soon)', icon: '＋', disabled: true, onClick: () => {} },
+          ])
+        }
+      >
         <header className="ed-panel-head">
-          <span>Scripts</span>
+          <span>Components</span>
+          <button className="ed-mini" title="Custom components are coming soon" disabled>
+            ＋
+          </button>
         </header>
+        <div className="ed-x-group-head">Built-in</div>
         <div className="ed-x-list">
-          {SCRIPTS.map((name) => (
+          {BUILTIN_COMPONENTS.map((name) => (
             <button
               key={name}
               className={`ed-x-item ${
                 view?.kind === 'script' && view.name === name ? 'is-selected' : ''
               }`}
               onClick={() => onOpenScript(name)}
+              onContextMenu={(e) =>
+                openMenu(e, [{ label: 'View code', icon: '📜', onClick: () => onOpenScript(name) }])
+              }
             >
               <span className="ed-x-ico">📜</span>
               {name}
             </button>
           ))}
         </div>
+        <div className="ed-x-group-head">Custom</div>
+        <div className="ed-x-list">
+          {CUSTOM_COMPONENTS.length === 0 ? (
+            <div className="ed-x-empty">No custom components yet</div>
+          ) : (
+            CUSTOM_COMPONENTS.map((name) => (
+              <button
+                key={name}
+                className={`ed-x-item ${
+                  view?.kind === 'script' && view.name === name ? 'is-selected' : ''
+                }`}
+                onClick={() => onOpenScript(name)}
+              >
+                <span className="ed-x-ico">📜</span>
+                {name}
+              </button>
+            ))
+          )}
+        </div>
       </section>
 
-      <section className="ed-panel">
+      <section
+        className={`ed-panel ${dropping ? 'is-dropping' : ''}`}
+        onContextMenu={(e) =>
+          openMenu(e, [{ label: 'Import images…', icon: '🖼️', onClick: pickImages }])
+        }
+        onDragOver={(e) => {
+          if (!e.dataTransfer.types.includes('Files')) return
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'copy'
+          setDropping(true)
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropping(false)
+        }}
+        onDrop={(e) => {
+          if (!e.dataTransfer.types.includes('Files')) return
+          e.preventDefault()
+          setDropping(false)
+          void onImportArt([...e.dataTransfer.files])
+        }}
+      >
         <header className="ed-panel-head">
           <span>Art</span>
+          <button className="ed-mini" title="Import images" onClick={pickImages}>
+            ＋
+          </button>
         </header>
+        <input
+          ref={filePicker}
+          type="file"
+          accept=".png,.jpg,.jpeg"
+          multiple
+          hidden
+          onChange={(e) => {
+            void onImportArt([...(e.currentTarget.files ?? [])])
+            e.currentTarget.value = ''
+          }}
+        />
         <div className="ed-x-list">
           {art.map((item) => (
             <button
@@ -251,13 +377,31 @@ export function Explorer({
                 view?.kind === 'art' && view.label === item.label ? 'is-selected' : ''
               }`}
               onClick={() => onOpenArt(item)}
+              onContextMenu={(e) =>
+                openMenu(e, [
+                  { label: 'Open', icon: '🖼️', onClick: () => onOpenArt(item) },
+                  { label: 'Import images…', icon: '＋', onClick: pickImages },
+                  'sep',
+                  {
+                    label: 'Delete',
+                    icon: '🗑',
+                    danger: true,
+                    disabled: !item.path,
+                    title: item.path ? undefined : 'Built-in art cannot be deleted',
+                    onClick: () => void deleteArt(item),
+                  },
+                ])
+              }
             >
               <span className="ed-x-ico">🖼️</span>
               {item.label}
             </button>
           ))}
+          <div className="ed-x-empty">Drop images here or press ＋</div>
         </div>
       </section>
+
+      {menu && <ContextMenu menu={menu} onClose={() => setMenu(null)} />}
     </>
   )
 }
