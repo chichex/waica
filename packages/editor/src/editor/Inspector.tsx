@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { missingClips, type PrefabJson, type SceneComponentJson, type SceneEntityJson } from '@waica/engine'
 import { PLATFORMER_ANIMATION_CONTRACT } from '@waica/behaviors'
 import { ACTIVE_ARCHETYPE } from '../project/archetype'
 import { prefabOwns, resolveComponents } from '../scene/ops'
 import { behaviourTypes, CHASSIS, splitComponents } from '../project/chassis'
 import { clipSummary } from '../project/clips'
-import type { ClipDef } from '@waica/engine'
+import { ACTION_LABELS, keyLabel, parseControls } from '../project/controls'
+import type { ProjectStats } from '../project/stats'
+import type { ClipDef, InputBindings, ParamSpec, StatValue } from '@waica/engine'
 
 /** What the inspector is editing, mirroring the explorer view. */
 export type InspectorSelection =
@@ -13,6 +15,8 @@ export type InspectorSelection =
   | { kind: 'prefab'; ref: string; prefab: PrefabJson }
   | { kind: 'script'; name: string }
   | { kind: 'art'; label: string; dims: [number, number] | null }
+  | { kind: 'controls'; bindings: InputBindings }
+  | { kind: 'stats'; stats: ProjectStats }
   | null
 
 /** Whose AnimatedSprite the animation editor should open on. */
@@ -45,12 +49,19 @@ interface Props {
   onPrefabToggleAnimated(ref: string): void
   onPrefabSetCollision(ref: string, enabled: boolean): void
   onEditAnimation(target: AnimTarget): void
+  onBindingsChange(next: InputBindings): void
+  onStatsChange(next: ProjectStats): void
 }
 
 function componentKeys(comp: SceneComponentJson): string[] {
   const Class = ACTIVE_ARCHETYPE.registry.components[comp.type]
   const declared = Object.keys(Class?.params ?? {})
   return [...new Set([...Object.keys(comp.props ?? {}), ...declared])]
+}
+
+/** Friendly component name for headers and pickers ("Movement", not "PlatformerMovement"). */
+function componentLabel(type: string): string {
+  return ACTIVE_ARCHETYPE.registry.components[type]?.displayName ?? type
 }
 
 // Unset params show the class defaults (what the game actually runs), so
@@ -75,18 +86,22 @@ function touchBehaviourNames(comps: SceneComponentJson[]): string[] {
 function PropRow({
   label,
   value,
+  spec,
   overridden = false,
   onChange,
 }: {
+  /** The raw prop key; shown as-is unless the spec declares a friendly label. */
   label: string
   value: unknown
+  /** Inspector metadata declared by the component class (label, range). */
+  spec?: ParamSpec
   /** Instance override on top of the prefab value: marked with a dot. */
   overridden?: boolean
   onChange(value: unknown): void
 }) {
   const name = (
     <span>
-      {label}
+      {spec?.label ?? label}
       {overridden && <i className="ed-dot" title="overridden on this instance" />}
     </span>
   )
@@ -107,6 +122,27 @@ function PropRow({
           type="color"
           value={hex}
           onChange={(e) => onChange(parseInt(e.target.value.slice(1), 16))}
+        />
+      </label>
+    )
+  }
+  if (typeof value === 'number' && spec?.min !== undefined && spec?.max !== undefined) {
+    return (
+      <label className="ed-row ed-row-slider">
+        {name}
+        <input
+          type="range"
+          min={spec.min}
+          max={spec.max}
+          step={spec.step ?? 0.1}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+        />
+        <input
+          type="number"
+          step={spec.step ?? 0.1}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
         />
       </label>
     )
@@ -164,12 +200,14 @@ function ComponentRows({
   onProp(key: string, value: unknown): void
 }) {
   const defaults = componentDefaults(comp)
+  const specs = ACTIVE_ARCHETYPE.registry.components[comp.type]?.params ?? {}
   return (
     <>
       {keys.map((key) => (
         <PropRow
           key={`${id}.${comp.type}.${key}`}
           label={key}
+          spec={specs[key]}
           value={(comp.props ?? {})[key] ?? defaults[key] ?? 0}
           overridden={overridden?.has(key)}
           onChange={(value) => onProp(key, value)}
@@ -200,7 +238,7 @@ function ComponentCard({
         className="ed-comp-head"
         title={onRemove ? undefined : 'defined by the prefab — edit the prefab to change it'}
       >
-        <span>{comp.type}</span>
+        <span>{componentLabel(comp.type)}</span>
         {onRemove && (
           <button className="ed-mini" title="Remove component" onClick={onRemove}>
             ✕
@@ -219,18 +257,25 @@ const ANIMATION_KEYS = new Set(['clips', 'cols', 'rows', 'initialClip', 'current
 function AppearanceSection({
   id,
   comp,
+  animator,
   overridden,
+  animatorOverridden,
   clipsWarning,
   onProp,
+  onAnimatorProp,
   onToggleAnimated,
   onEditAnimation,
 }: {
   id: string
   comp: SceneComponentJson
+  /** Animation plumbing (clip picking): its params render here, not as a card. */
+  animator?: SceneComponentJson | null
   overridden?: Set<string>
+  animatorOverridden?: Set<string>
   /** Contract gaps shown inline (characters). */
   clipsWarning?: string
   onProp(key: string, value: unknown): void
+  onAnimatorProp?(key: string, value: unknown): void
   /** Present only where the chassis allows animated <-> static (object prefabs). */
   onToggleAnimated?(): void
   /** Opens the animation editor (AnimatedSprite only). */
@@ -252,6 +297,15 @@ function AppearanceSection({
         <>
           <RoRow label="clips" value={clipSummary(clipsOf(comp))} />
           {clipsWarning && <div className="ed-hint ed-warn">{clipsWarning}</div>}
+          {animator && onAnimatorProp && (
+            <ComponentRows
+              id={id}
+              comp={animator}
+              keys={componentKeys(animator)}
+              overridden={animatorOverridden}
+              onProp={onAnimatorProp}
+            />
+          )}
           {onEditAnimation && (
             <button className="ed-wide" onClick={onEditAnimation}>
               🎞 Edit animation…
@@ -394,7 +448,7 @@ function AddComponentRow({ present, onAdd }: { present: Set<string>; onAdd(type:
         <option value="">+ behaviour…</option>
         {available.map((t) => (
           <option key={t} value={t}>
-            {t}
+            {componentLabel(t)}
           </option>
         ))}
       </select>
@@ -487,11 +541,16 @@ function EntityInspector({
         <AppearanceSection
           id={entity.name}
           comp={appearance}
+          animator={split.animator}
           overridden={overridesOf(appearance.type)}
+          animatorOverridden={split.animator ? overridesOf(split.animator.type) : undefined}
           clipsWarning={
             prefab?.type === 'character' ? characterClipsWarning(appearance) : undefined
           }
           onProp={(key, value) => onProp(entity.name, appearance.type, key, value)}
+          onAnimatorProp={(key, value) =>
+            split.animator && onProp(entity.name, split.animator.type, key, value)
+          }
           onEditAnimation={
             appearance.type === 'AnimatedSprite'
               ? () =>
@@ -581,10 +640,14 @@ function PrefabInspector({
         <AppearanceSection
           id={refName}
           comp={appearance}
+          animator={split.animator}
           clipsWarning={
             prefab.type === 'character' ? characterClipsWarning(appearance) : undefined
           }
           onProp={(key, value) => onProp(appearance.type, key, value)}
+          onAnimatorProp={(key, value) =>
+            split.animator && onProp(split.animator.type, key, value)
+          }
           onToggleAnimated={rule.appearance === 'switchable' ? onToggleAnimated : undefined}
           onEditAnimation={appearance.type === 'AnimatedSprite' ? onEditAnimation : undefined}
         />
@@ -608,6 +671,179 @@ function PrefabInspector({
         onRemove={onRemove}
         onAdd={onAdd}
       />
+    </div>
+  )
+}
+
+function ControlsInspector({
+  bindings,
+  onChange,
+}: {
+  bindings: InputBindings
+  onChange(next: InputBindings): void
+}) {
+  /** Action waiting for its next key press, if any. */
+  const [capturing, setCapturing] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!capturing) return
+    const onKey = (e: KeyboardEvent): void => {
+      // Capture phase so the pressed key never leaks into the editor UI.
+      e.preventDefault()
+      e.stopPropagation()
+      if (e.code !== 'Escape') {
+        const codes = bindings[capturing] ?? []
+        if (!codes.includes(e.code)) {
+          onChange({ ...bindings, [capturing]: [...codes, e.code] })
+        }
+      }
+      setCapturing(null)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [capturing, bindings, onChange])
+
+  const removeKey = (action: string, code: string): void => {
+    onChange({ ...bindings, [action]: (bindings[action] ?? []).filter((c) => c !== code) })
+  }
+
+  return (
+    <div className="ed-pad">
+      <div className="ed-hint">
+        which keys fire each action — the same controls apply to every scene
+      </div>
+      <div className="ed-section">
+        <header className="ed-sec-head">Keyboard</header>
+        {Object.entries(bindings).map(([action, codes]) => (
+          <div className="ed-keys-row" key={action}>
+            <span className="ed-keys-action">{ACTION_LABELS[action] ?? action}</span>
+            <div className="ed-keys">
+              {codes.map((code) => (
+                <button
+                  key={code}
+                  className="ed-key-chip"
+                  title="Remove this key"
+                  onClick={() => removeKey(action, code)}
+                >
+                  {keyLabel(code)} <span className="ed-key-x">×</span>
+                </button>
+              ))}
+              <button
+                className={`ed-key-add ${capturing === action ? 'is-listening' : ''}`}
+                onClick={() => setCapturing(capturing === action ? null : action)}
+              >
+                {capturing === action ? 'press a key… (Esc cancels)' : '+ key'}
+              </button>
+            </div>
+            {codes.length === 0 && (
+              <div className="ed-hint ed-warn">no keys — this action can't fire</div>
+            )}
+          </div>
+        ))}
+      </div>
+      <button className="ed-wide" onClick={() => onChange(parseControls(null))}>
+        ↺ Reset to defaults
+      </button>
+    </div>
+  )
+}
+
+/** Kinds a new stat can be born as; the row editor then follows the value's type. */
+const NEW_STAT_VALUES: Record<string, StatValue> = { number: 0, toggle: false, text: '' }
+
+function StatValueInput({
+  value,
+  onChange,
+}: {
+  value: StatValue
+  onChange(value: StatValue): void
+}) {
+  if (typeof value === 'boolean') {
+    return <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} />
+  }
+  if (typeof value === 'number') {
+    return (
+      <input
+        type="number"
+        step={1}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+      />
+    )
+  }
+  return <input type="text" value={value} onChange={(e) => onChange(e.target.value)} />
+}
+
+function StatsInspector({
+  stats,
+  onChange,
+}: {
+  stats: ProjectStats
+  onChange(next: ProjectStats): void
+}) {
+  const [newName, setNewName] = useState('')
+  const [newKind, setNewKind] = useState('number')
+
+  const name = newName.trim()
+  const taken = name in stats
+  const addStat = (): void => {
+    if (!name || taken) return
+    onChange({ ...stats, [name]: NEW_STAT_VALUES[newKind] ?? 0 })
+    setNewName('')
+  }
+  const removeStat = (statName: string): void => {
+    const next = { ...stats }
+    delete next[statName]
+    onChange(next)
+  }
+
+  const entries = Object.entries(stats)
+  return (
+    <div className="ed-pad">
+      <div className="ed-hint">
+        what the game keeps track of while playing (points, lives, flags…) — every play run
+        starts from these values, and behaviours read and change them
+      </div>
+      <div className="ed-section">
+        <header className="ed-sec-head">Stats</header>
+        {entries.length === 0 && <div className="ed-hint">no stats yet — try points or lives</div>}
+        {entries.map(([statName, value]) => (
+          <div className="ed-row ed-stat-row" key={statName}>
+            <span>{statName}</span>
+            <StatValueInput
+              value={value}
+              onChange={(next) => onChange({ ...stats, [statName]: next })}
+            />
+            <button
+              className="ed-mini"
+              title="Remove this stat"
+              onClick={() => removeStat(statName)}
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+        <div className="ed-stat-add">
+          <input
+            type="text"
+            placeholder="new stat name…"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') addStat()
+            }}
+          />
+          <select value={newKind} onChange={(e) => setNewKind(e.target.value)}>
+            <option value="number">number</option>
+            <option value="toggle">on/off</option>
+            <option value="text">text</option>
+          </select>
+          <button className="ed-mini" disabled={!name || taken} onClick={addStat}>
+            add
+          </button>
+        </div>
+        {taken && <div className="ed-hint ed-warn">a stat named “{name}” already exists</div>}
+      </div>
     </div>
   )
 }
@@ -664,6 +900,12 @@ export function Inspector(props: Props) {
         />
       )}
       {selection?.kind === 'script' && <ScriptInspector name={selection.name} />}
+      {selection?.kind === 'controls' && (
+        <ControlsInspector bindings={selection.bindings} onChange={props.onBindingsChange} />
+      )}
+      {selection?.kind === 'stats' && (
+        <StatsInspector stats={selection.stats} onChange={props.onStatsChange} />
+      )}
       {selection?.kind === 'art' && (
         <div className="ed-pad">
           <RoRow label="name" value={selection.label} />

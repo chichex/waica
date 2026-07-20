@@ -1,0 +1,8 @@
+{
+  "waicaControls": 1,
+  "bindings": {
+    "left": ["ArrowLeft", "KeyA"],
+    "right": ["ArrowRight", "KeyD"],
+    "jump": ["Space", "ArrowUp", "KeyW"]
+  }
+}

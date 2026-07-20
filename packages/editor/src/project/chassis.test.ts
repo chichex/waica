@@ -19,30 +19,32 @@ describe('componentRole', () => {
     expect(componentRole('AnimatedSprite')).toBe('appearance')
     expect(componentRole('Solid')).toBe('collision')
     expect(componentRole('Hitbox')).toBe('collision')
+    expect(componentRole('PlatformerAnimator')).toBe('animator')
     expect(componentRole('Patrol')).toBe('behaviour')
     expect(componentRole('HudCounter')).toBe('behaviour')
   })
 })
 
 describe('behaviourTypes', () => {
-  it('filters out the core components', () => {
-    expect(behaviourTypes(['Sprite', 'Solid', 'Patrol', 'Hitbox', 'Hazard'])).toEqual([
-      'Patrol',
-      'Hazard',
-    ])
+  it('filters out the core components, animator included', () => {
+    expect(
+      behaviourTypes(['Sprite', 'Solid', 'Patrol', 'Hitbox', 'PlatformerAnimator', 'Hazard']),
+    ).toEqual(['Patrol', 'Hazard'])
   })
 })
 
 describe('splitComponents', () => {
-  it('buckets appearance, collision and behaviours', () => {
+  it('buckets appearance, collision, animator and behaviours', () => {
     const split = splitComponents([
       { type: 'AnimatedSprite' },
       { type: 'Hitbox' },
+      { type: 'PlatformerAnimator' },
       { type: 'Patrol' },
       { type: 'Hazard' },
     ])
     expect(split.appearance?.type).toBe('AnimatedSprite')
     expect(split.collision?.type).toBe('Hitbox')
+    expect(split.animator?.type).toBe('PlatformerAnimator')
     expect(split.behaviours.map((c) => c.type)).toEqual(['Patrol', 'Hazard'])
     expect(split.extras).toEqual([])
   })
@@ -53,10 +55,17 @@ describe('splitComponents', () => {
       { type: 'AnimatedSprite' },
       { type: 'Solid' },
       { type: 'Hitbox' },
+      { type: 'PlatformerAnimator' },
+      { type: 'PlatformerAnimator' },
     ])
     expect(split.appearance?.type).toBe('Sprite')
     expect(split.collision?.type).toBe('Solid')
-    expect(split.extras.map((c) => c.type)).toEqual(['AnimatedSprite', 'Hitbox'])
+    expect(split.animator?.type).toBe('PlatformerAnimator')
+    expect(split.extras.map((c) => c.type)).toEqual([
+      'AnimatedSprite',
+      'Hitbox',
+      'PlatformerAnimator',
+    ])
   })
 })
 
@@ -64,6 +73,7 @@ describe('newPrefabComponents', () => {
   it('builds each chassis', () => {
     expect(newPrefabComponents('character').map((c) => c.type)).toEqual([
       'AnimatedSprite',
+      'PlatformerAnimator',
       'Hitbox',
     ])
     expect(newPrefabComponents('object').map((c) => c.type)).toEqual(['Sprite', 'Hitbox'])

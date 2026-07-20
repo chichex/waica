@@ -8,6 +8,7 @@ import { PlatformerMovement } from './platformer-movement'
  */
 export class CameraFollow extends Component {
   static override componentName = 'CameraFollow'
+  static override displayName = 'Camera'
   static override params = {
     deadzoneWidth: { label: 'Deadzone width', min: 0, max: 10, step: 0.25 },
     deadzoneHeight: { label: 'Deadzone height', min: 0, max: 10, step: 0.25 },

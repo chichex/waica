@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
-import { Game, loadScene, THREE, type Entity, type SceneJson, type SceneRegistry } from '@waica/engine'
+import { Game, loadScene, THREE, type Entity, type InputBindings, type SceneJson, type SceneRegistry, type StatValue } from '@waica/engine'
 import { ACTIVE_ARCHETYPE } from '../project/archetype'
 
 export interface ViewportHandle {
@@ -15,6 +15,10 @@ interface Props {
   /** Structural changes (create/delete) bump the epoch and recreate the game. */
   epoch: number
   mode: 'edit' | 'play'
+  /** Project control overrides for play mode (action → key codes). */
+  bindings?: InputBindings
+  /** Project stats (initial values) for play mode. */
+  stats?: Record<string, StatValue>
   /** Initial camera height in world units (zoom still applies). */
   viewHeight?: number
   selected: string | null
@@ -76,13 +80,15 @@ function findCollision(
 }
 
 export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
-  { scene, registry = ACTIVE_ARCHETYPE.registry, epoch, mode, viewHeight = 12, selected, onSelect, onMoved, onCollisionResized, onDropPrefab },
+  { scene, registry = ACTIVE_ARCHETYPE.registry, epoch, mode, bindings, stats, viewHeight = 12, selected, onSelect, onMoved, onCollisionResized, onDropPrefab },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const gameRef = useRef<Game | null>(null)
   const sceneRef = useRef(scene)
   const registryRef = useRef(registry)
+  const bindingsRef = useRef(bindings)
+  const statsRef = useRef(stats)
   const selectedRef = useRef(selected)
   const modeRef = useRef(mode)
   const [dropHover, setDropHover] = useState(false)
@@ -93,13 +99,22 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
 
   sceneRef.current = scene
   registryRef.current = registry
+  bindingsRef.current = bindings
+  statsRef.current = stats
   selectedRef.current = selected
   modeRef.current = mode
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const game = new Game({ canvas, viewHeight: cam.current.view, background: 0x1a1a2e })
+    // Bindings/stats are read via refs: project edits apply on the next Play (new Game).
+    const game = new Game({
+      canvas,
+      viewHeight: cam.current.view,
+      background: 0x1a1a2e,
+      bindings: bindingsRef.current,
+      stats: statsRef.current,
+    })
     gameRef.current = game
     loadScene(game, sceneRef.current, registryRef.current)
     game.simulate = mode === 'play'

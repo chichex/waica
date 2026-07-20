@@ -1,6 +1,9 @@
 export type ActionName = 'left' | 'right' | 'jump' | (string & {})
 
-const DEFAULT_BINDINGS: Record<string, string[]> = {
+/** Action → KeyboardEvent.code list. */
+export type InputBindings = Record<string, string[]>
+
+export const DEFAULT_BINDINGS: Readonly<InputBindings> = {
   left: ['ArrowLeft', 'KeyA'],
   right: ['ArrowRight', 'KeyD'],
   jump: ['Space', 'ArrowUp', 'KeyW'],
@@ -15,8 +18,9 @@ export class Input {
   private readonly down = new Set<string>()
   private readonly justDown = new Set<string>()
 
-  constructor(bindings: Record<string, string[]> = DEFAULT_BINDINGS) {
-    for (const [action, codes] of Object.entries(bindings)) {
+  /** Custom bindings override per action; unmentioned actions keep the defaults. */
+  constructor(bindings?: InputBindings) {
+    for (const [action, codes] of Object.entries({ ...DEFAULT_BINDINGS, ...bindings })) {
       this.bindings.set(action, new Set(codes))
     }
     window.addEventListener('keydown', this.onKeyDown)

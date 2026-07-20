@@ -16,6 +16,8 @@ export interface ComponentClass<T extends Component = Component> {
    * Used for `waica.params.json` overrides and the inspector.
    */
   componentName: string
+  /** Friendly name the inspector shows instead of componentName. */
+  displayName?: string
   /** Which properties the inspector exposes, with their ranges. */
   params?: Record<string, ParamSpec>
 }
@@ -26,6 +28,7 @@ export interface ComponentClass<T extends Component = Component> {
  */
 export abstract class Component {
   static componentName = 'Component'
+  static displayName?: string
   static params?: Record<string, ParamSpec>
 
   entity!: Entity

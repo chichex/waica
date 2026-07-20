@@ -987,6 +987,110 @@ select {
   grid-template-columns: 1fr 55px 55px;
 }
 
+/* controls inspector: action → key chips */
+
+.ed-keys-row {
+  margin: 8px 0;
+  font-size: 13px;
+}
+
+.ed-keys-action {
+  display: block;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.ed-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ed-key-chip,
+.ed-key-add {
+  background: #0e0e16;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ed-key-chip:hover {
+  border-color: var(--danger);
+}
+
+.ed-key-chip:hover .ed-key-x {
+  color: var(--danger);
+}
+
+.ed-key-x {
+  color: var(--text-dim);
+}
+
+.ed-key-add {
+  border-style: dashed;
+  color: var(--text-dim);
+}
+
+.ed-key-add:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.ed-key-add.is-listening {
+  border-color: var(--accent);
+  color: var(--accent);
+  animation: ed-blink 1s ease-in-out infinite;
+}
+
+@keyframes ed-blink {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* stats inspector: name | initial value | remove */
+
+.ed-stat-row {
+  grid-template-columns: 1fr 84px 22px;
+}
+
+.ed-stat-add {
+  display: flex;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.ed-stat-add input {
+  flex: 1;
+  min-width: 0;
+  background: #0e0e16;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 7px;
+  font-size: 12px;
+}
+
+.ed-stat-add select {
+  background: #0e0e16;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px;
+  font-size: 12px;
+}
+
+/* Params with a declared range: label | slider | number. */
+.ed-row-slider {
+  grid-template-columns: minmax(0, 1fr) 76px 54px;
+}
+
+.ed-row input[type='range'] {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
 .ed-row input[type='number'],
 .ed-row input[type='text'] {
   width: 100%;

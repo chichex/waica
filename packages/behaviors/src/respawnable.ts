@@ -7,6 +7,7 @@ import { PlatformerMovement } from './platformer-movement'
  */
 export class Respawnable extends Component {
   static override componentName = 'Respawnable'
+  static override displayName = 'Respawn'
   static override params = {
     killY: { label: 'Kill height', min: -50, max: 0, step: 1 },
   }

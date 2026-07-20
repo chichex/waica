@@ -1,20 +1,25 @@
 import { Component } from '@waica/engine'
 
 /**
- * Collect counter drawn over the game canvas — the data-driven HUD that
- * scenes ship as a 'ui/*' prefab entity. Counts the game's 'collect' events
- * and starts from zero on every fresh play run.
+ * Stat readout drawn over the game canvas — the data-driven HUD that
+ * scenes ship as a 'ui/*' prefab entity. Shows one stat from game.stats
+ * (points, lives…), which starts from the project's declared initial
+ * values (src/stats.json) on every fresh play run.
  */
 export class HudCounter extends Component {
   static override componentName = 'HudCounter'
+  static override displayName = 'Counter'
+  static override params = {
+    stat: { label: 'Stat' },
+  }
 
   icon = '🪙'
   anchor: 'top-left' | 'top-right' = 'top-left'
+  /** Which stat to display. */
+  stat = 'points'
 
-  private count = 0
   private node?: HTMLDivElement
-  private wasSimulating = false
-  private offCollect?: () => void
+  private offChange?: () => void
   private offFrame?: () => void
 
   override onReady(): void {
@@ -29,34 +34,27 @@ export class HudCounter extends Component {
     host.append(node)
     this.node = node
     this.refresh()
-    this.offCollect = this.game.events.on('collect', (value) => {
-      this.count += typeof value === 'number' ? value : 1
-      this.refresh()
-    })
+    this.offChange = this.game.stats.onChange(this.stat, () => this.refresh())
     // Component onUpdate pauses together with game.simulate, but the HUD must
-    // react to the pause itself (hide, then reset on resume): sync every frame.
+    // react to the pause itself (hide until resumed): sync every frame.
     this.offFrame = this.game.onUpdate(() => this.sync())
   }
 
   override onDestroy(): void {
-    this.offCollect?.()
+    this.offChange?.()
     this.offFrame?.()
     this.node?.remove()
     this.node = undefined
   }
 
   private sync(): void {
-    if (!this.node) return
-    if (this.game.simulate && !this.wasSimulating) {
-      this.count = 0
-      this.refresh()
-    }
-    this.node.style.display = this.game.simulate ? '' : 'none'
-    this.wasSimulating = this.game.simulate
+    if (this.node) this.node.style.display = this.game.simulate ? '' : 'none'
   }
 
   private refresh(): void {
-    if (this.node) this.node.textContent = `${this.icon} ${this.count}`
+    if (!this.node) return
+    const value = this.game.stats.get(this.stat) ?? 0
+    this.node.textContent = `${this.icon} ${typeof value === 'boolean' ? (value ? '✓' : '✕') : value}`
   }
 
   /** The engine keeps its renderer private; the HUD only needs the canvas parent. */

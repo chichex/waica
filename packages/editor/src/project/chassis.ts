@@ -12,17 +12,21 @@ export type PrefabType = PrefabJson['type']
 
 export const APPEARANCE_TYPES = ['Sprite', 'AnimatedSprite'] as const
 export const COLLISION_TYPES = ['Solid', 'Hitbox'] as const
+/** Animation plumbing (movement state → clip): folded into Appearance, never a card. */
+export const ANIMATOR_TYPES = ['PlatformerAnimator'] as const
 
 export const CORE_COMPONENT_TYPES: ReadonlySet<string> = new Set([
   ...APPEARANCE_TYPES,
   ...COLLISION_TYPES,
+  ...ANIMATOR_TYPES,
 ])
 
-export type ComponentRole = 'appearance' | 'collision' | 'behaviour'
+export type ComponentRole = 'appearance' | 'collision' | 'animator' | 'behaviour'
 
 export function componentRole(type: string): ComponentRole {
   if ((APPEARANCE_TYPES as readonly string[]).includes(type)) return 'appearance'
   if ((COLLISION_TYPES as readonly string[]).includes(type)) return 'collision'
+  if ((ANIMATOR_TYPES as readonly string[]).includes(type)) return 'animator'
   return 'behaviour'
 }
 
@@ -48,6 +52,7 @@ export function newPrefabComponents(type: PrefabType): SceneComponentJson[] {
     case 'character':
       return [
         { type: 'AnimatedSprite', props: structuredClone(DOG_SPRITE) },
+        { type: 'PlatformerAnimator' },
         { type: 'Hitbox', props: { width: 0.9, height: 0.95 } },
       ]
     case 'object':
@@ -68,6 +73,8 @@ export function newPrefabComponents(type: PrefabType): SceneComponentJson[] {
 export interface SplitComponents {
   appearance: SceneComponentJson | null
   collision: SceneComponentJson | null
+  /** Animation plumbing: its params render inside the Appearance section. */
+  animator: SceneComponentJson | null
   behaviours: SceneComponentJson[]
   /** Duplicate core components (hand-edited JSON): shown as plain removable cards. */
   extras: SceneComponentJson[]
@@ -75,7 +82,13 @@ export interface SplitComponents {
 
 /** Buckets a component list into the inspector's native sections. */
 export function splitComponents(components: SceneComponentJson[]): SplitComponents {
-  const out: SplitComponents = { appearance: null, collision: null, behaviours: [], extras: [] }
+  const out: SplitComponents = {
+    appearance: null,
+    collision: null,
+    animator: null,
+    behaviours: [],
+    extras: [],
+  }
   for (const comp of components) {
     const role = componentRole(comp.type)
     if (role === 'appearance') {
@@ -84,6 +97,9 @@ export function splitComponents(components: SceneComponentJson[]): SplitComponen
     } else if (role === 'collision') {
       if (out.collision) out.extras.push(comp)
       else out.collision = comp
+    } else if (role === 'animator') {
+      if (out.animator) out.extras.push(comp)
+      else out.animator = comp
     } else {
       out.behaviours.push(comp)
     }

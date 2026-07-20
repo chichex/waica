@@ -6,7 +6,8 @@
       "type": "HudCounter",
       "props": {
         "icon": "🪙",
-        "anchor": "top-left"
+        "anchor": "top-left",
+        "stat": "points"
       }
     }
   ]

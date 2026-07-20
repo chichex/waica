@@ -13,6 +13,8 @@ export type ExplorerView =
   | { kind: 'prefab'; ref: string }
   | { kind: 'script'; name: string }
   | { kind: 'art'; label: string; url: string }
+  | { kind: 'controls' }
+  | { kind: 'stats' }
 
 const PREFAB_GROUPS: Array<{ title: string; type: PrefabJson['type']; createLabel: string }> = [
   { title: 'Characters', type: 'character', createLabel: 'New character' },
@@ -65,6 +67,8 @@ export function Explorer({
   onOpenPrefab,
   onOpenScript,
   onOpenArt,
+  onOpenControls,
+  onOpenStats,
   onDuplicateScene,
   onDeleteScene,
   onDuplicateEntity,
@@ -93,6 +97,8 @@ export function Explorer({
   onOpenPrefab(ref: string): void
   onOpenScript(name: string): void
   onOpenArt(item: ArtItem): void
+  onOpenControls(): void
+  onOpenStats(): void
   onDuplicateScene(path: string): void
   onDeleteScene(path: string): void
   onDuplicateEntity(name: string): void
@@ -398,6 +404,28 @@ export function Explorer({
             </button>
           ))}
           <div className="ed-x-empty">Drop images here or press ＋</div>
+        </div>
+      </section>
+
+      <section className="ed-panel">
+        <header className="ed-panel-head">
+          <span>Project</span>
+        </header>
+        <div className="ed-x-list">
+          <button
+            className={`ed-x-item ${view?.kind === 'controls' ? 'is-selected' : ''}`}
+            onClick={onOpenControls}
+          >
+            <span className="ed-x-ico">🎮</span>
+            controls
+          </button>
+          <button
+            className={`ed-x-item ${view?.kind === 'stats' ? 'is-selected' : ''}`}
+            onClick={onOpenStats}
+          >
+            <span className="ed-x-ico">📊</span>
+            stats
+          </button>
         </div>
       </section>
 

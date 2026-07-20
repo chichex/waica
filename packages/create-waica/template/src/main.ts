@@ -1,6 +1,8 @@
 import { Game, loadScene, type PrefabJson } from '@waica/engine'
 import { PLATFORMER_REGISTRY } from '@waica/archetype-platformer'
 import scene from './scenes/main.scene.json'
+import controls from './controls.json'
+import stats from './stats.json'
 
 // Your prefab files (saved by the editor, or hand-edited — they're just JSON)
 // override the archetype defaults, so the shipped game runs what you tweaked.
@@ -32,7 +34,15 @@ if (canvas.dataset.waica) {
 }
 
 async function main(canvas: HTMLCanvasElement): Promise<void> {
-  const game = new Game({ canvas, viewHeight: 12, background: 0x1a1a2e })
+  // Controls and stats come from src/controls.json and src/stats.json
+  // (the editor's Project → controls / stats views).
+  const game = new Game({
+    canvas,
+    viewHeight: 12,
+    background: 0x1a1a2e,
+    bindings: controls.bindings,
+    stats: stats.stats,
+  })
 
   // Whatever you tweak in the inspector (~) is saved here and overrides the defaults.
   await game.loadParams('/waica.params.json')

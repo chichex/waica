@@ -3,6 +3,8 @@
 import pkgTpl from '../../../create-waica/template/package.json.tpl?raw'
 import indexHtml from '../../../create-waica/template/index.html?raw'
 import mainTs from '../../../create-waica/template/src/main.ts?raw'
+import controlsJson from '../../../create-waica/template/src/controls.json?raw'
+import statsJson from '../../../create-waica/template/src/stats.json?raw'
 import tsconfigJson from '../../../create-waica/template/tsconfig.json?raw'
 import viteConfigTs from '../../../create-waica/template/vite.config.ts?raw'
 import readmeMd from '../../../create-waica/template/README.md?raw'
@@ -23,6 +25,8 @@ export function projectFiles(name: string): Record<string, string> {
     'README.md': readmeMd,
     '.gitignore': gitignore,
     'src/main.ts': mainTs,
+    'src/controls.json': controlsJson,
+    'src/stats.json': statsJson,
     'src/scenes/main.scene.json': JSON.stringify(ACTIVE_ARCHETYPE.scene, null, 2) + '\n',
     'public/waica.params.json': '{}\n',
   }

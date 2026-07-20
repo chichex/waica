@@ -4,7 +4,8 @@ import type { Component, ComponentClass } from './component'
 import { Hitbox } from './components/hitbox'
 import { Entity } from './entity'
 import { Emitter } from './events'
-import { Input } from './input'
+import { Input, type InputBindings } from './input'
+import { Stats, type StatValue } from './stats'
 
 export interface GameOptions {
   /** Canvas the game draws into. */
@@ -13,6 +14,10 @@ export interface GameOptions {
   background?: THREE.ColorRepresentation
   /** Visible world height in units; the 2D camera frames this. */
   viewHeight?: number
+  /** Control overrides (action → key codes) on top of the defaults. */
+  bindings?: InputBindings
+  /** Initial stat values (points, lives…) from the project's stats.json. */
+  stats?: Record<string, StatValue>
 }
 
 export type UpdateFn = (dt: number) => void
@@ -27,9 +32,10 @@ export type ParamOverrides = Record<string, Record<string, Record<string, number
 export class Game {
   readonly scene = new THREE.Scene()
   readonly camera: THREE.OrthographicCamera
-  readonly input = new Input()
+  readonly input: Input
   readonly entities: Entity[] = []
   readonly events = new Emitter()
+  readonly stats: Stats
   paramOverrides: ParamOverrides = {}
   /**
    * With false, the loop keeps rendering but runs no component updates
@@ -46,6 +52,8 @@ export class Game {
   constructor(options: GameOptions) {
     const { canvas, background = 0x1a1a2e, viewHeight = 10 } = options
     this.viewHeight = viewHeight
+    this.input = new Input(options.bindings)
+    this.stats = new Stats(options.stats)
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this.scene.background = new THREE.Color(background)

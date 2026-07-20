@@ -9,6 +9,7 @@ import { Component, Solid, THREE } from '@waica/engine'
  */
 export class PlatformerMovement extends Component {
   static override componentName = 'PlatformerMovement'
+  static override displayName = 'Movement'
   static override params = {
     moveSpeed: { label: 'Speed', min: 1, max: 30, step: 0.5 },
     acceleration: { label: 'Acceleration', min: 5, max: 200, step: 5 },

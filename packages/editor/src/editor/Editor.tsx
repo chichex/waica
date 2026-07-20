@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { PrefabJson, SceneJson } from '@waica/engine'
+import type { InputBindings, PrefabJson, SceneJson } from '@waica/engine'
 import { ACTIVE_ARCHETYPE } from '../project/archetype'
 import type { ProjectFS } from '../fs/project-fs'
 import { listScenes, loadPrefabLib, savePrefab, prefabPath, PREFAB_DIRS } from '../fs/prefab-fs'
 import { newPrefabComponents, setCollisionEnabled, toggleAnimated } from '../project/chassis'
+import { CONTROLS_PATH, parseControls, serializeControls } from '../project/controls'
+import { STATS_PATH, parseStats, serializeStats, type ProjectStats } from '../project/stats'
 import * as ops from '../scene/ops'
 import { PLATFORMER_ANIMATION_CONTRACT } from '@waica/behaviors'
 import { toAnimatedProps } from '../project/clips'
@@ -75,7 +77,13 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const [artDims, setArtDims] = useState<[number, number] | null>(null)
   const [prefabLib, setPrefabLib] = useState<Record<string, PrefabJson>>(ACTIVE_ARCHETYPE.prefabs)
   const [animTarget, setAnimTarget] = useState<AnimTarget | null>(null)
+  /** null until src/controls.json is read (or defaulted). */
+  const [controls, setControls] = useState<InputBindings | null>(null)
+  /** null until src/stats.json is read (or defaulted). */
+  const [stats, setStats] = useState<ProjectStats | null>(null)
   const viewport = useRef<ViewportHandle>(null)
+  const controlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const statsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const saveTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
   // Committed scenes whose write hasn't landed yet: reopening one must show
   // this content, not the stale file on disk.
@@ -95,7 +103,33 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       // The viewport may have loaded with the archetype defaults already.
       setEpoch((e) => e + 1)
     })
+    void fs.readText(CONTROLS_PATH).then((text) => setControls(parseControls(text)))
+    void fs.readText(STATS_PATH).then((text) => setStats(parseStats(text)))
   }, [fs])
+
+  const commitControls = (next: InputBindings): void => {
+    setControls(next)
+    setSaveState('saving')
+    if (controlsTimer.current) clearTimeout(controlsTimer.current)
+    controlsTimer.current = setTimeout(() => {
+      controlsTimer.current = null
+      fs.writeText(CONTROLS_PATH, serializeControls(next))
+        .then(() => setSaveState('saved'))
+        .catch(() => setSaveState('error'))
+    }, 600)
+  }
+
+  const commitStats = (next: ProjectStats): void => {
+    setStats(next)
+    setSaveState('saving')
+    if (statsTimer.current) clearTimeout(statsTimer.current)
+    statsTimer.current = setTimeout(() => {
+      statsTimer.current = null
+      fs.writeText(STATS_PATH, serializeStats(next))
+        .then(() => setSaveState('saved'))
+        .catch(() => setSaveState('error'))
+    }, 600)
+  }
 
   useEffect(() => {
     if (!openScenePath) return
@@ -327,6 +361,12 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     }
     if (view?.kind === 'script') return { kind: 'script', name: view.name }
     if (view?.kind === 'art') return { kind: 'art', label: view.label, dims: artDims }
+    if (view?.kind === 'controls') {
+      return controls ? { kind: 'controls', bindings: controls } : null
+    }
+    if (view?.kind === 'stats') {
+      return stats ? { kind: 'stats', stats } : null
+    }
     if (view?.kind === 'scene' && scene && selected) {
       const entity = scene.entities.find((e) => e.name === selected)
       return entity ? { kind: 'entity', entity } : null
@@ -352,6 +392,8 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
           registry={registryWithPrefabs}
           epoch={epoch}
           mode={mode}
+          bindings={controls ?? undefined}
+          stats={stats ?? undefined}
           selected={selected}
           onSelect={setSelected}
           onMoved={(name, position) => commit(ops.moveEntity(scene, name, position))}
@@ -420,6 +462,20 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       const src = scriptSource(view.name)
       return <CodePane path={`scripts/${src.file}`} source={src.source} readOnly />
     }
+    if (view.kind === 'controls') {
+      return (
+        <div className="ed-vp-hint">
+          🎮 set the keys for each action in the Inspector — saved to {CONTROLS_PATH}
+        </div>
+      )
+    }
+    if (view.kind === 'stats') {
+      return (
+        <div className="ed-vp-hint">
+          📊 declare what the game keeps track of in the Inspector — saved to {STATS_PATH}
+        </div>
+      )
+    }
     return (
       <ArtStage
         label={view.label}
@@ -478,6 +534,8 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             onOpenPrefab={(ref) => openView({ kind: 'prefab', ref })}
             onOpenScript={(name) => openView({ kind: 'script', name })}
             onOpenArt={(item: ArtItem) => openView({ kind: 'art', ...item })}
+            onOpenControls={() => openView({ kind: 'controls' })}
+            onOpenStats={() => openView({ kind: 'stats' })}
             onDuplicateScene={(path) => void duplicateScene(path)}
             onDeleteScene={(path) => void deleteScene(path)}
             onDuplicateEntity={duplicateEntity}
@@ -580,6 +638,8 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
               const prefab = prefabLib[ref]
               if (prefab) commitPrefab(ref, setCollisionEnabled(prefab, enabled), true)
             }}
+            onBindingsChange={commitControls}
+            onStatsChange={commitStats}
           />
         </aside>
       </div>

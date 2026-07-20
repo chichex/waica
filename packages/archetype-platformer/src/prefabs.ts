@@ -84,6 +84,6 @@ export const PLATFORMER_PREFABS: Record<string, PrefabJson> = {
   'ui/coin-counter': {
     waicaPrefab: 1,
     type: 'ui',
-    components: [{ type: 'HudCounter', props: { icon: '🪙', anchor: 'top-left' } }],
+    components: [{ type: 'HudCounter', props: { icon: '🪙', anchor: 'top-left', stat: 'points' } }],
   },
 }
