@@ -40,8 +40,8 @@ pnpm dev   # platformer archetype — ← → move · space jump · ~ inspector
 
 | Package | What it is |
 |---|---|
-| `@waica/engine` | Core: game loop, Entity + Components, input actions, sprites, animated sprites + animation contracts, AABB solids |
-| `@waica/behaviors` | Curated game-feel library: `PlatformerMovement`, `PlatformerAnimator`, `Patrol`, … |
+| `@waica/engine` | Core: game loop, Entity + Components, `StateMachine` (character FSM), input actions, sprites, animated sprites + animation contracts, AABB solids |
+| `@waica/behaviors` | Curated game-feel library: `PlatformerMotor`, the `platformer` state set, `Patrol`, … |
 | `@waica/archetype-platformer` | Opinionated platformer setup — playable from minute zero. The placeholder hero is Waica herself (pixel art, script-generated) |
 | `@waica/overlay` | In-game inspector: live-edit params, persisted via the dev plugin |
 | `create-waica` | The wizard: `npm create waica` → pick an archetype → playable project |

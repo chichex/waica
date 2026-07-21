@@ -1,6 +1,6 @@
 import type { SceneJson } from '@waica/engine'
 
-/** Clips from the platformer animation contract, applied to the placeholder dog. */
+/** Clips matching the platformer state graph, applied to the placeholder dog. */
 export const DOG_SPRITE = {
   texture: 'waica:dog',
   cols: 4,

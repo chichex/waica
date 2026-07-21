@@ -1,11 +1,6 @@
-export { PlatformerMovement } from './platformer-movement'
+export { PlatformerMotor } from './platformer-motor'
+export { PLATFORMER_STATE_GRAPH, platformerUpdate } from './platformer-states'
 export { Collectible } from './collectible'
 export { Patrol } from './patrol'
 export { Hazard, resolveHazardTouch, type HazardTouch } from './hazard'
 export { Respawnable } from './respawnable'
-export {
-  PlatformerAnimator,
-  PLATFORMER_ANIMATION_CONTRACT,
-  pickClip,
-  type PlatformerAnimState,
-} from './platformer-animator'

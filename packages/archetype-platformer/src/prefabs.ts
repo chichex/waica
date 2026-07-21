@@ -1,4 +1,5 @@
 import type { PrefabJson } from '@waica/engine'
+import { PLATFORMER_STATE_GRAPH } from '@waica/behaviors'
 import { DOG_SPRITE } from './scene-default'
 
 /**
@@ -12,8 +13,15 @@ export const PLATFORMER_PREFABS: Record<string, PrefabJson> = {
     type: 'character',
     components: [
       { type: 'AnimatedSprite', props: DOG_SPRITE },
-      { type: 'PlatformerMovement' },
-      { type: 'PlatformerAnimator' },
+      { type: 'PlatformerMotor' },
+      {
+        type: 'StateMachine',
+        props: {
+          logic: 'platformer',
+          initial: PLATFORMER_STATE_GRAPH.initial,
+          states: PLATFORMER_STATE_GRAPH.states,
+        },
+      },
       { type: 'Hitbox', props: { width: 0.9, height: 0.95 } },
       { type: 'Respawnable', props: { killY: -12 } },
     ],
@@ -34,8 +42,16 @@ export const PLATFORMER_PREFABS: Record<string, PrefabJson> = {
           initialClip: 'idle',
         },
       },
-      { type: 'Hitbox', props: { width: 0.9, height: 0.6 } },
       { type: 'Patrol', props: { distance: 2, speed: 2 } },
+      {
+        type: 'StateMachine',
+        props: {
+          logic: 'patroller',
+          initial: 'walk',
+          states: { walk: { clip: 'idle' } },
+        },
+      },
+      { type: 'Hitbox', props: { width: 0.9, height: 0.6 } },
       { type: 'Hazard', props: { stompable: true, bounce: 10 } },
     ],
   },

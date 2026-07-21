@@ -1,5 +1,5 @@
 import { Component, type Entity } from '@waica/engine'
-import { PlatformerMovement } from './platformer-movement'
+import { PlatformerMotor } from './platformer-motor'
 import { Respawnable } from './respawnable'
 
 export type HazardTouch = 'stomp' | 'hurt'
@@ -33,18 +33,18 @@ export class Hazard extends Component {
   bounce = 10
 
   override onCollide(other: Entity): void {
-    const movement = other.get(PlatformerMovement)
-    if (!movement) return
-    const playerBottom = other.position.y - movement.hitboxHeight / 2
+    const motor = other.get(PlatformerMotor)
+    if (!motor) return
+    const playerBottom = other.position.y - motor.hitboxHeight / 2
     const touch = resolveHazardTouch(
-      movement.vy,
+      motor.vy,
       playerBottom,
       this.entity.position.y,
       this.stompable,
     )
     if (touch === 'stomp') {
       this.entity.destroy()
-      movement.vy = this.bounce
+      motor.vy = this.bounce
     } else {
       other.get(Respawnable)?.respawn()
     }

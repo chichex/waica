@@ -5,6 +5,10 @@ import controls from './controls.json'
 import stats from './stats.json'
 import settings from './game.json'
 
+// State code (src/states/*.ts) self-registers via defineStates on import —
+// dropping a file in the folder is all it takes.
+import.meta.glob('./states/*.ts', { eager: true })
+
 // The project's prefab files (src/characters|objects|tiles/*.json) override
 // the archetype defaults, so the game runs what the editor saved.
 const prefabFiles = import.meta.glob<PrefabJson>(

@@ -25,17 +25,27 @@
       }
     },
     {
-      "type": "Hitbox",
-      "props": {
-        "width": 0.9,
-        "height": 0.6
-      }
-    },
-    {
       "type": "Patrol",
       "props": {
         "distance": 2,
         "speed": 2
+      }
+    },
+    {
+      "type": "StateMachine",
+      "props": {
+        "logic": "patroller",
+        "initial": "walk",
+        "states": {
+          "walk": { "clip": "idle" }
+        }
+      }
+    },
+    {
+      "type": "Hitbox",
+      "props": {
+        "width": 0.9,
+        "height": 0.6
       }
     },
     {

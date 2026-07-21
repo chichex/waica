@@ -2,7 +2,7 @@ import { Component } from '../component'
 
 /**
  * Static collision box (AABB). Platforms, floors and walls.
- * Character controllers (e.g. PlatformerMovement) collide against
+ * Character motors (e.g. PlatformerMotor) collide against
  * every Solid in the scene.
  *
  * TODO(H1): general dynamic bodies via Rapier; genre character

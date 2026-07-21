@@ -23,6 +23,9 @@ importers:
       '@waica/archetype-platformer':
         specifier: workspace:*
         version: link:../../packages/archetype-platformer
+      '@waica/behaviors':
+        specifier: workspace:*
+        version: link:../../packages/behaviors
       '@waica/engine':
         specifier: workspace:*
         version: link:../../packages/engine

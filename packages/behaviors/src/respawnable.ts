@@ -1,5 +1,5 @@
 import { Component, THREE } from '@waica/engine'
-import { PlatformerMovement } from './platformer-movement'
+import { PlatformerMotor } from './platformer-motor'
 
 /**
  * Remembers the spawn point and puts the entity back there on death
@@ -23,11 +23,7 @@ export class Respawnable extends Component {
 
   respawn(): void {
     this.entity.position.copy(this.spawn)
-    const movement = this.entity.get(PlatformerMovement)
-    if (movement) {
-      movement.vx = 0
-      movement.vy = 0
-    }
+    this.entity.get(PlatformerMotor)?.halt()
   }
 
   override onUpdate(): void {

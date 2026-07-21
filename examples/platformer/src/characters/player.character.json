@@ -12,36 +12,20 @@
         "height": 1.4,
         "clips": {
           "idle": {
-            "frames": [
-              0,
-              1,
-              2,
-              3
-            ],
+            "frames": [0, 1, 2, 3],
             "fps": 5
           },
           "run": {
-            "frames": [
-              4,
-              5,
-              6,
-              7
-            ],
+            "frames": [4, 5, 6, 7],
             "fps": 10
           },
           "jump": {
-            "frames": [
-              8,
-              9
-            ],
+            "frames": [8, 9],
             "fps": 8,
             "loop": false
           },
           "fall": {
-            "frames": [
-              12,
-              13
-            ],
+            "frames": [12, 13],
             "fps": 8
           }
         },
@@ -49,10 +33,48 @@
       }
     },
     {
-      "type": "PlatformerMovement"
+      "type": "PlatformerMotor"
     },
     {
-      "type": "PlatformerAnimator"
+      "type": "StateMachine",
+      "props": {
+        "logic": "platformer",
+        "initial": "idle",
+        "states": {
+          "idle": {
+            "transitions": [
+              { "on": "input:dash", "to": "dashing" },
+              { "on": "signal:move", "to": "run" },
+              { "on": "signal:rise", "to": "jump" },
+              { "on": "signal:fall", "to": "fall" }
+            ]
+          },
+          "run": {
+            "transitions": [
+              { "on": "input:dash", "to": "dashing" },
+              { "on": "signal:stop", "to": "idle" },
+              { "on": "signal:rise", "to": "jump" },
+              { "on": "signal:fall", "to": "fall" }
+            ]
+          },
+          "jump": {
+            "transitions": [
+              { "on": "signal:fall", "to": "fall" },
+              { "on": "signal:land", "to": "idle" }
+            ]
+          },
+          "fall": {
+            "transitions": [
+              { "on": "signal:rise", "to": "jump" },
+              { "on": "signal:land", "to": "idle" }
+            ]
+          },
+          "dashing": {
+            "clip": "run",
+            "transitions": [{ "on": "timer:0.25", "to": "idle" }]
+          }
+        }
+      }
     },
     {
       "type": "Hitbox",

@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@waica/archetype-platformer": "workspace:*",
+    "@waica/behaviors": "workspace:*",
     "@waica/engine": "workspace:*",
     "@waica/overlay": "workspace:*"
   },

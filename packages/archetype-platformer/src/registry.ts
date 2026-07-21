@@ -3,18 +3,12 @@ import {
   Hitbox,
   Solid,
   Sprite,
+  StateMachine,
   type PrefabJson,
   type SceneEntityJson,
   type SceneRegistry,
 } from '@waica/engine'
-import {
-  Collectible,
-  Hazard,
-  Patrol,
-  PlatformerAnimator,
-  PlatformerMovement,
-  Respawnable,
-} from '@waica/behaviors'
+import { Collectible, Hazard, Patrol, PlatformerMotor, Respawnable } from '@waica/behaviors'
 import { PLATFORMER_PREFABS } from './prefabs'
 import { PLATFORMER_UI } from './ui'
 import dogSheet from '../assets/waica-dog.png'
@@ -34,8 +28,8 @@ export const PLATFORMER_REGISTRY: SceneRegistry = {
     AnimatedSprite,
     Solid,
     Hitbox,
-    PlatformerMovement,
-    PlatformerAnimator,
+    StateMachine,
+    PlatformerMotor,
     Collectible,
     Patrol,
     Hazard,
