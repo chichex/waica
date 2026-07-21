@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { PrefabJson } from '@waica/engine'
 import {
+  appearanceKind,
   behaviourTypes,
   componentRole,
   newPrefabComponents,
+  setAppearanceShape,
+  setAppearanceTexture,
   setCollisionEnabled,
   splitComponents,
   toggleAnimated,
@@ -124,13 +127,112 @@ describe('toggleAnimated', () => {
     expect(next?.components[0]?.props).toEqual({ width: 1, height: 1, color: 0x8ecae6 })
   })
 
-  it('refuses on non-switchable types', () => {
+  it('works on every prefab type — appearance is uniform', () => {
     const tile: PrefabJson = {
       waicaPrefab: 1,
       type: 'tile',
-      components: [{ type: 'Sprite', props: {} }],
+      components: [{ type: 'Sprite', props: { texture: 'src/art/brick.png', width: 1, height: 1 } }],
     }
-    expect(toggleAnimated(tile)).toBeNull()
+    const next = toggleAnimated(tile)
+    expect(next?.components[0]).toEqual({
+      type: 'AnimatedSprite',
+      props: { texture: 'src/art/brick.png', width: 1, height: 1, cols: 1, rows: 1, clips: {} },
+    })
+  })
+
+  it('refuses only when there is no appearance component', () => {
+    const bare: PrefabJson = { waicaPrefab: 1, type: 'object', components: [{ type: 'Hitbox' }] }
+    expect(toggleAnimated(bare)).toBeNull()
+  })
+})
+
+describe('appearanceKind', () => {
+  it('reads animated and textured sprites as images', () => {
+    expect(appearanceKind({ type: 'AnimatedSprite' })).toBe('image')
+    expect(appearanceKind({ type: 'Sprite', props: { texture: 'waica:dog' } })).toBe('image')
+  })
+
+  it('reads texture-less sprites as shapes', () => {
+    expect(appearanceKind({ type: 'Sprite' })).toBe('shape')
+    expect(appearanceKind({ type: 'Sprite', props: { color: 0x123456 } })).toBe('shape')
+  })
+})
+
+describe('setAppearanceTexture', () => {
+  it('points a shape at a texture and drops its color', () => {
+    const prefab = objectPrefab([
+      { type: 'Sprite', props: { width: 2, height: 1, color: 0x123456 } },
+    ])
+    const next = setAppearanceTexture(prefab, 'src/art/crate.png')
+    expect(next.components[0]).toEqual({
+      type: 'Sprite',
+      props: { width: 2, height: 1, texture: 'src/art/crate.png' },
+    })
+  })
+
+  it('swaps the sheet of an animated appearance, keeping grid and clips', () => {
+    const prefab = objectPrefab([
+      {
+        type: 'AnimatedSprite',
+        props: { texture: 'waica:coin', cols: 4, rows: 1, clips: { spin: { frames: [0], fps: 8 } } },
+      },
+    ])
+    const next = setAppearanceTexture(prefab, 'src/art/gem.png')
+    expect(next.components[0]?.props).toEqual({
+      texture: 'src/art/gem.png',
+      cols: 4,
+      rows: 1,
+      clips: { spin: { frames: [0], fps: 8 } },
+    })
+  })
+
+  it('does not mutate its input', () => {
+    const prefab = objectPrefab([{ type: 'Sprite', props: { color: 1 } }])
+    const before = structuredClone(prefab)
+    setAppearanceTexture(prefab, 'src/art/crate.png')
+    expect(prefab).toEqual(before)
+  })
+})
+
+describe('setAppearanceShape', () => {
+  it('turns an animated image into a color quad, dropping sheet and clips', () => {
+    const character: PrefabJson = {
+      waicaPrefab: 1,
+      type: 'character',
+      components: [
+        {
+          type: 'AnimatedSprite',
+          props: {
+            texture: 'waica:dog',
+            cols: 6,
+            rows: 4,
+            width: 1.4,
+            height: 1.4,
+            pixelArt: true,
+            clips: { idle: { frames: [0], fps: 6 } },
+          },
+        },
+        { type: 'PlatformerAnimator' },
+        { type: 'Hitbox' },
+      ],
+    }
+    const next = setAppearanceShape(character)
+    expect(next.components[0]).toEqual({
+      type: 'Sprite',
+      props: { width: 1.4, height: 1.4, color: 0x8ecae6 },
+    })
+    expect(next.components.slice(1)).toEqual(character.components.slice(1))
+  })
+
+  it('keeps an existing color', () => {
+    const prefab = objectPrefab([
+      { type: 'Sprite', props: { width: 1, height: 1, texture: 'waica:coin', color: 0x123456 } },
+    ])
+    expect(setAppearanceShape(prefab).components[0]?.props).toEqual({
+      width: 1,
+      height: 1,
+      color: 0x123456,
+    })
   })
 })
 

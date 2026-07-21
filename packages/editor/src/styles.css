@@ -766,6 +766,38 @@ button.ed-crumb:hover {
   image-rendering: pixelated;
 }
 
+/* Appearance section: the current image as a chip — click or drop to replace. */
+.ed-appear-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.ed-appear-preview.is-dropping {
+  border-color: var(--accent);
+}
+
+.ed-appear-preview img {
+  max-width: 48px;
+  max-height: 40px;
+  image-rendering: pixelated;
+}
+
+.ed-appear-preview span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
 /* Doubled class: .ed-row's later 2-col grid and 100%-width inputs must not win. */
 .ed-row.ed-anim-gridrow {
   display: flex;

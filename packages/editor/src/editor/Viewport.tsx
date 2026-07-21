@@ -41,8 +41,8 @@ interface Props {
   onMoved(name: string, position: [number, number]): void
   /** Reports a scene-camera drag on pointer-up. */
   onCameraMoved?(position: [number, number]): void
-  /** Reports a collision-box resize (corner-handle drag) on pointer-up. */
-  onCollisionResized?(name: string, componentType: 'Hitbox' | 'Solid', size: [number, number]): void
+  /** Reports a box resize (collision or appearance corner-handle drag) on pointer-up. */
+  onBoxResized?(name: string, componentType: string, size: [number, number]): void
   /** Accepts 'waica/prefab' drops (refs); omit to reject drops (prefab stage). */
   onDropPrefab?(ref: string, world: [number, number]): void
 }
@@ -78,26 +78,35 @@ const CORNERS: ReadonlyArray<readonly [number, number]> = [
   [-0.5, 0.5],
 ]
 
-/** Hitbox first: when both boxes share a corner, its handle wins the hit-test. */
-const COLLISION_KINDS = [
-  { type: 'Hitbox', color: 0xef476f },
-  { type: 'Solid', color: 0x06d6a0 },
+/**
+ * The resizable boxes drawn on the selected entity, in hit-test order:
+ * collision first (its handles win a shared corner), then the appearance
+ * quad in the selection amber.
+ */
+const BOX_KINDS = [
+  { types: ['Hitbox'], color: 0xef476f, role: 'collision' },
+  { types: ['Solid'], color: 0x06d6a0, role: 'collision' },
+  { types: ['Sprite', 'AnimatedSprite'], color: 0xffb703, role: 'appearance' },
 ] as const
 
-/** The entity's live collision component of the given kind, if any. */
-function findCollision(
+/** The entity's live component of one of the given types, with its box. */
+function findBox(
   entity: Entity,
-  type: 'Hitbox' | 'Solid',
-): { width: number; height: number } | null {
-  const comp = entity.components.find(
-    (c) => (c.constructor as { componentName?: string }).componentName === type,
-  ) as unknown as { width?: unknown; height?: unknown } | undefined
-  if (typeof comp?.width !== 'number' || typeof comp.height !== 'number') return null
-  return comp as { width: number; height: number }
+  types: readonly string[],
+): { comp: { width: number; height: number }; type: string } | null {
+  for (const c of entity.components) {
+    const type = (c.constructor as { componentName?: string }).componentName ?? ''
+    if (!types.includes(type)) continue
+    const comp = c as unknown as { width?: unknown; height?: unknown }
+    if (typeof comp.width === 'number' && typeof comp.height === 'number') {
+      return { comp: comp as { width: number; height: number }, type }
+    }
+  }
+  return null
 }
 
 export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
-  { scene, registry = ACTIVE_ARCHETYPE.registry, epoch, mode, bindings, stats, viewHeight = 12, background = 0x1a1a2e, resolution, showCamera = false, grid = DEFAULT_EDITOR_SETTINGS.grid, onGridChange, selected, onSelect, onSelectCamera, onMoved, onCameraMoved, onCollisionResized, onDropPrefab },
+  { scene, registry = ACTIVE_ARCHETYPE.registry, epoch, mode, bindings, stats, viewHeight = 12, background = 0x1a1a2e, resolution, showCamera = false, grid = DEFAULT_EDITOR_SETTINGS.grid, onGridChange, selected, onSelect, onSelectCamera, onMoved, onCameraMoved, onBoxResized, onDropPrefab },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -118,7 +127,7 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
   const camSeeded = useRef(false)
   const drag = useRef<{ name: string; ox: number; oy: number } | null>(null)
   const pan = useRef<{ px: number; py: number } | null>(null)
-  const resize = useRef<{ name: string; compType: 'Hitbox' | 'Solid' } | null>(null)
+  const resize = useRef<{ name: string; compType: string } | null>(null)
   const camDrag = useRef<{ ox: number; oy: number } | null>(null)
   /** Live scene-camera position while dragging its gizmo (committed on up). */
   const camLive = useRef<{ x: number; y: number } | null>(null)
@@ -188,9 +197,9 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
     gizmo.visible = false
     game.scene.add(gizmo)
 
-    // Collision gizmos: the selected entity's Hitbox/Solid boxes, with corner
-    // handles to resize them by dragging.
-    const collisionGizmos = COLLISION_KINDS.map(({ type, color }) => {
+    // Box gizmos: the selected entity's collision and appearance boxes, with
+    // corner handles to resize them by dragging.
+    const boxGizmos = BOX_KINDS.map(({ types, color, role }) => {
       const loop = rectLoop(color)
       loop.position.z = 5
       loop.visible = false
@@ -205,7 +214,7 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
         game.scene.add(handle)
         return handle
       })
-      return { type, loop, handles }
+      return { types, role, loop, handles }
     })
 
     // Scene-camera gizmo: the frame the game will show, its center marker,
@@ -263,28 +272,22 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
       const name = selectedRef.current
       const entity = name ? game.find(name) : undefined
       const editing = entity && modeRef.current === 'edit'
-      if (editing) {
-        const [w, h] = entityBounds(entity)
-        gizmo.visible = true
-        gizmo.position.set(entity.position.x, entity.position.y, 5)
-        gizmo.scale.set(w + 0.2, h + 0.2, 1)
-      } else {
-        gizmo.visible = false
-      }
       // Handles keep a constant screen size regardless of zoom.
       const hs = game.view * 0.018
-      for (const g of collisionGizmos) {
-        const comp = editing ? findCollision(entity, g.type) : null
-        if (editing && comp) {
+      let appearanceShown = false
+      for (const g of boxGizmos) {
+        const box = editing ? findBox(entity, g.types) : null
+        if (editing && box) {
+          if (g.role === 'appearance') appearanceShown = true
           g.loop.visible = true
           g.loop.position.set(entity.position.x, entity.position.y, 5)
-          g.loop.scale.set(comp.width, comp.height, 1)
+          g.loop.scale.set(box.comp.width, box.comp.height, 1)
           g.handles.forEach((handle, i) => {
             const [cx, cy] = CORNERS[i] ?? [0, 0]
             handle.visible = true
             handle.position.set(
-              entity.position.x + cx * comp.width,
-              entity.position.y + cy * comp.height,
+              entity.position.x + cx * box.comp.width,
+              entity.position.y + cy * box.comp.height,
               5.1,
             )
             handle.scale.set(hs, hs, 1)
@@ -293,6 +296,16 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
           g.loop.visible = false
           for (const handle of g.handles) handle.visible = false
         }
+      }
+      if (editing) {
+        // The margin rect marks selection; when the appearance gizmo is up it
+        // already outlines the entity in the same amber, so skip the double line.
+        gizmo.visible = !appearanceShown
+        const [w, h] = entityBounds(entity)
+        gizmo.position.set(entity.position.x, entity.position.y, 5)
+        gizmo.scale.set(w + 0.2, h + 0.2, 1)
+      } else {
+        gizmo.visible = false
       }
       if (camGizmo) {
         const editView = modeRef.current === 'edit'
@@ -440,8 +453,11 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
     return null
   }
 
-  /** A collision-box corner handle of the selected entity under the pointer. */
-  const hitHandle = (wx: number, wy: number): { name: string; compType: 'Hitbox' | 'Solid' } | null => {
+  /** A resize corner handle of the selected entity under the pointer. */
+  const hitHandle = (
+    wx: number,
+    wy: number,
+  ): { name: string; compType: string; corner: readonly [number, number] } | null => {
     const game = gameRef.current
     const name = selectedRef.current
     if (!game || !name) return null
@@ -449,15 +465,16 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
     if (!entity) return null
     // Slightly larger than the visual handle so it's easy to grab.
     const hs = game.view * 0.02
-    for (const { type } of COLLISION_KINDS) {
-      const comp = findCollision(entity, type)
-      if (!comp) continue
-      for (const [cx, cy] of CORNERS) {
+    for (const { types } of BOX_KINDS) {
+      const box = findBox(entity, types)
+      if (!box) continue
+      for (const corner of CORNERS) {
+        const [cx, cy] = corner
         if (
-          Math.abs(wx - (entity.position.x + cx * comp.width)) <= hs &&
-          Math.abs(wy - (entity.position.y + cy * comp.height)) <= hs
+          Math.abs(wx - (entity.position.x + cx * box.comp.width)) <= hs &&
+          Math.abs(wy - (entity.position.y + cy * box.comp.height)) <= hs
         ) {
-          return { name, compType: type }
+          return { name, compType: box.type, corner }
         }
       }
     }
@@ -501,7 +518,7 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
         }
         const handle = hitHandle(wx, wy)
         if (handle) {
-          resize.current = handle
+          resize.current = { name: handle.name, compType: handle.compType }
           return
         }
         // The camera's center marker sits above entities: it wins the pick.
@@ -533,8 +550,8 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
         if (resize.current) {
           const [wx, wy] = toWorld(e)
           const entity = game.find(resize.current.name)
-          const comp = entity && findCollision(entity, resize.current.compType)
-          if (entity && comp) {
+          const box = entity && findBox(entity, [resize.current.compType])
+          if (entity && box) {
             // Boxes are centered on the entity, so a corner drag resizes
             // symmetrically; sizes snap to half cells (each side moves half).
             const g = gridRef.current
@@ -545,8 +562,8 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
               w = Math.round(w / snap) * snap
               h = Math.round(h / snap) * snap
             }
-            comp.width = Math.max(0.1, w)
-            comp.height = Math.max(0.1, h)
+            box.comp.width = Math.max(0.1, w)
+            box.comp.height = Math.max(0.1, h)
           }
         } else if (camDrag.current) {
           const [wx, wy] = toWorld(e)
@@ -567,16 +584,25 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
           game.camera.position.x -= (e.clientX - pan.current.px) * perPx
           game.camera.position.y += (e.clientY - pan.current.py) * perPx
           pan.current = { px: e.clientX, py: e.clientY }
+        } else {
+          // Hover feedback: a diagonal resize cursor over any corner handle.
+          const [wx, wy] = toWorld(e)
+          const hit = hitHandle(wx, wy)
+          e.currentTarget.style.cursor = hit
+            ? hit.corner[0] * hit.corner[1] > 0
+              ? 'nesw-resize'
+              : 'nwse-resize'
+            : ''
         }
       }}
       onPointerUp={() => {
         if (resize.current) {
           const entity = gameRef.current?.find(resize.current.name)
-          const comp = entity && findCollision(entity, resize.current.compType)
-          if (comp) {
-            onCollisionResized?.(resize.current.name, resize.current.compType, [
-              Math.round(comp.width * 100) / 100,
-              Math.round(comp.height * 100) / 100,
+          const box = entity && findBox(entity, [resize.current.compType])
+          if (box) {
+            onBoxResized?.(resize.current.name, resize.current.compType, [
+              Math.round(box.comp.width * 100) / 100,
+              Math.round(box.comp.height * 100) / 100,
             ])
           }
         }

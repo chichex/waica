@@ -4,7 +4,13 @@ import { ACTIVE_ARCHETYPE } from '../project/archetype'
 import type { ProjectFS } from '../fs/project-fs'
 import { listScenes, loadPrefabLib, savePrefab, prefabPath, PREFAB_DIRS } from '../fs/prefab-fs'
 import { loadUiLib, saveUi, uiPath, NEW_UI_HTML } from '../fs/ui-fs'
-import { newPrefabComponents, setCollisionEnabled, toggleAnimated } from '../project/chassis'
+import {
+  newPrefabComponents,
+  setAppearanceShape,
+  setAppearanceTexture,
+  setCollisionEnabled,
+  toggleAnimated,
+} from '../project/chassis'
 import { CONTROLS_PATH, parseControls, serializeControls } from '../project/controls'
 import { DEFAULT_EDITOR_SETTINGS, EDITOR_SETTINGS_PATH, parseEditorSettings, serializeEditorSettings, type EditorSettings, type GridSettings } from '../project/editor-settings'
 import { GAME_PATH, parseGameSettings, serializeGameSettings, type GameSettings } from '../project/game'
@@ -895,7 +901,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
           }}
           onMoved={(name, position) => commit(ops.moveEntity(scene, name, position))}
           onCameraMoved={(position) => commit(ops.moveCamera(scene, position))}
-          onCollisionResized={(name, compType, [w, h]) => {
+          onBoxResized={(name, compType, [w, h]) => {
             // The viewport already holds the live values: non-structural commit.
             commit(
               ops.setComponentProp(
@@ -946,7 +952,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
           selected={refBase(view.ref)}
           onSelect={() => {}}
           onMoved={() => {}}
-          onCollisionResized={(_name, compType, [w, h]) => {
+          onBoxResized={(_name, compType, [w, h]) => {
             const prefab = prefabLib[view.ref]
             if (!prefab) return
             commitPrefab(
@@ -1211,6 +1217,9 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
           <Inspector
             selection={selection}
             prefabs={prefabLib}
+            art={projectArt.art}
+            urlFor={projectArt.urlFor}
+            onImportArt={projectArt.importArt}
             onRename={renameEntity}
             onMove={(name, position) => {
               if (!scene) return
@@ -1295,6 +1304,12 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
               if (type) next = ops.addComponent(next, entity, type)
               commit(next, true)
             }}
+            onSetTexture={(entity, componentType, uri) => {
+              if (!scene) return
+              // Structural: sprite meshes are built in onReady, so a texture
+              // change only shows up after a stage rebuild.
+              commit(ops.setComponentProp(scene, entity, componentType, 'texture', uri, prefabLib), true)
+            }}
             onDelete={deleteEntity}
             onOpenPrefab={(ref) => openView({ kind: 'prefab', ref })}
             onPrefabProp={(ref, componentType, key, value) => {
@@ -1348,6 +1363,23 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
               }
             }}
             onEditAnimation={setAnimTarget}
+            onPrefabSetTexture={(ref, uri) => {
+              const prefab = prefabLib[ref]
+              if (prefab) commitPrefab(ref, setAppearanceTexture(prefab, uri), true)
+            }}
+            onPrefabSetShape={(ref) => {
+              const prefab = prefabLib[ref]
+              if (!prefab) return
+              const anim = prefab.components.find((c) => c.type === 'AnimatedSprite')
+              const clipCount = Object.keys((anim?.props?.clips as object | undefined) ?? {}).length
+              if (
+                clipCount > 0 &&
+                !window.confirm(`Switching to a shape discards ${clipCount} animation clip(s).`)
+              ) {
+                return
+              }
+              commitPrefab(ref, setAppearanceShape(prefab), true)
+            }}
             onPrefabSetCollision={(ref, enabled) => {
               const prefab = prefabLib[ref]
               if (prefab) commitPrefab(ref, setCollisionEnabled(prefab, enabled), true)

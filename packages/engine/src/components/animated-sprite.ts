@@ -16,9 +16,24 @@ export class AnimatedSprite extends Component {
   /** Sheet grid dimensions. */
   cols = 1
   rows = 1
-  /** Size in world units. */
-  width = 1
-  height = 1
+  // Size in world units. Reactive like Sprite's: assigning rescales the unit
+  // quad, even outside the simulation loop (the editor drags them live).
+  private _width = 1
+  private _height = 1
+  get width(): number {
+    return this._width
+  }
+  set width(value: number) {
+    this._width = value
+    this.mesh?.scale.set(this._width, this._height, 1)
+  }
+  get height(): number {
+    return this._height
+  }
+  set height(value: number) {
+    this._height = value
+    this.mesh?.scale.set(this._width, this._height, 1)
+  }
   pixelArt = true
   layer = 0
   clips: Record<string, ClipDef> = {}
@@ -40,7 +55,8 @@ export class AnimatedSprite extends Component {
     }
     this.tex.repeat.set(1 / this.cols, 1 / this.rows)
     const material = new THREE.MeshBasicMaterial({ map: this.tex, transparent: true })
-    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(this.width, this.height), material)
+    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material)
+    this.mesh.scale.set(this._width, this._height, 1)
     this.mesh.position.z = this.layer * 0.01
     this.entity.node.add(this.mesh)
     if (this.initialClip) this.play(this.initialClip)

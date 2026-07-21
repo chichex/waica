@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { missingClips, resolveSceneCamera, type PrefabJson, type SceneCameraJson, type SceneComponentJson, type SceneEntityJson, type SceneJson } from '@waica/engine'
 import { PLATFORMER_ANIMATION_CONTRACT } from '@waica/behaviors'
 import { ACTIVE_ARCHETYPE } from '../project/archetype'
 import { countOverrides, prefabOwns, resolveComponents } from '../scene/ops'
-import { behaviourTypes, CHASSIS, splitComponents } from '../project/chassis'
-import { clipSummary } from '../project/clips'
+import { appearanceKind, behaviourTypes, CHASSIS, splitComponents } from '../project/chassis'
 import { entityIcon, prefabIcon } from './icons'
+import { IMAGE_RE, type ArtItem } from './use-project-art'
 import type { ClipDef, ParamSpec } from '@waica/engine'
 
 /** What the inspector is editing, mirroring the explorer view. */
@@ -39,6 +39,10 @@ function characterClipsWarning(comp: SceneComponentJson): string | undefined {
 interface Props {
   selection: InspectorSelection
   prefabs: Record<string, PrefabJson>
+  /** The project's image library, for the appearance picker. */
+  art: ArtItem[]
+  urlFor(uri: string): string
+  onImportArt(files: File[]): Promise<void>
   onRename(from: string, to: string): void
   onMove(name: string, position: [number, number]): void
   onProp(entity: string, componentType: string, key: string, value: unknown): void
@@ -53,12 +57,17 @@ interface Props {
   onAddComponent(entity: string, type: string): void
   onRemoveComponent(entity: string, type: string): void
   onSetEntityCollision(entity: string, type: 'Hitbox' | 'Solid' | null): void
+  /** Points an entity's appearance at a texture (instance override on prefabs). */
+  onSetTexture(entity: string, componentType: string, uri: string): void
   onDelete(name: string): void
   onOpenPrefab(ref: string): void
   onPrefabProp(ref: string, componentType: string, key: string, value: unknown): void
   onPrefabAddComponent(ref: string, type: string): void
   onPrefabRemoveComponent(ref: string, type: string): void
   onPrefabToggleAnimated(ref: string): void
+  onPrefabSetTexture(ref: string, uri: string): void
+  /** Image -> shape swap: drops the texture and any clips. */
+  onPrefabSetShape(ref: string): void
   onPrefabSetCollision(ref: string, enabled: boolean): void
   onEditAnimation(target: AnimTarget): void
   /** Sets one prop of the open scene's camera block (undefined deletes it). */
@@ -434,8 +443,13 @@ function AppearanceSection({
   overridden,
   animatorOverridden,
   clipsWarning,
+  art,
+  urlFor,
+  onImportArt,
   onProp,
   onAnimatorProp,
+  onSetTexture,
+  onSetShape,
   onToggleAnimated,
   onEditAnimation,
   onReset,
@@ -451,9 +465,15 @@ function AppearanceSection({
   animatorOverridden?: Set<string>
   /** Contract gaps shown inline (characters). */
   clipsWarning?: string
+  art: ArtItem[]
+  urlFor(uri: string): string
+  onImportArt(files: File[]): Promise<void>
   onProp(key: string, value: unknown): void
   onAnimatorProp?(key: string, value: unknown): void
-  /** Present only where the chassis allows animated <-> static (object prefabs). */
+  onSetTexture(uri: string): void
+  /** Present only at the prefab level: image <-> shape is structural. */
+  onSetShape?(): void
+  /** Present only at the prefab level: animated <-> static is structural. */
   onToggleAnimated?(): void
   /** Opens the animation editor (AnimatedSprite only). */
   onEditAnimation?(): void
@@ -462,45 +482,163 @@ function AppearanceSection({
   onApply?(key: string): void
   onAnimatorApply?(key: string): void
 }) {
+  // "image with nothing dropped yet" isn't a storable state — a texture-less
+  // Sprite reads as a shape — so the invite-to-drop phase lives here.
+  const [wantsImage, setWantsImage] = useState(false)
+  const [picking, setPicking] = useState(false)
+  const [dropping, setDropping] = useState(false)
+  const filePicker = useRef<HTMLInputElement>(null)
+
   const animated = comp.type === 'AnimatedSprite'
-  const keys = componentKeys(comp).filter((k) => !animated || !ANIMATION_KEYS.has(k))
+  const texture = typeof comp.props?.texture === 'string' ? comp.props.texture : ''
+  const kind = wantsImage ? 'image' : appearanceKind(comp)
+  const showPicker = kind === 'image' && (!texture || picking)
+  const keys = componentKeys(comp).filter(
+    (k) => !ANIMATION_KEYS.has(k) && k !== 'texture' && (kind === 'shape' || k !== 'color'),
+  )
+
+  const choose = (uri: string): void => {
+    onSetTexture(uri)
+    setPicking(false)
+    setWantsImage(false)
+  }
+
+  const importImage = async (files: File[]): Promise<void> => {
+    const image = files.find((f) => IMAGE_RE.test(f.name))
+    if (!image) return
+    await onImportArt(files)
+    // importArt writes to src/art/<name>, so the stored uri is deterministic.
+    choose(`src/art/${image.name}`)
+  }
+
+  const acceptsDrag = (e: React.DragEvent): boolean =>
+    e.dataTransfer.types.includes('Files') || e.dataTransfer.types.includes('waica/art')
+  const dragProps = {
+    onDragOver: (e: React.DragEvent) => {
+      if (!acceptsDrag(e)) return
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+      setDropping(true)
+    },
+    onDragLeave: () => setDropping(false),
+    onDrop: (e: React.DragEvent) => {
+      if (!acceptsDrag(e)) return
+      e.preventDefault()
+      setDropping(false)
+      const uri = e.dataTransfer.getData('waica/art')
+      if (uri) choose(uri)
+      else void importImage([...e.dataTransfer.files])
+    },
+  }
+
   return (
     <div className="ed-section">
       <header className="ed-sec-head">Appearance</header>
-      {onToggleAnimated && (
+      {onSetShape && (
         <label className="ed-row">
-          <span>animated</span>
-          <input type="checkbox" checked={animated} onChange={onToggleAnimated} />
+          <span>type</span>
+          <select
+            value={kind}
+            onChange={(e) => {
+              if (e.target.value === 'shape') {
+                setWantsImage(false)
+                setPicking(false)
+                if (appearanceKind(comp) === 'image') onSetShape()
+              } else if (kind === 'shape') {
+                setWantsImage(true)
+              }
+            }}
+          >
+            <option value="shape">shape</option>
+            <option value="image">image</option>
+          </select>
         </label>
       )}
-      <ComponentRows
-        id={id}
-        comp={comp}
-        keys={keys}
-        overridden={overridden}
-        onProp={onProp}
-        onReset={onReset}
-        onApply={onApply}
-      />
-      {animated && (
-        <>
-          <RoRow label="clips" value={clipSummary(clipsOf(comp))} />
-          {clipsWarning && <div className="ed-hint ed-warn">{clipsWarning}</div>}
-          {animator && onAnimatorProp && (
-            <ComponentRows
-              id={id}
-              comp={animator}
-              keys={componentKeys(animator)}
-              overridden={animatorOverridden}
-              onProp={onAnimatorProp}
-              onReset={onAnimatorReset}
-              onApply={onAnimatorApply}
-            />
-          )}
-          {onEditAnimation && (
-            <button className="ed-wide" onClick={onEditAnimation}>
-              🎞 Edit animation…
+      {showPicker ? (
+        <div className={`ed-anim-picker ${dropping ? 'is-dropping' : ''}`} {...dragProps}>
+          <div className="ed-hint">Drag an image here, or pick one:</div>
+          <div className="ed-anim-thumbs">
+            {art.map((item) => (
+              <button key={item.uri} className="ed-anim-thumb" onClick={() => choose(item.uri)}>
+                <img src={item.url} alt={item.label} />
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+          <button className="ed-mini" onClick={() => filePicker.current?.click()}>
+            Import image…
+          </button>
+          {texture && (
+            <button className="ed-mini" onClick={() => setPicking(false)}>
+              Keep current image
             </button>
+          )}
+          <input
+            ref={filePicker}
+            type="file"
+            accept=".png,.jpg,.jpeg"
+            hidden
+            onChange={(e) => {
+              void importImage([...(e.currentTarget.files ?? [])])
+              e.currentTarget.value = ''
+            }}
+          />
+        </div>
+      ) : (
+        <>
+          {kind === 'image' && (
+            <>
+              <div
+                className={`ed-appear-preview ${dropping ? 'is-dropping' : ''}`}
+                title="Click to change the image — or drop a new one on it"
+                onClick={() => setPicking(true)}
+                {...dragProps}
+              >
+                <img src={urlFor(texture)} alt={texture} />
+                <span>
+                  {art.find((a) => a.uri === texture)?.label ?? texture}
+                  {overridden?.has('texture') && (
+                    <i className="ed-dot" title="overridden on this instance" />
+                  )}
+                </span>
+              </div>
+              {onToggleAnimated && (
+                <label className="ed-row">
+                  <span>animated</span>
+                  <input type="checkbox" checked={animated} onChange={onToggleAnimated} />
+                </label>
+              )}
+            </>
+          )}
+          <ComponentRows
+            id={id}
+            comp={comp}
+            keys={keys}
+            overridden={overridden}
+            onProp={onProp}
+            onReset={onReset}
+            onApply={onApply}
+          />
+          {animated && (
+            <>
+              {clipsWarning && <div className="ed-hint ed-warn">{clipsWarning}</div>}
+              {animator && onAnimatorProp && (
+                <ComponentRows
+                  id={id}
+                  comp={animator}
+                  keys={componentKeys(animator)}
+                  overridden={animatorOverridden}
+                  onProp={onAnimatorProp}
+                  onReset={onAnimatorReset}
+                  onApply={onAnimatorApply}
+                />
+              )}
+              {onEditAnimation && (
+                <button className="ed-wide" onClick={onEditAnimation}>
+                  🎞 Edit animation…
+                </button>
+              )}
+            </>
           )}
         </>
       )}
@@ -672,6 +810,9 @@ function AddComponentRow({ present, onAdd }: { present: Set<string>; onAdd(type:
 function EntityInspector({
   entity,
   prefabs,
+  art,
+  urlFor,
+  onImportArt,
   onRename,
   onMove,
   onProp,
@@ -680,6 +821,7 @@ function EntityInspector({
   onAddComponent,
   onRemoveComponent,
   onSetEntityCollision,
+  onSetTexture,
   onDelete,
   onOpenPrefab,
   onEditAnimation,
@@ -690,6 +832,8 @@ function EntityInspector({
   | 'onPrefabAddComponent'
   | 'onPrefabRemoveComponent'
   | 'onPrefabToggleAnimated'
+  | 'onPrefabSetTexture'
+  | 'onPrefabSetShape'
   | 'onPrefabSetCollision'
 > & {
   entity: SceneEntityJson
@@ -754,6 +898,7 @@ function EntityInspector({
 
       {appearance && (
         <AppearanceSection
+          key={entity.name}
           id={entity.name}
           comp={appearance}
           animator={split.animator}
@@ -762,6 +907,10 @@ function EntityInspector({
           clipsWarning={
             prefab?.type === 'character' ? characterClipsWarning(appearance) : undefined
           }
+          art={art}
+          urlFor={urlFor}
+          onImportArt={onImportArt}
+          onSetTexture={(uri) => onSetTexture(entity.name, appearance.type, uri)}
           onProp={(key, value) => onProp(entity.name, appearance.type, key, value)}
           onAnimatorProp={(key, value) =>
             split.animator && onProp(entity.name, split.animator.type, key, value)
@@ -828,19 +977,29 @@ function EntityInspector({
 function PrefabInspector({
   refName,
   prefab,
+  art,
+  urlFor,
+  onImportArt,
   onProp,
   onAdd,
   onRemove,
   onToggleAnimated,
+  onSetTexture,
+  onSetShape,
   onSetCollision,
   onEditAnimation,
 }: {
   refName: string
   prefab: PrefabJson
+  art: ArtItem[]
+  urlFor(uri: string): string
+  onImportArt(files: File[]): Promise<void>
   onProp(componentType: string, key: string, value: unknown): void
   onAdd(type: string): void
   onRemove(type: string): void
   onToggleAnimated(): void
+  onSetTexture(uri: string): void
+  onSetShape(): void
   onSetCollision(enabled: boolean): void
   onEditAnimation(): void
 }) {
@@ -858,17 +1017,23 @@ function PrefabInspector({
     <div className="ed-pad">
       {appearance && (
         <AppearanceSection
+          key={refName}
           id={refName}
           comp={appearance}
           animator={split.animator}
           clipsWarning={
             prefab.type === 'character' ? characterClipsWarning(appearance) : undefined
           }
+          art={art}
+          urlFor={urlFor}
+          onImportArt={onImportArt}
+          onSetTexture={onSetTexture}
+          onSetShape={onSetShape}
           onProp={(key, value) => onProp(appearance.type, key, value)}
           onAnimatorProp={(key, value) =>
             split.animator && onProp(split.animator.type, key, value)
           }
-          onToggleAnimated={rule.appearance === 'switchable' ? onToggleAnimated : undefined}
+          onToggleAnimated={onToggleAnimated}
           onEditAnimation={appearance.type === 'AnimatedSprite' ? onEditAnimation : undefined}
         />
       )}
@@ -1130,10 +1295,15 @@ export function Inspector(props: Props) {
         <PrefabInspector
           refName={selection.ref}
           prefab={selection.prefab}
+          art={props.art}
+          urlFor={props.urlFor}
+          onImportArt={props.onImportArt}
           onProp={(type, key, value) => props.onPrefabProp(selection.ref, type, key, value)}
           onAdd={(type) => props.onPrefabAddComponent(selection.ref, type)}
           onRemove={(type) => props.onPrefabRemoveComponent(selection.ref, type)}
           onToggleAnimated={() => props.onPrefabToggleAnimated(selection.ref)}
+          onSetTexture={(uri) => props.onPrefabSetTexture(selection.ref, uri)}
+          onSetShape={() => props.onPrefabSetShape(selection.ref)}
           onSetCollision={(enabled) => props.onPrefabSetCollision(selection.ref, enabled)}
           onEditAnimation={() => props.onEditAnimation({ kind: 'prefab', ref: selection.ref })}
         />

@@ -9,11 +9,27 @@ const loader = new THREE.TextureLoader()
  */
 export class Sprite extends Component {
   static override componentName = 'Sprite'
-  // No inspector params for now: the mesh is built in onReady and changing
-  // width/height live wouldn't rebuild it. TODO(H1): reactive props.
+  // width/height are reactive: assigning them rescales the unit quad, even
+  // outside the simulation loop (the editor drags them live). texture and
+  // color still need a rebuild. TODO(H1): fully reactive props.
 
-  width = 1
-  height = 1
+  private _width = 1
+  private _height = 1
+  get width(): number {
+    return this._width
+  }
+  set width(value: number) {
+    this._width = value
+    this.mesh?.scale.set(this._width, this._height, 1)
+  }
+  get height(): number {
+    return this._height
+  }
+  set height(value: number) {
+    this._height = value
+    this.mesh?.scale.set(this._width, this._height, 1)
+  }
+
   color: number = 0xffffff
   /** Optional texture URL; with pixelArt on it filters in nearest. */
   texture?: string
@@ -34,7 +50,8 @@ export class Sprite extends Component {
       material.map = tex
       material.color.set(0xffffff)
     }
-    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(this.width, this.height), material)
+    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material)
+    this.mesh.scale.set(this._width, this._height, 1)
     this.mesh.position.z = this.layer * 0.01
     this.entity.node.add(this.mesh)
   }

@@ -871,6 +871,11 @@ export function Explorer({
               className={`ed-x-item ${
                 view?.kind === 'art' && view.label === item.label ? 'is-selected' : ''
               }`}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData('waica/art', item.uri)
+                e.dataTransfer.effectAllowed = 'copy'
+              }}
               onClick={() => onOpenArt(item)}
               onContextMenu={(e) =>
                 openMenu(e, [

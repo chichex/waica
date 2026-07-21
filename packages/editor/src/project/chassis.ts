@@ -31,19 +31,23 @@ export function componentRole(type: string): ComponentRole {
 }
 
 export interface ChassisRule {
-  /** What the type's appearance is: locked animated/static, user-switchable, or none. */
-  appearance: 'fixed-animated' | 'fixed-static' | 'switchable' | 'none'
   /** The type's collision core and whether the user may turn it off. */
   collision: { type: 'Solid' | 'Hitbox'; optional: boolean } | null
 }
 
+/**
+ * Appearance is uniform across types — any prefab can show an image or a
+ * flat-color shape, and any image can be animated. Types differ only in
+ * their collision core and in what a brand-new prefab starts with.
+ */
 export const CHASSIS: Record<PrefabType, ChassisRule> = {
-  character: { appearance: 'fixed-animated', collision: { type: 'Hitbox', optional: false } },
-  object: { appearance: 'switchable', collision: { type: 'Hitbox', optional: true } },
-  tile: { appearance: 'fixed-static', collision: { type: 'Solid', optional: true } },
+  character: { collision: { type: 'Hitbox', optional: false } },
+  object: { collision: { type: 'Hitbox', optional: true } },
+  tile: { collision: { type: 'Solid', optional: true } },
 }
 
-const DEFAULT_SPRITE = { width: 1, height: 1, color: 0x8ecae6 }
+const DEFAULT_COLOR = 0x8ecae6
+const DEFAULT_SPRITE = { width: 1, height: 1, color: DEFAULT_COLOR }
 
 /** Factory components for a brand-new prefab of the given type. */
 export function newPrefabComponents(type: PrefabType): SceneComponentJson[] {
@@ -121,11 +125,10 @@ function pickShared(props: Record<string, unknown>): Record<string, unknown> {
 }
 
 /**
- * Object-only animated <-> static swap, preserving shared appearance props.
- * Returns null when the prefab's chassis doesn't allow switching.
+ * Animated <-> static swap of the appearance, preserving shared props.
+ * Returns null when the prefab has no appearance component.
  */
 export function toggleAnimated(prefab: PrefabJson): PrefabJson | null {
-  if (CHASSIS[prefab.type].appearance !== 'switchable') return null
   const index = prefab.components.findIndex((c) => componentRole(c.type) === 'appearance')
   const comp = prefab.components[index]
   if (!comp) return null
@@ -136,11 +139,53 @@ export function toggleAnimated(prefab: PrefabJson): PrefabJson | null {
         // object stays visible instead of rendering white-on-white.
         {
           type: 'Sprite',
-          props: props.texture ? pickShared(props) : { ...pickShared(props), color: 0x8ecae6 },
+          props: props.texture ? pickShared(props) : { ...pickShared(props), color: DEFAULT_COLOR },
         }
       : { type: 'AnimatedSprite', props: { ...pickShared(props), cols: 1, rows: 1, clips: {} } }
   const components = [...prefab.components]
   components[index] = next
+  return { ...prefab, components }
+}
+
+/** What the appearance is showing: a texture, or a flat-color quad. */
+export type AppearanceKind = 'image' | 'shape'
+
+export function appearanceKind(comp: SceneComponentJson): AppearanceKind {
+  if (comp.type === 'AnimatedSprite') return 'image'
+  return comp.props?.texture ? 'image' : 'shape'
+}
+
+function appearanceIndexOf(prefab: PrefabJson): number {
+  return prefab.components.findIndex((c) => componentRole(c.type) === 'appearance')
+}
+
+/** Appearance → flat-color shape, dropping the texture and any animation. */
+export function setAppearanceShape(prefab: PrefabJson): PrefabJson {
+  const index = appearanceIndexOf(prefab)
+  const comp = prefab.components[index]
+  if (!comp) return prefab
+  const props = comp.props ?? {}
+  const shared = pickShared(props)
+  delete shared.texture
+  delete shared.pixelArt
+  const color = typeof props.color === 'number' ? props.color : DEFAULT_COLOR
+  const components = [...prefab.components]
+  components[index] = { type: 'Sprite', props: { ...shared, color } }
+  return { ...prefab, components }
+}
+
+/**
+ * Points the appearance at a texture; a shape becomes a textured Sprite.
+ * The color is dropped — the engine ignores it under a texture anyway.
+ */
+export function setAppearanceTexture(prefab: PrefabJson, uri: string): PrefabJson {
+  const index = appearanceIndexOf(prefab)
+  const comp = prefab.components[index]
+  if (!comp) return prefab
+  const props: Record<string, unknown> = { ...(comp.props ?? {}), texture: uri }
+  delete props.color
+  const components = [...prefab.components]
+  components[index] = { ...comp, props }
   return { ...prefab, components }
 }
 
