@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react'
-import { missingClips, resolveSceneCamera, type PrefabJson, type SceneCameraJson, type SceneComponentJson, type SceneEntityJson, type SceneJson } from '@waica/engine'
-import { PLATFORMER_ANIMATION_CONTRACT } from '@waica/behaviors'
+import { resolveSceneCamera, type PrefabJson, type SceneCameraJson, type SceneComponentJson, type SceneEntityJson, type SceneJson, type StateJson } from '@waica/engine'
 import { ACTIVE_ARCHETYPE } from '../project/archetype'
 import { countOverrides, prefabOwns, resolveComponents } from '../scene/ops'
 import { appearanceKind, behaviourTypes, CHASSIS, splitComponents } from '../project/chassis'
+import type { MachineProps } from '../project/states'
 import { entityIcon, prefabIcon } from './icons'
+import { StateMachineCard, type StateTarget } from './StateMachinePanel'
 import { IMAGE_RE, type ArtItem } from './use-project-art'
 import type { ClipDef, ParamSpec } from '@waica/engine'
 
@@ -30,10 +31,23 @@ function clipsOf(comp: SceneComponentJson): Record<string, ClipDef> {
   return (comp.props?.clips as Record<string, ClipDef> | undefined) ?? {}
 }
 
-/** Contract gaps for a character's AnimatedSprite, as an inline warning. */
-function characterClipsWarning(comp: SceneComponentJson): string | undefined {
-  const missing = missingClips(PLATFORMER_ANIMATION_CONTRACT, Object.keys(clipsOf(comp)))
-  return missing.length ? `missing clips: ${missing.join(', ')}` : undefined
+/**
+ * Clips the character's states expect but its sprite is missing, as an
+ * inline warning. Each StateMachine state plays the clip of its own name
+ * (or its `clip` override) on enter.
+ */
+function characterClipsWarning(
+  appearance: SceneComponentJson,
+  components: SceneComponentJson[],
+): string | undefined {
+  const machine = components.find((c) => c.type === 'StateMachine')
+  const states = (machine?.props?.states ?? {}) as Record<string, StateJson | undefined>
+  const clips = new Set(Object.keys(clipsOf(appearance)))
+  const missing = Object.entries(states)
+    .filter(([name]) => name !== '*')
+    .map(([name, state]) => state?.clip ?? name)
+    .filter((clip) => !clips.has(clip))
+  return missing.length ? `missing clips: ${[...new Set(missing)].join(', ')}` : undefined
 }
 
 interface Props {
@@ -72,6 +86,14 @@ interface Props {
   onEditAnimation(target: AnimTarget): void
   /** Sets one prop of the open scene's camera block (undefined deletes it). */
   onCameraProp(key: string, value: unknown): void
+  /** Basenames in src/states/ — the state code files the editor can see. */
+  stateFiles: string[]
+  /** StateMachine props patch on an entity's own component (inline entities). */
+  onMachinePatch(entity: string, patch: Partial<MachineProps>): void
+  /** StateMachine props patch on a prefab — reaches every instance. */
+  onPrefabMachinePatch(ref: string, patch: Partial<MachineProps>): void
+  /** Opens the state editor modal. */
+  onEditState(target: StateTarget): void
 }
 
 function componentKeys(comp: SceneComponentJson): string[] {
@@ -80,7 +102,7 @@ function componentKeys(comp: SceneComponentJson): string[] {
   return [...new Set([...Object.keys(comp.props ?? {}), ...declared])]
 }
 
-/** Friendly component name for headers and pickers ("Movement", not "PlatformerMovement"). */
+/** Friendly component name for headers and pickers ("Motor", not "PlatformerMotor"). */
 function componentLabel(type: string): string {
   return ACTIVE_ARCHETYPE.registry.components[type]?.displayName ?? type
 }
@@ -439,37 +461,28 @@ const ANIMATION_KEYS = new Set(['clips', 'cols', 'rows', 'initialClip', 'current
 function AppearanceSection({
   id,
   comp,
-  animator,
   overridden,
-  animatorOverridden,
   clipsWarning,
   art,
   urlFor,
   onImportArt,
   onProp,
-  onAnimatorProp,
   onSetTexture,
   onSetShape,
   onToggleAnimated,
   onEditAnimation,
   onReset,
-  onAnimatorReset,
   onApply,
-  onAnimatorApply,
 }: {
   id: string
   comp: SceneComponentJson
-  /** Animation plumbing (clip picking): its params render here, not as a card. */
-  animator?: SceneComponentJson | null
   overridden?: Set<string>
-  animatorOverridden?: Set<string>
-  /** Contract gaps shown inline (characters). */
+  /** State-graph gaps shown inline (characters). */
   clipsWarning?: string
   art: ArtItem[]
   urlFor(uri: string): string
   onImportArt(files: File[]): Promise<void>
   onProp(key: string, value: unknown): void
-  onAnimatorProp?(key: string, value: unknown): void
   onSetTexture(uri: string): void
   /** Present only at the prefab level: image <-> shape is structural. */
   onSetShape?(): void
@@ -478,9 +491,7 @@ function AppearanceSection({
   /** Opens the animation editor (AnimatedSprite only). */
   onEditAnimation?(): void
   onReset?(key: string): void
-  onAnimatorReset?(key: string): void
   onApply?(key: string): void
-  onAnimatorApply?(key: string): void
 }) {
   // "image with nothing dropped yet" isn't a storable state — a texture-less
   // Sprite reads as a shape — so the invite-to-drop phase lives here.
@@ -622,17 +633,6 @@ function AppearanceSection({
           {animated && (
             <>
               {clipsWarning && <div className="ed-hint ed-warn">{clipsWarning}</div>}
-              {animator && onAnimatorProp && (
-                <ComponentRows
-                  id={id}
-                  comp={animator}
-                  keys={componentKeys(animator)}
-                  overridden={animatorOverridden}
-                  onProp={onAnimatorProp}
-                  onReset={onAnimatorReset}
-                  onApply={onAnimatorApply}
-                />
-              )}
               {onEditAnimation && (
                 <button className="ed-wide" onClick={onEditAnimation}>
                   🎞 Edit animation…
@@ -734,11 +734,20 @@ function InlineCollisionSection({
   )
 }
 
+/** Context the StateMachine card needs beyond the generic behaviour plumbing. */
+interface MachineCardContext {
+  clips: string[]
+  stateFiles: string[]
+  onPatch(patch: Partial<MachineProps>): void
+  onEditState(state: string): void
+}
+
 function BehavioursSection({
   id,
   comps,
   present,
   canRemove,
+  machine,
   overriddenFor,
   onProp,
   onRemove,
@@ -750,6 +759,7 @@ function BehavioursSection({
   comps: SceneComponentJson[]
   present: Set<string>
   canRemove(comp: SceneComponentJson): boolean
+  machine?: MachineCardContext
   overriddenFor?(type: string): Set<string> | undefined
   onProp(type: string, key: string, value: unknown): void
   onRemove(type: string): void
@@ -761,18 +771,30 @@ function BehavioursSection({
     <div className="ed-section">
       <header className="ed-sec-head">Behaviours</header>
       {comps.length === 0 && <div className="ed-hint">no behaviours yet</div>}
-      {comps.map((comp) => (
-        <ComponentCard
-          key={comp.type}
-          id={id}
-          comp={comp}
-          overridden={overriddenFor?.(comp.type)}
-          onProp={(key, value) => onProp(comp.type, key, value)}
-          onRemove={canRemove(comp) ? () => onRemove(comp.type) : undefined}
-          onReset={onReset && ((key) => onReset(comp.type, key))}
-          onApply={onApply && ((key) => onApply(comp.type, key))}
-        />
-      ))}
+      {comps.map((comp) =>
+        comp.type === 'StateMachine' && machine ? (
+          <StateMachineCard
+            key={comp.type}
+            comp={comp}
+            clips={machine.clips}
+            stateFiles={machine.stateFiles}
+            onPatch={machine.onPatch}
+            onEditState={machine.onEditState}
+            onRemove={canRemove(comp) ? () => onRemove(comp.type) : undefined}
+          />
+        ) : (
+          <ComponentCard
+            key={comp.type}
+            id={id}
+            comp={comp}
+            overridden={overriddenFor?.(comp.type)}
+            onProp={(key, value) => onProp(comp.type, key, value)}
+            onRemove={canRemove(comp) ? () => onRemove(comp.type) : undefined}
+            onReset={onReset && ((key) => onReset(comp.type, key))}
+            onApply={onApply && ((key) => onApply(comp.type, key))}
+          />
+        ),
+      )}
       <AddComponentRow present={present} onAdd={onAdd} />
     </div>
   )
@@ -825,6 +847,10 @@ function EntityInspector({
   onDelete,
   onOpenPrefab,
   onEditAnimation,
+  stateFiles,
+  onMachinePatch,
+  onPrefabMachinePatch,
+  onEditState,
 }: Omit<
   Props,
   | 'selection'
@@ -901,24 +927,19 @@ function EntityInspector({
           key={entity.name}
           id={entity.name}
           comp={appearance}
-          animator={split.animator}
           overridden={overridesOf(appearance.type)}
-          animatorOverridden={split.animator ? overridesOf(split.animator.type) : undefined}
           clipsWarning={
-            prefab?.type === 'character' ? characterClipsWarning(appearance) : undefined
+            prefab?.type === 'character'
+              ? characterClipsWarning(appearance, components)
+              : undefined
           }
           art={art}
           urlFor={urlFor}
           onImportArt={onImportArt}
           onSetTexture={(uri) => onSetTexture(entity.name, appearance.type, uri)}
           onProp={(key, value) => onProp(entity.name, appearance.type, key, value)}
-          onAnimatorProp={(key, value) =>
-            split.animator && onProp(entity.name, split.animator.type, key, value)
-          }
           onReset={resetOf(appearance.type)}
-          onAnimatorReset={split.animator ? resetOf(split.animator.type) : undefined}
           onApply={applyOf(appearance.type)}
-          onAnimatorApply={split.animator ? applyOf(split.animator.type) : undefined}
           onEditAnimation={
             appearance.type === 'AnimatedSprite'
               ? () =>
@@ -959,6 +980,22 @@ function EntityInspector({
         comps={[...split.behaviours, ...split.extras]}
         present={new Set(components.map((c) => c.type))}
         canRemove={(c) => !prefabOwns(entity, c.type, prefabs)}
+        machine={{
+          clips: appearance ? Object.keys(clipsOf(appearance)) : [],
+          stateFiles,
+          // State structure is shared truth: edits land on the prefab when it
+          // owns the machine (like the animation editor), else on the entity.
+          onPatch: (patch) =>
+            entity.prefab && prefabOwns(entity, 'StateMachine', prefabs)
+              ? onPrefabMachinePatch(entity.prefab, patch)
+              : onMachinePatch(entity.name, patch),
+          onEditState: (state) =>
+            onEditState(
+              entity.prefab && prefabOwns(entity, 'StateMachine', prefabs)
+                ? { kind: 'prefab', ref: entity.prefab, state }
+                : { kind: 'entity', name: entity.name, state },
+            ),
+        }}
         overriddenFor={overridesOf}
         onProp={(type, key, value) => onProp(entity.name, type, key, value)}
         onRemove={(type) => onRemoveComponent(entity.name, type)}
@@ -988,6 +1025,9 @@ function PrefabInspector({
   onSetShape,
   onSetCollision,
   onEditAnimation,
+  stateFiles,
+  onMachinePatch,
+  onEditState,
 }: {
   refName: string
   prefab: PrefabJson
@@ -1002,6 +1042,9 @@ function PrefabInspector({
   onSetShape(): void
   onSetCollision(enabled: boolean): void
   onEditAnimation(): void
+  stateFiles: string[]
+  onMachinePatch(patch: Partial<MachineProps>): void
+  onEditState(state: string): void
 }) {
   const rule = CHASSIS[prefab.type]
   const split = splitComponents(prefab.components)
@@ -1020,9 +1063,10 @@ function PrefabInspector({
           key={refName}
           id={refName}
           comp={appearance}
-          animator={split.animator}
           clipsWarning={
-            prefab.type === 'character' ? characterClipsWarning(appearance) : undefined
+            prefab.type === 'character'
+              ? characterClipsWarning(appearance, prefab.components)
+              : undefined
           }
           art={art}
           urlFor={urlFor}
@@ -1030,9 +1074,6 @@ function PrefabInspector({
           onSetTexture={onSetTexture}
           onSetShape={onSetShape}
           onProp={(key, value) => onProp(appearance.type, key, value)}
-          onAnimatorProp={(key, value) =>
-            split.animator && onProp(split.animator.type, key, value)
-          }
           onToggleAnimated={onToggleAnimated}
           onEditAnimation={appearance.type === 'AnimatedSprite' ? onEditAnimation : undefined}
         />
@@ -1052,6 +1093,12 @@ function PrefabInspector({
         comps={[...split.behaviours, ...split.extras]}
         present={new Set(prefab.components.map((c) => c.type))}
         canRemove={() => true}
+        machine={{
+          clips: appearance ? Object.keys(clipsOf(appearance)) : [],
+          stateFiles,
+          onPatch: onMachinePatch,
+          onEditState,
+        }}
         onProp={onProp}
         onRemove={onRemove}
         onAdd={onAdd}
@@ -1306,6 +1353,9 @@ export function Inspector(props: Props) {
           onSetShape={() => props.onPrefabSetShape(selection.ref)}
           onSetCollision={(enabled) => props.onPrefabSetCollision(selection.ref, enabled)}
           onEditAnimation={() => props.onEditAnimation({ kind: 'prefab', ref: selection.ref })}
+          stateFiles={props.stateFiles}
+          onMachinePatch={(patch) => props.onPrefabMachinePatch(selection.ref, patch)}
+          onEditState={(state) => props.onEditState({ kind: 'prefab', ref: selection.ref, state })}
         />
       )}
       {selection?.kind === 'ui' && (

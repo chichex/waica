@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { InputBindings, PrefabJson, SceneJson } from '@waica/engine'
+import type { InputBindings, PrefabJson, SceneJson, StateJson } from '@waica/engine'
 import { ACTIVE_ARCHETYPE } from '../project/archetype'
 import type { ProjectFS } from '../fs/project-fs'
 import { listScenes, loadPrefabLib, savePrefab, prefabPath, PREFAB_DIRS } from '../fs/prefab-fs'
@@ -12,18 +12,25 @@ import {
   toggleAnimated,
 } from '../project/chassis'
 import { CONTROLS_PATH, parseControls, serializeControls } from '../project/controls'
+import {
+  listStateFiles,
+  machineProps,
+  stateFilePath,
+  stateFileTemplate,
+  type MachineProps,
+} from '../project/states'
 import { DEFAULT_EDITOR_SETTINGS, EDITOR_SETTINGS_PATH, parseEditorSettings, serializeEditorSettings, type EditorSettings, type GridSettings } from '../project/editor-settings'
 import { GAME_PATH, parseGameSettings, serializeGameSettings, type GameSettings } from '../project/game'
 import { STATS_PATH, parseStats, serializeStats, type ProjectStats } from '../project/stats'
 import * as ops from '../scene/ops'
 import { EditorHistory, type AtomicEntry, type HistoryEntry } from '../history/history'
-import { PLATFORMER_ANIMATION_CONTRACT } from '@waica/behaviors'
 import { toAnimatedProps } from '../project/clips'
 import { Viewport, type ViewportHandle } from './Viewport'
 import { Explorer, refBase, type ExplorerView } from './Explorer'
 import { entityIcon, prefabIcon, sceneLabel } from './icons'
 import { Inspector, type AnimTarget, type InspectorSelection } from './Inspector'
 import { AnimationEditor } from './AnimationEditor'
+import { StateEditorModal, type StateTarget } from './StateMachinePanel'
 import { CodePane } from './CodePane'
 import { ControlsEditor, GameSettingsEditor, ProjectPane, StatsEditor } from './ProjectPane'
 import { UiPane } from './UiPane'
@@ -97,6 +104,9 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     ...ACTIVE_ARCHETYPE.registry.ui,
   })
   const [animTarget, setAnimTarget] = useState<AnimTarget | null>(null)
+  const [stateTarget, setStateTarget] = useState<StateTarget | null>(null)
+  /** Basenames in src/states/ — the project's state code files. */
+  const [stateFiles, setStateFiles] = useState<string[]>([])
   /** null until src/controls.json is read (or defaulted). */
   const [controls, setControls] = useState<InputBindings | null>(null)
   /** null until src/stats.json is read (or defaulted). */
@@ -157,6 +167,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       setEpoch((e) => e + 1)
     })
     void loadUiLib(fs).then(setUiLib)
+    void listStateFiles(fs).then(setStateFiles)
     void fs.readText(CONTROLS_PATH).then((text) => setControls(parseControls(text)))
     void fs.readText(STATS_PATH).then((text) => setStats(parseStats(text)))
     void fs.readText(GAME_PATH).then((text) => setGameSettings(parseGameSettings(text)))
@@ -835,6 +846,34 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
 
   const sceneName = openScenePath ? sceneLabel(openScenePath) : null
 
+  /** Scaffolds src/states/<state>.ts (never overwrites) and refreshes the list. */
+  const createStateFile = async (logic: string, state: string): Promise<void> => {
+    const path = stateFilePath(state)
+    const existing = await fs.readText(path)
+    if (existing == null) await fs.writeText(path, stateFileTemplate(logic, state))
+    setStateFiles(await listStateFiles(fs))
+  }
+
+  const prefabMachinePatch = (ref: string, patch: Partial<MachineProps>): void => {
+    const prefab = prefabLib[ref]
+    if (!prefab) return
+    let next = prefab
+    for (const [key, value] of Object.entries(patch)) {
+      next = setPrefabProp(next, 'StateMachine', key, value)
+    }
+    // Structural: the stage re-instantiates so machines pick up the new graph.
+    commitPrefab(ref, next, true)
+  }
+
+  const entityMachinePatch = (name: string, patch: Partial<MachineProps>): void => {
+    if (!scene) return
+    let next = scene
+    for (const [key, value] of Object.entries(patch)) {
+      next = ops.setComponentProp(next, name, 'StateMachine', key, value, prefabLib)
+    }
+    commit(next, true)
+  }
+
   const selection: InspectorSelection = (() => {
     if (view?.kind === 'prefab') {
       const prefab = prefabLib[view.ref]
@@ -986,6 +1025,10 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       const src = scriptSource(view.name)
       return <CodePane path={`scripts/${src.file}`} source={src.source} readOnly />
     }
+    if (view.kind === 'stateFile') {
+      // Project state code: a real file, edited for real (⌘S saves).
+      return <CodePane key={view.path} fs={fs} path={view.path} />
+    }
     if (view.kind === 'controls') {
       if (!controls) return <div className="ed-vp-hint">loading…</div>
       return (
@@ -1032,6 +1075,8 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
         return { icon: '🧩', label: view.name }
       case 'script':
         return { icon: '📜', label: view.name }
+      case 'stateFile':
+        return { icon: '📜', label: view.path.split('/').pop() ?? view.path }
       case 'art':
         return { icon: '🖼️', label: view.label }
       case 'controls':
@@ -1203,6 +1248,8 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             onReorderFolder={reorderFolder}
             onOpenPrefab={(ref) => openView({ kind: 'prefab', ref })}
             onOpenScript={(name) => openView({ kind: 'script', name })}
+            stateFiles={stateFiles}
+            onOpenStateFile={(path) => openView({ kind: 'stateFile', path })}
             onOpenArt={(item: ArtItem) => openView({ kind: 'art', ...item })}
             onOpenControls={() => openView({ kind: 'controls' })}
             onOpenStats={() => openView({ kind: 'stats' })}
@@ -1409,6 +1456,10 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             onCameraProp={(key, value) => {
               if (scene) commit(ops.setCameraProp(scene, key, value), false, `camera:${key}`)
             }}
+            stateFiles={stateFiles}
+            onMachinePatch={entityMachinePatch}
+            onPrefabMachinePatch={prefabMachinePatch}
+            onEditState={setStateTarget}
           />
         </aside>
       </div>
@@ -1422,13 +1473,27 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
                   .find((e) => e.name === animTarget.name)
                   ?.components?.find((c) => c.type === 'AnimatedSprite')
           if (!comp) return null
-          const isCharacter =
-            animTarget.kind === 'prefab' && prefabLib[animTarget.ref]?.type === 'character'
+          // A character's clip checklist is its state graph: every state
+          // plays the clip of its own name (or its `clip` override) on enter.
+          const machine =
+            animTarget.kind === 'prefab'
+              ? prefabLib[animTarget.ref]?.components.find((c) => c.type === 'StateMachine')
+              : undefined
+          const states = (machine?.props?.states ?? {}) as Record<string, StateJson | undefined>
+          const requiredClips = [
+            ...new Set(
+              Object.entries(states)
+                .filter(([name]) => name !== '*')
+                .map(([name, state]) => state?.clip ?? name),
+            ),
+          ]
           return (
             <AnimationEditor
               title={animTarget.kind === 'prefab' ? animTarget.ref : animTarget.name}
               initial={toAnimatedProps(comp.props)}
-              contract={isCharacter ? PLATFORMER_ANIMATION_CONTRACT : undefined}
+              contract={
+                requiredClips.length ? { required: requiredClips, fallbacks: {} } : undefined
+              }
               art={projectArt.art}
               urlFor={projectArt.urlFor}
               onImportArt={projectArt.importArt}
@@ -1454,6 +1519,35 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
                 setAnimTarget(null)
               }}
               onCancel={() => setAnimTarget(null)}
+            />
+          )
+        })()}
+
+      {stateTarget &&
+        (() => {
+          const comps =
+            stateTarget.kind === 'prefab'
+              ? prefabLib[stateTarget.ref]?.components
+              : scene?.entities.find((e) => e.name === stateTarget.name)?.components
+          const comp = comps?.find((c) => c.type === 'StateMachine')
+          if (!comp) return null
+          const sprite = comps?.find((c) => c.type === 'AnimatedSprite')
+          const machine = machineProps(comp)
+          return (
+            <StateEditorModal
+              title={stateTarget.kind === 'prefab' ? stateTarget.ref : stateTarget.name}
+              machine={machine}
+              state={stateTarget.state}
+              clips={Object.keys((sprite?.props?.clips as Record<string, unknown>) ?? {})}
+              inputActions={Object.keys(controls ?? {})}
+              stateFiles={stateFiles}
+              onCreateFile={(state) => void createStateFile(machine.logic, state)}
+              onSave={(patch) => {
+                if (stateTarget.kind === 'prefab') prefabMachinePatch(stateTarget.ref, patch)
+                else entityMachinePatch(stateTarget.name, patch)
+                setStateTarget(null)
+              }}
+              onCancel={() => setStateTarget(null)}
             />
           )
         })()}

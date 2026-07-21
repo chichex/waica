@@ -61,7 +61,7 @@ describe('clearComponentOverride', () => {
         position: [0, 0],
         overrides: {
           Sprite: { width: 2, height: 3 },
-          PlatformerMovement: { speed: 12 },
+          PlatformerMotor: { speed: 12 },
         },
       },
       { name: 'Other', prefab: 'characters/player', position: [1, 0] },
@@ -72,19 +72,19 @@ describe('clearComponentOverride', () => {
     const next = clearComponentOverride(scene, 'Player', 'Sprite', 'width')
     expect(next.entities[0]?.overrides).toEqual({
       Sprite: { height: 3 },
-      PlatformerMovement: { speed: 12 },
+      PlatformerMotor: { speed: 12 },
     })
   })
 
   it('drops the component map when its last key is cleared', () => {
-    const next = clearComponentOverride(scene, 'Player', 'PlatformerMovement', 'speed')
+    const next = clearComponentOverride(scene, 'Player', 'PlatformerMotor', 'speed')
     expect(next.entities[0]?.overrides).toEqual({ Sprite: { width: 2, height: 3 } })
   })
 
   it('drops the overrides block entirely when it empties out', () => {
     let next = clearComponentOverride(scene, 'Player', 'Sprite', 'width')
     next = clearComponentOverride(next, 'Player', 'Sprite', 'height')
-    next = clearComponentOverride(next, 'Player', 'PlatformerMovement', 'speed')
+    next = clearComponentOverride(next, 'Player', 'PlatformerMotor', 'speed')
     expect('overrides' in (next.entities[0] ?? {})).toBe(false)
   })
 

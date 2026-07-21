@@ -1,4 +1,5 @@
 import type { PrefabJson, SceneComponentJson } from '@waica/engine'
+import { PLATFORMER_STATE_GRAPH } from '@waica/behaviors'
 import { DOG_SPRITE } from '@waica/archetype-platformer'
 
 /**
@@ -12,21 +13,17 @@ export type PrefabType = PrefabJson['type']
 
 export const APPEARANCE_TYPES = ['Sprite', 'AnimatedSprite'] as const
 export const COLLISION_TYPES = ['Solid', 'Hitbox'] as const
-/** Animation plumbing (movement state → clip): folded into Appearance, never a card. */
-export const ANIMATOR_TYPES = ['PlatformerAnimator'] as const
 
 export const CORE_COMPONENT_TYPES: ReadonlySet<string> = new Set([
   ...APPEARANCE_TYPES,
   ...COLLISION_TYPES,
-  ...ANIMATOR_TYPES,
 ])
 
-export type ComponentRole = 'appearance' | 'collision' | 'animator' | 'behaviour'
+export type ComponentRole = 'appearance' | 'collision' | 'behaviour'
 
 export function componentRole(type: string): ComponentRole {
   if ((APPEARANCE_TYPES as readonly string[]).includes(type)) return 'appearance'
   if ((COLLISION_TYPES as readonly string[]).includes(type)) return 'collision'
-  if ((ANIMATOR_TYPES as readonly string[]).includes(type)) return 'animator'
   return 'behaviour'
 }
 
@@ -53,9 +50,19 @@ const DEFAULT_SPRITE = { width: 1, height: 1, color: DEFAULT_COLOR }
 export function newPrefabComponents(type: PrefabType): SceneComponentJson[] {
   switch (type) {
     case 'character':
+      // Characters are born with the platformer state graph so states and
+      // clips line up from minute zero; the Motor (a moving body) is one
+      // "+ behaviour" away — an NPC shouldn't chase the arrow keys.
       return [
         { type: 'AnimatedSprite', props: structuredClone(DOG_SPRITE) },
-        { type: 'PlatformerAnimator' },
+        {
+          type: 'StateMachine',
+          props: {
+            logic: 'platformer',
+            initial: PLATFORMER_STATE_GRAPH.initial,
+            states: structuredClone(PLATFORMER_STATE_GRAPH.states),
+          },
+        },
         { type: 'Hitbox', props: { width: 0.9, height: 0.95 } },
       ]
     case 'object':
@@ -74,8 +81,6 @@ export function newPrefabComponents(type: PrefabType): SceneComponentJson[] {
 export interface SplitComponents {
   appearance: SceneComponentJson | null
   collision: SceneComponentJson | null
-  /** Animation plumbing: its params render inside the Appearance section. */
-  animator: SceneComponentJson | null
   behaviours: SceneComponentJson[]
   /** Duplicate core components (hand-edited JSON): shown as plain removable cards. */
   extras: SceneComponentJson[]
@@ -86,7 +91,6 @@ export function splitComponents(components: SceneComponentJson[]): SplitComponen
   const out: SplitComponents = {
     appearance: null,
     collision: null,
-    animator: null,
     behaviours: [],
     extras: [],
   }
@@ -98,9 +102,6 @@ export function splitComponents(components: SceneComponentJson[]): SplitComponen
     } else if (role === 'collision') {
       if (out.collision) out.extras.push(comp)
       else out.collision = comp
-    } else if (role === 'animator') {
-      if (out.animator) out.extras.push(comp)
-      else out.animator = comp
     } else {
       out.behaviours.push(comp)
     }

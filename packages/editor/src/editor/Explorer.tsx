@@ -14,6 +14,7 @@ export type ExplorerView =
   | { kind: 'prefab'; ref: string }
   | { kind: 'ui'; name: string }
   | { kind: 'script'; name: string }
+  | { kind: 'stateFile'; path: string }
   | { kind: 'art'; label: string; url: string }
   | { kind: 'controls' }
   | { kind: 'stats' }
@@ -94,6 +95,8 @@ export function Explorer({
   onReorderFolder,
   onOpenPrefab,
   onOpenScript,
+  stateFiles,
+  onOpenStateFile,
   onOpenArt,
   onOpenControls,
   onOpenStats,
@@ -153,6 +156,9 @@ export function Explorer({
   onReorderFolder(name: string, target: Exclude<DropTarget, { into: string }>): void
   onOpenPrefab(ref: string): void
   onOpenScript(name: string): void
+  /** Basenames in src/states/ — the project's state code files. */
+  stateFiles: string[]
+  onOpenStateFile(path: string): void
   onOpenArt(item: ArtItem): void
   onOpenControls(): void
   onOpenStats(): void
@@ -804,6 +810,31 @@ export function Explorer({
               {name}
             </button>
           ))}
+        </div>
+        <div className="ed-x-group-head">State logic</div>
+        <div className="ed-x-list">
+          {stateFiles.length === 0 ? (
+            <div className="ed-x-empty">
+              No state code yet — press "Create code file" on a character's state
+            </div>
+          ) : (
+            stateFiles.map((name) => {
+              const path = `src/states/${name}`
+              return (
+                <button
+                  key={name}
+                  className={`ed-x-item ${
+                    view?.kind === 'stateFile' && view.path === path ? 'is-selected' : ''
+                  }`}
+                  title="Runs in your game — the editor can edit it but not run it"
+                  onClick={() => onOpenStateFile(path)}
+                >
+                  <span className="ed-x-ico">📜</span>
+                  {name}
+                </button>
+              )
+            })
+          )}
         </div>
         <div className="ed-x-group-head">Custom</div>
         <div className="ed-x-list">

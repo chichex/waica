@@ -1753,3 +1753,80 @@ button.ed-crumb:hover {
   inset: 0;
   overflow: hidden;
 }
+
+/* ── State machine card & state editor modal ─────────────────────── */
+
+.ed-modal-state {
+  width: min(540px, 92vw);
+}
+
+.ed-sm-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ed-sm-states {
+  margin-top: 6px;
+}
+
+.ed-sm-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.ed-sm-name {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  background: #0e0e16;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ed-sm-name:hover {
+  filter: brightness(1.3);
+}
+
+.ed-sm-issue {
+  font-size: 12px;
+  opacity: 0.75;
+  cursor: help;
+}
+
+.ed-sm-issue.is-warn {
+  color: var(--gold);
+  opacity: 1;
+}
+
+.ed-sm-edge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+}
+
+.ed-sm-edge select,
+.ed-sm-edge input {
+  flex: 1;
+  min-width: 0;
+  background: #0e0e16;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 12px;
+}
+
+.ed-sm-edge select.is-broken {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.ed-sm-arrow {
+  opacity: 0.6;
+}

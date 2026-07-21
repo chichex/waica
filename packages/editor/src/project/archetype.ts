@@ -10,7 +10,7 @@ import {
 
 /** Icon per distinctive archetype component (for the hierarchy). */
 const ENTITY_ICONS: Record<string, string> = {
-  PlatformerMovement: '🐕',
+  PlatformerMotor: '🐕',
   Collectible: '🪙',
   Hazard: '👾',
 }

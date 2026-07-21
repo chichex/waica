@@ -1,0 +1,170 @@
+import { logicSet, type SceneComponentJson, type StateJson } from '@waica/engine'
+import type { ProjectFS } from '../fs/project-fs'
+
+/**
+ * Editor-side helpers for the StateMachine component: normalized props,
+ * per-state warnings (plain-language, consequence + action), the state
+ * code file convention (src/states/<state>.ts) and its generated starter.
+ */
+
+export const STATES_DIR = 'src/states'
+
+/** Normalized StateMachine props (prefab JSON is free-form). */
+export interface MachineProps {
+  logic: string
+  initial: string
+  states: Record<string, StateJson>
+}
+
+export function machineProps(comp: SceneComponentJson): MachineProps {
+  const props = comp.props ?? {}
+  return {
+    logic: typeof props.logic === 'string' ? props.logic : '',
+    initial: typeof props.initial === 'string' ? props.initial : '',
+    states: (props.states ?? {}) as Record<string, StateJson>,
+  }
+}
+
+/** Real states of a machine — the '*' key holds wildcard edges, not a state. */
+export function stateNames(machine: MachineProps): string[] {
+  return Object.keys(machine.states).filter((name) => name !== '*')
+}
+
+export function stateFilePath(state: string): string {
+  return `${STATES_DIR}/${state}.ts`
+}
+
+/** Basenames (dash.ts) of the project's state code files. */
+export async function listStateFiles(fs: ProjectFS): Promise<string[]> {
+  const tree = await fs.tree()
+  const src = tree.find((n) => n.kind === 'dir' && n.name === 'src')
+  const states = src?.children?.find((n) => n.kind === 'dir' && n.name === 'states')
+  return (states?.children ?? [])
+    .filter((n) => n.kind === 'file' && n.name.endsWith('.ts'))
+    .map((n) => n.name)
+}
+
+/** Where a state's code comes from, for the ✓/ⓘ status line. */
+export type StateCodeStatus =
+  | { kind: 'builtin' } // registered in the editor: runs everywhere
+  | { kind: 'file'; path: string } // project file found: runs in the game only
+  | { kind: 'none' }
+
+export function stateCodeStatus(
+  logic: string,
+  state: string,
+  stateFiles: string[],
+): StateCodeStatus {
+  if (logic && logicSet(logic)?.[state]) return { kind: 'builtin' }
+  if (stateFiles.includes(`${state}.ts`)) return { kind: 'file', path: stateFilePath(state) }
+  return { kind: 'none' }
+}
+
+export interface StateIssue {
+  /** ⚠ = probably a mistake; ⓘ = expected, but worth explaining. */
+  level: 'warn' | 'info'
+  /** Short line for the card row. */
+  text: string
+  /** Full plain-language explanation: consequence + what to do (tooltip). */
+  detail: string
+}
+
+/** Everything worth flagging about one state, most severe first. */
+export function stateIssues(
+  name: string,
+  machine: MachineProps,
+  clips: string[],
+  stateFiles: string[],
+): StateIssue[] {
+  const issues: StateIssue[] = []
+  const def = machine.states[name]
+  const clip = def?.clip ?? name
+  if (!clips.includes(clip)) {
+    issues.push({
+      level: 'warn',
+      text: 'No animation for this state',
+      detail:
+        `This character's sprite has no clip named "${clip}". When the state starts, ` +
+        `the current animation just keeps playing. Create a "${clip}" clip in the ` +
+        `Animation editor, or pick another clip for this state.`,
+    })
+  }
+  for (const edge of def?.transitions ?? []) {
+    if (edge.to !== '*' && !machine.states[edge.to]) {
+      issues.push({
+        level: 'warn',
+        text: `Goes to "${edge.to}", which doesn't exist`,
+        detail:
+          `This state has a transition to "${edge.to}", but no state has that name. ` +
+          `The transition will never happen. Rename the target or create that state.`,
+      })
+    }
+  }
+  const code = stateCodeStatus(machine.logic, name, stateFiles)
+  if (code.kind === 'file') {
+    issues.push({
+      level: 'info',
+      text: 'Code runs in your game, not here',
+      detail:
+        `Code file found: ${code.path}. The editor can't run your project's code, so in ` +
+        `editor Play this state animates and switches states but does nothing else. ` +
+        `It works fully when you run the game (pnpm dev).`,
+    })
+  } else if (code.kind === 'none') {
+    issues.push({
+      level: 'info',
+      text: 'No code for this state yet',
+      detail:
+        `No file src/states/${name}.ts and nothing registered for "${name}" in the ` +
+        `"${machine.logic}" set. The state still animates and switches by its data — ` +
+        `press "Create code file" to give it behavior.`,
+    })
+  }
+  return issues
+}
+
+/** True when the machine's logic set is compiled into the editor. */
+export function logicSetKnown(logic: string): boolean {
+  return logic !== '' && logicSet(logic) !== undefined
+}
+
+/** The generated starter for a state's code file — it works as created. */
+export function stateFileTemplate(logic: string, state: string): string {
+  if (logic === 'platformer') {
+    return `import { defineStates } from '@waica/engine'
+import { PlatformerMotor } from '@waica/behaviors'
+
+// Code for the "${state}" state — generated by waica.
+// When it starts, when it ends and which clip it plays live in the
+// prefab's State Machine data; this file is only the behavior.
+defineStates('${logic}', {
+  ${state}: {
+    onEnter({ entity }) {
+      const motor = entity.get(PlatformerMotor)
+      if (!motor) return
+      // One burst in the facing direction — replace with your own physics.
+      motor.vx = motor.facing * 30
+      motor.vy = 0
+    },
+    onUpdate({ entity }, dt) {
+      // step() moves the body and resolves collisions against solids.
+      entity.get(PlatformerMotor)?.step(dt)
+    },
+  },
+})
+`
+  }
+  return `import { defineStates } from '@waica/engine'
+
+// Code for the "${state}" state — generated by waica.
+// When it starts and when it ends live in the prefab's State Machine
+// data; this file is only the behavior. Hooks receive { entity, game, fsm }.
+defineStates('${logic}', {
+  ${state}: {
+    onEnter({ entity }) {
+      console.log(\`\${entity.name} entered "${state}"\`)
+    },
+  },
+})
+`
+}

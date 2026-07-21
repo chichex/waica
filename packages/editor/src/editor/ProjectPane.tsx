@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
+import { DEFAULT_BINDINGS, type InputBindings, type StatValue } from '@waica/engine'
 import { ACTION_LABELS, keyLabel, parseControls } from '../project/controls'
 import type { GameSettings } from '../project/game'
 import type { ProjectStats } from '../project/stats'
-import type { InputBindings, StatValue } from '@waica/engine'
 
 /** Centered card hosting a project-wide editor (controls / stats / game) in the stage. */
 export function ProjectPane({
@@ -31,6 +31,7 @@ export function ControlsEditor({
 }) {
   /** Action waiting for its next key press, if any. */
   const [capturing, setCapturing] = useState<string | null>(null)
+  const [newAction, setNewAction] = useState('')
 
   useEffect(() => {
     if (!capturing) return
@@ -52,6 +53,21 @@ export function ControlsEditor({
 
   const removeKey = (action: string, code: string): void => {
     onChange({ ...bindings, [action]: (bindings[action] ?? []).filter((c) => c !== code) })
+  }
+
+  const removeAction = (action: string): void => {
+    const next = { ...bindings }
+    delete next[action]
+    onChange(next)
+  }
+
+  const addName = newAction.trim()
+  const addTaken = addName !== '' && addName in bindings
+  const addAction = (): void => {
+    if (!addName || addTaken) return
+    onChange({ ...bindings, [addName]: [] })
+    setNewAction('')
+    setCapturing(addName)
   }
 
   return (
@@ -78,12 +94,39 @@ export function ControlsEditor({
               >
                 {capturing === action ? 'press a key… (Esc cancels)' : '+ key'}
               </button>
+              {!(action in DEFAULT_BINDINGS) && (
+                <button
+                  className="ed-mini"
+                  title="Remove this action"
+                  onClick={() => removeAction(action)}
+                >
+                  ✕
+                </button>
+              )}
             </div>
             {codes.length === 0 && (
               <div className="ed-hint ed-warn">no keys — this action can't fire</div>
             )}
           </div>
         ))}
+        <div className="ed-stat-add">
+          <input
+            type="text"
+            placeholder="new action name…"
+            value={newAction}
+            onChange={(e) => setNewAction(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') addAction()
+            }}
+          />
+          <button className="ed-mini" disabled={!addName || addTaken} onClick={addAction}>
+            add
+          </button>
+        </div>
+        {addTaken && <div className="ed-hint ed-warn">an action named “{addName}” already exists</div>}
+        <div className="ed-hint">
+          state machines fire on actions with “key press” transitions (input:{'<'}action{'>'})
+        </div>
       </div>
       <button className="ed-wide" onClick={() => onChange(parseControls(null))}>
         ↺ Reset to defaults

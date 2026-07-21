@@ -387,7 +387,9 @@ export function AnimationEditor({
                   )
                 })}
                 {missingClips(contract, Object.keys(draft.clips)).length > 0 && (
-                  <div className="ed-hint">missing clips fall back to others at runtime</div>
+                  <div className="ed-hint">
+                    a state without its clip keeps the previous animation at runtime
+                  </div>
                 )}
               </div>
             )}

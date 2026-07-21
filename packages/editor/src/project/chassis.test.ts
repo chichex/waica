@@ -22,32 +22,31 @@ describe('componentRole', () => {
     expect(componentRole('AnimatedSprite')).toBe('appearance')
     expect(componentRole('Solid')).toBe('collision')
     expect(componentRole('Hitbox')).toBe('collision')
-    expect(componentRole('PlatformerAnimator')).toBe('animator')
+    expect(componentRole('StateMachine')).toBe('behaviour')
     expect(componentRole('Patrol')).toBe('behaviour')
   })
 })
 
 describe('behaviourTypes', () => {
-  it('filters out the core components, animator included', () => {
+  it('filters out the core components', () => {
     expect(
-      behaviourTypes(['Sprite', 'Solid', 'Patrol', 'Hitbox', 'PlatformerAnimator', 'Hazard']),
-    ).toEqual(['Patrol', 'Hazard'])
+      behaviourTypes(['Sprite', 'Solid', 'Patrol', 'Hitbox', 'StateMachine', 'Hazard']),
+    ).toEqual(['Patrol', 'StateMachine', 'Hazard'])
   })
 })
 
 describe('splitComponents', () => {
-  it('buckets appearance, collision, animator and behaviours', () => {
+  it('buckets appearance, collision and behaviours', () => {
     const split = splitComponents([
       { type: 'AnimatedSprite' },
       { type: 'Hitbox' },
-      { type: 'PlatformerAnimator' },
+      { type: 'StateMachine' },
       { type: 'Patrol' },
       { type: 'Hazard' },
     ])
     expect(split.appearance?.type).toBe('AnimatedSprite')
     expect(split.collision?.type).toBe('Hitbox')
-    expect(split.animator?.type).toBe('PlatformerAnimator')
-    expect(split.behaviours.map((c) => c.type)).toEqual(['Patrol', 'Hazard'])
+    expect(split.behaviours.map((c) => c.type)).toEqual(['StateMachine', 'Patrol', 'Hazard'])
     expect(split.extras).toEqual([])
   })
 
@@ -57,17 +56,10 @@ describe('splitComponents', () => {
       { type: 'AnimatedSprite' },
       { type: 'Solid' },
       { type: 'Hitbox' },
-      { type: 'PlatformerAnimator' },
-      { type: 'PlatformerAnimator' },
     ])
     expect(split.appearance?.type).toBe('Sprite')
     expect(split.collision?.type).toBe('Solid')
-    expect(split.animator?.type).toBe('PlatformerAnimator')
-    expect(split.extras.map((c) => c.type)).toEqual([
-      'AnimatedSprite',
-      'Hitbox',
-      'PlatformerAnimator',
-    ])
+    expect(split.extras.map((c) => c.type)).toEqual(['AnimatedSprite', 'Hitbox'])
   })
 })
 
@@ -75,17 +67,28 @@ describe('newPrefabComponents', () => {
   it('builds each chassis', () => {
     expect(newPrefabComponents('character').map((c) => c.type)).toEqual([
       'AnimatedSprite',
-      'PlatformerAnimator',
+      'StateMachine',
       'Hitbox',
     ])
     expect(newPrefabComponents('object').map((c) => c.type)).toEqual(['Sprite', 'Hitbox'])
     expect(newPrefabComponents('tile').map((c) => c.type)).toEqual(['Sprite', 'Solid'])
   })
 
-  it('clones the character sprite so prefabs never share clip objects', () => {
-    const a = newPrefabComponents('character')[0]?.props as { clips: Record<string, unknown> }
-    const b = newPrefabComponents('character')[0]?.props as { clips: Record<string, unknown> }
-    expect(a.clips).not.toBe(b.clips)
+  it('presets the platformer logic set on new characters', () => {
+    const machine = newPrefabComponents('character')[1]
+    expect(machine?.props?.logic).toBe('platformer')
+    expect(machine?.props?.initial).toBe('idle')
+  })
+
+  it('clones sprite clips and state graph so prefabs never share objects', () => {
+    const a = newPrefabComponents('character')
+    const b = newPrefabComponents('character')
+    expect((a[0]?.props as { clips: object }).clips).not.toBe(
+      (b[0]?.props as { clips: object }).clips,
+    )
+    expect((a[1]?.props as { states: object }).states).not.toBe(
+      (b[1]?.props as { states: object }).states,
+    )
   })
 })
 
@@ -212,7 +215,7 @@ describe('setAppearanceShape', () => {
             clips: { idle: { frames: [0], fps: 6 } },
           },
         },
-        { type: 'PlatformerAnimator' },
+        { type: 'StateMachine' },
         { type: 'Hitbox' },
       ],
     }
