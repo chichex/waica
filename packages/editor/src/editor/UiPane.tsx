@@ -26,6 +26,15 @@ export function UiPane({
   const [preview, setPreview] = useState(html)
   const stage = useRef<HTMLDivElement>(null)
 
+  // External changes (undo/redo) replace the buffer; our own edits round-trip
+  // back equal through the html prop and must leave the cursor alone.
+  const buffer = useRef(html)
+  useEffect(() => {
+    if (html === buffer.current) return
+    buffer.current = html
+    setValue(html)
+  }, [html])
+
   // Re-render the preview shortly after the user stops typing.
   useEffect(() => {
     if (preview === value) return
@@ -57,6 +66,7 @@ export function UiPane({
           value={value}
           onChange={(next) => {
             const text = next ?? ''
+            buffer.current = text
             setValue(text)
             onChange(text)
           }}

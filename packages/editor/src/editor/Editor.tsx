@@ -10,6 +10,7 @@ import { DEFAULT_EDITOR_SETTINGS, EDITOR_SETTINGS_PATH, parseEditorSettings, ser
 import { GAME_PATH, parseGameSettings, serializeGameSettings, type GameSettings } from '../project/game'
 import { STATS_PATH, parseStats, serializeStats, type ProjectStats } from '../project/stats'
 import * as ops from '../scene/ops'
+import { EditorHistory, type AtomicEntry, type HistoryEntry } from '../history/history'
 import { PLATFORMER_ANIMATION_CONTRACT } from '@waica/behaviors'
 import { toAnimatedProps } from '../project/clips'
 import { Viewport, type ViewportHandle } from './Viewport'
@@ -110,6 +111,32 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const prefabTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
   const uiTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
   const projectArt = useProjectArt(fs)
+  const history = useRef(new EditorHistory())
+  /** Non-null while recordBatch collects commits into one undo step. */
+  const batchEntries = useRef<AtomicEntry[] | null>(null)
+
+  const record = (entry: AtomicEntry, coalesceKey?: string): void => {
+    if (batchEntries.current) {
+      batchEntries.current.push(entry)
+      return
+    }
+    history.current.push(entry, Date.now(), coalesceKey)
+  }
+
+  /** Everything committed inside fn undoes and redoes as ONE step. */
+  const recordBatch = (fn: () => void): void => {
+    batchEntries.current = []
+    try {
+      fn()
+    } finally {
+      const entries = batchEntries.current
+      batchEntries.current = null
+      if (entries && entries.length === 1) history.current.push(entries[0]!, Date.now())
+      else if (entries && entries.length > 1) {
+        history.current.push({ kind: 'group', entries }, Date.now())
+      }
+    }
+  }
 
   // Textures referencing freshly scanned art need the stage to rebind them.
   useEffect(() => {
@@ -130,7 +157,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     void fs.readText(EDITOR_SETTINGS_PATH).then((text) => setEditorSettings(parseEditorSettings(text)))
   }, [fs])
 
-  const commitControls = (next: InputBindings): void => {
+  const applyControls = (next: InputBindings): void => {
     setControls(next)
     setSaveState('saving')
     if (controlsTimer.current) clearTimeout(controlsTimer.current)
@@ -142,7 +169,12 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     }, 600)
   }
 
-  const commitStats = (next: ProjectStats): void => {
+  const commitControls = (next: InputBindings): void => {
+    if (controls) record({ kind: 'controls', before: controls, after: next })
+    applyControls(next)
+  }
+
+  const applyStats = (next: ProjectStats): void => {
     setStats(next)
     setSaveState('saving')
     if (statsTimer.current) clearTimeout(statsTimer.current)
@@ -152,6 +184,11 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
         .then(() => setSaveState('saved'))
         .catch(() => setSaveState('error'))
     }, 600)
+  }
+
+  const commitStats = (next: ProjectStats): void => {
+    if (stats) record({ kind: 'stats', before: stats, after: next }, 'stats')
+    applyStats(next)
   }
 
   const commitGrid = (grid: GridSettings): void => {
@@ -167,7 +204,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     }, 600)
   }
 
-  const commitGameSettings = (next: GameSettings): void => {
+  const applyGameSettings = (next: GameSettings): void => {
     setGameSettings(next)
     setSaveState('saving')
     if (gameTimer.current) clearTimeout(gameTimer.current)
@@ -177,6 +214,11 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
         .then(() => setSaveState('saved'))
         .catch(() => setSaveState('error'))
     }, 600)
+  }
+
+  const commitGameSettings = (next: GameSettings): void => {
+    if (gameSettings) record({ kind: 'game', before: gameSettings, after: next }, 'game')
+    applyGameSettings(next)
   }
 
   useEffect(() => {
@@ -223,14 +265,22 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     )
   }
 
-  const commit = (next: SceneJson, structural = false): void => {
-    if (!openScenePath) return
+  const commit = (next: SceneJson, structural = false, coalesce?: string): void => {
+    if (!openScenePath || !scene) return
+    record(
+      { kind: 'scene', path: openScenePath, before: scene, after: next },
+      coalesce ? `scene:${openScenePath}:${coalesce}` : undefined,
+    )
     setScene(next)
     if (structural) setEpoch((e) => e + 1)
     scheduleSave(openScenePath, next)
   }
 
-  const commitPrefab = (ref: string, next: PrefabJson, structural = false): void => {
+  const commitPrefab = (ref: string, next: PrefabJson, structural = false, coalesce?: string): void => {
+    record(
+      { kind: 'prefab', ref, before: prefabLib[ref] ?? null, after: next },
+      coalesce ? `prefab:${ref}:${coalesce}` : undefined,
+    )
     setPrefabLib((lib) => ({ ...lib, [ref]: next }))
     // Structural changes re-instantiate the stage; prop edits patch the live
     // instance instead (recreating the Game per input event is too costly).
@@ -250,6 +300,8 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   }
 
   const commitUi = (name: string, html: string): void => {
+    // Keystroke-driven (Monaco): bursts on the same piece merge into one step.
+    record({ kind: 'ui', name, before: uiLib[name] ?? null, after: html }, `ui:${name}`)
     setUiLib((lib) => ({ ...lib, [name]: html }))
     setSaveState('saving')
     clearTimeout(uiTimers.current.get(name))
@@ -350,7 +402,9 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     let n = 1
     while (names.has(`scene-${n}.scene.json`)) n++
     const path = `src/scenes/scene-${n}.scene.json`
-    await fs.writeText(path, JSON.stringify(EMPTY_SCENE, null, 2) + '\n')
+    const text = JSON.stringify(EMPTY_SCENE, null, 2) + '\n'
+    await fs.writeText(path, text)
+    record({ kind: 'sceneFile', path, before: null, after: text })
     setScenePaths(await listScenes(fs))
     openView({ kind: 'scene', path })
   }
@@ -366,17 +420,22 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     for (let n = 2; names.has(`${copy}.scene.json`); n++) copy = `${base}-copy-${n}`
     const newPath = `src/scenes/${copy}.scene.json`
     await fs.writeText(newPath, text)
+    record({ kind: 'sceneFile', path: newPath, before: null, after: text })
     setScenePaths(await listScenes(fs))
     openView({ kind: 'scene', path: newPath })
   }
 
   const deleteScene = async (path: string): Promise<void> => {
     const label = path.slice(path.lastIndexOf('/') + 1)
-    if (!window.confirm(`Delete ${label}? This cannot be undone.`)) return
+    if (!window.confirm(`Delete ${label}?`)) return
+    // A pending debounced save is newer than the file on disk.
+    const pending = pendingScenes.current.get(path)
+    const text = pending ? JSON.stringify(pending, null, 2) + '\n' : await fs.readText(path)
     clearTimeout(saveTimers.current.get(path))
     saveTimers.current.delete(path)
     pendingScenes.current.delete(path)
     await fs.deleteFile(path)
+    if (text != null) record({ kind: 'sceneFile', path, before: text, after: null })
     setScenePaths(await listScenes(fs))
     if (openScenePath === path) {
       setOpenScenePath(null)
@@ -414,12 +473,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
 
   const deleteEntities = (names: string[]): void => {
     if (!scene || names.length === 0) return
-    if (
-      names.length > 1 &&
-      !window.confirm(`Delete ${names.length} entities? This cannot be undone.`)
-    ) {
-      return
-    }
+    if (names.length > 1 && !window.confirm(`Delete ${names.length} entities?`)) return
     commit(ops.removeEntities(scene, names), true)
     setSelected((s) => (s && names.includes(s) ? null : s))
     setMulti([])
@@ -457,7 +511,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     if (!scene) return
     const doomed = scene.entities.filter((e) => e.folder === name)
     const suffix = doomed.length === 0 ? '' : ` and its ${doomed.length} entit${doomed.length === 1 ? 'y' : 'ies'}`
-    if (!window.confirm(`Delete ${name}${suffix}? This cannot be undone.`)) return
+    if (!window.confirm(`Delete ${name}${suffix}?`)) return
     commit(ops.deleteFolder(scene, name), true)
     setSelected((s) => (doomed.some((e) => e.name === s) ? null : s))
     setMulti((m) => {
@@ -501,6 +555,8 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   }
 
   const deletePrefab = async (ref: string): Promise<void> => {
+    const prefab = prefabLib[ref]
+    if (!prefab) return
     if (!window.confirm(`Delete ${refBase(ref)}? Entities using it will lose its components.`)) {
       return
     }
@@ -508,6 +564,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     prefabTimers.current.delete(ref)
     // The file may not exist yet (debounced save cancelled above): ignore.
     await fs.deleteFile(prefabPath(ref)).catch(() => {})
+    record({ kind: 'prefab', ref, before: prefab, after: null })
     setPrefabLib((lib) => {
       const next = { ...lib }
       delete next[ref]
@@ -535,11 +592,14 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   }
 
   const deleteUi = async (name: string): Promise<void> => {
+    const html = uiLib[name]
+    if (html == null) return
     if (!window.confirm(`Delete ${name}? Scenes listing it will skip it with a warning.`)) return
     clearTimeout(uiTimers.current.get(name))
     uiTimers.current.delete(name)
     // The file may not exist yet (debounced save cancelled above): ignore.
     await fs.deleteFile(uiPath(name)).catch(() => {})
+    record({ kind: 'ui', name, before: html, after: null })
     setUiLib((lib) => {
       const next = { ...lib }
       delete next[name]
@@ -573,6 +633,195 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     setMode('play')
   }
   const stop = (): void => setMode('edit')
+
+  /** Puts a recorded scene value back (undo/redo), through the normal save path. */
+  const applySceneState = (path: string, value: SceneJson): void => {
+    scheduleSave(path, value)
+    if (openScenePath === path) {
+      setScene(value)
+      // The viewport patches props imperatively on live entities, so a plain
+      // setScene isn't enough: rebuild the stage from the restored JSON.
+      setEpoch((e) => e + 1)
+      // The restored scene may not contain the current selection.
+      setSelected((s) => (s && s !== ops.CAMERA_NODE && !ops.findEntity(value, s) ? null : s))
+      setMulti((m) => {
+        const left = m.filter((n) => ops.findEntity(value, n))
+        return left.length > 1 ? left : []
+      })
+    }
+  }
+
+  /** Creates or deletes a scene file back (undo/redo of create/duplicate/delete). */
+  const applySceneFile = async (path: string, content: string | null): Promise<void> => {
+    clearTimeout(saveTimers.current.get(path))
+    saveTimers.current.delete(path)
+    pendingScenes.current.delete(path)
+    setSaveState('saving')
+    try {
+      if (content == null) {
+        await fs.deleteFile(path).catch(() => {})
+        if (openScenePath === path) {
+          setOpenScenePath(null)
+          setScene(null)
+          setSelected(null)
+          setMulti([])
+        }
+        if (view?.kind === 'scene' && view.path === path) setView(null)
+      } else {
+        await fs.writeText(path, content)
+      }
+      setScenePaths(await listScenes(fs))
+      setSaveState('saved')
+    } catch {
+      setSaveState('error')
+    }
+  }
+
+  const applyPrefabState = (ref: string, value: PrefabJson | null): void => {
+    clearTimeout(prefabTimers.current.get(ref))
+    prefabTimers.current.delete(ref)
+    setSaveState('saving')
+    if (value == null) {
+      setPrefabLib((lib) => {
+        const next = { ...lib }
+        delete next[ref]
+        return next
+      })
+      if (view?.kind === 'prefab' && view.ref === ref) setView(null)
+      // The file may never have landed (undoing a debounced create): ignore.
+      void fs
+        .deleteFile(prefabPath(ref))
+        .catch(() => {})
+        .then(() => setSaveState('saved'))
+    } else {
+      setPrefabLib((lib) => ({ ...lib, [ref]: value }))
+      savePrefab(fs, ref, value)
+        .then(() => setSaveState('saved'))
+        .catch(() => setSaveState('error'))
+    }
+    setEpoch((e) => e + 1)
+  }
+
+  const applyUiState = (name: string, value: string | null): void => {
+    clearTimeout(uiTimers.current.get(name))
+    uiTimers.current.delete(name)
+    setSaveState('saving')
+    if (value == null) {
+      setUiLib((lib) => {
+        const next = { ...lib }
+        delete next[name]
+        return next
+      })
+      if (view?.kind === 'ui' && view.name === name) setView(null)
+      void fs
+        .deleteFile(uiPath(name))
+        .catch(() => {})
+        .then(() => setSaveState('saved'))
+    } else {
+      setUiLib((lib) => ({ ...lib, [name]: value }))
+      saveUi(fs, name, value)
+        .then(() => setSaveState('saved'))
+        .catch(() => setSaveState('error'))
+    }
+  }
+
+  const applyEntry = async (entry: HistoryEntry, dir: 'undo' | 'redo'): Promise<void> => {
+    switch (entry.kind) {
+      case 'group': {
+        // Undo unwinds a grouped action back-to-front.
+        const entries = dir === 'undo' ? [...entry.entries].reverse() : entry.entries
+        for (const atom of entries) await applyEntry(atom, dir)
+        return
+      }
+      case 'scene':
+        applySceneState(entry.path, dir === 'undo' ? entry.before : entry.after)
+        return
+      case 'sceneFile':
+        await applySceneFile(entry.path, dir === 'undo' ? entry.before : entry.after)
+        return
+      case 'prefab':
+        applyPrefabState(entry.ref, dir === 'undo' ? entry.before : entry.after)
+        return
+      case 'ui':
+        applyUiState(entry.name, dir === 'undo' ? entry.before : entry.after)
+        return
+      case 'controls':
+        applyControls(dir === 'undo' ? entry.before : entry.after)
+        return
+      case 'stats':
+        applyStats(dir === 'undo' ? entry.before : entry.after)
+        return
+      case 'game':
+        applyGameSettings(dir === 'undo' ? entry.before : entry.after)
+        return
+    }
+  }
+
+  /** Jumps to where the change happened so the revert is visible. */
+  const revealEntry = (entry: HistoryEntry, dir: 'undo' | 'redo'): void => {
+    // A grouped action reveals its last commit (e.g. prefab+scene → the scene).
+    const target = entry.kind === 'group' ? entry.entries[entry.entries.length - 1] : entry
+    if (!target) return
+    const value = dir === 'undo' ? target.before : target.after
+    switch (target.kind) {
+      case 'scene':
+        openView({ kind: 'scene', path: target.path })
+        return
+      case 'sceneFile':
+        if (value != null) openView({ kind: 'scene', path: target.path })
+        return
+      case 'prefab':
+        if (value != null) openView({ kind: 'prefab', ref: target.ref })
+        return
+      case 'ui':
+        if (value != null) openView({ kind: 'ui', name: target.name })
+        return
+      case 'controls':
+        openView({ kind: 'controls' })
+        return
+      case 'stats':
+        openView({ kind: 'stats' })
+        return
+      case 'game':
+        openView({ kind: 'game' })
+        return
+    }
+  }
+
+  const doStep = async (dir: 'undo' | 'redo'): Promise<void> => {
+    // Play mode and the animation modal own the keyboard and the data.
+    if (mode !== 'edit' || animTarget) return
+    const entry = dir === 'undo' ? history.current.undo() : history.current.redo()
+    if (!entry) return
+    await applyEntry(entry, dir)
+    revealEntry(entry, dir)
+  }
+
+  // Latest-closure ref so the mount-once key listener sees fresh state.
+  const stepRef = useRef(doStep)
+  stepRef.current = doStep
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) return
+      const key = e.key.toLowerCase()
+      const isRedo = (key === 'z' && e.shiftKey) || (key === 'y' && !e.metaKey && !e.shiftKey)
+      const isUndo = key === 'z' && !e.shiftKey
+      if (!isUndo && !isRedo) return
+      // Focus in a text field or Monaco keeps the native text undo. Non-text
+      // controls (checkboxes, sliders…) have none, so the global undo applies.
+      const el = e.target instanceof Element ? e.target : null
+      if (el) {
+        if (el.closest('textarea, [contenteditable], .monaco-editor')) return
+        const input = el.closest('input')
+        if (input && !['checkbox', 'radio', 'range', 'color'].includes(input.type)) return
+      }
+      e.preventDefault()
+      void stepRef.current(isUndo ? 'undo' : 'redo')
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const sceneName = openScenePath ? sceneLabel(openScenePath) : null
 
@@ -966,12 +1215,16 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             onMove={(name, position) => {
               if (!scene) return
               viewport.current?.applyMove(name, position[0], position[1])
-              commit(ops.moveEntity(scene, name, position))
+              commit(ops.moveEntity(scene, name, position), false, `move:${name}`)
             }}
             onProp={(entity, componentType, key, value) => {
               if (!scene) return
               viewport.current?.applyProp(entity, componentType, key, value)
-              commit(ops.setComponentProp(scene, entity, componentType, key, value, prefabLib))
+              commit(
+                ops.setComponentProp(scene, entity, componentType, key, value, prefabLib),
+                false,
+                `prop:${entity}:${componentType}:${key}`,
+              )
             }}
             onResetProp={(entity, componentType, key) => {
               if (!scene) return
@@ -988,8 +1241,10 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
               if (!ref || !prefab || value === undefined) return
               // The prefab takes the instance's value; the override becomes
               // redundant and goes away. Other instances' own overrides stay.
-              commitPrefab(ref, setPrefabProp(prefab, componentType, key, value))
-              commit(ops.clearComponentOverride(scene, entity, componentType, key), true)
+              recordBatch(() => {
+                commitPrefab(ref, setPrefabProp(prefab, componentType, key, value))
+                commit(ops.clearComponentOverride(scene, entity, componentType, key), true)
+              })
             }}
             onResetAllProps={(entity) => {
               if (!scene) return
@@ -1021,8 +1276,10 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
                   next = setPrefabProp(next, type, key, value)
                 }
               }
-              commitPrefab(ref, next)
-              commit(ops.clearAllOverrides(scene, entity), true)
+              recordBatch(() => {
+                commitPrefab(ref, next)
+                commit(ops.clearAllOverrides(scene, entity), true)
+              })
             }}
             onAddComponent={(entity, type) => {
               if (scene) commit(ops.addComponent(scene, entity, type), true)
@@ -1045,7 +1302,12 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
               if (!prefab) return
               // The prefab stage names its single entity after the ref base.
               viewport.current?.applyProp(refBase(ref), componentType, key, value)
-              commitPrefab(ref, setPrefabProp(prefab, componentType, key, value))
+              commitPrefab(
+                ref,
+                setPrefabProp(prefab, componentType, key, value),
+                false,
+                `prop:${componentType}:${key}`,
+              )
             }}
             onPrefabAddComponent={(ref, type) => {
               const prefab = prefabLib[ref]
@@ -1091,7 +1353,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
               if (prefab) commitPrefab(ref, setCollisionEnabled(prefab, enabled), true)
             }}
             onCameraProp={(key, value) => {
-              if (scene) commit(ops.setCameraProp(scene, key, value))
+              if (scene) commit(ops.setCameraProp(scene, key, value), false, `camera:${key}`)
             }}
           />
         </aside>
