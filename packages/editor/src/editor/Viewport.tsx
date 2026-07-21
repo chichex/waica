@@ -1,7 +1,9 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { Game, GameUi, loadScene, resolveSceneCamera, THREE, type Entity, type GameResolution, type InputBindings, type SceneJson, type SceneRegistry, type StatValue } from '@waica/engine'
 import { ACTIVE_ARCHETYPE } from '../project/archetype'
+import { DEFAULT_EDITOR_SETTINGS, MIN_GRID_SIZE, type GridSettings } from '../project/editor-settings'
 import { CAMERA_NODE } from '../scene/ops'
+import { gridCoverKey, gridLineVertices, snapActive, snapPoint } from './grid'
 import { uiFrameLayout } from './ui-preview'
 
 export interface ViewportHandle {
@@ -23,10 +25,15 @@ interface Props {
   stats?: Record<string, StatValue>
   /** Initial camera height in world units (zoom still applies). */
   viewHeight?: number
+  /** Clear color; the prefab stage tints it so the context reads at a glance. */
+  background?: number
   /** Fixed game resolution (Project → game): letterboxes play mode. */
   resolution?: GameResolution
   /** Draws the scene camera's frame gizmo (scene viewports; not the prefab stage). */
   showCamera?: boolean
+  /** Grid overlay + snap settings (defaults until the project file loads). */
+  grid?: GridSettings
+  onGridChange?(next: GridSettings): void
   /** The selected entity name, or CAMERA_NODE for the scene camera. */
   selected: string | null
   onSelect(name: string | null): void
@@ -90,7 +97,7 @@ function findCollision(
 }
 
 export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
-  { scene, registry = ACTIVE_ARCHETYPE.registry, epoch, mode, bindings, stats, viewHeight = 12, resolution, showCamera = false, selected, onSelect, onSelectCamera, onMoved, onCameraMoved, onCollisionResized, onDropPrefab },
+  { scene, registry = ACTIVE_ARCHETYPE.registry, epoch, mode, bindings, stats, viewHeight = 12, background = 0x1a1a2e, resolution, showCamera = false, grid = DEFAULT_EDITOR_SETTINGS.grid, onGridChange, selected, onSelect, onSelectCamera, onMoved, onCameraMoved, onCollisionResized, onDropPrefab },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -102,7 +109,10 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
   const resolutionRef = useRef(resolution)
   const selectedRef = useRef(selected)
   const modeRef = useRef(mode)
+  const gridRef = useRef(grid)
   const [dropHover, setDropHover] = useState(false)
+  /** The size field's raw text, so typing "0." doesn't fight the commit. */
+  const [sizeText, setSizeText] = useState(String(grid.size))
   const cam = useRef({ x: 0, y: 0, view: viewHeight })
   /** The edit camera starts framed like the scene camera, once per mount. */
   const camSeeded = useRef(false)
@@ -123,6 +133,11 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
   resolutionRef.current = resolution
   selectedRef.current = selected
   modeRef.current = mode
+  gridRef.current = grid
+
+  useEffect(() => {
+    setSizeText(String(grid.size))
+  }, [grid.size])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -131,7 +146,7 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
     const game = new Game({
       canvas,
       viewHeight: cam.current.view,
-      background: 0x1a1a2e,
+      background,
       // Edit mode always fills the canvas; play previews the real letterbox.
       resolution: mode === 'play' ? resolutionRef.current : undefined,
       bindings: bindingsRef.current,
@@ -154,6 +169,19 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
       game.camera.position.y = cam.current.y
       game.setViewHeight(cam.current.view)
     }
+    // Grid overlay: lines covering the visible rect, behind the scene.
+    // Regenerated only when the cover key changes (pan across a cell
+    // boundary, zoom, or a settings change).
+    const gridLines = new THREE.LineSegments(
+      new THREE.BufferGeometry(),
+      new THREE.LineBasicMaterial({ color: 0x3a3a5e, transparent: true, opacity: 0.45 }),
+    )
+    gridLines.position.z = -1
+    gridLines.frustumCulled = false
+    gridLines.visible = false
+    game.scene.add(gridLines)
+    let gridKey = ''
+
     // Selection gizmo: a rectangle around the entity.
     const gizmo = rectLoop(0xffb703)
     gizmo.position.z = 5
@@ -211,6 +239,27 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
     let uiCatalog: Record<string, string> | undefined
 
     game.onUpdate(() => {
+      const g = gridRef.current
+      gridLines.visible = modeRef.current === 'edit' && g.show
+      if (gridLines.visible) {
+        const c = game.camera
+        const rect = {
+          minX: c.position.x + c.left,
+          maxX: c.position.x + c.right,
+          minY: c.position.y + c.bottom,
+          maxY: c.position.y + c.top,
+        }
+        const key = gridCoverKey(g, rect)
+        if (key !== gridKey) {
+          gridKey = key
+          gridLines.geometry.dispose()
+          gridLines.geometry = new THREE.BufferGeometry()
+          gridLines.geometry.setAttribute(
+            'position',
+            new THREE.BufferAttribute(gridLineVertices(g, rect), 3),
+          )
+        }
+      }
       const name = selectedRef.current
       const entity = name ? game.find(name) : undefined
       const editing = entity && modeRef.current === 'edit'
@@ -486,8 +535,10 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
           const entity = game.find(resize.current.name)
           const comp = entity && findCollision(entity, resize.current.compType)
           if (entity && comp) {
-            // Boxes are centered on the entity, so a corner drag resizes symmetrically.
-            const snap = e.shiftKey ? 0.25 : 0
+            // Boxes are centered on the entity, so a corner drag resizes
+            // symmetrically; sizes snap to half cells (each side moves half).
+            const g = gridRef.current
+            const snap = snapActive(g.snap, e.shiftKey) ? g.size / 2 : 0
             let w = Math.abs(wx - entity.position.x) * 2
             let h = Math.abs(wy - entity.position.y) * 2
             if (snap) {
@@ -499,23 +550,15 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
           }
         } else if (camDrag.current) {
           const [wx, wy] = toWorld(e)
-          const snap = e.shiftKey ? 0.5 : 0
-          let x = wx - camDrag.current.ox
-          let y = wy - camDrag.current.oy
-          if (snap) {
-            x = Math.round(x / snap) * snap
-            y = Math.round(y / snap) * snap
-          }
+          const g = gridRef.current
+          let [x, y] = [wx - camDrag.current.ox, wy - camDrag.current.oy]
+          if (snapActive(g.snap, e.shiftKey)) [x, y] = snapPoint(g, x, y)
           camLive.current = { x, y }
         } else if (drag.current) {
           const [wx, wy] = toWorld(e)
-          const snap = e.shiftKey ? 0.5 : 0
-          let x = wx - drag.current.ox
-          let y = wy - drag.current.oy
-          if (snap) {
-            x = Math.round(x / snap) * snap
-            y = Math.round(y / snap) * snap
-          }
+          const g = gridRef.current
+          let [x, y] = [wx - drag.current.ox, wy - drag.current.oy]
+          if (snapActive(g.snap, e.shiftKey)) [x, y] = snapPoint(g, x, y)
           game.find(drag.current.name)?.position.set(x, y, 0)
         } else if (pan.current) {
           const rect = canvasRef.current?.getBoundingClientRect()
@@ -578,12 +621,46 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
         e.preventDefault()
         // 'waica/template' is the pre-explorer label format, still accepted.
         const ref = e.dataTransfer.getData('waica/prefab') || e.dataTransfer.getData('waica/template')
-        if (ref) onDropPrefab(ref, toWorld(e))
+        if (!ref) return
+        let world = toWorld(e)
+        const g = gridRef.current
+        if (snapActive(g.snap, e.shiftKey)) world = snapPoint(g, world[0], world[1])
+        onDropPrefab(ref, world)
       }}
     />
     {mode === 'edit' && showCamera && (
       <div ref={uiFrameRef} className="ed-vp-ui">
         <div ref={uiScaleRef} />
+      </div>
+    )}
+    {mode === 'edit' && onGridChange && (
+      <div className="ed-vp-tools">
+        <button
+          title="Show grid"
+          className={grid.show ? 'is-on' : ''}
+          onClick={() => onGridChange({ ...grid, show: !grid.show })}
+        >
+          ⊞
+        </button>
+        <button
+          title="Snap to grid (hold Shift to invert)"
+          className={grid.snap ? 'is-on' : ''}
+          onClick={() => onGridChange({ ...grid, snap: !grid.snap })}
+        >
+          🧲
+        </button>
+        <input
+          type="number"
+          title="Grid cell size (world units)"
+          min={MIN_GRID_SIZE}
+          step={0.25}
+          value={sizeText}
+          onChange={(e) => {
+            setSizeText(e.target.value)
+            const size = Number(e.target.value)
+            if (isFinite(size) && size >= MIN_GRID_SIZE) onGridChange({ ...grid, size })
+          }}
+        />
       </div>
     )}
     {mode === 'edit' && (

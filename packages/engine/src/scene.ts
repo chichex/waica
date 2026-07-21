@@ -21,6 +21,8 @@ export interface SceneEntityJson {
   /** Per-component prop overrides on top of the prefab: componentType -> propName -> value. */
   overrides?: Record<string, Record<string, unknown>>
   components?: SceneComponentJson[]
+  /** Editor-only grouping label; spawning ignores it. */
+  folder?: string
 }
 
 /** A reusable entity template: a typed bag of components a scene can reference. */
@@ -37,6 +39,11 @@ export interface SceneJson {
   entities: SceneEntityJson[]
   /** UI pieces (src/ui/*.html) mounted visible when the scene loads. */
   ui?: string[]
+  /**
+   * Editor-only folder registry: keeps empty folders alive and ordered.
+   * Folders group entities in the editor's explorer; the runtime ignores them.
+   */
+  folders?: string[]
 }
 
 /** Which components exist and how to resolve archetype assets (waica:*). */

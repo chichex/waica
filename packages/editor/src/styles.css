@@ -9,6 +9,9 @@
   --accent-2: #8ecae6;
   --gold: #ffd166;
   --danger: #e63946;
+  /* Editing-context accents: scene/instance = amber, prefab = violet, ui = green. */
+  --ctx-prefab: #8d79f0;
+  --ctx-ui: #06d6a0;
 }
 
 * {
@@ -409,8 +412,108 @@ select {
   min-width: 0;
   min-height: 0;
   display: flex;
-  position: relative;
+  flex-direction: column;
   background: #1a1a2e;
+}
+
+/* Breadcrumb over the center pane: what you're editing, and the way back. */
+.ed-crumbs {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 34px;
+  padding: 4px 10px;
+  background: var(--bg-panel-2);
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+}
+
+.ed-crumbs.is-ctx-scene {
+  box-shadow: inset 0 -2px 0 #ffb70355;
+}
+
+.ed-crumbs.is-ctx-prefab {
+  box-shadow: inset 0 -2px 0 #8d79f0aa;
+}
+
+.ed-crumbs.is-ctx-ui {
+  box-shadow: inset 0 -2px 0 #06d6a066;
+}
+
+.ed-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+button.ed-crumb {
+  cursor: pointer;
+}
+
+button.ed-crumb:hover {
+  background: #ffffff0d;
+  color: var(--text);
+}
+
+.ed-crumb.is-current {
+  color: var(--text);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ed-crumbs.is-ctx-prefab .ed-crumb.is-current {
+  color: var(--ctx-prefab);
+}
+
+.ed-crumbs.is-ctx-ui .ed-crumb.is-current {
+  color: var(--ctx-ui);
+}
+
+.ed-crumb-sep {
+  color: var(--text-dim);
+  opacity: 0.6;
+  font-size: 10px;
+  flex: none;
+}
+
+.ed-crumb-chip {
+  flex: none;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 99px;
+  font-size: 11px;
+}
+
+.ed-crumb-chip.is-prefab {
+  background: #8d79f022;
+  color: var(--ctx-prefab);
+}
+
+/* The stage under the breadcrumb hosts the viewport and its overlays. */
+.ed-stage {
+  position: relative;
+  flex: 1;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Prefab stage: a violet inner frame so it never reads as the scene. */
+.ed-stage.is-prefab::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px #8d79f055;
 }
 
 .ed-vp-hint {
@@ -465,7 +568,8 @@ select {
   gap: 6px;
 }
 
-.ed-vp-nav button {
+.ed-vp-nav button,
+.ed-vp-tools button {
   width: 30px;
   height: 30px;
   border: 1px solid var(--line);
@@ -477,20 +581,35 @@ select {
   cursor: pointer;
 }
 
-.ed-vp-nav button:hover {
+.ed-vp-nav button:hover,
+.ed-vp-tools button:hover {
   border-color: var(--accent);
   color: var(--accent);
 }
 
-.ed-stage-caption {
+.ed-vp-tools {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 16px;
-  text-align: center;
+  left: 12px;
+  top: 12px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.ed-vp-tools button.is-on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.ed-vp-tools input {
+  width: 56px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(20, 20, 31, 0.85);
+  color: var(--text);
   font-size: 12px;
-  color: var(--text-dim);
-  pointer-events: none;
+  padding: 0 6px;
 }
 
 /* art preview */
@@ -915,6 +1034,16 @@ select {
 
 .ed-x-subtree {
   margin: 2px 0 4px;
+  transition: opacity 0.15s;
+}
+
+/* The center pane is showing something else: the scene isn't what you're editing. */
+.ed-x-subtree.is-inactive {
+  opacity: 0.45;
+}
+
+.ed-x-subtree.is-inactive:hover {
+  opacity: 1;
 }
 
 .ed-x-subtree .ed-x-item {
@@ -922,6 +1051,63 @@ select {
   width: calc(100% - 36px);
   padding: 3px 8px;
   font-size: 12.5px;
+}
+
+/* entities grouped in a folder: one more indent step */
+.ed-x-subtree .ed-x-item.is-in-folder {
+  margin-left: 44px;
+  width: calc(100% - 52px);
+}
+
+/* member count at a folder row's right edge */
+.ed-x-count {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+/* inline rename (double-click / F2) */
+.ed-x-item.is-editing {
+  padding-top: 1px;
+  padding-bottom: 1px;
+  cursor: default;
+}
+
+.ed-x-edit {
+  flex: 1;
+  min-width: 0;
+  padding: 1px 5px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: #00000055;
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+
+/* drag & drop reorder indicators */
+.ed-x-item.is-drop-before {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.ed-x-item.is-drop-after {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.ed-x-item.is-drop-into {
+  outline: 1px dashed var(--accent);
+  outline-offset: -1px;
+}
+
+/* trailing slot: "root level, last" — only mounted while a drag is live */
+.ed-x-dropend {
+  height: 12px;
+  margin: 0 8px 0 28px;
+  border-radius: 6px;
+}
+
+.ed-x-dropend.is-drop-before {
+  box-shadow: inset 0 2px 0 var(--accent);
 }
 
 .ed-x-group-head {
@@ -1015,6 +1201,118 @@ select {
   flex: 1;
 }
 
+/* Context banner: what kind of thing is being edited and how far changes reach. */
+.ed-ins-ctx {
+  margin: 6px 12px 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--text-dim);
+  border-radius: 8px;
+  background: var(--bg-panel-2);
+}
+
+.ed-ins-ctx.is-scene {
+  border-left-color: var(--accent);
+}
+
+.ed-ins-ctx.is-prefab {
+  border-left-color: var(--ctx-prefab);
+}
+
+.ed-ins-ctx.is-ui {
+  border-left-color: var(--ctx-ui);
+}
+
+.ed-ins-ctx-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ed-ins-ctx-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ed-ins-ctx-badge {
+  margin-left: auto;
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 99px;
+  background: #ffffff12;
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ed-ins-ctx.is-scene .ed-ins-ctx-badge {
+  background: #ffb70322;
+  color: var(--accent);
+}
+
+.ed-ins-ctx.is-prefab .ed-ins-ctx-badge {
+  background: #8d79f022;
+  color: var(--ctx-prefab);
+}
+
+.ed-ins-ctx.is-ui .ed-ins-ctx-badge {
+  background: #06d6a022;
+  color: var(--ctx-ui);
+}
+
+.ed-ins-ctx-scope {
+  margin-top: 4px;
+  color: var(--text-dim);
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+/* multi-selection: the picked entities, listed read-only */
+.ed-ins-multi {
+  margin-bottom: 10px;
+}
+
+.ed-ins-multi-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: 12.5px;
+}
+
+/* Bulk override actions on an instance banner: reset all / apply all. */
+.ed-ins-ctx-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.ed-ins-ctx-actions button {
+  flex: 1;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ed-ins-ctx-actions button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.ed-ins-ctx-actions button.is-apply:hover {
+  border-color: var(--ctx-prefab);
+  color: var(--ctx-prefab);
+}
+
 .ed-row {
   display: grid;
   grid-template-columns: 1fr 110px;
@@ -1034,7 +1332,33 @@ select {
   grid-template-columns: 1fr 55px 55px;
 }
 
-/* controls inspector: action → key chips */
+/* Project settings (controls / stats / game): a centered card in the stage.
+   margin auto centers both axes and degrades to scrollable when content overflows. */
+.ed-project-pane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  overflow: auto;
+  padding: 24px;
+}
+
+.ed-project-card {
+  margin: auto;
+  width: min(460px, 100%);
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 6px 18px 16px;
+}
+
+.ed-project-save {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  text-align: center;
+}
+
+/* controls editor: action → key chips */
 
 .ed-keys-row {
   margin: 8px 0;
@@ -1097,7 +1421,7 @@ select {
   }
 }
 
-/* stats inspector: name | initial value | remove */
+/* stats editor: name | initial value | remove */
 
 .ed-stat-row {
   grid-template-columns: 1fr 84px 22px;
@@ -1218,6 +1542,31 @@ select {
   background: var(--accent);
   margin-left: 6px;
   vertical-align: middle;
+}
+
+/* Clears an instance override back to the prefab's value. */
+.ed-reset {
+  margin-left: 5px;
+  padding: 0 5px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--bg-panel-2);
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 16px;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.ed-reset:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Pushes the override into the prefab: hovers violet, prefab territory. */
+.ed-apply:hover {
+  border-color: var(--ctx-prefab);
+  color: var(--ctx-prefab);
 }
 
 /* Native chassis sections (Appearance / Collision / Behaviours): part of the

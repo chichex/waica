@@ -6,6 +6,7 @@ import { listScenes, loadPrefabLib, savePrefab, prefabPath, PREFAB_DIRS } from '
 import { loadUiLib, saveUi, uiPath, NEW_UI_HTML } from '../fs/ui-fs'
 import { newPrefabComponents, setCollisionEnabled, toggleAnimated } from '../project/chassis'
 import { CONTROLS_PATH, parseControls, serializeControls } from '../project/controls'
+import { DEFAULT_EDITOR_SETTINGS, EDITOR_SETTINGS_PATH, parseEditorSettings, serializeEditorSettings, type EditorSettings, type GridSettings } from '../project/editor-settings'
 import { GAME_PATH, parseGameSettings, serializeGameSettings, type GameSettings } from '../project/game'
 import { STATS_PATH, parseStats, serializeStats, type ProjectStats } from '../project/stats'
 import * as ops from '../scene/ops'
@@ -13,9 +14,11 @@ import { PLATFORMER_ANIMATION_CONTRACT } from '@waica/behaviors'
 import { toAnimatedProps } from '../project/clips'
 import { Viewport, type ViewportHandle } from './Viewport'
 import { Explorer, refBase, type ExplorerView } from './Explorer'
+import { entityIcon, prefabIcon, sceneLabel } from './icons'
 import { Inspector, type AnimTarget, type InspectorSelection } from './Inspector'
 import { AnimationEditor } from './AnimationEditor'
 import { CodePane } from './CodePane'
+import { ControlsEditor, GameSettingsEditor, ProjectPane, StatsEditor } from './ProjectPane'
 import { UiPane } from './UiPane'
 import { scriptSource } from './script-sources'
 import { useProjectArt, type ArtItem } from './use-project-art'
@@ -78,6 +81,8 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const [epoch, setEpoch] = useState(0)
   const [mode, setMode] = useState<'edit' | 'play'>('edit')
   const [selected, setSelected] = useState<string | null>(null)
+  /** Multi-selection in the scene tree: [] or 2+ entity names, never one. */
+  const [multi, setMulti] = useState<string[]>([])
   const [saveState, setSaveState] = useState<SaveState>('saved')
   const [artDims, setArtDims] = useState<[number, number] | null>(null)
   const [prefabLib, setPrefabLib] = useState<Record<string, PrefabJson>>(ACTIVE_ARCHETYPE.prefabs)
@@ -91,10 +96,13 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const [stats, setStats] = useState<ProjectStats | null>(null)
   /** null until src/game.json is read (or defaulted). */
   const [gameSettings, setGameSettings] = useState<GameSettings | null>(null)
+  /** null until src/editor.json is read (or defaulted). */
+  const [editorSettings, setEditorSettings] = useState<EditorSettings | null>(null)
   const viewport = useRef<ViewportHandle>(null)
   const controlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const statsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const gameTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const editorTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const saveTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
   // Committed scenes whose write hasn't landed yet: reopening one must show
   // this content, not the stale file on disk.
@@ -119,6 +127,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     void fs.readText(CONTROLS_PATH).then((text) => setControls(parseControls(text)))
     void fs.readText(STATS_PATH).then((text) => setStats(parseStats(text)))
     void fs.readText(GAME_PATH).then((text) => setGameSettings(parseGameSettings(text)))
+    void fs.readText(EDITOR_SETTINGS_PATH).then((text) => setEditorSettings(parseEditorSettings(text)))
   }, [fs])
 
   const commitControls = (next: InputBindings): void => {
@@ -140,6 +149,19 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     statsTimer.current = setTimeout(() => {
       statsTimer.current = null
       fs.writeText(STATS_PATH, serializeStats(next))
+        .then(() => setSaveState('saved'))
+        .catch(() => setSaveState('error'))
+    }, 600)
+  }
+
+  const commitGrid = (grid: GridSettings): void => {
+    const next = { ...(editorSettings ?? DEFAULT_EDITOR_SETTINGS), grid }
+    setEditorSettings(next)
+    setSaveState('saving')
+    if (editorTimer.current) clearTimeout(editorTimer.current)
+    editorTimer.current = setTimeout(() => {
+      editorTimer.current = null
+      fs.writeText(EDITOR_SETTINGS_PATH, serializeEditorSettings(next))
         .then(() => setSaveState('saved'))
         .catch(() => setSaveState('error'))
     }, 600)
@@ -267,8 +289,45 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     if (next.kind === 'art') setArtDims(null)
     if (next.kind === 'scene' && next.path !== openScenePath) {
       setSelected(null)
+      setMulti([])
       setOpenScenePath(next.path)
     }
+  }
+
+  const selectEntity = (name: string | null): void => {
+    setSelected(name)
+    setMulti([])
+  }
+
+  /** Cmd/Ctrl-click: grows/shrinks the multi-selection, seeded from the single selection. */
+  const toggleEntity = (name: string): void => {
+    if (!scene) return
+    const single = selected && ops.findEntity(scene, selected) ? [selected] : []
+    const base = multi.length > 0 ? multi : single
+    const next = base.includes(name) ? base.filter((n) => n !== name) : [...base, name]
+    if (next.length <= 1) {
+      setSelected(next[0] ?? null)
+      setMulti([])
+      return
+    }
+    setMulti(next)
+    if (!selected || !next.includes(selected)) setSelected(next[0]!)
+  }
+
+  /** Shift-click range / select-all: the run replaces the selection wholesale. */
+  const rangeEntities = (names: string[]): void => {
+    if (names.length === 0) return
+    if (names.length === 1) {
+      selectEntity(names[0]!)
+      return
+    }
+    setMulti(names)
+    if (!selected || !names.includes(selected)) setSelected(names[0]!)
+  }
+
+  const clearSelection = (): void => {
+    if (multi.length > 0) setMulti([])
+    else setSelected(null)
   }
 
   const addEntity = (): void => {
@@ -283,7 +342,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       true,
     )
     setView({ kind: 'scene', path: openScenePath })
-    setSelected(name)
+    selectEntity(name)
   }
 
   const createScene = async (): Promise<void> => {
@@ -323,28 +382,101 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       setOpenScenePath(null)
       setScene(null)
       setSelected(null)
+      setMulti([])
     }
     if (view?.kind === 'scene' && view.path === path) setView(null)
   }
 
-  const duplicateEntity = (name: string): void => {
-    if (!scene || !openScenePath) return
-    const entity = ops.findEntity(scene, name)
-    if (!entity) return
-    const copy = structuredClone(entity)
-    copy.name = ops.uniqueName(scene, name)
-    // Nudge the copy so it doesn't hide exactly behind the original.
-    const [x, y] = entity.position ?? [0, 0]
-    copy.position = [x + 0.5, y]
-    commit(ops.addEntity(scene, copy), true)
+  const duplicateEntities = (names: string[]): void => {
+    if (!scene || !openScenePath || names.length === 0) return
+    let next = scene
+    const copies: string[] = []
+    for (const name of names) {
+      const entity = ops.findEntity(next, name)
+      if (!entity) continue
+      const copy = structuredClone(entity)
+      copy.name = ops.uniqueName(next, name)
+      // Nudge the copy so it doesn't hide exactly behind the original.
+      const [x, y] = entity.position ?? [0, 0]
+      copy.position = [x + 0.5, y]
+      next = ops.addEntity(next, copy)
+      copies.push(copy.name)
+    }
+    if (copies.length === 0) return
+    commit(next, true)
     setView({ kind: 'scene', path: openScenePath })
-    setSelected(copy.name)
+    // The copies become the selection, ready to drag somewhere as a group.
+    setSelected(copies[0]!)
+    setMulti(copies.length > 1 ? copies : [])
   }
 
-  const deleteEntity = (name: string): void => {
+  const duplicateEntity = (name: string): void => duplicateEntities([name])
+
+  const deleteEntities = (names: string[]): void => {
+    if (!scene || names.length === 0) return
+    if (
+      names.length > 1 &&
+      !window.confirm(`Delete ${names.length} entities? This cannot be undone.`)
+    ) {
+      return
+    }
+    commit(ops.removeEntities(scene, names), true)
+    setSelected((s) => (s && names.includes(s) ? null : s))
+    setMulti([])
+  }
+
+  const deleteEntity = (name: string): void => deleteEntities([name])
+
+  const renameEntity = (from: string, to: string): void => {
     if (!scene) return
-    commit(ops.removeEntity(scene, name), true)
-    setSelected((s) => (s === name ? null : s))
+    const trimmed = to.trim()
+    if (!trimmed || trimmed === from) return
+    const name = ops.uniqueName(scene, trimmed)
+    commit(ops.renameEntity(scene, from, name), true)
+    setSelected((s) => (s === from ? name : s))
+    setMulti((m) => m.map((n) => (n === from ? name : n)))
+  }
+
+  const createFolder = (): void => {
+    if (!scene) return
+    commit(ops.addFolder(scene, ops.uniqueFolderName(scene, 'Folder')))
+  }
+
+  const renameFolder = (from: string, to: string): void => {
+    if (!scene) return
+    const trimmed = to.trim()
+    if (!trimmed || trimmed === from) return
+    commit(ops.renameFolder(scene, from, ops.uniqueFolderName(scene, trimmed)))
+  }
+
+  const dissolveFolder = (name: string): void => {
+    if (scene) commit(ops.dissolveFolder(scene, name))
+  }
+
+  const deleteFolder = (name: string): void => {
+    if (!scene) return
+    const doomed = scene.entities.filter((e) => e.folder === name)
+    const suffix = doomed.length === 0 ? '' : ` and its ${doomed.length} entit${doomed.length === 1 ? 'y' : 'ies'}`
+    if (!window.confirm(`Delete ${name}${suffix}? This cannot be undone.`)) return
+    commit(ops.deleteFolder(scene, name), true)
+    setSelected((s) => (doomed.some((e) => e.name === s) ? null : s))
+    setMulti((m) => {
+      const left = m.filter((n) => !doomed.some((e) => e.name === n))
+      return left.length > 1 ? left : []
+    })
+  }
+
+  // Spawn order follows the entities array, so reordering is structural.
+  const reorderEntity = (name: string, target: ops.DropTarget): void => {
+    if (scene) commit(ops.reorderEntity(scene, name, target), true)
+  }
+
+  const reorderFolder = (name: string, target: Exclude<ops.DropTarget, { into: string }>): void => {
+    if (scene) commit(ops.reorderFolder(scene, name, target), true)
+  }
+
+  const reorderEntities = (names: string[], target: ops.DropTarget): void => {
+    if (scene) commit(ops.reorderEntities(scene, names, target), true)
   }
 
   const createPrefab = (type: PrefabJson['type']): void => {
@@ -432,14 +564,17 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     const name = ops.uniqueName(scene, base.charAt(0).toUpperCase() + base.slice(1))
     commit(ops.addEntity(scene, { name, prefab: ref, position: [0, 0] }), true)
     setView({ kind: 'scene', path: openScenePath })
-    setSelected(name)
+    selectEntity(name)
   }
 
   const play = (): void => {
     setSelected(null)
+    setMulti([])
     setMode('play')
   }
   const stop = (): void => setMode('edit')
+
+  const sceneName = openScenePath ? sceneLabel(openScenePath) : null
 
   const selection: InspectorSelection = (() => {
     if (view?.kind === 'prefab') {
@@ -449,15 +584,9 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     if (view?.kind === 'ui') return { kind: 'ui', name: view.name }
     if (view?.kind === 'script') return { kind: 'script', name: view.name }
     if (view?.kind === 'art') return { kind: 'art', label: view.label, dims: artDims }
-    if (view?.kind === 'controls') {
-      return controls ? { kind: 'controls', bindings: controls } : null
-    }
-    if (view?.kind === 'stats') {
-      return stats ? { kind: 'stats', stats } : null
-    }
-    if (view?.kind === 'game') {
-      return gameSettings ? { kind: 'game', settings: gameSettings } : null
-    }
+    if (view?.kind === 'controls') return { kind: 'controls' }
+    if (view?.kind === 'stats') return { kind: 'stats' }
+    if (view?.kind === 'game') return { kind: 'game' }
     if (view?.kind === 'scene' && scene && selected === ops.CAMERA_NODE) {
       return {
         kind: 'camera',
@@ -465,9 +594,20 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
         entityNames: scene.entities.map((e) => e.name),
       }
     }
+    if (view?.kind === 'scene' && scene && multi.length > 1) {
+      return {
+        kind: 'multi',
+        entities: scene.entities.filter((e) => multi.includes(e.name)),
+        sceneName: sceneName ?? '',
+      }
+    }
     if (view?.kind === 'scene' && scene && selected) {
       const entity = scene.entities.find((e) => e.name === selected)
-      return entity ? { kind: 'entity', entity } : null
+      return entity ? { kind: 'entity', entity, sceneName: sceneName ?? '' } : null
+    }
+    // Scene open, nothing picked: you're editing the scene itself.
+    if (view?.kind === 'scene' && scene) {
+      return { kind: 'scene', name: sceneName ?? 'scene', scene }
     }
     return null
   })()
@@ -496,11 +636,13 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             gameSettings?.resolution.mode === 'fixed' ? gameSettings.resolution : undefined
           }
           showCamera
+          grid={editorSettings?.grid}
+          onGridChange={commitGrid}
           selected={selected}
-          onSelect={setSelected}
+          onSelect={selectEntity}
           onSelectCamera={() => {
             setView({ kind: 'scene', path: view.path })
-            setSelected(ops.CAMERA_NODE)
+            selectEntity(ops.CAMERA_NODE)
           }}
           onMoved={(name, position) => commit(ops.moveEntity(scene, name, position))}
           onCameraMoved={(position) => commit(ops.moveCamera(scene, position))}
@@ -525,44 +667,45 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             if (!ref) return
             const base = refBase(ref)
             const name = ops.uniqueName(scene, base.charAt(0).toUpperCase() + base.slice(1))
+            // The viewport already grid-snapped the drop point when snap is on.
             commit(
               ops.addEntity(scene, {
                 name,
                 prefab: ref,
-                position: [Math.round(world[0] * 2) / 2, Math.round(world[1] * 2) / 2],
+                position: [Math.round(world[0] * 100) / 100, Math.round(world[1] * 100) / 100],
               }),
               true,
             )
-            setSelected(name)
+            selectEntity(name)
           }}
         />
       )
     }
     if (view.kind === 'prefab') {
       return (
-        <>
-          <Viewport
-            key={`prefab:${view.ref}`}
-            ref={viewport}
-            scene={prefabScene ?? EMPTY_SCENE}
-            registry={registryWithPrefabs}
-            epoch={epoch}
-            mode="edit"
-            viewHeight={5}
-            selected={refBase(view.ref)}
-            onSelect={() => {}}
-            onMoved={() => {}}
-            onCollisionResized={(_name, compType, [w, h]) => {
-              const prefab = prefabLib[view.ref]
-              if (!prefab) return
-              commitPrefab(
-                view.ref,
-                setPrefabProp(setPrefabProp(prefab, compType, 'width', w), compType, 'height', h),
-              )
-            }}
-          />
-          <div className="ed-stage-caption">{view.ref.replace('/', ' / ')}</div>
-        </>
+        <Viewport
+          key={`prefab:${view.ref}`}
+          ref={viewport}
+          scene={prefabScene ?? EMPTY_SCENE}
+          registry={registryWithPrefabs}
+          epoch={epoch}
+          mode="edit"
+          viewHeight={5}
+          background={0x211a33}
+          grid={editorSettings?.grid}
+          onGridChange={commitGrid}
+          selected={refBase(view.ref)}
+          onSelect={() => {}}
+          onMoved={() => {}}
+          onCollisionResized={(_name, compType, [w, h]) => {
+            const prefab = prefabLib[view.ref]
+            if (!prefab) return
+            commitPrefab(
+              view.ref,
+              setPrefabProp(setPrefabProp(prefab, compType, 'width', w), compType, 'height', h),
+            )
+          }}
+        />
       )
     }
     if (view.kind === 'ui') {
@@ -585,24 +728,27 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       return <CodePane path={`scripts/${src.file}`} source={src.source} readOnly />
     }
     if (view.kind === 'controls') {
+      if (!controls) return <div className="ed-vp-hint">loading…</div>
       return (
-        <div className="ed-vp-hint">
-          🎮 set the keys for each action in the Inspector — saved to {CONTROLS_PATH}
-        </div>
+        <ProjectPane savePath={CONTROLS_PATH}>
+          <ControlsEditor bindings={controls} onChange={commitControls} />
+        </ProjectPane>
       )
     }
     if (view.kind === 'stats') {
+      if (!stats) return <div className="ed-vp-hint">loading…</div>
       return (
-        <div className="ed-vp-hint">
-          📊 declare what the game keeps track of in the Inspector — saved to {STATS_PATH}
-        </div>
+        <ProjectPane savePath={STATS_PATH}>
+          <StatsEditor stats={stats} onChange={commitStats} />
+        </ProjectPane>
       )
     }
     if (view.kind === 'game') {
+      if (!gameSettings) return <div className="ed-vp-hint">loading…</div>
       return (
-        <div className="ed-vp-hint">
-          🕹️ set the game's global settings (resolution) in the Inspector — saved to {GAME_PATH}
-        </div>
+        <ProjectPane savePath={GAME_PATH}>
+          <GameSettingsEditor settings={gameSettings} onChange={commitGameSettings} />
+        </ProjectPane>
       )
     }
     return (
@@ -614,6 +760,96 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       />
     )
   })()
+
+  // Breadcrumb over the center pane: what you're editing, and the way back.
+  const crumbTone =
+    view?.kind === 'prefab' ? 'prefab' : view?.kind === 'ui' ? 'ui' : view?.kind === 'scene' ? 'scene' : 'neutral'
+
+  const crumbCurrent = (() => {
+    switch (view?.kind) {
+      case 'prefab':
+        return { icon: prefabIcon(refBase(view.ref)), label: view.ref.replace('/', ' / ') }
+      case 'ui':
+        return { icon: '🧩', label: view.name }
+      case 'script':
+        return { icon: '📜', label: view.name }
+      case 'art':
+        return { icon: '🖼️', label: view.label }
+      case 'controls':
+        return { icon: '🎮', label: 'controls' }
+      case 'stats':
+        return { icon: '📊', label: 'stats' }
+      case 'game':
+        return { icon: '🕹️', label: 'game' }
+      default:
+        return null
+    }
+  })()
+
+  const selectedEntity =
+    view?.kind === 'scene' && scene && selected && selected !== ops.CAMERA_NODE
+      ? scene.entities.find((e) => e.name === selected)
+      : undefined
+
+  const crumbs = view && (
+    <div className={`ed-crumbs is-ctx-${crumbTone}`}>
+      {view.kind === 'scene' ? (
+        selected ? (
+          <>
+            <button className="ed-crumb" title="Back to the scene" onClick={() => setSelected(null)}>
+              <span className="ed-x-ico">🎬</span>
+              {sceneName}
+            </button>
+            <span className="ed-crumb-sep">▸</span>
+            <span className="ed-crumb is-current">
+              <span className="ed-x-ico">
+                {multi.length > 1
+                  ? '▣'
+                  : selected === ops.CAMERA_NODE
+                    ? '🎥'
+                    : selectedEntity
+                      ? entityIcon(selectedEntity, prefabLib)
+                      : '▢'}
+              </span>
+              {multi.length > 1
+                ? `${multi.length} entities`
+                : selected === ops.CAMERA_NODE
+                  ? 'Camera'
+                  : selected}
+            </span>
+          </>
+        ) : (
+          <span className="ed-crumb is-current">
+            <span className="ed-x-ico">🎬</span>
+            {sceneName}
+          </span>
+        )
+      ) : (
+        crumbCurrent && (
+          <>
+            {openScenePath && (
+              <button
+                className="ed-crumb"
+                title="Back to the scene"
+                onClick={() => openView({ kind: 'scene', path: openScenePath })}
+              >
+                ← <span className="ed-x-ico">🎬</span>
+                {sceneName}
+              </button>
+            )}
+            {openScenePath && <span className="ed-crumb-sep">▸</span>}
+            <span className="ed-crumb is-current">
+              <span className="ed-x-ico">{crumbCurrent.icon}</span>
+              {crumbCurrent.label}
+            </span>
+            {view.kind === 'prefab' && (
+              <span className="ed-crumb-chip is-prefab">edits reach every instance</span>
+            )}
+          </>
+        )
+      )}
+    </div>
+  )
 
   return (
     <div className="ed-root">
@@ -627,7 +863,11 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
         <button
           className={`ed-play ${mode === 'play' ? 'is-on' : ''}`}
           disabled={view?.kind !== 'scene' || !scene}
-          onClick={mode === 'edit' ? play : stop}
+          onClick={(e) => {
+            // Drop focus so Space (jump) doesn't re-trigger the button.
+            e.currentTarget.blur()
+            ;(mode === 'edit' ? play : stop)()
+          }}
         >
           {mode === 'edit' ? '▶ Play' : '⏹ Stop'}
         </button>
@@ -648,6 +888,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             scene={scene}
             view={view}
             selected={selected}
+            multi={multi}
             prefabLib={prefabLib}
             uiLib={uiLib}
             art={projectArt.art}
@@ -657,15 +898,32 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             onSelectEntity={(name) => {
               if (!openScenePath) return
               setView({ kind: 'scene', path: openScenePath })
-              setSelected(name)
+              selectEntity(name)
             }}
+            onToggleEntity={(name) => {
+              if (!openScenePath) return
+              setView({ kind: 'scene', path: openScenePath })
+              toggleEntity(name)
+            }}
+            onRangeEntities={(names) => {
+              if (!openScenePath) return
+              setView({ kind: 'scene', path: openScenePath })
+              rangeEntities(names)
+            }}
+            onClearSelection={clearSelection}
             onSelectCamera={() => {
               if (!openScenePath) return
               setView({ kind: 'scene', path: openScenePath })
-              setSelected(ops.CAMERA_NODE)
+              selectEntity(ops.CAMERA_NODE)
             }}
             onAddEntity={addEntity}
             onCreateScene={() => void createScene()}
+            onCreateFolder={createFolder}
+            onRenameFolder={renameFolder}
+            onDissolveFolder={dissolveFolder}
+            onDeleteFolder={deleteFolder}
+            onReorderEntity={reorderEntity}
+            onReorderFolder={reorderFolder}
             onOpenPrefab={(ref) => openView({ kind: 'prefab', ref })}
             onOpenScript={(name) => openView({ kind: 'script', name })}
             onOpenArt={(item: ArtItem) => openView({ kind: 'art', ...item })}
@@ -676,6 +934,10 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             onDeleteScene={(path) => void deleteScene(path)}
             onDuplicateEntity={duplicateEntity}
             onDeleteEntity={deleteEntity}
+            onRenameEntity={renameEntity}
+            onDeleteEntities={deleteEntities}
+            onDuplicateEntities={duplicateEntities}
+            onReorderEntities={reorderEntities}
             onCreatePrefab={createPrefab}
             onDuplicatePrefab={duplicatePrefab}
             onDeletePrefab={(ref) => void deletePrefab(ref)}
@@ -691,18 +953,16 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
           />
         </aside>
 
-        <main className={`ed-center ${view ? '' : 'is-empty'}`}>{center}</main>
+        <main className={`ed-center ${view ? '' : 'is-empty'}`}>
+          {crumbs}
+          <div className={`ed-stage ${view?.kind === 'prefab' ? 'is-prefab' : ''}`}>{center}</div>
+        </main>
 
         <aside className="ed-right">
           <Inspector
             selection={selection}
             prefabs={prefabLib}
-            onRename={(from, to) => {
-              if (!scene) return
-              const name = ops.uniqueName(scene, to)
-              commit(ops.renameEntity(scene, from, name), true)
-              setSelected(name)
-            }}
+            onRename={renameEntity}
             onMove={(name, position) => {
               if (!scene) return
               viewport.current?.applyMove(name, position[0], position[1])
@@ -712,6 +972,57 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
               if (!scene) return
               viewport.current?.applyProp(entity, componentType, key, value)
               commit(ops.setComponentProp(scene, entity, componentType, key, value, prefabLib))
+            }}
+            onResetProp={(entity, componentType, key) => {
+              if (!scene) return
+              // Structural commit: the stage re-instantiates and re-resolves
+              // the prop from the prefab (no single live value to patch back).
+              commit(ops.clearComponentOverride(scene, entity, componentType, key), true)
+            }}
+            onApplyProp={(entity, componentType, key) => {
+              if (!scene) return
+              const target = ops.findEntity(scene, entity)
+              const ref = target?.prefab
+              const prefab = ref ? prefabLib[ref] : undefined
+              const value = target?.overrides?.[componentType]?.[key]
+              if (!ref || !prefab || value === undefined) return
+              // The prefab takes the instance's value; the override becomes
+              // redundant and goes away. Other instances' own overrides stay.
+              commitPrefab(ref, setPrefabProp(prefab, componentType, key, value))
+              commit(ops.clearComponentOverride(scene, entity, componentType, key), true)
+            }}
+            onResetAllProps={(entity) => {
+              if (!scene) return
+              const target = ops.findEntity(scene, entity)
+              const count = target ? ops.countOverrides(target) : 0
+              if (!count) return
+              const s = count === 1 ? '' : 's'
+              if (!window.confirm(`Reset ${count} override${s} back to the prefab's values?`)) return
+              commit(ops.clearAllOverrides(scene, entity), true)
+            }}
+            onApplyAllProps={(entity) => {
+              if (!scene) return
+              const target = ops.findEntity(scene, entity)
+              const ref = target?.prefab
+              const prefab = ref ? prefabLib[ref] : undefined
+              const count = target ? ops.countOverrides(target) : 0
+              if (!ref || !prefab || !count) return
+              const s = count === 1 ? '' : 's'
+              if (
+                !window.confirm(
+                  `Apply ${count} override${s} to ${ref}? Every instance gets these values.`,
+                )
+              ) {
+                return
+              }
+              let next = prefab
+              for (const [type, props] of Object.entries(target?.overrides ?? {})) {
+                for (const [key, value] of Object.entries(props)) {
+                  next = setPrefabProp(next, type, key, value)
+                }
+              }
+              commitPrefab(ref, next)
+              commit(ops.clearAllOverrides(scene, entity), true)
             }}
             onAddComponent={(entity, type) => {
               if (scene) commit(ops.addComponent(scene, entity, type), true)
@@ -779,12 +1090,9 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
               const prefab = prefabLib[ref]
               if (prefab) commitPrefab(ref, setCollisionEnabled(prefab, enabled), true)
             }}
-            onBindingsChange={commitControls}
-            onStatsChange={commitStats}
             onCameraProp={(key, value) => {
               if (scene) commit(ops.setCameraProp(scene, key, value))
             }}
-            onGameSettingsChange={commitGameSettings}
           />
         </aside>
       </div>

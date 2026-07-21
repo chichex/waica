@@ -1,26 +1,26 @@
-import { useEffect, useState } from 'react'
-import { missingClips, resolveSceneCamera, type PrefabJson, type SceneCameraJson, type SceneComponentJson, type SceneEntityJson } from '@waica/engine'
+import { useState } from 'react'
+import { missingClips, resolveSceneCamera, type PrefabJson, type SceneCameraJson, type SceneComponentJson, type SceneEntityJson, type SceneJson } from '@waica/engine'
 import { PLATFORMER_ANIMATION_CONTRACT } from '@waica/behaviors'
 import { ACTIVE_ARCHETYPE } from '../project/archetype'
-import { prefabOwns, resolveComponents } from '../scene/ops'
+import { countOverrides, prefabOwns, resolveComponents } from '../scene/ops'
 import { behaviourTypes, CHASSIS, splitComponents } from '../project/chassis'
 import { clipSummary } from '../project/clips'
-import { ACTION_LABELS, keyLabel, parseControls } from '../project/controls'
-import type { GameSettings } from '../project/game'
-import type { ProjectStats } from '../project/stats'
-import type { ClipDef, InputBindings, ParamSpec, StatValue } from '@waica/engine'
+import { entityIcon, prefabIcon } from './icons'
+import type { ClipDef, ParamSpec } from '@waica/engine'
 
 /** What the inspector is editing, mirroring the explorer view. */
 export type InspectorSelection =
-  | { kind: 'entity'; entity: SceneEntityJson }
+  | { kind: 'scene'; name: string; scene: SceneJson }
+  | { kind: 'entity'; entity: SceneEntityJson; sceneName: string }
+  | { kind: 'multi'; entities: SceneEntityJson[]; sceneName: string }
   | { kind: 'camera'; camera: SceneCameraJson | undefined; entityNames: string[] }
   | { kind: 'prefab'; ref: string; prefab: PrefabJson }
   | { kind: 'ui'; name: string }
   | { kind: 'script'; name: string }
   | { kind: 'art'; label: string; dims: [number, number] | null }
-  | { kind: 'controls'; bindings: InputBindings }
-  | { kind: 'stats'; stats: ProjectStats }
-  | { kind: 'game'; settings: GameSettings }
+  | { kind: 'controls' }
+  | { kind: 'stats' }
+  | { kind: 'game' }
   | null
 
 /** Whose AnimatedSprite the animation editor should open on. */
@@ -42,6 +42,14 @@ interface Props {
   onRename(from: string, to: string): void
   onMove(name: string, position: [number, number]): void
   onProp(entity: string, componentType: string, key: string, value: unknown): void
+  /** Clears one instance override so the prop falls back to the prefab's value. */
+  onResetProp(entity: string, componentType: string, key: string): void
+  /** Writes one override into the prefab (all instances) and clears it here. */
+  onApplyProp(entity: string, componentType: string, key: string): void
+  /** Clears every override on this instance. */
+  onResetAllProps(entity: string): void
+  /** Writes every override into the prefab and clears them here. */
+  onApplyAllProps(entity: string): void
   onAddComponent(entity: string, type: string): void
   onRemoveComponent(entity: string, type: string): void
   onSetEntityCollision(entity: string, type: 'Hitbox' | 'Solid' | null): void
@@ -53,11 +61,8 @@ interface Props {
   onPrefabToggleAnimated(ref: string): void
   onPrefabSetCollision(ref: string, enabled: boolean): void
   onEditAnimation(target: AnimTarget): void
-  onBindingsChange(next: InputBindings): void
-  onStatsChange(next: ProjectStats): void
   /** Sets one prop of the open scene's camera block (undefined deletes it). */
   onCameraProp(key: string, value: unknown): void
-  onGameSettingsChange(next: GameSettings): void
 }
 
 function componentKeys(comp: SceneComponentJson): string[] {
@@ -90,12 +95,131 @@ function touchBehaviourNames(comps: SceneComponentJson[]): string[] {
     })
 }
 
+/** Where a change lands, shown as a colored banner at the top of the inspector. */
+interface InspectorContext {
+  icon: string
+  name: string
+  badge: string
+  scope?: string
+  tone: 'scene' | 'prefab' | 'ui' | 'neutral'
+}
+
+function contextOf(
+  selection: NonNullable<InspectorSelection>,
+  prefabs: Record<string, PrefabJson>,
+): InspectorContext {
+  switch (selection.kind) {
+    case 'scene':
+      return {
+        icon: '🎬',
+        name: selection.name,
+        badge: 'scene',
+        scope: 'the world the game loads — click an entity to edit it',
+        tone: 'scene',
+      }
+    case 'entity': {
+      const e = selection.entity
+      return {
+        icon: entityIcon(e, prefabs),
+        name: e.name,
+        badge: e.prefab ? 'instance' : 'entity',
+        scope: e.prefab
+          ? `changes affect only this instance in "${selection.sceneName}" — the prefab stays untouched`
+          : `one-off entity — lives only in "${selection.sceneName}"`,
+        tone: 'scene',
+      }
+    }
+    case 'multi':
+      return {
+        icon: '▣',
+        name: `${selection.entities.length} entities`,
+        badge: 'selection',
+        scope: `selected in "${selection.sceneName}" — drag, duplicate or delete them together`,
+        tone: 'scene',
+      }
+    case 'camera':
+      return {
+        icon: '🎥',
+        name: 'Camera',
+        badge: 'scene camera',
+        scope: 'built-in — this frame is what the player sees when the game runs',
+        tone: 'scene',
+      }
+    case 'prefab':
+      return {
+        icon: prefabIcon(selection.ref.slice(selection.ref.indexOf('/') + 1)),
+        name: selection.ref.slice(selection.ref.indexOf('/') + 1),
+        badge: `${selection.prefab.type} prefab`,
+        scope: 'shared blueprint — changes here reach every instance in every scene',
+        tone: 'prefab',
+      }
+    case 'ui':
+      return {
+        icon: '🧩',
+        name: selection.name,
+        badge: 'ui piece',
+        scope: 'HTML drawn over the game while it plays',
+        tone: 'ui',
+      }
+    case 'script':
+      return {
+        icon: '📜',
+        name: selection.name,
+        badge: 'built-in script',
+        scope: 'read-only — its params appear wherever the script is used',
+        tone: 'neutral',
+      }
+    case 'art':
+      return { icon: '🖼️', name: selection.label, badge: 'image', tone: 'neutral' }
+    case 'controls':
+      return {
+        icon: '🎮',
+        name: 'controls',
+        badge: 'project',
+        scope: 'which keys fire each action — applies to every scene',
+        tone: 'neutral',
+      }
+    case 'stats':
+      return {
+        icon: '📊',
+        name: 'stats',
+        badge: 'project',
+        scope: 'what the game keeps track of while playing — shared by every scene',
+        tone: 'neutral',
+      }
+    case 'game':
+      return {
+        icon: '🕹️',
+        name: 'game',
+        badge: 'project',
+        scope: 'global settings of the shipped game',
+        tone: 'neutral',
+      }
+  }
+}
+
+function ContextHeader({ ctx, actions }: { ctx: InspectorContext; actions?: React.ReactNode }) {
+  return (
+    <div className={`ed-ins-ctx is-${ctx.tone}`}>
+      <div className="ed-ins-ctx-title">
+        <span className="ed-x-ico">{ctx.icon}</span>
+        <span className="ed-ins-ctx-name">{ctx.name}</span>
+        <span className="ed-ins-ctx-badge">{ctx.badge}</span>
+      </div>
+      {ctx.scope && <div className="ed-ins-ctx-scope">{ctx.scope}</div>}
+      {actions && <div className="ed-ins-ctx-actions">{actions}</div>}
+    </div>
+  )
+}
+
 function PropRow({
   label,
   value,
   spec,
   overridden = false,
   onChange,
+  onReset,
+  onApply,
 }: {
   /** The raw prop key; shown as-is unless the spec declares a friendly label. */
   label: string
@@ -105,11 +229,35 @@ function PropRow({
   /** Instance override on top of the prefab value: marked with a dot. */
   overridden?: boolean
   onChange(value: unknown): void
+  /** Clears the override (shown only while overridden). */
+  onReset?(): void
+  /** Pushes the override into the prefab (shown only while overridden). */
+  onApply?(): void
 }) {
+  // Rows are <label>s: stop clicks on these buttons from activating the input.
+  const press = (fn: () => void) => (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    fn()
+  }
   const name = (
     <span>
       {spec?.label ?? label}
       {overridden && <i className="ed-dot" title="overridden on this instance" />}
+      {overridden && onReset && (
+        <button className="ed-reset" title="Reset to the prefab's value" onClick={press(onReset)}>
+          ↺
+        </button>
+      )}
+      {overridden && onApply && (
+        <button
+          className="ed-reset ed-apply"
+          title="Apply to the prefab — every instance gets this value"
+          onClick={press(onApply)}
+        >
+          ⤒
+        </button>
+      )}
     </span>
   )
   if (typeof value === 'boolean') {
@@ -198,6 +346,8 @@ function ComponentRows({
   keys,
   overridden,
   onProp,
+  onReset,
+  onApply,
 }: {
   /** Key prefix so React inputs reset when the owner changes. */
   id: string
@@ -205,6 +355,8 @@ function ComponentRows({
   keys: string[]
   overridden?: Set<string>
   onProp(key: string, value: unknown): void
+  onReset?(key: string): void
+  onApply?(key: string): void
 }) {
   const defaults = componentDefaults(comp)
   const specs = ACTIVE_ARCHETYPE.registry.components[comp.type]?.params ?? {}
@@ -218,6 +370,8 @@ function ComponentRows({
           value={(comp.props ?? {})[key] ?? defaults[key] ?? 0}
           overridden={overridden?.has(key)}
           onChange={(value) => onProp(key, value)}
+          onReset={onReset && (() => onReset(key))}
+          onApply={onApply && (() => onApply(key))}
         />
       ))}
     </>
@@ -230,6 +384,8 @@ function ComponentCard({
   overridden,
   onProp,
   onRemove,
+  onReset,
+  onApply,
 }: {
   id: string
   comp: SceneComponentJson
@@ -237,6 +393,8 @@ function ComponentCard({
   onProp(key: string, value: unknown): void
   /** Absent = locked (prefab-owned behaviours, the ui chassis widget). */
   onRemove?(): void
+  onReset?(key: string): void
+  onApply?(key: string): void
 }) {
   const keys = componentKeys(comp)
   return (
@@ -253,7 +411,15 @@ function ComponentCard({
         )}
       </header>
       {keys.length === 0 && <div className="ed-hint">no parameters</div>}
-      <ComponentRows id={id} comp={comp} keys={keys} overridden={overridden} onProp={onProp} />
+      <ComponentRows
+        id={id}
+        comp={comp}
+        keys={keys}
+        overridden={overridden}
+        onProp={onProp}
+        onReset={onReset}
+        onApply={onApply}
+      />
     </div>
   )
 }
@@ -272,6 +438,10 @@ function AppearanceSection({
   onAnimatorProp,
   onToggleAnimated,
   onEditAnimation,
+  onReset,
+  onAnimatorReset,
+  onApply,
+  onAnimatorApply,
 }: {
   id: string
   comp: SceneComponentJson
@@ -287,6 +457,10 @@ function AppearanceSection({
   onToggleAnimated?(): void
   /** Opens the animation editor (AnimatedSprite only). */
   onEditAnimation?(): void
+  onReset?(key: string): void
+  onAnimatorReset?(key: string): void
+  onApply?(key: string): void
+  onAnimatorApply?(key: string): void
 }) {
   const animated = comp.type === 'AnimatedSprite'
   const keys = componentKeys(comp).filter((k) => !animated || !ANIMATION_KEYS.has(k))
@@ -299,7 +473,15 @@ function AppearanceSection({
           <input type="checkbox" checked={animated} onChange={onToggleAnimated} />
         </label>
       )}
-      <ComponentRows id={id} comp={comp} keys={keys} overridden={overridden} onProp={onProp} />
+      <ComponentRows
+        id={id}
+        comp={comp}
+        keys={keys}
+        overridden={overridden}
+        onProp={onProp}
+        onReset={onReset}
+        onApply={onApply}
+      />
       {animated && (
         <>
           <RoRow label="clips" value={clipSummary(clipsOf(comp))} />
@@ -311,6 +493,8 @@ function AppearanceSection({
               keys={componentKeys(animator)}
               overridden={animatorOverridden}
               onProp={onAnimatorProp}
+              onReset={onAnimatorReset}
+              onApply={onAnimatorApply}
             />
           )}
           {onEditAnimation && (
@@ -332,6 +516,8 @@ function CollisionSection({
   offHint,
   onProp,
   onToggle,
+  onReset,
+  onApply,
 }: {
   id: string
   comp: SceneComponentJson | null
@@ -343,6 +529,8 @@ function CollisionSection({
   onProp(key: string, value: unknown): void
   /** Present only where the chassis allows turning collision off (prefab level). */
   onToggle?(enabled: boolean): void
+  onReset?(key: string): void
+  onApply?(key: string): void
 }) {
   return (
     <div className="ed-section">
@@ -364,6 +552,8 @@ function CollisionSection({
           keys={['width', 'height']}
           overridden={overridden}
           onProp={onProp}
+          onReset={onReset}
+          onApply={onApply}
         />
       ) : (
         <div className="ed-hint">{offHint}</div>
@@ -415,6 +605,8 @@ function BehavioursSection({
   onProp,
   onRemove,
   onAdd,
+  onReset,
+  onApply,
 }: {
   id: string
   comps: SceneComponentJson[]
@@ -424,6 +616,8 @@ function BehavioursSection({
   onProp(type: string, key: string, value: unknown): void
   onRemove(type: string): void
   onAdd(type: string): void
+  onReset?(type: string, key: string): void
+  onApply?(type: string, key: string): void
 }) {
   return (
     <div className="ed-section">
@@ -437,6 +631,8 @@ function BehavioursSection({
           overridden={overriddenFor?.(comp.type)}
           onProp={(key, value) => onProp(comp.type, key, value)}
           onRemove={canRemove(comp) ? () => onRemove(comp.type) : undefined}
+          onReset={onReset && ((key) => onReset(comp.type, key))}
+          onApply={onApply && ((key) => onApply(comp.type, key))}
         />
       ))}
       <AddComponentRow present={present} onAdd={onAdd} />
@@ -479,6 +675,8 @@ function EntityInspector({
   onRename,
   onMove,
   onProp,
+  onResetProp,
+  onApplyProp,
   onAddComponent,
   onRemoveComponent,
   onSetEntityCollision,
@@ -504,6 +702,9 @@ function EntityInspector({
   const appearance = split.appearance
   const collision = split.collision
   const overridesOf = (type: string) => new Set(Object.keys(entity.overrides?.[type] ?? {}))
+  const overrideCount = countOverrides(entity)
+  const resetOf = (type: string) => (key: string) => onResetProp(entity.name, type, key)
+  const applyOf = (type: string) => (key: string) => onApplyProp(entity.name, type, key)
   return (
     <div className="ed-pad">
       <label className="ed-row">
@@ -541,7 +742,14 @@ function EntityInspector({
           onClick={() => onOpenPrefab(entity.prefab as string)}
         >
           instance of {entity.prefab}
+          {overrideCount > 0 && ` · ${overrideCount} override${overrideCount === 1 ? '' : 's'}`}
         </button>
+      )}
+      {overrideCount > 0 && (
+        <div className="ed-hint">
+          ● marks props changed here — ↺ resets to the prefab's value, ⤒ applies yours to the
+          prefab
+        </div>
       )}
 
       {appearance && (
@@ -558,6 +766,10 @@ function EntityInspector({
           onAnimatorProp={(key, value) =>
             split.animator && onProp(entity.name, split.animator.type, key, value)
           }
+          onReset={resetOf(appearance.type)}
+          onAnimatorReset={split.animator ? resetOf(split.animator.type) : undefined}
+          onApply={applyOf(appearance.type)}
+          onAnimatorApply={split.animator ? applyOf(split.animator.type) : undefined}
           onEditAnimation={
             appearance.type === 'AnimatedSprite'
               ? () =>
@@ -580,6 +792,8 @@ function EntityInspector({
               overridden={collision ? overridesOf(collision.type) : undefined}
               offHint="no collision — defined by the prefab"
               onProp={(key, value) => collision && onProp(entity.name, collision.type, key, value)}
+              onReset={collision ? resetOf(collision.type) : undefined}
+              onApply={collision ? applyOf(collision.type) : undefined}
             />
           )
         : (
@@ -600,6 +814,8 @@ function EntityInspector({
         onProp={(type, key, value) => onProp(entity.name, type, key, value)}
         onRemove={(type) => onRemoveComponent(entity.name, type)}
         onAdd={(type) => onAddComponent(entity.name, type)}
+        onReset={(type, key) => onResetProp(entity.name, type, key)}
+        onApply={(type, key) => onApplyProp(entity.name, type, key)}
       />
 
       <button className="ed-danger" onClick={() => onDelete(entity.name)}>
@@ -628,7 +844,6 @@ function PrefabInspector({
   onSetCollision(enabled: boolean): void
   onEditAnimation(): void
 }) {
-  const base = refName.slice(refName.indexOf('/') + 1)
   const rule = CHASSIS[prefab.type]
   const split = splitComponents(prefab.components)
   const appearance = split.appearance
@@ -641,8 +856,6 @@ function PrefabInspector({
         : 'no hitbox — this object is decorative'
   return (
     <div className="ed-pad">
-      <RoRow label="name" value={base} />
-      <div className="ed-hint">every instance of this prefab shares these components</div>
       {appearance && (
         <AppearanceSection
           id={refName}
@@ -727,11 +940,6 @@ function CameraInspector({
   )
   return (
     <div className="ed-pad">
-      <RoRow label="name" value="Camera" />
-      <div className="ed-hint">
-        built-in — every scene has exactly one camera: this frame is what the player sees when
-        the game runs
-      </div>
       {cam.follow ? (
         // Following: the camera rides its target, so a manual position would
         // be a lie — the game overrides it the moment play starts.
@@ -812,236 +1020,20 @@ function CameraInspector({
   )
 }
 
-function GameSettingsInspector({
-  settings,
-  onChange,
-}: {
-  settings: GameSettings
-  onChange(next: GameSettings): void
-}) {
-  const res = settings.resolution
-  const setRes = (patch: Partial<GameSettings['resolution']>): void =>
-    onChange({ ...settings, resolution: { ...res, ...patch } })
+/** Scene-level summary shown while nothing inside the scene is selected. */
+function SceneInspector({ scene }: { scene: SceneJson }) {
+  const cam = resolveSceneCamera(scene.camera)
   return (
     <div className="ed-pad">
-      <div className="ed-hint">
-        global settings of the shipped game — every scene plays with these
-      </div>
-      <div className="ed-section">
-        <header className="ed-sec-head">Resolution</header>
-        <label className="ed-row">
-          <span>mode</span>
-          <select
-            value={res.mode}
-            onChange={(e) => setRes({ mode: e.target.value as 'fill' | 'fixed' })}
-          >
-            <option value="fill">fill the window</option>
-            <option value="fixed">fixed (letterbox)</option>
-          </select>
-        </label>
-        {res.mode === 'fixed' ? (
-          <>
-            <label className="ed-row">
-              <span>width</span>
-              <input
-                type="number"
-                step={1}
-                min={1}
-                value={res.width}
-                onChange={(e) => setRes({ width: Math.max(1, Number(e.target.value)) })}
-              />
-            </label>
-            <label className="ed-row">
-              <span>height</span>
-              <input
-                type="number"
-                step={1}
-                min={1}
-                value={res.height}
-                onChange={(e) => setRes({ height: Math.max(1, Number(e.target.value)) })}
-              />
-            </label>
-            <div className="ed-hint">
-              the game always shows a {res.width}×{res.height} view, with bars when the window
-              has a different shape
-            </div>
-          </>
-        ) : (
-          <div className="ed-hint">the view stretches to whatever window the game runs in</div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function ControlsInspector({
-  bindings,
-  onChange,
-}: {
-  bindings: InputBindings
-  onChange(next: InputBindings): void
-}) {
-  /** Action waiting for its next key press, if any. */
-  const [capturing, setCapturing] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!capturing) return
-    const onKey = (e: KeyboardEvent): void => {
-      // Capture phase so the pressed key never leaks into the editor UI.
-      e.preventDefault()
-      e.stopPropagation()
-      if (e.code !== 'Escape') {
-        const codes = bindings[capturing] ?? []
-        if (!codes.includes(e.code)) {
-          onChange({ ...bindings, [capturing]: [...codes, e.code] })
-        }
-      }
-      setCapturing(null)
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [capturing, bindings, onChange])
-
-  const removeKey = (action: string, code: string): void => {
-    onChange({ ...bindings, [action]: (bindings[action] ?? []).filter((c) => c !== code) })
-  }
-
-  return (
-    <div className="ed-pad">
-      <div className="ed-hint">
-        which keys fire each action — the same controls apply to every scene
-      </div>
-      <div className="ed-section">
-        <header className="ed-sec-head">Keyboard</header>
-        {Object.entries(bindings).map(([action, codes]) => (
-          <div className="ed-keys-row" key={action}>
-            <span className="ed-keys-action">{ACTION_LABELS[action] ?? action}</span>
-            <div className="ed-keys">
-              {codes.map((code) => (
-                <button
-                  key={code}
-                  className="ed-key-chip"
-                  title="Remove this key"
-                  onClick={() => removeKey(action, code)}
-                >
-                  {keyLabel(code)} <span className="ed-key-x">×</span>
-                </button>
-              ))}
-              <button
-                className={`ed-key-add ${capturing === action ? 'is-listening' : ''}`}
-                onClick={() => setCapturing(capturing === action ? null : action)}
-              >
-                {capturing === action ? 'press a key… (Esc cancels)' : '+ key'}
-              </button>
-            </div>
-            {codes.length === 0 && (
-              <div className="ed-hint ed-warn">no keys — this action can't fire</div>
-            )}
-          </div>
-        ))}
-      </div>
-      <button className="ed-wide" onClick={() => onChange(parseControls(null))}>
-        ↺ Reset to defaults
-      </button>
-    </div>
-  )
-}
-
-/** Kinds a new stat can be born as; the row editor then follows the value's type. */
-const NEW_STAT_VALUES: Record<string, StatValue> = { number: 0, toggle: false, text: '' }
-
-function StatValueInput({
-  value,
-  onChange,
-}: {
-  value: StatValue
-  onChange(value: StatValue): void
-}) {
-  if (typeof value === 'boolean') {
-    return <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} />
-  }
-  if (typeof value === 'number') {
-    return (
-      <input
-        type="number"
-        step={1}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
+      <RoRow label="entities" value={String(scene.entities.length)} />
+      <RoRow label="ui pieces" value={scene.ui?.length ? scene.ui.join(', ') : 'none'} />
+      <RoRow
+        label="camera"
+        value={cam.follow ? `follows ${cam.follow}` : `fixed at ${cam.position[0]}, ${cam.position[1]}`}
       />
-    )
-  }
-  return <input type="text" value={value} onChange={(e) => onChange(e.target.value)} />
-}
-
-function StatsInspector({
-  stats,
-  onChange,
-}: {
-  stats: ProjectStats
-  onChange(next: ProjectStats): void
-}) {
-  const [newName, setNewName] = useState('')
-  const [newKind, setNewKind] = useState('number')
-
-  const name = newName.trim()
-  const taken = name in stats
-  const addStat = (): void => {
-    if (!name || taken) return
-    onChange({ ...stats, [name]: NEW_STAT_VALUES[newKind] ?? 0 })
-    setNewName('')
-  }
-  const removeStat = (statName: string): void => {
-    const next = { ...stats }
-    delete next[statName]
-    onChange(next)
-  }
-
-  const entries = Object.entries(stats)
-  return (
-    <div className="ed-pad">
       <div className="ed-hint">
-        what the game keeps track of while playing (points, lives, flags…) — every play run
-        starts from these values, and behaviours read and change them
-      </div>
-      <div className="ed-section">
-        <header className="ed-sec-head">Stats</header>
-        {entries.length === 0 && <div className="ed-hint">no stats yet — try points or lives</div>}
-        {entries.map(([statName, value]) => (
-          <div className="ed-row ed-stat-row" key={statName}>
-            <span>{statName}</span>
-            <StatValueInput
-              value={value}
-              onChange={(next) => onChange({ ...stats, [statName]: next })}
-            />
-            <button
-              className="ed-mini"
-              title="Remove this stat"
-              onClick={() => removeStat(statName)}
-            >
-              ✕
-            </button>
-          </div>
-        ))}
-        <div className="ed-stat-add">
-          <input
-            type="text"
-            placeholder="new stat name…"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') addStat()
-            }}
-          />
-          <select value={newKind} onChange={(e) => setNewKind(e.target.value)}>
-            <option value="number">number</option>
-            <option value="toggle">on/off</option>
-            <option value="text">text</option>
-          </select>
-          <button className="ed-mini" disabled={!name || taken} onClick={addStat}>
-            add
-          </button>
-        </div>
-        {taken && <div className="ed-hint ed-warn">a stat named “{name}” already exists</div>}
+        click an entity in the viewport or the tree to edit it — drag prefabs from the left
+        panel to add more
       </div>
     </div>
   )
@@ -1054,7 +1046,6 @@ function ScriptInspector({ name }: { name: string }) {
   const params = Object.entries(Class.params ?? {})
   return (
     <div className="ed-pad">
-      <RoRow label="name" value={name} />
       <div className="ed-hint">
         params declared in the code — the editor shows them as sliders wherever this script is
         used:
@@ -1085,7 +1076,49 @@ export function Inspector(props: Props) {
     <section className="ed-panel ed-inspector">
       <header className="ed-panel-head">Inspector</header>
       {selection == null && <div className="ed-hint ed-pad">nothing selected</div>}
+      {selection != null && (
+        <ContextHeader
+          ctx={contextOf(selection, props.prefabs)}
+          actions={
+            selection.kind === 'entity' &&
+            countOverrides(selection.entity) > 0 && (
+              <>
+                <button
+                  title="Clear every override — this instance goes back to the prefab's values"
+                  onClick={() => props.onResetAllProps(selection.entity.name)}
+                >
+                  ↺ Reset all
+                </button>
+                <button
+                  className="is-apply"
+                  title="Write every override into the prefab — all instances get these values"
+                  onClick={() => props.onApplyAllProps(selection.entity.name)}
+                >
+                  ⤒ Apply all
+                </button>
+              </>
+            )
+          }
+        />
+      )}
+      {selection?.kind === 'scene' && <SceneInspector scene={selection.scene} />}
       {selection?.kind === 'entity' && <EntityInspector {...props} entity={selection.entity} />}
+      {selection?.kind === 'multi' && (
+        <div className="ed-pad">
+          <div className="ed-ins-multi">
+            {selection.entities.map((entity) => (
+              <div key={entity.name} className="ed-ins-multi-row">
+                <span className="ed-x-ico">{entityIcon(entity, props.prefabs)}</span>
+                {entity.name}
+              </div>
+            ))}
+          </div>
+          <div className="ed-hint">
+            drag moves them together · ⌘/Ctrl+D duplicates · Delete removes — or right-click a
+            selected row
+          </div>
+        </div>
+      )}
       {selection?.kind === 'camera' && (
         <CameraInspector
           camera={selection.camera}
@@ -1107,7 +1140,6 @@ export function Inspector(props: Props) {
       )}
       {selection?.kind === 'ui' && (
         <div className="ed-pad">
-          <RoRow label="name" value={selection.name} />
           <div className="ed-hint">
             a UI piece is plain HTML: markup, styles and {'{{stat}}'} bindings — presentation
             only. Scenes list the pieces they start with; code toggles them with
@@ -1116,18 +1148,13 @@ export function Inspector(props: Props) {
         </div>
       )}
       {selection?.kind === 'script' && <ScriptInspector name={selection.name} />}
-      {selection?.kind === 'controls' && (
-        <ControlsInspector bindings={selection.bindings} onChange={props.onBindingsChange} />
-      )}
-      {selection?.kind === 'stats' && (
-        <StatsInspector stats={selection.stats} onChange={props.onStatsChange} />
-      )}
-      {selection?.kind === 'game' && (
-        <GameSettingsInspector settings={selection.settings} onChange={props.onGameSettingsChange} />
+      {(selection?.kind === 'controls' ||
+        selection?.kind === 'stats' ||
+        selection?.kind === 'game') && (
+        <div className="ed-hint ed-pad">edited in the center pane</div>
       )}
       {selection?.kind === 'art' && (
         <div className="ed-pad">
-          <RoRow label="name" value={selection.label} />
           <RoRow
             label="size"
             value={selection.dims ? `${selection.dims[0]} × ${selection.dims[1]} px` : '…'}
