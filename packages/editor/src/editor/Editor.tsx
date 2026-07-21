@@ -634,8 +634,12 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   }
 
   const play = (): void => {
+    if (!openScenePath || !scene) return
     setSelected(null)
     setMulti([])
+    // Play may be pressed from any view (prefab, ui…): the run happens in the
+    // scene viewport, so bring the open scene to the center first.
+    setView({ kind: 'scene', path: openScenePath })
     setMode('play')
   }
   const stop = (): void => setMode('edit')
@@ -1115,9 +1119,27 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
           {fs.kind === 'memory' && <em className="ed-demo-chip">in-memory demo</em>}
         </span>
         <span className="ed-spacer" />
+        <select
+          className="ed-scene-select"
+          title="Scene to play"
+          value={openScenePath ?? ''}
+          disabled={mode === 'play' || scenePaths.length === 0}
+          onChange={(e) => openView({ kind: 'scene', path: e.target.value })}
+        >
+          {!openScenePath && (
+            <option value="" disabled>
+              scene…
+            </option>
+          )}
+          {scenePaths.map((path) => (
+            <option key={path} value={path}>
+              {sceneLabel(path)}
+            </option>
+          ))}
+        </select>
         <button
           className={`ed-play ${mode === 'play' ? 'is-on' : ''}`}
-          disabled={view?.kind !== 'scene' || !scene}
+          disabled={!scene}
           onClick={(e) => {
             // Drop focus so Space (jump) doesn't re-trigger the button.
             e.currentTarget.blur()

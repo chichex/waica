@@ -360,6 +360,23 @@ select {
   flex: 1;
 }
 
+.ed-scene-select {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg-panel);
+  cursor: pointer;
+}
+
+.ed-scene-select:hover:not(:disabled) {
+  border-color: var(--accent-2);
+}
+
+.ed-scene-select:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .ed-play {
   padding: 6px 16px;
   border-radius: 8px;
