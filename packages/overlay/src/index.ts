@@ -96,7 +96,12 @@ export function attachOverlay(game: Game, options: OverlayOptions = {}): () => v
     }, 500)
   }
 
-  const setOverride = (entity: string, comp: string, key: string, value: number | boolean): void => {
+  const setOverride = (
+    entity: string,
+    comp: string,
+    key: string,
+    value: number | boolean | string,
+  ): void => {
     const forEntity = (game.paramOverrides[entity] ??= {})
     const forComp = (forEntity[comp] ??= {})
     forComp[key] = value
@@ -112,7 +117,7 @@ export function attachOverlay(game: Game, options: OverlayOptions = {}): () => v
     row.append(label)
 
     const current = (component as unknown as Record<string, unknown>)[key]
-    const apply = (value: number | boolean): void => {
+    const apply = (value: number | boolean | string): void => {
       ;(component as unknown as Record<string, unknown>)[key] = value
       setOverride(component.entity.name, Class.componentName, key, value)
     }
@@ -123,6 +128,20 @@ export function attachOverlay(game: Game, options: OverlayOptions = {}): () => v
       check.checked = current
       check.addEventListener('input', () => apply(check.checked))
       row.append(check)
+      return row
+    }
+
+    if (typeof current === 'string' && spec.options) {
+      const select = document.createElement('select')
+      for (const option of spec.options) {
+        const el = document.createElement('option')
+        el.value = option
+        el.textContent = option
+        select.append(el)
+      }
+      select.value = current
+      select.addEventListener('input', () => apply(select.value))
+      row.append(select)
       return row
     }
 

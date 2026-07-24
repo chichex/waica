@@ -1,8 +1,8 @@
 /**
  * Project game settings: global options of the shipped game that no scene
- * owns — today, the render resolution. Persisted as src/game.json so the
- * shipped game and play-in-editor read the same file; missing or broken
- * files degrade to the defaults.
+ * owns — the render resolution and the art scale. Persisted as
+ * src/game.json so the shipped game and play-in-editor read the same file;
+ * missing or broken files degrade to the defaults.
  */
 
 export const GAME_PATH = 'src/game.json'
@@ -16,6 +16,12 @@ export interface ResolutionSetting {
 
 export interface GameSettings {
   resolution: ResolutionSetting
+  /**
+   * Art scale: how many image pixels one world unit covers. Editor-only
+   * bridge between pixel-sized assets and world-unit sizes ("use image
+   * size", the camera's pixel readout) — the engine never sees it.
+   */
+  pixelsPerUnit: number
 }
 
 export interface GameSettingsJson extends GameSettings {
@@ -24,6 +30,7 @@ export interface GameSettingsJson extends GameSettings {
 
 export const DEFAULT_GAME_SETTINGS: GameSettings = {
   resolution: { mode: 'fill', width: 640, height: 360 },
+  pixelsPerUnit: 16,
 }
 
 /**
@@ -39,6 +46,8 @@ export function parseGameSettings(text: string | null): GameSettings {
     if (res?.mode === 'fill' || res?.mode === 'fixed') settings.resolution.mode = res.mode
     if (typeof res?.width === 'number' && res.width > 0) settings.resolution.width = res.width
     if (typeof res?.height === 'number' && res.height > 0) settings.resolution.height = res.height
+    const ppu = json.pixelsPerUnit
+    if (typeof ppu === 'number' && isFinite(ppu) && ppu > 0) settings.pixelsPerUnit = ppu
   } catch {
     // hand-edited into invalid JSON: the game still runs with the defaults
   }

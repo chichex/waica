@@ -4,36 +4,139 @@ import type { ProjectFS, TreeNode } from '../fs/project-fs'
 
 export interface ArtItem {
   label: string
-  /** Displayable URL: a bundled asset URL or an object URL over project bytes. */
+  /** Displayable URL: an object URL over the project file's bytes. */
   url: string
-  /** What texture props store: 'waica:dog' or a project path like 'src/art/foo.png'. */
+  /** What texture props store: the project path, e.g. 'src/art/foo.png'. */
   uri: string
-  /** Project file path; absent for built-in archetype art (which can't be deleted). */
-  path?: string
+  /** Project file path. */
+  path: string
+}
+
+/** A folder of art, grouped by the path the source files were dropped under. */
+export interface ArtFolder {
+  /** Empty for the implicit root folder. */
+  name: string
+  /** Full folder key ('Sprites/Player'), stable across re-scans — used as UI state id. */
+  path: string
+  folders: ArtFolder[]
+  items: ArtItem[]
+}
+
+/** A file about to be imported, carrying the folder path it was dropped under (if any). */
+export interface DroppedFile {
+  file: File
+  /** Path relative to the drop root, folders preserved with '/'. Equals file.name for loose files. */
+  relativePath: string
 }
 
 export interface ProjectArt {
   art: ArtItem[]
   /** Re-scans src/art and public (after an import or delete). */
   refresh(): void
-  /** Writes image files to src/art and re-scans. */
-  importArt(files: File[]): Promise<void>
+  /** Writes image files to src/art (preserving each one's relativePath) and re-scans. */
+  importArt(files: DroppedFile[]): Promise<void>
   /** Displayable URL for a stored texture uri (art match, then archetype assets). */
   urlFor(uri: string): string
+  /** Live progress while importArt is writing files; null when idle. */
+  importProgress: { done: number; total: number } | null
 }
 
 export const IMAGE_RE = /\.(png|jpe?g)$/i
 
-const resolveArchetypeAsset = ACTIVE_ARCHETYPE.registry.resolveAsset ?? ((uri: string) => uri)
+async function readDirectoryEntries(
+  reader: FileSystemDirectoryReader,
+): Promise<FileSystemEntry[]> {
+  const entries: FileSystemEntry[] = []
+  for (;;) {
+    const batch = await new Promise<FileSystemEntry[]>((resolve, reject) =>
+      reader.readEntries(resolve, reject),
+    )
+    if (batch.length === 0) break
+    entries.push(...batch)
+  }
+  return entries
+}
 
-const BUILTIN_ART: ArtItem[] = [
-  { label: 'waica-dog.png', uri: 'waica:dog', url: resolveArchetypeAsset('waica:dog') },
-  { label: 'waica-coin.png', uri: 'waica:coin', url: resolveArchetypeAsset('waica:coin') },
-  { label: 'waica-slime.png', uri: 'waica:slime', url: resolveArchetypeAsset('waica:slime') },
-]
+async function collectEntry(entry: FileSystemEntry, basePath: string): Promise<DroppedFile[]> {
+  const relativePath = basePath ? `${basePath}/${entry.name}` : entry.name
+  if (entry.isFile) {
+    const file = await new Promise<File>((resolve, reject) =>
+      (entry as FileSystemFileEntry).file(resolve, reject),
+    )
+    return [{ file, relativePath }]
+  }
+  if (entry.isDirectory) {
+    const children = await readDirectoryEntries(
+      (entry as FileSystemDirectoryEntry).createReader(),
+    )
+    const nested = await Promise.all(children.map((child) => collectEntry(child, relativePath)))
+    return nested.flat()
+  }
+  return []
+}
+
+/**
+ * Reads a drop's files, recursing into dropped folders via the
+ * webkitGetAsEntry entry API (supported by every current browser despite the
+ * prefix) and preserving each file's path within the drop. Falls back to the
+ * flat file list when entries aren't available, e.g. in tests that only stub
+ * `dataTransfer.files`.
+ */
+export async function collectDroppedFiles(dataTransfer: DataTransfer): Promise<DroppedFile[]> {
+  const items = [...dataTransfer.items].filter((item) => item.kind === 'file')
+  const entries = items.map((item) =>
+    typeof item.webkitGetAsEntry === 'function' ? item.webkitGetAsEntry() : null,
+  )
+  if (entries.length === 0 || entries.some((entry) => entry == null)) {
+    return [...dataTransfer.files].map((file) => ({ file, relativePath: file.name }))
+  }
+  const lists = await Promise.all(
+    entries.map((entry) => collectEntry(entry as FileSystemEntry, '')),
+  )
+  return lists.flat()
+}
+
+// Fallback for non-project URIs (e.g. 'waica:dog' in old projects): the
+// archetype's own resolver. The panel itself lists project files ONLY.
+const resolveArchetypeAsset = ACTIVE_ARCHETYPE.registry.resolveAsset ?? ((uri: string) => uri)
 
 function findDir(nodes: TreeNode[] | undefined, name: string): TreeNode | undefined {
   return nodes?.find((n) => n.kind === 'dir' && n.name === name)
+}
+
+/** Path shown in the folder tree: art's own two scan roots collapsed away. */
+export function artDisplayPath(item: ArtItem): string {
+  if (item.path.startsWith('src/art/')) return item.path.slice('src/art/'.length)
+  if (item.path.startsWith('public/')) return item.path.slice('public/'.length)
+  return item.path
+}
+
+/** Groups flat art items into the folder tree their paths imply, sorted folders-then-files. */
+export function buildArtTree(art: ArtItem[]): ArtFolder {
+  const root: ArtFolder = { name: '', path: '', folders: [], items: [] }
+  for (const item of art) {
+    const segments = artDisplayPath(item).split('/')
+    segments.pop() // the filename itself — item.label already carries it
+    let node = root
+    let path = ''
+    for (const segment of segments) {
+      path = path ? `${path}/${segment}` : segment
+      let child = node.folders.find((f) => f.name === segment)
+      if (!child) {
+        child = { name: segment, path, folders: [], items: [] }
+        node.folders.push(child)
+      }
+      node = child
+    }
+    node.items.push(item)
+  }
+  const sortNode = (node: ArtFolder): void => {
+    node.folders.sort((a, b) => a.name.localeCompare(b.name))
+    node.items.sort((a, b) => a.label.localeCompare(b.label))
+    node.folders.forEach(sortNode)
+  }
+  sortNode(root)
+  return root
 }
 
 /**
@@ -41,8 +144,11 @@ function findDir(nodes: TreeNode[] | undefined, name: string): TreeNode | undefi
  * registry (texture resolution) and the animation editor.
  */
 export function useProjectArt(fs: ProjectFS): ProjectArt {
-  const [art, setArt] = useState<ArtItem[]>(BUILTIN_ART)
+  const [art, setArt] = useState<ArtItem[]>([])
   const [artEpoch, setArtEpoch] = useState(0)
+  const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(
+    null,
+  )
   // Object URLs backing the current `art`: revoked only AFTER a fresh batch
   // is committed, so images never break mid-scan.
   const owned = useRef<string[]>([])
@@ -79,7 +185,7 @@ export function useProjectArt(fs: ProjectFS): ProjectArt {
       }
       for (const url of owned.current) URL.revokeObjectURL(url)
       owned.current = created
-      setArt([...BUILTIN_ART, ...items])
+      setArt(items)
     })
     return () => {
       cancelled = true
@@ -96,12 +202,18 @@ export function useProjectArt(fs: ProjectFS): ProjectArt {
   const refresh = useCallback((): void => setArtEpoch((e) => e + 1), [])
 
   const importArt = useCallback(
-    async (files: File[]): Promise<void> => {
-      const images = files.filter((f) => IMAGE_RE.test(f.name))
-      for (const file of images) {
-        await fs.writeFile(`src/art/${file.name}`, new Uint8Array(await file.arrayBuffer()))
+    async (files: DroppedFile[]): Promise<void> => {
+      const images = files.filter((f) => IMAGE_RE.test(f.file.name))
+      if (!images.length) return
+      setImportProgress({ done: 0, total: images.length })
+      let done = 0
+      for (const { file, relativePath } of images) {
+        await fs.writeFile(`src/art/${relativePath}`, new Uint8Array(await file.arrayBuffer()))
+        done += 1
+        setImportProgress({ done, total: images.length })
       }
-      if (images.length) setArtEpoch((e) => e + 1)
+      setArtEpoch((e) => e + 1)
+      setImportProgress(null)
     },
     [fs],
   )
@@ -111,5 +223,5 @@ export function useProjectArt(fs: ProjectFS): ProjectArt {
     [art],
   )
 
-  return { art, refresh, importArt, urlFor }
+  return { art, refresh, importArt, urlFor, importProgress }
 }

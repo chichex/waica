@@ -49,7 +49,11 @@ export interface SceneJson {
 /** Which components exist and how to resolve archetype assets (waica:*). */
 export interface SceneRegistry {
   components: Record<string, ComponentClass>
-  /** Resolves "waica:dog"-style URIs to real asset URLs. */
+  /**
+   * Resolves asset URIs — "waica:dog" registry keys or project paths like
+   * "src/art/hero.png" — to loadable URLs. MUST return unknown strings
+   * unchanged: every string prop goes through it.
+   */
   resolveAsset?: (uri: string) => string
   /** Prefab definitions keyed by ref ("characters/slime"). */
   prefabs?: Record<string, PrefabJson>
@@ -57,19 +61,30 @@ export interface SceneRegistry {
   ui?: Record<string, string>
 }
 
-function resolveProps(
+/**
+ * Runs every string prop through the registry's asset resolver (if any),
+ * recursing into arrays and plain objects — nested textures (e.g. an
+ * AnimatedSprite's extraSheets) resolve like top-level ones. Safe because
+ * resolvers return unknown strings unchanged.
+ */
+export function resolveProps(
   props: Record<string, unknown> | undefined,
   registry: SceneRegistry,
 ): Record<string, unknown> {
   if (!props) return {}
-  const out: Record<string, unknown> = {}
-  for (const [key, value] of Object.entries(props)) {
-    out[key] =
-      typeof value === 'string' && value.startsWith('waica:') && registry.resolveAsset
-        ? registry.resolveAsset(value)
-        : value
+  const resolve = registry.resolveAsset
+  if (!resolve) return { ...props }
+  const walk = (value: unknown): unknown => {
+    if (typeof value === 'string') return resolve(value)
+    if (Array.isArray(value)) return value.map(walk)
+    if (value && typeof value === 'object' && value.constructor === Object) {
+      const out: Record<string, unknown> = {}
+      for (const [key, entry] of Object.entries(value)) out[key] = walk(entry)
+      return out
+    }
+    return value
   }
-  return out
+  return walk(props) as Record<string, unknown>
 }
 
 /**

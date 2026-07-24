@@ -4,6 +4,7 @@ import {
   appearanceKind,
   behaviourTypes,
   componentRole,
+  missingDriver,
   newPrefabComponents,
   setAppearanceShape,
   setAppearanceTexture,
@@ -32,6 +33,45 @@ describe('behaviourTypes', () => {
     expect(
       behaviourTypes(['Sprite', 'Solid', 'Patrol', 'Hitbox', 'StateMachine', 'Hazard']),
     ).toEqual(['Patrol', 'StateMachine', 'Hazard'])
+  })
+})
+
+describe('missingDriver', () => {
+  const machine = (logic: string) => ({ type: 'StateMachine', props: { logic } })
+
+  it('flags platformer logic without the Motor', () => {
+    expect(missingDriver([{ type: 'AnimatedSprite' }, machine('platformer')])).toEqual({
+      logic: 'platformer',
+      driver: 'PlatformerMotor',
+    })
+  })
+
+  it('is satisfied once the driver is present', () => {
+    expect(
+      missingDriver([machine('platformer'), { type: 'PlatformerMotor' }]),
+    ).toBeNull()
+    expect(missingDriver([machine('patroller'), { type: 'Patrol' }])).toBeNull()
+  })
+
+  it('flags patroller logic without Patrol', () => {
+    expect(missingDriver([machine('patroller')])).toEqual({
+      logic: 'patroller',
+      driver: 'Patrol',
+    })
+  })
+
+  it('suggests switching logic when the other driver is already there', () => {
+    expect(missingDriver([machine('platformer'), { type: 'Patrol' }])).toEqual({
+      logic: 'platformer',
+      driver: 'PlatformerMotor',
+      alternative: { logic: 'patroller', driver: 'Patrol' },
+    })
+  })
+
+  it('stays quiet on custom logic and without a machine', () => {
+    expect(missingDriver([machine('my-own-brain')])).toBeNull()
+    expect(missingDriver([{ type: 'Sprite' }])).toBeNull()
+    expect(missingDriver([{ type: 'StateMachine' }])).toBeNull()
   })
 })
 
@@ -66,7 +106,7 @@ describe('splitComponents', () => {
 describe('newPrefabComponents', () => {
   it('builds each chassis', () => {
     expect(newPrefabComponents('character').map((c) => c.type)).toEqual([
-      'AnimatedSprite',
+      'Sprite',
       'StateMachine',
       'Hitbox',
     ])
@@ -80,12 +120,22 @@ describe('newPrefabComponents', () => {
     expect(machine?.props?.initial).toBe('idle')
   })
 
-  it('clones sprite clips and state graph so prefabs never share objects', () => {
+  it('starts character appearance as a plain shape, not archetype art', () => {
+    const sprite = newPrefabComponents('character')[0]
+    expect(sprite?.props?.texture).toBeUndefined()
+    expect(sprite ? appearanceKind(sprite) : null).toBe('shape')
+  })
+
+  it('layers characters over objects over tiles by default', () => {
+    expect(newPrefabComponents('character')[0]?.props?.layer).toBe(2)
+    expect(newPrefabComponents('object')[0]?.props?.layer).toBe(1)
+    expect(newPrefabComponents('tile')[0]?.props?.layer).toBeUndefined()
+  })
+
+  it('clones the state graph so prefabs never share objects', () => {
     const a = newPrefabComponents('character')
     const b = newPrefabComponents('character')
-    expect((a[0]?.props as { clips: object }).clips).not.toBe(
-      (b[0]?.props as { clips: object }).clips,
-    )
+    expect(a[0]?.props).not.toBe(b[0]?.props)
     expect((a[1]?.props as { states: object }).states).not.toBe(
       (b[1]?.props as { states: object }).states,
     )

@@ -34,7 +34,26 @@ for (const [path, html] of Object.entries(uiFiles)) {
   ui[path.slice('./ui/'.length, -'.html'.length)] = html
 }
 
-const registry = { ...PLATFORMER_REGISTRY, prefabs, ui }
+// The project's art (src/art/*): texture props store the project path
+// ('src/art/hero.png'); this map turns each into a served, build-safe URL.
+const artFiles = import.meta.glob<string>('./art/*', {
+  eager: true,
+  query: '?url',
+  import: 'default',
+})
+const artUrls: Record<string, string> = {}
+for (const [path, url] of Object.entries(artFiles)) {
+  // './art/hero.png' -> 'src/art/hero.png'
+  artUrls[`src/${path.slice(2)}`] = url
+}
+
+const registry = {
+  ...PLATFORMER_REGISTRY,
+  prefabs,
+  ui,
+  resolveAsset: (uri: string) =>
+    artUrls[uri] ?? PLATFORMER_REGISTRY.resolveAsset?.(uri) ?? uri,
+}
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')
 if (!canvas) throw new Error('missing <canvas id="game">')

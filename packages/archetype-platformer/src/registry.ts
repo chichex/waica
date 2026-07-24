@@ -11,15 +11,21 @@ import {
 import { Collectible, Hazard, Patrol, PlatformerMotor, Respawnable } from '@waica/behaviors'
 import { PLATFORMER_PREFABS } from './prefabs'
 import { PLATFORMER_UI } from './ui'
+import { PLATFORMER_ART } from './art'
 import dogSheet from '../assets/waica-dog.png'
 import coinSheet from '../assets/waica-coin.png'
 import slimeSheet from '../assets/waica-slime.png'
 
-const BUILTIN_ASSETS: Record<string, string> = {
-  'waica:dog': dogSheet,
-  'waica:coin': coinSheet,
-  'waica:slime': slimeSheet,
+/** Bundled URL per stock art file (kept out of art.ts: node can't import PNGs). */
+export const PLATFORMER_ART_URLS: Record<string, string> = {
+  'waica-dog.png': dogSheet,
+  'waica-coin.png': coinSheet,
+  'waica-slime.png': slimeSheet,
 }
+
+const BUILTIN_ASSETS: Record<string, string> = Object.fromEntries(
+  PLATFORMER_ART.map((art) => [art.uri, PLATFORMER_ART_URLS[art.file] ?? art.uri]),
+)
 
 /** Components, prefabs and assets available in the platformer archetype. */
 export const PLATFORMER_REGISTRY: SceneRegistry = {

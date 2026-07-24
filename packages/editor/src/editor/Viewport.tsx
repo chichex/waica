@@ -1,15 +1,27 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
-import { Game, GameUi, loadScene, resolveSceneCamera, THREE, type Entity, type GameResolution, type InputBindings, type SceneJson, type SceneRegistry, type StatValue } from '@waica/engine'
+import { Game, GameUi, loadScene, resolveCollisionPoints, resolveSceneCamera, THREE, type CollisionPoint, type Entity, type GameResolution, type InputBindings, type SceneJson, type SceneRegistry, type StatValue } from '@waica/engine'
 import { ACTIVE_ARCHETYPE } from '../project/archetype'
 import { DEFAULT_EDITOR_SETTINGS, MIN_GRID_SIZE, type GridSettings } from '../project/editor-settings'
 import { CAMERA_NODE } from '../scene/ops'
+import { cornerResize } from './box-math'
 import { gridCoverKey, gridLineVertices, snapActive, snapPoint } from './grid'
+import { NumberField } from './NumberField'
 import { uiFrameLayout } from './ui-preview'
 
 export interface ViewportHandle {
   /** Applies a prop change to the live instance (without recreating the game). */
   applyProp(entity: string, componentType: string, key: string, value: unknown): void
   applyMove(entity: string, x: number, y: number): void
+}
+
+export interface ViewportComponentVisibility {
+  appearance: boolean
+  collision: boolean
+}
+
+const DEFAULT_COMPONENT_VISIBILITY: ViewportComponentVisibility = {
+  appearance: true,
+  collision: true,
 }
 
 interface Props {
@@ -34,28 +46,58 @@ interface Props {
   /** Grid overlay + snap settings (defaults until the project file loads). */
   grid?: GridSettings
   onGridChange?(next: GridSettings): void
+  /** Editor-only visibility of the selected entity's internal viewport layers. */
+  componentVisibility?: ViewportComponentVisibility
   /** The selected entity name, or CAMERA_NODE for the scene camera. */
   selected: string | null
+  /** Names in the multi-selection; dragging any member moves the whole group. */
+  multiSelected?: string[]
   onSelect(name: string | null): void
+  /** Shift-click on an entity: toggles it in the multi-selection. */
+  onToggleSelect?(name: string): void
+  /** Marquee (Shift-drag on empty space): replaces the selection wholesale. */
+  onRangeSelect?(names: string[]): void
   onSelectCamera?(): void
   onMoved(name: string, position: [number, number]): void
+  /** Commits a group drag as one undo step (multi-selection moves). */
+  onMovedMany?(moves: Array<{ name: string; position: [number, number] }>): void
   /** Reports a scene-camera drag on pointer-up. */
   onCameraMoved?(position: [number, number]): void
-  /** Reports a box resize (collision or appearance corner-handle drag) on pointer-up. */
-  onBoxResized?(name: string, componentType: string, size: [number, number]): void
+  /**
+   * Reports a box resize (collision or appearance corner-handle drag) on
+   * pointer-up. The dragged corner moves and the opposite one stays pinned,
+   * so the box's center shifts too — hence the offset.
+   */
+  onBoxResized?(
+    name: string,
+    componentType: string,
+    size: [number, number],
+    offset: [number, number],
+  ): void
+  /** Reports a component box offset after its outline is dragged. */
+  onBoxMoved?(name: string, componentType: string, offset: [number, number]): void
+  /** Reports freeform collision vertices after a polygon handle drag. */
+  onPolygonChanged?(name: string, componentType: string, points: CollisionPoint[]): void
   /** Accepts 'waica/prefab' drops (refs); omit to reject drops (prefab stage). */
   onDropPrefab?(ref: string, world: [number, number]): void
 }
 
-/** An entity's visual size (for picking and the gizmo): the largest of its boxes. */
+/** An entity's visual size (for picking and the gizmo), including box offsets. */
 function entityBounds(entity: Entity): [number, number] {
   let w = 0.6
   let h = 0.6
   for (const c of entity.components) {
-    const box = c as unknown as { width?: unknown; height?: unknown }
+    const box = c as unknown as {
+      width?: unknown
+      height?: unknown
+      offsetX?: unknown
+      offsetY?: unknown
+    }
     if (typeof box.width === 'number' && typeof box.height === 'number') {
-      w = Math.max(w, box.width)
-      h = Math.max(h, box.height)
+      const offsetX = typeof box.offsetX === 'number' ? box.offsetX : 0
+      const offsetY = typeof box.offsetY === 'number' ? box.offsetY : 0
+      w = Math.max(w, Math.abs(offsetX) * 2 + box.width)
+      h = Math.max(h, Math.abs(offsetY) * 2 + box.height)
     }
   }
   return [w, h]
@@ -89,24 +131,88 @@ const BOX_KINDS = [
   { types: ['Sprite', 'AnimatedSprite'], color: 0xffb703, role: 'appearance' },
 ] as const
 
+type BoxRole = (typeof BOX_KINDS)[number]['role']
+
+interface LiveBox {
+  width: number
+  height: number
+  offsetX?: number
+  offsetY?: number
+  shape?: string
+  points?: CollisionPoint[]
+}
+
+function boxShape(comp: LiveBox, role: BoxRole): 'rectangle' | 'circle' | 'polygon' {
+  if (comp.shape === 'circle') return 'circle'
+  if (role === 'collision' && comp.shape === 'polygon') return 'polygon'
+  return 'rectangle'
+}
+
+function boxOutline(comp: LiveBox, role: BoxRole): CollisionPoint[] {
+  const shape = boxShape(comp, role)
+  if (shape === 'polygon') return resolveCollisionPoints(comp.points)
+  if (shape === 'circle') {
+    return Array.from({ length: 40 }, (_, index): CollisionPoint => {
+      const angle = (index / 40) * Math.PI * 2
+      return [Math.cos(angle) * 0.5, Math.sin(angle) * 0.5]
+    })
+  }
+  return CORNERS.map(([x, y]) => [x, y])
+}
+
+function boxHandlePoints(comp: LiveBox, role: BoxRole): CollisionPoint[] {
+  return boxShape(comp, role) === 'polygon'
+    ? resolveCollisionPoints(comp.points)
+    : CORNERS.map(([x, y]) => [x, y])
+}
+
+function boxCenter(entity: Entity, comp: LiveBox): CollisionPoint {
+  return [entity.position.x + (comp.offsetX ?? 0), entity.position.y + (comp.offsetY ?? 0)]
+}
+
+function pointSegmentDistance(
+  px: number,
+  py: number,
+  [ax, ay]: CollisionPoint,
+  [bx, by]: CollisionPoint,
+): number {
+  const dx = bx - ax
+  const dy = by - ay
+  const lengthSquared = dx * dx + dy * dy
+  const t = lengthSquared
+    ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSquared))
+    : 0
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+}
+
 /** The entity's live component of one of the given types, with its box. */
 function findBox(
   entity: Entity,
   types: readonly string[],
-): { comp: { width: number; height: number }; type: string } | null {
+): { comp: LiveBox; type: string } | null {
   for (const c of entity.components) {
     const type = (c.constructor as { componentName?: string }).componentName ?? ''
     if (!types.includes(type)) continue
-    const comp = c as unknown as { width?: unknown; height?: unknown }
+    const comp = c as unknown as Partial<LiveBox>
     if (typeof comp.width === 'number' && typeof comp.height === 'number') {
-      return { comp: comp as { width: number; height: number }, type }
+      return { comp: comp as LiveBox, type }
     }
   }
   return null
 }
 
+type ResizeDrag =
+  /** ax/ay: the opposite corner's world position, pinned for the whole drag. */
+  | { kind: 'box'; name: string; compType: string; ax: number; ay: number }
+  | { kind: 'polygon'; name: string; compType: string; point: number }
+  | { kind: 'move'; name: string; compType: string; ox: number; oy: number }
+
+type HandleHit =
+  | { kind: 'box'; name: string; compType: string; corner: CollisionPoint }
+  | { kind: 'polygon'; name: string; compType: string; point: number }
+
 export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
-  { scene, registry = ACTIVE_ARCHETYPE.registry, epoch, mode, bindings, stats, viewHeight = 12, background = 0x1a1a2e, resolution, showCamera = false, grid = DEFAULT_EDITOR_SETTINGS.grid, onGridChange, selected, onSelect, onSelectCamera, onMoved, onCameraMoved, onBoxResized, onDropPrefab },
+  { scene, registry = ACTIVE_ARCHETYPE.registry, epoch, mode, bindings, stats, viewHeight = 12, background = 0x1a1a2e, resolution, showCamera = false, grid = DEFAULT_EDITOR_SETTINGS.grid, onGridChange, componentVisibility = DEFAULT_COMPONENT_VISIBILITY, selected, multiSelected, onSelect, onToggleSelect, onRangeSelect, onSelectCamera, onMoved, onMovedMany, onCameraMoved, onBoxResized, onBoxMoved, onPolygonChanged, onDropPrefab },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -117,17 +223,29 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
   const statsRef = useRef(stats)
   const resolutionRef = useRef(resolution)
   const selectedRef = useRef(selected)
+  const multiRef = useRef(multiSelected)
   const modeRef = useRef(mode)
   const gridRef = useRef(grid)
+  const componentVisibilityRef = useRef(componentVisibility)
   const [dropHover, setDropHover] = useState(false)
-  /** The size field's raw text, so typing "0." doesn't fight the commit. */
-  const [sizeText, setSizeText] = useState(String(grid.size))
   const cam = useRef({ x: 0, y: 0, view: viewHeight })
   /** The edit camera starts framed like the scene camera, once per mount. */
   const camSeeded = useRef(false)
-  const drag = useRef<{ name: string; ox: number; oy: number } | null>(null)
+  /** Entity drag: the grabbed anchor plus every group member's pointer offset. */
+  const drag = useRef<{
+    anchor: { name: string; ox: number; oy: number }
+    members: Array<{ name: string; ox: number; oy: number }>
+  } | null>(null)
+  /** Marquee selection (Cmd/Ctrl-drag on empty space), in world + client coords. */
+  const marquee = useRef<{ x0: number; y0: number; x1: number; y1: number; cx0: number; cy0: number } | null>(null)
+  const [marqueeRect, setMarqueeRect] = useState<{
+    left: number
+    top: number
+    width: number
+    height: number
+  } | null>(null)
   const pan = useRef<{ px: number; py: number } | null>(null)
-  const resize = useRef<{ name: string; compType: string } | null>(null)
+  const resize = useRef<ResizeDrag | null>(null)
   const camDrag = useRef<{ ox: number; oy: number } | null>(null)
   /** Live scene-camera position while dragging its gizmo (committed on up). */
   const camLive = useRef<{ x: number; y: number } | null>(null)
@@ -141,12 +259,10 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
   statsRef.current = stats
   resolutionRef.current = resolution
   selectedRef.current = selected
+  multiRef.current = multiSelected
   modeRef.current = mode
   gridRef.current = grid
-
-  useEffect(() => {
-    setSizeText(String(grid.size))
-  }, [grid.size])
+  componentVisibilityRef.current = componentVisibility
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -197,6 +313,18 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
     gizmo.visible = false
     game.scene.add(gizmo)
 
+    // Multi-selection gizmos: one outline per group member, pooled.
+    const multiGizmos: Array<ReturnType<typeof rectLoop>> = []
+    const ensureMultiGizmos = (count: number): void => {
+      while (multiGizmos.length < count) {
+        const loop = rectLoop(0xffb703)
+        loop.position.z = 4.9
+        loop.visible = false
+        game.scene.add(loop)
+        multiGizmos.push(loop)
+      }
+    }
+
     // Box gizmos: the selected entity's collision and appearance boxes, with
     // corner handles to resize them by dragging.
     const boxGizmos = BOX_KINDS.map(({ types, color, role }) => {
@@ -204,17 +332,21 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
       loop.position.z = 5
       loop.visible = false
       game.scene.add(loop)
-      const handles = CORNERS.map(() => {
-        const handle = new THREE.Mesh(
-          new THREE.PlaneGeometry(1, 1),
-          new THREE.MeshBasicMaterial({ color }),
-        )
-        handle.position.z = 5.1
-        handle.visible = false
-        game.scene.add(handle)
-        return handle
-      })
-      return { types, role, loop, handles }
+      const handles: Array<THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>> = []
+      const ensureHandles = (count: number): void => {
+        while (handles.length < count) {
+          const handle = new THREE.Mesh(
+            new THREE.PlaneGeometry(1, 1),
+            new THREE.MeshBasicMaterial({ color }),
+          )
+          handle.position.z = 5.1
+          handle.visible = false
+          game.scene.add(handle)
+          handles.push(handle)
+        }
+      }
+      ensureHandles(CORNERS.length)
+      return { types, role, loop, handles, ensureHandles, outlineKey: 'rectangle' }
     })
 
     // Scene-camera gizmo: the frame the game will show, its center marker,
@@ -246,6 +378,12 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
     /** Pieces currently shown, and the last piece catalog fed to defineAll. */
     const uiShown = new Set<string>()
     let uiCatalog: Record<string, string> | undefined
+    let hiddenAppearance: { entity: Entity; wasVisible: boolean } | null = null
+    const restoreAppearance = (): void => {
+      if (!hiddenAppearance) return
+      hiddenAppearance.entity.node.visible = hiddenAppearance.wasVisible
+      hiddenAppearance = null
+    }
 
     game.onUpdate(() => {
       const g = gridRef.current
@@ -272,22 +410,45 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
       const name = selectedRef.current
       const entity = name ? game.find(name) : undefined
       const editing = entity && modeRef.current === 'edit'
+      if (editing && !componentVisibilityRef.current.appearance) {
+        if (hiddenAppearance?.entity !== entity) {
+          restoreAppearance()
+          hiddenAppearance = { entity, wasVisible: entity.node.visible }
+        }
+        entity.node.visible = false
+      } else {
+        restoreAppearance()
+      }
       // Handles keep a constant screen size regardless of zoom.
       const hs = game.view * 0.018
-      let appearanceShown = false
+      let appearanceBoxExists = false
       for (const g of boxGizmos) {
         const box = editing ? findBox(entity, g.types) : null
-        if (editing && box) {
-          if (g.role === 'appearance') appearanceShown = true
+        if (editing && box && g.role === 'appearance') appearanceBoxExists = true
+        if (editing && box && componentVisibilityRef.current[g.role]) {
+          const outline = boxOutline(box.comp, g.role)
+          const outlineKey = JSON.stringify(outline)
+          if (outlineKey !== g.outlineKey) {
+            g.outlineKey = outlineKey
+            g.loop.geometry.dispose()
+            g.loop.geometry = new THREE.BufferGeometry().setFromPoints(
+              outline.map(([x, y]) => new THREE.Vector3(x, y, 0)),
+            )
+          }
+          const [centerX, centerY] = boxCenter(entity, box.comp)
           g.loop.visible = true
-          g.loop.position.set(entity.position.x, entity.position.y, 5)
+          g.loop.position.set(centerX, centerY, 5)
           g.loop.scale.set(box.comp.width, box.comp.height, 1)
-          g.handles.forEach((handle, i) => {
-            const [cx, cy] = CORNERS[i] ?? [0, 0]
-            handle.visible = true
+
+          const handlePoints = boxHandlePoints(box.comp, g.role)
+          g.ensureHandles(handlePoints.length)
+          g.handles.forEach((handle, index) => {
+            const point = handlePoints[index]
+            handle.visible = point != null
+            if (!point) return
             handle.position.set(
-              entity.position.x + cx * box.comp.width,
-              entity.position.y + cy * box.comp.height,
+              centerX + point[0] * box.comp.width,
+              centerY + point[1] * box.comp.height,
               5.1,
             )
             handle.scale.set(hs, hs, 1)
@@ -298,15 +459,30 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
         }
       }
       if (editing) {
-        // The margin rect marks selection; when the appearance gizmo is up it
-        // already outlines the entity in the same amber, so skip the double line.
-        gizmo.visible = !appearanceShown
+        // The margin rect marks selection only when there is no appearance box.
+        // A hidden appearance stays hidden instead of being replaced by this outline.
+        gizmo.visible = !appearanceBoxExists
         const [w, h] = entityBounds(entity)
         gizmo.position.set(entity.position.x, entity.position.y, 5)
         gizmo.scale.set(w + 0.2, h + 0.2, 1)
       } else {
         gizmo.visible = false
       }
+      // Outline every member of the multi-selection so the group reads at a glance.
+      const multi = modeRef.current === 'edit' ? (multiRef.current ?? []) : []
+      ensureMultiGizmos(multi.length)
+      multiGizmos.forEach((loop, index) => {
+        const name = multi.length > 1 ? multi[index] : undefined
+        const target = name ? game.find(name) : undefined
+        if (!target) {
+          loop.visible = false
+          return
+        }
+        const [w, h] = entityBounds(target)
+        loop.visible = true
+        loop.position.set(target.position.x, target.position.y, 4.9)
+        loop.scale.set(w + 0.2, h + 0.2, 1)
+      })
       if (camGizmo) {
         const editView = modeRef.current === 'edit'
         camGizmo.frame.visible = editView
@@ -405,6 +581,7 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
 
     game.start()
     return () => {
+      restoreAppearance()
       uiPreview?.dispose()
       game.dispose()
       gameRef.current = null
@@ -453,11 +630,8 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
     return null
   }
 
-  /** A resize corner handle of the selected entity under the pointer. */
-  const hitHandle = (
-    wx: number,
-    wy: number,
-  ): { name: string; compType: string; corner: readonly [number, number] } | null => {
+  /** A box corner or freeform polygon vertex under the pointer. */
+  const hitHandle = (wx: number, wy: number): HandleHit | null => {
     const game = gameRef.current
     const name = selectedRef.current
     if (!game || !name) return null
@@ -465,16 +639,56 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
     if (!entity) return null
     // Slightly larger than the visual handle so it's easy to grab.
     const hs = game.view * 0.02
-    for (const { types } of BOX_KINDS) {
+    for (const { types, role } of BOX_KINDS) {
+      if (!componentVisibilityRef.current[role]) continue
       const box = findBox(entity, types)
       if (!box) continue
-      for (const corner of CORNERS) {
-        const [cx, cy] = corner
+      const [centerX, centerY] = boxCenter(entity, box.comp)
+      const polygon = boxShape(box.comp, role) === 'polygon'
+      const points = boxHandlePoints(box.comp, role)
+      for (let index = 0; index < points.length; index++) {
+        const point = points[index]!
         if (
-          Math.abs(wx - (entity.position.x + cx * box.comp.width)) <= hs &&
-          Math.abs(wy - (entity.position.y + cy * box.comp.height)) <= hs
+          Math.abs(wx - (centerX + point[0] * box.comp.width)) <= hs &&
+          Math.abs(wy - (centerY + point[1] * box.comp.height)) <= hs
         ) {
-          return { name, compType: box.type, corner }
+          return polygon
+            ? { kind: 'polygon', name, compType: box.type, point: index }
+            : { kind: 'box', name, compType: box.type, corner: point }
+        }
+      }
+    }
+    return null
+  }
+
+  /** An appearance or collision outline that can be dragged independently. */
+  const hitBoxOutline = (
+    wx: number,
+    wy: number,
+  ): { name: string; compType: string; center: CollisionPoint } | null => {
+    const game = gameRef.current
+    const name = selectedRef.current
+    if (!game || !name) return null
+    const entity = game.find(name)
+    if (!entity) return null
+    const threshold = game.view * 0.012
+    for (const { types, role } of BOX_KINDS) {
+      if (!componentVisibilityRef.current[role]) continue
+      const box = findBox(entity, types)
+      if (!box) continue
+      const center = boxCenter(entity, box.comp)
+      const points = boxOutline(box.comp, role).map(
+        ([x, y]): CollisionPoint => [
+          center[0] + x * box.comp.width,
+          center[1] + y * box.comp.height,
+        ],
+      )
+      for (let index = 0; index < points.length; index++) {
+        if (
+          pointSegmentDistance(wx, wy, points[index]!, points[(index + 1) % points.length]!) <=
+          threshold
+        ) {
+          return { name, compType: box.type, center }
         }
       }
     }
@@ -518,7 +732,33 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
         }
         const handle = hitHandle(wx, wy)
         if (handle) {
-          resize.current = { name: handle.name, compType: handle.compType }
+          if (handle.kind === 'polygon') {
+            resize.current = handle
+          } else {
+            const entity = gameRef.current?.find(handle.name)
+            const box = entity && findBox(entity, [handle.compType])
+            if (entity && box) {
+              const [centerX, centerY] = boxCenter(entity, box.comp)
+              resize.current = {
+                kind: 'box',
+                name: handle.name,
+                compType: handle.compType,
+                ax: centerX - handle.corner[0] * box.comp.width,
+                ay: centerY - handle.corner[1] * box.comp.height,
+              }
+            }
+          }
+          return
+        }
+        const outline = hitBoxOutline(wx, wy)
+        if (outline) {
+          resize.current = {
+            kind: 'move',
+            name: outline.name,
+            compType: outline.compType,
+            ox: wx - outline.center[0],
+            oy: wy - outline.center[1],
+          }
           return
         }
         // The camera's center marker sits above entities: it wins the pick.
@@ -537,8 +777,24 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
         }
         const hit = pickAt(wx, wy)
         if (hit) {
-          onSelect(hit.name)
-          drag.current = { name: hit.name, ox: wx - hit.position.x, oy: wy - hit.position.y }
+          if (e.shiftKey && onToggleSelect) {
+            onToggleSelect(hit.name)
+            return
+          }
+          // Grabbing a member of the multi-selection drags the whole group
+          // (and keeps the group); anything else collapses to single-select.
+          const multi = multiRef.current ?? []
+          const grouped = multi.length > 1 && multi.includes(hit.name)
+          if (!grouped) onSelect(hit.name)
+          const members = (grouped ? multi : [hit.name]).flatMap((name) => {
+            const entity = name === hit.name ? hit : game?.find(name)
+            return entity ? [{ name, ox: wx - entity.position.x, oy: wy - entity.position.y }] : []
+          })
+          const anchor = members.find((m) => m.name === hit.name) ?? members[0]
+          if (anchor) drag.current = { anchor, members }
+        } else if (e.shiftKey && onRangeSelect) {
+          marquee.current = { x0: wx, y0: wy, x1: wx, y1: wy, cx0: e.clientX, cy0: e.clientY }
+          setMarqueeRect({ left: e.clientX, top: e.clientY, width: 0, height: 0 })
         } else {
           onSelect(null)
           pan.current = { px: e.clientX, py: e.clientY }
@@ -548,22 +804,40 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
         const game = gameRef.current
         if (!game || modeRef.current !== 'edit') return
         if (resize.current) {
-          const [wx, wy] = toWorld(e)
-          const entity = game.find(resize.current.name)
-          const box = entity && findBox(entity, [resize.current.compType])
-          if (entity && box) {
-            // Boxes are centered on the entity, so a corner drag resizes
-            // symmetrically; sizes snap to half cells (each side moves half).
+          const active = resize.current
+          let [wx, wy] = toWorld(e)
+          const entity = game.find(active.name)
+          const box = entity && findBox(entity, [active.compType])
+          if (entity && box && active.kind === 'move') {
             const g = gridRef.current
-            const snap = snapActive(g.snap, e.shiftKey) ? g.size / 2 : 0
-            let w = Math.abs(wx - entity.position.x) * 2
-            let h = Math.abs(wy - entity.position.y) * 2
-            if (snap) {
-              w = Math.round(w / snap) * snap
-              h = Math.round(h / snap) * snap
+            let centerX = wx - active.ox
+            let centerY = wy - active.oy
+            if (snapActive(g.snap, e.shiftKey)) {
+              const snapped = snapPoint(g, centerX, centerY)
+              centerX = snapped[0]
+              centerY = snapped[1]
             }
-            box.comp.width = Math.max(0.1, w)
-            box.comp.height = Math.max(0.1, h)
+            box.comp.offsetX = centerX - entity.position.x
+            box.comp.offsetY = centerY - entity.position.y
+          } else if (entity && box && active.kind === 'polygon') {
+            const g = gridRef.current
+            if (snapActive(g.snap, e.shiftKey)) [wx, wy] = snapPoint(g, wx, wy)
+            const [centerX, centerY] = boxCenter(entity, box.comp)
+            const points = resolveCollisionPoints(box.comp.points)
+            const width = Math.abs(box.comp.width) > 0.001 ? box.comp.width : 1
+            const height = Math.abs(box.comp.height) > 0.001 ? box.comp.height : 1
+            points[active.point] = [(wx - centerX) / width, (wy - centerY) / height]
+            box.comp.points = points
+          } else if (entity && box && active.kind === 'box') {
+            // A corner drag pins the opposite corner: only the grabbed side
+            // moves. The dragged corner itself snaps to the grid.
+            const g = gridRef.current
+            if (snapActive(g.snap, e.shiftKey)) [wx, wy] = snapPoint(g, wx, wy)
+            const next = cornerResize(active.ax, active.ay, wx, wy)
+            box.comp.width = next.width
+            box.comp.height = next.height
+            box.comp.offsetX = next.centerX - entity.position.x
+            box.comp.offsetY = next.centerY - entity.position.y
           }
         } else if (camDrag.current) {
           const [wx, wy] = toWorld(e)
@@ -574,9 +848,25 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
         } else if (drag.current) {
           const [wx, wy] = toWorld(e)
           const g = gridRef.current
-          let [x, y] = [wx - drag.current.ox, wy - drag.current.oy]
+          const { anchor, members } = drag.current
+          // The grabbed entity snaps; the rest keep their offsets to it.
+          const rawX = wx - anchor.ox
+          const rawY = wy - anchor.oy
+          let [x, y] = [rawX, rawY]
           if (snapActive(g.snap, e.shiftKey)) [x, y] = snapPoint(g, x, y)
-          game.find(drag.current.name)?.position.set(x, y, 0)
+          for (const m of members) {
+            game.find(m.name)?.position.set(wx - m.ox + (x - rawX), wy - m.oy + (y - rawY), 0)
+          }
+        } else if (marquee.current) {
+          const [wx, wy] = toWorld(e)
+          marquee.current.x1 = wx
+          marquee.current.y1 = wy
+          setMarqueeRect({
+            left: Math.min(marquee.current.cx0, e.clientX),
+            top: Math.min(marquee.current.cy0, e.clientY),
+            width: Math.abs(e.clientX - marquee.current.cx0),
+            height: Math.abs(e.clientY - marquee.current.cy0),
+          })
         } else if (pan.current) {
           const rect = canvasRef.current?.getBoundingClientRect()
           if (!rect) return
@@ -585,35 +875,88 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
           game.camera.position.y += (e.clientY - pan.current.py) * perPx
           pan.current = { px: e.clientX, py: e.clientY }
         } else {
-          // Hover feedback: a diagonal resize cursor over any corner handle.
+          // Hover feedback: resize on handles, move on component outlines.
           const [wx, wy] = toWorld(e)
           const hit = hitHandle(wx, wy)
           e.currentTarget.style.cursor = hit
-            ? hit.corner[0] * hit.corner[1] > 0
-              ? 'nesw-resize'
-              : 'nwse-resize'
-            : ''
+            ? hit.kind === 'polygon'
+              ? 'move'
+              : hit.corner[0] * hit.corner[1] > 0
+                ? 'nesw-resize'
+                : 'nwse-resize'
+            : hitBoxOutline(wx, wy)
+              ? 'move'
+              : ''
         }
       }}
       onPointerUp={() => {
         if (resize.current) {
-          const entity = gameRef.current?.find(resize.current.name)
-          const box = entity && findBox(entity, [resize.current.compType])
-          if (box) {
-            onBoxResized?.(resize.current.name, resize.current.compType, [
-              Math.round(box.comp.width * 100) / 100,
-              Math.round(box.comp.height * 100) / 100,
+          const active = resize.current
+          const entity = gameRef.current?.find(active.name)
+          const box = entity && findBox(entity, [active.compType])
+          if (box && active.kind === 'move') {
+            onBoxMoved?.(active.name, active.compType, [
+              Math.round((box.comp.offsetX ?? 0) * 100) / 100,
+              Math.round((box.comp.offsetY ?? 0) * 100) / 100,
             ])
+          } else if (box && active.kind === 'polygon') {
+            const points = resolveCollisionPoints(box.comp.points).map(
+              ([x, y]): CollisionPoint => [
+                Math.round(x * 1000) / 1000,
+                Math.round(y * 1000) / 1000,
+              ],
+            )
+            onPolygonChanged?.(active.name, active.compType, points)
+          } else if (box) {
+            onBoxResized?.(
+              active.name,
+              active.compType,
+              [
+                Math.round(box.comp.width * 100) / 100,
+                Math.round(box.comp.height * 100) / 100,
+              ],
+              [
+                Math.round((box.comp.offsetX ?? 0) * 100) / 100,
+                Math.round((box.comp.offsetY ?? 0) * 100) / 100,
+              ],
+            )
           }
         }
         if (drag.current) {
-          const entity = gameRef.current?.find(drag.current.name)
-          if (entity) {
-            onMoved(drag.current.name, [
-              Math.round(entity.position.x * 100) / 100,
-              Math.round(entity.position.y * 100) / 100,
-            ])
-          }
+          const game = gameRef.current
+          const moves = drag.current.members.flatMap((m) => {
+            const entity = game?.find(m.name)
+            return entity
+              ? [
+                  {
+                    name: m.name,
+                    position: [
+                      Math.round(entity.position.x * 100) / 100,
+                      Math.round(entity.position.y * 100) / 100,
+                    ] as [number, number],
+                  },
+                ]
+              : []
+          })
+          if (moves.length > 1 && onMovedMany) onMovedMany(moves)
+          else if (moves[0]) onMoved(moves[0].name, moves[0].position)
+        }
+        if (marquee.current) {
+          const { x0, y0, x1, y1 } = marquee.current
+          const [minX, maxX] = [Math.min(x0, x1), Math.max(x0, x1)]
+          const [minY, maxY] = [Math.min(y0, y1), Math.max(y0, y1)]
+          const names = sceneRef.current.entities
+            .filter((ent) => {
+              const entity = gameRef.current?.find(ent.name)
+              if (!entity) return false
+              const { x, y } = entity.position
+              return x >= minX && x <= maxX && y >= minY && y <= maxY
+            })
+            .map((ent) => ent.name)
+          if (names.length > 0) onRangeSelect?.(names)
+          else onSelect(null)
+          marquee.current = null
+          setMarqueeRect(null)
         }
         if (camDrag.current && camLive.current) {
           onCameraMoved?.([
@@ -654,6 +997,17 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
         onDropPrefab(ref, world)
       }}
     />
+    {marqueeRect && (
+      <div
+        className="ed-marquee"
+        style={{
+          left: marqueeRect.left,
+          top: marqueeRect.top,
+          width: marqueeRect.width,
+          height: marqueeRect.height,
+        }}
+      />
+    )}
     {mode === 'edit' && showCamera && (
       <div ref={uiFrameRef} className="ed-vp-ui">
         <div ref={uiScaleRef} />
@@ -675,15 +1029,13 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
         >
           🧲
         </button>
-        <input
-          type="number"
+        <NumberField
           title="Grid cell size (world units)"
           min={MIN_GRID_SIZE}
           step={0.25}
-          value={sizeText}
-          onChange={(e) => {
-            setSizeText(e.target.value)
-            const size = Number(e.target.value)
+          value={grid.size}
+          onChange={(t) => {
+            const size = Number(t)
             if (isFinite(size) && size >= MIN_GRID_SIZE) onGridChange({ ...grid, size })
           }}
         />

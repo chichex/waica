@@ -1,12 +1,19 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { PrefabJson, SceneEntityJson, SceneJson } from '@waica/engine'
 import { ACTIVE_ARCHETYPE } from '../project/archetype'
 import type { ProjectFS } from '../fs/project-fs'
 import { behaviourTypes } from '../project/chassis'
 import { CAMERA_NODE, sceneTree, type DropTarget } from '../scene/ops'
+import { filterArt } from './ArtPicker'
 import { ContextMenu, type MenuEntry, type MenuState } from './ContextMenu'
 import { entityIcon, prefabIcon, sceneLabel } from './icons'
-import type { ArtItem } from './use-project-art'
+import {
+  buildArtTree,
+  collectDroppedFiles,
+  type ArtFolder,
+  type ArtItem,
+  type DroppedFile,
+} from './use-project-art'
 
 /** What the center pane (and the inspector) is looking at. */
 export type ExplorerView =
@@ -15,7 +22,7 @@ export type ExplorerView =
   | { kind: 'ui'; name: string }
   | { kind: 'script'; name: string }
   | { kind: 'stateFile'; path: string }
-  | { kind: 'art'; label: string; url: string }
+  | { kind: 'art'; label: string; url: string; path: string }
   | { kind: 'controls' }
   | { kind: 'stats' }
   | { kind: 'game' }
@@ -76,8 +83,11 @@ export function Explorer({
   multi,
   prefabLib,
   uiLib,
+  projectPrefabRefs,
+  projectUiNames,
   art,
   onImportArt,
+  importProgress,
   onRefreshArt,
   onOpenScene,
   onSelectEntity,
@@ -111,6 +121,7 @@ export function Explorer({
   onReorderEntities,
   onCreatePrefab,
   onDuplicatePrefab,
+  onRenamePrefab,
   onDeletePrefab,
   onAddPrefabToScene,
   onOpenUi,
@@ -131,8 +142,14 @@ export function Explorer({
   multi: string[]
   prefabLib: Record<string, PrefabJson>
   uiLib: Record<string, string>
+  /** File-backed prefab refs — the only ones listed (defaults still resolve scenes). */
+  projectPrefabRefs: Set<string>
+  /** File-backed UI piece names — the only ones listed. */
+  projectUiNames: Set<string>
   art: ArtItem[]
-  onImportArt(files: File[]): Promise<void>
+  onImportArt(files: DroppedFile[]): Promise<void>
+  /** Live progress while an import is writing files; null when idle. */
+  importProgress: { done: number; total: number } | null
   onRefreshArt(): void
   onOpenScene(path: string): void
   onSelectEntity(name: string): void
@@ -173,6 +190,7 @@ export function Explorer({
   onReorderEntities(names: string[], target: DropTarget): void
   onCreatePrefab(type: PrefabJson['type']): void
   onDuplicatePrefab(ref: string): void
+  onRenamePrefab(ref: string, name: string): void
   onDeletePrefab(ref: string): void
   onAddPrefabToScene(ref: string): void
   onOpenUi(name: string): void
@@ -181,13 +199,32 @@ export function Explorer({
   onDeleteUi(name: string): void
   /** Adds/removes the piece from the open scene's "ui" start list. */
   onToggleUiInScene(name: string): void
-  onArtDeleted(label: string): void
+  onArtDeleted(path: string): void
 }) {
   const [dropping, setDropping] = useState(false)
+  /** True while a drop's folders are being walked, before importArt's own per-file progress starts. */
+  const [scanningArt, setScanningArt] = useState(false)
   const [menu, setMenu] = useState<MenuState | null>(null)
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
+  /** Expanded art folder paths (Explorer's Art panel tree); absent = collapsed. */
+  const [artExpanded, setArtExpanded] = useState<ReadonlySet<string>>(new Set())
+  const [artQuery, setArtQuery] = useState('')
+  // While searching, the tree shows only matches with every folder expanded.
+  const artFiltering = artQuery.trim() !== ''
+  const artTree = useMemo(() => buildArtTree(filterArt(art, artQuery)), [art, artQuery])
+  const toggleArtFolder = (path: string): void => {
+    setArtExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(path)) next.delete(path)
+      else next.add(path)
+      return next
+    })
+  }
   /** Row being renamed inline (double-click, F2 or the context menu). */
-  const [editing, setEditing] = useState<{ kind: 'entity' | 'folder'; name: string } | null>(null)
+  const [editing, setEditing] = useState<{
+    kind: 'entity' | 'folder' | 'prefab'
+    name: string
+  } | null>(null)
   /** What's being dragged inside the scene tree (dataTransfer is unreadable during dragover). */
   const [drag, setDrag] = useState<
     | { kind: 'entity'; name: string }
@@ -318,12 +355,61 @@ export function Explorer({
   const pickImages = (): void => filePicker.current?.click()
 
   const deleteArt = async (item: ArtItem): Promise<void> => {
-    if (!item.path) return
     if (!window.confirm(`Delete ${item.label}? This cannot be undone.`)) return
     await fs.deleteFile(item.path)
-    onArtDeleted(item.label)
+    onArtDeleted(item.path)
     onRefreshArt()
   }
+
+  const renderArtItem = (item: ArtItem): React.ReactNode => (
+    <button
+      key={item.path}
+      className={`ed-x-item ${
+        view?.kind === 'art' && view.path === item.path ? 'is-selected' : ''
+      }`}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData('waica/art', item.uri)
+        e.dataTransfer.effectAllowed = 'copy'
+      }}
+      onClick={() => onOpenArt(item)}
+      onContextMenu={(e) =>
+        openMenu(e, [
+          { label: 'Open', icon: '🖼️', onClick: () => onOpenArt(item) },
+          { label: 'Import images…', icon: '＋', onClick: pickImages },
+          'sep',
+          {
+            label: 'Delete',
+            icon: '🗑',
+            danger: true,
+            onClick: () => void deleteArt(item),
+          },
+        ])
+      }
+    >
+      <span className="ed-x-ico">🖼️</span>
+      {item.label}
+    </button>
+  )
+
+  const renderArtFolder = (folder: ArtFolder): React.ReactNode => (
+    <>
+      {folder.folders.map((sub) => {
+        const isCollapsed = !artFiltering && !artExpanded.has(sub.path)
+        return (
+          <div key={sub.path}>
+            <button className="ed-x-item" onClick={() => toggleArtFolder(sub.path)}>
+              <span className="ed-x-caret">{isCollapsed ? '▸' : '▾'}</span>
+              <span className="ed-x-ico">{isCollapsed ? '📁' : '📂'}</span>
+              {sub.name}
+            </button>
+            {!isCollapsed && <div className="ed-x-indent">{renderArtFolder(sub)}</div>}
+          </div>
+        )
+      })}
+      {folder.items.map(renderArtItem)}
+    </>
+  )
 
   const renderEntity = (entity: SceneEntityJson, inFolder: boolean): React.ReactNode => {
     if (editing?.kind === 'entity' && editing.name === entity.name) {
@@ -673,9 +759,24 @@ export function Explorer({
           </header>
           <div className="ed-x-list">
             {Object.entries(prefabLib)
-              .filter(([, prefab]) => prefab.type === type)
+              .filter(([ref, prefab]) => prefab.type === type && projectPrefabRefs.has(ref))
               .map(([ref]) => {
                 const base = refBase(ref)
+                if (editing?.kind === 'prefab' && editing.name === ref) {
+                  return (
+                    <div key={ref} className="ed-x-item is-editing">
+                      <span className="ed-x-ico">{prefabIcon(base)}</span>
+                      <RenameInput
+                        value={base}
+                        onCommit={(next) => {
+                          setEditing(null)
+                          onRenamePrefab(ref, next)
+                        }}
+                        onCancel={() => setEditing(null)}
+                      />
+                    </div>
+                  )
+                }
                 return (
                   <button
                     key={ref}
@@ -688,10 +789,16 @@ export function Explorer({
                       e.dataTransfer.effectAllowed = 'copy'
                     }}
                     onClick={() => onOpenPrefab(ref)}
+                    onDoubleClick={() => setEditing({ kind: 'prefab', name: ref })}
                     onContextMenu={(e) => {
                       const builtin = ref in ACTIVE_ARCHETYPE.prefabs
                       openMenu(e, [
                         { label: 'Open', icon: '▣', onClick: () => onOpenPrefab(ref) },
+                        {
+                          label: 'Rename',
+                          icon: '✏️',
+                          onClick: () => setEditing({ kind: 'prefab', name: ref }),
+                        },
                         {
                           label: 'Add to scene',
                           icon: '＋',
@@ -736,6 +843,7 @@ export function Explorer({
         </header>
         <div className="ed-x-list">
           {Object.keys(uiLib)
+            .filter((name) => projectUiNames.has(name))
             .sort()
             .map((name) => {
               const inScene = scene?.ui?.includes(name) ?? false
@@ -875,7 +983,11 @@ export function Explorer({
           if (!e.dataTransfer.types.includes('Files')) return
           e.preventDefault()
           setDropping(false)
-          void onImportArt([...e.dataTransfer.files])
+          const dataTransfer = e.dataTransfer
+          setScanningArt(true)
+          void collectDroppedFiles(dataTransfer)
+            .then((files) => onImportArt(files))
+            .finally(() => setScanningArt(false))
         }}
       >
         <header className="ed-panel-head">
@@ -891,44 +1003,37 @@ export function Explorer({
           multiple
           hidden
           onChange={(e) => {
-            void onImportArt([...(e.currentTarget.files ?? [])])
+            const files: DroppedFile[] = [...(e.currentTarget.files ?? [])].map((file) => ({
+              file,
+              relativePath: file.name,
+            }))
+            void onImportArt(files)
             e.currentTarget.value = ''
           }}
         />
+        {(scanningArt || importProgress) && (
+          <div className="ed-x-progress">
+            {importProgress
+              ? `Importing ${importProgress.done}/${importProgress.total}…`
+              : 'Scanning dropped folders…'}
+          </div>
+        )}
+        {art.length > 0 && (
+          <input
+            className="ed-art-search"
+            type="search"
+            placeholder="Search art…"
+            value={artQuery}
+            onChange={(e) => setArtQuery(e.target.value)}
+          />
+        )}
         <div className="ed-x-list">
-          {art.map((item) => (
-            <button
-              key={item.label}
-              className={`ed-x-item ${
-                view?.kind === 'art' && view.label === item.label ? 'is-selected' : ''
-              }`}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData('waica/art', item.uri)
-                e.dataTransfer.effectAllowed = 'copy'
-              }}
-              onClick={() => onOpenArt(item)}
-              onContextMenu={(e) =>
-                openMenu(e, [
-                  { label: 'Open', icon: '🖼️', onClick: () => onOpenArt(item) },
-                  { label: 'Import images…', icon: '＋', onClick: pickImages },
-                  'sep',
-                  {
-                    label: 'Delete',
-                    icon: '🗑',
-                    danger: true,
-                    disabled: !item.path,
-                    title: item.path ? undefined : 'Built-in art cannot be deleted',
-                    onClick: () => void deleteArt(item),
-                  },
-                ])
-              }
-            >
-              <span className="ed-x-ico">🖼️</span>
-              {item.label}
-            </button>
-          ))}
-          <div className="ed-x-empty">Drop images here or press ＋</div>
+          {renderArtFolder(artTree)}
+          {artFiltering && artTree.folders.length === 0 && artTree.items.length === 0 ? (
+            <div className="ed-x-empty">no art matches “{artQuery.trim()}”</div>
+          ) : (
+            <div className="ed-x-empty">Drop images here or press ＋</div>
+          )}
         </div>
       </section>
 

@@ -1,0 +1,20 @@
+/**
+ * The archetype's stock art, as pure data (no asset imports: node tooling
+ * like scripts/sync-scene.mjs imports this module directly).
+ *
+ * Demo projects materialize each sheet as a real file at `src/art/<file>`
+ * and reference that path; `uri` is the legacy registry key that in-package
+ * prefab defaults (and old projects) still use.
+ */
+export interface ArchetypeArt {
+  /** File name under the archetype's assets/ and a demo project's src/art/. */
+  file: string
+  /** Registry URI ("waica:dog") resolved by the archetype's resolveAsset. */
+  uri: string
+}
+
+export const PLATFORMER_ART: ArchetypeArt[] = [
+  { file: 'waica-dog.png', uri: 'waica:dog' },
+  { file: 'waica-coin.png', uri: 'waica:coin' },
+  { file: 'waica-slime.png', uri: 'waica:slime' },
+]

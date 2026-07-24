@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import { resolveEntityComponents, type PrefabJson, type SceneEntityJson } from './scene'
+import {
+  resolveEntityComponents,
+  resolveProps,
+  type PrefabJson,
+  type SceneEntityJson,
+} from './scene'
 
 const SLIME: PrefabJson = {
   waicaPrefab: 1,
@@ -104,5 +109,47 @@ describe('resolveEntityComponents', () => {
     sprite!.props!.width = 99
     expect(prefab.components[0]!.props).toEqual({ width: 16 })
     expect(entity.overrides).toEqual({ Sprite: { width: 32 } })
+  })
+})
+
+describe('resolveProps', () => {
+  const registry = {
+    components: {},
+    resolveAsset: (uri: string) =>
+      ({ 'waica:dog': '/assets/dog.png', 'src/art/hero.png': 'blob:hero' })[uri] ?? uri,
+  }
+
+  it('resolves every string prop the registry resolver knows', () => {
+    const props = { texture: 'src/art/hero.png', fallback: 'waica:dog', width: 16 }
+    expect(resolveProps(props, registry)).toEqual({
+      texture: 'blob:hero',
+      fallback: '/assets/dog.png',
+      width: 16,
+    })
+  })
+
+  it('leaves unknown strings and non-strings unchanged', () => {
+    const props = { initialClip: 'idle', pixelArt: true }
+    expect(resolveProps(props, registry)).toEqual(props)
+  })
+
+  it('passes everything through without a resolver', () => {
+    const props = { texture: 'waica:dog' }
+    expect(resolveProps(props, { components: {} })).toEqual(props)
+  })
+
+  it('resolves strings nested in arrays and plain objects', () => {
+    const props = {
+      texture: 'src/art/hero.png',
+      extraSheets: [{ texture: 'waica:dog', cols: 2, rows: 1 }],
+      clips: { idle: { frames: [0, 1], fps: 5 } },
+    }
+    expect(resolveProps(props, registry)).toEqual({
+      texture: 'blob:hero',
+      extraSheets: [{ texture: '/assets/dog.png', cols: 2, rows: 1 }],
+      clips: { idle: { frames: [0, 1], fps: 5 } },
+    })
+    // Inputs are never mutated by the deep walk.
+    expect(props.extraSheets[0]!.texture).toBe('waica:dog')
   })
 })

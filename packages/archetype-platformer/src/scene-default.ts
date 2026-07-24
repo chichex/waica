@@ -85,3 +85,13 @@ export const PLATFORMER_SCENE: SceneJson = {
   ],
   ui: ['coin-counter'],
 }
+
+/**
+ * The blank-start variant: same camera framing, zero entities. No `follow`
+ * because there is no Player yet — the editor's palette places the first one.
+ */
+export const PLATFORMER_BLANK_SCENE: SceneJson = {
+  waicaScene: 3,
+  camera: { position: [0, -1], zoom: 12 },
+  entities: [],
+}

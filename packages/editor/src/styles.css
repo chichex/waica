@@ -289,6 +289,36 @@ select {
   font-size: 12px;
 }
 
+.picker-start {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.picker-start-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg-panel-2);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.picker-start-card.is-on {
+  border-color: var(--accent);
+}
+
+.picker-start-card span:last-child {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
 .picker-name-hint {
   margin: 10px 0 0;
   color: var(--text-dim);
@@ -745,6 +775,18 @@ button.ed-crumb:hover {
   color: var(--gold);
 }
 
+/* Playability gaps (missing driver, etc.): a card that asks to be seen. */
+.ed-warn-card {
+  margin: 6px 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 183, 3, 0.5);
+  border-radius: 8px;
+  background: rgba(255, 183, 3, 0.09);
+  color: var(--gold);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .ed-anim-picker {
   display: flex;
   flex-direction: column;
@@ -764,6 +806,55 @@ button.ed-crumb:hover {
   gap: 8px;
 }
 
+.ed-art-search {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.ed-art-search:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Explorer's Art panel search sits between the panel head and the tree. */
+.ed-panel .ed-art-search {
+  width: auto;
+  margin: 2px 8px 6px;
+  font-size: 11px;
+  display: block;
+}
+
+/* Multi-sheet animation editor: each sheet stacks its controls + cell grid. */
+.ed-sheet-section + .ed-sheet-section {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.ed-sheet-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.ed-sheet-title span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ed-add-sheet {
+  margin-top: 10px;
+}
+
 .ed-anim-thumb {
   display: flex;
   flex-direction: column;
@@ -781,6 +872,23 @@ button.ed-crumb:hover {
   max-width: 64px;
   max-height: 48px;
   image-rendering: pixelated;
+}
+
+.ed-anim-thumb span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Art pickers group thumbs under one header per folder. */
+.ed-art-group-head {
+  margin-bottom: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Appearance section: the current image as a chip — click or drop to replace. */
@@ -836,6 +944,20 @@ button.ed-crumb:hover {
   flex: none;
 }
 
+/* With a remove button after "change sheet…", only the first pushes right. */
+.ed-row.ed-anim-gridrow .ed-mini ~ .ed-mini {
+  margin-left: 0;
+}
+
+.ed-row.ed-anim-slicerow span {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.ed-row.ed-anim-slicerow input[type='number'] {
+  width: 56px;
+}
+
 .ed-sheet-wrap {
   padding: 14px;
 }
@@ -878,6 +1000,108 @@ button.ed-crumb:hover {
   background: rgba(255, 183, 3, 0.28);
   color: var(--accent);
   font-weight: 700;
+}
+
+/* Explicit-cells overlay: detected/hand-drawn frame rects over the image. */
+.ed-sheet-cells {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+}
+
+.ed-sheet-cellbox {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ed-sheet-cells.is-editing .ed-sheet-cellbox {
+  cursor: move;
+}
+
+.ed-sheet-cellbox.is-drawing {
+  border: 1px dashed var(--accent);
+  background: rgba(255, 183, 3, 0.12);
+  pointer-events: none;
+}
+
+.ed-cell-delete {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #14141f;
+  color: var(--text-dim);
+  font-size: 8px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ed-cell-delete:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.ed-cell-handle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--accent);
+  background: #14141f;
+}
+
+.ed-cell-handle.is-nw {
+  top: -4px;
+  left: -4px;
+  cursor: nwse-resize;
+}
+
+.ed-cell-handle.is-ne {
+  top: -4px;
+  right: -4px;
+  cursor: nesw-resize;
+}
+
+.ed-cell-handle.is-sw {
+  bottom: -4px;
+  left: -4px;
+  cursor: nesw-resize;
+}
+
+.ed-cell-handle.is-se {
+  bottom: -4px;
+  right: -4px;
+  cursor: nwse-resize;
+}
+
+.ed-row.ed-anim-gridrow.ed-sheet-cellrow {
+  flex-wrap: wrap;
+}
+
+.ed-row.ed-anim-gridrow.ed-sheet-cellrow .ed-mini {
+  margin-left: 0;
+}
+
+.ed-mini.is-active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Viewport marquee selection (Cmd/Ctrl-drag on empty space). */
+.ed-marquee {
+  position: fixed;
+  z-index: 40;
+  border: 1px dashed var(--accent);
+  background: rgba(255, 183, 3, 0.08);
+  pointer-events: none;
 }
 
 .ed-clip {
@@ -940,10 +1164,20 @@ button.ed-crumb:hover {
   margin-bottom: 8px;
 }
 
+/* Anchors variable-size frames bottom-center, like the runtime quad. */
+.ed-anim-preview-box {
+  display: flex;
+  width: 96px;
+  height: 96px;
+  align-items: flex-end;
+  justify-content: center;
+}
+
 .ed-anim-preview {
   width: 96px;
   height: 96px;
   background-repeat: no-repeat;
+  background-size: 100% 100%;
 }
 
 .ed-contract-list {
@@ -1174,6 +1408,19 @@ button.ed-crumb:hover {
   color: var(--text-dim);
   font-size: 12px;
   font-style: italic;
+}
+
+/* live "Importing N/M…" feedback while a folder drop is being processed */
+.ed-x-progress {
+  margin: 0 8px 6px;
+  padding: 4px 8px;
+  color: var(--accent);
+  font-size: 12px;
+}
+
+/* one nesting step for a recursive folder tree (e.g. the Art panel) */
+.ed-x-indent {
+  margin-left: 14px;
 }
 
 .ed-panel.is-dropping {
@@ -1625,6 +1872,10 @@ button.ed-crumb:hover {
 }
 
 .ed-sec-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 22px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -1633,6 +1884,56 @@ button.ed-crumb:hover {
   border-bottom: 1px solid var(--line);
   padding-bottom: 4px;
   margin-bottom: 6px;
+}
+
+.ed-vp-visibility {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.ed-vp-visibility:hover {
+  color: var(--text);
+}
+
+.ed-vp-visibility.is-hidden {
+  opacity: 0.45;
+}
+
+.ed-vp-visibility svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ed-poly-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.ed-appear-actions {
+  display: flex;
+  gap: 4px;
+  margin: 6px 0;
+}
+
+.ed-poly-tools > div:last-child {
+  display: flex;
+  gap: 4px;
+  flex: none;
 }
 
 .ed-comp {

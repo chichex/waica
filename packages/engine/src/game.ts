@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { aabbOverlap } from './aabb'
+import { collisionOverlap } from './collision-shape'
 import { resolveSceneCamera, stepSceneCamera, type ResolvedSceneCamera, type SceneCameraJson } from './camera'
 import type { Component, ComponentClass } from './component'
 import { Hitbox } from './components/hitbox'
@@ -33,7 +33,7 @@ export interface GameOptions {
 export type UpdateFn = (dt: number) => void
 
 /** Persisted overrides: entity → componentName → prop → value. */
-export type ParamOverrides = Record<string, Record<string, Record<string, number | boolean>>>
+export type ParamOverrides = Record<string, Record<string, Record<string, number | boolean | string>>>
 
 /**
  * Engine core: loop, unified 2D/3D three scene, orthographic camera,
@@ -225,9 +225,23 @@ export class Game {
         const ha = a.get(Hitbox)
         const hb = b.get(Hitbox)
         if (!ha || !hb) continue
-        const hit = aabbOverlap(
-          a.position.x, a.position.y, ha.width, ha.height,
-          b.position.x, b.position.y, hb.width, hb.height,
+        const hit = collisionOverlap(
+          {
+            x: a.position.x + ha.offsetX,
+            y: a.position.y + ha.offsetY,
+            width: ha.width,
+            height: ha.height,
+            shape: ha.shape,
+            points: ha.points,
+          },
+          {
+            x: b.position.x + hb.offsetX,
+            y: b.position.y + hb.offsetY,
+            width: hb.width,
+            height: hb.height,
+            shape: hb.shape,
+            points: hb.points,
+          },
         )
         if (!hit) continue
         for (const c of [...a.components]) c.onCollide?.(b)

@@ -1,13 +1,24 @@
-import { useRef, useState } from 'react'
-import { resolveSceneCamera, type PrefabJson, type SceneCameraJson, type SceneComponentJson, type SceneEntityJson, type SceneJson, type StateJson } from '@waica/engine'
+import { useEffect, useRef, useState } from 'react'
+import { resolveCollisionPoints, resolveSceneCamera, sheetCell, type PrefabJson, type SceneCameraJson, type SceneComponentJson, type SceneEntityJson, type SceneJson, type SheetGridParams, type StateJson } from '@waica/engine'
 import { ACTIVE_ARCHETYPE } from '../project/archetype'
 import { countOverrides, prefabOwns, resolveComponents } from '../scene/ops'
-import { appearanceKind, behaviourTypes, CHASSIS, splitComponents } from '../project/chassis'
+import {
+  appearanceKind,
+  behaviourTypes,
+  CHASSIS,
+  missingDriver,
+  splitComponents,
+} from '../project/chassis'
+import type { ResolutionSetting } from '../project/game'
 import type { MachineProps } from '../project/states'
+import { cameraViewSize, imageSizeInUnits } from './box-math'
 import { entityIcon, prefabIcon } from './icons'
+import { NumberField } from './NumberField'
 import { StateMachineCard, type StateTarget } from './StateMachinePanel'
-import { IMAGE_RE, type ArtItem } from './use-project-art'
-import type { ClipDef, ParamSpec } from '@waica/engine'
+import { collectDroppedFiles, IMAGE_RE, type ArtItem, type DroppedFile } from './use-project-art'
+import { ArtSearchGrid } from './ArtPicker'
+import type { ViewportComponentVisibility } from './Viewport'
+import type { ClipDef, CollisionPoint, ParamSpec, SheetCell } from '@waica/engine'
 
 /** What the inspector is editing, mirroring the explorer view. */
 export type InspectorSelection =
@@ -50,16 +61,36 @@ function characterClipsWarning(
   return missing.length ? `missing clips: ${[...new Set(missing)].join(', ')}` : undefined
 }
 
+/**
+ * Inline warning when the StateMachine's logic has no driver component:
+ * without it every state's update early-returns and the character just
+ * stands there in Play. Shown in the Behaviours section, right above the
+ * add-behaviour row that fixes it.
+ */
+function driverWarning(components: SceneComponentJson[]): string | undefined {
+  const missing = missingDriver(components)
+  if (!missing) return undefined
+  const base = `this character won't move in Play: its "${missing.logic}" states drive the ${componentLabel(missing.driver)} behaviour, which it doesn't have`
+  if (missing.alternative) {
+    return `${base} — it does have ${componentLabel(missing.alternative.driver)}: switch the State Machine's logic to "${missing.alternative.logic}", or add ${componentLabel(missing.driver)} below`
+  }
+  return `${base} — add it with "+ behaviour" below`
+}
+
 interface Props {
   selection: InspectorSelection
   prefabs: Record<string, PrefabJson>
   /** The project's image library, for the appearance picker. */
   art: ArtItem[]
   urlFor(uri: string): string
-  onImportArt(files: File[]): Promise<void>
+  onImportArt(files: DroppedFile[]): Promise<void>
+  viewportVisibility: ViewportComponentVisibility
+  onViewportVisibility(role: keyof ViewportComponentVisibility, visible: boolean): void
   onRename(from: string, to: string): void
   onMove(name: string, position: [number, number]): void
   onProp(entity: string, componentType: string, key: string, value: unknown): void
+  /** Writes one prop to every named entity in a single undo step (multi-selection). */
+  onMultiProp(names: string[], componentType: string, key: string, value: unknown): void
   /** Clears one instance override so the prop falls back to the prefab's value. */
   onResetProp(entity: string, componentType: string, key: string): void
   /** Writes one override into the prefab (all instances) and clears it here. */
@@ -86,6 +117,24 @@ interface Props {
   onEditAnimation(target: AnimTarget): void
   /** Sets one prop of the open scene's camera block (undefined deletes it). */
   onCameraProp(key: string, value: unknown): void
+  /** Project art scale (game.json), for pixel↔unit conversions. */
+  pixelsPerUnit: number
+  /** Project resolution (game.json), for the camera view's aspect. */
+  resolution: ResolutionSetting
+  /** The open scene's camera block, for "fill camera" on an entity's appearance. */
+  sceneCamera: SceneCameraJson | undefined
+  /** Sets an appearance's size (and optionally offset) as ONE undo step. */
+  onSizeAppearance(
+    entity: string,
+    componentType: string,
+    patch: { width: number; height: number; offsetX?: number; offsetY?: number },
+  ): void
+  /** Prefab-level twin of onSizeAppearance (size only — prefabs have no camera). */
+  onPrefabSizeAppearance(
+    ref: string,
+    componentType: string,
+    size: { width: number; height: number },
+  ): void
   /** Basenames in src/states/ — the state code files the editor can see. */
   stateFiles: string[]
   /** StateMachine props patch on an entity's own component (inline entities). */
@@ -243,6 +292,34 @@ function ContextHeader({ ctx, actions }: { ctx: InspectorContext; actions?: Reac
   )
 }
 
+function ViewportVisibilityButton({
+  label,
+  visible,
+  onChange,
+}: {
+  label: string
+  visible: boolean
+  onChange(visible: boolean): void
+}) {
+  const action = visible ? 'Hide' : 'Show'
+  return (
+    <button
+      type="button"
+      className={`ed-vp-visibility ${visible ? '' : 'is-hidden'}`}
+      title={`${action} ${label.toLowerCase()} in the viewport (editor only)`}
+      aria-label={`${action} ${label.toLowerCase()} in the viewport`}
+      aria-pressed={visible}
+      onClick={() => onChange(!visible)}
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+        <circle cx="12" cy="12" r="2.7" />
+        {!visible && <path d="M4 4l16 16" />}
+      </svg>
+    </button>
+  )
+}
+
 function PropRow({
   label,
   value,
@@ -324,11 +401,10 @@ function PropRow({
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
         />
-        <input
-          type="number"
+        <NumberField
           step={spec.step ?? 0.1}
           value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
+          onChange={(t) => onChange(Number(t))}
         />
       </label>
     )
@@ -337,12 +413,21 @@ function PropRow({
     return (
       <label className="ed-row">
         {name}
-        <input
-          type="number"
-          step={0.1}
-          value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
-        />
+        <NumberField step={0.1} value={value} onChange={(t) => onChange(Number(t))} />
+      </label>
+    )
+  }
+  if (typeof value === 'string' && spec?.options) {
+    return (
+      <label className="ed-row">
+        {name}
+        <select value={value} onChange={(e) => onChange(e.target.value)}>
+          {spec.options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
       </label>
     )
   }
@@ -359,6 +444,68 @@ function PropRow({
       {name}
       <code className="ed-obj">{'{…}'}</code>
     </div>
+  )
+}
+
+/**
+ * Batch editor for the multi-selection: components every selected entity
+ * carries, with their primitive props editable in one stroke. Uniform values
+ * show as-is; mixed ones show the first entity's value marked "(mixed)".
+ * Committing a row writes the value to every selected entity.
+ */
+function MultiPropsSection({
+  entities,
+  prefabs,
+  onMultiProp,
+}: {
+  entities: SceneEntityJson[]
+  prefabs: Record<string, PrefabJson>
+  onMultiProp(names: string[], componentType: string, key: string, value: unknown): void
+}) {
+  const names = entities.map((e) => e.name)
+  const resolved = entities.map((e) => resolveComponents(e, prefabs))
+  const sharedTypes = (resolved[0] ?? [])
+    .map((c) => c.type)
+    .filter(
+      (type) =>
+        type !== 'StateMachine' && resolved.every((comps) => comps.some((c) => c.type === type)),
+    )
+  return (
+    <>
+      {sharedTypes.map((type) => {
+        const comps = resolved.map((list) => list.find((c) => c.type === type)!)
+        const defaults = componentDefaults(comps[0]!)
+        const specs = ACTIVE_ARCHETYPE.registry.components[type]?.params ?? {}
+        const valueOf = (comp: SceneComponentJson, key: string): unknown =>
+          (comp.props ?? {})[key] ?? defaults[key]
+        const keys = [...new Set(comps.flatMap((c) => componentKeys(c)))].filter((key) => {
+          if (ANIMATION_KEYS.has(key) || key === 'texture') return false
+          const sample = comps.map((c) => valueOf(c, key)).find((v) => v !== undefined)
+          const kind = typeof sample
+          return kind === 'number' || kind === 'boolean' || kind === 'string'
+        })
+        if (keys.length === 0) return null
+        return (
+          <div key={type} className="ed-section">
+            <header className="ed-sec-head">{componentLabel(type)}</header>
+            {keys.map((key) => {
+              const values = comps.map((c) => valueOf(c, key))
+              const uniform = values.every((v) => v === values[0])
+              const spec = specs[key]
+              return (
+                <PropRow
+                  key={`multi.${names.length}.${type}.${key}`}
+                  label={key}
+                  spec={uniform ? spec : { ...spec, label: `${spec?.label ?? key} (mixed)` }}
+                  value={values[0] ?? 0}
+                  onChange={(value) => onMultiProp(names, type, key, value)}
+                />
+              )
+            })}
+          </div>
+        )
+      })}
+    </>
   )
 }
 
@@ -456,11 +603,46 @@ function ComponentCard({
 }
 
 /** Raw AnimatedSprite props managed by the animation editor, not shown as rows. */
-const ANIMATION_KEYS = new Set(['clips', 'cols', 'rows', 'initialClip', 'current'])
+const ANIMATION_KEYS = new Set([
+  'clips',
+  'cols',
+  'rows',
+  'cells',
+  'extraSheets',
+  'initialClip',
+  'current',
+  'gridOffsetX',
+  'gridOffsetY',
+  'spacingX',
+  'spacingY',
+  'cellWidth',
+  'cellHeight',
+])
+
+/** An image URL's natural pixel size, once it loads (null while pending). */
+function useImageDims(url: string | null): [number, number] | null {
+  const [dims, setDims] = useState<[number, number] | null>(null)
+  useEffect(() => {
+    setDims(null)
+    if (!url) return
+    let cancelled = false
+    const img = new Image()
+    img.onload = () => {
+      if (!cancelled) setDims([img.naturalWidth, img.naturalHeight])
+    }
+    img.src = url
+    return () => {
+      cancelled = true
+    }
+  }, [url])
+  return dims
+}
 
 function AppearanceSection({
   id,
   comp,
+  viewportVisible,
+  onViewportVisibleChange,
   overridden,
   clipsWarning,
   art,
@@ -473,15 +655,20 @@ function AppearanceSection({
   onEditAnimation,
   onReset,
   onApply,
+  pixelsPerUnit,
+  onSetSize,
+  onFillCamera,
 }: {
   id: string
   comp: SceneComponentJson
+  viewportVisible: boolean
+  onViewportVisibleChange(visible: boolean): void
   overridden?: Set<string>
   /** State-graph gaps shown inline (characters). */
   clipsWarning?: string
   art: ArtItem[]
   urlFor(uri: string): string
-  onImportArt(files: File[]): Promise<void>
+  onImportArt(files: DroppedFile[]): Promise<void>
   onProp(key: string, value: unknown): void
   onSetTexture(uri: string): void
   /** Present only at the prefab level: image <-> shape is structural. */
@@ -492,6 +679,12 @@ function AppearanceSection({
   onEditAnimation?(): void
   onReset?(key: string): void
   onApply?(key: string): void
+  /** Project art scale, for the "use image size" button. */
+  pixelsPerUnit: number
+  /** Commits width+height as one undo step. */
+  onSetSize(size: { width: number; height: number }): void
+  /** Present at the entity level only: sizes+centers this quad to the scene camera. */
+  onFillCamera?(): void
 }) {
   // "image with nothing dropped yet" isn't a storable state — a texture-less
   // Sprite reads as a shape — so the invite-to-drop phase lives here.
@@ -503,10 +696,35 @@ function AppearanceSection({
   const animated = comp.type === 'AnimatedSprite'
   const texture = typeof comp.props?.texture === 'string' ? comp.props.texture : ''
   const kind = wantsImage ? 'image' : appearanceKind(comp)
+  const shape = comp.props?.shape === 'circle' ? 'circle' : 'rectangle'
   const showPicker = kind === 'image' && (!texture || picking)
   const keys = componentKeys(comp).filter(
-    (k) => !ANIMATION_KEYS.has(k) && k !== 'texture' && (kind === 'shape' || k !== 'color'),
+    (k) =>
+      !ANIMATION_KEYS.has(k) &&
+      k !== 'texture' &&
+      k !== 'shape' &&
+      (kind === 'shape' || k !== 'color'),
   )
+  // Sprite sheets show one frame, so "use image size" means the FRAME's size.
+  // With explicit cells (packed sheets) that's the largest cell — the box
+  // width/height size at runtime.
+  const cols = Math.max(1, Number(comp.props?.cols) || 1)
+  const rows = Math.max(1, Number(comp.props?.rows) || 1)
+  const imageDims = useImageDims(kind === 'image' && texture ? urlFor(texture) : null)
+  const cells = Array.isArray(comp.props?.cells) ? (comp.props.cells as SheetCell[]) : undefined
+  const frameRect = imageDims
+    ? cells?.length
+      ? {
+          x: 0,
+          y: 0,
+          width: Math.max(...cells.map((c) => c.width)),
+          height: Math.max(...cells.map((c) => c.height)),
+        }
+      : sheetCell(imageDims[0], imageDims[1], cols, rows, 0, comp.props as SheetGridParams)
+    : null
+  const naturalSize = frameRect
+    ? imageSizeInUnits(frameRect.width, frameRect.height, pixelsPerUnit)
+    : null
 
   const choose = (uri: string): void => {
     onSetTexture(uri)
@@ -514,12 +732,12 @@ function AppearanceSection({
     setWantsImage(false)
   }
 
-  const importImage = async (files: File[]): Promise<void> => {
-    const image = files.find((f) => IMAGE_RE.test(f.name))
+  const importImage = async (files: DroppedFile[]): Promise<void> => {
+    const image = files.find((f) => IMAGE_RE.test(f.file.name))
     if (!image) return
     await onImportArt(files)
-    // importArt writes to src/art/<name>, so the stored uri is deterministic.
-    choose(`src/art/${image.name}`)
+    // importArt writes to src/art/<relativePath>, so the stored uri is deterministic.
+    choose(`src/art/${image.relativePath}`)
   }
 
   const acceptsDrag = (e: React.DragEvent): boolean =>
@@ -538,13 +756,23 @@ function AppearanceSection({
       setDropping(false)
       const uri = e.dataTransfer.getData('waica/art')
       if (uri) choose(uri)
-      else void importImage([...e.dataTransfer.files])
+      else {
+        const dataTransfer = e.dataTransfer
+        void collectDroppedFiles(dataTransfer).then(importImage)
+      }
     },
   }
 
   return (
     <div className="ed-section">
-      <header className="ed-sec-head">Appearance</header>
+      <header className="ed-sec-head">
+        <span>Appearance</span>
+        <ViewportVisibilityButton
+          label="Appearance"
+          visible={viewportVisible}
+          onChange={onViewportVisibleChange}
+        />
+      </header>
       {onSetShape && (
         <label className="ed-row">
           <span>type</span>
@@ -565,17 +793,19 @@ function AppearanceSection({
           </select>
         </label>
       )}
+      {kind === 'shape' && (
+        <label className="ed-row">
+          <span>shape</span>
+          <select value={shape} onChange={(e) => onProp('shape', e.target.value)}>
+            <option value="rectangle">rectangle</option>
+            <option value="circle">circle</option>
+          </select>
+        </label>
+      )}
       {showPicker ? (
         <div className={`ed-anim-picker ${dropping ? 'is-dropping' : ''}`} {...dragProps}>
           <div className="ed-hint">Drag an image here, or pick one:</div>
-          <div className="ed-anim-thumbs">
-            {art.map((item) => (
-              <button key={item.uri} className="ed-anim-thumb" onClick={() => choose(item.uri)}>
-                <img src={item.url} alt={item.label} />
-                <span>{item.label}</span>
-              </button>
-            ))}
-          </div>
+          <ArtSearchGrid art={art} onPick={choose} />
           <button className="ed-mini" onClick={() => filePicker.current?.click()}>
             Import image…
           </button>
@@ -590,7 +820,11 @@ function AppearanceSection({
             accept=".png,.jpg,.jpeg"
             hidden
             onChange={(e) => {
-              void importImage([...(e.currentTarget.files ?? [])])
+              const files = [...(e.currentTarget.files ?? [])].map((file) => ({
+                file,
+                relativePath: file.name,
+              }))
+              void importImage(files)
               e.currentTarget.value = ''
             }}
           />
@@ -621,6 +855,28 @@ function AppearanceSection({
               )}
             </>
           )}
+          {(naturalSize || onFillCamera) && (
+            <div className="ed-appear-actions">
+              {naturalSize && frameRect && (
+                <button
+                  className="ed-mini"
+                  title={`${animated ? 'One frame' : 'The image'} is ${Math.round(frameRect.width)}×${Math.round(frameRect.height)}px — ${naturalSize.width}×${naturalSize.height} units at ${pixelsPerUnit} px/unit (Project → game)`}
+                  onClick={() => onSetSize(naturalSize)}
+                >
+                  📐 Use image size
+                </button>
+              )}
+              {onFillCamera && (
+                <button
+                  className="ed-mini"
+                  title="Size and center this appearance to cover exactly what the scene camera shows"
+                  onClick={onFillCamera}
+                >
+                  🎥 Fill camera
+                </button>
+              )}
+            </div>
+          )}
           <ComponentRows
             id={id}
             comp={comp}
@@ -646,10 +902,123 @@ function AppearanceSection({
   )
 }
 
+function addPolygonVertex(points: CollisionPoint[]): CollisionPoint[] {
+  let edge = 0
+  let longest = -1
+  for (let index = 0; index < points.length; index++) {
+    const [x1, y1] = points[index]!
+    const [x2, y2] = points[(index + 1) % points.length]!
+    const length = (x2 - x1) ** 2 + (y2 - y1) ** 2
+    if (length > longest) {
+      longest = length
+      edge = index
+    }
+  }
+  const [x1, y1] = points[edge]!
+  const [x2, y2] = points[(edge + 1) % points.length]!
+  // Rotate so the chosen edge closes the loop, then append its midpoint.
+  // “− last” can therefore undo the topology change exactly.
+  const start = (edge + 1) % points.length
+  const rotated = points.map((_, index) => points[(start + index) % points.length]!)
+  return [...rotated, [(x1 + x2) / 2, (y1 + y2) / 2]]
+}
+
+function CollisionRows({
+  id,
+  comp,
+  overridden,
+  onProp,
+  onReset,
+  onApply,
+}: {
+  id: string
+  comp: SceneComponentJson
+  overridden?: Set<string>
+  onProp(key: string, value: unknown): void
+  onReset?(key: string): void
+  onApply?(key: string): void
+}) {
+  const shape =
+    comp.props?.shape === 'circle' || comp.props?.shape === 'polygon'
+      ? comp.props.shape
+      : 'rectangle'
+  const points = resolveCollisionPoints(comp.props?.points)
+  const propName = (key: string, label: React.ReactNode) => {
+    const isOverridden = overridden?.has(key) ?? false
+    const press = (fn: (key: string) => void) => (event: React.MouseEvent) => {
+      event.preventDefault()
+      event.stopPropagation()
+      fn(key)
+    }
+    return (
+      <span>
+        {label}
+        {isOverridden && <i className="ed-dot" title="overridden on this instance" />}
+        {isOverridden && onReset && (
+          <button className="ed-reset" title="Reset to the prefab's value" onClick={press(onReset)}>
+            ↺
+          </button>
+        )}
+        {isOverridden && onApply && (
+          <button
+            className="ed-reset ed-apply"
+            title="Apply to the prefab — every instance gets this value"
+            onClick={press(onApply)}
+          >
+            ⤒
+          </button>
+        )}
+      </span>
+    )
+  }
+  return (
+    <>
+      <label className="ed-row">
+        {propName('shape', 'shape')}
+        <select value={shape} onChange={(event) => onProp('shape', event.target.value)}>
+          <option value="rectangle">rectangle</option>
+          <option value="circle">circle</option>
+          <option value="polygon">polygon</option>
+        </select>
+      </label>
+      <ComponentRows
+        id={id}
+        comp={comp}
+        keys={['width', 'height', 'offsetX', 'offsetY']}
+        overridden={overridden}
+        onProp={onProp}
+        onReset={onReset}
+        onApply={onApply}
+      />
+      {shape === 'polygon' && (
+        <div className="ed-poly-tools">
+          <div className="ed-hint">
+            {propName('points', `${points.length} vertices — drag them in the viewport`)}
+          </div>
+          <div>
+            <button className="ed-mini" onClick={() => onProp('points', addPolygonVertex(points))}>
+              + vertex
+            </button>
+            <button
+              className="ed-mini"
+              disabled={points.length <= 3}
+              onClick={() => onProp('points', points.slice(0, -1))}
+            >
+              − last
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 function CollisionSection({
   id,
   comp,
   label,
+  viewportVisible,
+  onViewportVisibleChange,
   overridden,
   offHint,
   onProp,
@@ -661,6 +1030,8 @@ function CollisionSection({
   comp: SceneComponentJson | null
   /** "solid" | "hitbox" — the chassis' collision kind. */
   label: string
+  viewportVisible: boolean
+  onViewportVisibleChange(visible: boolean): void
   overridden?: Set<string>
   /** Shown when the collision is toggled off. */
   offHint: string
@@ -672,7 +1043,16 @@ function CollisionSection({
 }) {
   return (
     <div className="ed-section">
-      <header className="ed-sec-head">Collision</header>
+      <header className="ed-sec-head">
+        <span>Collision</span>
+        {comp && (
+          <ViewportVisibilityButton
+            label="Collision"
+            visible={viewportVisible}
+            onChange={onViewportVisibleChange}
+          />
+        )}
+      </header>
       {onToggle && (
         <label className="ed-row">
           <span>{label}</span>
@@ -684,10 +1064,9 @@ function CollisionSection({
         </label>
       )}
       {comp ? (
-        <ComponentRows
+        <CollisionRows
           id={id}
           comp={comp}
-          keys={['width', 'height']}
           overridden={overridden}
           onProp={onProp}
           onReset={onReset}
@@ -704,17 +1083,30 @@ function CollisionSection({
 function InlineCollisionSection({
   id,
   comp,
+  viewportVisible,
+  onViewportVisibleChange,
   onProp,
   onSet,
 }: {
   id: string
   comp: SceneComponentJson | null
+  viewportVisible: boolean
+  onViewportVisibleChange(visible: boolean): void
   onProp(key: string, value: unknown): void
   onSet(type: 'Hitbox' | 'Solid' | null): void
 }) {
   return (
     <div className="ed-section">
-      <header className="ed-sec-head">Collision</header>
+      <header className="ed-sec-head">
+        <span>Collision</span>
+        {comp && (
+          <ViewportVisibilityButton
+            label="Collision"
+            visible={viewportVisible}
+            onChange={onViewportVisibleChange}
+          />
+        )}
+      </header>
       <label className="ed-row">
         <span>type</span>
         <select
@@ -729,7 +1121,7 @@ function InlineCollisionSection({
           <option value="Solid">solid</option>
         </select>
       </label>
-      {comp && <ComponentRows id={id} comp={comp} keys={['width', 'height']} onProp={onProp} />}
+      {comp && <CollisionRows id={id} comp={comp} onProp={onProp} />}
     </div>
   )
 }
@@ -748,6 +1140,7 @@ function BehavioursSection({
   present,
   canRemove,
   machine,
+  warning,
   overriddenFor,
   onProp,
   onRemove,
@@ -760,6 +1153,8 @@ function BehavioursSection({
   present: Set<string>
   canRemove(comp: SceneComponentJson): boolean
   machine?: MachineCardContext
+  /** Playability gap (e.g. logic without its driver), shown above the cards. */
+  warning?: string
   overriddenFor?(type: string): Set<string> | undefined
   onProp(type: string, key: string, value: unknown): void
   onRemove(type: string): void
@@ -770,6 +1165,7 @@ function BehavioursSection({
   return (
     <div className="ed-section">
       <header className="ed-sec-head">Behaviours</header>
+      {warning && <div className="ed-warn-card">⚠ {warning}</div>}
       {comps.length === 0 && <div className="ed-hint">no behaviours yet</div>}
       {comps.map((comp) =>
         comp.type === 'StateMachine' && machine ? (
@@ -835,6 +1231,8 @@ function EntityInspector({
   art,
   urlFor,
   onImportArt,
+  viewportVisibility,
+  onViewportVisibility,
   onRename,
   onMove,
   onProp,
@@ -851,6 +1249,10 @@ function EntityInspector({
   onMachinePatch,
   onPrefabMachinePatch,
   onEditState,
+  pixelsPerUnit,
+  resolution,
+  sceneCamera,
+  onSizeAppearance,
 }: Omit<
   Props,
   | 'selection'
@@ -861,6 +1263,7 @@ function EntityInspector({
   | 'onPrefabSetTexture'
   | 'onPrefabSetShape'
   | 'onPrefabSetCollision'
+  | 'onPrefabSizeAppearance'
 > & {
   entity: SceneEntityJson
 }) {
@@ -891,17 +1294,15 @@ function EntityInspector({
       </label>
       <div className="ed-row ed-row-xy">
         <span>position</span>
-        <input
-          type="number"
+        <NumberField
           step={0.5}
           value={x}
-          onChange={(e) => onMove(entity.name, [Number(e.target.value), y])}
+          onChange={(t) => onMove(entity.name, [Number(t), y])}
         />
-        <input
-          type="number"
+        <NumberField
           step={0.5}
           value={y}
-          onChange={(e) => onMove(entity.name, [x, Number(e.target.value)])}
+          onChange={(t) => onMove(entity.name, [x, Number(t)])}
         />
       </div>
 
@@ -927,6 +1328,8 @@ function EntityInspector({
           key={entity.name}
           id={entity.name}
           comp={appearance}
+          viewportVisible={viewportVisibility.appearance}
+          onViewportVisibleChange={(visible) => onViewportVisibility('appearance', visible)}
           overridden={overridesOf(appearance.type)}
           clipsWarning={
             prefab?.type === 'character'
@@ -940,6 +1343,17 @@ function EntityInspector({
           onProp={(key, value) => onProp(entity.name, appearance.type, key, value)}
           onReset={resetOf(appearance.type)}
           onApply={applyOf(appearance.type)}
+          pixelsPerUnit={pixelsPerUnit}
+          onSetSize={(size) => onSizeAppearance(entity.name, appearance.type, size)}
+          onFillCamera={() => {
+            const cam = resolveSceneCamera(sceneCamera)
+            const view = cameraViewSize(cam.zoom, resolution.width / resolution.height)
+            onSizeAppearance(entity.name, appearance.type, {
+              ...view,
+              offsetX: Math.round((cam.position[0] - x) * 100) / 100,
+              offsetY: Math.round((cam.position[1] - y) * 100) / 100,
+            })
+          }}
           onEditAnimation={
             appearance.type === 'AnimatedSprite'
               ? () =>
@@ -959,6 +1373,8 @@ function EntityInspector({
               id={entity.name}
               comp={collision}
               label={rule.collision.type.toLowerCase()}
+              viewportVisible={viewportVisibility.collision}
+              onViewportVisibleChange={(visible) => onViewportVisibility('collision', visible)}
               overridden={collision ? overridesOf(collision.type) : undefined}
               offHint="no collision — defined by the prefab"
               onProp={(key, value) => collision && onProp(entity.name, collision.type, key, value)}
@@ -970,6 +1386,8 @@ function EntityInspector({
             <InlineCollisionSection
               id={entity.name}
               comp={collision}
+              viewportVisible={viewportVisibility.collision}
+              onViewportVisibleChange={(visible) => onViewportVisibility('collision', visible)}
               onProp={(key, value) => collision && onProp(entity.name, collision.type, key, value)}
               onSet={(type) => onSetEntityCollision(entity.name, type)}
             />
@@ -979,6 +1397,7 @@ function EntityInspector({
         id={entity.name}
         comps={[...split.behaviours, ...split.extras]}
         present={new Set(components.map((c) => c.type))}
+        warning={driverWarning(components)}
         canRemove={(c) => !prefabOwns(entity, c.type, prefabs)}
         machine={{
           clips: appearance ? Object.keys(clipsOf(appearance)) : [],
@@ -1017,6 +1436,8 @@ function PrefabInspector({
   art,
   urlFor,
   onImportArt,
+  viewportVisibility,
+  onViewportVisibility,
   onProp,
   onAdd,
   onRemove,
@@ -1028,12 +1449,16 @@ function PrefabInspector({
   stateFiles,
   onMachinePatch,
   onEditState,
+  pixelsPerUnit,
+  onSetSize,
 }: {
   refName: string
   prefab: PrefabJson
   art: ArtItem[]
   urlFor(uri: string): string
-  onImportArt(files: File[]): Promise<void>
+  onImportArt(files: DroppedFile[]): Promise<void>
+  viewportVisibility: ViewportComponentVisibility
+  onViewportVisibility(role: keyof ViewportComponentVisibility, visible: boolean): void
   onProp(componentType: string, key: string, value: unknown): void
   onAdd(type: string): void
   onRemove(type: string): void
@@ -1045,6 +1470,8 @@ function PrefabInspector({
   stateFiles: string[]
   onMachinePatch(patch: Partial<MachineProps>): void
   onEditState(state: string): void
+  pixelsPerUnit: number
+  onSetSize(componentType: string, size: { width: number; height: number }): void
 }) {
   const rule = CHASSIS[prefab.type]
   const split = splitComponents(prefab.components)
@@ -1063,6 +1490,8 @@ function PrefabInspector({
           key={refName}
           id={refName}
           comp={appearance}
+          viewportVisible={viewportVisibility.appearance}
+          onViewportVisibleChange={(visible) => onViewportVisibility('appearance', visible)}
           clipsWarning={
             prefab.type === 'character'
               ? characterClipsWarning(appearance, prefab.components)
@@ -1076,6 +1505,8 @@ function PrefabInspector({
           onProp={(key, value) => onProp(appearance.type, key, value)}
           onToggleAnimated={onToggleAnimated}
           onEditAnimation={appearance.type === 'AnimatedSprite' ? onEditAnimation : undefined}
+          pixelsPerUnit={pixelsPerUnit}
+          onSetSize={(size) => onSetSize(appearance.type, size)}
         />
       )}
       {rule.collision && (
@@ -1083,6 +1514,8 @@ function PrefabInspector({
           id={refName}
           comp={split.collision}
           label={rule.collision.type.toLowerCase()}
+          viewportVisible={viewportVisibility.collision}
+          onViewportVisibleChange={(visible) => onViewportVisibility('collision', visible)}
           offHint={offHint}
           onProp={(key, value) => rule.collision && onProp(rule.collision.type, key, value)}
           onToggle={rule.collision.optional ? onSetCollision : undefined}
@@ -1092,6 +1525,7 @@ function PrefabInspector({
         id={refName}
         comps={[...split.behaviours, ...split.extras]}
         present={new Set(prefab.components.map((c) => c.type))}
+        warning={driverWarning(prefab.components)}
         canRemove={() => true}
         machine={{
           clips: appearance ? Object.keys(clipsOf(appearance)) : [],
@@ -1109,7 +1543,7 @@ function PrefabInspector({
 
 /** Inspector metadata for the camera's tunable numbers (sliders). */
 const CAMERA_SPECS: Record<string, ParamSpec> = {
-  zoom: { label: 'Zoom (world height)', min: 2, max: 40, step: 0.5 },
+  zoom: { label: 'Zoom (world height)', min: 2, max: 80, step: 0.25 },
   deadzoneWidth: { label: 'Deadzone width', min: 0, max: 10, step: 0.25 },
   deadzoneHeight: { label: 'Deadzone height', min: 0, max: 10, step: 0.25 },
   lookahead: { label: 'Lookahead', min: 0, max: 6, step: 0.25 },
@@ -1123,13 +1557,20 @@ function CameraInspector({
   camera,
   entityNames,
   onProp,
+  pixelsPerUnit,
+  resolution,
 }: {
   camera: SceneCameraJson | undefined
   entityNames: string[]
   onProp(key: string, value: unknown): void
+  pixelsPerUnit: number
+  resolution: ResolutionSetting
 }) {
   const cam = resolveSceneCamera(camera)
   const [x, y] = cam.position
+  const view = cameraViewSize(cam.zoom, resolution.width / resolution.height)
+  // The zoom that shows exactly the game resolution's height in art pixels.
+  const resolutionZoom = Math.round((resolution.height / pixelsPerUnit) * 1000) / 1000
   const slider = (key: 'zoom' | 'deadzoneWidth' | 'deadzoneHeight' | 'lookahead' | 'smoothing') => (
     <PropRow
       key={key}
@@ -1142,11 +1583,10 @@ function CameraInspector({
   const limitRow = (key: keyof typeof DEFAULT_LIMITS, label: string) => (
     <label className="ed-row" key={key}>
       <span>{label}</span>
-      <input
-        type="number"
+      <NumberField
         step={0.5}
         value={cam.limits?.[key] ?? 0}
-        onChange={(e) => onProp('limits', { ...cam.limits, [key]: Number(e.target.value) })}
+        onChange={(t) => onProp('limits', { ...cam.limits, [key]: Number(t) })}
       />
     </label>
   )
@@ -1159,23 +1599,41 @@ function CameraInspector({
       ) : (
         <div className="ed-row ed-row-xy">
           <span>position</span>
-          <input
-            type="number"
+          <NumberField
             step={0.5}
             value={x}
-            onChange={(e) => onProp('position', [Number(e.target.value), y])}
+            onChange={(t) => onProp('position', [Number(t), y])}
           />
-          <input
-            type="number"
+          <NumberField
             step={0.5}
             value={y}
-            onChange={(e) => onProp('position', [x, Number(e.target.value)])}
+            onChange={(t) => onProp('position', [x, Number(t)])}
           />
         </div>
       )}
       <div className="ed-section">
         <header className="ed-sec-head">Framing</header>
         {slider('zoom')}
+        <RoRow label="visible area" value={`${view.width} × ${view.height} units`} />
+        <RoRow
+          label="in art pixels"
+          value={`${Math.round(view.width * pixelsPerUnit)} × ${Math.round(view.height * pixelsPerUnit)} px`}
+        />
+        {Math.abs(cam.zoom - resolutionZoom) > 0.001 && (
+          <button
+            className="ed-wide"
+            title={`Sets zoom to ${resolutionZoom} so the camera shows exactly ${resolution.width}×${resolution.height} px of art at ${pixelsPerUnit} px/unit — 1 image pixel = 1 screen pixel`}
+            onClick={() => onProp('zoom', resolutionZoom)}
+          >
+            🎯 Match game resolution ({resolution.width}×{resolution.height})
+          </button>
+        )}
+        <div className="ed-hint">
+          zoom is how many world units tall the view is — at {pixelsPerUnit} px/unit (Project →
+          game) that's the art the player sees
+          {resolution.mode === 'fill' &&
+            `; width assumes a ${resolution.width}×${resolution.height} window (fill mode follows the real window's shape)`}
+        </div>
       </div>
       <div className="ed-section">
         <header className="ed-sec-head">Follow</header>
@@ -1326,9 +1784,14 @@ export function Inspector(props: Props) {
             ))}
           </div>
           <div className="ed-hint">
-            drag moves them together · ⌘/Ctrl+D duplicates · Delete removes — or right-click a
-            selected row
+            drag any of them in the viewport to move the group · Shift-click adds or removes one
+            · ⌘/Ctrl+D duplicates · Delete removes — or right-click a selected row
           </div>
+          <MultiPropsSection
+            entities={selection.entities}
+            prefabs={props.prefabs}
+            onMultiProp={props.onMultiProp}
+          />
         </div>
       )}
       {selection?.kind === 'camera' && (
@@ -1336,6 +1799,8 @@ export function Inspector(props: Props) {
           camera={selection.camera}
           entityNames={selection.entityNames}
           onProp={props.onCameraProp}
+          pixelsPerUnit={props.pixelsPerUnit}
+          resolution={props.resolution}
         />
       )}
       {selection?.kind === 'prefab' && (
@@ -1345,6 +1810,8 @@ export function Inspector(props: Props) {
           art={props.art}
           urlFor={props.urlFor}
           onImportArt={props.onImportArt}
+          viewportVisibility={props.viewportVisibility}
+          onViewportVisibility={props.onViewportVisibility}
           onProp={(type, key, value) => props.onPrefabProp(selection.ref, type, key, value)}
           onAdd={(type) => props.onPrefabAddComponent(selection.ref, type)}
           onRemove={(type) => props.onPrefabRemoveComponent(selection.ref, type)}
@@ -1356,6 +1823,8 @@ export function Inspector(props: Props) {
           stateFiles={props.stateFiles}
           onMachinePatch={(patch) => props.onPrefabMachinePatch(selection.ref, patch)}
           onEditState={(state) => props.onEditState({ kind: 'prefab', ref: selection.ref, state })}
+          pixelsPerUnit={props.pixelsPerUnit}
+          onSetSize={(type, size) => props.onPrefabSizeAppearance(selection.ref, type, size)}
         />
       )}
       {selection?.kind === 'ui' && (

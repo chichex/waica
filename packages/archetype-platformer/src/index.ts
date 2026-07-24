@@ -2,10 +2,12 @@ import { Game, loadScene, type Entity } from '@waica/engine'
 import { PLATFORMER_SCENE } from './scene-default'
 import { PLATFORMER_REGISTRY } from './registry'
 
-export { PLATFORMER_SCENE, DOG_SPRITE } from './scene-default'
+export { PLATFORMER_SCENE, PLATFORMER_BLANK_SCENE, DOG_SPRITE } from './scene-default'
 export { PLATFORMER_PREFABS } from './prefabs'
 export { PLATFORMER_UI } from './ui'
-export { PLATFORMER_REGISTRY, PLATFORMER_PALETTE } from './registry'
+export { PLATFORMER_ART } from './art'
+export type { ArchetypeArt } from './art'
+export { PLATFORMER_REGISTRY, PLATFORMER_PALETTE, PLATFORMER_ART_URLS } from './registry'
 export type { EntityTemplate } from './registry'
 
 export interface PlatformerSetup {

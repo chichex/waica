@@ -1,6 +1,7 @@
 export { PlatformerMotor } from './platformer-motor'
 export { PLATFORMER_STATE_GRAPH, platformerUpdate } from './platformer-states'
+export { LOGIC_DRIVERS, LOGIC_STATE_GRAPHS } from './logic-drivers'
 export { Collectible } from './collectible'
-export { Patrol } from './patrol'
+export { Patrol, PATROLLER_STATE_GRAPH, type PatrolAxis } from './patrol'
 export { Hazard, resolveHazardTouch, type HazardTouch } from './hazard'
 export { Respawnable } from './respawnable'

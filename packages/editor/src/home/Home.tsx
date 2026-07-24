@@ -7,13 +7,21 @@ import {
   saveRecent,
   type RecentProject,
 } from '../fs/recents'
-import { projectFiles } from '../project/template'
+import { projectArtFiles, projectFiles, type ProjectStart } from '../project/template'
 import { ACTIVE_ARCHETYPE } from '../project/archetype'
 import { ArchetypePicker } from './ArchetypePicker'
 
 async function isEmptyDir(handle: FileSystemDirectoryHandle): Promise<boolean> {
   for await (const _ of handle.entries()) return false
   return true
+}
+
+/** Downloads the archetype's bundled art into the project (demo start only). */
+async function writeArtFiles(fs: ProjectFS, start: ProjectStart): Promise<void> {
+  for (const [path, url] of Object.entries(projectArtFiles(start))) {
+    const bytes = await (await fetch(url)).arrayBuffer()
+    await fs.writeFile(path, new Uint8Array(bytes))
+  }
 }
 
 /** Cancelling the picker throws AbortError: that one stays silent. */
@@ -38,7 +46,7 @@ export function Home({ onOpen }: { onOpen(fs: ProjectFS): void }) {
     void listRecents().then(setRecents)
   }, [])
 
-  const create = async (name: string): Promise<void> => {
+  const create = async (name: string, start: ProjectStart): Promise<void> => {
     if (!window.showDirectoryPicker) return
     try {
       const parent = await window.showDirectoryPicker({ mode: 'readwrite', id: 'waica-new' })
@@ -53,9 +61,10 @@ export function Home({ onOpen }: { onOpen(fs: ProjectFS): void }) {
       setBusy('creating project…')
       const dir = await parent.getDirectoryHandle(name, { create: true })
       const fs = new RealFS(name, dir)
-      for (const [path, content] of Object.entries(projectFiles(name))) {
+      for (const [path, content] of Object.entries(projectFiles(name, start))) {
         await fs.writeText(path, content)
       }
+      await writeArtFiles(fs, start)
       await saveRecent(name, dir)
       onOpen(fs)
     } catch (err) {
@@ -96,8 +105,10 @@ export function Home({ onOpen }: { onOpen(fs: ProjectFS): void }) {
     setRecents(await listRecents())
   }
 
-  const demo = (): void => {
-    onOpen(new MemFS('waica-demo', projectFiles('waica-demo')))
+  const demo = async (): Promise<void> => {
+    const fs = new MemFS('waica-demo', projectFiles('waica-demo'))
+    await writeArtFiles(fs, 'demo')
+    onOpen(fs)
   }
 
   return (
@@ -118,7 +129,7 @@ export function Home({ onOpen }: { onOpen(fs: ProjectFS): void }) {
           <strong>Open project</strong>
           <span>A folder with a waica project (created here or with npm create waica).</span>
         </button>
-        <button className="home-card" onClick={demo} disabled={!!busy}>
+        <button className="home-card" onClick={() => void demo()} disabled={!!busy}>
           <span className="home-card-icon">🎮</span>
           <strong>Try the demo</strong>
           <span>The full editor with an in-memory project — without touching your disk.</span>
@@ -155,9 +166,9 @@ export function Home({ onOpen }: { onOpen(fs: ProjectFS): void }) {
 
       {picking && (
         <ArchetypePicker
-          onPick={(_id, name) => {
+          onPick={(_id, name, start) => {
             setPicking(false)
-            void create(name)
+            void create(name, start)
           }}
           onClose={() => setPicking(false)}
         />

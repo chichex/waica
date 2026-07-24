@@ -4,5 +4,6 @@
     "mode": "fill",
     "width": 640,
     "height": 360
-  }
+  },
+  "pixelsPerUnit": 16
 }

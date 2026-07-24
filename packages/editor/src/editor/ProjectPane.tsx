@@ -3,6 +3,7 @@ import { DEFAULT_BINDINGS, type InputBindings, type StatValue } from '@waica/eng
 import { ACTION_LABELS, keyLabel, parseControls } from '../project/controls'
 import type { GameSettings } from '../project/game'
 import type { ProjectStats } from '../project/stats'
+import { NumberField } from './NumberField'
 
 /** Centered card hosting a project-wide editor (controls / stats / game) in the stage. */
 export function ProjectPane({
@@ -149,14 +150,7 @@ function StatValueInput({
     return <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} />
   }
   if (typeof value === 'number') {
-    return (
-      <input
-        type="number"
-        step={1}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-      />
-    )
+    return <NumberField step={1} value={value} onChange={(t) => onChange(Number(t))} />
   }
   return <input type="text" value={value} onChange={(e) => onChange(e.target.value)} />
 }
@@ -261,22 +255,20 @@ export function GameSettingsEditor({
         <>
           <label className="ed-row">
             <span>width</span>
-            <input
-              type="number"
+            <NumberField
               step={1}
               min={1}
               value={res.width}
-              onChange={(e) => setRes({ width: Math.max(1, Number(e.target.value)) })}
+              onChange={(t) => setRes({ width: Math.max(1, Number(t)) })}
             />
           </label>
           <label className="ed-row">
             <span>height</span>
-            <input
-              type="number"
+            <NumberField
               step={1}
               min={1}
               value={res.height}
-              onChange={(e) => setRes({ height: Math.max(1, Number(e.target.value)) })}
+              onChange={(t) => setRes({ height: Math.max(1, Number(t)) })}
             />
           </label>
           <div className="ed-hint">
@@ -287,6 +279,20 @@ export function GameSettingsEditor({
       ) : (
         <div className="ed-hint">the view stretches to whatever window the game runs in</div>
       )}
+      <header className="ed-sec-head">Art scale</header>
+      <label className="ed-row">
+        <span>pixels per unit</span>
+        <NumberField
+          step={1}
+          min={1}
+          value={settings.pixelsPerUnit}
+          onChange={(t) => onChange({ ...settings, pixelsPerUnit: Math.max(1, Number(t)) })}
+        />
+      </label>
+      <div className="ed-hint">
+        how many image pixels one world unit covers — "use image size" and the camera's pixel
+        readout use this to map your art to world sizes
+      </div>
     </div>
   )
 }

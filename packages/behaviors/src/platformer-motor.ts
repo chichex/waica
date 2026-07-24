@@ -1,4 +1,4 @@
-import { Component, Solid, THREE } from '@waica/engine'
+import { collisionOverlap, Component, Solid, THREE, type CollisionBody } from '@waica/engine'
 
 /**
  * Passive platformer motor: tuning params, physical state and movement
@@ -7,8 +7,8 @@ import { Component, Solid, THREE } from '@waica/engine'
  * active state moves the body with. The out-of-the-box game feel a
  * beginner doesn't know they need lives here: coyote time, jump
  * buffering, jump cut (releasing jumps shorter) and squash & stretch.
- * Per-axis AABB collision against the scene's Solids — the genre
- * standard (Celeste-style), not "realistic" physics.
+ * Per-axis collision against the scene's Solids — deterministic genre
+ * movement (Celeste-style), not "realistic" physics.
  */
 export class PlatformerMotor extends Component {
   static override componentName = 'PlatformerMotor'
@@ -96,15 +96,17 @@ export class PlatformerMotor extends Component {
     this.vy = Math.max(this.vy - this.gravity * cut * dt, -this.maxFallSpeed)
   }
 
-  /** Integrates velocity and resolves AABB collisions against Solids. */
+  /** Integrates velocity and resolves collisions against Solids. */
   step(dt: number): void {
     const pos = this.entity.position
     const wasAirborne = !this.grounded
+    const previousX = pos.x
     pos.x += this.vx * dt
-    this.resolveAxis('x')
+    this.resolveAxis('x', previousX)
     this.grounded = false
+    const previousY = pos.y
     pos.y += this.vy * dt
-    this.resolveAxis('y')
+    this.resolveAxis('y', previousY)
     if (wasAirborne && this.grounded) this.applySquash(1.25, 0.8)
   }
 
@@ -119,30 +121,58 @@ export class PlatformerMotor extends Component {
     this.squashY = y
   }
 
-  private resolveAxis(axis: 'x' | 'y'): void {
+  private resolveAxis(axis: 'x' | 'y', previous: number): void {
     const pos = this.entity.position
-    const halfW = this.hitboxWidth / 2
-    const halfH = this.hitboxHeight / 2
     for (const other of this.game.entities) {
       const solid = other.get(Solid)
-      if (!solid || other === this.entity) continue
-      const overlaps =
-        pos.x + halfW > solid.left &&
-        pos.x - halfW < solid.right &&
-        pos.y + halfH > solid.bottom &&
-        pos.y - halfH < solid.top
-      if (!overlaps) continue
+      if (!solid || other === this.entity || !this.overlaps(solid)) continue
+
+      const blocked = pos[axis]
+      pos[axis] = previous
+      // A collider already intersecting before this axis moved cannot be
+      // resolved safely here; preserve the move instead of teleporting it.
+      if (this.overlaps(solid)) {
+        pos[axis] = blocked
+        continue
+      }
+
+      // Find the contact point between the known-free and blocked positions.
+      let free = previous
+      let colliding = blocked
+      for (let step = 0; step < 14; step++) {
+        const middle = (free + colliding) / 2
+        pos[axis] = middle
+        if (this.overlaps(solid)) colliding = middle
+        else free = middle
+      }
+      pos[axis] = free
+
       if (axis === 'x') {
-        pos.x = this.vx > 0 ? solid.left - halfW : solid.right + halfW
         this.vx = 0
       } else if (this.vy <= 0) {
-        pos.y = solid.top + halfH
         this.vy = 0
         this.grounded = true
       } else {
-        pos.y = solid.bottom - halfH
         this.vy = 0
       }
     }
+  }
+
+  private overlaps(solid: Solid): boolean {
+    const player: CollisionBody = {
+      x: this.entity.position.x,
+      y: this.entity.position.y,
+      width: this.hitboxWidth,
+      height: this.hitboxHeight,
+      shape: 'rectangle',
+    }
+    return collisionOverlap(player, {
+      x: solid.entity.position.x + solid.offsetX,
+      y: solid.entity.position.y + solid.offsetY,
+      width: solid.width,
+      height: solid.height,
+      shape: solid.shape,
+      points: solid.points,
+    })
   }
 }

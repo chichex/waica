@@ -15,11 +15,27 @@ export { Solid } from './components/solid'
 export { Hitbox } from './components/hitbox'
 export { AnimatedSprite } from './components/animated-sprite'
 export { aabbOverlap } from './aabb'
+export {
+  COLLISION_SHAPES,
+  DEFAULT_COLLISION_POLYGON,
+  collisionBounds,
+  collisionOverlap,
+  collisionVertices,
+  resolveCollisionPoints,
+} from './collision-shape'
+export type {
+  CollisionBody,
+  CollisionBounds,
+  CollisionPoint,
+  CollisionShape,
+} from './collision-shape'
 export { Emitter } from './events'
-export { loadScene, spawnFromJson, resolveEntityComponents } from './scene'
+export { loadScene, spawnFromJson, resolveEntityComponents, resolveProps } from './scene'
 export type { SceneJson, SceneEntityJson, SceneComponentJson, SceneRegistry, PrefabJson } from './scene'
 export { ClipPlayer } from './animation/clip-player'
 export type { ClipDef } from './animation/clip-player'
+export { sheetCell, sheetFrameCount, locateFrame } from './animation/sheet'
+export type { SheetGridParams, SheetCell, SheetDef } from './animation/sheet'
 export { resolveClip, missingClips } from './animation/contract'
 export type { AnimationContract } from './animation/contract'
 export { StateMachine, evaluateTrigger, nextTransition } from './state/state-machine'

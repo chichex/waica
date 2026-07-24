@@ -2,6 +2,9 @@
 // Once the generic archetype manifest exists (DESIGN H3), this module is
 // the only thing that migrates; the rest of the editor consumes ACTIVE_ARCHETYPE.
 import {
+  PLATFORMER_ART,
+  PLATFORMER_ART_URLS,
+  PLATFORMER_BLANK_SCENE,
   PLATFORMER_PALETTE,
   PLATFORMER_PREFABS,
   PLATFORMER_REGISTRY,
@@ -19,9 +22,12 @@ export const ACTIVE_ARCHETYPE = {
   id: 'platformer',
   label: 'Platformer',
   scene: PLATFORMER_SCENE,
+  blankScene: PLATFORMER_BLANK_SCENE,
   registry: PLATFORMER_REGISTRY,
   palette: PLATFORMER_PALETTE,
   prefabs: PLATFORMER_PREFABS,
+  art: PLATFORMER_ART,
+  artUrls: PLATFORMER_ART_URLS,
   entityIcons: ENTITY_ICONS,
 }
 

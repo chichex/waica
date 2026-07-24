@@ -1,6 +1,5 @@
 import type { PrefabJson, SceneComponentJson } from '@waica/engine'
-import { PLATFORMER_STATE_GRAPH } from '@waica/behaviors'
-import { DOG_SPRITE } from '@waica/archetype-platformer'
+import { LOGIC_DRIVERS, PLATFORMER_STATE_GRAPH } from '@waica/behaviors'
 
 /**
  * The chassis model: each prefab type is born with factory core components
@@ -48,13 +47,16 @@ const DEFAULT_SPRITE = { width: 1, height: 1, color: DEFAULT_COLOR }
 
 /** Factory components for a brand-new prefab of the given type. */
 export function newPrefabComponents(type: PrefabType): SceneComponentJson[] {
+  // Default draw order: characters over objects over tiles — same-layer
+  // sprites fall back to spawn order, which reads as random overlap.
   switch (type) {
     case 'character':
-      // Characters are born with the platformer state graph so states and
-      // clips line up from minute zero; the Motor (a moving body) is one
-      // "+ behaviour" away — an NPC shouldn't chase the arrow keys.
+      // Characters are born with the platformer state graph so states line
+      // up from minute zero; the Motor (a moving body) is one "+ behaviour"
+      // away — an NPC shouldn't chase the arrow keys. Appearance starts as
+      // a plain shape: the art is the user's, not the archetype's.
       return [
-        { type: 'AnimatedSprite', props: structuredClone(DOG_SPRITE) },
+        { type: 'Sprite', props: { ...DEFAULT_SPRITE, layer: 2 } },
         {
           type: 'StateMachine',
           props: {
@@ -67,7 +69,7 @@ export function newPrefabComponents(type: PrefabType): SceneComponentJson[] {
       ]
     case 'object':
       return [
-        { type: 'Sprite', props: { ...DEFAULT_SPRITE } },
+        { type: 'Sprite', props: { ...DEFAULT_SPRITE, layer: 1 } },
         { type: 'Hitbox', props: { width: 1, height: 1 } },
       ]
     case 'tile':
@@ -114,8 +116,43 @@ export function behaviourTypes(all: Iterable<string>): string[] {
   return [...all].filter((t) => !CORE_COMPONENT_TYPES.has(t))
 }
 
+/**
+ * The StateMachine logic's driver component missing from the list, if any.
+ * Each built-in logic set's states drive one component (platformer → the
+ * Motor, patroller → Patrol) and early-return without it, so the character
+ * just stands there in Play. Null when driven, on custom logic, or with no
+ * machine at all. When another logic's driver IS present (a patroller
+ * wearing the platformer brain), that logic comes back as the alternative —
+ * switching to it beats adding a second driver.
+ */
+export function missingDriver(components: SceneComponentJson[]): {
+  logic: string
+  driver: string
+  alternative?: { logic: string; driver: string }
+} | null {
+  const machine = components.find((c) => c.type === 'StateMachine')
+  const logic = machine?.props?.logic
+  const driver = typeof logic === 'string' ? LOGIC_DRIVERS[logic] : undefined
+  if (typeof logic !== 'string' || !driver) return null
+  if (components.some((c) => c.type === driver)) return null
+  const out: ReturnType<typeof missingDriver> = { logic, driver }
+  const alternative = Object.entries(LOGIC_DRIVERS).find(
+    ([name, altDriver]) => name !== logic && components.some((c) => c.type === altDriver),
+  )
+  if (alternative) out.alternative = { logic: alternative[0], driver: alternative[1] }
+  return out
+}
+
 /** Appearance props that survive the Sprite <-> AnimatedSprite swap. */
-const SHARED_APPEARANCE_PROPS = ['width', 'height', 'texture', 'pixelArt', 'layer'] as const
+const SHARED_APPEARANCE_PROPS = [
+  'width',
+  'height',
+  'offsetX',
+  'offsetY',
+  'texture',
+  'pixelArt',
+  'layer',
+] as const
 
 function pickShared(props: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {}
@@ -185,6 +222,7 @@ export function setAppearanceTexture(prefab: PrefabJson, uri: string): PrefabJso
   if (!comp) return prefab
   const props: Record<string, unknown> = { ...(comp.props ?? {}), texture: uri }
   delete props.color
+  delete props.shape
   const components = [...prefab.components]
   components[index] = { ...comp, props }
   return { ...prefab, components }

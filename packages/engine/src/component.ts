@@ -7,6 +7,8 @@ export interface ParamSpec {
   min?: number
   max?: number
   step?: number
+  /** Allowed values for a string param; rendered as a dropdown. */
+  options?: string[]
 }
 
 export interface ComponentClass<T extends Component = Component> {

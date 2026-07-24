@@ -26,6 +26,7 @@ export function resolveHazardTouch(
 export class Hazard extends Component {
   static override componentName = 'Hazard'
   static override params = {
+    stompable: { label: 'Stompable' },
     bounce: { label: 'Stomp bounce', min: 0, max: 30, step: 0.5 },
   }
 

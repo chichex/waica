@@ -20,12 +20,16 @@ import {
   type MachineProps,
 } from '../project/states'
 import { DEFAULT_EDITOR_SETTINGS, EDITOR_SETTINGS_PATH, parseEditorSettings, serializeEditorSettings, type EditorSettings, type GridSettings } from '../project/editor-settings'
-import { GAME_PATH, parseGameSettings, serializeGameSettings, type GameSettings } from '../project/game'
+import { DEFAULT_GAME_SETTINGS, GAME_PATH, parseGameSettings, serializeGameSettings, type GameSettings } from '../project/game'
 import { STATS_PATH, parseStats, serializeStats, type ProjectStats } from '../project/stats'
 import * as ops from '../scene/ops'
 import { EditorHistory, type AtomicEntry, type HistoryEntry } from '../history/history'
 import { toAnimatedProps } from '../project/clips'
-import { Viewport, type ViewportHandle } from './Viewport'
+import {
+  Viewport,
+  type ViewportComponentVisibility,
+  type ViewportHandle,
+} from './Viewport'
 import { Explorer, refBase, type ExplorerView } from './Explorer'
 import { entityIcon, prefabIcon, sceneLabel } from './icons'
 import { Inspector, type AnimTarget, type InspectorSelection } from './Inspector'
@@ -42,6 +46,7 @@ type SaveState = 'saved' | 'saving' | 'error'
 const EMPTY_SCENE: SceneJson = { waicaScene: 3, entities: [] }
 /** Stable fallback: a fresh {} per render would loop the UiPane preview effect. */
 const EMPTY_STATS: ProjectStats = {}
+const PREFAB_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9_-]*$/
 
 function setPrefabProp(
   prefab: PrefabJson,
@@ -86,6 +91,17 @@ function ArtStage({
   )
 }
 
+/** Immutable add/remove for the project-file trackers (no-op keeps the same set). */
+function setWith(set: Set<string>, value: string): Set<string> {
+  return set.has(value) ? set : new Set(set).add(value)
+}
+function setWithout(set: Set<string>, value: string): Set<string> {
+  if (!set.has(value)) return set
+  const next = new Set(set)
+  next.delete(value)
+  return next
+}
+
 export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const [scenePaths, setScenePaths] = useState<string[]>([])
   const [openScenePath, setOpenScenePath] = useState<string | null>(null)
@@ -95,6 +111,10 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const [epoch, setEpoch] = useState(0)
   const [mode, setMode] = useState<'edit' | 'play'>('edit')
   const [selected, setSelected] = useState<string | null>(null)
+  const [viewportVisibility, setViewportVisibility] = useState<ViewportComponentVisibility>({
+    appearance: true,
+    collision: true,
+  })
   /** Multi-selection in the scene tree: [] or 2+ entity names, never one. */
   const [multi, setMulti] = useState<string[]>([])
   const [saveState, setSaveState] = useState<SaveState>('saved')
@@ -103,6 +123,10 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const [uiLib, setUiLib] = useState<Record<string, string>>({
     ...ACTIVE_ARCHETYPE.registry.ui,
   })
+  // File-backed refs/names: the Explorer lists ONLY these. The merged libs
+  // above keep resolving archetype defaults for scenes that reference them.
+  const [projectPrefabRefs, setProjectPrefabRefs] = useState<Set<string>>(new Set())
+  const [projectUiNames, setProjectUiNames] = useState<Set<string>>(new Set())
   const [animTarget, setAnimTarget] = useState<AnimTarget | null>(null)
   const [stateTarget, setStateTarget] = useState<StateTarget | null>(null)
   /** Basenames in src/states/ — the project's state code files. */
@@ -161,12 +185,16 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
 
   useEffect(() => {
     void listScenes(fs).then(setScenePaths)
-    void loadPrefabLib(fs).then((lib) => {
-      setPrefabLib(lib)
+    void loadPrefabLib(fs).then(({ prefabs, projectRefs }) => {
+      setPrefabLib(prefabs)
+      setProjectPrefabRefs(projectRefs)
       // The viewport may have loaded with the archetype defaults already.
       setEpoch((e) => e + 1)
     })
-    void loadUiLib(fs).then(setUiLib)
+    void loadUiLib(fs).then(({ pieces, projectNames }) => {
+      setUiLib(pieces)
+      setProjectUiNames(projectNames)
+    })
     void listStateFiles(fs).then(setStateFiles)
     void fs.readText(CONTROLS_PATH).then((text) => setControls(parseControls(text)))
     void fs.readText(STATS_PATH).then((text) => setStats(parseStats(text)))
@@ -299,6 +327,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       coalesce ? `prefab:${ref}:${coalesce}` : undefined,
     )
     setPrefabLib((lib) => ({ ...lib, [ref]: next }))
+    setProjectPrefabRefs((refs) => setWith(refs, ref))
     // Structural changes re-instantiate the stage; prop edits patch the live
     // instance instead (recreating the Game per input event is too costly).
     // Scene viewports remount on view switch, so they pick up the data too.
@@ -320,6 +349,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     // Keystroke-driven (Monaco): bursts on the same piece merge into one step.
     record({ kind: 'ui', name, before: uiLib[name] ?? null, after: html }, `ui:${name}`)
     setUiLib((lib) => ({ ...lib, [name]: html }))
+    setProjectUiNames((names) => setWith(names, name))
     setSaveState('saving')
     clearTimeout(uiTimers.current.get(name))
     uiTimers.current.set(
@@ -488,6 +518,25 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
 
   const duplicateEntity = (name: string): void => duplicateEntities([name])
 
+  /** The scene entities a global shortcut applies to: the multi-selection, or the selected entity. */
+  const selectionNames = (): string[] => {
+    if (mode !== 'edit' || animTarget || view?.kind !== 'scene') return []
+    if (multi.length > 1) return multi
+    if (selected && scene?.entities.some((e) => e.name === selected)) return [selected]
+    return []
+  }
+
+  /** Cmd/Ctrl+D: duplicates the scene selection (multi, or the single entity). */
+  const duplicateSelection = (): void => duplicateEntities(selectionNames())
+
+  /** Cmd/Ctrl+G: groups the scene selection into a new folder. */
+  const groupSelection = (): void => {
+    const names = selectionNames()
+    if (!scene || names.length === 0) return
+    const folder = ops.uniqueFolderName(scene, 'Group')
+    commit(ops.reorderEntities(ops.addFolder(scene, folder), names, { into: folder }), true)
+  }
+
   const deleteEntities = (names: string[]): void => {
     if (!scene || names.length === 0) return
     if (names.length > 1 && !window.confirm(`Delete ${names.length} entities?`)) return
@@ -571,6 +620,100 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     openView({ kind: 'prefab', ref: copyRef })
   }
 
+  const renamePrefab = async (ref: string, to: string): Promise<void> => {
+    const prefab = prefabLib[ref]
+    if (!prefab) return
+    const base = to.trim()
+    if (!base || base === refBase(ref)) return
+    if (!PREFAB_NAME_RE.test(base)) {
+      window.alert('Prefab names must start with a letter or number and use only letters, numbers, dashes, or underscores.')
+      return
+    }
+
+    const dir = ref.slice(0, ref.indexOf('/'))
+    const nextRef = `${dir}/${base}`
+    if (prefabLib[nextRef]) {
+      window.alert(`A prefab named "${base}" already exists.`)
+      return
+    }
+
+    const affectedScenes: Array<{ path: string; before: SceneJson; after: SceneJson }> = []
+    try {
+      for (const path of scenePaths) {
+        let before =
+          path === openScenePath && scene ? scene : pendingScenes.current.get(path) ?? null
+        if (!before) {
+          const text = await fs.readText(path)
+          if (text == null) throw new Error(`missing scene: ${path}`)
+          before = ops.migrateScene(JSON.parse(text) as SceneJson)
+        }
+        if (!before.entities.some((entity) => entity.prefab === ref)) continue
+        const after: SceneJson = {
+          ...before,
+          entities: before.entities.map((entity) =>
+            entity.prefab === ref ? { ...entity, prefab: nextRef } : entity,
+          ),
+        }
+        affectedScenes.push({ path, before, after })
+      }
+    } catch {
+      window.alert('Could not rename the prefab because a scene could not be read.')
+      return
+    }
+
+    setSaveState('saving')
+    clearTimeout(prefabTimers.current.get(ref))
+    prefabTimers.current.delete(ref)
+    try {
+      // Write the new prefab and all references before removing the old file.
+      await savePrefab(fs, nextRef, prefab)
+      for (const { path, after } of affectedScenes) {
+        clearTimeout(saveTimers.current.get(path))
+        saveTimers.current.delete(path)
+        pendingScenes.current.set(path, after)
+        await fs.writeText(path, JSON.stringify(after, null, 2) + '\n')
+        if (pendingScenes.current.get(path) === after) pendingScenes.current.delete(path)
+      }
+      if ((await fs.readText(prefabPath(ref))) != null) await fs.deleteFile(prefabPath(ref))
+    } catch {
+      setSaveState('error')
+      return
+    }
+
+    recordBatch(() => {
+      record({ kind: 'prefab', ref: nextRef, before: null, after: prefab })
+      record({ kind: 'prefab', ref, before: prefab, after: null })
+      for (const { path, before, after } of affectedScenes) {
+        record({ kind: 'scene', path, before, after })
+      }
+    })
+    setPrefabLib((lib) => {
+      const next = { ...lib, [nextRef]: prefab }
+      const fallback = ACTIVE_ARCHETYPE.prefabs[ref]
+      if (fallback) next[ref] = fallback
+      else delete next[ref]
+      return next
+    })
+    setProjectPrefabRefs((refs) => setWith(setWithout(refs, ref), nextRef))
+    const openAffected = affectedScenes.find(({ path }) => path === openScenePath)
+    if (openAffected) {
+      setScene((current) => (current === openAffected.before ? openAffected.after : current))
+    }
+    setView((current) =>
+      current?.kind === 'prefab' && current.ref === ref
+        ? { kind: 'prefab', ref: nextRef }
+        : current,
+    )
+    setAnimTarget((current) =>
+      current?.kind === 'prefab' && current.ref === ref ? { ...current, ref: nextRef } : current,
+    )
+    setStateTarget((current) =>
+      current?.kind === 'prefab' && current.ref === ref ? { ...current, ref: nextRef } : current,
+    )
+    setEpoch((value) => value + 1)
+    setSaveState('saved')
+  }
+
   const deletePrefab = async (ref: string): Promise<void> => {
     const prefab = prefabLib[ref]
     if (!prefab) return
@@ -587,6 +730,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       delete next[ref]
       return next
     })
+    setProjectPrefabRefs((refs) => setWithout(refs, ref))
     setEpoch((e) => e + 1)
     if (view?.kind === 'prefab' && view.ref === ref) setView(null)
   }
@@ -622,6 +766,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       delete next[name]
       return next
     })
+    setProjectUiNames((names) => setWithout(names, name))
     if (view?.kind === 'ui' && view.name === name) setView(null)
   }
 
@@ -705,9 +850,12 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     if (value == null) {
       setPrefabLib((lib) => {
         const next = { ...lib }
-        delete next[ref]
+        const fallback = ACTIVE_ARCHETYPE.prefabs[ref]
+        if (fallback) next[ref] = fallback
+        else delete next[ref]
         return next
       })
+      setProjectPrefabRefs((refs) => setWithout(refs, ref))
       if (view?.kind === 'prefab' && view.ref === ref) setView(null)
       // The file may never have landed (undoing a debounced create): ignore.
       void fs
@@ -716,6 +864,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
         .then(() => setSaveState('saved'))
     } else {
       setPrefabLib((lib) => ({ ...lib, [ref]: value }))
+      setProjectPrefabRefs((refs) => setWith(refs, ref))
       savePrefab(fs, ref, value)
         .then(() => setSaveState('saved'))
         .catch(() => setSaveState('error'))
@@ -733,6 +882,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
         delete next[name]
         return next
       })
+      setProjectUiNames((names) => setWithout(names, name))
       if (view?.kind === 'ui' && view.name === name) setView(null)
       void fs
         .deleteFile(uiPath(name))
@@ -740,6 +890,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
         .then(() => setSaveState('saved'))
     } else {
       setUiLib((lib) => ({ ...lib, [name]: value }))
+      setProjectUiNames((names) => setWith(names, name))
       saveUi(fs, name, value)
         .then(() => setSaveState('saved'))
         .catch(() => setSaveState('error'))
@@ -818,9 +969,13 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     revealEntry(entry, dir)
   }
 
-  // Latest-closure ref so the mount-once key listener sees fresh state.
+  // Latest-closure refs so the mount-once key listener sees fresh state.
   const stepRef = useRef(doStep)
   stepRef.current = doStep
+  const duplicateRef = useRef(duplicateSelection)
+  duplicateRef.current = duplicateSelection
+  const groupRef = useRef(groupSelection)
+  groupRef.current = groupSelection
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -828,7 +983,10 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       const key = e.key.toLowerCase()
       const isRedo = (key === 'z' && e.shiftKey) || (key === 'y' && !e.metaKey && !e.shiftKey)
       const isUndo = key === 'z' && !e.shiftKey
-      if (!isUndo && !isRedo) return
+      // defaultPrevented: the Explorer tree handles its own Cmd/Ctrl+D.
+      const isDuplicate = key === 'd' && !e.shiftKey && !e.defaultPrevented
+      const isGroup = key === 'g' && !e.shiftKey && !e.defaultPrevented
+      if (!isUndo && !isRedo && !isDuplicate && !isGroup) return
       // Focus in a text field or Monaco keeps the native text undo. Non-text
       // controls (checkboxes, sliders…) have none, so the global undo applies.
       const el = e.target instanceof Element ? e.target : null
@@ -838,7 +996,9 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
         if (input && !['checkbox', 'radio', 'range', 'color'].includes(input.type)) return
       }
       e.preventDefault()
-      void stepRef.current(isUndo ? 'undo' : 'redo')
+      if (isDuplicate) duplicateRef.current()
+      else if (isGroup) groupRef.current()
+      else void stepRef.current(isUndo ? 'undo' : 'redo')
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -936,26 +1096,47 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
           showCamera
           grid={editorSettings?.grid}
           onGridChange={commitGrid}
+          componentVisibility={viewportVisibility}
           selected={selected}
+          multiSelected={multi}
           onSelect={selectEntity}
+          onToggleSelect={toggleEntity}
+          onRangeSelect={rangeEntities}
           onSelectCamera={() => {
             setView({ kind: 'scene', path: view.path })
             selectEntity(ops.CAMERA_NODE)
           }}
           onMoved={(name, position) => commit(ops.moveEntity(scene, name, position))}
+          onMovedMany={(moves) => {
+            let next = scene
+            for (const { name, position } of moves) next = ops.moveEntity(next, name, position)
+            commit(next)
+          }}
           onCameraMoved={(position) => commit(ops.moveCamera(scene, position))}
-          onBoxResized={(name, compType, [w, h]) => {
+          onBoxResized={(name, compType, [w, h], [ox, oy]) => {
             // The viewport already holds the live values: non-structural commit.
+            // Anchored resize moves the center too, so the offset lands in the
+            // same undo step as the size.
+            let next = ops.setComponentProp(scene, name, compType, 'width', w, prefabLib)
+            next = ops.setComponentProp(next, name, compType, 'height', h, prefabLib)
+            next = ops.setComponentProp(next, name, compType, 'offsetX', ox, prefabLib)
+            next = ops.setComponentProp(next, name, compType, 'offsetY', oy, prefabLib)
+            commit(next)
+          }}
+          onBoxMoved={(name, compType, [x, y]) => {
             commit(
               ops.setComponentProp(
-                ops.setComponentProp(scene, name, compType, 'width', w, prefabLib),
+                ops.setComponentProp(scene, name, compType, 'offsetX', x, prefabLib),
                 name,
                 compType,
-                'height',
-                h,
+                'offsetY',
+                y,
                 prefabLib,
               ),
             )
+          }}
+          onPolygonChanged={(name, compType, points) => {
+            commit(ops.setComponentProp(scene, name, compType, 'points', points, prefabLib))
           }}
           onDropPrefab={(data, world) => {
             // Legacy 'waica/template' payloads carry the base name, not the ref.
@@ -992,16 +1173,35 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
           background={0x211a33}
           grid={editorSettings?.grid}
           onGridChange={commitGrid}
+          componentVisibility={viewportVisibility}
           selected={refBase(view.ref)}
           onSelect={() => {}}
           onMoved={() => {}}
-          onBoxResized={(_name, compType, [w, h]) => {
+          onBoxResized={(_name, compType, [w, h], [ox, oy]) => {
+            const prefab = prefabLib[view.ref]
+            if (!prefab) return
+            let next = setPrefabProp(prefab, compType, 'width', w)
+            next = setPrefabProp(next, compType, 'height', h)
+            next = setPrefabProp(next, compType, 'offsetX', ox)
+            next = setPrefabProp(next, compType, 'offsetY', oy)
+            commitPrefab(view.ref, next)
+          }}
+          onBoxMoved={(_name, compType, [x, y]) => {
             const prefab = prefabLib[view.ref]
             if (!prefab) return
             commitPrefab(
               view.ref,
-              setPrefabProp(setPrefabProp(prefab, compType, 'width', w), compType, 'height', h),
+              setPrefabProp(
+                setPrefabProp(prefab, compType, 'offsetX', x),
+                compType,
+                'offsetY',
+                y,
+              ),
             )
+          }}
+          onPolygonChanged={(_name, compType, points) => {
+            const prefab = prefabLib[view.ref]
+            if (prefab) commitPrefab(view.ref, setPrefabProp(prefab, compType, 'points', points))
           }}
         />
       )
@@ -1213,8 +1413,11 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             multi={multi}
             prefabLib={prefabLib}
             uiLib={uiLib}
+            projectPrefabRefs={projectPrefabRefs}
+            projectUiNames={projectUiNames}
             art={projectArt.art}
             onImportArt={projectArt.importArt}
+            importProgress={projectArt.importProgress}
             onRefreshArt={projectArt.refresh}
             onOpenScene={(path) => openView({ kind: 'scene', path })}
             onSelectEntity={(name) => {
@@ -1264,6 +1467,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             onReorderEntities={reorderEntities}
             onCreatePrefab={createPrefab}
             onDuplicatePrefab={duplicatePrefab}
+            onRenamePrefab={(ref, name) => void renamePrefab(ref, name)}
             onDeletePrefab={(ref) => void deletePrefab(ref)}
             onAddPrefabToScene={addPrefabToScene}
             onOpenUi={(name) => openView({ kind: 'ui', name })}
@@ -1271,8 +1475,8 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             onDuplicateUi={duplicateUi}
             onDeleteUi={(name) => void deleteUi(name)}
             onToggleUiInScene={toggleUiInScene}
-            onArtDeleted={(label) => {
-              if (view?.kind === 'art' && view.label === label) setView(null)
+            onArtDeleted={(path) => {
+              if (view?.kind === 'art' && view.path === path) setView(null)
             }}
           />
         </aside>
@@ -1289,11 +1493,24 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             art={projectArt.art}
             urlFor={projectArt.urlFor}
             onImportArt={projectArt.importArt}
+            viewportVisibility={viewportVisibility}
+            onViewportVisibility={(role, visible) =>
+              setViewportVisibility((current) => ({ ...current, [role]: visible }))
+            }
             onRename={renameEntity}
             onMove={(name, position) => {
               if (!scene) return
               viewport.current?.applyMove(name, position[0], position[1])
               commit(ops.moveEntity(scene, name, position), false, `move:${name}`)
+            }}
+            onMultiProp={(names, componentType, key, value) => {
+              if (!scene) return
+              let next = scene
+              for (const name of names) {
+                viewport.current?.applyProp(name, componentType, key, value)
+                next = ops.setComponentProp(next, name, componentType, key, value, prefabLib)
+              }
+              commit(next, false, `multiprop:${names.join('|')}:${componentType}:${key}`)
             }}
             onProp={(entity, componentType, key, value) => {
               if (!scene) return
@@ -1455,6 +1672,36 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             }}
             onCameraProp={(key, value) => {
               if (scene) commit(ops.setCameraProp(scene, key, value), false, `camera:${key}`)
+            }}
+            pixelsPerUnit={gameSettings?.pixelsPerUnit ?? DEFAULT_GAME_SETTINGS.pixelsPerUnit}
+            resolution={gameSettings?.resolution ?? DEFAULT_GAME_SETTINGS.resolution}
+            sceneCamera={scene?.camera}
+            onSizeAppearance={(entity, componentType, patch) => {
+              if (!scene) return
+              // One commit for the whole patch: chained onProp calls would
+              // each read this render's scene and clobber one another.
+              let next = scene
+              for (const [key, value] of Object.entries(patch)) {
+                if (typeof value !== 'number') continue
+                viewport.current?.applyProp(entity, componentType, key, value)
+                next = ops.setComponentProp(next, entity, componentType, key, value, prefabLib)
+              }
+              commit(next)
+            }}
+            onPrefabSizeAppearance={(ref, componentType, size) => {
+              const prefab = prefabLib[ref]
+              if (!prefab) return
+              viewport.current?.applyProp(refBase(ref), componentType, 'width', size.width)
+              viewport.current?.applyProp(refBase(ref), componentType, 'height', size.height)
+              commitPrefab(
+                ref,
+                setPrefabProp(
+                  setPrefabProp(prefab, componentType, 'width', size.width),
+                  componentType,
+                  'height',
+                  size.height,
+                ),
+              )
             }}
             stateFiles={stateFiles}
             onMachinePatch={entityMachinePatch}

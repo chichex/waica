@@ -1,19 +1,36 @@
 import { useEffect, useState } from 'react'
 import { ARCHETYPE_CATALOG, type ArchetypeCard } from '../project/archetype'
+import type { ProjectStart } from '../project/template'
 
 // Same rule as create-waica: folder name and npm package name.
 const NAME_RE = /^[a-z0-9][a-z0-9-_.]*$/
+
+const START_OPTIONS: { id: ProjectStart; icon: string; label: string; blurb: string }[] = [
+  {
+    id: 'demo',
+    icon: '🎮',
+    label: 'Demo level',
+    blurb: 'A small playable level — platforms, coins and enemies to remix or delete.',
+  },
+  {
+    id: 'blank',
+    icon: '⬜',
+    label: 'Blank',
+    blurb: 'Just the chassis: movement, physics, camera and input. You place every entity.',
+  },
+]
 
 export function ArchetypePicker({
   onPick,
   onClose,
 }: {
-  onPick(id: string, name: string): void
+  onPick(id: string, name: string, start: ProjectStart): void
   onClose(): void
 }) {
   const [dim, setDim] = useState<'2d' | '3d'>('2d')
   const [chosen, setChosen] = useState<ArchetypeCard | null>(null)
   const [name, setName] = useState('my-game')
+  const [start, setStart] = useState<ProjectStart>('demo')
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -25,7 +42,7 @@ export function ArchetypePicker({
 
   const valid = NAME_RE.test(name)
   const submit = (): void => {
-    if (chosen && valid) onPick(chosen.id, name)
+    if (chosen && valid) onPick(chosen.id, name, start)
   }
 
   return (
@@ -60,9 +77,23 @@ export function ArchetypePicker({
                 use lowercase letters, numbers and dashes (it becomes the folder and package name)
               </p>
             )}
+            <div className="picker-start">
+              {START_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  className={`picker-start-card ${start === option.id ? 'is-on' : ''}`}
+                  onClick={() => setStart(option.id)}
+                >
+                  <span className="picker-card-icon">{option.icon}</span>
+                  <strong>{option.label}</strong>
+                  <span>{option.blurb}</span>
+                </button>
+              ))}
+            </div>
             <p className="picker-name-hint">
               Next you pick where to save it: Waica creates the{' '}
-              <code>{valid ? name : '…'}/</code> folder in there, with the project ready to play.
+              <code>{valid ? name : '…'}/</code> folder in there
+              {start === 'demo' ? ', with the project ready to play' : ''}.
             </p>
             <div className="picker-actions">
               <button className="ed-mini" onClick={() => setChosen(null)}>

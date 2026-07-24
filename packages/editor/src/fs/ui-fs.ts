@@ -19,17 +19,28 @@ export function uiPath(name: string): string {
   return `src/ui/${name}${SUFFIX}`
 }
 
-/** The project's UI pieces merged OVER the archetype defaults. */
-export async function loadUiLib(fs: ProjectFS): Promise<Record<string, string>> {
-  const lib: Record<string, string> = { ...ACTIVE_ARCHETYPE.registry.ui }
+export interface UiLib {
+  /** Every resolvable UI piece: project files merged OVER the archetype defaults. */
+  pieces: Record<string, string>
+  /** Names backed by a real project file — the only ones the Explorer lists. */
+  projectNames: Set<string>
+}
+
+/** The project's UI pieces: src/ui/*.html files. */
+export async function loadUiLib(fs: ProjectFS): Promise<UiLib> {
+  const pieces: Record<string, string> = { ...ACTIVE_ARCHETYPE.registry.ui }
+  const projectNames = new Set<string>()
   const src = findDir(await fs.tree(), 'src')
   const files = findDir(src?.children, 'ui')?.children ?? []
   for (const file of files) {
     if (file.kind !== 'file' || !file.name.endsWith(SUFFIX)) continue
     const text = await fs.readText(file.path)
-    if (text != null) lib[file.name.slice(0, -SUFFIX.length)] = text
+    if (text == null) continue
+    const name = file.name.slice(0, -SUFFIX.length)
+    pieces[name] = text
+    projectNames.add(name)
   }
-  return lib
+  return { pieces, projectNames }
 }
 
 export async function saveUi(fs: ProjectFS, name: string, html: string): Promise<void> {

@@ -5,7 +5,7 @@
     {
       "type": "AnimatedSprite",
       "props": {
-        "texture": "waica:coin",
+        "texture": "src/art/waica-coin.png",
         "cols": 4,
         "rows": 1,
         "width": 0.6,
