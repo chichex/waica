@@ -54,7 +54,7 @@
     {
       "type": "StateMachine",
       "props": {
-        "logic": "platformer",
+        "role": "player",
         "initial": "idle",
         "states": {
           "idle": {

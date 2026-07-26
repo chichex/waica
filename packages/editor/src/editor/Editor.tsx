@@ -9,12 +9,16 @@ import {
   setAppearanceShape,
   setAppearanceTexture,
   setCollisionEnabled,
+  switchRole,
   toggleAnimated,
 } from '../project/chassis'
 import { CONTROLS_PATH, parseControls, serializeControls } from '../project/controls'
 import {
+  listRoleFiles,
   listStateFiles,
   machineProps,
+  roleFilePath,
+  roleFileTemplate,
   stateFilePath,
   stateFileTemplate,
   type MachineProps,
@@ -34,7 +38,7 @@ import { Explorer, refBase, type ExplorerView } from './Explorer'
 import { entityIcon, prefabIcon, sceneLabel } from './icons'
 import { Inspector, type AnimTarget, type InspectorSelection } from './Inspector'
 import { AnimationEditor } from './AnimationEditor'
-import { StateEditorModal, type StateTarget } from './StateMachinePanel'
+import { RolePickerModal, StateEditorModal, type StateTarget } from './StateMachinePanel'
 import { CodePane } from './CodePane'
 import { ControlsEditor, GameSettingsEditor, ProjectPane, StatsEditor } from './ProjectPane'
 import { UiPane } from './UiPane'
@@ -91,17 +95,6 @@ function ArtStage({
   )
 }
 
-/** Immutable add/remove for the project-file trackers (no-op keeps the same set). */
-function setWith(set: Set<string>, value: string): Set<string> {
-  return set.has(value) ? set : new Set(set).add(value)
-}
-function setWithout(set: Set<string>, value: string): Set<string> {
-  if (!set.has(value)) return set
-  const next = new Set(set)
-  next.delete(value)
-  return next
-}
-
 export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const [scenePaths, setScenePaths] = useState<string[]>([])
   const [openScenePath, setOpenScenePath] = useState<string | null>(null)
@@ -119,18 +112,20 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const [multi, setMulti] = useState<string[]>([])
   const [saveState, setSaveState] = useState<SaveState>('saved')
   const [artDims, setArtDims] = useState<[number, number] | null>(null)
-  const [prefabLib, setPrefabLib] = useState<Record<string, PrefabJson>>(ACTIVE_ARCHETYPE.prefabs)
-  const [uiLib, setUiLib] = useState<Record<string, string>>({
-    ...ACTIVE_ARCHETYPE.registry.ui,
-  })
-  // File-backed refs/names: the Explorer lists ONLY these. The merged libs
-  // above keep resolving archetype defaults for scenes that reference them.
-  const [projectPrefabRefs, setProjectPrefabRefs] = useState<Set<string>>(new Set())
-  const [projectUiNames, setProjectUiNames] = useState<Set<string>>(new Set())
+  // The project's files, and only those: every entry here is one the Explorer
+  // lists, and every name it doesn't show is free to take.
+  const [prefabLib, setPrefabLib] = useState<Record<string, PrefabJson>>({})
+  const [uiLib, setUiLib] = useState<Record<string, string>>({})
   const [animTarget, setAnimTarget] = useState<AnimTarget | null>(null)
   const [stateTarget, setStateTarget] = useState<StateTarget | null>(null)
   /** Basenames in src/states/ — the project's state code files. */
   const [stateFiles, setStateFiles] = useState<string[]>([])
+  /** Basenames in src/roles/ — the project's custom role files. */
+  const [roleFiles, setRoleFiles] = useState<string[]>([])
+  /** New-character flow: the role picker modal is open. */
+  const [rolePicking, setRolePicking] = useState(false)
+  /** Last folder created here — the Explorer opens it (scene folders start shut). */
+  const [justCreatedFolder, setJustCreatedFolder] = useState<{ name: string } | null>(null)
   /** null until src/controls.json is read (or defaulted). */
   const [controls, setControls] = useState<InputBindings | null>(null)
   /** null until src/stats.json is read (or defaulted). */
@@ -185,17 +180,14 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
 
   useEffect(() => {
     void listScenes(fs).then(setScenePaths)
-    void loadPrefabLib(fs).then(({ prefabs, projectRefs }) => {
+    void loadPrefabLib(fs).then((prefabs) => {
       setPrefabLib(prefabs)
-      setProjectPrefabRefs(projectRefs)
-      // The viewport may have loaded with the archetype defaults already.
+      // The viewport may have loaded before the prefab files landed.
       setEpoch((e) => e + 1)
     })
-    void loadUiLib(fs).then(({ pieces, projectNames }) => {
-      setUiLib(pieces)
-      setProjectUiNames(projectNames)
-    })
+    void loadUiLib(fs).then(setUiLib)
     void listStateFiles(fs).then(setStateFiles)
+    void listRoleFiles(fs).then(setRoleFiles)
     void fs.readText(CONTROLS_PATH).then((text) => setControls(parseControls(text)))
     void fs.readText(STATS_PATH).then((text) => setStats(parseStats(text)))
     void fs.readText(GAME_PATH).then((text) => setGameSettings(parseGameSettings(text)))
@@ -327,7 +319,6 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       coalesce ? `prefab:${ref}:${coalesce}` : undefined,
     )
     setPrefabLib((lib) => ({ ...lib, [ref]: next }))
-    setProjectPrefabRefs((refs) => setWith(refs, ref))
     // Structural changes re-instantiate the stage; prop edits patch the live
     // instance instead (recreating the Game per input event is too costly).
     // Scene viewports remount on view switch, so they pick up the data too.
@@ -349,7 +340,6 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     // Keystroke-driven (Monaco): bursts on the same piece merge into one step.
     record({ kind: 'ui', name, before: uiLib[name] ?? null, after: html }, `ui:${name}`)
     setUiLib((lib) => ({ ...lib, [name]: html }))
-    setProjectUiNames((names) => setWith(names, name))
     setSaveState('saving')
     clearTimeout(uiTimers.current.get(name))
     uiTimers.current.set(
@@ -535,6 +525,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     if (!scene || names.length === 0) return
     const folder = ops.uniqueFolderName(scene, 'Group')
     commit(ops.reorderEntities(ops.addFolder(scene, folder), names, { into: folder }), true)
+    setJustCreatedFolder({ name: folder })
   }
 
   const deleteEntities = (names: string[]): void => {
@@ -559,7 +550,9 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
 
   const createFolder = (): void => {
     if (!scene) return
-    commit(ops.addFolder(scene, ops.uniqueFolderName(scene, 'Folder')))
+    const folder = ops.uniqueFolderName(scene, 'Folder')
+    commit(ops.addFolder(scene, folder))
+    setJustCreatedFolder({ name: folder })
   }
 
   const renameFolder = (from: string, to: string): void => {
@@ -599,15 +592,32 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     if (scene) commit(ops.reorderEntities(scene, names, target), true)
   }
 
-  const createPrefab = (type: PrefabJson['type']): void => {
+  const spawnPrefab = (type: PrefabJson['type'], role?: string): void => {
     const dir = Object.entries(PREFAB_DIRS).find(([, cat]) => cat === type)?.[0]
     if (!dir) return
     let n = 1
     while (prefabLib[`${dir}/${type}-${n}`]) n++
     const ref = `${dir}/${type}-${n}`
-    commitPrefab(ref, { waicaPrefab: 1, type, components: newPrefabComponents(type) }, true)
+    commitPrefab(ref, { waicaPrefab: 1, type, components: newPrefabComponents(type, role) }, true)
     openView({ kind: 'prefab', ref })
   }
+
+  // Characters pick their role at birth (the RolePickerModal) and are born
+  // whole — graph + driver installed. Objects and tiles create directly.
+  const createPrefab = (type: PrefabJson['type']): void => {
+    if (type === 'character') setRolePicking(true)
+    else spawnPrefab(type)
+  }
+
+  /** Preselect 'player' until the project has one, then 'patroller'. */
+  const suggestedRole = (): string =>
+    Object.values(prefabLib).some(
+      (p) =>
+        p.type === 'character' &&
+        p.components.some((c) => c.type === 'StateMachine' && c.props?.role === 'player'),
+    )
+      ? 'patroller'
+      : 'player'
 
   const duplicatePrefab = (ref: string): void => {
     const prefab = prefabLib[ref]
@@ -689,12 +699,9 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     })
     setPrefabLib((lib) => {
       const next = { ...lib, [nextRef]: prefab }
-      const fallback = ACTIVE_ARCHETYPE.prefabs[ref]
-      if (fallback) next[ref] = fallback
-      else delete next[ref]
+      delete next[ref]
       return next
     })
-    setProjectPrefabRefs((refs) => setWith(setWithout(refs, ref), nextRef))
     const openAffected = affectedScenes.find(({ path }) => path === openScenePath)
     if (openAffected) {
       setScene((current) => (current === openAffected.before ? openAffected.after : current))
@@ -730,7 +737,6 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       delete next[ref]
       return next
     })
-    setProjectPrefabRefs((refs) => setWithout(refs, ref))
     setEpoch((e) => e + 1)
     if (view?.kind === 'prefab' && view.ref === ref) setView(null)
   }
@@ -766,7 +772,6 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       delete next[name]
       return next
     })
-    setProjectUiNames((names) => setWithout(names, name))
     if (view?.kind === 'ui' && view.name === name) setView(null)
   }
 
@@ -850,12 +855,9 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     if (value == null) {
       setPrefabLib((lib) => {
         const next = { ...lib }
-        const fallback = ACTIVE_ARCHETYPE.prefabs[ref]
-        if (fallback) next[ref] = fallback
-        else delete next[ref]
+        delete next[ref]
         return next
       })
-      setProjectPrefabRefs((refs) => setWithout(refs, ref))
       if (view?.kind === 'prefab' && view.ref === ref) setView(null)
       // The file may never have landed (undoing a debounced create): ignore.
       void fs
@@ -864,7 +866,6 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
         .then(() => setSaveState('saved'))
     } else {
       setPrefabLib((lib) => ({ ...lib, [ref]: value }))
-      setProjectPrefabRefs((refs) => setWith(refs, ref))
       savePrefab(fs, ref, value)
         .then(() => setSaveState('saved'))
         .catch(() => setSaveState('error'))
@@ -882,7 +883,6 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
         delete next[name]
         return next
       })
-      setProjectUiNames((names) => setWithout(names, name))
       if (view?.kind === 'ui' && view.name === name) setView(null)
       void fs
         .deleteFile(uiPath(name))
@@ -890,7 +890,6 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
         .then(() => setSaveState('saved'))
     } else {
       setUiLib((lib) => ({ ...lib, [name]: value }))
-      setProjectUiNames((names) => setWith(names, name))
       saveUi(fs, name, value)
         .then(() => setSaveState('saved'))
         .catch(() => setSaveState('error'))
@@ -1007,11 +1006,35 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const sceneName = openScenePath ? sceneLabel(openScenePath) : null
 
   /** Scaffolds src/states/<state>.ts (never overwrites) and refreshes the list. */
-  const createStateFile = async (logic: string, state: string): Promise<void> => {
+  const createStateFile = async (role: string, state: string): Promise<void> => {
     const path = stateFilePath(state)
     const existing = await fs.readText(path)
-    if (existing == null) await fs.writeText(path, stateFileTemplate(logic, state))
+    if (existing == null) await fs.writeText(path, stateFileTemplate(role, state))
     setStateFiles(await listStateFiles(fs))
+  }
+
+  /** Scaffolds src/roles/<role>.ts (never overwrites) and opens it in Monaco. */
+  const createRoleFile = async (role: string): Promise<void> => {
+    const path = roleFilePath(role)
+    const existing = await fs.readText(path)
+    if (existing == null) await fs.writeText(path, roleFileTemplate(role))
+    setRoleFiles(await listRoleFiles(fs))
+    openView({ kind: 'stateFile', path })
+  }
+
+  // Role swap = whole package (graph replaced, driver swapped), already
+  // confirmed in the card. Structural, like machine patches.
+  const prefabSwitchRole = (ref: string, role: string): void => {
+    const prefab = prefabLib[ref]
+    if (!prefab) return
+    commitPrefab(ref, { ...prefab, components: switchRole(prefab.components, role) }, true)
+  }
+
+  const entitySwitchRole = (name: string, role: string): void => {
+    if (!scene) return
+    const entity = scene.entities.find((e) => e.name === name)
+    if (!entity?.components) return
+    commit(ops.setEntityComponents(scene, name, switchRole(entity.components, role)), true)
   }
 
   const prefabMachinePatch = (ref: string, patch: Partial<MachineProps>): void => {
@@ -1161,6 +1184,9 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       )
     }
     if (view.kind === 'prefab') {
+      if (prefabLib[view.ref] == null) {
+        return <div className="ed-vp-hint">this prefab no longer exists</div>
+      }
       return (
         <Viewport
           key={`prefab:${view.ref}`}
@@ -1413,8 +1439,6 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             multi={multi}
             prefabLib={prefabLib}
             uiLib={uiLib}
-            projectPrefabRefs={projectPrefabRefs}
-            projectUiNames={projectUiNames}
             art={projectArt.art}
             onImportArt={projectArt.importArt}
             importProgress={projectArt.importProgress}
@@ -1444,6 +1468,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             onAddEntity={addEntity}
             onCreateScene={() => void createScene()}
             onCreateFolder={createFolder}
+            justCreatedFolder={justCreatedFolder}
             onRenameFolder={renameFolder}
             onDissolveFolder={dissolveFolder}
             onDeleteFolder={deleteFolder}
@@ -1452,6 +1477,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             onOpenPrefab={(ref) => openView({ kind: 'prefab', ref })}
             onOpenScript={(name) => openView({ kind: 'script', name })}
             stateFiles={stateFiles}
+            roleFiles={roleFiles}
             onOpenStateFile={(path) => openView({ kind: 'stateFile', path })}
             onOpenArt={(item: ArtItem) => openView({ kind: 'art', ...item })}
             onOpenControls={() => openView({ kind: 'controls' })}
@@ -1704,8 +1730,12 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
               )
             }}
             stateFiles={stateFiles}
+            roleFiles={roleFiles}
             onMachinePatch={entityMachinePatch}
             onPrefabMachinePatch={prefabMachinePatch}
+            onSwitchRole={entitySwitchRole}
+            onPrefabSwitchRole={prefabSwitchRole}
+            onCreateRoleFile={(role) => void createRoleFile(role)}
             onEditState={setStateTarget}
           />
         </aside>
@@ -1788,7 +1818,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
               clips={Object.keys((sprite?.props?.clips as Record<string, unknown>) ?? {})}
               inputActions={Object.keys(controls ?? {})}
               stateFiles={stateFiles}
-              onCreateFile={(state) => void createStateFile(machine.logic, state)}
+              onCreateFile={(state) => void createStateFile(machine.role, state)}
               onSave={(patch) => {
                 if (stateTarget.kind === 'prefab') prefabMachinePatch(stateTarget.ref, patch)
                 else entityMachinePatch(stateTarget.name, patch)
@@ -1798,6 +1828,17 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             />
           )
         })()}
+
+      {rolePicking && (
+        <RolePickerModal
+          suggested={suggestedRole()}
+          onPick={(role) => {
+            setRolePicking(false)
+            spawnPrefab('character', role)
+          }}
+          onCancel={() => setRolePicking(false)}
+        />
+      )}
     </div>
   )
 }

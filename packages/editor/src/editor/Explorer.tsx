@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PrefabJson, SceneEntityJson, SceneJson } from '@waica/engine'
 import { ACTIVE_ARCHETYPE } from '../project/archetype'
 import type { ProjectFS } from '../fs/project-fs'
@@ -77,14 +77,13 @@ export function Explorer({
   fs,
   scenePaths,
   openScenePath,
+  justCreatedFolder,
   scene,
   view,
   selected,
   multi,
   prefabLib,
   uiLib,
-  projectPrefabRefs,
-  projectUiNames,
   art,
   onImportArt,
   importProgress,
@@ -106,6 +105,7 @@ export function Explorer({
   onOpenPrefab,
   onOpenScript,
   stateFiles,
+  roleFiles,
   onOpenStateFile,
   onOpenArt,
   onOpenControls,
@@ -134,18 +134,21 @@ export function Explorer({
   fs: ProjectFS
   scenePaths: string[]
   openScenePath: string | null
+  /**
+   * The folder the Editor just created, wrapped fresh each time so creating
+   * the same name twice still reopens it. Scene folders start collapsed; this
+   * is what keeps a brand-new one from hiding what you just put in it.
+   */
+  justCreatedFolder: { name: string } | null
   /** The open scene's contents (for the expanded entity subtree). */
   scene: SceneJson | null
   view: ExplorerView | null
   selected: string | null
   /** Multi-selection (shift/cmd click): [] or 2+ names — never a single one. */
   multi: string[]
+  /** The project's own files — all of them are listed, nothing else exists. */
   prefabLib: Record<string, PrefabJson>
   uiLib: Record<string, string>
-  /** File-backed prefab refs — the only ones listed (defaults still resolve scenes). */
-  projectPrefabRefs: Set<string>
-  /** File-backed UI piece names — the only ones listed. */
-  projectUiNames: Set<string>
   art: ArtItem[]
   onImportArt(files: DroppedFile[]): Promise<void>
   /** Live progress while an import is writing files; null when idle. */
@@ -175,6 +178,8 @@ export function Explorer({
   onOpenScript(name: string): void
   /** Basenames in src/states/ — the project's state code files. */
   stateFiles: string[]
+  /** Basenames in src/roles/ — the project's custom role files. */
+  roleFiles: string[]
   onOpenStateFile(path: string): void
   onOpenArt(item: ArtItem): void
   onOpenControls(): void
@@ -205,7 +210,12 @@ export function Explorer({
   /** True while a drop's folders are being walked, before importArt's own per-file progress starts. */
   const [scanningArt, setScanningArt] = useState(false)
   const [menu, setMenu] = useState<MenuState | null>(null)
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
+  /**
+   * Expanded scene folder names; absent = collapsed, like the Art tree below.
+   * A scene opens with every folder shut: the tree is a map of the scene, and
+   * one folder of 29 platforms shouldn't bury the rest of it.
+   */
+  const [expandedFolders, setExpandedFolders] = useState<ReadonlySet<string>>(new Set())
   /** Expanded art folder paths (Explorer's Art panel tree); absent = collapsed. */
   const [artExpanded, setArtExpanded] = useState<ReadonlySet<string>>(new Set())
   const [artQuery, setArtQuery] = useState('')
@@ -245,13 +255,25 @@ export function Explorer({
   const rows = scene ? sceneTree(scene) : []
   const folders = rows.filter((r) => r.kind === 'folder').map((r) => r.name)
 
+  useEffect(() => {
+    // Another scene is another tree: forget what was open and start shut.
+    setExpandedFolders(new Set())
+  }, [openScenePath])
+
+  useEffect(() => {
+    // Cmd+G groups the selection INTO a brand-new folder, so leaving that one
+    // shut would swallow the entities the moment you group them. The Editor
+    // hands us a fresh object per creation, so the same name can reopen.
+    if (justCreatedFolder) openFolder(justCreatedFolder.name)
+  }, [justCreatedFolder])
+
   /** Entity names as displayed, skipping collapsed folders — the space shift-ranges live in. */
   const visibleEntities = rows.flatMap((r) =>
     r.kind === 'entity'
       ? [r.entity.name]
-      : collapsed.has(r.name)
-        ? []
-        : r.entities.map((e) => e.name),
+      : expandedFolders.has(r.name)
+        ? r.entities.map((e) => e.name)
+        : [],
   )
 
   /** Shift-click range: from the anchor (the selected entity) to the clicked row. */
@@ -291,11 +313,16 @@ export function Explorer({
   }
 
   const toggleFolder = (name: string): void => {
-    setCollapsed((prev) => {
+    setExpandedFolders((prev) => {
       const next = new Set(prev)
       if (!next.delete(name)) next.add(name)
       return next
     })
+  }
+
+  /** Opens a folder the user just put something into, so it doesn't vanish. */
+  const openFolder = (name: string): void => {
+    setExpandedFolders((prev) => (prev.has(name) ? prev : new Set(prev).add(name)))
   }
 
   const hintCls = (key: string): string => (hint?.key === key ? ` is-drop-${hint.pos}` : '')
@@ -340,6 +367,8 @@ export function Explorer({
     const groupJson = e.dataTransfer.getData('waica/scene-entities')
     const entityName = e.dataTransfer.getData('waica/scene-entity')
     const folderName = e.dataTransfer.getData('waica/scene-folder')
+    // Dropping into a shut folder would otherwise look like a delete.
+    if (typeof target === 'object' && 'into' in target) openFolder(target.into)
     if (groupJson) {
       try {
         onReorderEntities(JSON.parse(groupJson) as string[], target)
@@ -643,10 +672,10 @@ export function Explorer({
                         <div key={`folder:${row.name}`}>
                           <div className="ed-x-item ed-x-folder is-editing">
                             <span className="ed-x-caret">
-                              {collapsed.has(row.name) ? '▸' : '▾'}
+                              {expandedFolders.has(row.name) ? '▾' : '▸'}
                             </span>
                             <span className="ed-x-ico">
-                              {collapsed.has(row.name) ? '📁' : '📂'}
+                              {expandedFolders.has(row.name) ? '📂' : '📁'}
                             </span>
                             <RenameInput
                               value={row.name}
@@ -657,7 +686,7 @@ export function Explorer({
                               onCancel={() => setEditing(null)}
                             />
                           </div>
-                          {!collapsed.has(row.name) &&
+                          {expandedFolders.has(row.name) &&
                             row.entities.map((entity) => renderEntity(entity, true))}
                         </div>
                       ) : (
@@ -684,8 +713,8 @@ export function Explorer({
                             onClick={(e) => {
                               // Alt-click syncs every folder to this one's next state.
                               if (e.altKey) {
-                                const opening = !collapsed.has(row.name)
-                                setCollapsed(opening ? new Set(folders) : new Set())
+                                const opening = !expandedFolders.has(row.name)
+                                setExpandedFolders(opening ? new Set(folders) : new Set())
                                 return
                               }
                               toggleFolder(row.name)
@@ -714,15 +743,15 @@ export function Explorer({
                             }
                           >
                             <span className="ed-x-caret">
-                              {collapsed.has(row.name) ? '▸' : '▾'}
+                              {expandedFolders.has(row.name) ? '▾' : '▸'}
                             </span>
                             <span className="ed-x-ico">
-                              {collapsed.has(row.name) ? '📁' : '📂'}
+                              {expandedFolders.has(row.name) ? '📂' : '📁'}
                             </span>
                             {row.name}
                             <span className="ed-x-count">{row.entities.length}</span>
                           </button>
-                          {!collapsed.has(row.name) &&
+                          {expandedFolders.has(row.name) &&
                             row.entities.map((entity) => renderEntity(entity, true))}
                         </div>
                       ),
@@ -759,7 +788,8 @@ export function Explorer({
           </header>
           <div className="ed-x-list">
             {Object.entries(prefabLib)
-              .filter(([ref, prefab]) => prefab.type === type && projectPrefabRefs.has(ref))
+              .filter(([, prefab]) => prefab.type === type)
+              .sort(([a], [b]) => a.localeCompare(b))
               .map(([ref]) => {
                 const base = refBase(ref)
                 if (editing?.kind === 'prefab' && editing.name === ref) {
@@ -791,7 +821,6 @@ export function Explorer({
                     onClick={() => onOpenPrefab(ref)}
                     onDoubleClick={() => setEditing({ kind: 'prefab', name: ref })}
                     onContextMenu={(e) => {
-                      const builtin = ref in ACTIVE_ARCHETYPE.prefabs
                       openMenu(e, [
                         { label: 'Open', icon: '▣', onClick: () => onOpenPrefab(ref) },
                         {
@@ -813,8 +842,6 @@ export function Explorer({
                           label: 'Delete',
                           icon: '🗑',
                           danger: true,
-                          disabled: builtin,
-                          title: builtin ? 'Built-in prefabs cannot be deleted' : undefined,
                           onClick: () => onDeletePrefab(ref),
                         },
                       ])
@@ -843,11 +870,9 @@ export function Explorer({
         </header>
         <div className="ed-x-list">
           {Object.keys(uiLib)
-            .filter((name) => projectUiNames.has(name))
             .sort()
             .map((name) => {
               const inScene = scene?.ui?.includes(name) ?? false
-              const builtin = name in (ACTIVE_ARCHETYPE.registry.ui ?? {})
               return (
                 <button
                   key={name}
@@ -871,8 +896,6 @@ export function Explorer({
                         label: 'Delete',
                         icon: '🗑',
                         danger: true,
-                        disabled: builtin,
-                        title: builtin ? 'Built-in UI pieces cannot be deleted' : undefined,
                         onClick: () => onDeleteUi(name),
                       },
                     ])
@@ -938,6 +961,31 @@ export function Explorer({
                   onClick={() => onOpenStateFile(path)}
                 >
                   <span className="ed-x-ico">📜</span>
+                  {name}
+                </button>
+              )
+            })
+          )}
+        </div>
+        <div className="ed-x-group-head">Roles</div>
+        <div className="ed-x-list">
+          {roleFiles.length === 0 ? (
+            <div className="ed-x-empty">
+              No custom roles yet — create one from a character's Role dropdown
+            </div>
+          ) : (
+            roleFiles.map((name) => {
+              const path = `src/roles/${name}`
+              return (
+                <button
+                  key={name}
+                  className={`ed-x-item ${
+                    view?.kind === 'stateFile' && view.path === path ? 'is-selected' : ''
+                  }`}
+                  title="Registers in your game — the editor can edit it but not run it"
+                  onClick={() => onOpenStateFile(path)}
+                >
+                  <span className="ed-x-ico">🎭</span>
                   {name}
                 </button>
               )

@@ -60,20 +60,20 @@ export function nextTransition(
  * Finite state machine: the single owner of a character's per-frame
  * logic — only the active state's code moves the body, so behaviors
  * never fight over velocity. States and transitions are prefab data;
- * state code lives in a logic set (defineStates) picked by `logic`.
- * Entering a state plays the sibling AnimatedSprite clip of the same
- * name (or the state's `clip` override); a missing clip warns and keeps
- * the previous one.
+ * state code lives in the role's logic set (defineRole / defineStates)
+ * picked by `role`. Entering a state plays the sibling AnimatedSprite
+ * clip of the same name (or the state's `clip` override); a missing
+ * clip warns and keeps the previous one.
  */
 export class StateMachine extends Component {
   static override componentName = 'StateMachine'
   static override displayName = 'State Machine'
   static override params = {
-    logic: { label: 'Logic' },
+    role: { label: 'Role' },
   }
 
-  /** Name of the logic set providing this machine's state code. */
-  logic = ''
+  /** The character's role — names the logic set providing its state code. */
+  role = ''
   /** Starting state; defaults to the first declared state. */
   initial = ''
   states: Record<string, StateJson> = {}
@@ -88,12 +88,12 @@ export class StateMachine extends Component {
   private readonly warnedClips = new Set<string>()
 
   override onReady(): void {
-    if (this.logic && !logicSet(this.logic)) {
+    if (this.role && !logicSet(this.role)) {
       const sets = registeredLogicSets()
-      const hint = closestLogicSet(this.logic)
+      const hint = closestLogicSet(this.role)
       console.error(
-        `[waica] "${this.entity.name}": logic set "${this.logic}" not found. ` +
-          `Registered sets: ${sets.length ? sets.join(', ') : '(none)'}.` +
+        `[waica] "${this.entity.name}": role "${this.role}" has no registered state code. ` +
+          `Known: ${sets.length ? sets.join(', ') : '(none)'}.` +
           (hint ? ` Did you mean "${hint}"?` : ''),
       )
     }
@@ -142,7 +142,7 @@ export class StateMachine extends Component {
   }
 
   private hooksFor(state: string): StateHooks[] {
-    const fromSet = this.logic ? logicSet(this.logic)?.[state] : undefined
+    const fromSet = this.role ? logicSet(this.role)?.[state] : undefined
     return [...(fromSet ? [fromSet] : []), ...(this.instanceHooks.get(state) ?? [])]
   }
 

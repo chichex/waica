@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { resolveCollisionPoints, resolveSceneCamera, sheetCell, type PrefabJson, type SceneCameraJson, type SceneComponentJson, type SceneEntityJson, type SceneJson, type SheetGridParams, type StateJson } from '@waica/engine'
+import { resolveCollisionPoints, resolveSceneCamera, roleDefinition, sheetCell, type PrefabJson, type SceneCameraJson, type SceneComponentJson, type SceneEntityJson, type SceneJson, type SheetGridParams, type StateJson } from '@waica/engine'
 import { ACTIVE_ARCHETYPE } from '../project/archetype'
 import { countOverrides, prefabOwns, resolveComponents } from '../scene/ops'
 import {
@@ -10,7 +10,7 @@ import {
   splitComponents,
 } from '../project/chassis'
 import type { ResolutionSetting } from '../project/game'
-import type { MachineProps } from '../project/states'
+import { machineProps, type MachineProps } from '../project/states'
 import { cameraViewSize, imageSizeInUnits } from './box-math'
 import { entityIcon, prefabIcon } from './icons'
 import { NumberField } from './NumberField'
@@ -62,19 +62,19 @@ function characterClipsWarning(
 }
 
 /**
- * Inline warning when the StateMachine's logic has no driver component:
- * without it every state's update early-returns and the character just
- * stands there in Play. Shown in the Behaviours section, right above the
- * add-behaviour row that fixes it.
+ * Inline warning when the role's driver component is missing: without it
+ * every state's update early-returns and the character just stands there
+ * in Play. Roles install their driver themselves, so this only fires on
+ * hand-edited JSON — an anomaly detector, not assembly instructions.
  */
 function driverWarning(components: SceneComponentJson[]): string | undefined {
   const missing = missingDriver(components)
   if (!missing) return undefined
-  const base = `this character won't move in Play: its "${missing.logic}" states drive the ${componentLabel(missing.driver)} behaviour, which it doesn't have`
+  const base = `this character won't move in Play: its "${missing.role}" states drive the ${componentLabel(missing.driver)} behaviour, which it doesn't have`
   if (missing.alternative) {
-    return `${base} — it does have ${componentLabel(missing.alternative.driver)}: switch the State Machine's logic to "${missing.alternative.logic}", or add ${componentLabel(missing.driver)} below`
+    return `${base} — it does have ${componentLabel(missing.alternative.driver)}: switch its role to "${missing.alternative.role}", or add ${componentLabel(missing.driver)} below`
   }
-  return `${base} — add it with "+ behaviour" below`
+  return `${base} — re-pick its role to reinstall it, or add it with "+ behaviour" below`
 }
 
 interface Props {
@@ -137,10 +137,18 @@ interface Props {
   ): void
   /** Basenames in src/states/ — the state code files the editor can see. */
   stateFiles: string[]
+  /** Basenames in src/roles/ — the custom role files the editor can see. */
+  roleFiles: string[]
   /** StateMachine props patch on an entity's own component (inline entities). */
   onMachinePatch(entity: string, patch: Partial<MachineProps>): void
   /** StateMachine props patch on a prefab — reaches every instance. */
   onPrefabMachinePatch(ref: string, patch: Partial<MachineProps>): void
+  /** Role-package swap on an entity's own machine (inline entities). */
+  onSwitchRole(entity: string, role: string): void
+  /** Role-package swap on a prefab — reaches every instance. */
+  onPrefabSwitchRole(ref: string, role: string): void
+  /** Scaffolds src/roles/<role>.ts (never overwrites). */
+  onCreateRoleFile(role: string): void
   /** Opens the state editor modal. */
   onEditState(target: StateTarget): void
 }
@@ -1126,11 +1134,15 @@ function InlineCollisionSection({
   )
 }
 
-/** Context the StateMachine card needs beyond the generic behaviour plumbing. */
+/** Context the Role card needs beyond the generic behaviour plumbing. */
 interface MachineCardContext {
   clips: string[]
   stateFiles: string[]
+  roleFiles: string[]
   onPatch(patch: Partial<MachineProps>): void
+  /** Full package swap: states replaced, driver swapped. */
+  onSwitchRole(role: string): void
+  onCreateRoleFile(role: string): void
   onEditState(state: string): void
 }
 
@@ -1162,35 +1174,51 @@ function BehavioursSection({
   onReset?(type: string, key: string): void
   onApply?(type: string, key: string): void
 }) {
+  // The role's driver renders nested under the Role card — one visible
+  // package — instead of as a sibling card the user must mentally connect.
+  const machineComp = machine ? comps.find((c) => c.type === 'StateMachine') : undefined
+  const driverType = machineComp ? roleDefinition(machineProps(machineComp).role)?.driver : undefined
+  const driverComp = driverType ? comps.find((c) => c.type === driverType) : undefined
+  const driverCard = (comp: SceneComponentJson): React.ReactNode => (
+    <ComponentCard
+      key={comp.type}
+      id={id}
+      comp={comp}
+      overridden={overriddenFor?.(comp.type)}
+      onProp={(key, value) => onProp(comp.type, key, value)}
+      onRemove={canRemove(comp) ? () => onRemove(comp.type) : undefined}
+      onReset={onReset && ((key) => onReset(comp.type, key))}
+      onApply={onApply && ((key) => onApply(comp.type, key))}
+    />
+  )
   return (
     <div className="ed-section">
       <header className="ed-sec-head">Behaviours</header>
       {warning && <div className="ed-warn-card">⚠ {warning}</div>}
       {comps.length === 0 && <div className="ed-hint">no behaviours yet</div>}
-      {comps.map((comp) =>
-        comp.type === 'StateMachine' && machine ? (
-          <StateMachineCard
-            key={comp.type}
-            comp={comp}
-            clips={machine.clips}
-            stateFiles={machine.stateFiles}
-            onPatch={machine.onPatch}
-            onEditState={machine.onEditState}
-            onRemove={canRemove(comp) ? () => onRemove(comp.type) : undefined}
-          />
-        ) : (
-          <ComponentCard
-            key={comp.type}
-            id={id}
-            comp={comp}
-            overridden={overriddenFor?.(comp.type)}
-            onProp={(key, value) => onProp(comp.type, key, value)}
-            onRemove={canRemove(comp) ? () => onRemove(comp.type) : undefined}
-            onReset={onReset && ((key) => onReset(comp.type, key))}
-            onApply={onApply && ((key) => onApply(comp.type, key))}
-          />
-        ),
-      )}
+      {comps.map((comp) => {
+        if (comp === driverComp) return null
+        if (comp.type === 'StateMachine' && machine) {
+          return (
+            <div className="ed-role-pack" key={comp.type}>
+              <StateMachineCard
+                comp={comp}
+                clips={machine.clips}
+                stateFiles={machine.stateFiles}
+                roleFiles={machine.roleFiles}
+                present={present}
+                onPatch={machine.onPatch}
+                onSwitchRole={machine.onSwitchRole}
+                onCreateRoleFile={machine.onCreateRoleFile}
+                onEditState={machine.onEditState}
+                onRemove={canRemove(comp) ? () => onRemove(comp.type) : undefined}
+              />
+              {driverComp && <div className="ed-role-driver">{driverCard(driverComp)}</div>}
+            </div>
+          )
+        }
+        return driverCard(comp)
+      })}
       <AddComponentRow present={present} onAdd={onAdd} />
     </div>
   )
@@ -1246,8 +1274,12 @@ function EntityInspector({
   onOpenPrefab,
   onEditAnimation,
   stateFiles,
+  roleFiles,
   onMachinePatch,
   onPrefabMachinePatch,
+  onSwitchRole,
+  onPrefabSwitchRole,
+  onCreateRoleFile,
   onEditState,
   pixelsPerUnit,
   resolution,
@@ -1402,12 +1434,18 @@ function EntityInspector({
         machine={{
           clips: appearance ? Object.keys(clipsOf(appearance)) : [],
           stateFiles,
+          roleFiles,
           // State structure is shared truth: edits land on the prefab when it
           // owns the machine (like the animation editor), else on the entity.
           onPatch: (patch) =>
             entity.prefab && prefabOwns(entity, 'StateMachine', prefabs)
               ? onPrefabMachinePatch(entity.prefab, patch)
               : onMachinePatch(entity.name, patch),
+          onSwitchRole: (role) =>
+            entity.prefab && prefabOwns(entity, 'StateMachine', prefabs)
+              ? onPrefabSwitchRole(entity.prefab, role)
+              : onSwitchRole(entity.name, role),
+          onCreateRoleFile,
           onEditState: (state) =>
             onEditState(
               entity.prefab && prefabOwns(entity, 'StateMachine', prefabs)
@@ -1447,7 +1485,10 @@ function PrefabInspector({
   onSetCollision,
   onEditAnimation,
   stateFiles,
+  roleFiles,
   onMachinePatch,
+  onSwitchRole,
+  onCreateRoleFile,
   onEditState,
   pixelsPerUnit,
   onSetSize,
@@ -1468,7 +1509,10 @@ function PrefabInspector({
   onSetCollision(enabled: boolean): void
   onEditAnimation(): void
   stateFiles: string[]
+  roleFiles: string[]
   onMachinePatch(patch: Partial<MachineProps>): void
+  onSwitchRole(role: string): void
+  onCreateRoleFile(role: string): void
   onEditState(state: string): void
   pixelsPerUnit: number
   onSetSize(componentType: string, size: { width: number; height: number }): void
@@ -1530,7 +1574,10 @@ function PrefabInspector({
         machine={{
           clips: appearance ? Object.keys(clipsOf(appearance)) : [],
           stateFiles,
+          roleFiles,
           onPatch: onMachinePatch,
+          onSwitchRole,
+          onCreateRoleFile,
           onEditState,
         }}
         onProp={onProp}
@@ -1821,7 +1868,10 @@ export function Inspector(props: Props) {
           onSetCollision={(enabled) => props.onPrefabSetCollision(selection.ref, enabled)}
           onEditAnimation={() => props.onEditAnimation({ kind: 'prefab', ref: selection.ref })}
           stateFiles={props.stateFiles}
+          roleFiles={props.roleFiles}
           onMachinePatch={(patch) => props.onPrefabMachinePatch(selection.ref, patch)}
+          onSwitchRole={(role) => props.onPrefabSwitchRole(selection.ref, role)}
+          onCreateRoleFile={props.onCreateRoleFile}
           onEditState={(state) => props.onEditState({ kind: 'prefab', ref: selection.ref, state })}
           pixelsPerUnit={props.pixelsPerUnit}
           onSetSize={(type, size) => props.onPrefabSizeAppearance(selection.ref, type, size)}

@@ -1,11 +1,9 @@
-import { ACTIVE_ARCHETYPE } from '../project/archetype'
 import type { ProjectFS, TreeNode } from './project-fs'
 
 /**
  * UI pieces on disk: src/ui/<name>.html — self-contained HTML fragments
  * (markup + <style> + {{stat}} bindings). Pure presentation: behaviour
- * always comes from code (game.ui). Project files win over the archetype
- * defaults, exactly like prefabs.
+ * always comes from code (game.ui).
  */
 
 const SUFFIX = '.html'
@@ -19,28 +17,24 @@ export function uiPath(name: string): string {
   return `src/ui/${name}${SUFFIX}`
 }
 
-export interface UiLib {
-  /** Every resolvable UI piece: project files merged OVER the archetype defaults. */
-  pieces: Record<string, string>
-  /** Names backed by a real project file — the only ones the Explorer lists. */
-  projectNames: Set<string>
-}
-
-/** The project's UI pieces: src/ui/*.html files. */
-export async function loadUiLib(fs: ProjectFS): Promise<UiLib> {
-  const pieces: Record<string, string> = { ...ACTIVE_ARCHETYPE.registry.ui }
-  const projectNames = new Set<string>()
+/**
+ * The project's UI pieces, keyed by name ('coin-counter') — its own files and
+ * nothing else, exactly like prefabs. The archetype's pieces are a starting
+ * point that `projectFiles` writes to disk when a project is created, never a
+ * hidden layer underneath: a piece the Explorer doesn't list does not exist,
+ * and one you delete stays deleted.
+ */
+export async function loadUiLib(fs: ProjectFS): Promise<Record<string, string>> {
+  const pieces: Record<string, string> = {}
   const src = findDir(await fs.tree(), 'src')
   const files = findDir(src?.children, 'ui')?.children ?? []
   for (const file of files) {
     if (file.kind !== 'file' || !file.name.endsWith(SUFFIX)) continue
     const text = await fs.readText(file.path)
     if (text == null) continue
-    const name = file.name.slice(0, -SUFFIX.length)
-    pieces[name] = text
-    projectNames.add(name)
+    pieces[file.name.slice(0, -SUFFIX.length)] = text
   }
-  return { pieces, projectNames }
+  return pieces
 }
 
 export async function saveUi(fs: ProjectFS, name: string, html: string): Promise<void> {

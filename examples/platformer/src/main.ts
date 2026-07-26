@@ -5,17 +5,17 @@ import controls from './controls.json'
 import stats from './stats.json'
 import settings from './game.json'
 
-// State code (src/states/*.ts) self-registers via defineStates on import —
-// dropping a file in the folder is all it takes.
-import.meta.glob('./states/*.ts', { eager: true })
+// Roles (src/roles/*.ts) and state code (src/states/*.ts) self-register
+// via defineRole/defineStates on import — dropping a file in is all it takes.
+import.meta.glob(['./roles/*.ts', './states/*.ts'], { eager: true })
 
-// The project's prefab files (src/characters|objects|tiles/*.json) override
-// the archetype defaults, so the game runs what the editor saved.
+// The project's prefabs ARE its files (src/characters|objects|tiles/*.json).
+// Nothing else: the game knows exactly what the editor lists.
 const prefabFiles = import.meta.glob<PrefabJson>(
   ['./characters/*.character.json', './objects/*.object.json', './tiles/*.tile.json'],
   { eager: true, import: 'default' },
 )
-const prefabs = { ...PLATFORMER_REGISTRY.prefabs }
+const prefabs: Record<string, PrefabJson> = {}
 for (const [path, prefab] of Object.entries(prefabFiles)) {
   // './characters/slime.character.json' -> 'characters/slime'
   prefabs[path.slice(2, path.indexOf('.', 2))] = prefab
@@ -28,7 +28,7 @@ const uiFiles = import.meta.glob<string>('./ui/*.html', {
   query: '?raw',
   import: 'default',
 })
-const ui = { ...PLATFORMER_REGISTRY.ui }
+const ui: Record<string, string> = {}
 for (const [path, html] of Object.entries(uiFiles)) {
   // './ui/coin-counter.html' -> 'coin-counter'
   ui[path.slice('./ui/'.length, -'.html'.length)] = html
@@ -49,6 +49,9 @@ for (const [path, url] of Object.entries(artFiles)) {
 
 const registry = {
   ...PLATFORMER_REGISTRY,
+  // Keep these two: the spread above carries the archetype's own catalogs,
+  // and these replace them with the project's. Drop one and the game starts
+  // resolving pieces that are nowhere in src/.
   prefabs,
   ui,
   resolveAsset: (uri: string) =>

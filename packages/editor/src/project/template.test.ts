@@ -14,6 +14,26 @@ describe('projectFiles', () => {
     expect(files['src/ui/coin-counter.html']).toBeDefined()
   })
 
+  // Writing these files is the ONLY way a project gets prefabs and UI pieces —
+  // nothing resolves an archetype default behind the editor's back any more,
+  // so a scene shipped with a ref but no file spawns a componentless ghost.
+  it('demo start writes a file for everything its scene references', () => {
+    const files = projectFiles('my-game')
+    const scene = JSON.parse(files['src/scenes/main.scene.json'] ?? '') as {
+      entities: Array<{ prefab?: string }>
+      ui?: string[]
+    }
+    const refs = [...new Set(scene.entities.map((e) => e.prefab).filter((r) => r != null))]
+    expect(refs.length).toBeGreaterThan(0)
+    for (const ref of refs) {
+      const written = Object.keys(files).find((p) => p.startsWith(`src/${ref}.`))
+      expect(written, `no file for ${ref}`).toBeDefined()
+    }
+    for (const name of scene.ui ?? []) {
+      expect(files[`src/ui/${name}.html`], `no file for ui ${name}`).toBeDefined()
+    }
+  })
+
   it('demo files reference materialized art paths, never registry URIs', () => {
     const files = projectFiles('my-game')
     expect(files['src/characters/player.character.json']).toContain('src/art/waica-dog.png')

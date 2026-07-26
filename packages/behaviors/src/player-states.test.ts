@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { nextTransition, type TriggerEnv } from '@waica/engine'
-import { PLATFORMER_STATE_GRAPH } from './platformer-states'
+import { PLAYER_STATE_GRAPH } from './player-states'
 
-const { initial, states } = PLATFORMER_STATE_GRAPH
+const { initial, states } = PLAYER_STATE_GRAPH
 
 function withSignals(...signals: string[]): TriggerEnv {
   return { justPressed: () => false, elapsed: 0, signals: new Set(signals) }
 }
 
-describe('PLATFORMER_STATE_GRAPH', () => {
+describe('PLAYER_STATE_GRAPH', () => {
   it('is internally consistent: initial and every edge target exist', () => {
     expect(states[initial]).toBeDefined()
     for (const [name, state] of Object.entries(states)) {

@@ -1,5 +1,7 @@
-import type { PrefabJson, SceneComponentJson } from '@waica/engine'
-import { LOGIC_DRIVERS, PLATFORMER_STATE_GRAPH } from '@waica/behaviors'
+import { registeredRoles, roleDefinition, type PrefabJson, type SceneComponentJson } from '@waica/engine'
+// The archetype's roles register on import (defineRole side effects) — the
+// chassis reads them from the engine registry, so they must be loaded.
+import '@waica/behaviors'
 
 /**
  * The chassis model: each prefab type is born with factory core components
@@ -45,28 +47,35 @@ export const CHASSIS: Record<PrefabType, ChassisRule> = {
 const DEFAULT_COLOR = 0x8ecae6
 const DEFAULT_SPRITE = { width: 1, height: 1, color: DEFAULT_COLOR }
 
-/** Factory components for a brand-new prefab of the given type. */
-export function newPrefabComponents(type: PrefabType): SceneComponentJson[] {
+/**
+ * Factory components for a brand-new prefab of the given type. Characters
+ * take the role chosen at creation and are born whole: the role installs
+ * its starter graph AND the driver its states move, so the character works
+ * in Play from second zero — there is no "machine without its driver" gap.
+ */
+export function newPrefabComponents(type: PrefabType, role = 'player'): SceneComponentJson[] {
   // Default draw order: characters over objects over tiles — same-layer
   // sprites fall back to spawn order, which reads as random overlap.
   switch (type) {
-    case 'character':
-      // Characters are born with the platformer state graph so states line
-      // up from minute zero; the Motor (a moving body) is one "+ behaviour"
-      // away — an NPC shouldn't chase the arrow keys. Appearance starts as
-      // a plain shape: the art is the user's, not the archetype's.
+    case 'character': {
+      // Appearance starts as a plain shape: the art is the user's, not
+      // the archetype's.
+      const def = roleDefinition(role)
+      const driver: SceneComponentJson[] = def?.driver ? [{ type: def.driver }] : []
       return [
         { type: 'Sprite', props: { ...DEFAULT_SPRITE, layer: 2 } },
         {
           type: 'StateMachine',
           props: {
-            logic: 'platformer',
-            initial: PLATFORMER_STATE_GRAPH.initial,
-            states: structuredClone(PLATFORMER_STATE_GRAPH.states),
+            role,
+            initial: def?.graph?.initial ?? '',
+            states: structuredClone(def?.graph?.states ?? {}),
           },
         },
+        ...driver,
         { type: 'Hitbox', props: { width: 0.9, height: 0.95 } },
       ]
+    }
     case 'object':
       return [
         { type: 'Sprite', props: { ...DEFAULT_SPRITE, layer: 1 } },
@@ -117,29 +126,71 @@ export function behaviourTypes(all: Iterable<string>): string[] {
 }
 
 /**
- * The StateMachine logic's driver component missing from the list, if any.
- * Each built-in logic set's states drive one component (platformer → the
- * Motor, patroller → Patrol) and early-return without it, so the character
- * just stands there in Play. Null when driven, on custom logic, or with no
- * machine at all. When another logic's driver IS present (a patroller
- * wearing the platformer brain), that logic comes back as the alternative —
- * switching to it beats adding a second driver.
+ * The role's driver component missing from the list, if any. A role's
+ * states drive one component (player → the Motor, patroller → Patrol) and
+ * early-return without it, so the character just stands there in Play.
+ * Since roles install and swap their driver themselves, this is the safety
+ * net for hand-edited JSON — an anomaly detector, no longer assembly
+ * instructions. Null when driven, on unknown roles, or with no machine at
+ * all. When another role's driver IS present (a patroller wearing the
+ * player brain), that role comes back as the alternative — switching to it
+ * beats adding a second driver.
  */
 export function missingDriver(components: SceneComponentJson[]): {
-  logic: string
+  role: string
   driver: string
-  alternative?: { logic: string; driver: string }
+  alternative?: { role: string; driver: string }
 } | null {
   const machine = components.find((c) => c.type === 'StateMachine')
-  const logic = machine?.props?.logic
-  const driver = typeof logic === 'string' ? LOGIC_DRIVERS[logic] : undefined
-  if (typeof logic !== 'string' || !driver) return null
+  const role = machine?.props?.role
+  const driver = typeof role === 'string' ? roleDefinition(role)?.driver : undefined
+  if (typeof role !== 'string' || !driver) return null
   if (components.some((c) => c.type === driver)) return null
-  const out: ReturnType<typeof missingDriver> = { logic, driver }
-  const alternative = Object.entries(LOGIC_DRIVERS).find(
-    ([name, altDriver]) => name !== logic && components.some((c) => c.type === altDriver),
+  const out: ReturnType<typeof missingDriver> = { role, driver }
+  for (const name of registeredRoles()) {
+    const altDriver = roleDefinition(name)?.driver
+    if (name !== role && altDriver && components.some((c) => c.type === altDriver)) {
+      out.alternative = { role: name, driver: altDriver }
+      break
+    }
+  }
+  return out
+}
+
+/**
+ * Switching a character's role = swapping the whole package: the machine
+ * adopts the new role's starter graph and the old role's driver gives way
+ * to the new one. On a role the registry doesn't know (project code), only
+ * the role name changes — the editor can't know that package.
+ */
+export function switchRole(components: SceneComponentJson[], to: string): SceneComponentJson[] {
+  const machine = components.find((c) => c.type === 'StateMachine')
+  if (!machine) return components
+  const from = typeof machine.props?.role === 'string' ? machine.props.role : ''
+  const def = roleDefinition(to)
+  const next = components.map((c) =>
+    c === machine
+      ? {
+          ...c,
+          props: def?.graph
+            ? {
+                ...c.props,
+                role: to,
+                initial: def.graph.initial,
+                states: structuredClone(def.graph.states),
+              }
+            : { ...c.props, role: to },
+        }
+      : c,
   )
-  if (alternative) out.alternative = { logic: alternative[0], driver: alternative[1] }
+  if (!def) return next
+  const oldDriver = roleDefinition(from)?.driver
+  const swapped =
+    oldDriver && oldDriver !== def.driver ? next.filter((c) => c.type !== oldDriver) : next
+  if (!def.driver || swapped.some((c) => c.type === def.driver)) return swapped
+  const at = swapped.findIndex((c) => c.type === 'StateMachine')
+  const out = [...swapped]
+  out.splice(at + 1, 0, { type: def.driver })
   return out
 }
 

@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { defineStates } from '@waica/engine'
 import { MemFS } from '../fs/project-fs'
 import {
+  listRoleFiles,
   listStateFiles,
   machineProps,
+  roleFileTemplate,
   stateCodeStatus,
   stateFileTemplate,
   stateIssues,
@@ -13,7 +15,7 @@ import {
 
 function machine(over: Partial<MachineProps> = {}): MachineProps {
   return {
-    logic: 'platformer',
+    role: 'player',
     initial: 'idle',
     states: { idle: {}, dashing: { clip: 'run', transitions: [{ on: 'timer:0.25', to: 'idle' }] } },
     ...over,
@@ -22,10 +24,8 @@ function machine(over: Partial<MachineProps> = {}): MachineProps {
 
 describe('machineProps', () => {
   it('normalizes free-form prefab JSON with defaults', () => {
-    expect(machineProps({ type: 'StateMachine' })).toEqual({ logic: '', initial: '', states: {} })
-    expect(machineProps({ type: 'StateMachine', props: { logic: 'platformer' } }).logic).toBe(
-      'platformer',
-    )
+    expect(machineProps({ type: 'StateMachine' })).toEqual({ role: '', initial: '', states: {} })
+    expect(machineProps({ type: 'StateMachine', props: { role: 'player' } }).role).toBe('player')
   })
 })
 
@@ -99,16 +99,42 @@ describe('listStateFiles', () => {
 })
 
 describe('stateFileTemplate', () => {
-  it('registers the state in the machine logic set', () => {
+  it("registers the state in the role's logic set", () => {
     const code = stateFileTemplate('merchant', 'trading')
     expect(code).toContain("defineStates('merchant'")
     expect(code).toContain('trading: {')
     expect(code).toContain("from '@waica/engine'")
   })
 
-  it('ships a working motor-based starter for the platformer set', () => {
-    const code = stateFileTemplate('platformer', 'dashing')
+  it('ships a working motor-based starter for the player role', () => {
+    const code = stateFileTemplate('player', 'dashing')
     expect(code).toContain('PlatformerMotor')
     expect(code).toContain('motor.vx = motor.facing * 30')
+  })
+})
+
+describe('roleFileTemplate', () => {
+  it('scaffolds a working defineRole with graph and states', () => {
+    const code = roleFileTemplate('guard')
+    expect(code).toContain("defineRole('guard'")
+    expect(code).toContain('description:')
+    expect(code).toContain("initial: 'idle'")
+    expect(code).toContain("from '@waica/engine'")
+  })
+})
+
+describe('listRoleFiles', () => {
+  it('lists src/roles/*.ts basenames from the project tree', async () => {
+    const fs = new MemFS('demo', {
+      'src/roles/guard.ts': '// code',
+      'src/roles/notes.md': 'not code',
+      'src/main.ts': '// entry',
+    })
+    expect(await listRoleFiles(fs)).toEqual(['guard.ts'])
+  })
+
+  it('returns empty when the folder does not exist', async () => {
+    const fs = new MemFS('demo', { 'src/main.ts': '// entry' })
+    expect(await listRoleFiles(fs)).toEqual([])
   })
 })

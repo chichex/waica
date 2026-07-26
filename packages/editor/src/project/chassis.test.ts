@@ -10,6 +10,7 @@ import {
   setAppearanceTexture,
   setCollisionEnabled,
   splitComponents,
+  switchRole,
   toggleAnimated,
 } from './chassis'
 
@@ -37,41 +38,102 @@ describe('behaviourTypes', () => {
 })
 
 describe('missingDriver', () => {
-  const machine = (logic: string) => ({ type: 'StateMachine', props: { logic } })
+  const machine = (role: string) => ({ type: 'StateMachine', props: { role } })
 
-  it('flags platformer logic without the Motor', () => {
-    expect(missingDriver([{ type: 'AnimatedSprite' }, machine('platformer')])).toEqual({
-      logic: 'platformer',
+  it('flags a player without the Motor', () => {
+    expect(missingDriver([{ type: 'AnimatedSprite' }, machine('player')])).toEqual({
+      role: 'player',
       driver: 'PlatformerMotor',
     })
   })
 
   it('is satisfied once the driver is present', () => {
-    expect(
-      missingDriver([machine('platformer'), { type: 'PlatformerMotor' }]),
-    ).toBeNull()
+    expect(missingDriver([machine('player'), { type: 'PlatformerMotor' }])).toBeNull()
     expect(missingDriver([machine('patroller'), { type: 'Patrol' }])).toBeNull()
   })
 
-  it('flags patroller logic without Patrol', () => {
+  it('flags a patroller without Patrol', () => {
     expect(missingDriver([machine('patroller')])).toEqual({
-      logic: 'patroller',
+      role: 'patroller',
       driver: 'Patrol',
     })
   })
 
-  it('suggests switching logic when the other driver is already there', () => {
-    expect(missingDriver([machine('platformer'), { type: 'Patrol' }])).toEqual({
-      logic: 'platformer',
+  it('suggests switching role when the other driver is already there', () => {
+    expect(missingDriver([machine('player'), { type: 'Patrol' }])).toEqual({
+      role: 'player',
       driver: 'PlatformerMotor',
-      alternative: { logic: 'patroller', driver: 'Patrol' },
+      alternative: { role: 'patroller', driver: 'Patrol' },
     })
   })
 
-  it('stays quiet on custom logic and without a machine', () => {
+  it('stays quiet on unknown roles and without a machine', () => {
     expect(missingDriver([machine('my-own-brain')])).toBeNull()
     expect(missingDriver([{ type: 'Sprite' }])).toBeNull()
     expect(missingDriver([{ type: 'StateMachine' }])).toBeNull()
+  })
+})
+
+describe('switchRole', () => {
+  const player = () => [
+    { type: 'AnimatedSprite' },
+    {
+      type: 'StateMachine',
+      props: { role: 'player', initial: 'idle', states: { idle: {}, run: {} } },
+    },
+    { type: 'PlatformerMotor', props: { moveSpeed: 12 } },
+    { type: 'Hitbox' },
+    { type: 'Hazard' },
+  ]
+
+  it('swaps the whole package: graph replaced, driver swapped', () => {
+    const next = switchRole(player(), 'patroller')
+    expect(next.map((c) => c.type)).toEqual([
+      'AnimatedSprite',
+      'StateMachine',
+      'Patrol',
+      'Hitbox',
+      'Hazard',
+    ])
+    const machine = next.find((c) => c.type === 'StateMachine')
+    expect(machine?.props?.role).toBe('patroller')
+    expect(machine?.props?.initial).toBe('walk')
+    expect(Object.keys((machine?.props?.states as object) ?? {})).toEqual(['walk'])
+  })
+
+  it('round-trips back to player with its starter graph', () => {
+    const back = switchRole(switchRole(player(), 'patroller'), 'player')
+    expect(back.map((c) => c.type)).toEqual([
+      'AnimatedSprite',
+      'StateMachine',
+      'PlatformerMotor',
+      'Hitbox',
+      'Hazard',
+    ])
+    const machine = back.find((c) => c.type === 'StateMachine')
+    expect(machine?.props?.initial).toBe('idle')
+  })
+
+  it('only renames on roles the registry does not know', () => {
+    const next = switchRole(player(), 'my-own-role')
+    expect(next.map((c) => c.type)).toEqual(player().map((c) => c.type))
+    const machine = next.find((c) => c.type === 'StateMachine')
+    expect(machine?.props?.role).toBe('my-own-role')
+    expect(Object.keys((machine?.props?.states as object) ?? {})).toEqual(['idle', 'run'])
+  })
+
+  it('does not duplicate an already-present driver', () => {
+    const next = switchRole(switchRole(player(), 'player'), 'player')
+    expect(next.filter((c) => c.type === 'PlatformerMotor')).toHaveLength(1)
+  })
+
+  it('is a no-op without a machine and does not mutate its input', () => {
+    const bare = [{ type: 'Sprite' }]
+    expect(switchRole(bare, 'player')).toBe(bare)
+    const before = player()
+    const snapshot = structuredClone(before)
+    switchRole(before, 'patroller')
+    expect(before).toEqual(snapshot)
   })
 })
 
@@ -104,20 +166,31 @@ describe('splitComponents', () => {
 })
 
 describe('newPrefabComponents', () => {
-  it('builds each chassis', () => {
+  it('builds each chassis — characters born whole, driver included', () => {
     expect(newPrefabComponents('character').map((c) => c.type)).toEqual([
       'Sprite',
       'StateMachine',
+      'PlatformerMotor',
       'Hitbox',
     ])
     expect(newPrefabComponents('object').map((c) => c.type)).toEqual(['Sprite', 'Hitbox'])
     expect(newPrefabComponents('tile').map((c) => c.type)).toEqual(['Sprite', 'Solid'])
   })
 
-  it('presets the platformer logic set on new characters', () => {
-    const machine = newPrefabComponents('character')[1]
-    expect(machine?.props?.logic).toBe('platformer')
-    expect(machine?.props?.initial).toBe('idle')
+  it('installs the chosen role: graph and driver', () => {
+    const player = newPrefabComponents('character', 'player')[1]
+    expect(player?.props?.role).toBe('player')
+    expect(player?.props?.initial).toBe('idle')
+    const patroller = newPrefabComponents('character', 'patroller')
+    expect(patroller.map((c) => c.type)).toEqual(['Sprite', 'StateMachine', 'Patrol', 'Hitbox'])
+    expect(patroller[1]?.props?.role).toBe('patroller')
+    expect(patroller[1]?.props?.initial).toBe('walk')
+  })
+
+  it('births unknown roles machine-only, with an empty graph', () => {
+    const custom = newPrefabComponents('character', 'my-own-role')
+    expect(custom.map((c) => c.type)).toEqual(['Sprite', 'StateMachine', 'Hitbox'])
+    expect(custom[1]?.props?.role).toBe('my-own-role')
   })
 
   it('starts character appearance as a plain shape, not archetype art', () => {

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { closestLogicSet, defineStates, logicSet } from './hooks'
+import {
+  closestLogicSet,
+  defineRole,
+  defineStates,
+  logicSet,
+  registeredRoles,
+  roleDefinition,
+} from './hooks'
 import { evaluateTrigger, nextTransition, type StateJson, type TriggerEnv } from './state-machine'
 
 function env(over: Partial<TriggerEnv> = {}): TriggerEnv {
@@ -74,6 +81,43 @@ describe('defineStates', () => {
     defineStates('test-override', { idle: { onEnter: () => {} } })
     defineStates('test-override', { idle: { onEnter: second } })
     expect(logicSet('test-override')?.idle?.onEnter).toBe(second)
+  })
+})
+
+describe('defineRole', () => {
+  it('registers the package: description, driver, graph and state code', () => {
+    defineRole('test-role', {
+      description: 'A test role.',
+      driver: 'TestDriver',
+      graph: { initial: 'idle', states: { idle: {} } },
+      states: { idle: {} },
+    })
+    expect(registeredRoles()).toContain('test-role')
+    expect(roleDefinition('test-role')?.driver).toBe('TestDriver')
+    expect(roleDefinition('test-role')?.graph?.initial).toBe('idle')
+    // The role's name doubles as its logic-set name.
+    expect(logicSet('test-role')?.idle).toBeDefined()
+  })
+
+  it('merges repeated registrations, keeping earlier states', () => {
+    defineRole('test-role-merge', {
+      description: 'First.',
+      states: { idle: {} },
+    })
+    defineRole('test-role-merge', { description: 'Second.', driver: 'X' })
+    expect(roleDefinition('test-role-merge')?.description).toBe('Second.')
+    expect(roleDefinition('test-role-merge')?.driver).toBe('X')
+    expect(logicSet('test-role-merge')?.idle).toBeDefined()
+  })
+
+  it('is extendable with defineStates under the same name', () => {
+    defineRole('test-role-extend', { description: 'Extendable.', states: { idle: {} } })
+    defineStates('test-role-extend', { dashing: {} })
+    expect(Object.keys(logicSet('test-role-extend') ?? {})).toEqual(['idle', 'dashing'])
+  })
+
+  it('stays quiet on unknown roles', () => {
+    expect(roleDefinition('nope-nope')).toBeUndefined()
   })
 })
 

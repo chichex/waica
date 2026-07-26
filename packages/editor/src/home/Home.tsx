@@ -82,10 +82,14 @@ export function Home({ onOpen }: { onOpen(fs: ProjectFS): void }) {
       const scene = await fs.readText(SCENE_PATH)
       if (scene == null) {
         const make = confirm(
-          `"${handle.name}" has no ${SCENE_PATH}. Create the default scene (${ACTIVE_ARCHETYPE.label} archetype) there?`,
+          `"${handle.name}" has no ${SCENE_PATH}. Create an empty scene (${ACTIVE_ARCHETYPE.label} archetype) there?`,
         )
         if (!make) return
-        await fs.writeText(SCENE_PATH, JSON.stringify(ACTIVE_ARCHETYPE.scene, null, 2) + '\n')
+        // Empty, not the demo level: that scene instances prefabs, and this
+        // folder has no prefab files to instance. "Create project" → Demo
+        // level is the playable start — it writes the prefabs and the art
+        // alongside the scene.
+        await fs.writeText(SCENE_PATH, JSON.stringify(ACTIVE_ARCHETYPE.blankScene, null, 2) + '\n')
       }
       await saveRecent(handle.name, handle)
       onOpen(fs)

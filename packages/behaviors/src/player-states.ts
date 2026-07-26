@@ -1,19 +1,16 @@
-import { defineStates, type StateContext, type StateJson } from '@waica/engine'
+import { defineRole, type RoleGraph, type StateContext } from '@waica/engine'
 import { PlatformerMotor } from './platformer-motor'
 
 /**
- * The 'platformer' logic set: the archetype's out-of-the-box character
- * brain. All four default states share one body update; they differ only
- * in the edges their prefab data declares. Extending a character is
- * defineStates('platformer', { yourState: {...} }) plus a state in the
- * prefab — never a fight with a parallel controller.
+ * The 'player' role: the character you control. All four default states
+ * share one body update; they differ only in the edges their prefab data
+ * declares. Extending the player is defineStates('player', { yourState:
+ * {...} }) plus a state in the prefab — never a fight with a parallel
+ * controller.
  */
 
-/** The state graph new platformer characters start with, as prefab data. */
-export const PLATFORMER_STATE_GRAPH: {
-  initial: string
-  states: Record<string, StateJson>
-} = {
+/** The state graph new player characters start with, as prefab data. */
+export const PLAYER_STATE_GRAPH: RoleGraph = {
   initial: 'idle',
   states: {
     idle: {
@@ -52,7 +49,7 @@ export const PLATFORMER_STATE_GRAPH: {
  * signals are no-ops, so each state only reacts to the edges its data
  * declares.
  */
-export function platformerUpdate({ entity, game, fsm }: StateContext, dt: number): void {
+export function playerUpdate({ entity, game, fsm }: StateContext, dt: number): void {
   const motor = entity.get(PlatformerMotor)
   if (!motor) return
   motor.runTowards(game.input.axis(), dt)
@@ -67,16 +64,24 @@ export function platformerUpdate({ entity, game, fsm }: StateContext, dt: number
   }
 }
 
-defineStates('platformer', {
-  // Always-hook: motor bookkeeping (coyote/buffer timers, squash, facing)
-  // must survive custom states like a dash, so it runs in every state.
-  '*': {
-    onUpdate({ entity }, dt) {
-      entity.get(PlatformerMotor)?.tick(dt)
+defineRole('player', {
+  description:
+    'You control this character with the project controls: run and jump ' +
+    'with platformer physics and curated game feel (coyote time, jump ' +
+    'buffering). Its states move the Motor.',
+  driver: 'PlatformerMotor',
+  graph: PLAYER_STATE_GRAPH,
+  states: {
+    // Always-hook: motor bookkeeping (coyote/buffer timers, squash, facing)
+    // must survive custom states like a dash, so it runs in every state.
+    '*': {
+      onUpdate({ entity }, dt) {
+        entity.get(PlatformerMotor)?.tick(dt)
+      },
     },
+    idle: { onUpdate: playerUpdate },
+    run: { onUpdate: playerUpdate },
+    jump: { onUpdate: playerUpdate },
+    fall: { onUpdate: playerUpdate },
   },
-  idle: { onUpdate: platformerUpdate },
-  run: { onUpdate: platformerUpdate },
-  jump: { onUpdate: platformerUpdate },
-  fall: { onUpdate: platformerUpdate },
 })

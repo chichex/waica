@@ -40,8 +40,15 @@ export { resolveClip, missingClips } from './animation/contract'
 export type { AnimationContract } from './animation/contract'
 export { StateMachine, evaluateTrigger, nextTransition } from './state/state-machine'
 export type { StateJson, StateTransitionJson, TriggerEnv } from './state/state-machine'
-export { defineStates, logicSet, registeredLogicSets } from './state/hooks'
-export type { StateContext, StateHooks, StateLogic } from './state/hooks'
+export {
+  defineRole,
+  defineStates,
+  logicSet,
+  registeredLogicSets,
+  registeredRoles,
+  roleDefinition,
+} from './state/hooks'
+export type { RoleDefinition, RoleGraph, StateContext, StateHooks, StateLogic } from './state/hooks'
 
 // Explicit escape hatch while our own API grows: a single source of three
 // for the whole workspace. The thesis is that three stays an implementation detail.

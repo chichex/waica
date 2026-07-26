@@ -1,5 +1,5 @@
 import type { PrefabJson } from '@waica/engine'
-import { PLATFORMER_STATE_GRAPH } from '@waica/behaviors'
+import { PLAYER_STATE_GRAPH } from '@waica/behaviors'
 import { DOG_SPRITE } from './scene-default'
 
 /**
@@ -17,9 +17,9 @@ export const PLATFORMER_PREFABS: Record<string, PrefabJson> = {
       {
         type: 'StateMachine',
         props: {
-          logic: 'platformer',
-          initial: PLATFORMER_STATE_GRAPH.initial,
-          states: PLATFORMER_STATE_GRAPH.states,
+          role: 'player',
+          initial: PLAYER_STATE_GRAPH.initial,
+          states: PLAYER_STATE_GRAPH.states,
         },
       },
       { type: 'Hitbox', props: { width: 0.9, height: 0.95 } },
@@ -46,7 +46,7 @@ export const PLATFORMER_PREFABS: Record<string, PrefabJson> = {
       {
         type: 'StateMachine',
         props: {
-          logic: 'patroller',
+          role: 'patroller',
           initial: 'walk',
           states: { walk: { clip: 'idle' } },
         },

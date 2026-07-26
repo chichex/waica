@@ -428,6 +428,18 @@ export function setComponentProps(
   }
 }
 
+/** Replaces an inline entity's whole component list (e.g. a role swap). */
+export function setEntityComponents(
+  scene: SceneJson,
+  entityName: string,
+  components: SceneComponentJson[],
+): SceneJson {
+  return {
+    ...scene,
+    entities: scene.entities.map((e) => (e.name === entityName ? { ...e, components } : e)),
+  }
+}
+
 export function addComponent(scene: SceneJson, entityName: string, type: string): SceneJson {
   return {
     ...scene,

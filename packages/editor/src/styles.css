@@ -2055,10 +2055,61 @@ button.ed-crumb:hover {
   overflow: hidden;
 }
 
-/* ── State machine card & state editor modal ─────────────────────── */
+/* ── Role card, role picker & state editor modal ─────────────────── */
 
 .ed-modal-state {
   width: min(540px, 92vw);
+}
+
+/* The role package: the driver card rides nested under the Role card. */
+.ed-role-pack > .ed-comp {
+  margin-bottom: 0;
+}
+
+.ed-role-driver > .ed-comp {
+  margin: 0 0 12px 12px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-top: none;
+  border-left: 2px solid var(--accent-2);
+}
+
+.ed-modal-role {
+  width: min(460px, 92vw);
+}
+
+.ed-role-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ed-role-option {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.ed-role-option.is-picked {
+  border-color: var(--accent-2);
+}
+
+.ed-role-name {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+}
+
+.ed-role-desc {
+  font-size: 12px;
+  color: var(--text-dim);
 }
 
 .ed-sm-body {

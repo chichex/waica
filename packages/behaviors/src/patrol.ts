@@ -1,4 +1,4 @@
-import { Component, defineStates, type StateJson } from '@waica/engine'
+import { Component, defineRole, type RoleGraph } from '@waica/engine'
 
 export type PatrolAxis = 'horizontal' | 'vertical'
 
@@ -52,21 +52,25 @@ export class Patrol extends Component {
 }
 
 /** The state graph new patrolling characters start with, as prefab data. */
-export const PATROLLER_STATE_GRAPH: {
-  initial: string
-  states: Record<string, StateJson>
-} = {
+export const PATROLLER_STATE_GRAPH: RoleGraph = {
   initial: 'walk',
   states: { walk: {} },
 }
 
-// The 'patroller' logic set: the walking-critter brain. One state out of
-// the box; give patrolling characters more states by registering on top
-// (defineStates('patroller', { chasing: {...} })) plus prefab data.
-defineStates('patroller', {
-  walk: {
-    onUpdate({ entity }, dt) {
-      entity.get(Patrol)?.step(dt)
+// The walking-critter role. One state out of the box; give patrolling
+// characters more states by registering on top (defineStates('patroller',
+// { chasing: {...} })) plus prefab data.
+defineRole('patroller', {
+  description:
+    'Walks back and forth on its own along a rail — no player input, no ' +
+    'gravity. Good for critters and moving hazards. Its states move Patrol.',
+  driver: 'Patrol',
+  graph: PATROLLER_STATE_GRAPH,
+  states: {
+    walk: {
+      onUpdate({ entity }, dt) {
+        entity.get(Patrol)?.step(dt)
+      },
     },
   },
 })

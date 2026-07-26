@@ -66,9 +66,9 @@ export function projectFiles(name: string, start: ProjectStart = 'demo'): Record
     'src/scenes/main.scene.json': projectJson(scene),
     'public/waica.params.json': '{}\n',
   }
-  // A blank project ships only the chassis: no prefab, UI or art files. The
-  // editor lists file-backed pieces only, so it starts empty; archetype
-  // defaults keep resolving refs under the hood (editor lib and runtime alike).
+  // A blank project ships only the chassis: no prefab, UI or art files, and
+  // its scene is empty. It starts with nothing because it HAS nothing —
+  // no archetype default resolves behind the editor's back.
   if (start === 'blank') return files
   // One file per prefab, mirroring its ref: 'characters/slime' (type
   // 'character') → src/characters/slime.character.json. scripts/sync-scene.mjs

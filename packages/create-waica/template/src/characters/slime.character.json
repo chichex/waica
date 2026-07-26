@@ -34,7 +34,7 @@
     {
       "type": "StateMachine",
       "props": {
-        "logic": "patroller",
+        "role": "patroller",
         "initial": "walk",
         "states": {
           "walk": {

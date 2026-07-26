@@ -1,5 +1,4 @@
 import type { PrefabJson } from '@waica/engine'
-import { ACTIVE_ARCHETYPE } from '../project/archetype'
 import type { ProjectFS, TreeNode } from './project-fs'
 
 /** Prefab directory under src/ -> prefab category (the file suffix). */
@@ -13,21 +12,15 @@ function findDir(nodes: TreeNode[] | undefined, name: string): TreeNode | undefi
   return nodes?.find((n) => n.kind === 'dir' && n.name === name)
 }
 
-export interface PrefabLib {
-  /** Every resolvable prefab: project files merged OVER the archetype defaults. */
-  prefabs: Record<string, PrefabJson>
-  /**
-   * Refs backed by a real project file — the only ones the Explorer lists.
-   * Defaults outside this set still resolve scene refs (old projects without
-   * prefab dirs keep working) but stay out of sight: a blank project IS blank.
-   */
-  projectRefs: Set<string>
-}
-
-/** Loads the project's prefab library: src/<dir>/*.<cat>.json files. */
-export async function loadPrefabLib(fs: ProjectFS): Promise<PrefabLib> {
-  const prefabs: Record<string, PrefabJson> = { ...ACTIVE_ARCHETYPE.prefabs }
-  const projectRefs = new Set<string>()
+/**
+ * The project's prefabs, keyed by ref ('characters/slime') — its own files and
+ * nothing else. The archetype's catalog is a starting point that `projectFiles`
+ * writes to disk when a project is created, never a hidden layer underneath: a
+ * prefab the Explorer doesn't list does not exist, and a name it doesn't show
+ * is free to take.
+ */
+export async function loadPrefabLib(fs: ProjectFS): Promise<Record<string, PrefabJson>> {
+  const prefabs: Record<string, PrefabJson> = {}
   const src = findDir(await fs.tree(), 'src')
   for (const [dir, cat] of Object.entries(PREFAB_DIRS)) {
     const files = findDir(src?.children, dir)?.children ?? []
@@ -39,13 +32,13 @@ export async function loadPrefabLib(fs: ProjectFS): Promise<PrefabLib> {
       const ref = `${dir}/${file.name.slice(0, -suffix.length)}`
       try {
         prefabs[ref] = JSON.parse(text) as PrefabJson
-        projectRefs.add(ref)
       } catch {
-        // malformed prefab file: skip it, the archetype default (if any) stays
+        // malformed prefab file: skip it — entities referencing it keep their
+        // own components and the Explorer simply won't list it.
       }
     }
   }
-  return { prefabs, projectRefs }
+  return prefabs
 }
 
 /** File path for a prefab ref, e.g. 'characters/slime' -> 'src/characters/slime.character.json'. */
