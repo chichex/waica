@@ -1,5 +1,6 @@
 {
   "waicaGame": 1,
+  "archetype": "platformer",
   "resolution": {
     "mode": "fill",
     "width": 640,

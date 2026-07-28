@@ -69,6 +69,32 @@ export interface RoleDefinition {
 
 const roles = new Map<string, RoleDefinition>()
 
+/** All state-registry data an archetype installs before project extensions. */
+export interface ArchetypeBundle {
+  roles: Readonly<Record<string, RoleDefinition>>
+  /** Extra named logic sets that are not themselves roles. */
+  logicSets?: Readonly<Record<string, StateLogic>>
+}
+
+/** Clears role definitions and every named logic set. */
+export function resetRegistries(): void {
+  roles.clear()
+  sets.clear()
+}
+
+/**
+ * Replaces the active registry contents with one archetype's complete bundle.
+ * Project defineRole/defineStates calls may extend this clean baseline after it
+ * is installed.
+ */
+export function installArchetype(bundle: ArchetypeBundle): void {
+  resetRegistries()
+  for (const [name, def] of Object.entries(bundle.roles)) defineRole(name, def)
+  for (const [name, states] of Object.entries(bundle.logicSets ?? {})) {
+    defineStates(name, states)
+  }
+}
+
 /**
  * Registers a character role. Prefabs adopt it via the StateMachine's
  * `role` prop; the role's name doubles as its logic-set name, so

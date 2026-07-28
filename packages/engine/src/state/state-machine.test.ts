@@ -1,12 +1,17 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import {
   closestLogicSet,
   defineRole,
   defineStates,
+  installArchetype,
   logicSet,
+  registeredLogicSets,
   registeredRoles,
+  resetRegistries,
   roleDefinition,
 } from './hooks'
+
+beforeEach(() => resetRegistries())
 import {
   evaluateTrigger,
   nextTransition,
@@ -147,6 +152,40 @@ describe('defineRole', () => {
 
   it('stays quiet on unknown roles', () => {
     expect(roleDefinition('nope-nope')).toBeUndefined()
+  })
+})
+
+describe('archetype registry installation', () => {
+  it('replaces every role and logic set instead of retaining merge residue', () => {
+    defineRole('player', {
+      description: 'Old player.',
+      states: { run: {}, jump: {} },
+    })
+    defineStates('old-utility', { waiting: {} })
+
+    installArchetype({
+      roles: {
+        player: {
+          description: 'New player.',
+          states: { walk: {} },
+        },
+      },
+    })
+
+    expect(registeredRoles()).toEqual(['player'])
+    expect(registeredLogicSets()).toEqual(['player'])
+    expect(Object.keys(logicSet('player') ?? {})).toEqual(['walk'])
+    expect(logicSet('player')?.run).toBeUndefined()
+    expect(logicSet('player')?.jump).toBeUndefined()
+  })
+
+  it('exposes an explicit reset for hosts that are leaving an archetype', () => {
+    defineRole('temporary', { description: 'Temporary.', states: { idle: {} } })
+
+    resetRegistries()
+
+    expect(registeredRoles()).toEqual([])
+    expect(registeredLogicSets()).toEqual([])
   })
 })
 

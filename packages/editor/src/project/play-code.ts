@@ -1,4 +1,6 @@
+import type { ArchetypeBundle } from '@waica/engine'
 import type { ProjectFS } from '../fs/project-fs'
+import { installChassisArchetype } from './chassis'
 import { listRoleFiles, listStateFiles, ROLES_DIR, STATES_DIR } from './states'
 
 /**
@@ -44,8 +46,13 @@ export function rewriteImports(js: string, urls: Record<string, string>): string
   return js.replace(STATIC_IMPORT, swap).replace(DYNAMIC_IMPORT, swap)
 }
 
-/** Runs every project state and role file; collects per-file failures. */
-export async function loadPlayCode(fs: ProjectFS, runner: PlayCodeRunner): Promise<PlayCodeResult> {
+/** Runs every project state and role file over a clean archetype baseline. */
+export async function loadPlayCode(
+  fs: ProjectFS,
+  runner: PlayCodeRunner,
+  bundle: ArchetypeBundle,
+): Promise<PlayCodeResult> {
+  installChassisArchetype(bundle)
   const paths = [
     ...(await listStateFiles(fs)).map((name) => `${STATES_DIR}/${name}`),
     ...(await listRoleFiles(fs)).map((name) => `${ROLES_DIR}/${name}`),

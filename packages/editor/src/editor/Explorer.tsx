@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PrefabJson, SceneEntityJson, SceneJson } from '@waica/engine'
-import { ACTIVE_ARCHETYPE } from '../project/archetype'
+import { useArchetype } from '../project/archetype'
 import type { ProjectFS } from '../fs/project-fs'
 import { behaviourTypes } from '../project/chassis'
 import { CAMERA_NODE, sceneTree, type DropTarget } from '../scene/ops'
@@ -32,9 +32,6 @@ const PREFAB_GROUPS: Array<{ title: string; type: PrefabJson['type']; createLabe
   { title: 'Objects', type: 'object', createLabel: 'New object' },
   { title: 'Tiles', type: 'tile', createLabel: 'New tile' },
 ]
-
-/** Core chassis components (Sprite, Solid…) are not scripts: only behaviours list here. */
-const BUILTIN_COMPONENTS = behaviourTypes(Object.keys(ACTIVE_ARCHETYPE.registry.components))
 
 /** No project-authored components yet: this stays empty until that feature ships. */
 const CUSTOM_COMPONENTS: string[] = []
@@ -206,6 +203,8 @@ export function Explorer({
   onToggleUiInScene(name: string): void
   onArtDeleted(path: string): void
 }) {
+  const archetype = useArchetype()
+  const builtinComponents = behaviourTypes(Object.keys(archetype.registry.components))
   const [dropping, setDropping] = useState(false)
   /** True while a drop's folders are being walked, before importArt's own per-file progress starts. */
   const [scanningArt, setScanningArt] = useState(false)
@@ -444,7 +443,7 @@ export function Explorer({
     if (editing?.kind === 'entity' && editing.name === entity.name) {
       return (
         <div key={entity.name} className={`ed-x-item is-editing ${inFolder ? 'is-in-folder' : ''}`}>
-          <span className="ed-x-ico">{entityIcon(entity, prefabLib)}</span>
+          <span className="ed-x-ico">{entityIcon(entity, prefabLib, archetype)}</span>
           <RenameInput
             value={entity.name}
             onCommit={(next) => {
@@ -546,7 +545,7 @@ export function Explorer({
           ])
         }}
       >
-        <span className="ed-x-ico">{entityIcon(entity, prefabLib)}</span>
+        <span className="ed-x-ico">{entityIcon(entity, prefabLib, archetype)}</span>
         {entity.name}
       </button>
     )
@@ -795,7 +794,7 @@ export function Explorer({
                 if (editing?.kind === 'prefab' && editing.name === ref) {
                   return (
                     <div key={ref} className="ed-x-item is-editing">
-                      <span className="ed-x-ico">{prefabIcon(base)}</span>
+                      <span className="ed-x-ico">{prefabIcon(base, archetype)}</span>
                       <RenameInput
                         value={base}
                         onCommit={(next) => {
@@ -847,7 +846,7 @@ export function Explorer({
                       ])
                     }}
                   >
-                    <span className="ed-x-ico">{prefabIcon(base)}</span>
+                    <span className="ed-x-ico">{prefabIcon(base, archetype)}</span>
                     {base}
                   </button>
                 )
@@ -926,7 +925,7 @@ export function Explorer({
         </header>
         <div className="ed-x-group-head">Built-in</div>
         <div className="ed-x-list">
-          {BUILTIN_COMPONENTS.map((name) => (
+          {builtinComponents.map((name) => (
             <button
               key={name}
               className={`ed-x-item ${

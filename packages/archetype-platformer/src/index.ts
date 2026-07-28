@@ -2,6 +2,7 @@ import { Game, loadScene, type Entity } from '@waica/engine'
 import { PLATFORMER_SCENE } from './scene-default'
 import { PLATFORMER_REGISTRY } from './registry'
 
+export { PLATFORMER_BUNDLE } from './bundle'
 export { PLATFORMER_SCENE, PLATFORMER_BLANK_SCENE, DOG_SPRITE } from './scene-default'
 export { PLATFORMER_PREFABS } from './prefabs'
 export { PLATFORMER_UI } from './ui'

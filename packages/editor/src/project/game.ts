@@ -15,6 +15,8 @@ export interface ResolutionSetting {
 }
 
 export interface GameSettings {
+  /** Archetype manifest id; legacy files without it resolve to platformer. */
+  archetype: string
   resolution: ResolutionSetting
   /**
    * Art scale: how many image pixels one world unit covers. Editor-only
@@ -29,6 +31,7 @@ export interface GameSettingsJson extends GameSettings {
 }
 
 export const DEFAULT_GAME_SETTINGS: GameSettings = {
+  archetype: 'platformer',
   resolution: { mode: 'fill', width: 640, height: 360 },
   pixelsPerUnit: 16,
 }
@@ -42,6 +45,9 @@ export function parseGameSettings(text: string | null): GameSettings {
   if (!text) return settings
   try {
     const json = JSON.parse(text) as Partial<GameSettingsJson>
+    if (typeof json.archetype === 'string' && json.archetype !== '') {
+      settings.archetype = json.archetype
+    }
     const res = json.resolution
     if (res?.mode === 'fill' || res?.mode === 'fixed') settings.resolution.mode = res.mode
     if (typeof res?.width === 'number' && res.width > 0) settings.resolution.width = res.width

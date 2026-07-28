@@ -10,7 +10,7 @@ import tsconfigJson from '../../../create-waica/template/tsconfig.json?raw'
 import viteConfigTs from '../../../create-waica/template/vite.config.ts?raw'
 import readmeMd from '../../../create-waica/template/README.md?raw'
 import gitignore from '../../../create-waica/template/_gitignore?raw'
-import { ACTIVE_ARCHETYPE } from './archetype'
+import { resolveArchetype, type ArchetypeManifest } from './archetype'
 
 const WAICA_VERSION = '0.1.0'
 
@@ -19,15 +19,18 @@ export type ProjectStart = 'demo' | 'blank'
 
 // Demo projects own their art as files, so their JSON references the file
 // path ('src/art/waica-dog.png'), never the registry URI ('waica:dog').
-const URI_TO_PATH = Object.fromEntries(
-  ACTIVE_ARCHETYPE.art.map((art) => [art.uri, `src/art/${art.file}`]),
-)
+function projectUriMap(archetype: ArchetypeManifest): Record<string, string> {
+  return Object.fromEntries(
+    archetype.art.map((art) => [art.uri, `src/art/${art.file}`]),
+  )
+}
 
 /** Serializes scene/prefab JSON, mapping stock-art URIs to project paths. */
-function projectJson(value: unknown): string {
+function projectJson(value: unknown, archetype: ArchetypeManifest): string {
+  const uriToPath = projectUriMap(archetype)
   const json = JSON.stringify(
     value,
-    (_key, v: unknown) => (typeof v === 'string' ? (URI_TO_PATH[v] ?? v) : v),
+    (_key, v: unknown) => (typeof v === 'string' ? (uriToPath[v] ?? v) : v),
     2,
   )
   return json + '\n'
@@ -37,19 +40,29 @@ function projectJson(value: unknown): string {
  * Binary companions to projectFiles(): art to materialize, path → fetchable
  * URL (the archetype's bundled asset). Empty for blank projects.
  */
-export function projectArtFiles(start: ProjectStart = 'demo'): Record<string, string> {
+export function projectArtFiles(
+  start: ProjectStart = 'demo',
+  archetypeId = 'platformer',
+): Record<string, string> {
   if (start === 'blank') return {}
+  const archetype = resolveArchetype(archetypeId)
   return Object.fromEntries(
-    ACTIVE_ARCHETYPE.art.map((art) => [
+    archetype.art.map((art) => [
       `src/art/${art.file}`,
-      ACTIVE_ARCHETYPE.artUrls[art.file] ?? art.uri,
+      archetype.artUrls[art.file] ?? art.uri,
     ]),
   )
 }
 
-/** Files for a fresh waica project (active archetype). */
-export function projectFiles(name: string, start: ProjectStart = 'demo'): Record<string, string> {
-  const scene = start === 'demo' ? ACTIVE_ARCHETYPE.scene : ACTIVE_ARCHETYPE.blankScene
+/** Files for a fresh waica project, resolved from the picked archetype. */
+export function projectFiles(
+  name: string,
+  start: ProjectStart = 'demo',
+  archetypeId = 'platformer',
+): Record<string, string> {
+  const archetype = resolveArchetype(archetypeId)
+  const scene = start === 'demo' ? archetype.scene : archetype.blankScene
+  const game = { ...(JSON.parse(gameJson) as Record<string, unknown>), archetype: archetype.id }
   const files: Record<string, string> = {
     'package.json': pkgTpl
       .replaceAll('__PROJECT_NAME__', name)
@@ -62,8 +75,8 @@ export function projectFiles(name: string, start: ProjectStart = 'demo'): Record
     'src/main.ts': mainTs,
     'src/controls.json': controlsJson,
     'src/stats.json': statsJson,
-    'src/game.json': gameJson,
-    'src/scenes/main.scene.json': projectJson(scene),
+    'src/game.json': JSON.stringify(game, null, 2) + '\n',
+    'src/scenes/main.scene.json': projectJson(scene, archetype),
     'public/waica.params.json': '{}\n',
   }
   // A blank project ships only the chassis: no prefab, UI or art files, and
@@ -73,11 +86,11 @@ export function projectFiles(name: string, start: ProjectStart = 'demo'): Record
   // One file per prefab, mirroring its ref: 'characters/slime' (type
   // 'character') → src/characters/slime.character.json. scripts/sync-scene.mjs
   // materializes the same layout into the wizard template and the repo example.
-  for (const [key, prefab] of Object.entries(ACTIVE_ARCHETYPE.registry.prefabs ?? {})) {
-    files[`src/${key}.${prefab.type}.json`] = projectJson(prefab)
+  for (const [key, prefab] of Object.entries(archetype.registry.prefabs ?? {})) {
+    files[`src/${key}.${prefab.type}.json`] = projectJson(prefab, archetype)
   }
   // UI pieces are plain HTML files: presentation only, toggled from code.
-  for (const [name, html] of Object.entries(ACTIVE_ARCHETYPE.registry.ui ?? {})) {
+  for (const [name, html] of Object.entries(archetype.registry.ui ?? {})) {
     files[`src/ui/${name}.html`] = html
   }
   return files

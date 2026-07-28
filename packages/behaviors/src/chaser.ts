@@ -1,11 +1,11 @@
 import {
   collisionOverlap,
   Component,
-  defineRole,
   Hitbox,
   Solid,
   type CollisionBody,
   type Entity,
+  type RoleDefinition,
   type RoleGraph,
 } from '@waica/engine'
 import { PlatformerMotor } from './platformer-motor'
@@ -159,7 +159,7 @@ export const CHASER_STATE_GRAPH: RoleGraph = {
 // The pursuer role. One state out of the box; give chasing characters more
 // states by registering on top (defineStates('chaser', { flee: {...} }))
 // plus prefab data.
-defineRole('chaser', {
+export const CHASER_ROLE: RoleDefinition = {
   description:
     'Hunts the player when they come within sight range. Its Mode picks ' +
     'the body: a walker paces the ground with gravity, a ghost floats ' +
@@ -173,4 +173,4 @@ defineRole('chaser', {
       },
     },
   },
-})
+}

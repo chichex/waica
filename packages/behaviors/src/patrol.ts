@@ -1,4 +1,4 @@
-import { Component, defineRole, type RoleGraph } from '@waica/engine'
+import { Component, type RoleDefinition, type RoleGraph } from '@waica/engine'
 
 export type PatrolAxis = 'horizontal' | 'vertical'
 
@@ -60,7 +60,7 @@ export const PATROLLER_STATE_GRAPH: RoleGraph = {
 // The walking-critter role. One state out of the box; give patrolling
 // characters more states by registering on top (defineStates('patroller',
 // { chasing: {...} })) plus prefab data.
-defineRole('patroller', {
+export const PATROLLER_ROLE: RoleDefinition = {
   description:
     'Walks back and forth on its own along a rail — no player input, no ' +
     'gravity. Good for critters and moving hazards. Its states move Patrol.',
@@ -73,4 +73,4 @@ defineRole('patroller', {
       },
     },
   },
-})
+}

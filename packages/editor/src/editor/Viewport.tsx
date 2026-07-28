@@ -1,6 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { Game, GameUi, loadScene, resolveCollisionPoints, resolveSceneCamera, THREE, type CollisionPoint, type Entity, type GameResolution, type InputBindings, type SceneJson, type SceneRegistry, type StatValue } from '@waica/engine'
-import { ACTIVE_ARCHETYPE } from '../project/archetype'
 import { DEFAULT_EDITOR_SETTINGS, MIN_GRID_SIZE, type GridSettings } from '../project/editor-settings'
 import { CAMERA_NODE } from '../scene/ops'
 import { cornerResize } from './box-math'
@@ -26,8 +25,8 @@ const DEFAULT_COMPONENT_VISIBILITY: ViewportComponentVisibility = {
 
 interface Props {
   scene: SceneJson
-  /** Components + prefabs to load the scene with (defaults to the archetype's). */
-  registry?: SceneRegistry
+  /** Components + project-owned prefabs used to load the scene. */
+  registry: SceneRegistry
   /** Structural changes (create/delete) bump the epoch and recreate the game. */
   epoch: number
   mode: 'edit' | 'play'
@@ -212,7 +211,7 @@ type HandleHit =
   | { kind: 'polygon'; name: string; compType: string; point: number }
 
 export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
-  { scene, registry = ACTIVE_ARCHETYPE.registry, epoch, mode, bindings, stats, viewHeight = 12, background = 0x1a1a2e, resolution, showCamera = false, grid = DEFAULT_EDITOR_SETTINGS.grid, onGridChange, componentVisibility = DEFAULT_COMPONENT_VISIBILITY, selected, multiSelected, onSelect, onToggleSelect, onRangeSelect, onSelectCamera, onMoved, onMovedMany, onCameraMoved, onBoxResized, onBoxMoved, onPolygonChanged, onDropPrefab },
+  { scene, registry, epoch, mode, bindings, stats, viewHeight = 12, background = 0x1a1a2e, resolution, showCamera = false, grid = DEFAULT_EDITOR_SETTINGS.grid, onGridChange, componentVisibility = DEFAULT_COMPONENT_VISIBILITY, selected, multiSelected, onSelect, onToggleSelect, onRangeSelect, onSelectCamera, onMoved, onMovedMany, onCameraMoved, onBoxResized, onBoxMoved, onPolygonChanged, onDropPrefab },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null)

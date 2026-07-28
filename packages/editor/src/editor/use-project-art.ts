@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ACTIVE_ARCHETYPE } from '../project/archetype'
 import type { ProjectFS, TreeNode } from '../fs/project-fs'
 
 export interface ArtItem {
@@ -96,10 +95,6 @@ export async function collectDroppedFiles(dataTransfer: DataTransfer): Promise<D
   return lists.flat()
 }
 
-// Fallback for non-project URIs (e.g. 'waica:dog' in old projects): the
-// archetype's own resolver. The panel itself lists project files ONLY.
-const resolveArchetypeAsset = ACTIVE_ARCHETYPE.registry.resolveAsset ?? ((uri: string) => uri)
-
 function findDir(nodes: TreeNode[] | undefined, name: string): TreeNode | undefined {
   return nodes?.find((n) => n.kind === 'dir' && n.name === name)
 }
@@ -143,7 +138,10 @@ export function buildArtTree(art: ArtItem[]): ArtFolder {
  * The project's image library, shared by the Explorer panel, the viewport
  * registry (texture resolution) and the animation editor.
  */
-export function useProjectArt(fs: ProjectFS): ProjectArt {
+export function useProjectArt(
+  fs: ProjectFS,
+  resolveArchetypeAsset: (uri: string) => string = (uri) => uri,
+): ProjectArt {
   const [art, setArt] = useState<ArtItem[]>([])
   const [artEpoch, setArtEpoch] = useState(0)
   const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(
@@ -220,7 +218,7 @@ export function useProjectArt(fs: ProjectFS): ProjectArt {
 
   const urlFor = useCallback(
     (uri: string): string => art.find((a) => a.uri === uri)?.url ?? resolveArchetypeAsset(uri),
-    [art],
+    [art, resolveArchetypeAsset],
   )
 
   return { art, refresh, importArt, urlFor, importProgress }

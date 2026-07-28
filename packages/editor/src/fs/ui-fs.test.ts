@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { ACTIVE_ARCHETYPE } from '../project/archetype'
+import { resolveArchetype } from '../project/archetype'
 import { MemFS } from './project-fs'
 import { loadUiLib } from './ui-fs'
+
+const archetype = resolveArchetype()
 
 describe('loadUiLib', () => {
   it('loads the project files, keyed by name', async () => {
@@ -17,7 +19,7 @@ describe('loadUiLib', () => {
   // the project's own coin-counter.html did not really delete it.
   it('leaves archetype names free when the project has no file for them', async () => {
     const pieces = await loadUiLib(new MemFS('t', { 'src/ui/health.html': '<b>hp</b>' }))
-    for (const name of Object.keys(ACTIVE_ARCHETYPE.registry.ui ?? {})) {
+    for (const name of Object.keys(archetype.registry.ui ?? {})) {
       expect(pieces[name]).toBeUndefined()
     }
   })

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { ACTIVE_ARCHETYPE } from '../project/archetype'
+import { resolveArchetype } from '../project/archetype'
 import { MemFS } from './project-fs'
 import { loadPrefabLib } from './prefab-fs'
+
+const archetype = resolveArchetype()
 
 const SLIME = JSON.stringify({ waicaPrefab: 1, type: 'character', components: [] })
 
@@ -36,7 +38,7 @@ describe('loadPrefabLib', () => {
   it('leaves archetype names free when the project has no file for them', async () => {
     const fs = new MemFS('t', { 'src/characters/slime.character.json': SLIME })
     const prefabs = await loadPrefabLib(fs)
-    for (const ref of Object.keys(ACTIVE_ARCHETYPE.prefabs)) {
+    for (const ref of Object.keys(archetype.prefabs)) {
       if (ref === 'characters/slime') continue
       expect(prefabs[ref]).toBeUndefined()
     }

@@ -1,6 +1,14 @@
-import { describe, expect, it } from 'vitest'
-import { logicSet, nextTransition, roleDefinition, type TriggerEnv } from '@waica/engine'
-import { PLAYER_STATE_GRAPH, playerUpdate } from './player-states'
+import { beforeEach, describe, expect, it } from 'vitest'
+import {
+  installArchetype,
+  logicSet,
+  nextTransition,
+  roleDefinition,
+  type TriggerEnv,
+} from '@waica/engine'
+import { PLAYER_ROLE, PLAYER_STATE_GRAPH, playerUpdate } from './player-states'
+
+beforeEach(() => installArchetype({ roles: { player: PLAYER_ROLE } }))
 
 const { initial, states } = PLAYER_STATE_GRAPH
 

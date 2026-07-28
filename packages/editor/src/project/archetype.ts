@@ -1,24 +1,48 @@
-// The single point where the editor wires itself to a concrete archetype.
-// Once the generic archetype manifest exists (DESIGN H3), this module is
-// the only thing that migrates; the rest of the editor consumes ACTIVE_ARCHETYPE.
+import { createContext, useContext } from 'react'
+import type {
+  ArchetypeBundle,
+  PrefabJson,
+  SceneJson,
+  SceneRegistry,
+} from '@waica/engine'
 import {
   PLATFORMER_ART,
   PLATFORMER_ART_URLS,
   PLATFORMER_BLANK_SCENE,
+  PLATFORMER_BUNDLE,
   PLATFORMER_PALETTE,
   PLATFORMER_PREFABS,
   PLATFORMER_REGISTRY,
   PLATFORMER_SCENE,
+  type ArchetypeArt,
+  type EntityTemplate,
 } from '@waica/archetype-platformer'
 
-/** Icon per distinctive archetype component (for the hierarchy). */
-const ENTITY_ICONS: Record<string, string> = {
+export const DEFAULT_ARCHETYPE_ID = 'platformer'
+
+/** Everything the editor resolves from a project's persisted archetype id. */
+export interface ArchetypeManifest {
+  id: string
+  label: string
+  scene: SceneJson
+  blankScene: SceneJson
+  registry: SceneRegistry
+  palette: EntityTemplate[]
+  prefabs: Record<string, PrefabJson>
+  art: ArchetypeArt[]
+  artUrls: Record<string, string>
+  entityIcons: Record<string, string>
+  bundle: ArchetypeBundle
+}
+
+/** Icon per distinctive platformer component (for the hierarchy). */
+const PLATFORMER_ENTITY_ICONS: Record<string, string> = {
   PlatformerMotor: '🐕',
   Collectible: '🪙',
   Hazard: '👾',
 }
 
-export const ACTIVE_ARCHETYPE = {
+const PLATFORMER_ARCHETYPE: ArchetypeManifest = {
   id: 'platformer',
   label: 'Platformer',
   scene: PLATFORMER_SCENE,
@@ -28,7 +52,24 @@ export const ACTIVE_ARCHETYPE = {
   prefabs: PLATFORMER_PREFABS,
   art: PLATFORMER_ART,
   artUrls: PLATFORMER_ART_URLS,
-  entityIcons: ENTITY_ICONS,
+  entityIcons: PLATFORMER_ENTITY_ICONS,
+  bundle: PLATFORMER_BUNDLE,
+}
+
+const ARCHETYPES: Readonly<Record<string, ArchetypeManifest>> = {
+  platformer: PLATFORMER_ARCHETYPE,
+}
+
+/** Resolves project identity at runtime; legacy/unknown ids stay platformer-safe. */
+export function resolveArchetype(id?: string | null): ArchetypeManifest {
+  return ARCHETYPES[id ?? DEFAULT_ARCHETYPE_ID] ?? PLATFORMER_ARCHETYPE
+}
+
+/** Runtime manifest inherited by editor panels under the open project. */
+export const ArchetypeContext = createContext<ArchetypeManifest>(PLATFORMER_ARCHETYPE)
+
+export function useArchetype(): ArchetypeManifest {
+  return useContext(ArchetypeContext)
 }
 
 export interface ArchetypeCard {

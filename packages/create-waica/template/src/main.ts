@@ -1,13 +1,13 @@
-import { Game, loadScene, type PrefabJson } from '@waica/engine'
-import { PLATFORMER_REGISTRY } from '@waica/archetype-platformer'
+import { Game, installArchetype, loadScene, type PrefabJson } from '@waica/engine'
+import { PLATFORMER_BUNDLE, PLATFORMER_REGISTRY } from '@waica/archetype-platformer'
 import scene from './scenes/main.scene.json'
 import controls from './controls.json'
 import stats from './stats.json'
 import settings from './game.json'
 
-// Your roles (src/roles/*.ts) and state code (src/states/*.ts) self-register
-// via defineRole/defineStates on import — dropping a file in is all it takes.
-import.meta.glob(['./roles/*.ts', './states/*.ts'], { eager: true })
+// Your roles (src/roles/*.ts) and state code (src/states/*.ts) extend the
+// installed archetype baseline when main() imports them.
+const projectCode = import.meta.glob(['./roles/*.ts', './states/*.ts'])
 
 // Your prefabs ARE these files (saved by the editor, or hand-edited — they're
 // just JSON). Nothing else: delete one and the game stops knowing about it.
@@ -70,6 +70,9 @@ if (canvas.dataset.waica) {
 }
 
 async function main(canvas: HTMLCanvasElement): Promise<void> {
+  installArchetype(PLATFORMER_BUNDLE)
+  await Promise.all(Object.values(projectCode).map((load) => load()))
+
   // Controls, stats and game settings come from src/*.json (the editor's
   // Project views). The camera (start framing, zoom, follow) lives in the scene.
   const game = new Game({

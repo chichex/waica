@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { resolveCollisionPoints, resolveSceneCamera, roleDefinition, sheetCell, type PrefabJson, type SceneCameraJson, type SceneComponentJson, type SceneEntityJson, type SceneJson, type SheetGridParams, type StateJson } from '@waica/engine'
-import { ACTIVE_ARCHETYPE } from '../project/archetype'
+import { useArchetype, type ArchetypeManifest } from '../project/archetype'
 import { countOverrides, prefabOwns, resolveComponents } from '../scene/ops'
 import {
   appearanceKind,
@@ -67,10 +67,13 @@ function characterClipsWarning(
  * in Play. Roles install their driver themselves, so this only fires on
  * hand-edited JSON — an anomaly detector, not assembly instructions.
  */
-function driverWarning(components: SceneComponentJson[]): string | undefined {
+function driverWarning(
+  components: SceneComponentJson[],
+  archetype: ArchetypeManifest,
+): string | undefined {
   const missing = missingDriver(components)
   if (!missing) return undefined
-  return `this character won't move in Play: its "${missing.role}" states drive the ${componentLabel(missing.driver)} behaviour, which it doesn't have — add it with "+ behaviour" below`
+  return `this character won't move in Play: its "${missing.role}" states drive the ${componentLabel(missing.driver, archetype)} behaviour, which it doesn't have — add it with "+ behaviour" below`
 }
 
 interface Props {
@@ -145,30 +148,36 @@ interface Props {
   onEditState(target: StateTarget): void
 }
 
-function componentKeys(comp: SceneComponentJson): string[] {
-  const Class = ACTIVE_ARCHETYPE.registry.components[comp.type]
+function componentKeys(comp: SceneComponentJson, archetype: ArchetypeManifest): string[] {
+  const Class = archetype.registry.components[comp.type]
   const declared = Object.keys(Class?.params ?? {})
   return [...new Set([...Object.keys(comp.props ?? {}), ...declared])]
 }
 
 /** Friendly component name for headers and pickers ("Motor", not "PlatformerMotor"). */
-function componentLabel(type: string): string {
-  return ACTIVE_ARCHETYPE.registry.components[type]?.displayName ?? type
+function componentLabel(type: string, archetype: ArchetypeManifest): string {
+  return archetype.registry.components[type]?.displayName ?? type
 }
 
 // Unset params show the class defaults (what the game actually runs), so
 // their value AND type match reality — e.g. a boolean renders as a checkbox.
-function componentDefaults(comp: SceneComponentJson): Record<string, unknown> {
-  const Class = ACTIVE_ARCHETYPE.registry.components[comp.type]
+function componentDefaults(
+  comp: SceneComponentJson,
+  archetype: ArchetypeManifest,
+): Record<string, unknown> {
+  const Class = archetype.registry.components[comp.type]
   return (Class ? new Class() : {}) as unknown as Record<string, unknown>
 }
 
 /** Behaviours present that implement onCollide — they need a hitbox to fire. */
-function touchBehaviourNames(comps: SceneComponentJson[]): string[] {
+function touchBehaviourNames(
+  comps: SceneComponentJson[],
+  archetype: ArchetypeManifest,
+): string[] {
   return comps
     .map((c) => c.type)
     .filter((t) => {
-      const Class = ACTIVE_ARCHETYPE.registry.components[t] as
+      const Class = archetype.registry.components[t] as
         | { prototype: Record<string, unknown> }
         | undefined
       return typeof Class?.prototype.onCollide === 'function'
@@ -187,6 +196,7 @@ interface InspectorContext {
 function contextOf(
   selection: NonNullable<InspectorSelection>,
   prefabs: Record<string, PrefabJson>,
+  archetype: ArchetypeManifest,
 ): InspectorContext {
   switch (selection.kind) {
     case 'scene':
@@ -200,7 +210,7 @@ function contextOf(
     case 'entity': {
       const e = selection.entity
       return {
-        icon: entityIcon(e, prefabs),
+        icon: entityIcon(e, prefabs, archetype),
         name: e.name,
         badge: e.prefab ? 'instance' : 'entity',
         scope: e.prefab
@@ -227,7 +237,7 @@ function contextOf(
       }
     case 'prefab':
       return {
-        icon: prefabIcon(selection.ref.slice(selection.ref.indexOf('/') + 1)),
+        icon: prefabIcon(selection.ref.slice(selection.ref.indexOf('/') + 1), archetype),
         name: selection.ref.slice(selection.ref.indexOf('/') + 1),
         badge: `${selection.prefab.type} prefab`,
         scope: 'shared blueprint — changes here reach every instance in every scene',
@@ -462,6 +472,7 @@ function MultiPropsSection({
   prefabs: Record<string, PrefabJson>
   onMultiProp(names: string[], componentType: string, key: string, value: unknown): void
 }) {
+  const archetype = useArchetype()
   const names = entities.map((e) => e.name)
   const resolved = entities.map((e) => resolveComponents(e, prefabs))
   const sharedTypes = (resolved[0] ?? [])
@@ -474,11 +485,11 @@ function MultiPropsSection({
     <>
       {sharedTypes.map((type) => {
         const comps = resolved.map((list) => list.find((c) => c.type === type)!)
-        const defaults = componentDefaults(comps[0]!)
-        const specs = ACTIVE_ARCHETYPE.registry.components[type]?.params ?? {}
+        const defaults = componentDefaults(comps[0]!, archetype)
+        const specs = archetype.registry.components[type]?.params ?? {}
         const valueOf = (comp: SceneComponentJson, key: string): unknown =>
           (comp.props ?? {})[key] ?? defaults[key]
-        const keys = [...new Set(comps.flatMap((c) => componentKeys(c)))].filter((key) => {
+        const keys = [...new Set(comps.flatMap((c) => componentKeys(c, archetype)))].filter((key) => {
           if (ANIMATION_KEYS.has(key) || key === 'texture') return false
           const sample = comps.map((c) => valueOf(c, key)).find((v) => v !== undefined)
           const kind = typeof sample
@@ -487,7 +498,7 @@ function MultiPropsSection({
         if (keys.length === 0) return null
         return (
           <div key={type} className="ed-section">
-            <header className="ed-sec-head">{componentLabel(type)}</header>
+            <header className="ed-sec-head">{componentLabel(type, archetype)}</header>
             {keys.map((key) => {
               const values = comps.map((c) => valueOf(c, key))
               const uniform = values.every((v) => v === values[0])
@@ -536,8 +547,9 @@ function ComponentRows({
   onReset?(key: string): void
   onApply?(key: string): void
 }) {
-  const defaults = componentDefaults(comp)
-  const specs = ACTIVE_ARCHETYPE.registry.components[comp.type]?.params ?? {}
+  const archetype = useArchetype()
+  const defaults = componentDefaults(comp, archetype)
+  const specs = archetype.registry.components[comp.type]?.params ?? {}
   return (
     <>
       {keys.map((key) => (
@@ -574,14 +586,15 @@ function ComponentCard({
   onReset?(key: string): void
   onApply?(key: string): void
 }) {
-  const keys = componentKeys(comp)
+  const archetype = useArchetype()
+  const keys = componentKeys(comp, archetype)
   return (
     <div className="ed-comp">
       <header
         className="ed-comp-head"
         title={onRemove ? undefined : 'defined by the prefab — edit the prefab to change it'}
       >
-        <span>{componentLabel(comp.type)}</span>
+        <span>{componentLabel(comp.type, archetype)}</span>
         {onRemove && (
           <button className="ed-mini" title="Remove component" onClick={onRemove}>
             ✕
@@ -686,6 +699,7 @@ function AppearanceSection({
   /** Present at the entity level only: sizes+centers this quad to the scene camera. */
   onFillCamera?(): void
 }) {
+  const archetype = useArchetype()
   // "image with nothing dropped yet" isn't a storable state — a texture-less
   // Sprite reads as a shape — so the invite-to-drop phase lives here.
   const [wantsImage, setWantsImage] = useState(false)
@@ -698,7 +712,7 @@ function AppearanceSection({
   const kind = wantsImage ? 'image' : appearanceKind(comp)
   const shape = comp.props?.shape === 'circle' ? 'circle' : 'rectangle'
   const showPicker = kind === 'image' && (!texture || picking)
-  const keys = componentKeys(comp).filter(
+  const keys = componentKeys(comp, archetype).filter(
     (k) =>
       !ANIMATION_KEYS.has(k) &&
       k !== 'texture' &&
@@ -1213,8 +1227,9 @@ function BehavioursSection({
 }
 
 function AddComponentRow({ present, onAdd }: { present: Set<string>; onAdd(type: string): void }) {
+  const archetype = useArchetype()
   const [adding, setAdding] = useState('')
-  const available = behaviourTypes(Object.keys(ACTIVE_ARCHETYPE.registry.components)).filter(
+  const available = behaviourTypes(Object.keys(archetype.registry.components)).filter(
     (t) => !present.has(t),
   )
   return (
@@ -1223,7 +1238,7 @@ function AddComponentRow({ present, onAdd }: { present: Set<string>; onAdd(type:
         <option value="">+ behaviour…</option>
         {available.map((t) => (
           <option key={t} value={t}>
-            {componentLabel(t)}
+            {componentLabel(t, archetype)}
           </option>
         ))}
       </select>
@@ -1285,6 +1300,7 @@ function EntityInspector({
 > & {
   entity: SceneEntityJson
 }) {
+  const archetype = useArchetype()
   const [x, y] = entity.position ?? [0, 0]
   const components = resolveComponents(entity, prefabs)
   const prefab = entity.prefab ? prefabs[entity.prefab] : undefined
@@ -1415,7 +1431,7 @@ function EntityInspector({
         id={entity.name}
         comps={[...split.behaviours, ...split.extras]}
         present={new Set(components.map((c) => c.type))}
-        warning={driverWarning(components)}
+        warning={driverWarning(components, archetype)}
         canRemove={(c) => !prefabOwns(entity, c.type, prefabs)}
         machine={{
           clips: appearance ? Object.keys(clipsOf(appearance)) : [],
@@ -1497,10 +1513,11 @@ function PrefabInspector({
   pixelsPerUnit: number
   onSetSize(componentType: string, size: { width: number; height: number }): void
 }) {
+  const archetype = useArchetype()
   const rule = CHASSIS[prefab.type]
   const split = splitComponents(prefab.components)
   const appearance = split.appearance
-  const touching = touchBehaviourNames(split.behaviours)
+  const touching = touchBehaviourNames(split.behaviours, archetype)
   const offHint =
     rule.collision?.type === 'Solid'
       ? 'no collision — this tile is decor'
@@ -1549,7 +1566,7 @@ function PrefabInspector({
         id={refName}
         comps={[...split.behaviours, ...split.extras]}
         present={new Set(prefab.components.map((c) => c.type))}
-        warning={driverWarning(prefab.components)}
+        warning={driverWarning(prefab.components, archetype)}
         canRemove={() => true}
         machine={{
           clips: appearance ? Object.keys(clipsOf(appearance)) : [],
@@ -1736,7 +1753,8 @@ function SceneInspector({ scene }: { scene: SceneJson }) {
 }
 
 function ScriptInspector({ name }: { name: string }) {
-  const Class = ACTIVE_ARCHETYPE.registry.components[name]
+  const archetype = useArchetype()
+  const Class = archetype.registry.components[name]
   if (!Class) return <div className="ed-hint ed-pad">unknown script</div>
   const defaults = new Class() as unknown as Record<string, unknown>
   const params = Object.entries(Class.params ?? {})
@@ -1767,6 +1785,7 @@ function ScriptInspector({ name }: { name: string }) {
 }
 
 export function Inspector(props: Props) {
+  const archetype = useArchetype()
   const { selection } = props
   return (
     <section className="ed-panel ed-inspector">
@@ -1774,7 +1793,7 @@ export function Inspector(props: Props) {
       {selection == null && <div className="ed-hint ed-pad">nothing selected</div>}
       {selection != null && (
         <ContextHeader
-          ctx={contextOf(selection, props.prefabs)}
+          ctx={contextOf(selection, props.prefabs, archetype)}
           actions={
             selection.kind === 'entity' &&
             countOverrides(selection.entity) > 0 && (
@@ -1804,7 +1823,7 @@ export function Inspector(props: Props) {
           <div className="ed-ins-multi">
             {selection.entities.map((entity) => (
               <div key={entity.name} className="ed-ins-multi-row">
-                <span className="ed-x-ico">{entityIcon(entity, props.prefabs)}</span>
+                <span className="ed-x-ico">{entityIcon(entity, props.prefabs, archetype)}</span>
                 {entity.name}
               </div>
             ))}

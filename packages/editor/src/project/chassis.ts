@@ -1,7 +1,10 @@
-import { roleDefinition, type PrefabJson, type SceneComponentJson } from '@waica/engine'
-// The archetype's roles register on import (defineRole side effects) — the
-// chassis reads them from the engine registry, so they must be loaded.
-import '@waica/behaviors'
+import {
+  installArchetype,
+  roleDefinition,
+  type ArchetypeBundle,
+  type PrefabJson,
+  type SceneComponentJson,
+} from '@waica/engine'
 
 /**
  * The chassis model: each prefab type is born with factory core components
@@ -11,6 +14,11 @@ import '@waica/behaviors'
  */
 
 export type PrefabType = PrefabJson['type']
+
+/** Installs the resolved project's role/state baseline into the engine. */
+export function installChassisArchetype(bundle: ArchetypeBundle): void {
+  installArchetype(bundle)
+}
 
 export const APPEARANCE_TYPES = ['Sprite', 'AnimatedSprite'] as const
 export const COLLISION_TYPES = ['Solid', 'Hitbox'] as const

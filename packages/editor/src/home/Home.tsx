@@ -9,7 +9,8 @@ import {
 } from '../fs/recents'
 import type { StoredSession } from '../fs/session'
 import { projectArtFiles, projectFiles, type ProjectStart } from '../project/template'
-import { ACTIVE_ARCHETYPE } from '../project/archetype'
+import { resolveArchetype } from '../project/archetype'
+import { GAME_PATH, parseGameSettings } from '../project/game'
 import { ArchetypePicker } from './ArchetypePicker'
 
 async function isEmptyDir(handle: FileSystemDirectoryHandle): Promise<boolean> {
@@ -18,8 +19,12 @@ async function isEmptyDir(handle: FileSystemDirectoryHandle): Promise<boolean> {
 }
 
 /** Downloads the archetype's bundled art into the project (demo start only). */
-async function writeArtFiles(fs: ProjectFS, start: ProjectStart): Promise<void> {
-  for (const [path, url] of Object.entries(projectArtFiles(start))) {
+async function writeArtFiles(
+  fs: ProjectFS,
+  start: ProjectStart,
+  archetypeId: string,
+): Promise<void> {
+  for (const [path, url] of Object.entries(projectArtFiles(start, archetypeId))) {
     const bytes = await (await fetch(url)).arrayBuffer()
     await fs.writeFile(path, new Uint8Array(bytes))
   }
@@ -56,7 +61,7 @@ export function Home({
     void listRecents().then(setRecents)
   }, [])
 
-  const create = async (name: string, start: ProjectStart): Promise<void> => {
+  const create = async (name: string, start: ProjectStart, archetypeId: string): Promise<void> => {
     if (!window.showDirectoryPicker) return
     try {
       const parent = await window.showDirectoryPicker({ mode: 'readwrite', id: 'waica-new' })
@@ -71,10 +76,10 @@ export function Home({
       setBusy('creating project…')
       const dir = await parent.getDirectoryHandle(name, { create: true })
       const fs = new RealFS(name, dir)
-      for (const [path, content] of Object.entries(projectFiles(name, start))) {
+      for (const [path, content] of Object.entries(projectFiles(name, start, archetypeId))) {
         await fs.writeText(path, content)
       }
-      await writeArtFiles(fs, start)
+      await writeArtFiles(fs, start, archetypeId)
       await saveRecent(name, dir)
       onOpen(fs)
     } catch (err) {
@@ -91,15 +96,17 @@ export function Home({
       const fs = new RealFS(handle.name, handle)
       const scene = await fs.readText(SCENE_PATH)
       if (scene == null) {
+        const settings = parseGameSettings(await fs.readText(GAME_PATH))
+        const archetype = resolveArchetype(settings.archetype)
         const make = confirm(
-          `"${handle.name}" has no ${SCENE_PATH}. Create an empty scene (${ACTIVE_ARCHETYPE.label} archetype) there?`,
+          `"${handle.name}" has no ${SCENE_PATH}. Create an empty scene (${archetype.label} archetype) there?`,
         )
         if (!make) return
         // Empty, not the demo level: that scene instances prefabs, and this
         // folder has no prefab files to instance. "Create project" → Demo
         // level is the playable start — it writes the prefabs and the art
         // alongside the scene.
-        await fs.writeText(SCENE_PATH, JSON.stringify(ACTIVE_ARCHETYPE.blankScene, null, 2) + '\n')
+        await fs.writeText(SCENE_PATH, JSON.stringify(archetype.blankScene, null, 2) + '\n')
       }
       await saveRecent(handle.name, handle)
       onOpen(fs)
@@ -121,8 +128,8 @@ export function Home({
   }
 
   const demo = async (): Promise<void> => {
-    const fs = new MemFS('waica-demo', projectFiles('waica-demo'))
-    await writeArtFiles(fs, 'demo')
+    const fs = new MemFS('waica-demo', projectFiles('waica-demo', 'demo', 'platformer'))
+    await writeArtFiles(fs, 'demo', 'platformer')
     onOpen(fs)
   }
 
@@ -191,9 +198,9 @@ export function Home({
 
       {picking && (
         <ArchetypePicker
-          onPick={(_id, name, start) => {
+          onPick={(id, name, start) => {
             setPicking(false)
-            void create(name, start)
+            void create(name, start, id)
           }}
           onClose={() => setPicking(false)}
         />

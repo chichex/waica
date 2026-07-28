@@ -43,12 +43,21 @@ export type { StateJson, StateTransitionJson, TriggerEnv } from './state/state-m
 export {
   defineRole,
   defineStates,
+  installArchetype,
   logicSet,
   registeredLogicSets,
   registeredRoles,
+  resetRegistries,
   roleDefinition,
 } from './state/hooks'
-export type { RoleDefinition, RoleGraph, StateContext, StateHooks, StateLogic } from './state/hooks'
+export type {
+  ArchetypeBundle,
+  RoleDefinition,
+  RoleGraph,
+  StateContext,
+  StateHooks,
+  StateLogic,
+} from './state/hooks'
 
 // Explicit escape hatch while our own API grows: a single source of three
 // for the whole workspace. The thesis is that three stays an implementation detail.
