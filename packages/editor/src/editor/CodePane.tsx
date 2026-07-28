@@ -92,6 +92,8 @@ export function CodePane({
       ) : (
         <MonacoEditor
           height="100%"
+          // file:/// so imports resolve against the virtual node_modules (monaco-types.ts).
+          path={`file:///${path}`}
           language={LANGUAGES[ext] ?? 'plaintext'}
           theme="vs-dark"
           value={value}
