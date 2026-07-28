@@ -957,7 +957,7 @@ export function Explorer({
                   className={`ed-x-item ${
                     view?.kind === 'stateFile' && view.path === path ? 'is-selected' : ''
                   }`}
-                  title="Runs in your game — the editor can edit it but not run it"
+                  title="Runs on every Play and in your game — Play reloads it fresh"
                   onClick={() => onOpenStateFile(path)}
                 >
                   <span className="ed-x-ico">📜</span>
@@ -982,7 +982,7 @@ export function Explorer({
                   className={`ed-x-item ${
                     view?.kind === 'stateFile' && view.path === path ? 'is-selected' : ''
                   }`}
-                  title="Registers in your game — the editor can edit it but not run it"
+                  title="Registers on every Play and in your game — Play reloads it fresh"
                   onClick={() => onOpenStateFile(path)}
                 >
                   <span className="ed-x-ico">🎭</span>
