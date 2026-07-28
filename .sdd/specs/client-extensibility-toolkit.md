@@ -1,5 +1,5 @@
 # Spec — Client extensibility toolkit: project components, collision hooks, runtime prefab spawn, Lifetime
-<!-- Generada por /sdd-spec el 2026-07-28. Fuente: pedido libre. Estado: aprobada -->
+<!-- Generada por /sdd-spec el 2026-07-28. Fuente: pedido libre. Estado: implementada -->
 
 ## Contexto
 
@@ -111,4 +111,22 @@ Mechanism (chosen by user): **unit + smoke** — vitest TDD for all ALTA CAs, li
 - **Class identity across re-executions.** Re-running a component file creates new class objects; entities in a live viewport Game keep old instances until the epoch-driven teardown rebuilds the Game (`Viewport.tsx:589`). Registry refresh must bump the epoch or document staleness.
 - **`play-runner.ts` remains untested** (needs a real Monaco worker): CA-2/3 pin the pure layer (`play-code.ts`) only; the emit end is covered indirectly by the human protocol.
 - **Param overrides are keyed by entity name** (`game.ts:108-112`): all bullets named `Bullet` share overrides. Acceptable and documented; `spawnPrefab`'s `name` option lets a project opt out.
-- **Contract drift (minor).** `.sdd/project.md` records "314 tests in 33 files"; the repo now has 42 test files. Worth a `/sdd-init --update` after this lands.
+- **Contract drift (minor).** `.sdd/project.md` records "314 tests in 33 files"; the repo now has 45 test files. Worth a `/sdd-init --update` after this lands.
+
+## Resultado de ejecucion (2026-07-28)
+
+| CA | Estado | Evidencia |
+|---|---|---|
+| CA-1 | verificado | `template.test.ts` verde; ambos `main.ts` contienen el glob `./components/*.ts`. |
+| CA-2 | verificado | `play-code.test.ts` verifica componentes antes que states/roles y errores de transpilacion/ejecucion por archivo. |
+| CA-3 | verificado | `play-code.test.ts` verifica el mapa import relativo→URL y el error atribuido al importador cuando falta el target. |
+| CA-4 | verificado | `component-registry.test.ts` verifica merge, precedencia del proyecto y warning con el tipo sombreado. |
+| CA-5 | pendiente humano | `pnpm typecheck`, `pnpm build` y smoke HTTP de `pnpm editor` verdes; protocolo humano 1-4 pendiente. |
+| CA-6 | verificado | `components.test.ts` verifica path/list/template y que el scaffold nunca sobreescribe. |
+| CA-7 | verificado | `game.test.ts` y `state-machine-runtime.test.ts` verifican dispatch current/`*`/`default` desde Hitbox↔Hitbox. |
+| CA-8 | verificado | `game.test.ts` verifica registry retenido, assets/props/position/paramOverrides y warnings+`null`. |
+| CA-9 | verificado | `lifetime.test.ts` verifica acumulacion de `dt`, umbral de destruccion y metadata `seconds`. |
+| CA-10 | pendiente humano | Archivos/binding/prefab presentes; grep prohibido vacio; typecheck, build y smoke HTTP del ejemplo verdes; protocolo humano 5-8 pendiente. |
+| CA-11 | pendiente humano | Registry/editor compilan y smoke HTTP del editor verde; protocolo humano 1-4 pendiente. |
+
+Escalera contractual completa: `pnpm typecheck` verde; `pnpm test` 371/371 en 45 archivos (20 tests nuevos); `pnpm build` verde con el warning de chunk del editor preexistente. Desviaciones de la spec: ninguna.
