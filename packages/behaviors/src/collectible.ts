@@ -1,8 +1,8 @@
 import { Component, type Entity } from '@waica/engine'
-import { PlatformerMotor } from './platformer-motor'
+import { isPlayer } from './player-identity'
 
 /**
- * Collected when the player (the entity with PlatformerMotor) touches
+ * Collected when the entity with the player role touches
  * it: adds its value to a stat, fires onCollect and destroys itself.
  * Requires Hitbox on both entities.
  */
@@ -19,7 +19,7 @@ export class Collectible extends Component {
   onCollect?: (value: number) => void
 
   override onCollide(other: Entity): void {
-    if (!other.has(PlatformerMotor)) return
+    if (!isPlayer(other)) return
     this.onCollect?.(this.value)
     if (this.stat) this.game.stats.add(this.stat, this.value)
     this.game.events.emit('collect', this.value)

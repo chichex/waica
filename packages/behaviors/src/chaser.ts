@@ -8,7 +8,7 @@ import {
   type RoleDefinition,
   type RoleGraph,
 } from '@waica/engine'
-import { PlatformerMotor } from './platformer-motor'
+import { isPlayer } from './player-identity'
 
 export type ChaserMode = 'walker' | 'ghost' | 'flyer'
 
@@ -41,10 +41,10 @@ export class Chaser extends Component {
   private vy = 0
   private target: Entity | undefined
 
-  /** The player is whoever wears the Motor — same contract Hazard uses. */
+  /** The player is the live entity whose StateMachine declares that role. */
   private findTarget(): Entity | undefined {
-    if (!this.target?.alive) {
-      this.target = this.entity.game.entities.find((e) => e.get(PlatformerMotor))
+    if (!this.target?.alive || !isPlayer(this.target)) {
+      this.target = this.entity.game.entities.find(isPlayer)
     }
     return this.target
   }
