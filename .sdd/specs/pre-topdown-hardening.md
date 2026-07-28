@@ -1,5 +1,5 @@
 # Spec — Pre-topdown hardening: archetype seams, registries, identity, input, tests, solver
-<!-- Generada por /sdd-spec el 2026-07-28. Fuente: pedido libre (auditoría multi-agente 2026-07-28). Estado: aprobada -->
+<!-- Generada por /sdd-spec el 2026-07-28. Fuente: pedido libre (auditoría multi-agente 2026-07-28). Estado: implementada -->
 
 ## Contexto
 The engine is about to grow its second archetype (top-down 2D), but today every archetype seam is hardwired to the platformer: `ACTIVE_ARCHETYPE` is a build-time constant read at module top-level (`packages/editor/src/project/archetype.ts:21`, consumed in `Home.tsx`, `template.ts`, `icons.ts`, `Explorer.tsx`, `use-project-art.ts`, `Viewport.tsx`), the picked archetype id is discarded and never persisted, the role/logic-set registries are merge-only module Maps with no reset API (`packages/engine/src/state/hooks.ts:36,79`) silently claimed via `import '@waica/behaviors'` in `chassis.ts:4`, "the player" is defined as "has `PlatformerMotor`" in Collectible/Hazard/Chaser, `DEFAULT_BINDINGS` hardcodes `left/right/jump` in the engine (`packages/engine/src/input.ts:6-9`), and the per-axis Solid collision solver exists as two hand-synced copies (`platformer-motor.ts` and `chaser.ts`). This spec is the pre-work that turns the top-down archetype from a fork into data + new role code. It also bundles three sanctioned bug fixes found in the same audit: stuck keys on focus loss, tunneling at the 0.1s dt clamp, and the `ResizeObserver` leak in `Game.dispose()`.
@@ -88,3 +88,33 @@ The engine is about to grow its second archetype (top-down 2D), but today every 
 - **Editor seams only human-verified** (vitest-only mechanism): CA-14/CA-24 regressions would surface post-merge in the 2-min protocol, not in CI (there is no CI — contract gap).
 - **Registry reset vs Monaco/Play interplay**: CA-6 touches `play-runner.ts`/`play-code.ts`, where the audit also saw a concurrent double-Play issue (out of scope) — the runner must not accidentally widen scope there.
 - No `[ASSUMED]` markers: all 8 inferences were reviewed and confirmed by the user on 2026-07-28.
+
+## Resultado de ejecucion (2026-07-28)
+| CA | Estado | Evidencia |
+|---|---|---|
+| CA-1 | verificado | `template.test.ts`: `projectFiles` stamps the picked plain-string archetype id into `src/game.json`. |
+| CA-2 | verificado | `archetype.test.ts`: persisted id resolves at runtime; a legacy file without the field resolves to platformer. |
+| CA-3 | verificado | `rg ACTIVE_ARCHETYPE packages/editor/src` returned no matches; `pnpm typecheck` passed. |
+| CA-4 | verificado | `state-machine.test.ts`: sequential bundle installation leaves only the second bundle's role and `walk` logic. |
+| CA-5 | verificado | `chassis.test.ts`: resolved bundles replace the registry; raw-source assertion confirms no bare behaviors import. |
+| CA-6 | verificado | `play-code.test.ts`: a deleted role file's state disappears on the next Play baseline reset. |
+| CA-7 | verificado | `player-identity.test.ts`: Collectible accepts a player-role entity with no PlatformerMotor. |
+| CA-8 | verificado | `player-identity.test.ts`: generic Hazard hurt accepts a motorless player; stomp remains motor-gated. |
+| CA-9 | verificado | `player-identity.test.ts`: Chaser follows the player-role entity instead of an earlier motor-bearing NPC. |
+| CA-10 | verificado | `player-identity.test.ts`: motor-bearing non-player is rejected by Collectible, Hazard, and Chaser. |
+| CA-11 | verificado | `input.test.ts`: engine defaults are `{}` and an `{ up }` map creates no `jump` action. |
+| CA-12 | verificado | `controls.test.ts`: platformer bindings and labels exactly match the legacy map; full suite passed. |
+| CA-13 | verificado | `input.test.ts`: blur and hidden visibility release all held and just-pressed keys. |
+| CA-14 | pendiente humano | Pure default resolution/reset is covered by `controls.test.ts`; controls-panel behavior awaits the declared protocol. |
+| CA-15 | verificado | `collision-shape.test.ts`: rectangle, circle, polygon, containment, contact, bounds, and malformed-point behavior pinned. |
+| CA-16 | verificado | `platformer-motor.test.ts`: contact convergence, existing-overlap bail, floor grounding, and ceiling behavior pinned. |
+| CA-17 | verificado | `state-machine-runtime.test.ts`: clip lookup, press consumption, signal chaining, and initial-enter timing pinned. |
+| CA-18 | verificado | `game.test.ts`: vx camera mover and bidirectional collision dispatch pinned; all three known bugs have AS-IS tests/comments. |
+| CA-19 | verificado | `solid-axis.test.ts` plus structural grep: one engine solver is consumed by Motor and Chaser; duplicate bodies/comment are absent. |
+| CA-20 | verificado | Shared-solver and Motor tests stop at a 0.1-wide wall with `dt = 0.1` and displacement 2.2. |
+| CA-21 | verificado | All pre-refactor Motor characterization tests remained green with the shared solver. |
+| CA-22 | verificado | `game.test.ts`: the constructor ResizeObserver's `disconnect()` is called by `dispose()`. |
+| CA-23 | verificado | `pnpm test`: 351/351 in 42 files; `pnpm typecheck` passed all workspaces; `pnpm build` passed (known chunk warnings only). |
+| CA-24 | pendiente humano | Build and editor HTTP smoke passed; gameplay/controls sanity awaits the declared human protocol. |
+
+Contract ladder also reached the live-app rung: `pnpm editor` served the editor with HTTP 200 and the root mount was present; the process was stopped and no worktree Vite process remained. No spec deviations were required.
