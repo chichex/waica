@@ -5,9 +5,9 @@ import controls from './controls.json'
 import stats from './stats.json'
 import settings from './game.json'
 
-// Your roles (src/roles/*.ts) and state code (src/states/*.ts) extend the
-// installed archetype baseline when main() imports them.
-const projectCode = import.meta.glob(['./roles/*.ts', './states/*.ts'])
+// Your components, roles and state code extend the installed archetype
+// baseline when main() imports them.
+const projectCode = import.meta.glob(['./components/*.ts', './roles/*.ts', './states/*.ts'])
 
 // Your prefabs ARE these files (saved by the editor, or hand-edited — they're
 // just JSON). Nothing else: delete one and the game stops knowing about it.

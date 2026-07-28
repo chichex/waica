@@ -5,6 +5,8 @@ export type { SceneCameraJson, CameraLimitsJson, ResolvedSceneCamera } from './c
 export { Entity } from './entity'
 export { Component } from './component'
 export type { ComponentClass, ParamSpec } from './component'
+export { collectModuleComponents, mergeRegistryComponents } from './component-registry'
+export type { ComponentModule } from './component-registry'
 export { Input, DEFAULT_BINDINGS } from './input'
 export type { ActionName, InputBindings } from './input'
 export { Stats } from './stats'
