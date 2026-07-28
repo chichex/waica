@@ -1,5 +1,6 @@
 import { Component } from '../component'
 import { AnimatedSprite } from '../components/animated-sprite'
+import type { Entity } from '../entity'
 import {
   closestLogicSet,
   logicSet,
@@ -152,6 +153,12 @@ export class StateMachine extends Component {
     this.signals.clear()
   }
 
+  override onCollide(other: Entity): void {
+    if (!this.current) return
+    this.runCollision('*', other)
+    this.runCollision(this.current, other)
+  }
+
   private env(): TriggerEnv {
     return {
       justPressed: (action) =>
@@ -172,6 +179,14 @@ export class StateMachine extends Component {
     for (const hooks of phaseHooks(this.hooksFor(state), fallback, phase)) {
       if (phase === 'onUpdate') hooks.onUpdate?.(ctx, dt)
       else hooks[phase]?.(ctx)
+    }
+  }
+
+  private runCollision(state: string, other: Entity): void {
+    const ctx: StateContext = { entity: this.entity, game: this.game, fsm: this }
+    const fallback = state !== '*' && this.role ? logicSet(this.role)?.['default'] : undefined
+    for (const hooks of phaseHooks(this.hooksFor(state), fallback, 'onCollide')) {
+      hooks.onCollide?.(ctx, other)
     }
   }
 
