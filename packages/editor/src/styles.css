@@ -2112,6 +2112,27 @@ button.ed-crumb:hover {
   color: var(--text-dim);
 }
 
+/* Enemy's hunting-style picker, indented under the enemy identity. */
+.ed-role-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: -2px 0 2px 26px;
+}
+
+.ed-role-sub .ed-role-option {
+  padding: 6px 8px;
+}
+
+/* The character's role in the inspector card — fixed at birth, not a picker. */
+.ed-role-fixed {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+}
+
 .ed-sm-body {
   display: flex;
   flex-direction: column;

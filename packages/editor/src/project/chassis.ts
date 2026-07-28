@@ -1,4 +1,4 @@
-import { registeredRoles, roleDefinition, type PrefabJson, type SceneComponentJson } from '@waica/engine'
+import { roleDefinition, type PrefabJson, type SceneComponentJson } from '@waica/engine'
 // The archetype's roles register on import (defineRole side effects) — the
 // chassis reads them from the engine registry, so they must be loaded.
 import '@waica/behaviors'
@@ -48,12 +48,38 @@ const DEFAULT_COLOR = 0x8ecae6
 const DEFAULT_SPRITE = { width: 1, height: 1, color: DEFAULT_COLOR }
 
 /**
+ * Who the character is to the game, decided at birth in the creation
+ * dialog. It is not tracked afterwards — the components ARE the identity.
+ * 'custom' is bring-your-own-role: the project defines it (defineRole).
+ */
+export type CharacterIdentity = 'player' | 'enemy' | 'npc' | 'custom'
+
+/**
+ * Components an identity is born with beyond the role package: players
+ * come back after death, enemies hurt on touch, bystanders and custom
+ * roles bring nothing.
+ */
+export const IDENTITY_EXTRAS: Record<CharacterIdentity, readonly string[]> = {
+  player: ['Respawnable'],
+  enemy: ['Hazard'],
+  npc: [],
+  custom: [],
+}
+
+/**
  * Factory components for a brand-new prefab of the given type. Characters
  * take the role chosen at creation and are born whole: the role installs
  * its starter graph AND the driver its states move, so the character works
  * in Play from second zero — there is no "machine without its driver" gap.
+ * The identity adds its extras on top (player → Respawnable, enemy →
+ * Hazard); the role is fixed at birth — changing it means recreating the
+ * character.
  */
-export function newPrefabComponents(type: PrefabType, role = 'player'): SceneComponentJson[] {
+export function newPrefabComponents(
+  type: PrefabType,
+  role = 'player',
+  identity?: CharacterIdentity,
+): SceneComponentJson[] {
   // Default draw order: characters over objects over tiles — same-layer
   // sprites fall back to spawn order, which reads as random overlap.
   switch (type) {
@@ -62,6 +88,9 @@ export function newPrefabComponents(type: PrefabType, role = 'player'): SceneCom
       // the archetype's.
       const def = roleDefinition(role)
       const driver: SceneComponentJson[] = def?.driver ? [{ type: def.driver }] : []
+      const extras: SceneComponentJson[] = (identity ? IDENTITY_EXTRAS[identity] : []).map(
+        (t) => ({ type: t }),
+      )
       return [
         { type: 'Sprite', props: { ...DEFAULT_SPRITE, layer: 2 } },
         {
@@ -73,6 +102,7 @@ export function newPrefabComponents(type: PrefabType, role = 'player'): SceneCom
           },
         },
         ...driver,
+        ...extras,
         { type: 'Hitbox', props: { width: 0.9, height: 0.95 } },
       ]
     }
@@ -129,69 +159,20 @@ export function behaviourTypes(all: Iterable<string>): string[] {
  * The role's driver component missing from the list, if any. A role's
  * states drive one component (player → the Motor, patroller → Patrol) and
  * early-return without it, so the character just stands there in Play.
- * Since roles install and swap their driver themselves, this is the safety
- * net for hand-edited JSON — an anomaly detector, no longer assembly
- * instructions. Null when driven, on unknown roles, or with no machine at
- * all. When another role's driver IS present (a patroller wearing the
- * player brain), that role comes back as the alternative — switching to it
- * beats adding a second driver.
+ * Since roles install their driver at birth, this is the safety net for
+ * hand-edited JSON — an anomaly detector, not assembly instructions.
+ * Null when driven, on unknown roles, or with no machine at all.
  */
 export function missingDriver(components: SceneComponentJson[]): {
   role: string
   driver: string
-  alternative?: { role: string; driver: string }
 } | null {
   const machine = components.find((c) => c.type === 'StateMachine')
   const role = machine?.props?.role
   const driver = typeof role === 'string' ? roleDefinition(role)?.driver : undefined
   if (typeof role !== 'string' || !driver) return null
   if (components.some((c) => c.type === driver)) return null
-  const out: ReturnType<typeof missingDriver> = { role, driver }
-  for (const name of registeredRoles()) {
-    const altDriver = roleDefinition(name)?.driver
-    if (name !== role && altDriver && components.some((c) => c.type === altDriver)) {
-      out.alternative = { role: name, driver: altDriver }
-      break
-    }
-  }
-  return out
-}
-
-/**
- * Switching a character's role = swapping the whole package: the machine
- * adopts the new role's starter graph and the old role's driver gives way
- * to the new one. On a role the registry doesn't know (project code), only
- * the role name changes — the editor can't know that package.
- */
-export function switchRole(components: SceneComponentJson[], to: string): SceneComponentJson[] {
-  const machine = components.find((c) => c.type === 'StateMachine')
-  if (!machine) return components
-  const from = typeof machine.props?.role === 'string' ? machine.props.role : ''
-  const def = roleDefinition(to)
-  const next = components.map((c) =>
-    c === machine
-      ? {
-          ...c,
-          props: def?.graph
-            ? {
-                ...c.props,
-                role: to,
-                initial: def.graph.initial,
-                states: structuredClone(def.graph.states),
-              }
-            : { ...c.props, role: to },
-        }
-      : c,
-  )
-  if (!def) return next
-  const oldDriver = roleDefinition(from)?.driver
-  const swapped =
-    oldDriver && oldDriver !== def.driver ? next.filter((c) => c.type !== oldDriver) : next
-  if (!def.driver || swapped.some((c) => c.type === def.driver)) return swapped
-  const at = swapped.findIndex((c) => c.type === 'StateMachine')
-  const out = [...swapped]
-  out.splice(at + 1, 0, { type: def.driver })
-  return out
+  return { role, driver }
 }
 
 /** Appearance props that survive the Sprite <-> AnimatedSprite swap. */

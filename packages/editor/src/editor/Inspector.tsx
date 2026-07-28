@@ -70,11 +70,7 @@ function characterClipsWarning(
 function driverWarning(components: SceneComponentJson[]): string | undefined {
   const missing = missingDriver(components)
   if (!missing) return undefined
-  const base = `this character won't move in Play: its "${missing.role}" states drive the ${componentLabel(missing.driver)} behaviour, which it doesn't have`
-  if (missing.alternative) {
-    return `${base} — it does have ${componentLabel(missing.alternative.driver)}: switch its role to "${missing.alternative.role}", or add ${componentLabel(missing.driver)} below`
-  }
-  return `${base} — re-pick its role to reinstall it, or add it with "+ behaviour" below`
+  return `this character won't move in Play: its "${missing.role}" states drive the ${componentLabel(missing.driver)} behaviour, which it doesn't have — add it with "+ behaviour" below`
 }
 
 interface Props {
@@ -143,10 +139,6 @@ interface Props {
   onMachinePatch(entity: string, patch: Partial<MachineProps>): void
   /** StateMachine props patch on a prefab — reaches every instance. */
   onPrefabMachinePatch(ref: string, patch: Partial<MachineProps>): void
-  /** Role-package swap on an entity's own machine (inline entities). */
-  onSwitchRole(entity: string, role: string): void
-  /** Role-package swap on a prefab — reaches every instance. */
-  onPrefabSwitchRole(ref: string, role: string): void
   /** Scaffolds src/roles/<role>.ts (never overwrites). */
   onCreateRoleFile(role: string): void
   /** Opens the state editor modal. */
@@ -1140,8 +1132,6 @@ interface MachineCardContext {
   stateFiles: string[]
   roleFiles: string[]
   onPatch(patch: Partial<MachineProps>): void
-  /** Full package swap: states replaced, driver swapped. */
-  onSwitchRole(role: string): void
   onCreateRoleFile(role: string): void
   onEditState(state: string): void
 }
@@ -1206,9 +1196,7 @@ function BehavioursSection({
                 clips={machine.clips}
                 stateFiles={machine.stateFiles}
                 roleFiles={machine.roleFiles}
-                present={present}
                 onPatch={machine.onPatch}
-                onSwitchRole={machine.onSwitchRole}
                 onCreateRoleFile={machine.onCreateRoleFile}
                 onEditState={machine.onEditState}
                 onRemove={canRemove(comp) ? () => onRemove(comp.type) : undefined}
@@ -1277,8 +1265,6 @@ function EntityInspector({
   roleFiles,
   onMachinePatch,
   onPrefabMachinePatch,
-  onSwitchRole,
-  onPrefabSwitchRole,
   onCreateRoleFile,
   onEditState,
   pixelsPerUnit,
@@ -1441,10 +1427,6 @@ function EntityInspector({
             entity.prefab && prefabOwns(entity, 'StateMachine', prefabs)
               ? onPrefabMachinePatch(entity.prefab, patch)
               : onMachinePatch(entity.name, patch),
-          onSwitchRole: (role) =>
-            entity.prefab && prefabOwns(entity, 'StateMachine', prefabs)
-              ? onPrefabSwitchRole(entity.prefab, role)
-              : onSwitchRole(entity.name, role),
           onCreateRoleFile,
           onEditState: (state) =>
             onEditState(
@@ -1487,7 +1469,6 @@ function PrefabInspector({
   stateFiles,
   roleFiles,
   onMachinePatch,
-  onSwitchRole,
   onCreateRoleFile,
   onEditState,
   pixelsPerUnit,
@@ -1511,7 +1492,6 @@ function PrefabInspector({
   stateFiles: string[]
   roleFiles: string[]
   onMachinePatch(patch: Partial<MachineProps>): void
-  onSwitchRole(role: string): void
   onCreateRoleFile(role: string): void
   onEditState(state: string): void
   pixelsPerUnit: number
@@ -1576,7 +1556,6 @@ function PrefabInspector({
           stateFiles,
           roleFiles,
           onPatch: onMachinePatch,
-          onSwitchRole,
           onCreateRoleFile,
           onEditState,
         }}
@@ -1870,7 +1849,6 @@ export function Inspector(props: Props) {
           stateFiles={props.stateFiles}
           roleFiles={props.roleFiles}
           onMachinePatch={(patch) => props.onPrefabMachinePatch(selection.ref, patch)}
-          onSwitchRole={(role) => props.onPrefabSwitchRole(selection.ref, role)}
           onCreateRoleFile={props.onCreateRoleFile}
           onEditState={(state) => props.onEditState({ kind: 'prefab', ref: selection.ref, state })}
           pixelsPerUnit={props.pixelsPerUnit}
