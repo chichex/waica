@@ -15,6 +15,8 @@ export { Solid } from './components/solid'
 export { Hitbox } from './components/hitbox'
 export { AnimatedSprite } from './components/animated-sprite'
 export { aabbOverlap } from './aabb'
+export { resolveSolidAxis } from './solid-axis'
+export type { CollisionAxis, SolidAxisOptions } from './solid-axis'
 export {
   COLLISION_SHAPES,
   DEFAULT_COLLISION_POLYGON,

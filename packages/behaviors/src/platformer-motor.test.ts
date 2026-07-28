@@ -56,6 +56,17 @@ describe('PlatformerMotor axis collision characterization', () => {
     expect(motor.vx).toBe(0)
   })
 
+  it('stops at a thin wall instead of tunneling at the 0.1 second frame clamp', () => {
+    const { motor, addSolid } = makeMotor()
+    addSolid(1, 0, 0.1, 4)
+    motor.vx = 22
+
+    motor.step(0.1)
+
+    expect(motor.entity.position.x).toBeCloseTo(0.5, 3)
+    expect(motor.vx).toBe(0)
+  })
+
   it('documents the current spawn-inside-wall pass-through bail', () => {
     // Documented current behavior, not approved behavior: a body already
     // overlapping a Solid keeps its move instead of being teleported out.

@@ -1,4 +1,4 @@
-import { collisionOverlap, Component, Solid, THREE, type CollisionBody } from '@waica/engine'
+import { Component, resolveSolidAxis, THREE, type CollisionBody } from '@waica/engine'
 
 /**
  * Passive platformer motor: tuning params, physical state and movement
@@ -125,57 +125,30 @@ export class PlatformerMotor extends Component {
   }
 
   private resolveAxis(axis: 'x' | 'y', previous: number): void {
-    const pos = this.entity.position
-    for (const other of this.game.entities) {
-      const solid = other.get(Solid)
-      if (!solid || other === this.entity || !this.overlaps(solid)) continue
-
-      const blocked = pos[axis]
-      pos[axis] = previous
-      // A collider already intersecting before this axis moved cannot be
-      // resolved safely here; preserve the move instead of teleporting it.
-      if (this.overlaps(solid)) {
-        pos[axis] = blocked
-        continue
-      }
-
-      // Find the contact point between the known-free and blocked positions.
-      let free = previous
-      let colliding = blocked
-      for (let step = 0; step < 14; step++) {
-        const middle = (free + colliding) / 2
-        pos[axis] = middle
-        if (this.overlaps(solid)) colliding = middle
-        else free = middle
-      }
-      pos[axis] = free
-
-      if (axis === 'x') {
-        this.vx = 0
-      } else if (this.vy <= 0) {
-        this.vy = 0
-        this.grounded = true
-      } else {
-        this.vy = 0
-      }
+    const collided = resolveSolidAxis({
+      entity: this.entity,
+      axis,
+      previous,
+      body: () => this.collisionBody(),
+    })
+    if (!collided) return
+    if (axis === 'x') {
+      this.vx = 0
+    } else if (this.vy <= 0) {
+      this.vy = 0
+      this.grounded = true
+    } else {
+      this.vy = 0
     }
   }
 
-  private overlaps(solid: Solid): boolean {
-    const player: CollisionBody = {
+  private collisionBody(): CollisionBody {
+    return {
       x: this.entity.position.x,
       y: this.entity.position.y,
       width: this.hitboxWidth,
       height: this.hitboxHeight,
       shape: 'rectangle',
     }
-    return collisionOverlap(player, {
-      x: solid.entity.position.x + solid.offsetX,
-      y: solid.entity.position.y + solid.offsetY,
-      width: solid.width,
-      height: solid.height,
-      shape: solid.shape,
-      points: solid.points,
-    })
   }
 }

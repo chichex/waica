@@ -1,8 +1,7 @@
 import {
-  collisionOverlap,
   Component,
   Hitbox,
-  Solid,
+  resolveSolidAxis,
   type CollisionBody,
   type Entity,
   type RoleDefinition,
@@ -11,9 +10,6 @@ import {
 import { isPlayer } from './player-identity'
 
 export type ChaserMode = 'walker' | 'ghost' | 'flyer'
-
-/** Terminal fall speed for walkers — the Motor's default, kept in sync by hand. */
-const MAX_FALL_SPEED = 22
 
 /**
  * Pursuit toward the player while they are within sight range, in one of
@@ -68,7 +64,7 @@ export class Chaser extends Component {
       this.entity.scale.x = dir
     }
     // Gravity applies in and out of sight — a walker spawned midair lands.
-    this.vy = Math.max(this.vy - this.gravity * dt, -MAX_FALL_SPEED)
+    this.vy = Math.max(this.vy - this.gravity * dt, -22)
     const previous = pos.y
     pos.y += this.vy * dt
     this.resolveAxis('y', previous)
@@ -95,58 +91,27 @@ export class Chaser extends Component {
     if (Math.abs(dx) > 0.05) this.entity.scale.x = dx > 0 ? 1 : -1
   }
 
-  /**
-   * Push back out of any Solid entered by this axis' move — the Motor's
-   * per-axis technique (platformer-motor resolveAxis), minus its player
-   * feel: find the contact point between the known-free previous position
-   * and the blocked one.
-   */
+  /** Resolves this mode's body through the engine's shared Solid solver. */
   private resolveAxis(axis: 'x' | 'y', previous: number): void {
-    const pos = this.entity.position
-    for (const other of this.entity.game.entities) {
-      const solid = other.get(Solid)
-      if (!solid || other === this.entity || !this.overlaps(solid)) continue
-
-      const blocked = pos[axis]
-      pos[axis] = previous
-      // A collider already intersecting before this axis moved cannot be
-      // resolved safely here; preserve the move instead of teleporting it.
-      if (this.overlaps(solid)) {
-        pos[axis] = blocked
-        continue
-      }
-
-      let free = previous
-      let colliding = blocked
-      for (let step = 0; step < 14; step++) {
-        const middle = (free + colliding) / 2
-        pos[axis] = middle
-        if (this.overlaps(solid)) colliding = middle
-        else free = middle
-      }
-      pos[axis] = free
-      if (axis === 'y') this.vy = 0
-    }
+    const collided = resolveSolidAxis({
+      entity: this.entity,
+      axis,
+      previous,
+      body: () => this.collisionBody(),
+    })
+    if (collided && axis === 'y') this.vy = 0
   }
 
-  /** AABB vs a Solid, sized by the sibling Hitbox (chassis default if none). */
-  private overlaps(solid: Solid): boolean {
+  /** AABB sized by the sibling Hitbox (chassis default if none). */
+  private collisionBody(): CollisionBody {
     const box = this.entity.get(Hitbox)
-    const body: CollisionBody = {
+    return {
       x: this.entity.position.x + (box?.offsetX ?? 0),
       y: this.entity.position.y + (box?.offsetY ?? 0),
       width: box?.width ?? 0.9,
       height: box?.height ?? 0.95,
       shape: 'rectangle',
     }
-    return collisionOverlap(body, {
-      x: solid.entity.position.x + solid.offsetX,
-      y: solid.entity.position.y + solid.offsetY,
-      width: solid.width,
-      height: solid.height,
-      shape: solid.shape,
-      points: solid.points,
-    })
   }
 }
 
