@@ -9,6 +9,14 @@ describe('projectFiles', () => {
     expect(game.archetype).toBe('platformer')
   })
 
+  it('loads project components alongside roles and states', () => {
+    const main = projectFiles('my-game')['src/main.ts'] ?? ''
+
+    expect(main).toContain(
+      "import.meta.glob(['./components/*.ts', './roles/*.ts', './states/*.ts'])",
+    )
+  })
+
   it('demo start ships the sample level, prefab files and UI files', () => {
     const files = projectFiles('my-game')
     const scene = JSON.parse(files['src/scenes/main.scene.json'] ?? '') as {

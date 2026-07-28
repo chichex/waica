@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AnimatedSprite } from '../components/animated-sprite'
 import type { Entity } from '../entity'
 import type { Game } from '../game'
+import { defineStates, resetRegistries } from './hooks'
 import { StateMachine } from './state-machine'
 
 interface MachineHarness {
@@ -37,6 +38,8 @@ function makeMachine(states: StateMachine['states'], sprite?: AnimatedSprite): M
   machine.initial = Object.keys(states)[0] ?? ''
   return { machine, consumed, setPressed: (action) => (pressed = action) }
 }
+
+beforeEach(() => resetRegistries())
 
 describe('StateMachine runtime characterization', () => {
   it('resolves a state clip override and asks the sibling sprite to play it', () => {
@@ -80,6 +83,58 @@ describe('StateMachine runtime characterization', () => {
     machine.goto('idle')
     machine.onUpdate(0.016)
     expect(machine.current).toBe('idle')
+  })
+
+  it('dispatches collision hooks for wildcard and current state with context and other', () => {
+    const calls: Array<{ phase: string; ctxEntity: Entity; other: Entity }> = []
+    const other = { name: 'Other' } as Entity
+    defineStates('collision-runtime', {
+      '*': {
+        onCollide(ctx, hit) {
+          calls.push({ phase: 'wildcard', ctxEntity: ctx.entity, other: hit })
+        },
+      },
+      idle: {
+        onCollide(ctx, hit) {
+          calls.push({ phase: 'current', ctxEntity: ctx.entity, other: hit })
+        },
+      },
+    })
+    const { machine } = makeMachine({ idle: {} })
+    machine.role = 'collision-runtime'
+    machine.onReady()
+
+    machine.onCollide(other)
+
+    expect(calls).toEqual([
+      { phase: 'wildcard', ctxEntity: machine.entity, other },
+      { phase: 'current', ctxEntity: machine.entity, other },
+    ])
+  })
+
+  it("uses the logic set's default collision hook only when the current state has none", () => {
+    const calls: string[] = []
+    defineStates('collision-default', {
+      default: { onCollide: () => calls.push('default') },
+      own: { onCollide: () => calls.push('own') },
+      inherited: {},
+    })
+    const { machine } = makeMachine({ inherited: {}, own: {} })
+    machine.role = 'collision-default'
+    machine.onReady()
+
+    machine.onCollide({ name: 'First' } as Entity)
+    machine.goto('own')
+    machine.onCollide({ name: 'Second' } as Entity)
+
+    expect(calls).toEqual(['default', 'own'])
+  })
+
+  it('stays quiet when neither the state nor its set defines a collision hook', () => {
+    const { machine } = makeMachine({ idle: {} })
+    machine.onReady()
+
+    expect(() => machine.onCollide({ name: 'Other' } as Entity)).not.toThrow()
   })
 
   it('documents initial onEnter running before later siblings are spawned', () => {
