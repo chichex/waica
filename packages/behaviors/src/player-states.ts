@@ -71,6 +71,13 @@ defineRole('player', {
     'buffering). Its states move the Motor.',
   driver: 'PlatformerMotor',
   graph: PLAYER_STATE_GRAPH,
+  signals: {
+    move: 'on the ground and moving',
+    stop: 'on the ground and standing still',
+    rise: 'airborne, going up',
+    fall: 'airborne, going down',
+    land: 'just touched the ground',
+  },
   states: {
     // Always-hook: motor bookkeeping (coyote/buffer timers, squash, facing)
     // must survive custom states like a dash, so it runs in every state.
@@ -79,6 +86,9 @@ defineRole('player', {
         entity.get(PlatformerMotor)?.tick(dt)
       },
     },
+    // Fallback: a custom state without its own onUpdate keeps the full
+    // body update — its file only has to say what makes it special.
+    default: { onUpdate: playerUpdate },
     idle: { onUpdate: playerUpdate },
     run: { onUpdate: playerUpdate },
     jump: { onUpdate: playerUpdate },

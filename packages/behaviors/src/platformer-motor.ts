@@ -87,6 +87,9 @@ export class PlatformerMotor extends Component {
     this.vy = this.jumpVelocity
     this.coyoteTimer = 0
     this.bufferTimer = 0
+    // The press that launched this jump is spent: a "key press jump"
+    // transition needs a NEW press, not the one already used here.
+    this.game.input.consume('jump')
     this.applySquash(0.8, 1.25)
   }
 

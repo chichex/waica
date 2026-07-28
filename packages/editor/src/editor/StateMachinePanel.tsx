@@ -6,7 +6,6 @@ import {
   type StateJson,
   type StateTransitionJson,
 } from '@waica/engine'
-import { ACTIVE_ARCHETYPE } from '../project/archetype'
 import {
   machineProps,
   roleKnown,
@@ -15,23 +14,18 @@ import {
   stateNames,
   type MachineProps,
 } from '../project/states'
+import type { CharacterIdentity } from '../project/chassis'
 
 /** Whose StateMachine a state edit applies to (mirrors AnimTarget). */
 export type StateTarget =
   | { kind: 'prefab'; ref: string; state: string }
   | { kind: 'entity'; name: string; state: string }
 
-/** Friendly component name ("Motor", not "PlatformerMotor"). */
-function componentLabel(type: string): string {
-  return ACTIVE_ARCHETYPE.registry.components[type]?.displayName ?? type
-}
-
-const CUSTOM_ROLE = '\u0000custom'
-
 /**
  * The inspector card for a character's Role — its behavior package. The
- * Role picker swaps the whole package (states + driver) behind an explicit
- * confirm; initial state and the state list with its warnings are the
+ * role is fixed at birth (picked in the creation dialog); changing it
+ * means deleting the character and creating a new one, so the card only
+ * shows it. Initial state and the state list with its warnings are the
  * role's visible detail. Structure edits (add/delete) go through onPatch;
  * each state's detail opens the StateEditorModal.
  */
@@ -40,9 +34,7 @@ export function StateMachineCard({
   clips,
   stateFiles,
   roleFiles,
-  present,
   onPatch,
-  onSwitchRole,
   onCreateRoleFile,
   onEditState,
   onRemove,
@@ -54,11 +46,7 @@ export function StateMachineCard({
   stateFiles: string[]
   /** Basenames in src/roles/, for the custom-role status. */
   roleFiles: string[]
-  /** Component types on this character, to spell out the package swap. */
-  present: Set<string>
   onPatch(patch: Partial<MachineProps>): void
-  /** Full package swap: states replaced, driver swapped (confirmed here). */
-  onSwitchRole(role: string): void
   onCreateRoleFile(role: string): void
   onEditState(state: string): void
   /** Absent = locked (prefab-owned at the entity level). */
@@ -66,55 +54,14 @@ export function StateMachineCard({
 }) {
   const machine = machineProps(comp)
   const names = stateNames(machine)
-  const roles = registeredRoles()
   const known = roleKnown(machine.role)
   const def = roleDefinition(machine.role)
   const roleFile = roleFiles.includes(`${machine.role}.ts`)
-  const [customizing, setCustomizing] = useState(false)
   const [newState, setNewState] = useState('')
 
-  /**
-   * The role IS the package: switching to a known role replaces the states
-   * and swaps the driver, spelled out in the confirm — Cancel changes
-   * nothing at all. Unknown (project) roles switch by name only, since the
-   * editor can't know their package.
-   */
-  const switchTo = (next: string): void => {
-    if (!next || next === machine.role) return
-    const target = roleDefinition(next)
-    if (!target) {
-      onPatch({ role: next })
-      return
-    }
-    const current = roleDefinition(machine.role)
-    const defaults = new Set(Object.keys(current?.graph?.states ?? {}))
-    const custom = names.filter((n) => !defaults.has(n))
-    const actions: string[] = []
-    if (target.graph) {
-      actions.push(`installs its states (${Object.keys(target.graph.states).join(', ')})`)
-    }
-    const oldDriver = current?.driver
-    if (oldDriver && oldDriver !== target.driver && present.has(oldDriver)) {
-      actions.push(`removes ${componentLabel(oldDriver)}`)
-    }
-    if (target.driver && !present.has(target.driver)) {
-      actions.push(`adds ${componentLabel(target.driver)}`)
-    }
-    const lost =
-      custom.length && target.graph
-        ? `\n\n⚠ States you made yourself will be lost: ${custom.join(', ')}.`
-        : ''
-    const ok = window.confirm(
-      `Switch this character's role to "${next}"?\n\n` +
-        `${next}: ${target.description}\n\n` +
-        (actions.length ? `Switching ${actions.join(', ')}.` : 'Only the role name changes.') +
-        `${lost}\n\nCancel changes nothing.`,
-    )
-    if (ok) onSwitchRole(next)
-  }
-
   const addName = newState.trim()
-  const addTaken = addName !== '' && (addName === '*' || machine.states[addName] !== undefined)
+  const addTaken =
+    addName !== '' && (RESERVED_STATE_NAMES.has(addName) || machine.states[addName] !== undefined)
   const addState = (): void => {
     if (!addName || addTaken) return
     onPatch({
@@ -150,53 +97,21 @@ export function StateMachineCard({
         )}
       </header>
 
-      {customizing ? (
-        <label className="ed-row">
-          <span>role</span>
-          <input
-            type="text"
-            autoFocus
-            defaultValue={machine.role}
-            placeholder="your role name…"
-            onBlur={(e) => {
-              switchTo(e.target.value.trim())
-              setCustomizing(false)
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') e.currentTarget.blur()
-              if (e.key === 'Escape') setCustomizing(false)
-            }}
-          />
-        </label>
-      ) : (
-        <label className="ed-row">
-          <span>role</span>
-          <select
-            value={machine.role}
-            onChange={(e) => {
-              if (e.target.value === CUSTOM_ROLE) {
-                setCustomizing(true)
-                return
-              }
-              switchTo(e.target.value)
-            }}
-          >
-            {roles.map((name) => (
-              <option key={name} value={name} title={roleDefinition(name)?.description}>
-                {name}
-              </option>
-            ))}
-            {!known && <option value={machine.role}>{machine.role || '(none)'}</option>}
-            <option value={CUSTOM_ROLE}>custom…</option>
-          </select>
-        </label>
-      )}
+      <div className="ed-row">
+        <span>role</span>
+        <span
+          className="ed-role-fixed"
+          title="picked at birth — to change it, delete this character and create a new one"
+        >
+          {machine.role || '(none)'}
+        </span>
+      </div>
       {def && <div className="ed-hint">{def.description}</div>}
       {!known && machine.role && (
         roleFile ? (
           <div className="ed-hint">
-            ⓘ Role file found: src/roles/{machine.role}.ts — it registers in your game (pnpm
-            dev); the editor can't run it, so here its states animate and switch by data only
+            ⓘ Role file found: src/roles/{machine.role}.ts — it registers when you press
+            Play and when your game runs (pnpm dev)
           </div>
         ) : (
           <>
@@ -292,6 +207,17 @@ function serializeEdge(e: EdgeDraft): StateTransitionJson {
   return { on: `${e.kind}:${e.arg}`, to: e.to }
 }
 
+/** 'input:jump' → 'key press jump', for the read-only incoming-edges line. */
+function describeTrigger(on: string): string {
+  const e = parseEdge({ on, to: '' })
+  if (e.kind === 'input') return `key press ${e.arg}`
+  if (e.kind === 'timer') return `after ${e.arg}s`
+  return `signal ${e.arg}`
+}
+
+/** States may not take the names the logic set reserves for its hooks. */
+const RESERVED_STATE_NAMES = new Set(['*', 'default'])
+
 /** Placeholder per trigger kind, so an empty arg reads as instructions. */
 const ARG_HINTS: Record<EdgeDraft['kind'], string> = {
   input: 'action…',
@@ -341,9 +267,19 @@ export function StateEditorModal({
   }, [onCancel])
 
   const nextName = name.trim() || state
-  const renameTaken = nextName !== state && machine.states[nextName] !== undefined
+  const renameTaken =
+    nextName !== state &&
+    (RESERVED_STATE_NAMES.has(nextName) || machine.states[nextName] !== undefined)
   const targets = stateNames(machine).map((n) => (n === state ? nextName : n))
   const code = stateCodeStatus(machine.role, nextName, stateFiles)
+  /** Signals the role's code emits — suggestions for the signal trigger field. */
+  const signals = Object.entries(roleDefinition(machine.role)?.signals ?? {})
+  /** Edges of other states that lead here — the half of the map this modal doesn't edit. */
+  const incoming = Object.entries(machine.states).flatMap(([from, d]) =>
+    (d.transitions ?? [])
+      .filter((t) => t.to === state)
+      .map((t) => `${from === '*' ? 'any state' : from} (${describeTrigger(t.on)})`),
+  )
 
   const patchEdge = (index: number, patch: Partial<EdgeDraft>): void =>
     setEdges((all) => all.map((e, i) => (i === index ? { ...e, ...patch } : e)))
@@ -392,7 +328,11 @@ export function StateEditorModal({
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
           </label>
           {renameTaken && (
-            <div className="ed-hint ed-warn">a state named “{nextName}” already exists</div>
+            <div className="ed-hint ed-warn">
+              {RESERVED_STATE_NAMES.has(nextName)
+                ? `“${nextName}” is reserved for the role's own hooks`
+                : `a state named “${nextName}” already exists`}
+            </div>
           )}
 
           <label className="ed-row">
@@ -417,6 +357,16 @@ export function StateEditorModal({
           )}
 
           <header className="ed-sec-head">Transitions</header>
+          {incoming.length > 0 ? (
+            <div className="ed-hint">⬅ reached from {incoming.join(', ')}</div>
+          ) : machine.initial === state ? (
+            <div className="ed-hint">⬅ the initial state — the machine starts here</div>
+          ) : (
+            <div className="ed-hint ed-warn">
+              ⚠ Nothing leads here yet — open the state this one starts from and add a
+              transition to “{state}” there
+            </div>
+          )}
           {edges.length === 0 && (
             <div className="ed-hint">no transitions — this state never leaves by itself</div>
           )}
@@ -454,6 +404,7 @@ export function StateEditorModal({
               ) : (
                 <input
                   type="text"
+                  list={signals.length > 0 ? 'ed-sm-signals' : undefined}
                   value={edge.arg}
                   placeholder={ARG_HINTS.signal}
                   onChange={(e) => patchEdge(i, { arg: e.target.value })}
@@ -491,6 +442,17 @@ export function StateEditorModal({
           >
             + transition
           </button>
+          {signals.length > 0 && (
+            // The signal field suggests the role's declared vocabulary but
+            // stays free text: project code can emit signals of its own.
+            <datalist id="ed-sm-signals">
+              {signals.map(([signal, description]) => (
+                <option key={signal} value={signal}>
+                  {description}
+                </option>
+              ))}
+            </datalist>
+          )}
 
           <header className="ed-sec-head">Code</header>
           {code.kind === 'builtin' ? (
@@ -499,8 +461,8 @@ export function StateEditorModal({
             </div>
           ) : code.kind === 'file' ? (
             <div className="ed-hint">
-              ⓘ Code file found: {code.path} — runs in your game (pnpm dev), not in editor
-              Play. The editor can't run your project's code.
+              ✓ Code file: {code.path} — loaded fresh on every Play, and in your game (pnpm
+              dev)
             </div>
           ) : (
             <>
@@ -528,23 +490,41 @@ export function StateEditorModal({
   )
 }
 
+/** What the creation dialog hands back: who it is, and the role package. */
+export interface NewCharacterPick {
+  identity: CharacterIdentity
+  role: string
+}
+
+/** Roles offered as an enemy's hunting style — every role that isn't an identity of its own. */
+function enemyRoles(): string[] {
+  return registeredRoles().filter((name) => name !== 'player' && name !== 'npc')
+}
+
 /**
- * Modal shown when creating a character: pick its role there and then, so
- * the character is born whole — graph and driver installed, working in
- * Play from second zero. Each role explains itself via its description.
+ * Modal shown when creating a character: pick WHO it is (player / enemy /
+ * npc / custom) there and then, so the character is born whole — graph,
+ * driver and the identity's extras installed (player → Respawn, enemy →
+ * Hazard), working in Play from second zero. Enemies also pick how they
+ * hunt: a built-in movement role or a custom one from the project's code;
+ * 'custom' is bring-your-own-role with no extras at all. The identity is
+ * fixed at birth: changing it later means deleting the character and
+ * creating a new one.
  */
 export function RolePickerModal({
   suggested,
   onPick,
   onCancel,
 }: {
-  /** Preselected role: 'player' until the project has one, then 'patroller'. */
-  suggested: string
-  onPick(role: string): void
+  /** Preselected identity: 'player' until the project has one, then 'enemy'. */
+  suggested: CharacterIdentity
+  onPick(pick: NewCharacterPick): void
   onCancel(): void
 }) {
-  const roles = registeredRoles()
-  const [choice, setChoice] = useState(suggested)
+  const [identity, setIdentity] = useState<CharacterIdentity>(suggested)
+  /** The enemy's movement role; null = custom (named below). */
+  const [movement, setMovement] = useState<string | null>(enemyRoles()[0] ?? null)
+  const [customRole, setCustomRole] = useState('')
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -553,6 +533,24 @@ export function RolePickerModal({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onCancel])
+
+  const role =
+    identity === 'player'
+      ? 'player'
+      : identity === 'npc'
+        ? 'npc'
+        : identity === 'enemy'
+          ? (movement ?? customRole.trim())
+          : customRole.trim()
+  const ready = role !== ''
+
+  const identityOption = (id: CharacterIdentity, desc: string): React.ReactNode => (
+    <label className={`ed-role-option ${identity === id ? 'is-picked' : ''}`}>
+      <input type="radio" name="identity" checked={identity === id} onChange={() => setIdentity(id)} />
+      <span className="ed-role-name">{id}</span>
+      <span className="ed-role-desc">{desc}</span>
+    </label>
+  )
 
   return (
     <div
@@ -569,28 +567,94 @@ export function RolePickerModal({
           </button>
         </header>
         <div className="ed-modal-body ed-role-body">
-          {roles.map((name) => (
-            <label key={name} className={`ed-role-option ${choice === name ? 'is-picked' : ''}`}>
+          {identityOption(
+            'player',
+            `${roleDefinition('player')?.description ?? ''} Respawn included — it comes back at its spawn point when it dies.`,
+          )}
+          {identityOption(
+            'enemy',
+            'Hurts the player on touch — Hazard included. Pick how it hunts:',
+          )}
+          {identity === 'enemy' && (
+            <div className="ed-role-sub">
+              {enemyRoles().map((name) => (
+                <label
+                  key={name}
+                  className={`ed-role-option ${movement === name ? 'is-picked' : ''}`}
+                >
+                  <input
+                    type="radio"
+                    name="enemy-role"
+                    checked={movement === name}
+                    onChange={() => setMovement(name)}
+                  />
+                  <span className="ed-role-name">{name}</span>
+                  <span className="ed-role-desc">{roleDefinition(name)?.description}</span>
+                </label>
+              ))}
+              <label className={`ed-role-option ${movement === null ? 'is-picked' : ''}`}>
+                <input
+                  type="radio"
+                  name="enemy-role"
+                  checked={movement === null}
+                  onChange={() => setMovement(null)}
+                />
+                <span className="ed-role-name">custom</span>
+                {movement === null ? (
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="your role name…"
+                    value={customRole}
+                    onChange={(e) => setCustomRole(e.target.value)}
+                  />
+                ) : (
+                  <span className="ed-role-desc">
+                    a role of your own — name it here, define it in your project (defineRole)
+                  </span>
+                )}
+              </label>
+            </div>
+          )}
+          {identityOption('npc', roleDefinition('npc')?.description ?? '')}
+          <label className={`ed-role-option ${identity === 'custom' ? 'is-picked' : ''}`}>
+            <input
+              type="radio"
+              name="identity"
+              checked={identity === 'custom'}
+              onChange={() => setIdentity('custom')}
+            />
+            <span className="ed-role-name">custom</span>
+            {identity === 'custom' ? (
               <input
-                type="radio"
-                name="role"
-                checked={choice === name}
-                onChange={() => setChoice(name)}
+                type="text"
+                autoFocus
+                placeholder="your role name…"
+                value={customRole}
+                onChange={(e) => setCustomRole(e.target.value)}
               />
-              <span className="ed-role-name">{name}</span>
-              <span className="ed-role-desc">{roleDefinition(name)?.description}</span>
-            </label>
-          ))}
+            ) : (
+              <span className="ed-role-desc">
+                a role of your own, no extras included — name it here, define it in your
+                project (defineRole)
+              </span>
+            )}
+          </label>
           <div className="ed-hint">
-            the role installs the whole package — states and the behaviour that moves them.
-            You can switch it any time from the character's Role card.
+            the choice installs the whole package — states, the behaviour that moves them and
+            the identity's extras — and is fixed at birth: to change it later, delete the
+            character and create a new one.
           </div>
         </div>
         <footer className="ed-modal-foot">
           <button className="ed-mini" onClick={onCancel}>
             Cancel
           </button>
-          <button className="ed-primary" onClick={() => onPick(choice)}>
+          <button
+            className="ed-primary"
+            disabled={!ready}
+            onClick={() => onPick({ identity, role })}
+          >
             Create
           </button>
         </footer>

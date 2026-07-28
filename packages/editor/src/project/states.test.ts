@@ -17,7 +17,10 @@ function machine(over: Partial<MachineProps> = {}): MachineProps {
   return {
     role: 'player',
     initial: 'idle',
-    states: { idle: {}, dashing: { clip: 'run', transitions: [{ on: 'timer:0.25', to: 'idle' }] } },
+    states: {
+      idle: { transitions: [{ on: 'input:dash', to: 'dashing' }] },
+      dashing: { clip: 'run', transitions: [{ on: 'timer:0.25', to: 'idle' }] },
+    },
     ...over,
   }
 }
@@ -74,8 +77,25 @@ describe('stateIssues', () => {
     expect(issues.some((i) => i.level === 'warn' && i.text.includes('"idel"'))).toBe(true)
   })
 
-  it('marks project-file states as info, never warn', () => {
+  it('warns when nothing leads to a non-initial state', () => {
+    const stranded = machine({
+      states: { idle: {}, dashing: { clip: 'run', transitions: [] } },
+    })
+    const issues = stateIssues('dashing', stranded, ['run'], ['dashing.ts'])
+    expect(issues.some((i) => i.level === 'warn' && i.text === 'Nothing leads here')).toBe(true)
+    // The initial state needs no incoming edge — the machine starts there.
+    expect(
+      stateIssues('idle', stranded, ['idle'], []).some((i) => i.text === 'Nothing leads here'),
+    ).toBe(false)
+  })
+
+  it('reports nothing for project-file states — Play runs them', () => {
     const issues = stateIssues('dashing', machine(), ['run'], ['dashing.ts'])
+    expect(issues).toEqual([])
+  })
+
+  it('marks code-less custom states as info, never warn', () => {
+    const issues = stateIssues('dashing', machine(), ['run'], [])
     expect(issues).toHaveLength(1)
     expect(issues[0]?.level).toBe('info')
     expect(issues[0]?.detail).toContain('src/states/dashing.ts')

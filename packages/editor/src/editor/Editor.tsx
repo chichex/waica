@@ -9,8 +9,8 @@ import {
   setAppearanceShape,
   setAppearanceTexture,
   setCollisionEnabled,
-  switchRole,
   toggleAnimated,
+  type CharacterIdentity,
 } from '../project/chassis'
 import { CONTROLS_PATH, parseControls, serializeControls } from '../project/controls'
 import {
@@ -23,6 +23,8 @@ import {
   stateFileTemplate,
   type MachineProps,
 } from '../project/states'
+import { loadPlayCode } from '../project/play-code'
+import * as playRunner from './play-runner'
 import { DEFAULT_EDITOR_SETTINGS, EDITOR_SETTINGS_PATH, parseEditorSettings, serializeEditorSettings, type EditorSettings, type GridSettings } from '../project/editor-settings'
 import { DEFAULT_GAME_SETTINGS, GAME_PATH, parseGameSettings, serializeGameSettings, type GameSettings } from '../project/game'
 import { STATS_PATH, parseStats, serializeStats, type ProjectStats } from '../project/stats'
@@ -592,31 +594,40 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     if (scene) commit(ops.reorderEntities(scene, names, target), true)
   }
 
-  const spawnPrefab = (type: PrefabJson['type'], role?: string): void => {
+  const spawnPrefab = (
+    type: PrefabJson['type'],
+    role?: string,
+    identity?: CharacterIdentity,
+  ): void => {
     const dir = Object.entries(PREFAB_DIRS).find(([, cat]) => cat === type)?.[0]
     if (!dir) return
     let n = 1
     while (prefabLib[`${dir}/${type}-${n}`]) n++
     const ref = `${dir}/${type}-${n}`
-    commitPrefab(ref, { waicaPrefab: 1, type, components: newPrefabComponents(type, role) }, true)
+    commitPrefab(
+      ref,
+      { waicaPrefab: 1, type, components: newPrefabComponents(type, role, identity) },
+      true,
+    )
     openView({ kind: 'prefab', ref })
   }
 
-  // Characters pick their role at birth (the RolePickerModal) and are born
-  // whole — graph + driver installed. Objects and tiles create directly.
+  // Characters pick their identity at birth (the RolePickerModal) and are
+  // born whole — graph, driver and identity extras installed. Objects and
+  // tiles create directly.
   const createPrefab = (type: PrefabJson['type']): void => {
     if (type === 'character') setRolePicking(true)
     else spawnPrefab(type)
   }
 
-  /** Preselect 'player' until the project has one, then 'patroller'. */
-  const suggestedRole = (): string =>
+  /** Preselect 'player' until the project has one, then 'enemy'. */
+  const suggestedIdentity = (): CharacterIdentity =>
     Object.values(prefabLib).some(
       (p) =>
         p.type === 'character' &&
         p.components.some((c) => c.type === 'StateMachine' && c.props?.role === 'player'),
     )
-      ? 'patroller'
+      ? 'enemy'
       : 'player'
 
   const duplicatePrefab = (ref: string): void => {
@@ -794,10 +805,16 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     selectEntity(name)
   }
 
-  const play = (): void => {
+  const play = async (): Promise<void> => {
     if (!openScenePath || !scene) return
     setSelected(null)
     setMulti([])
+    // Project state/role code registers before the Play game is built, so
+    // custom states behave here exactly as in the shipped game (play-code.ts).
+    const { errors } = await loadPlayCode(fs, playRunner)
+    for (const { path, message } of errors) {
+      console.error(`[waica] Play could not run ${path}: ${message}`)
+    }
     // Play may be pressed from any view (prefab, ui…): the run happens in the
     // scene viewport, so bring the open scene to the center first.
     setView({ kind: 'scene', path: openScenePath })
@@ -1020,21 +1037,6 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     if (existing == null) await fs.writeText(path, roleFileTemplate(role))
     setRoleFiles(await listRoleFiles(fs))
     openView({ kind: 'stateFile', path })
-  }
-
-  // Role swap = whole package (graph replaced, driver swapped), already
-  // confirmed in the card. Structural, like machine patches.
-  const prefabSwitchRole = (ref: string, role: string): void => {
-    const prefab = prefabLib[ref]
-    if (!prefab) return
-    commitPrefab(ref, { ...prefab, components: switchRole(prefab.components, role) }, true)
-  }
-
-  const entitySwitchRole = (name: string, role: string): void => {
-    if (!scene) return
-    const entity = scene.entities.find((e) => e.name === name)
-    if (!entity?.components) return
-    commit(ops.setEntityComponents(scene, name, switchRole(entity.components, role)), true)
   }
 
   const prefabMachinePatch = (ref: string, patch: Partial<MachineProps>): void => {
@@ -1414,7 +1416,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
           onClick={(e) => {
             // Drop focus so Space (jump) doesn't re-trigger the button.
             e.currentTarget.blur()
-            ;(mode === 'edit' ? play : stop)()
+            void (mode === 'edit' ? play() : stop())
           }}
         >
           {mode === 'edit' ? '▶ Play' : '⏹ Stop'}
@@ -1733,8 +1735,6 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             roleFiles={roleFiles}
             onMachinePatch={entityMachinePatch}
             onPrefabMachinePatch={prefabMachinePatch}
-            onSwitchRole={entitySwitchRole}
-            onPrefabSwitchRole={prefabSwitchRole}
             onCreateRoleFile={(role) => void createRoleFile(role)}
             onEditState={setStateTarget}
           />
@@ -1831,10 +1831,10 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
 
       {rolePicking && (
         <RolePickerModal
-          suggested={suggestedRole()}
-          onPick={(role) => {
+          suggested={suggestedIdentity()}
+          onPick={({ identity, role }) => {
             setRolePicking(false)
-            spawnPrefab('character', role)
+            spawnPrefab('character', role, identity)
           }}
           onCancel={() => setRolePicking(false)}
         />

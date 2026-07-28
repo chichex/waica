@@ -4,3 +4,6 @@ dist/
 *.local
 .DS_Store
 .playwright-mcp/
+
+# local editor/session state
+.claude/

@@ -28,6 +28,7 @@ export interface StateJson {
 
 /** What a trigger string is checked against. */
 export interface TriggerEnv {
+  /** An unconsumed press of the action this frame (see Input.consume). */
   justPressed(action: string): boolean
   /** Seconds spent in the current state. */
   elapsed: number
@@ -46,14 +47,29 @@ export function evaluateTrigger(on: string, env: TriggerEnv): boolean {
   return false
 }
 
-/** Target of the first firing transition: the state's own edges, then '*''s. */
+/** The first firing transition: the state's own edges, then '*''s. */
 export function nextTransition(
   states: Record<string, StateJson>,
   current: string,
   env: TriggerEnv,
-): string | undefined {
+): StateTransitionJson | undefined {
   const edges = [...(states[current]?.transitions ?? []), ...(states['*']?.transitions ?? [])]
-  return edges.find((t) => evaluateTrigger(t.on, env))?.to
+  return edges.find((t) => evaluateTrigger(t.on, env))
+}
+
+/**
+ * The hooks that actually run for one phase of a state: the state's own
+ * (logic set + instance), or — when none of them define the phase — the
+ * set's 'default' entry. A custom state keeps the role's stock body
+ * update unless it brings its own.
+ */
+export function phaseHooks(
+  hooks: StateHooks[],
+  fallback: StateHooks | undefined,
+  phase: keyof StateHooks,
+): StateHooks[] {
+  if (hooks.some((h) => h[phase])) return hooks
+  return fallback?.[phase] ? [fallback] : hooks
 }
 
 /**
@@ -126,16 +142,20 @@ export class StateMachine extends Component {
     // Chained transitions settle within the frame (e.g. land → idle → run),
     // capped so a degenerate cyclic graph can't hang the loop.
     for (let hops = 0; hops < 8; hops++) {
-      const to = nextTransition(this.states, this.current, this.env())
-      if (!to) break
-      this.enter(to)
+      const edge = nextTransition(this.states, this.current, this.env())
+      if (!edge) break
+      // A transition fired by a key press spends it: one press, one
+      // transition — it can't fire again from the state just entered.
+      if (edge.on.startsWith('input:')) this.game.input.consume(edge.on.slice('input:'.length))
+      this.enter(edge.to)
     }
     this.signals.clear()
   }
 
   private env(): TriggerEnv {
     return {
-      justPressed: (action) => this.game.input.justPressed(action),
+      justPressed: (action) =>
+        this.game.input.justPressed(action) && !this.game.input.consumed(action),
       elapsed: this.elapsed,
       signals: this.signals,
     }
@@ -148,7 +168,8 @@ export class StateMachine extends Component {
 
   private run(state: string, phase: 'onEnter' | 'onUpdate' | 'onExit', dt = 0): void {
     const ctx: StateContext = { entity: this.entity, game: this.game, fsm: this }
-    for (const hooks of this.hooksFor(state)) {
+    const fallback = state !== '*' && this.role ? logicSet(this.role)?.['default'] : undefined
+    for (const hooks of phaseHooks(this.hooksFor(state), fallback, phase)) {
       if (phase === 'onUpdate') hooks.onUpdate?.(ctx, dt)
       else hooks[phase]?.(ctx)
     }

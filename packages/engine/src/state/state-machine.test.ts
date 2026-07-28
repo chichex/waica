@@ -7,7 +7,13 @@ import {
   registeredRoles,
   roleDefinition,
 } from './hooks'
-import { evaluateTrigger, nextTransition, type StateJson, type TriggerEnv } from './state-machine'
+import {
+  evaluateTrigger,
+  nextTransition,
+  phaseHooks,
+  type StateJson,
+  type TriggerEnv,
+} from './state-machine'
 
 function env(over: Partial<TriggerEnv> = {}): TriggerEnv {
   return { justPressed: () => false, elapsed: 0, signals: new Set(), ...over }
@@ -53,17 +59,40 @@ describe('nextTransition', () => {
 
   it('picks the first edge that fires, in declared order', () => {
     const e = env({ justPressed: () => true, signals: new Set(['move']) })
-    expect(nextTransition(states, 'idle', e)).toBe('dashing')
+    expect(nextTransition(states, 'idle', e)?.to).toBe('dashing')
   })
 
   it("falls back to '*' edges from any state", () => {
     const e = env({ signals: new Set(['hurt']) })
-    expect(nextTransition(states, 'idle', e)).toBe('hurt')
-    expect(nextTransition(states, 'dashing', e)).toBe('hurt')
+    expect(nextTransition(states, 'idle', e)?.to).toBe('hurt')
+    expect(nextTransition(states, 'dashing', e)?.to).toBe('hurt')
   })
 
   it('returns undefined when nothing fires', () => {
     expect(nextTransition(states, 'dashing', env({ elapsed: 0.1 }))).toBeUndefined()
+  })
+
+  it('returns the edge itself, so the machine can spend its key press', () => {
+    const e = env({ justPressed: () => true })
+    expect(nextTransition(states, 'idle', e)?.on).toBe('input:dash')
+  })
+})
+
+describe('phaseHooks', () => {
+  const own = { onEnter: () => {} }
+  const fallback = { onUpdate: () => {}, onEnter: () => {} }
+
+  it("uses the set's 'default' when no hook defines the phase", () => {
+    expect(phaseHooks([own], fallback, 'onUpdate')).toEqual([fallback])
+  })
+
+  it('prefers the state’s own hook for a phase it defines', () => {
+    expect(phaseHooks([own], fallback, 'onEnter')).toEqual([own])
+  })
+
+  it('stays with the state’s hooks when there is no fallback for the phase', () => {
+    expect(phaseHooks([own], undefined, 'onUpdate')).toEqual([own])
+    expect(phaseHooks([own], { onExit: () => {} }, 'onUpdate')).toEqual([own])
   })
 })
 

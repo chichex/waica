@@ -17,6 +17,7 @@ export class Input {
   private readonly bindings = new Map<string, Set<string>>()
   private readonly down = new Set<string>()
   private readonly justDown = new Set<string>()
+  private readonly used = new Set<string>()
 
   /** Custom bindings override per action; unmentioned actions keep the defaults. */
   constructor(bindings?: InputBindings) {
@@ -42,9 +43,25 @@ export class Input {
     return (this.held(positive) ? 1 : 0) - (this.held(negative) ? 1 : 0)
   }
 
+  /**
+   * Marks this frame's press of the action as spent, so consumers that
+   * honor consumption (state-machine 'input:' triggers) ignore it. One
+   * press does one thing: the press that launches a ground jump can't
+   * also fire a "key press jump" transition on the very same frame.
+   */
+  consume(action: ActionName): void {
+    this.used.add(action)
+  }
+
+  /** Was this frame's press already spent by someone? */
+  consumed(action: ActionName): boolean {
+    return this.used.has(action)
+  }
+
   /** Called by the Game at the end of each frame. */
   endFrame(): void {
     this.justDown.clear()
+    this.used.clear()
   }
 
   dispose(): void {

@@ -17,9 +17,11 @@ export interface StateHooks {
 }
 
 /**
- * A named bundle of state code. The '*' entry is the set's always-hook:
- * it runs every frame no matter which state is active (per-frame
- * bookkeeping like motor timers lives there).
+ * A named bundle of state code. Two entries are special: '*' is the
+ * always-hook — it runs every frame no matter which state is active
+ * (per-frame bookkeeping like motor timers lives there) — and 'default'
+ * is the fallback — a state that doesn't define a phase inherits it, so
+ * a custom state keeps the stock body update unless it overrides it.
  */
 export type StateLogic = Record<string, StateHooks>
 
@@ -57,6 +59,12 @@ export interface RoleDefinition {
   graph?: RoleGraph
   /** The role's state code, registered as the role's logic set. */
   states?: StateLogic
+  /**
+   * Signals the role's code emits (name → plain-language description).
+   * The editor lists them wherever a transition asks for a signal, so
+   * users pick from a vocabulary instead of typing names blind.
+   */
+  signals?: Record<string, string>
 }
 
 const roles = new Map<string, RoleDefinition>()
