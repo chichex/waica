@@ -1,13 +1,16 @@
 import { createContext, useContext } from 'react'
 import type {
   ArchetypeBundle,
+  InputBindings,
   PrefabJson,
   SceneJson,
   SceneRegistry,
 } from '@waica/engine'
 import {
   PLATFORMER_ART,
+  PLATFORMER_ACTION_LABELS,
   PLATFORMER_ART_URLS,
+  PLATFORMER_BINDINGS,
   PLATFORMER_BLANK_SCENE,
   PLATFORMER_BUNDLE,
   PLATFORMER_PALETTE,
@@ -32,6 +35,8 @@ export interface ArchetypeManifest {
   art: ArchetypeArt[]
   artUrls: Record<string, string>
   entityIcons: Record<string, string>
+  bindings: Readonly<InputBindings>
+  actionLabels: Readonly<Record<string, string>>
   bundle: ArchetypeBundle
 }
 
@@ -53,6 +58,8 @@ const PLATFORMER_ARCHETYPE: ArchetypeManifest = {
   art: PLATFORMER_ART,
   artUrls: PLATFORMER_ART_URLS,
   entityIcons: PLATFORMER_ENTITY_ICONS,
+  bindings: PLATFORMER_BINDINGS,
+  actionLabels: PLATFORMER_ACTION_LABELS,
   bundle: PLATFORMER_BUNDLE,
 }
 

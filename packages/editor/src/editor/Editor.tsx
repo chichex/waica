@@ -218,7 +218,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       const resolvedArchetype = resolveArchetype(settings.archetype)
       installChassisArchetype(resolvedArchetype.bundle)
       setArchetype(resolvedArchetype)
-      setControls(parseControls(controlsText))
+      setControls(parseControls(controlsText, resolvedArchetype.bindings))
       setStats(parseStats(statsText))
       setGameSettings(settings)
       setEditorSettings(parseEditorSettings(editorText))

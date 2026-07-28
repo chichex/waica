@@ -63,6 +63,10 @@ export function projectFiles(
   const archetype = resolveArchetype(archetypeId)
   const scene = start === 'demo' ? archetype.scene : archetype.blankScene
   const game = { ...(JSON.parse(gameJson) as Record<string, unknown>), archetype: archetype.id }
+  const controls = {
+    ...(JSON.parse(controlsJson) as Record<string, unknown>),
+    bindings: archetype.bindings,
+  }
   const files: Record<string, string> = {
     'package.json': pkgTpl
       .replaceAll('__PROJECT_NAME__', name)
@@ -73,7 +77,7 @@ export function projectFiles(
     'README.md': readmeMd,
     '.gitignore': gitignore,
     'src/main.ts': mainTs,
-    'src/controls.json': controlsJson,
+    'src/controls.json': JSON.stringify(controls, null, 2) + '\n',
     'src/stats.json': statsJson,
     'src/game.json': JSON.stringify(game, null, 2) + '\n',
     'src/scenes/main.scene.json': projectJson(scene, archetype),

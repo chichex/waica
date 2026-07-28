@@ -1,13 +1,10 @@
-export type ActionName = 'left' | 'right' | 'jump' | (string & {})
+export type ActionName = string
 
 /** Action → KeyboardEvent.code list. */
 export type InputBindings = Record<string, string[]>
 
-export const DEFAULT_BINDINGS: Readonly<InputBindings> = {
-  left: ['ArrowLeft', 'KeyA'],
-  right: ['ArrowRight', 'KeyD'],
-  jump: ['Space', 'ArrowUp', 'KeyW'],
-}
+/** Neutral engine baseline; archetypes own their action vocabulary. */
+export const DEFAULT_BINDINGS: Readonly<InputBindings> = {}
 
 /**
  * Action-based input with archetype default bindings.
@@ -19,13 +16,15 @@ export class Input {
   private readonly justDown = new Set<string>()
   private readonly used = new Set<string>()
 
-  /** Custom bindings override per action; unmentioned actions keep the defaults. */
-  constructor(bindings?: InputBindings) {
-    for (const [action, codes] of Object.entries({ ...DEFAULT_BINDINGS, ...bindings })) {
+  /** Installs exactly the action map supplied by the active archetype/project. */
+  constructor(bindings: Readonly<InputBindings> = DEFAULT_BINDINGS) {
+    for (const [action, codes] of Object.entries(bindings)) {
       this.bindings.set(action, new Set(codes))
     }
     window.addEventListener('keydown', this.onKeyDown)
     window.addEventListener('keyup', this.onKeyUp)
+    window.addEventListener('blur', this.releaseAll)
+    document.addEventListener('visibilitychange', this.onVisibilityChange)
   }
 
   /** Is the action held this frame? */
@@ -67,6 +66,8 @@ export class Input {
   dispose(): void {
     window.removeEventListener('keydown', this.onKeyDown)
     window.removeEventListener('keyup', this.onKeyUp)
+    window.removeEventListener('blur', this.releaseAll)
+    document.removeEventListener('visibilitychange', this.onVisibilityChange)
   }
 
   private isActive(action: ActionName, set: Set<string>): boolean {
@@ -74,6 +75,15 @@ export class Input {
     if (!codes) return false
     for (const code of codes) if (set.has(code)) return true
     return false
+  }
+
+  private releaseAll = (): void => {
+    this.down.clear()
+    this.justDown.clear()
+  }
+
+  private onVisibilityChange = (): void => {
+    if (document.visibilityState === 'hidden') this.releaseAll()
   }
 
   private onKeyDown = (e: KeyboardEvent): void => {
