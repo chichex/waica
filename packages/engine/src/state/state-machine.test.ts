@@ -157,11 +157,15 @@ describe('defineRole', () => {
 
 describe('archetype registry installation', () => {
   it('replaces every role and logic set instead of retaining merge residue', () => {
-    defineRole('player', {
-      description: 'Old player.',
-      states: { run: {}, jump: {} },
+    installArchetype({
+      roles: {
+        player: {
+          description: 'Old player.',
+          states: { run: {}, jump: {} },
+        },
+      },
+      logicSets: { 'old-utility': { waiting: {} } },
     })
-    defineStates('old-utility', { waiting: {} })
 
     installArchetype({
       roles: {
