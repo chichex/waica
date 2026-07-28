@@ -6,6 +6,7 @@ import { Hitbox } from './components/hitbox'
 import { Entity } from './entity'
 import { Emitter } from './events'
 import { Input, type InputBindings } from './input'
+import { spawnFromJson, type SceneRegistry } from './scene'
 import { Stats, type StatValue } from './stats'
 import { GameUi } from './ui'
 
@@ -32,6 +33,11 @@ export interface GameOptions {
 
 export type UpdateFn = (dt: number) => void
 
+export interface SpawnPrefabOptions {
+  name?: string
+  position?: [number, number]
+}
+
 /** Persisted overrides: entity → componentName → prop → value. */
 export type ParamOverrides = Record<string, Record<string, Record<string, number | boolean | string>>>
 
@@ -48,6 +54,8 @@ export class Game {
   readonly stats: Stats
   /** The HTML UI layer: presentation-only pieces toggled from code. */
   readonly ui: GameUi
+  /** Registry retained by loadScene for runtime prefab spawning. */
+  registry: SceneRegistry | null = null
   paramOverrides: ParamOverrides = {}
   /**
    * With false, the loop keeps rendering but runs no component updates
@@ -87,6 +95,26 @@ export class Game {
     this.entities.push(entity)
     this.scene.add(entity.node)
     return entity
+  }
+
+  /** Instantiates a registered prefab after a scene has supplied the registry. */
+  spawnPrefab(prefab: string, options: SpawnPrefabOptions = {}): Entity | null {
+    const registry = this.registry
+    if (!registry) {
+      console.warn(`[waica] cannot spawn prefab before loadScene: "${prefab}"`)
+      return null
+    }
+    if (!registry.prefabs?.[prefab]) {
+      console.warn(`[waica] unknown runtime prefab: "${prefab}"`)
+      return null
+    }
+    const base = prefab.slice(prefab.lastIndexOf('/') + 1) || 'Entity'
+    const name = options.name ?? base.charAt(0).toUpperCase() + base.slice(1)
+    return spawnFromJson(
+      this,
+      { name, prefab, ...(options.position ? { position: options.position } : {}) },
+      registry,
+    )
   }
 
   /** Finds an entity by name. */
