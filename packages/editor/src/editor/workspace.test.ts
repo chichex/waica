@@ -49,6 +49,7 @@ describe('workspace', () => {
     const views = [
       { kind: 'scene', path: 'src/scenes/main.scene.json' },
       { kind: 'stateFile', path: 'src/states/dash.ts' },
+      { kind: 'componentFile', path: 'src/components/gun.ts' },
       { kind: 'ui', name: 'hud' },
       { kind: 'script', name: 'Patrol' },
       { kind: 'stats' },

@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { InputBindings, PrefabJson, SceneJson, StateJson } from '@waica/engine'
+import {
+  mergeRegistryComponents,
+  type ComponentClass,
+  type InputBindings,
+  type PrefabJson,
+  type SceneJson,
+  type StateJson,
+} from '@waica/engine'
 import {
   ArchetypeContext,
   resolveArchetype,
@@ -19,6 +26,11 @@ import {
 } from '../project/chassis'
 import { CONTROLS_PATH, parseControls, serializeControls } from '../project/controls'
 import {
+  listComponentFiles,
+  scaffoldComponentFile,
+  COMPONENTS_DIR,
+} from '../project/components'
+import {
   listRoleFiles,
   listStateFiles,
   machineProps,
@@ -30,7 +42,7 @@ import {
   STATES_DIR,
   type MachineProps,
 } from '../project/states'
-import { loadPlayCode } from '../project/play-code'
+import { loadComponentCode, loadPlayCode } from '../project/play-code'
 import * as playRunner from './play-runner'
 import { DEFAULT_EDITOR_SETTINGS, EDITOR_SETTINGS_PATH, parseEditorSettings, serializeEditorSettings, type EditorSettings, type GridSettings } from '../project/editor-settings'
 import { DEFAULT_GAME_SETTINGS, GAME_PATH, parseGameSettings, serializeGameSettings, type GameSettings } from '../project/game'
@@ -135,6 +147,12 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const [uiLib, setUiLib] = useState<Record<string, string>>({})
   const [animTarget, setAnimTarget] = useState<AnimTarget | null>(null)
   const [stateTarget, setStateTarget] = useState<StateTarget | null>(null)
+  /** Component classes exported by src/components/*.ts. */
+  const [projectComponents, setProjectComponents] = useState<Record<string, ComponentClass>>({})
+  /** Exported component name → editable project source path. */
+  const [componentPaths, setComponentPaths] = useState<Record<string, string>>({})
+  /** Basenames in src/components/ — the project's component code files. */
+  const [componentFiles, setComponentFiles] = useState<string[]>([])
   /** Basenames in src/states/ — the project's state code files. */
   const [stateFiles, setStateFiles] = useState<string[]>([])
   /** Basenames in src/roles/ — the project's custom role files. */
@@ -196,27 +214,44 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     workspaceRestored.current = false
     let stale = false
     void (async () => {
-      const [paths, prefabs, ui, states, roles, controlsText, statsText, gameText, editorText] =
-        await Promise.all([
-          listScenes(fs),
-          loadPrefabLib(fs),
-          loadUiLib(fs),
-          listStateFiles(fs),
-          listRoleFiles(fs),
-          fs.readText(CONTROLS_PATH),
-          fs.readText(STATS_PATH),
-          fs.readText(GAME_PATH),
-          fs.readText(EDITOR_SETTINGS_PATH),
-        ])
+      const [
+        paths,
+        prefabs,
+        ui,
+        components,
+        states,
+        roles,
+        controlsText,
+        statsText,
+        gameText,
+        editorText,
+      ] = await Promise.all([
+        listScenes(fs),
+        loadPrefabLib(fs),
+        loadUiLib(fs),
+        listComponentFiles(fs),
+        listStateFiles(fs),
+        listRoleFiles(fs),
+        fs.readText(CONTROLS_PATH),
+        fs.readText(STATS_PATH),
+        fs.readText(GAME_PATH),
+        fs.readText(EDITOR_SETTINGS_PATH),
+      ])
+      const settings = parseGameSettings(gameText)
+      const resolvedArchetype = resolveArchetype(settings.archetype)
+      const projectCode = await loadComponentCode(fs, playRunner, resolvedArchetype.bundle)
       if (stale) return
+      for (const { path, message } of projectCode.errors) {
+        console.error(`[waica] Project could not run ${path}: ${message}`)
+      }
       setScenePaths(paths)
       setPrefabLib(prefabs)
       setUiLib(ui)
+      setComponentFiles(components)
+      setProjectComponents(projectCode.components)
+      setComponentPaths(projectCode.componentPaths)
       setStateFiles(states)
       setRoleFiles(roles)
-      const settings = parseGameSettings(gameText)
-      const resolvedArchetype = resolveArchetype(settings.archetype)
-      installChassisArchetype(resolvedArchetype.bundle)
       setArchetype(resolvedArchetype)
       setControls(parseControls(controlsText, resolvedArchetype.bindings))
       setStats(parseStats(statsText))
@@ -228,6 +263,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       const saved = loadWorkspace(fs.name)
       if (saved) {
         const codeFiles = new Set([
+          ...components.map((name) => `${COMPONENTS_DIR}/${name}`),
           ...states.map((name) => `${STATES_DIR}/${name}`),
           ...roles.map((name) => `${ROLES_DIR}/${name}`),
         ])
@@ -240,6 +276,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             case 'ui':
               return v.name in ui
             case 'stateFile':
+            case 'componentFile':
               return codeFiles.has(v.path)
             default:
               // script/controls/stats/game always resolve.
@@ -419,15 +456,31 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     })
   }
 
+  const projectRegistry = useMemo(
+    () => mergeRegistryComponents(archetype.registry, projectComponents),
+    [archetype, projectComponents],
+  )
+  const editorArchetype = useMemo<ArchetypeManifest>(
+    () => ({ ...archetype, registry: projectRegistry }),
+    [archetype, projectRegistry],
+  )
+  const customComponents = useMemo(() => {
+    const exported = Object.entries(componentPaths).map(([name, path]) => ({ name, path }))
+    const exportedPaths = new Set(exported.map(({ path }) => path))
+    const filesWithoutClass = componentFiles
+      .map((name) => ({ name: name.replace(/\.ts$/, ''), path: `${COMPONENTS_DIR}/${name}` }))
+      .filter(({ path }) => !exportedPaths.has(path))
+    return [...exported, ...filesWithoutClass].sort((a, b) => a.name.localeCompare(b.name))
+  }, [componentFiles, componentPaths])
   const registryWithPrefabs = useMemo(
     // urlFor resolves project-art paths (src/art/*.png) on top of waica:* assets.
     () => ({
-      ...archetype.registry,
+      ...projectRegistry,
       prefabs: prefabLib,
       ui: uiLib,
       resolveAsset: projectArt.urlFor,
     }),
-    [archetype, prefabLib, uiLib, projectArt.urlFor],
+    [projectRegistry, prefabLib, uiLib, projectArt.urlFor],
   )
 
   const prefabScene = useMemo<SceneJson | null>(() => {
@@ -868,12 +921,16 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     if (!openScenePath || !scene) return
     setSelected(null)
     setMulti([])
-    // Project state/role code registers before the Play game is built, so
-    // custom states behave here exactly as in the shipped game (play-code.ts).
-    const { errors } = await loadPlayCode(fs, playRunner, archetype.bundle)
-    for (const { path, message } of errors) {
+    // Project components, states and roles register before the Play game is
+    // built, so the run uses the same extension layer as the shipped game.
+    const projectCode = await loadPlayCode(fs, playRunner, archetype.bundle)
+    for (const { path, message } of projectCode.errors) {
       console.error(`[waica] Play could not run ${path}: ${message}`)
     }
+    setComponentFiles(await listComponentFiles(fs))
+    setProjectComponents(projectCode.components)
+    setComponentPaths(projectCode.componentPaths)
+    setEpoch((value) => value + 1)
     // Play may be pressed from any view (prefab, ui…): the run happens in the
     // scene viewport, so bring the open scene to the center first.
     setView({ kind: 'scene', path: openScenePath })
@@ -1077,6 +1134,32 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   }, [])
 
   const sceneName = openScenePath ? sceneLabel(openScenePath) : null
+
+  /** Re-executes project components after a scaffold or CodePane save. */
+  const refreshComponentCode = async (): Promise<void> => {
+    const projectCode = await loadComponentCode(fs, playRunner, archetype.bundle)
+    for (const { path, message } of projectCode.errors) {
+      console.error(`[waica] Project could not run ${path}: ${message}`)
+    }
+    setComponentFiles(await listComponentFiles(fs))
+    setProjectComponents(projectCode.components)
+    setComponentPaths(projectCode.componentPaths)
+    // Existing viewport entities own the previous class identities.
+    setEpoch((value) => value + 1)
+  }
+
+  /** Scaffolds src/components/<name>.ts without replacing user code. */
+  const createComponentFile = async (): Promise<void> => {
+    const name = window.prompt('Component name', 'MyComponent')
+    if (name == null) return
+    try {
+      const { path } = await scaffoldComponentFile(fs, name)
+      openView({ kind: 'componentFile', path })
+      await refreshComponentCode()
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : String(error))
+    }
+  }
 
   /** Scaffolds src/states/<state>.ts (never overwrites) and refreshes the list. */
   const createStateFile = async (role: string, state: string): Promise<void> => {
@@ -1310,8 +1393,18 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       return <CodePane path={`scripts/${src.file}`} source={src.source} readOnly />
     }
     if (view.kind === 'stateFile') {
-      // Project state code: a real file, edited for real (⌘S saves).
+      // Project state/role code: a real file, edited for real (⌘S saves).
       return <CodePane key={view.path} fs={fs} path={view.path} />
+    }
+    if (view.kind === 'componentFile') {
+      return (
+        <CodePane
+          key={view.path}
+          fs={fs}
+          path={view.path}
+          onSaved={refreshComponentCode}
+        />
+      )
     }
     if (view.kind === 'controls') {
       if (!controls) return <div className="ed-vp-hint">loading…</div>
@@ -1360,6 +1453,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       case 'script':
         return { icon: '📜', label: view.name }
       case 'stateFile':
+      case 'componentFile':
         return { icon: '📜', label: view.path.split('/').pop() ?? view.path }
       case 'art':
         return { icon: '🖼️', label: view.label }
@@ -1440,7 +1534,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   )
 
   return (
-    <ArchetypeContext.Provider value={archetype}>
+    <ArchetypeContext.Provider value={editorArchetype}>
       <div className="ed-root">
       <header className="ed-toolbar">
         <span className="ed-brand">🐕 waica</span>
@@ -1535,6 +1629,9 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             onReorderFolder={reorderFolder}
             onOpenPrefab={(ref) => openView({ kind: 'prefab', ref })}
             onOpenScript={(name) => openView({ kind: 'script', name })}
+            customComponents={customComponents}
+            onCreateComponent={() => void createComponentFile()}
+            onOpenComponentFile={(path) => openView({ kind: 'componentFile', path })}
             stateFiles={stateFiles}
             roleFiles={roleFiles}
             onOpenStateFile={(path) => openView({ kind: 'stateFile', path })}

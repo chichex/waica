@@ -26,6 +26,9 @@ import { Component } from './component'
 import { Hitbox } from './components/hitbox'
 import type { Entity } from './entity'
 import { Game } from './game'
+import { loadScene, type SceneRegistry } from './scene'
+import { defineStates, resetRegistries } from './state/hooks'
+import { StateMachine } from './state/state-machine'
 
 const observers: ResizeObserverStub[] = []
 
@@ -48,6 +51,12 @@ class CollisionProbe extends Component {
   }
 }
 
+class PrefabProbe extends Component {
+  static override componentName = 'PrefabProbe'
+  texture = ''
+  amount = 0
+}
+
 function makeGame(): Game {
   const canvas = document.createElement('canvas')
   Object.defineProperties(canvas, {
@@ -61,6 +70,7 @@ function makeGame(): Game {
 beforeEach(() => {
   observers.length = 0
   document.body.innerHTML = ''
+  resetRegistries()
   vi.stubGlobal('ResizeObserver', ResizeObserverStub)
 })
 
@@ -94,6 +104,83 @@ describe('Game glue characterization', () => {
 
     expect(firstProbe.hits).toEqual([second])
     expect(secondProbe.hits).toEqual([first])
+    game.dispose()
+  })
+
+  it('bridges a Hitbox overlap into the current state and wildcard collision hooks', () => {
+    const calls: Array<{ phase: string; entity: Entity; other: Entity; fsm: StateMachine }> = []
+    defineStates('collision-probe', {
+      '*': {
+        onCollide(ctx, other) {
+          calls.push({ phase: 'wildcard', entity: ctx.entity, other, fsm: ctx.fsm })
+        },
+      },
+      active: {
+        onCollide(ctx, other) {
+          calls.push({ phase: 'current', entity: ctx.entity, other, fsm: ctx.fsm })
+        },
+      },
+    })
+    const game = makeGame()
+    const first = game.spawn('First')
+    const second = game.spawn('Second')
+    first.add(Hitbox)
+    second.add(Hitbox)
+    const machine = first.add(StateMachine, {
+      role: 'collision-probe',
+      initial: 'active',
+      states: { active: {} },
+    })
+
+    ;(game as unknown as { dispatchCollisions(): void }).dispatchCollisions()
+
+    expect(calls).toEqual([
+      { phase: 'wildcard', entity: first, other: second, fsm: machine },
+      { phase: 'current', entity: first, other: second, fsm: machine },
+    ])
+    game.dispose()
+  })
+
+  it('spawns a retained prefab with resolved assets, position and per-name param overrides', () => {
+    const game = makeGame()
+    const registry: SceneRegistry = {
+      components: { PrefabProbe },
+      prefabs: {
+        'objects/coin': {
+          waicaPrefab: 1,
+          type: 'object',
+          components: [{ type: 'PrefabProbe', props: { texture: 'waica:coin', amount: 1 } }],
+        },
+      },
+      resolveAsset: (uri) => (uri === 'waica:coin' ? '/coin.png' : uri),
+    }
+    game.paramOverrides = { RuntimeCoin: { PrefabProbe: { amount: 9 } } }
+    loadScene(game, { waicaScene: 3, entities: [] }, registry)
+
+    const spawned = game.spawnPrefab('objects/coin', {
+      name: 'RuntimeCoin',
+      position: [3, 4],
+    })
+
+    expect(game.registry).toBe(registry)
+    expect(spawned?.position.toArray()).toEqual([3, 4, 0])
+    expect(spawned?.get(PrefabProbe)).toMatchObject({ texture: '/coin.png', amount: 9 })
+    expect(game.entities).toContain(spawned)
+    game.dispose()
+  })
+
+  it('warns and returns null when runtime prefab spawning has no matching registry entry', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const game = makeGame()
+
+    expect(game.spawnPrefab('objects/missing')).toBeNull()
+    loadScene(game, { waicaScene: 3, entities: [] }, { components: {}, prefabs: {} })
+    expect(game.spawnPrefab('objects/missing')).toBeNull()
+
+    expect(warn).toHaveBeenCalledTimes(2)
+    expect(warn.mock.calls[0]?.[0]).toContain('before loadScene')
+    expect(warn.mock.calls[1]?.[0]).toContain('objects/missing')
+    warn.mockRestore()
     game.dispose()
   })
 

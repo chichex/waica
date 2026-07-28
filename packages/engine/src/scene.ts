@@ -127,6 +127,7 @@ export function spawnFromJson(game: Game, json: SceneEntityJson, registry: Scene
 
 /** Loads a full scene into the game. */
 export function loadScene(game: Game, scene: SceneJson, registry: SceneRegistry): void {
+  game.registry = registry
   for (const entityJson of scene.entities) spawnFromJson(game, entityJson, registry)
   // After the spawns: with a follow target, the camera starts centered on it.
   game.setSceneCamera(scene.camera)

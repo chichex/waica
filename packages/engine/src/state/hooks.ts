@@ -13,6 +13,7 @@ export interface StateContext {
 export interface StateHooks {
   onEnter?(ctx: StateContext): void
   onUpdate?(ctx: StateContext, dt: number): void
+  onCollide?(ctx: StateContext, other: Entity): void
   onExit?(ctx: StateContext): void
 }
 

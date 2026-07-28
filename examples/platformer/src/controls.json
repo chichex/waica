@@ -4,6 +4,7 @@
     "left": ["ArrowLeft", "KeyA"],
     "right": ["ArrowRight", "KeyD"],
     "jump": ["Space", "ArrowUp", "KeyW"],
-    "dash": ["KeyE"]
+    "dash": ["KeyE"],
+    "shoot": ["KeyF"]
   }
 }
