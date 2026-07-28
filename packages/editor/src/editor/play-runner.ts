@@ -32,6 +32,14 @@ function moduleShims(): Record<string, string> {
   })
 }
 
+const projectUrls = new Set<string>()
+
+/** Releases the previous code graph before a fresh editor/Play load. */
+export function reset(): void {
+  for (const url of projectUrls) URL.revokeObjectURL(url)
+  projectUrls.clear()
+}
+
 /**
  * The TS language service boots lazily with the first typescript model —
  * which may well be the shadow model transpile() just created. Poll
@@ -69,13 +77,20 @@ export async function transpile(source: string, path: string): Promise<string> {
   }
 }
 
-export async function execute(js: string): Promise<void> {
+export async function createModule(
+  js: string,
+  _path: string,
+  imports: Record<string, string>,
+): Promise<string> {
   const url = URL.createObjectURL(
-    new Blob([rewriteImports(js, moduleShims())], { type: 'text/javascript' }),
+    new Blob([rewriteImports(js, { ...moduleShims(), ...imports })], {
+      type: 'text/javascript',
+    }),
   )
-  try {
-    await import(/* @vite-ignore */ url)
-  } finally {
-    URL.revokeObjectURL(url)
-  }
+  projectUrls.add(url)
+  return url
+}
+
+export async function execute(url: string): Promise<Record<string, unknown>> {
+  return (await import(/* @vite-ignore */ url)) as Record<string, unknown>
 }
