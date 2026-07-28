@@ -1,9 +1,17 @@
-import { describe, expect, it } from 'vitest'
-import type { PrefabJson } from '@waica/engine'
+import { beforeEach, describe, expect, it } from 'vitest'
+import {
+  logicSet,
+  registeredRoles,
+  type ArchetypeBundle,
+  type PrefabJson,
+} from '@waica/engine'
+import { PLATFORMER_BUNDLE } from '@waica/archetype-platformer'
+import chassisSource from './chassis.ts?raw'
 import {
   appearanceKind,
   behaviourTypes,
   componentRole,
+  installChassisArchetype,
   missingDriver,
   newPrefabComponents,
   setAppearanceShape,
@@ -13,9 +21,30 @@ import {
   toggleAnimated,
 } from './chassis'
 
+beforeEach(() => installChassisArchetype(PLATFORMER_BUNDLE))
+
 function objectPrefab(components: PrefabJson['components']): PrefabJson {
   return { waicaPrefab: 1, type: 'object', components }
 }
+
+describe('archetype chassis installation', () => {
+  it('installs only the roles and state code supplied by the resolved bundle', () => {
+    const bundle: ArchetypeBundle = {
+      roles: {
+        walker: { description: 'Walks.', states: { walk: {} } },
+      },
+    }
+
+    installChassisArchetype(bundle)
+
+    expect(registeredRoles()).toEqual(['walker'])
+    expect(Object.keys(logicSet('walker') ?? {})).toEqual(['walk'])
+  })
+
+  it('does not claim the platformer package through a bare side-effect import', () => {
+    expect(chassisSource).not.toMatch(/import\s+['"]@waica\/behaviors['"]/)
+  })
+})
 
 describe('componentRole', () => {
   it('classifies core and behaviour components', () => {

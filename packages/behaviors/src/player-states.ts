@@ -1,4 +1,4 @@
-import { defineRole, type RoleGraph, type StateContext } from '@waica/engine'
+import { type RoleDefinition, type RoleGraph, type StateContext } from '@waica/engine'
 import { PlatformerMotor } from './platformer-motor'
 
 /**
@@ -64,7 +64,7 @@ export function playerUpdate({ entity, game, fsm }: StateContext, dt: number): v
   }
 }
 
-defineRole('player', {
+export const PLAYER_ROLE: RoleDefinition = {
   description:
     'You control this character with the project controls: run and jump ' +
     'with platformer physics and curated game feel (coyote time, jump ' +
@@ -94,4 +94,4 @@ defineRole('player', {
     jump: { onUpdate: playerUpdate },
     fall: { onUpdate: playerUpdate },
   },
-})
+}

@@ -57,6 +57,7 @@ export class Game {
 
   // TODO(H1): migrate to WebGPURenderer (three/webgpu) with automatic WebGL2 fallback.
   private readonly renderer: THREE.WebGLRenderer
+  private readonly resizeObserver: ResizeObserver
   private readonly updateFns = new Set<UpdateFn>()
   private readonly resolution: GameResolution | null
   private viewHeight: number
@@ -76,7 +77,8 @@ export class Game {
     this.camera = new THREE.OrthographicCamera()
     this.camera.position.z = 10
     this.resize()
-    new ResizeObserver(() => this.resize()).observe(canvas)
+    this.resizeObserver = new ResizeObserver(() => this.resize())
+    this.resizeObserver.observe(canvas)
   }
 
   /** Creates a live entity in the scene. */
@@ -165,6 +167,7 @@ export class Game {
   dispose(): void {
     this.stop()
     this.input.dispose()
+    this.resizeObserver.disconnect()
     this.ui.dispose()
     for (const entity of [...this.entities]) entity.destroy()
     this.renderer.dispose()

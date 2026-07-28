@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { DEFAULT_BINDINGS, type InputBindings, type StatValue } from '@waica/engine'
-import { ACTION_LABELS, keyLabel, parseControls } from '../project/controls'
+import type { InputBindings, StatValue } from '@waica/engine'
+import { useArchetype } from '../project/archetype'
+import { keyLabel, parseControls } from '../project/controls'
 import type { GameSettings } from '../project/game'
 import type { ProjectStats } from '../project/stats'
 import { NumberField } from './NumberField'
@@ -30,6 +31,7 @@ export function ControlsEditor({
   bindings: InputBindings
   onChange(next: InputBindings): void
 }) {
+  const archetype = useArchetype()
   /** Action waiting for its next key press, if any. */
   const [capturing, setCapturing] = useState<string | null>(null)
   const [newAction, setNewAction] = useState('')
@@ -77,7 +79,7 @@ export function ControlsEditor({
         <header className="ed-sec-head">Keyboard</header>
         {Object.entries(bindings).map(([action, codes]) => (
           <div className="ed-keys-row" key={action}>
-            <span className="ed-keys-action">{ACTION_LABELS[action] ?? action}</span>
+            <span className="ed-keys-action">{archetype.actionLabels[action] ?? action}</span>
             <div className="ed-keys">
               {codes.map((code) => (
                 <button
@@ -95,7 +97,7 @@ export function ControlsEditor({
               >
                 {capturing === action ? 'press a key… (Esc cancels)' : '+ key'}
               </button>
-              {!(action in DEFAULT_BINDINGS) && (
+              {!(action in archetype.bindings) && (
                 <button
                   className="ed-mini"
                   title="Remove this action"
@@ -129,7 +131,10 @@ export function ControlsEditor({
           state machines fire on actions with “key press” transitions (input:{'<'}action{'>'})
         </div>
       </div>
-      <button className="ed-wide" onClick={() => onChange(parseControls(null))}>
+      <button
+        className="ed-wide"
+        onClick={() => onChange(parseControls(null, archetype.bindings))}
+      >
         ↺ Reset to defaults
       </button>
     </>

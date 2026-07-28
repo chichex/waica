@@ -13,13 +13,6 @@ export interface ControlsJson {
   bindings: InputBindings
 }
 
-/** Friendly action names shown by the controls inspector. */
-export const ACTION_LABELS: Record<string, string> = {
-  left: 'Move left',
-  right: 'Move right',
-  jump: 'Jump',
-}
-
 const KEY_LABELS: Record<string, string> = {
   ArrowLeft: '←',
   ArrowRight: '→',
@@ -54,12 +47,14 @@ function isCodeList(value: unknown): value is string[] {
 }
 
 /**
- * Bindings from a controls.json file's text, merged over the engine
- * defaults. Tolerant: missing file, bad JSON or junk entries all
- * degrade to the defaults.
+ * Bindings from controls.json, merged over the resolved archetype defaults.
+ * Tolerant: missing files, bad JSON and junk entries keep the game playable.
  */
-export function parseControls(text: string | null): InputBindings {
-  const bindings = structuredClone(DEFAULT_BINDINGS) as InputBindings
+export function parseControls(
+  text: string | null,
+  defaults: Readonly<InputBindings> = DEFAULT_BINDINGS,
+): InputBindings {
+  const bindings = structuredClone(defaults) as InputBindings
   if (!text) return bindings
   try {
     const json = JSON.parse(text) as Partial<ControlsJson>

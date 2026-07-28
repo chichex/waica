@@ -12,6 +12,7 @@ describe('parseGameSettings', () => {
 
   it('reads a fixed resolution', () => {
     const text = serializeGameSettings({
+      archetype: 'platformer',
       resolution: { mode: 'fixed', width: 320, height: 180 },
       pixelsPerUnit: 16,
     })
@@ -39,6 +40,7 @@ describe('parseGameSettings', () => {
 
   it('round-trips through serialize', () => {
     const settings = {
+      archetype: 'platformer',
       resolution: { mode: 'fill' as const, width: 800, height: 600 },
       pixelsPerUnit: 24,
     }

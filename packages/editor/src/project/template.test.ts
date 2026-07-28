@@ -2,6 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { projectArtFiles, projectFiles } from './template'
 
 describe('projectFiles', () => {
+  it('stamps the picked archetype id into game.json', () => {
+    const files = projectFiles('my-game', 'demo', 'platformer')
+    const game = JSON.parse(files['src/game.json'] ?? '') as { archetype?: unknown }
+
+    expect(game.archetype).toBe('platformer')
+  })
+
   it('demo start ships the sample level, prefab files and UI files', () => {
     const files = projectFiles('my-game')
     const scene = JSON.parse(files['src/scenes/main.scene.json'] ?? '') as {

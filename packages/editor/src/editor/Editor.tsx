@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { InputBindings, PrefabJson, SceneJson, StateJson } from '@waica/engine'
-import { ACTIVE_ARCHETYPE } from '../project/archetype'
+import {
+  ArchetypeContext,
+  resolveArchetype,
+  type ArchetypeManifest,
+} from '../project/archetype'
 import type { ProjectFS } from '../fs/project-fs'
 import { listScenes, loadPrefabLib, savePrefab, prefabPath, PREFAB_DIRS } from '../fs/prefab-fs'
 import { loadUiLib, saveUi, uiPath, NEW_UI_HTML } from '../fs/ui-fs'
 import {
+  installChassisArchetype,
   newPrefabComponents,
   setAppearanceShape,
   setAppearanceTexture,
@@ -57,6 +62,7 @@ const EMPTY_SCENE: SceneJson = { waicaScene: 3, entities: [] }
 /** Stable fallback: a fresh {} per render would loop the UiPane preview effect. */
 const EMPTY_STATS: ProjectStats = {}
 const PREFAB_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9_-]*$/
+const IDENTITY_ASSET = (uri: string): string => uri
 
 function setPrefabProp(
   prefab: PrefabJson,
@@ -102,6 +108,11 @@ function ArtStage({
 }
 
 export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
+  const [archetype, setArchetype] = useState<ArchetypeManifest>(() => {
+    const initial = resolveArchetype()
+    installChassisArchetype(initial.bundle)
+    return initial
+  })
   const [scenePaths, setScenePaths] = useState<string[]>([])
   const [openScenePath, setOpenScenePath] = useState<string | null>(null)
   const [scene, setScene] = useState<SceneJson | null>(null)
@@ -148,7 +159,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const pendingScenes = useRef(new Map<string, SceneJson>())
   /** Guards the workspace-persist effect until the saved one is restored. */
   const workspaceRestored = useRef(false)
-  const projectArt = useProjectArt(fs)
+  const projectArt = useProjectArt(fs, archetype.registry.resolveAsset ?? IDENTITY_ASSET)
   const history = useRef(new EditorHistory())
   /** Non-null while recordBatch collects commits into one undo step. */
   const batchEntries = useRef<AtomicEntry[] | null>(null)
@@ -203,9 +214,13 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       setUiLib(ui)
       setStateFiles(states)
       setRoleFiles(roles)
-      setControls(parseControls(controlsText))
+      const settings = parseGameSettings(gameText)
+      const resolvedArchetype = resolveArchetype(settings.archetype)
+      installChassisArchetype(resolvedArchetype.bundle)
+      setArchetype(resolvedArchetype)
+      setControls(parseControls(controlsText, resolvedArchetype.bindings))
       setStats(parseStats(statsText))
-      setGameSettings(parseGameSettings(gameText))
+      setGameSettings(settings)
       setEditorSettings(parseEditorSettings(editorText))
       // The viewport may have loaded before the prefab files landed.
       setEpoch((e) => e + 1)
@@ -407,12 +422,12 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const registryWithPrefabs = useMemo(
     // urlFor resolves project-art paths (src/art/*.png) on top of waica:* assets.
     () => ({
-      ...ACTIVE_ARCHETYPE.registry,
+      ...archetype.registry,
       prefabs: prefabLib,
       ui: uiLib,
       resolveAsset: projectArt.urlFor,
     }),
-    [prefabLib, uiLib, projectArt.urlFor],
+    [archetype, prefabLib, uiLib, projectArt.urlFor],
   )
 
   const prefabScene = useMemo<SceneJson | null>(() => {
@@ -855,7 +870,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     setMulti([])
     // Project state/role code registers before the Play game is built, so
     // custom states behave here exactly as in the shipped game (play-code.ts).
-    const { errors } = await loadPlayCode(fs, playRunner)
+    const { errors } = await loadPlayCode(fs, playRunner, archetype.bundle)
     for (const { path, message } of errors) {
       console.error(`[waica] Play could not run ${path}: ${message}`)
     }
@@ -1339,7 +1354,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const crumbCurrent = (() => {
     switch (view?.kind) {
       case 'prefab':
-        return { icon: prefabIcon(refBase(view.ref)), label: view.ref.replace('/', ' / ') }
+        return { icon: prefabIcon(refBase(view.ref), archetype), label: view.ref.replace('/', ' / ') }
       case 'ui':
         return { icon: '🧩', label: view.name }
       case 'script':
@@ -1381,7 +1396,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
                   : selected === ops.CAMERA_NODE
                     ? '🎥'
                     : selectedEntity
-                      ? entityIcon(selectedEntity, prefabLib)
+                      ? entityIcon(selectedEntity, prefabLib, archetype)
                       : '▢'}
               </span>
               {multi.length > 1
@@ -1425,7 +1440,8 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   )
 
   return (
-    <div className="ed-root">
+    <ArchetypeContext.Provider value={archetype}>
+      <div className="ed-root">
       <header className="ed-toolbar">
         <span className="ed-brand">🐕 waica</span>
         <span className="ed-project">
@@ -1880,6 +1896,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
           onCancel={() => setRolePicking(false)}
         />
       )}
-    </div>
+      </div>
+    </ArchetypeContext.Provider>
   )
 }
