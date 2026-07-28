@@ -1,0 +1,34 @@
+{
+  "waicaPrefab": 1,
+  "type": "object",
+  "components": [
+    {
+      "type": "Sprite",
+      "props": {
+        "width": 0.35,
+        "height": 0.18,
+        "color": 16763904,
+        "layer": 3
+      }
+    },
+    {
+      "type": "Hitbox",
+      "props": {
+        "width": 0.35,
+        "height": 0.18
+      }
+    },
+    {
+      "type": "Projectile",
+      "props": {
+        "speed": 18
+      }
+    },
+    {
+      "type": "Lifetime",
+      "props": {
+        "seconds": 1.5
+      }
+    }
+  ]
+}
