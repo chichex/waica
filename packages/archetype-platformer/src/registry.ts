@@ -8,7 +8,15 @@ import {
   type SceneEntityJson,
   type SceneRegistry,
 } from '@waica/engine'
-import { Chaser, Collectible, Hazard, Patrol, PlatformerMotor, Respawnable } from '@waica/behaviors'
+import {
+  Chaser,
+  Collectible,
+  Hazard,
+  Lifetime,
+  Patrol,
+  PlatformerMotor,
+  Respawnable,
+} from '@waica/behaviors'
 import { PLATFORMER_PREFABS } from './prefabs'
 import { PLATFORMER_UI } from './ui'
 import { PLATFORMER_ART } from './art'
@@ -41,6 +49,7 @@ export const PLATFORMER_REGISTRY: SceneRegistry = {
     Chaser,
     Hazard,
     Respawnable,
+    Lifetime,
   },
   resolveAsset: (uri) => BUILTIN_ASSETS[uri] ?? uri,
   prefabs: PLATFORMER_PREFABS,

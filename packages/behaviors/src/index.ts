@@ -6,3 +6,4 @@ export { Chaser, CHASER_ROLE, CHASER_STATE_GRAPH, type ChaserMode } from './chas
 export { NPC_ROLE, NPC_STATE_GRAPH } from './npc'
 export { Hazard, resolveHazardTouch, type HazardTouch } from './hazard'
 export { Respawnable } from './respawnable'
+export { Lifetime } from './lifetime'
