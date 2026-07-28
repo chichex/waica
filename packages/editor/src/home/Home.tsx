@@ -7,6 +7,7 @@ import {
   saveRecent,
   type RecentProject,
 } from '../fs/recents'
+import type { StoredSession } from '../fs/session'
 import { projectArtFiles, projectFiles, type ProjectStart } from '../project/template'
 import { ACTIVE_ARCHETYPE } from '../project/archetype'
 import { ArchetypePicker } from './ArchetypePicker'
@@ -36,7 +37,16 @@ function reportPickerError(err: unknown): void {
   )
 }
 
-export function Home({ onOpen }: { onOpen(fs: ProjectFS): void }) {
+export function Home({
+  onOpen,
+  resume,
+  onResume,
+}: {
+  onOpen(fs: ProjectFS): void
+  /** Last session needing a click to re-grant folder access (App.tsx). */
+  resume?: StoredSession | null
+  onResume?(): void
+}) {
   const canFS = typeof window.showDirectoryPicker === 'function'
   const [recents, setRecents] = useState<RecentProject[]>([])
   const [busy, setBusy] = useState<string | null>(null)
@@ -100,6 +110,7 @@ export function Home({ onOpen }: { onOpen(fs: ProjectFS): void }) {
 
   const openRecent = async (recent: RecentProject): Promise<void> => {
     if (await ensurePermission(recent.handle)) {
+      await saveRecent(recent.name, recent.handle)
       onOpen(new RealFS(recent.name, recent.handle))
     }
   }
@@ -121,6 +132,16 @@ export function Home({ onOpen }: { onOpen(fs: ProjectFS): void }) {
         <h1>🐕 Waica Editor</h1>
         <p>Pick the game you want to make, drag pieces in, hit Play. Your files, your folder.</p>
       </div>
+
+      {resume && (
+        <button className="home-resume" onClick={onResume}>
+          <span className="home-card-icon">⏵</span>
+          <span className="home-resume-text">
+            <strong>Continue “{resume.name}”</strong>
+            <span>Pick up where you left off — the browser asks to re-allow the folder.</span>
+          </span>
+        </button>
+      )}
 
       <div className="home-cards">
         <button className="home-card" onClick={() => setPicking(true)} disabled={!canFS || !!busy}>

@@ -1,47 +1,45 @@
+import { openDb, RECENTS_STORE } from './db'
+
 export interface RecentProject {
   name: string
   handle: FileSystemDirectoryHandle
   openedAt: number
 }
 
-const DB = 'waica-editor'
-const STORE = 'recents'
-
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB, 1)
-    req.onupgradeneeded = () => req.result.createObjectStore(STORE, { keyPath: 'name' })
-    req.onsuccess = () => resolve(req.result)
-    req.onerror = () => reject(req.error as Error)
-  })
-}
-
 export async function saveRecent(name: string, handle: FileSystemDirectoryHandle): Promise<void> {
-  const db = await openDb()
-  await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(STORE, 'readwrite')
-    tx.objectStore(STORE).put({ name, handle, openedAt: Date.now() })
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error as Error)
-  })
+  try {
+    const db = await openDb()
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(RECENTS_STORE, 'readwrite')
+      tx.objectStore(RECENTS_STORE).put({ name, handle, openedAt: Date.now() })
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error as Error)
+    })
+  } catch {
+    // Best-effort: the project still opens, it just won't appear in Recent.
+  }
 }
 
 /** Removes a project from the recents list (doesn't touch the disk folder). */
 export async function removeRecent(name: string): Promise<void> {
-  const db = await openDb()
-  await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(STORE, 'readwrite')
-    tx.objectStore(STORE).delete(name)
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error as Error)
-  })
+  try {
+    const db = await openDb()
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(RECENTS_STORE, 'readwrite')
+      tx.objectStore(RECENTS_STORE).delete(name)
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error as Error)
+    })
+  } catch {
+    // Best-effort only.
+  }
 }
 
 export async function listRecents(): Promise<RecentProject[]> {
   try {
     const db = await openDb()
     return await new Promise((resolve, reject) => {
-      const req = db.transaction(STORE).objectStore(STORE).getAll()
+      const req = db.transaction(RECENTS_STORE).objectStore(RECENTS_STORE).getAll()
       req.onsuccess = () =>
         resolve((req.result as RecentProject[]).sort((a, b) => b.openedAt - a.openedAt))
       req.onerror = () => reject(req.error as Error)

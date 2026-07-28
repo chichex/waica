@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import MonacoEditor from '@monaco-editor/react'
 import type { SceneJson } from '@waica/engine'
 import { SCENE_PATH, type ProjectFS } from '../fs/project-fs'
+import { WRITE_DELAY_MS } from './write-scheduler'
 
 const LANGUAGES: Record<string, string> = {
   ts: 'typescript',
@@ -33,8 +34,11 @@ export function CodePane({
   const [value, setValue] = useState<string | null>(source ?? null)
   const [dirty, setDirty] = useState(false)
   const valueRef = useRef<string | null>(source ?? null)
+  const dirtyRef = useRef(false)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
+    dirtyRef.current = false
     if (source != null) {
       valueRef.current = source
       setValue(source)
@@ -51,10 +55,18 @@ export function CodePane({
   }, [fs, path, source])
 
   const save = async (): Promise<void> => {
+    if (timer.current) {
+      clearTimeout(timer.current)
+      timer.current = null
+    }
     const current = valueRef.current
     if (readOnly || source != null || !fs || current == null) return
     await fs.writeText(path, current)
-    setDirty(false)
+    // Typing during the write keeps the buffer dirty for the next round.
+    if (valueRef.current === current) {
+      dirtyRef.current = false
+      setDirty(false)
+    }
     if (path === SCENE_PATH) {
       try {
         onSceneSaved?.(JSON.parse(current) as SceneJson)
@@ -63,6 +75,24 @@ export function CodePane({
       }
     }
   }
+
+  // A dirty buffer lands when the pane unmounts (switching files, closing the
+  // project) and when the tab hides or closes — editing is saving, like
+  // everywhere else in the editor.
+  useEffect(() => {
+    if (readOnly || source != null || !fs) return
+    const flush = (): void => {
+      if (dirtyRef.current) void save()
+    }
+    window.addEventListener('pagehide', flush)
+    window.addEventListener('beforeunload', flush)
+    return () => {
+      window.removeEventListener('pagehide', flush)
+      window.removeEventListener('beforeunload', flush)
+      flush()
+    }
+    // save() closes over these same props; refs carry the live buffer.
+  }, [fs, path, source, readOnly])
 
   const ext = path.split('.').pop() ?? ''
   const slash = path.lastIndexOf('/')
@@ -99,7 +129,11 @@ export function CodePane({
           value={value}
           onChange={(next) => {
             valueRef.current = next ?? ''
+            dirtyRef.current = true
             setDirty(true)
+            // Auto-save on the same clock as the rest of the editor; ⌘S lands it now.
+            if (timer.current) clearTimeout(timer.current)
+            timer.current = setTimeout(() => void save(), WRITE_DELAY_MS)
           }}
           onMount={(editor, monaco) => {
             editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => void save())

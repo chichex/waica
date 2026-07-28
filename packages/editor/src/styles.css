@@ -54,6 +54,36 @@ select {
   font-size: 16px;
 }
 
+.home-resume {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  margin: 0 0 14px;
+  padding: 16px 20px;
+  border-radius: 14px;
+  border: 1px solid var(--accent);
+  background: var(--bg-panel);
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.home-resume:hover {
+  transform: translateY(-2px);
+}
+
+.home-resume-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.home-resume-text span {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
 .home-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

@@ -21,6 +21,8 @@ import {
   roleFileTemplate,
   stateFilePath,
   stateFileTemplate,
+  ROLES_DIR,
+  STATES_DIR,
   type MachineProps,
 } from '../project/states'
 import { loadPlayCode } from '../project/play-code'
@@ -46,6 +48,8 @@ import { ControlsEditor, GameSettingsEditor, ProjectPane, StatsEditor } from './
 import { UiPane } from './UiPane'
 import { scriptSource } from './script-sources'
 import { useProjectArt, type ArtItem } from './use-project-art'
+import { loadWorkspace, saveWorkspace, type WorkspaceView } from './workspace'
+import { WriteScheduler } from './write-scheduler'
 
 type SaveState = 'saved' | 'saving' | 'error'
 
@@ -137,16 +141,13 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   /** null until src/editor.json is read (or defaulted). */
   const [editorSettings, setEditorSettings] = useState<EditorSettings | null>(null)
   const viewport = useRef<ViewportHandle>(null)
-  const controlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const statsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const gameTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const editorTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const saveTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  /** Debounces every durable write; flushAll() runs when the page hides or the editor closes. */
+  const writer = useRef(new WriteScheduler())
   // Committed scenes whose write hasn't landed yet: reopening one must show
   // this content, not the stale file on disk.
   const pendingScenes = useRef(new Map<string, SceneJson>())
-  const prefabTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
-  const uiTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  /** Guards the workspace-persist effect until the saved one is restored. */
+  const workspaceRestored = useRef(false)
   const projectArt = useProjectArt(fs)
   const history = useRef(new EditorHistory())
   /** Non-null while recordBatch collects commits into one undo step. */
@@ -181,31 +182,100 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   }, [projectArt.art])
 
   useEffect(() => {
-    void listScenes(fs).then(setScenePaths)
-    void loadPrefabLib(fs).then((prefabs) => {
+    workspaceRestored.current = false
+    let stale = false
+    void (async () => {
+      const [paths, prefabs, ui, states, roles, controlsText, statsText, gameText, editorText] =
+        await Promise.all([
+          listScenes(fs),
+          loadPrefabLib(fs),
+          loadUiLib(fs),
+          listStateFiles(fs),
+          listRoleFiles(fs),
+          fs.readText(CONTROLS_PATH),
+          fs.readText(STATS_PATH),
+          fs.readText(GAME_PATH),
+          fs.readText(EDITOR_SETTINGS_PATH),
+        ])
+      if (stale) return
+      setScenePaths(paths)
       setPrefabLib(prefabs)
+      setUiLib(ui)
+      setStateFiles(states)
+      setRoleFiles(roles)
+      setControls(parseControls(controlsText))
+      setStats(parseStats(statsText))
+      setGameSettings(parseGameSettings(gameText))
+      setEditorSettings(parseEditorSettings(editorText))
       // The viewport may have loaded before the prefab files landed.
       setEpoch((e) => e + 1)
-    })
-    void loadUiLib(fs).then(setUiLib)
-    void listStateFiles(fs).then(setStateFiles)
-    void listRoleFiles(fs).then(setRoleFiles)
-    void fs.readText(CONTROLS_PATH).then((text) => setControls(parseControls(text)))
-    void fs.readText(STATS_PATH).then((text) => setStats(parseStats(text)))
-    void fs.readText(GAME_PATH).then((text) => setGameSettings(parseGameSettings(text)))
-    void fs.readText(EDITOR_SETTINGS_PATH).then((text) => setEditorSettings(parseEditorSettings(text)))
+      // Reopen where the user left off, dropping whatever no longer exists.
+      const saved = loadWorkspace(fs.name)
+      if (saved) {
+        const codeFiles = new Set([
+          ...states.map((name) => `${STATES_DIR}/${name}`),
+          ...roles.map((name) => `${ROLES_DIR}/${name}`),
+        ])
+        const viewExists = (v: WorkspaceView): boolean => {
+          switch (v.kind) {
+            case 'scene':
+              return paths.includes(v.path)
+            case 'prefab':
+              return v.ref in prefabs
+            case 'ui':
+              return v.name in ui
+            case 'stateFile':
+              return codeFiles.has(v.path)
+            default:
+              // script/controls/stats/game always resolve.
+              return true
+          }
+        }
+        if (saved.openScenePath && paths.includes(saved.openScenePath)) {
+          setOpenScenePath(saved.openScenePath)
+        }
+        if (saved.view && viewExists(saved.view)) setView(saved.view)
+      }
+      workspaceRestored.current = true
+    })()
+    return () => {
+      stale = true
+    }
   }, [fs])
+
+  // Every view/scene move lands in localStorage, so a reload comes back here.
+  useEffect(() => {
+    if (!workspaceRestored.current) return
+    saveWorkspace(fs.name, openScenePath, view)
+  }, [fs, openScenePath, view])
+
+  // Whatever is debounce-pending lands before the page hides or closes —
+  // otherwise the last moments of edits would die with the tab.
+  useEffect(() => {
+    const flush = (): void => writer.current.flushAll()
+    const onVisibility = (): void => {
+      if (document.visibilityState === 'hidden') flush()
+    }
+    window.addEventListener('pagehide', flush)
+    window.addEventListener('beforeunload', flush)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('pagehide', flush)
+      window.removeEventListener('beforeunload', flush)
+      document.removeEventListener('visibilitychange', onVisibility)
+      // "← projects" unmounts the editor with writes possibly pending: land them.
+      flush()
+    }
+  }, [])
 
   const applyControls = (next: InputBindings): void => {
     setControls(next)
     setSaveState('saving')
-    if (controlsTimer.current) clearTimeout(controlsTimer.current)
-    controlsTimer.current = setTimeout(() => {
-      controlsTimer.current = null
+    writer.current.schedule('controls', () => {
       fs.writeText(CONTROLS_PATH, serializeControls(next))
         .then(() => setSaveState('saved'))
         .catch(() => setSaveState('error'))
-    }, 600)
+    })
   }
 
   const commitControls = (next: InputBindings): void => {
@@ -216,13 +286,11 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const applyStats = (next: ProjectStats): void => {
     setStats(next)
     setSaveState('saving')
-    if (statsTimer.current) clearTimeout(statsTimer.current)
-    statsTimer.current = setTimeout(() => {
-      statsTimer.current = null
+    writer.current.schedule('stats', () => {
       fs.writeText(STATS_PATH, serializeStats(next))
         .then(() => setSaveState('saved'))
         .catch(() => setSaveState('error'))
-    }, 600)
+    })
   }
 
   const commitStats = (next: ProjectStats): void => {
@@ -234,25 +302,21 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     const next = { ...(editorSettings ?? DEFAULT_EDITOR_SETTINGS), grid }
     setEditorSettings(next)
     setSaveState('saving')
-    if (editorTimer.current) clearTimeout(editorTimer.current)
-    editorTimer.current = setTimeout(() => {
-      editorTimer.current = null
+    writer.current.schedule('editor', () => {
       fs.writeText(EDITOR_SETTINGS_PATH, serializeEditorSettings(next))
         .then(() => setSaveState('saved'))
         .catch(() => setSaveState('error'))
-    }, 600)
+    })
   }
 
   const applyGameSettings = (next: GameSettings): void => {
     setGameSettings(next)
     setSaveState('saving')
-    if (gameTimer.current) clearTimeout(gameTimer.current)
-    gameTimer.current = setTimeout(() => {
-      gameTimer.current = null
+    writer.current.schedule('game', () => {
       fs.writeText(GAME_PATH, serializeGameSettings(next))
         .then(() => setSaveState('saved'))
         .catch(() => setSaveState('error'))
-    }, 600)
+    })
   }
 
   const commitGameSettings = (next: GameSettings): void => {
@@ -289,19 +353,14 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const scheduleSave = (path: string, next: SceneJson): void => {
     setSaveState('saving')
     pendingScenes.current.set(path, next)
-    clearTimeout(saveTimers.current.get(path))
-    saveTimers.current.set(
-      path,
-      setTimeout(() => {
-        saveTimers.current.delete(path)
-        fs.writeText(path, JSON.stringify(next, null, 2) + '\n')
-          .then(() => {
-            if (pendingScenes.current.get(path) === next) pendingScenes.current.delete(path)
-            setSaveState('saved')
-          })
-          .catch(() => setSaveState('error'))
-      }, 600),
-    )
+    writer.current.schedule(`scene:${path}`, () => {
+      fs.writeText(path, JSON.stringify(next, null, 2) + '\n')
+        .then(() => {
+          if (pendingScenes.current.get(path) === next) pendingScenes.current.delete(path)
+          setSaveState('saved')
+        })
+        .catch(() => setSaveState('error'))
+    })
   }
 
   const commit = (next: SceneJson, structural = false, coalesce?: string): void => {
@@ -326,16 +385,11 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     // Scene viewports remount on view switch, so they pick up the data too.
     if (structural) setEpoch((e) => e + 1)
     setSaveState('saving')
-    clearTimeout(prefabTimers.current.get(ref))
-    prefabTimers.current.set(
-      ref,
-      setTimeout(() => {
-        prefabTimers.current.delete(ref)
-        savePrefab(fs, ref, next)
-          .then(() => setSaveState('saved'))
-          .catch(() => setSaveState('error'))
-      }, 600),
-    )
+    writer.current.schedule(`prefab:${ref}`, () => {
+      savePrefab(fs, ref, next)
+        .then(() => setSaveState('saved'))
+        .catch(() => setSaveState('error'))
+    })
   }
 
   const commitUi = (name: string, html: string): void => {
@@ -343,16 +397,11 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     record({ kind: 'ui', name, before: uiLib[name] ?? null, after: html }, `ui:${name}`)
     setUiLib((lib) => ({ ...lib, [name]: html }))
     setSaveState('saving')
-    clearTimeout(uiTimers.current.get(name))
-    uiTimers.current.set(
-      name,
-      setTimeout(() => {
-        uiTimers.current.delete(name)
-        saveUi(fs, name, html)
-          .then(() => setSaveState('saved'))
-          .catch(() => setSaveState('error'))
-      }, 600),
-    )
+    writer.current.schedule(`ui:${name}`, () => {
+      saveUi(fs, name, html)
+        .then(() => setSaveState('saved'))
+        .catch(() => setSaveState('error'))
+    })
   }
 
   const registryWithPrefabs = useMemo(
@@ -470,8 +519,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     // A pending debounced save is newer than the file on disk.
     const pending = pendingScenes.current.get(path)
     const text = pending ? JSON.stringify(pending, null, 2) + '\n' : await fs.readText(path)
-    clearTimeout(saveTimers.current.get(path))
-    saveTimers.current.delete(path)
+    writer.current.cancel(`scene:${path}`)
     pendingScenes.current.delete(path)
     await fs.deleteFile(path)
     if (text != null) record({ kind: 'sceneFile', path, before: text, after: null })
@@ -683,14 +731,12 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     }
 
     setSaveState('saving')
-    clearTimeout(prefabTimers.current.get(ref))
-    prefabTimers.current.delete(ref)
+    writer.current.cancel(`prefab:${ref}`)
     try {
       // Write the new prefab and all references before removing the old file.
       await savePrefab(fs, nextRef, prefab)
       for (const { path, after } of affectedScenes) {
-        clearTimeout(saveTimers.current.get(path))
-        saveTimers.current.delete(path)
+        writer.current.cancel(`scene:${path}`)
         pendingScenes.current.set(path, after)
         await fs.writeText(path, JSON.stringify(after, null, 2) + '\n')
         if (pendingScenes.current.get(path) === after) pendingScenes.current.delete(path)
@@ -738,8 +784,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     if (!window.confirm(`Delete ${refBase(ref)}? Entities using it will lose its components.`)) {
       return
     }
-    clearTimeout(prefabTimers.current.get(ref))
-    prefabTimers.current.delete(ref)
+    writer.current.cancel(`prefab:${ref}`)
     // The file may not exist yet (debounced save cancelled above): ignore.
     await fs.deleteFile(prefabPath(ref)).catch(() => {})
     record({ kind: 'prefab', ref, before: prefab, after: null })
@@ -773,8 +818,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     const html = uiLib[name]
     if (html == null) return
     if (!window.confirm(`Delete ${name}? Scenes listing it will skip it with a warning.`)) return
-    clearTimeout(uiTimers.current.get(name))
-    uiTimers.current.delete(name)
+    writer.current.cancel(`ui:${name}`)
     // The file may not exist yet (debounced save cancelled above): ignore.
     await fs.deleteFile(uiPath(name)).catch(() => {})
     record({ kind: 'ui', name, before: html, after: null })
@@ -841,8 +885,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
 
   /** Creates or deletes a scene file back (undo/redo of create/duplicate/delete). */
   const applySceneFile = async (path: string, content: string | null): Promise<void> => {
-    clearTimeout(saveTimers.current.get(path))
-    saveTimers.current.delete(path)
+    writer.current.cancel(`scene:${path}`)
     pendingScenes.current.delete(path)
     setSaveState('saving')
     try {
@@ -866,8 +909,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   }
 
   const applyPrefabState = (ref: string, value: PrefabJson | null): void => {
-    clearTimeout(prefabTimers.current.get(ref))
-    prefabTimers.current.delete(ref)
+    writer.current.cancel(`prefab:${ref}`)
     setSaveState('saving')
     if (value == null) {
       setPrefabLib((lib) => {
@@ -891,8 +933,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   }
 
   const applyUiState = (name: string, value: string | null): void => {
-    clearTimeout(uiTimers.current.get(name))
-    uiTimers.current.delete(name)
+    writer.current.cancel(`ui:${name}`)
     setSaveState('saving')
     if (value == null) {
       setUiLib((lib) => {
