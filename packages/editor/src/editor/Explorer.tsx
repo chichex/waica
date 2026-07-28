@@ -22,6 +22,7 @@ export type ExplorerView =
   | { kind: 'ui'; name: string }
   | { kind: 'script'; name: string }
   | { kind: 'stateFile'; path: string }
+  | { kind: 'componentFile'; path: string }
   | { kind: 'art'; label: string; url: string; path: string }
   | { kind: 'controls' }
   | { kind: 'stats' }
@@ -32,9 +33,6 @@ const PREFAB_GROUPS: Array<{ title: string; type: PrefabJson['type']; createLabe
   { title: 'Objects', type: 'object', createLabel: 'New object' },
   { title: 'Tiles', type: 'tile', createLabel: 'New tile' },
 ]
-
-/** No project-authored components yet: this stays empty until that feature ships. */
-const CUSTOM_COMPONENTS: string[] = []
 
 export function refBase(ref: string): string {
   return ref.slice(ref.indexOf('/') + 1)
@@ -101,6 +99,9 @@ export function Explorer({
   onReorderFolder,
   onOpenPrefab,
   onOpenScript,
+  customComponents,
+  onCreateComponent,
+  onOpenComponentFile,
   stateFiles,
   roleFiles,
   onOpenStateFile,
@@ -173,6 +174,10 @@ export function Explorer({
   onReorderFolder(name: string, target: Exclude<DropTarget, { into: string }>): void
   onOpenPrefab(ref: string): void
   onOpenScript(name: string): void
+  /** Exported project component name and the file that defines it. */
+  customComponents: Array<{ name: string; path: string }>
+  onCreateComponent(): void
+  onOpenComponentFile(path: string): void
   /** Basenames in src/states/ — the project's state code files. */
   stateFiles: string[]
   /** Basenames in src/roles/ — the project's custom role files. */
@@ -204,7 +209,10 @@ export function Explorer({
   onArtDeleted(path: string): void
 }) {
   const archetype = useArchetype()
-  const builtinComponents = behaviourTypes(Object.keys(archetype.registry.components))
+  const customNames = new Set(customComponents.map(({ name }) => name))
+  const builtinComponents = behaviourTypes(Object.keys(archetype.registry.components)).filter(
+    (name) => !customNames.has(name),
+  )
   const [dropping, setDropping] = useState(false)
   /** True while a drop's folders are being walked, before importArt's own per-file progress starts. */
   const [scanningArt, setScanningArt] = useState(false)
@@ -912,14 +920,12 @@ export function Explorer({
       <section
         className="ed-panel"
         onContextMenu={(e) =>
-          openMenu(e, [
-            { label: 'New component (coming soon)', icon: '＋', disabled: true, onClick: () => {} },
-          ])
+          openMenu(e, [{ label: 'New component', icon: '＋', onClick: onCreateComponent }])
         }
       >
         <header className="ed-panel-head">
           <span>Components</span>
-          <button className="ed-mini" title="Custom components are coming soon" disabled>
+          <button className="ed-mini" title="New component" onClick={onCreateComponent}>
             ＋
           </button>
         </header>
@@ -993,16 +999,17 @@ export function Explorer({
         </div>
         <div className="ed-x-group-head">Custom</div>
         <div className="ed-x-list">
-          {CUSTOM_COMPONENTS.length === 0 ? (
+          {customComponents.length === 0 ? (
             <div className="ed-x-empty">No custom components yet</div>
           ) : (
-            CUSTOM_COMPONENTS.map((name) => (
+            customComponents.map(({ name, path }) => (
               <button
-                key={name}
+                key={`${name}:${path}`}
                 className={`ed-x-item ${
-                  view?.kind === 'script' && view.name === name ? 'is-selected' : ''
+                  view?.kind === 'componentFile' && view.path === path ? 'is-selected' : ''
                 }`}
-                onClick={() => onOpenScript(name)}
+                title={path}
+                onClick={() => onOpenComponentFile(path)}
               >
                 <span className="ed-x-ico">📜</span>
                 {name}

@@ -41,6 +41,7 @@ function sanitizeView(raw: unknown): WorkspaceView | null {
   switch (view.kind) {
     case 'scene':
     case 'stateFile':
+    case 'componentFile':
       return typeof view.path === 'string' ? { kind: view.kind, path: view.path } : null
     case 'prefab':
       return typeof view.ref === 'string' ? { kind: 'prefab', ref: view.ref } : null

@@ -20,6 +20,7 @@ export function CodePane({
   source,
   readOnly = false,
   onBack,
+  onSaved,
   onSceneSaved,
 }: {
   fs?: ProjectFS
@@ -29,6 +30,7 @@ export function CodePane({
   source?: string
   readOnly?: boolean
   onBack?(): void
+  onSaved?(path: string): void | Promise<void>
   onSceneSaved?(scene: SceneJson): void
 }) {
   const [value, setValue] = useState<string | null>(source ?? null)
@@ -62,6 +64,7 @@ export function CodePane({
     const current = valueRef.current
     if (readOnly || source != null || !fs || current == null) return
     await fs.writeText(path, current)
+    await onSaved?.(path)
     // Typing during the write keeps the buffer dirty for the next round.
     if (valueRef.current === current) {
       dirtyRef.current = false
