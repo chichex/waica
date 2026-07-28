@@ -27,9 +27,14 @@ import { Hitbox } from './components/hitbox'
 import type { Entity } from './entity'
 import { Game } from './game'
 
+const observers: ResizeObserverStub[] = []
+
 class ResizeObserverStub {
+  readonly disconnect = vi.fn()
+  constructor() {
+    observers.push(this)
+  }
   observe(): void {}
-  disconnect(): void {}
 }
 
 class VelocityProbe extends Component {
@@ -54,6 +59,7 @@ function makeGame(): Game {
 }
 
 beforeEach(() => {
+  observers.length = 0
   document.body.innerHTML = ''
   vi.stubGlobal('ResizeObserver', ResizeObserverStub)
 })
@@ -89,5 +95,14 @@ describe('Game glue characterization', () => {
     expect(firstProbe.hits).toEqual([second])
     expect(secondProbe.hits).toEqual([first])
     game.dispose()
+  })
+
+  it('disconnects the constructor ResizeObserver on dispose', () => {
+    const game = makeGame()
+    const observer = observers[0]
+
+    game.dispose()
+
+    expect(observer?.disconnect).toHaveBeenCalledOnce()
   })
 })
