@@ -131,7 +131,7 @@ describe('DynamicBody velocity and Solid resolution', () => {
       const world = makeWorld()
       const entity = world.spawn('Mover', ...start)
       const body = entity.add(DynamicBody, { vx: velocity[0], vy: velocity[1] })
-      const span = axis === 'x' ? [1, 4] : [4, 1]
+      const span: readonly [number, number] = axis === 'x' ? [1, 4] : [4, 1]
       const { solid } = world.addSolid('Blocker', 0, 0, span[0], span[1])
 
       body.onUpdate(0.2)
