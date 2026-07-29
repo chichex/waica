@@ -1,6 +1,5 @@
-import { Component } from '@waica/engine'
+import { Component, DynamicBody } from '@waica/engine'
 import { PlatformerMotor } from '@waica/behaviors'
-import { Projectile } from './projectile'
 
 /** Example project code: input plus runtime prefab spawn makes a simple gun. */
 export class Gun extends Component {
@@ -36,10 +35,9 @@ export class Gun extends Component {
         this.entity.position.y,
       ],
     })
-    const motion = projectile?.get(Projectile)
-    if (!motion) return
-    motion.direction = direction
-    motion.speed = this.projectileSpeed
+    const body = projectile?.get(DynamicBody)
+    if (!body) return
+    body.vx = direction * this.projectileSpeed
     this.remaining = this.cooldown
   }
 }
