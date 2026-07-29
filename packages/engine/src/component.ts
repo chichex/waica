@@ -1,5 +1,6 @@
 import type { Entity } from './entity'
 import type { Game } from './game'
+import type { Solid } from './components/solid'
 
 /** Metadata for a parameter editable from the inspector. */
 export interface ParamSpec {
@@ -24,6 +25,21 @@ export interface ComponentClass<T extends Component = Component> {
   params?: Record<string, ParamSpec>
 }
 
+/** Cardinal unit normal pointing away from the contacted Solid surface. */
+export interface ContactNormal {
+  readonly x: -1 | 0 | 1
+  readonly y: -1 | 0 | 1
+}
+
+/** A physical DynamicBody contact, deliberately separate from Hitbox triggers. */
+export interface SolidContact {
+  /** Entity that owns the contacted Solid. */
+  readonly entity: Entity
+  readonly solid: Solid
+  readonly axis: 'x' | 'y'
+  readonly normal: ContactNormal
+}
+
 /**
  * A pluggable piece of an entity. User behaviors and engine ones are the
  * same thing: Component subclasses with public props.
@@ -42,6 +58,8 @@ export abstract class Component {
   onUpdate?(dt: number): void
   /** Runs when this entity's Hitbox overlaps another one's. */
   onCollide?(other: Entity): void
+  /** Runs when this entity's DynamicBody physically contacts a Solid. */
+  onContact?(contact: SolidContact): void
   /** Runs when the entity is destroyed or the component removed. */
   onDestroy?(): void
 }

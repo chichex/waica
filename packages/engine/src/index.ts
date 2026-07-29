@@ -10,7 +10,12 @@ export { CAMERA_DEFAULTS, resolveSceneCamera, stepSceneCamera } from './camera'
 export type { SceneCameraJson, CameraLimitsJson, ResolvedSceneCamera } from './camera'
 export { Entity } from './entity'
 export { Component } from './component'
-export type { ComponentClass, ParamSpec } from './component'
+export type {
+  ComponentClass,
+  ContactNormal,
+  ParamSpec,
+  SolidContact,
+} from './component'
 export { collectModuleComponents, mergeRegistryComponents } from './component-registry'
 export type { ComponentModule } from './component-registry'
 export { Input, DEFAULT_BINDINGS } from './input'
@@ -21,6 +26,7 @@ export { GameUi } from './ui'
 export { Sprite } from './components/sprite'
 export { Solid } from './components/solid'
 export { Hitbox } from './components/hitbox'
+export { DynamicBody } from './components/dynamic-body'
 export { AnimatedSprite } from './components/animated-sprite'
 export { aabbOverlap } from './aabb'
 export { resolveSolidAxis } from './solid-axis'

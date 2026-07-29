@@ -12,7 +12,11 @@ export interface SolidAxisOptions {
   previous: number
   /** Current world-space collision body; read again as the axis position changes. */
   body(): CollisionBody
+  /** Receives each nearest Solid that blocks this axis move. */
+  onContact?(solid: Solid): void
 }
+
+const CONTACT_TOLERANCE = 1e-7
 
 function bodyFor(solid: Solid): CollisionBody {
   return {
@@ -35,6 +39,7 @@ export function resolveSolidAxis({
   axis,
   previous,
   body,
+  onContact,
 }: SolidAxisOptions): boolean {
   const position = entity.position
   const target = position[axis]
@@ -72,6 +77,7 @@ export function resolveSolidAxis({
     // same known-free point and keep the nearest contact along this move.
     let contact = candidate
     let contactDistance = Infinity
+    let contacts: Solid[] = []
     for (const solid of blockers) {
       let open = free
       let blocked = candidate
@@ -82,12 +88,16 @@ export function resolveSolidAxis({
         else open = middle
       }
       const distance = Math.abs(open - free)
-      if (distance < contactDistance) {
+      if (distance < contactDistance - CONTACT_TOLERANCE) {
         contact = open
         contactDistance = distance
+        contacts = [solid]
+      } else if (Math.abs(distance - contactDistance) <= CONTACT_TOLERANCE) {
+        contacts.push(solid)
       }
     }
     position[axis] = contact
+    for (const solid of contacts) onContact?.(solid)
     return true
   }
 
