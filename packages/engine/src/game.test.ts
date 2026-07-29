@@ -57,6 +57,15 @@ class PrefabProbe extends Component {
   amount = 0
 }
 
+/** Stands in for project code that throws where the engine constructs it. */
+class ThrowingProbe extends Component {
+  static override componentName = 'ThrowingProbe'
+  constructor() {
+    super()
+    throw new Error('ctor boom')
+  }
+}
+
 function makeGame(): Game {
   const canvas = document.createElement('canvas')
   Object.defineProperties(canvas, {
@@ -180,6 +189,50 @@ describe('Game glue characterization', () => {
     expect(warn).toHaveBeenCalledTimes(2)
     expect(warn.mock.calls[0]?.[0]).toContain('before loadScene')
     expect(warn.mock.calls[1]?.[0]).toContain('objects/missing')
+    warn.mockRestore()
+    game.dispose()
+  })
+
+  it('reports a throwing project component and keeps loading the rest of the scene', () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const game = makeGame()
+
+    loadScene(
+      game,
+      {
+        waicaScene: 3,
+        entities: [
+          { name: 'Broken', components: [{ type: 'ThrowingProbe' }, { type: 'PrefabProbe' }] },
+          { name: 'Later', components: [{ type: 'PrefabProbe' }] },
+        ],
+      },
+      { components: { ThrowingProbe, PrefabProbe } },
+    )
+
+    // The broken component is the only casualty: its siblings, its entity and
+    // every later entity still load.
+    expect(game.find('Broken')?.get(ThrowingProbe)).toBeUndefined()
+    expect(game.find('Broken')?.get(PrefabProbe)).toBeDefined()
+    expect(game.find('Later')?.get(PrefabProbe)).toBeDefined()
+    expect(error).toHaveBeenCalledOnce()
+    expect(error.mock.calls[0]?.[0]).toContain('ThrowingProbe')
+    error.mockRestore()
+    game.dispose()
+  })
+
+  it('reads prototype keys as missing rather than as Object members', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const game = makeGame()
+
+    loadScene(
+      game,
+      { waicaScene: 3, entities: [{ name: 'Odd', components: [{ type: 'toString' }] }] },
+      { components: {}, prefabs: {} },
+    )
+
+    expect(game.spawnPrefab('constructor')).toBeNull()
+    expect(game.find('Odd')?.components).toEqual([])
+    expect(warn.mock.calls.some((call) => String(call[0]).includes('toString'))).toBe(true)
     warn.mockRestore()
     game.dispose()
   })

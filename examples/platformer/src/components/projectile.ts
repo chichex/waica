@@ -1,7 +1,9 @@
 import {
   Component,
   Hitbox,
+  Solid,
   StateMachine,
+  collisionOverlap,
   resolveSolidAxis,
   type CollisionBody,
   type Entity,
@@ -16,6 +18,14 @@ export class Projectile extends Component {
 
   speed = 18
   direction = 1
+
+  override onReady(): void {
+    // Firing point-blank puts the muzzle inside the wall. resolveSolidAxis
+    // deliberately ignores solids it already overlaps (the spawn-inside-wall
+    // bail), so such a bullet would sail straight through for its whole
+    // flight: count spawning inside a Solid as an immediate hit.
+    if (this.insideSolid()) this.entity.destroy()
+  }
 
   override onUpdate(dt: number): void {
     const previous = this.entity.position.x
@@ -37,6 +47,23 @@ export class Projectile extends Component {
     if (role !== 'patroller' && role !== 'chaser') return
     other.destroy()
     this.entity.destroy()
+  }
+
+  private insideSolid(): boolean {
+    const body = this.body()
+    return this.game.entities.some((other) => {
+      if (other === this.entity) return false
+      const solid = other.get(Solid)
+      if (!solid) return false
+      return collisionOverlap(body, {
+        x: other.position.x + solid.offsetX,
+        y: other.position.y + solid.offsetY,
+        width: solid.width,
+        height: solid.height,
+        shape: solid.shape,
+        points: solid.points,
+      })
+    })
   }
 
   private body(): CollisionBody {

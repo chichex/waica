@@ -14,6 +14,8 @@ class ProjectShadow extends Component {
   static override componentName = 'BuiltinProbe'
 }
 
+class NamelessProbe extends Component {}
+
 describe('collectModuleComponents', () => {
   it('collects exported Component subclasses by stable componentName', () => {
     expect(
@@ -22,6 +24,20 @@ describe('collectModuleComponents', () => {
         { default: class NotAComponent {} },
       ]),
     ).toEqual({ ProjectProbe })
+  })
+
+  it('keys by componentName rather than export name, ignoring the inherited default', () => {
+    expect(collectModuleComponents([{ Renamed: ProjectProbe }], vi.fn())).toEqual({
+      ProjectProbe,
+    })
+  })
+
+  it('reports a subclass that declares no static componentName instead of dropping it', () => {
+    const warn = vi.fn()
+
+    expect(collectModuleComponents([{ NamelessProbe }], warn)).toEqual({})
+    expect(warn).toHaveBeenCalledOnce()
+    expect(warn.mock.calls[0]?.[0]).toContain('NamelessProbe')
   })
 })
 

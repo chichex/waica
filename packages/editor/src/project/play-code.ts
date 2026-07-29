@@ -48,16 +48,27 @@ export function rewriteImports(js: string, urls: Record<string, string>): string
   return js.replace(STATIC_IMPORT, swap).replace(DYNAMIC_IMPORT, swap)
 }
 
-function importSpecifiers(js: string): string[] {
-  const found: string[] = []
-  for (const pattern of [STATIC_IMPORT, DYNAMIC_IMPORT]) {
+/** One module specifier found in a file, and whether only import() reached it. */
+interface ImportRef {
+  specifier: string
+  /** True when every occurrence came from import(), never a static import. */
+  dynamicOnly: boolean
+}
+
+function importSpecifiers(js: string): ImportRef[] {
+  const found = new Map<string, boolean>()
+  for (const [pattern, dynamic] of [
+    [STATIC_IMPORT, false],
+    [DYNAMIC_IMPORT, true],
+  ] as const) {
     pattern.lastIndex = 0
     for (let match = pattern.exec(js); match; match = pattern.exec(js)) {
       const specifier = match[3]
-      if (specifier && !found.includes(specifier)) found.push(specifier)
+      if (!specifier) continue
+      if (!found.has(specifier) || !dynamic) found.set(specifier, dynamic)
     }
   }
-  return found
+  return [...found].map(([specifier, dynamicOnly]) => ({ specifier, dynamicOnly }))
 }
 
 function allTypeScriptFiles(nodes: TreeNode[]): string[] {
@@ -156,10 +167,15 @@ async function loadCode(
     try {
       const js = await transpile(path)
       const imports: Record<string, string> = {}
-      for (const specifier of importSpecifiers(js)) {
+      for (const { specifier, dynamicOnly } of importSpecifiers(js)) {
         if (!specifier.startsWith('.')) continue
         const target = resolveProjectImport(path, specifier, available)
         if (!target) {
+          // A static import must resolve or the module cannot load at all.
+          // An import() may sit in dead code — or in a comment the regex
+          // cannot tell apart — so leave it for the browser to report if it
+          // ever runs, the same policy bare specifiers get.
+          if (dynamicOnly) continue
           throw new Error(`Cannot resolve project import "${specifier}" from "${path}"`)
         }
         imports[specifier] = await build(target)
@@ -181,9 +197,23 @@ async function loadCode(
       const namespace = (await runner.execute(await build(path), path)) ?? {}
       result.loaded.push(path)
       if (path.startsWith(`${COMPONENTS_DIR}/`)) {
-        const classes = collectModuleComponents([namespace])
-        Object.assign(result.components, classes)
-        for (const name of Object.keys(classes)) result.componentPaths[name] = path
+        // A class the editor cannot register is reported against its file:
+        // "my component never shows up" is otherwise a silent no-op.
+        const classes = collectModuleComponents([namespace], (message) =>
+          result.errors.push({ path, message }),
+        )
+        for (const [name, Class] of Object.entries(classes)) {
+          const owner = result.componentPaths[name]
+          if (owner != null && owner !== path) {
+            result.errors.push({
+              path,
+              message: `component "${name}" is already defined in "${owner}"`,
+            })
+            continue
+          }
+          result.components[name] = Class
+          result.componentPaths[name] = path
+        }
       }
     } catch (error) {
       result.errors.push({ path, message: errorMessage(error) })

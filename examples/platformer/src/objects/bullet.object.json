@@ -19,10 +19,7 @@
       }
     },
     {
-      "type": "Projectile",
-      "props": {
-        "speed": 18
-      }
+      "type": "Projectile"
     },
     {
       "type": "Lifetime",

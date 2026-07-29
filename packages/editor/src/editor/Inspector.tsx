@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { resolveCollisionPoints, resolveSceneCamera, roleDefinition, sheetCell, type PrefabJson, type SceneCameraJson, type SceneComponentJson, type SceneEntityJson, type SceneJson, type SheetGridParams, type StateJson } from '@waica/engine'
 import { useArchetype, type ArchetypeManifest } from '../project/archetype'
+import { classDefaults } from '../project/component-defaults'
 import { countOverrides, prefabOwns, resolveComponents } from '../scene/ops'
 import {
   appearanceKind,
@@ -165,8 +166,7 @@ function componentDefaults(
   comp: SceneComponentJson,
   archetype: ArchetypeManifest,
 ): Record<string, unknown> {
-  const Class = archetype.registry.components[comp.type]
-  return (Class ? new Class() : {}) as unknown as Record<string, unknown>
+  return classDefaults(archetype.registry.components[comp.type], comp.type)
 }
 
 /** Behaviours present that implement onCollide — they need a hitbox to fire. */
@@ -1756,7 +1756,7 @@ function ScriptInspector({ name }: { name: string }) {
   const archetype = useArchetype()
   const Class = archetype.registry.components[name]
   if (!Class) return <div className="ed-hint ed-pad">unknown script</div>
-  const defaults = new Class() as unknown as Record<string, unknown>
+  const defaults = classDefaults(Class, name)
   const params = Object.entries(Class.params ?? {})
   return (
     <div className="ed-pad">

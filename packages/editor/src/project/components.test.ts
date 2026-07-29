@@ -13,6 +13,13 @@ describe('project component files', () => {
     expect(componentFilePath('Enemy Projectile')).toBe('src/components/enemy-projectile.ts')
   })
 
+  it('rejects the engine base class name, which the template cannot emit', () => {
+    // The template imports Component: `class Component extends Component`
+    // would not parse, and never-overwrite would make it unrepairable.
+    expect(() => componentFilePath('Component')).toThrow(/base class/)
+    expect(() => componentFilePath('component')).toThrow(/base class/)
+  })
+
   it('lists only TypeScript files in src/components', async () => {
     const fs = new MemFS('demo', {
       'src/components/gun.ts': '// code',

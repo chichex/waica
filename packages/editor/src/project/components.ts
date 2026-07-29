@@ -10,12 +10,23 @@ function nameWords(name: string): string[] {
     .filter(Boolean)
 }
 
+/**
+ * Names the template cannot emit: the generated file imports `Component`
+ * from the engine, so `class Component extends Component` would neither
+ * parse nor typecheck — and the never-overwrite rule would make it
+ * unrepairable from the editor.
+ */
+const RESERVED_CLASS_NAMES = new Set(['Component'])
+
 /** Stable class name generated from the name entered in the editor. */
 export function componentClassName(name: string): string {
   const words = nameWords(name)
   const value = words.map((word) => word[0]?.toUpperCase() + word.slice(1)).join('')
   if (!/^[A-Za-z][A-Za-z0-9]*$/.test(value)) {
     throw new Error('Component names must start with a letter and use letters or numbers.')
+  }
+  if (RESERVED_CLASS_NAMES.has(value)) {
+    throw new Error(`"${value}" is the engine base class — pick another name.`)
   }
   return value
 }

@@ -93,6 +93,70 @@ describe('loadPlayCode', () => {
     expect(harness.executed).toEqual(result.loaded)
   })
 
+  it('reports the second file when two components claim the same componentName', async () => {
+    class First extends Component {
+      static override componentName = 'Gun'
+    }
+    class Second extends Component {
+      static override componentName = 'Gun'
+    }
+    const fs = new MemFS('demo', {
+      'src/components/a.ts': 'a',
+      'src/components/b.ts': 'b',
+    })
+    const harness = runner({
+      execute: async (_url, path) => (path.endsWith('a.ts') ? { First } : { Second }),
+    })
+
+    const result = await loadPlayCode(fs, harness.runner, EMPTY_BUNDLE)
+
+    expect(result.components).toEqual({ Gun: First })
+    expect(result.componentPaths).toEqual({ Gun: 'src/components/a.ts' })
+    expect(result.errors).toHaveLength(1)
+    expect(result.errors[0]?.path).toBe('src/components/b.ts')
+    expect(result.errors[0]?.message).toContain('src/components/a.ts')
+  })
+
+  it('reports a component class that declares no static componentName', async () => {
+    class Nameless extends Component {}
+    const fs = new MemFS('demo', { 'src/components/gun.ts': 'gun' })
+    const harness = runner({ execute: async () => ({ Nameless }) })
+
+    const result = await loadPlayCode(fs, harness.runner, EMPTY_BUNDLE)
+
+    expect(result.components).toEqual({})
+    expect(result.errors).toHaveLength(1)
+    expect(result.errors[0]?.message).toContain('Nameless')
+  })
+
+  it('leaves an unresolvable import() to the browser instead of failing the file', async () => {
+    // A static import must resolve for the module to load at all; an import()
+    // may sit in dead code the regex cannot tell from a comment.
+    const fs = new MemFS('demo', {
+      'src/components/gun.ts': `const lazy = () => import('./missing')\n`,
+    })
+    const harness = runner({ transpile: async (source) => source })
+
+    const result = await loadPlayCode(fs, harness.runner, EMPTY_BUNDLE)
+
+    expect(result.errors).toEqual([])
+    expect(result.loaded).toEqual(['src/components/gun.ts'])
+  })
+
+  it('still fails the file when a static relative import does not resolve', async () => {
+    const fs = new MemFS('demo', {
+      'src/components/gun.ts': `import { Bullet } from './missing'\n`,
+    })
+    const harness = runner({ transpile: async (source) => source })
+
+    const result = await loadPlayCode(fs, harness.runner, EMPTY_BUNDLE)
+
+    expect(result.loaded).toEqual([])
+    expect(result.errors).toHaveLength(1)
+    expect(result.errors[0]?.path).toBe('src/components/gun.ts')
+    expect(result.errors[0]?.message).toContain('./missing')
+  })
+
   it('reports a component transpile failure and keeps running the rest', async () => {
     const fs = new MemFS('demo', {
       'src/components/broken.ts': 'broken',

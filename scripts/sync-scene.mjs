@@ -6,7 +6,7 @@
 //
 //   node scripts/sync-scene.mjs
 
-import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { registerHooks } from 'node:module'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -47,11 +47,33 @@ const toJson = (value) =>
 
 // String values are written verbatim (the UI pieces' HTML); the rest as JSON.
 const FILES = { 'scenes/main.scene.json': PLATFORMER_SCENE }
+const PREFAB_FILES = new Set()
 for (const [key, prefab] of Object.entries(PLATFORMER_PREFABS)) {
-  FILES[`${key}.${prefab.type}.json`] = prefab
+  const rel = `${key}.${prefab.type}.json`
+  FILES[rel] = prefab
+  PREFAB_FILES.add(rel)
 }
 for (const [name, html] of Object.entries(PLATFORMER_UI)) {
   FILES[`ui/${name}.html`] = html
+}
+
+// Projects own components the archetype knows nothing about (src/components/*.ts,
+// e.g. the example's Gun). The archetype can never define them — that is the
+// product line — so regenerating a prefab must keep whatever the target added
+// on top instead of silently deleting the mechanic.
+function keepProjectComponents(target, prefab) {
+  if (!existsSync(target)) return prefab
+  let existing
+  try {
+    existing = JSON.parse(readFileSync(target, 'utf8'))
+  } catch {
+    return prefab
+  }
+  const generated = new Set(prefab.components.map((c) => c.type))
+  const extra = (existing.components ?? []).filter((c) => !generated.has(c.type))
+  if (extra.length === 0) return prefab
+  console.log(`keep → ${target}: ${extra.map((c) => c.type).join(', ')}`)
+  return { ...prefab, components: [...prefab.components, ...extra] }
 }
 
 const TARGETS = [
@@ -62,7 +84,8 @@ for (const srcDir of TARGETS) {
   for (const [rel, data] of Object.entries(FILES)) {
     const target = join(srcDir, rel)
     mkdirSync(dirname(target), { recursive: true })
-    writeFileSync(target, typeof data === 'string' ? data : toJson(data))
+    const value = PREFAB_FILES.has(rel) ? keepProjectComponents(target, data) : data
+    writeFileSync(target, typeof value === 'string' ? value : toJson(value))
     console.log(`sync → ${target}`)
   }
   for (const art of PLATFORMER_ART) {

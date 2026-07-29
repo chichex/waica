@@ -11,6 +11,9 @@ export class Lifetime extends Component {
   private elapsed = 0
 
   override onUpdate(dt: number): void {
+    // The frame that destroys the entity still iterates a copy of its
+    // components: stop counting instead of destroying twice.
+    if (!this.entity.alive) return
     this.elapsed += dt
     if (this.elapsed >= this.seconds) this.entity.destroy()
   }

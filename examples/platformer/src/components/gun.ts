@@ -21,7 +21,10 @@ export class Gun extends Component {
   override onUpdate(dt: number): void {
     this.remaining = Math.max(0, this.remaining - dt)
     const input = this.game.input
-    if (!input.justPressed('shoot') || input.consumed('shoot') || this.remaining > 0) return
+    // Deliberately not gated on `consumed`: consuming spends the press for
+    // state-machine `input:shoot` transitions, but every Gun in the scene
+    // still fires on the same press.
+    if (!input.justPressed('shoot') || this.remaining > 0) return
 
     input.consume('shoot')
     const motor = this.entity.get(PlatformerMotor)

@@ -11,6 +11,7 @@ export type ComponentModule = Readonly<Record<string, unknown>>
  */
 export function collectModuleComponents(
   modules: Iterable<ComponentModule>,
+  warn: (message: string) => void = console.warn,
 ): Record<string, ComponentClass> {
   const components: Record<string, ComponentClass> = {}
   for (const module of modules) {
@@ -18,7 +19,16 @@ export function collectModuleComponents(
       if (typeof value !== 'function') continue
       const Class = value as unknown as ComponentClass
       if (!(Class.prototype instanceof Component)) continue
-      if (typeof Class.componentName !== 'string' || Class.componentName === 'Component') continue
+      // Without its own componentName a class inherits the base's, so nothing
+      // could reference it from scene JSON. Silently skipping it looks like
+      // the editor lost the file: say so instead.
+      if (typeof Class.componentName !== 'string' || Class.componentName === 'Component') {
+        warn(
+          `[waica] component class "${Class.name || '(anonymous)'}" declares no ` +
+            `static componentName — scenes cannot reference it`,
+        )
+        continue
+      }
       components[Class.componentName] = Class
     }
   }

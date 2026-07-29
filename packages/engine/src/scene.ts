@@ -62,6 +62,19 @@ export interface SceneRegistry {
 }
 
 /**
+ * Own-property lookup. Scene JSON is data — a component or prefab named
+ * "constructor" or "toString" must read as missing, not as whatever sits
+ * on Object.prototype.
+ */
+export function registryEntry<T>(
+  record: Record<string, T> | undefined,
+  key: string,
+): T | undefined {
+  if (!record || !Object.prototype.hasOwnProperty.call(record, key)) return undefined
+  return record[key]
+}
+
+/**
  * Runs every string prop through the registry's asset resolver (if any),
  * recursing into arrays and plain objects — nested textures (e.g. an
  * AnimatedSprite's extraSheets) resolve like top-level ones. Safe because
@@ -98,7 +111,7 @@ export function resolveEntityComponents(
 ): SceneComponentJson[] {
   const inline = entity.components ?? []
   if (!entity.prefab) return inline
-  const prefab = prefabs?.[entity.prefab]
+  const prefab = registryEntry(prefabs, entity.prefab)
   if (!prefab) {
     console.warn(`[waica] unknown prefab in scene: "${entity.prefab}" (${entity.name})`)
     return inline
@@ -115,12 +128,20 @@ export function spawnFromJson(game: Game, json: SceneEntityJson, registry: Scene
   const entity = game.spawn(json.name)
   if (json.position) entity.position.set(json.position[0], json.position[1], 0)
   for (const comp of resolveEntityComponents(json, registry.prefabs)) {
-    const Class = registry.components[comp.type]
+    const Class = registryEntry(registry.components, comp.type)
     if (!Class) {
       console.warn(`[waica] unknown component in scene: "${comp.type}" (${json.name})`)
       continue
     }
-    entity.add(Class, resolveProps(comp.props, registry) as never)
+    // The registry now carries project-owned classes, i.e. arbitrary user
+    // code. A throwing constructor or onReady costs that one component —
+    // never the rest of the scene, and never the editor hosting it.
+    try {
+      entity.add(Class, resolveProps(comp.props, registry) as never)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error(`[waica] component "${comp.type}" failed on "${json.name}": ${message}`)
+    }
   }
   return entity
 }

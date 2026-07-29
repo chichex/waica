@@ -9,6 +9,8 @@ interface MachineHarness {
   machine: StateMachine
   consumed: string[]
   setPressed(action: string | null): void
+  /** Marks the machine's own entity destroyed, like Entity.destroy() does. */
+  kill(): void
 }
 
 function makeMachine(states: StateMachine['states'], sprite?: AnimatedSprite): MachineHarness {
@@ -24,9 +26,13 @@ function makeMachine(states: StateMachine['states'], sprite?: AnimatedSprite): M
     },
   }
   const game = { input } as unknown as Game
+  let alive = true
   const entity = {
     name: 'Test character',
     game,
+    get alive() {
+      return alive
+    },
     get(Class: unknown) {
       return Class === AnimatedSprite ? sprite : undefined
     },
@@ -36,7 +42,19 @@ function makeMachine(states: StateMachine['states'], sprite?: AnimatedSprite): M
   machine.game = game
   machine.states = states
   machine.initial = Object.keys(states)[0] ?? ''
-  return { machine, consumed, setPressed: (action) => (pressed = action) }
+  return {
+    machine,
+    consumed,
+    setPressed: (action) => (pressed = action),
+    kill: () => {
+      alive = false
+    },
+  }
+}
+
+/** A live collision partner: the machine skips contacts whose sides are dead. */
+function otherEntity(name: string): Entity {
+  return { name, alive: true } as unknown as Entity
 }
 
 beforeEach(() => resetRegistries())
@@ -87,7 +105,7 @@ describe('StateMachine runtime characterization', () => {
 
   it('dispatches collision hooks for wildcard and current state with context and other', () => {
     const calls: Array<{ phase: string; ctxEntity: Entity; other: Entity }> = []
-    const other = { name: 'Other' } as Entity
+    const other = otherEntity('Other')
     defineStates('collision-runtime', {
       '*': {
         onCollide(ctx, hit) {
@@ -123,18 +141,81 @@ describe('StateMachine runtime characterization', () => {
     machine.role = 'collision-default'
     machine.onReady()
 
-    machine.onCollide({ name: 'First' } as Entity)
+    machine.onCollide(otherEntity('First'))
     machine.goto('own')
-    machine.onCollide({ name: 'Second' } as Entity)
+    machine.onCollide(otherEntity('Second'))
 
     expect(calls).toEqual(['default', 'own'])
+  })
+
+  it('stops at the wildcard hook when it destroys its own entity', () => {
+    const calls: string[] = []
+    const harness = makeMachine({ idle: {} })
+    defineStates('collision-self-destroy', {
+      '*': {
+        onCollide: () => {
+          calls.push('wildcard')
+          harness.kill()
+        },
+      },
+      idle: { onCollide: () => calls.push('current') },
+    })
+    harness.machine.role = 'collision-self-destroy'
+    harness.machine.onReady()
+
+    harness.machine.onCollide(otherEntity('Other'))
+
+    expect(calls).toEqual(['wildcard'])
+  })
+
+  it('stops at the wildcard hook when it destroys the other side', () => {
+    const calls: string[] = []
+    const other = { name: 'Other', alive: true }
+    defineStates('collision-other-destroy', {
+      '*': {
+        onCollide: () => {
+          calls.push('wildcard')
+          other.alive = false
+        },
+      },
+      idle: { onCollide: () => calls.push('current') },
+    })
+    const { machine } = makeMachine({ idle: {} })
+    machine.role = 'collision-other-destroy'
+    machine.onReady()
+
+    machine.onCollide(other as unknown as Entity)
+
+    expect(calls).toEqual(['wildcard'])
+  })
+
+  it('delivers the contact to the state that was active, not one the wildcard entered', () => {
+    const calls: string[] = []
+    defineStates('collision-transition', {
+      '*': {
+        onCollide: (ctx) => {
+          calls.push('wildcard')
+          ctx.fsm.goto('hurt')
+        },
+      },
+      idle: { onCollide: () => calls.push('idle') },
+      hurt: { onCollide: () => calls.push('hurt') },
+    })
+    const { machine } = makeMachine({ idle: {}, hurt: {} })
+    machine.role = 'collision-transition'
+    machine.onReady()
+
+    machine.onCollide(otherEntity('Other'))
+
+    expect(calls).toEqual(['wildcard', 'idle'])
+    expect(machine.current).toBe('hurt')
   })
 
   it('stays quiet when neither the state nor its set defines a collision hook', () => {
     const { machine } = makeMachine({ idle: {} })
     machine.onReady()
 
-    expect(() => machine.onCollide({ name: 'Other' } as Entity)).not.toThrow()
+    expect(() => machine.onCollide(otherEntity('Other'))).not.toThrow()
   })
 
   it('documents initial onEnter running before later siblings are spawned', () => {

@@ -2,11 +2,26 @@ import { describe, expect, it, vi } from 'vitest'
 import type { Entity } from '@waica/engine'
 import { Lifetime } from './lifetime'
 
+/** Stands in for a real Entity: destroy() is idempotent and flips `alive`. */
+function makeEntity(): { entity: Entity; destroy: ReturnType<typeof vi.fn> } {
+  let alive = true
+  const destroy = vi.fn(() => {
+    alive = false
+  })
+  const entity = {
+    destroy,
+    get alive() {
+      return alive
+    },
+  } as unknown as Entity
+  return { entity, destroy }
+}
+
 describe('Lifetime', () => {
   it('keeps its entity alive before the threshold and destroys it when accumulated dt reaches seconds', () => {
-    const destroy = vi.fn()
+    const { entity, destroy } = makeEntity()
     const lifetime = new Lifetime()
-    lifetime.entity = { destroy } as unknown as Entity
+    lifetime.entity = entity
     lifetime.seconds = 1
 
     lifetime.onUpdate(0.4)
@@ -14,6 +29,20 @@ describe('Lifetime', () => {
     expect(destroy).not.toHaveBeenCalled()
 
     lifetime.onUpdate(0.01)
+    expect(destroy).toHaveBeenCalledOnce()
+  })
+
+  it('stops counting once its entity is gone instead of destroying it twice', () => {
+    // The frame that destroys an entity still iterates a copy of its
+    // components, so onUpdate can run again on a dead entity.
+    const { entity, destroy } = makeEntity()
+    const lifetime = new Lifetime()
+    lifetime.entity = entity
+    lifetime.seconds = 0.1
+
+    lifetime.onUpdate(0.2)
+    lifetime.onUpdate(0.2)
+
     expect(destroy).toHaveBeenCalledOnce()
   })
 

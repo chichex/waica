@@ -6,7 +6,7 @@ import { Hitbox } from './components/hitbox'
 import { Entity } from './entity'
 import { Emitter } from './events'
 import { Input, type InputBindings } from './input'
-import { spawnFromJson, type SceneRegistry } from './scene'
+import { registryEntry, spawnFromJson, type SceneRegistry } from './scene'
 import { Stats, type StatValue } from './stats'
 import { GameUi } from './ui'
 
@@ -104,7 +104,7 @@ export class Game {
       console.warn(`[waica] cannot spawn prefab before loadScene: "${prefab}"`)
       return null
     }
-    if (!registry.prefabs?.[prefab]) {
+    if (!registryEntry(registry.prefabs, prefab)) {
       console.warn(`[waica] unknown runtime prefab: "${prefab}"`)
       return null
     }

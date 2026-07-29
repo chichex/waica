@@ -154,9 +154,16 @@ export class StateMachine extends Component {
   }
 
   override onCollide(other: Entity): void {
-    if (!this.current) return
+    // The state that was active when the contact happened owns it: a
+    // transition fired inside the always-hook must not hand the collision
+    // to the state it just entered.
+    const state = this.current
+    if (!state) return
     this.runCollision('*', other)
-    this.runCollision(this.current, other)
+    // Either side can be destroyed by a hook. Game.dispatchCollisions guards
+    // the same way between the two sides of one contact.
+    if (!this.entity.alive || !other.alive) return
+    this.runCollision(state, other)
   }
 
   private env(): TriggerEnv {
