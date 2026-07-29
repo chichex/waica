@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   defineStates,
+  DynamicBody,
   Hitbox,
   resetRegistries,
   Solid,
@@ -78,20 +79,20 @@ function addBullet(world: ReturnType<typeof makeWorld>, x: number): TestEntity {
   const bullet = world.spawn('Bullet')
   bullet.position.x = x
   bullet.add(Hitbox, { width: 0.35, height: 0.18 })
-  bullet.add(Projectile, { speed: 18, direction: 1 })
+  bullet.add(DynamicBody, { width: 0.35, height: 0.18, vx: 18 })
+  bullet.add(Projectile)
   return bullet
 }
 
 beforeEach(() => resetRegistries())
 
 describe('Projectile', () => {
-  it('destroys a bullet fired point-blank into a wall instead of flying through it', () => {
-    // resolveSolidAxis ignores solids the body already overlaps (the
-    // spawn-inside-wall bail), so a muzzle inside the wall used to buy the
-    // bullet a free pass for its entire flight.
+  it('destroys a bullet recovered from a point-blank wall contact (CA-9)', () => {
     const world = makeWorld()
     const wall = addWall(world, 25.5) // spans 24.5 … 26.5
     const bullet = addBullet(world, 24.6) // hitbox 24.425 … 24.775: inside it
+
+    bullet.get(DynamicBody)?.onUpdate(0)
 
     expect(bullet.alive).toBe(false)
     expect(world.entities).not.toContain(bullet)
@@ -106,12 +107,12 @@ describe('Projectile', () => {
     expect(bullet.alive).toBe(true)
   })
 
-  it('stops at a Solid it reaches in flight rather than crossing it', () => {
+  it('uses DynamicBody to stop at a Solid rather than project-owned sweeping (CA-9)', () => {
     const world = makeWorld()
     addWall(world, 25.5)
     const bullet = addBullet(world, 24) // clear: hitbox ends at 24.175
 
-    bullet.get(Projectile)?.onUpdate(0.1) // 1.8 units: well past the wall face
+    bullet.get(DynamicBody)?.onUpdate(0.1) // 1.8 units: well past the wall face
 
     expect(bullet.alive).toBe(false)
     expect(bullet.position.x).toBeLessThan(24.5)
@@ -121,7 +122,7 @@ describe('Projectile', () => {
     const world = makeWorld()
     const bullet = addBullet(world, 0)
 
-    bullet.get(Projectile)?.onUpdate(0.1)
+    bullet.get(DynamicBody)?.onUpdate(0.1)
 
     expect(bullet.position.x).toBeCloseTo(1.8)
     expect(bullet.position.y).toBe(0)

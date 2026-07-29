@@ -22,8 +22,10 @@ vi.mock('three', async (importOriginal) => {
   return { ...actual, WebGLRenderer }
 })
 
-import { Component } from './component'
+import { Component, type SolidContact } from './component'
+import { DynamicBody } from './components/dynamic-body'
 import { Hitbox } from './components/hitbox'
+import { Solid } from './components/solid'
 import type { Entity } from './entity'
 import { Game } from './game'
 import { loadScene, type SceneRegistry } from './scene'
@@ -48,6 +50,14 @@ class CollisionProbe extends Component {
   readonly hits: Entity[] = []
   override onCollide(other: Entity): void {
     this.hits.push(other)
+  }
+}
+
+class PhysicalAndTriggerProbe extends CollisionProbe {
+  readonly contacts: SolidContact[] = []
+
+  override onContact(contact: SolidContact): void {
+    this.contacts.push(contact)
   }
 }
 
@@ -116,6 +126,32 @@ describe('Game glue characterization', () => {
     game.dispose()
   })
 
+  it('keeps DynamicBody contacts independent from Hitbox trigger overlaps (CA-6)', () => {
+    const game = makeGame()
+    const mover = game.spawn('Mover')
+    mover.add(Hitbox)
+    const body = mover.add(DynamicBody, { vx: 10 })
+    const probe = mover.add(PhysicalAndTriggerProbe)
+    const wall = game.spawn('Wall')
+    wall.position.x = 1
+    wall.add(Solid, { width: 0.5, height: 2 })
+    const trigger = game.spawn('Trigger')
+    trigger.position.x = 0.25
+    trigger.add(Hitbox)
+
+    body.onUpdate(0.1)
+
+    expect(probe.contacts).toHaveLength(1)
+    expect(probe.contacts[0]).toMatchObject({ entity: wall, solid: wall.get(Solid), axis: 'x' })
+    expect(probe.hits).toEqual([])
+
+    ;(game as unknown as { dispatchCollisions(): void }).dispatchCollisions()
+
+    expect(probe.contacts).toHaveLength(1)
+    expect(probe.hits).toEqual([trigger])
+    game.dispose()
+  })
+
   it('bridges a Hitbox overlap into the current state and wildcard collision hooks', () => {
     const calls: Array<{ phase: string; entity: Entity; other: Entity; fsm: StateMachine }> = []
     defineStates('collision-probe', {
@@ -175,6 +211,58 @@ describe('Game glue characterization', () => {
     expect(spawned?.position.toArray()).toEqual([3, 4, 0])
     expect(spawned?.get(PrefabProbe)).toMatchObject({ texture: '/coin.png', amount: 9 })
     expect(game.entities).toContain(spawned)
+    game.dispose()
+  })
+
+  it('constructs DynamicBody from prefab JSON and applies every supported property (CA-8)', () => {
+    const game = makeGame()
+    const points = [
+      [-0.5, -0.5],
+      [0.5, -0.5],
+      [0, 0.5],
+    ]
+    loadScene(
+      game,
+      {
+        waicaScene: 3,
+        entities: [{ name: 'Mover', prefab: 'objects/mover' }],
+      },
+      {
+        components: { DynamicBody },
+        prefabs: {
+          'objects/mover': {
+            waicaPrefab: 1,
+            type: 'object',
+            components: [
+              {
+                type: 'DynamicBody',
+                props: {
+                  vx: 4,
+                  vy: -2,
+                  shape: 'polygon',
+                  width: 2,
+                  height: 3,
+                  offsetX: 0.25,
+                  offsetY: -0.5,
+                  points,
+                },
+              },
+            ],
+          },
+        },
+      },
+    )
+
+    expect(game.find('Mover')?.get(DynamicBody)).toMatchObject({
+      vx: 4,
+      vy: -2,
+      shape: 'polygon',
+      width: 2,
+      height: 3,
+      offsetX: 0.25,
+      offsetY: -0.5,
+      points,
+    })
     game.dispose()
   })
 
