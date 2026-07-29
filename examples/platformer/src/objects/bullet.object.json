@@ -19,6 +19,14 @@
       }
     },
     {
+      "type": "DynamicBody",
+      "props": {
+        "vx": 18,
+        "width": 0.35,
+        "height": 0.18
+      }
+    },
+    {
       "type": "Projectile"
     },
     {
