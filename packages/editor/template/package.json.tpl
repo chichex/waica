@@ -11,8 +11,7 @@
   "dependencies": {
     "@waica/archetype-platformer": "^__WAICA_VERSION__",
     "@waica/behaviors": "^__WAICA_VERSION__",
-    "@waica/engine": "^__WAICA_VERSION__",
-    "@waica/overlay": "^__WAICA_VERSION__"
+    "@waica/engine": "^__WAICA_VERSION__"
   },
   "devDependencies": {
     "typescript": "^7.0.0",

@@ -67,7 +67,7 @@ export function Home({
       const parent = await window.showDirectoryPicker({ mode: 'readwrite', id: 'waica-new' })
       for await (const [entryName, entry] of parent.entries()) {
         if (entryName !== name) continue
-        // Same as create-waica: reusing an empty folder is fine; overwriting something is not.
+        // Reusing an empty folder is fine; overwriting something is not.
         if (entry.kind !== 'directory' || !(await isEmptyDir(entry))) {
           alert(`"${parent.name}" already has "${name}" — pick another name or another folder.`)
           return

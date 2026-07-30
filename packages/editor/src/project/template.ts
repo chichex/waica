@@ -1,15 +1,15 @@
-// The project template: the SAME source `npm create waica` uses
-// (?raw imports from the create-waica package) + the archetype's default scene.
-import pkgTpl from '../../../create-waica/template/package.json.tpl?raw'
-import indexHtml from '../../../create-waica/template/index.html?raw'
-import mainTs from '../../../create-waica/template/src/main.ts?raw'
-import controlsJson from '../../../create-waica/template/src/controls.json?raw'
-import statsJson from '../../../create-waica/template/src/stats.json?raw'
-import gameJson from '../../../create-waica/template/src/game.json?raw'
-import tsconfigJson from '../../../create-waica/template/tsconfig.json?raw'
-import viteConfigTs from '../../../create-waica/template/vite.config.ts?raw'
-import readmeMd from '../../../create-waica/template/README.md?raw'
-import gitignore from '../../../create-waica/template/_gitignore?raw'
+// The project template: the chassis files a fresh project starts from
+// (?raw imports from ../../template) + the archetype's default scene.
+import pkgTpl from '../../template/package.json.tpl?raw'
+import indexHtml from '../../template/index.html?raw'
+import mainTs from '../../template/src/main.ts?raw'
+import controlsJson from '../../template/src/controls.json?raw'
+import statsJson from '../../template/src/stats.json?raw'
+import gameJson from '../../template/src/game.json?raw'
+import tsconfigJson from '../../template/tsconfig.json?raw'
+import viteConfigTs from '../../template/vite.config.ts?raw'
+import readmeMd from '../../template/README.md?raw'
+import gitignore from '../../template/_gitignore?raw'
 import { resolveArchetype, type ArchetypeManifest } from './archetype'
 
 const WAICA_VERSION = '0.1.0'

@@ -94,7 +94,7 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
     stats: stats.stats,
   })
 
-  // Parameters tuned from the inspector override the archetype defaults.
+  // Persisted parameter overrides (public/waica.params.json) beat the defaults.
   await game.loadParams('/waica.params.json')
 
   // The scene lives in src/scenes/main.scene.json — editable with the Waica
@@ -102,8 +102,6 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   loadScene(game, scene as never, registry)
 
   if (import.meta.env.DEV) {
-    const { attachOverlay } = await import('@waica/overlay')
-    attachOverlay(game)
     ;(window as unknown as Record<string, unknown>).__waica = { game }
   }
 

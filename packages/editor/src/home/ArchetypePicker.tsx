@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ARCHETYPE_CATALOG, type ArchetypeCard } from '../project/archetype'
 import type { ProjectStart } from '../project/template'
 
-// Same rule as create-waica: folder name and npm package name.
+// Folder name doubles as the npm package name.
 const NAME_RE = /^[a-z0-9][a-z0-9-_.]*$/
 
 const START_OPTIONS: { id: ProjectStart; icon: string; label: string; blurb: string }[] = [

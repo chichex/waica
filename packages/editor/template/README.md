@@ -9,8 +9,8 @@ npm install
 npm run dev
 ```
 
-- **← →** move · **space** jump · **~** opens the inspector
-- Whatever you tweak in the inspector is saved to `public/waica.params.json` — what you tune while playing is what you export.
+- **← →** move · **space** jump
+- Parameter overrides live in `public/waica.params.json` — tweak them there to beat the component defaults.
 - Your character is the placeholder dog: replace it in `src/main.ts` keeping the contract clips (`idle`, `run`, `jump`, `fall`).
 
 ## Export for the web

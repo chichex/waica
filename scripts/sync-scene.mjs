@@ -1,7 +1,7 @@
 // Syncs the archetype's defaults (source of truth in TS) to the project
 // JSONs — the scene plus one file per prefab (src/<key>.<type>.json, the
 // same layout the editor's projectFiles() emits) plus the stock art PNGs
-// (src/art/<file>) — into the repo example and the wizard template.
+// (src/art/<file>) — into the repo example and the editor's project template.
 // Requires built dists: pnpm -r build (archetype, behaviors, engine)
 //
 //   node scripts/sync-scene.mjs
@@ -78,7 +78,7 @@ function keepProjectComponents(target, prefab) {
 
 const TARGETS = [
   join(root, 'examples', 'platformer', 'src'),
-  join(root, 'packages', 'create-waica', 'template', 'src'),
+  join(root, 'packages', 'editor', 'template', 'src'),
 ]
 for (const srcDir of TARGETS) {
   for (const [rel, data] of Object.entries(FILES)) {

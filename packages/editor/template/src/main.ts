@@ -94,17 +94,12 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
     stats: stats.stats,
   })
 
-  // Whatever you tweak in the inspector (~) is saved here and overrides the defaults.
+  // Persisted parameter overrides (public/waica.params.json) beat the defaults.
   await game.loadParams('/waica.params.json')
 
   // Your scene: edit it with the Waica editor or by hand — it's just JSON.
   // Its "ui" list mounts the UI pieces it starts with (the coin counter).
   loadScene(game, scene as never, registry)
-
-  if (import.meta.env.DEV) {
-    const { attachOverlay } = await import('@waica/overlay')
-    attachOverlay(game)
-  }
 
   game.start()
 }

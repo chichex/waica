@@ -2,12 +2,12 @@
 <!-- Generado por /sdd-init el 2026-07-28 (modo --assume). Refrescar con /sdd-init --update. -->
 
 ## Stack
-TypeScript (tsc 7.x) end to end. pnpm monorepo (`pnpm@11.4.0`, workspace of 8 projects): `packages/engine` (core: ECS-ish entities, components, physics, state machines, three.js render), `packages/editor` (browser editor, React + Vite + Monaco), `packages/behaviors`, `packages/archetype-platformer`, `packages/overlay`, `packages/create-waica`, plus `examples/platformer` (Vite app consuming the engine). Tests: vitest 4 + happy-dom, run from the repo root. Everything in the repo is written in English (see CLAUDE.md).
+TypeScript (tsc 7.x) end to end. pnpm monorepo (`pnpm@11.4.0`, workspace of 6 projects): `packages/engine` (core: ECS-ish entities, components, physics, state machines, three.js render), `packages/editor` (browser editor, React + Vite + Monaco; owns the new-project template in `packages/editor/template/`), `packages/behaviors`, `packages/archetype-platformer`, plus `examples/platformer` (Vite app consuming the engine). Tests: vitest 4 + happy-dom, run from the repo root. Everything in the repo is written in English (see CLAUDE.md).
 
 ## Comandos
 | Accion | Comando | cwd | Estado | Duracion | Notas |
 |---|---|---|---|---|---|
-| test | `pnpm test` | . | verificado 2026-07-28 | ~1s | vitest run: 314 tests in 33 files, all passing. Deterministic, no external services. |
+| test | `pnpm test` | . | verificado 2026-07-29 | ~1s | vitest run: 407 tests in 49 files, all passing. Deterministic, no external services. |
 | typecheck | `pnpm typecheck` | . | verificado 2026-07-28 | ~1s warm (first run slower) | `tsc --noEmit` in all 7 workspace projects, all clean. |
 | build | `pnpm build` | . | verificado 2026-07-28 | ~3s | `tsc -p tsconfig.build.json` for libs + Vite bundle for editor/example. Warning: editor main chunk is 4.5 MB (>500 kB limit) — pre-existing, not a failure. |
 | run (editor) | `pnpm editor` | . | verificado 2026-07-28 | up in <5s | Vite dev server. Alive when `curl -sf http://localhost:<port>` responds; port is printed by Vite (5174 when 5173 is busy, else 5173). |
