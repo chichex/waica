@@ -81,18 +81,35 @@ export function resolveFile(root: string, url: string): string | null {
 }
 
 /**
+ * Health endpoint every waica server exposes, so a starting instance can tell
+ * "that port is another waica" apart from "that port is some other app".
+ */
+export const HEALTH_PATH = '/__waica.json'
+
+/**
  * Static server for the bundled editor: files by content type, index.html for
  * extension-less routes (the editor is a SPA).
  */
-export function createEditorServer(root: string): Server {
+export function createEditorServer(root: string, version = '0.0.0'): Server {
   return createServer((req, res) => {
-    void handle(root, req, res)
+    void handle(root, version, req, res)
   })
 }
 
-async function handle(root: string, req: IncomingMessage, res: ServerResponse): Promise<void> {
+async function handle(
+  root: string,
+  version: string,
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405, { allow: 'GET, HEAD' }).end()
+    return
+  }
+  if ((req.url ?? '').split(/[?#]/, 1)[0] === HEALTH_PATH) {
+    const body = JSON.stringify({ name: 'waica', version, pid: process.pid })
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(req.method === 'HEAD' ? undefined : body)
     return
   }
   const target = resolveFile(root, req.url ?? '/')
@@ -112,6 +129,89 @@ async function handle(root: string, req: IncomingMessage, res: ServerResponse): 
     res.end(req.method === 'HEAD' ? undefined : body)
   } catch {
     res.writeHead(404).end()
+  }
+}
+
+export interface RunningWaica {
+  version: string
+  pid: number
+}
+
+/**
+ * Asks whatever listens on host:port whether it is a waica server. Any network
+ * error, timeout or unexpected payload means "not waica" — never throws.
+ */
+export async function probeWaica(
+  host: string,
+  port: number,
+  timeoutMs: number,
+): Promise<RunningWaica | null> {
+  try {
+    const res = await fetch(`http://${host}:${port}${HEALTH_PATH}`, {
+      signal: AbortSignal.timeout(timeoutMs),
+    })
+    if (!res.ok) return null
+    const data = (await res.json()) as { name?: unknown; version?: unknown; pid?: unknown }
+    if (data.name !== 'waica' || typeof data.version !== 'string' || typeof data.pid !== 'number') {
+      return null
+    }
+    return { version: data.version, pid: data.pid }
+  } catch {
+    return null
+  }
+}
+
+/** Numeric segment-wise version compare: 1 if a > b, -1 if a < b, 0 if equal. */
+export function compareVersions(a: string, b: string): number {
+  const pa = a.split('.').map((s) => Number.parseInt(s, 10) || 0)
+  const pb = b.split('.').map((s) => Number.parseInt(s, 10) || 0)
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const diff = (pa[i] ?? 0) - (pb[i] ?? 0)
+    if (diff !== 0) return Math.sign(diff)
+  }
+  return 0
+}
+
+/**
+ * Fetches {version} from a registry "latest" URL. Null on any failure — the
+ * update check must never break or delay startup beyond its timeout.
+ */
+export async function fetchLatestVersion(url: string, timeoutMs: number): Promise<string | null> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) })
+    if (!res.ok) return null
+    const data = (await res.json()) as { version?: unknown }
+    return typeof data.version === 'string' ? data.version : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Listens on one fixed port, retrying while it is still in use — for taking
+ * over a port whose previous owner was just asked to exit.
+ */
+export async function listenWithRetry(
+  server: Server,
+  port: number,
+  host: string,
+  attempts: number,
+  delayMs: number,
+): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        server.once('error', reject)
+        server.listen(port, host, () => {
+          server.off('error', reject)
+          resolve()
+        })
+      })
+      return
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EADDRINUSE' || attempt >= attempts) throw error
+      await new Promise((resolve) => setTimeout(resolve, delayMs))
+    }
   }
 }
 
