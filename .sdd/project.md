@@ -2,7 +2,7 @@
 <!-- Generado por /sdd-init el 2026-07-28 (modo --assume). Refrescar con /sdd-init --update. -->
 
 ## Stack
-TypeScript (tsc 7.x) end to end. pnpm monorepo (`pnpm@11.4.0`, workspace of 7 projects): `packages/engine` (core: ECS-ish entities, components, physics, state machines, three.js render), `packages/editor` (browser editor, React + Vite + Monaco; owns the new-project template in `packages/editor/template/`), `packages/behaviors`, `packages/archetype-platformer`, `packages/cli` (npm package `waica`: `npx waica` serves the pre-built editor, bundled into its `dist/editor` at build time), plus `examples/platformer` (Vite app consuming the engine). Tests: vitest 4 + happy-dom, run from the repo root. Everything in the repo is written in English (see CLAUDE.md).
+TypeScript (tsc 7.x) end to end. pnpm monorepo (`pnpm@11.4.0`, workspace of 7 projects): `packages/engine` (core: ECS-ish entities, components, physics, state machines, three.js render), `packages/editor` (browser editor, React + Vite + Monaco; owns the new-project template in `packages/editor/template/`), `packages/behaviors`, `packages/archetype-platformer`, `packages/cli` (npm package `@chichex/waica` — bare `waica` is blocked by npm's similarity filter; `npx @chichex/waica` serves the pre-built editor, bundled into its `dist/editor` at build time), plus `examples/platformer` (Vite app consuming the engine). Tests: vitest 4 + happy-dom, run from the repo root. Everything in the repo is written in English (see CLAUDE.md).
 
 ## Comandos
 | Accion | Comando | cwd | Estado | Duracion | Notas |
