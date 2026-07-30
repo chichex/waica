@@ -23,6 +23,18 @@ your disk (Chromium browsers; elsewhere the editor runs in demo mode).
 | `--version` | print the version |
 | `--help` | show help |
 
+## Behavior
+
+- **Already running?** If the port is held by another waica instance (detected
+  via its `/__waica.json` health endpoint), waica offers to stop it and take
+  its place; if you decline — or there is no TTY — it reuses the running editor
+  and just opens the browser. A port held by any other app falls back to the
+  next free port.
+- **Updates.** On start waica asks npm (1.5 s timeout, silent offline) whether
+  a newer version exists. Global installs in an interactive terminal get an
+  `update now? [y/N]` prompt that installs and restarts in place; under `npx`
+  or without a TTY it prints the command to run instead.
+
 ## What's in the box
 
 This package ships the pre-built editor (`dist/editor`) plus a tiny static
