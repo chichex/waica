@@ -16,6 +16,12 @@ Named after a childhood dog. She was a good girl.
 ## The Editor
 
 ```bash
+npx waica   # no clone needed — serves the editor and opens your browser
+```
+
+Or from a checkout:
+
+```bash
 pnpm install
 pnpm editor
 ```
@@ -36,3 +42,4 @@ pnpm dev   # platformer archetype — ← → move · space jump
 | `@waica/behaviors` | Curated game-feel library: `PlatformerMotor` and the `player` role, plus `patroller`, `chaser` and `npc`, `Collectible`, `Hazard`, `Respawnable`, `Lifetime` |
 | `@waica/archetype-platformer` | Opinionated platformer setup — playable from minute zero: default scene, prefabs, controls, HUD and stock art. The placeholder hero is Waica herself (pixel art, script-generated) |
 | `@waica/editor` | The app: create/open projects (owns the new-project template), viewport with drag & drop, inspector, state machine & animation editors, controls/stats views, play-in-editor, Monaco |
+| `waica` | One-command launcher: `npx waica` serves the pre-built editor from a tiny dependency-free static server and opens your browser |

@@ -1,0 +1,26 @@
+{
+  "name": "waica",
+  "version": "0.1.0",
+  "description": "Waica in one command — `npx waica` opens the editor in your browser",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chichex/waica",
+    "directory": "packages/cli"
+  },
+  "bin": {
+    "waica": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node bundle-editor.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@waica/editor": "workspace:^"
+  }
+}
