@@ -1,7 +1,7 @@
 {
-  "name": "waica",
+  "name": "@chichex/waica",
   "version": "0.1.0",
-  "description": "Waica in one command — `npx waica` opens the editor in your browser",
+  "description": "Waica in one command — `npx @chichex/waica` opens the editor in your browser",
   "license": "MIT",
   "type": "module",
   "repository": {

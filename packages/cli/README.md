@@ -3,8 +3,11 @@
 The [waica](https://github.com/chichex/waica) editor, one command away:
 
 ```sh
-npx waica
+npx @chichex/waica
 ```
+
+(The bare name `waica` is blocked by npm's name-similarity filter, so the
+package lives under the author scope; the installed binary is still `waica`.)
 
 That serves the editor at `http://localhost:5178` and opens your browser. From
 there you can create a project from an archetype, drag entities around, edit
