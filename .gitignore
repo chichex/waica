@@ -5,5 +5,6 @@ dist/
 .DS_Store
 .playwright-mcp/
 
-# local editor/session state
-.claude/
+# local editor/session state, except project skills (shared, versioned)
+.claude/*
+!.claude/skills/
