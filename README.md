@@ -19,6 +19,13 @@ Named after a childhood dog. She was a good girl.
 npx @chichex/waica   # no clone needed — serves the editor and opens your browser
 ```
 
+Or install it globally to keep the `waica` command around:
+
+```bash
+npm install -g @chichex/waica
+waica
+```
+
 Or from a checkout:
 
 ```bash
