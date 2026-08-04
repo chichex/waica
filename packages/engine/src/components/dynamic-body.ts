@@ -6,10 +6,10 @@ import {
   type CollisionBody,
   type CollisionPoint,
   type CollisionShape,
-} from '../collision-shape'
-import { Component, type ContactNormal, type SolidContact } from '../component'
-import { resolveSolidAxis, type CollisionAxis } from '../solid-axis'
-import { Solid } from './solid'
+} from '../collision-shape.js'
+import { Component, type ContactNormal, type SolidContact } from '../component.js'
+import { resolveSolidAxis, type CollisionAxis } from '../solid-axis.js'
+import { Solid } from './solid.js'
 
 interface RecoveryDirection {
   axis: CollisionAxis

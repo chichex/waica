@@ -45,10 +45,10 @@ jobs:
       - name: Typecheck and test
         run: pnpm typecheck && pnpm test
 
-      # Topological order builds @waica/editor before the CLI, whose build
-      # copies the editor dist into its own dist/editor.
-      - name: Build workspace
-        run: pnpm -r build
+      # Builds from clean library dists, validates packed exports and imports
+      # with plain Node, and also builds the editor before the CLI bundles it.
+      - name: Build and verify published package shape
+        run: pnpm test:dist
 
       # npm publish does not rewrite the workspace:^ devDependency the way
       # pnpm publish would; devDependencies mean nothing to consumers, so

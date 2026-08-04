@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { Component } from '../component'
+import { Component } from '../component.js'
 
 const loader = new THREE.TextureLoader()
 

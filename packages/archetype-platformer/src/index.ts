@@ -1,16 +1,27 @@
-import { Game, loadScene, type Entity } from '@waica/engine'
-import { PLATFORMER_SCENE } from './scene-default'
-import { PLATFORMER_REGISTRY } from './registry'
+import {
+  Game,
+  loadScene,
+  type BrowserArchetypeManifest,
+  type Entity,
+} from '@waica/engine'
+import { ARCHETYPE as DATA_ARCHETYPE } from './manifest.js'
+import { PLATFORMER_REGISTRY, PLATFORMER_ART_URLS } from './registry.js'
+import { PLATFORMER_SCENE } from './scene-default.js'
 
-export { PLATFORMER_BUNDLE } from './bundle'
-export { PLATFORMER_ACTION_LABELS, PLATFORMER_BINDINGS } from './controls'
-export { PLATFORMER_SCENE, PLATFORMER_BLANK_SCENE, DOG_SPRITE } from './scene-default'
-export { PLATFORMER_PREFABS } from './prefabs'
-export { PLATFORMER_UI } from './ui'
-export { PLATFORMER_ART } from './art'
-export type { ArchetypeArt } from './art'
-export { PLATFORMER_REGISTRY, PLATFORMER_PALETTE, PLATFORMER_ART_URLS } from './registry'
-export type { EntityTemplate } from './registry'
+export { PLATFORMER_BUNDLE } from './bundle.js'
+export { PLATFORMER_ACTION_LABELS, PLATFORMER_BINDINGS } from './controls.js'
+export { PLATFORMER_SCENE, PLATFORMER_BLANK_SCENE, DOG_SPRITE } from './scene-default.js'
+export { PLATFORMER_PREFABS } from './prefabs.js'
+export { PLATFORMER_UI } from './ui.js'
+export { PLATFORMER_ART } from './art.js'
+export { PLATFORMER_REGISTRY, PLATFORMER_PALETTE, PLATFORMER_ART_URLS } from './registry.js'
+
+/** Browser-complete manifest exported by the package root. */
+export const ARCHETYPE = {
+  ...DATA_ARCHETYPE,
+  registry: PLATFORMER_REGISTRY,
+  artUrls: PLATFORMER_ART_URLS,
+} satisfies BrowserArchetypeManifest
 
 export interface PlatformerSetup {
   player: Entity

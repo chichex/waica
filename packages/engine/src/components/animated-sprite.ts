@@ -1,7 +1,7 @@
 import * as THREE from 'three'
-import { Component } from '../component'
-import { ClipPlayer, type ClipDef } from '../animation/clip-player'
-import { locateFrame, sheetCell, type SheetCell, type SheetDef } from '../animation/sheet'
+import { Component } from '../component.js'
+import { ClipPlayer, type ClipDef } from '../animation/clip-player.js'
+import { locateFrame, sheetCell, type SheetCell, type SheetDef } from '../animation/sheet.js'
 
 const loader = new THREE.TextureLoader()
 

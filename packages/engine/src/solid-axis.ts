@@ -1,6 +1,6 @@
-import { collisionBounds, collisionOverlap, type CollisionBody } from './collision-shape'
-import { Solid } from './components/solid'
-import type { Entity } from './entity'
+import { collisionBounds, collisionOverlap, type CollisionBody } from './collision-shape.js'
+import { Solid } from './components/solid.js'
+import type { Entity } from './entity.js'
 
 export type CollisionAxis = 'x' | 'y'
 

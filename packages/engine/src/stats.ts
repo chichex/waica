@@ -1,4 +1,4 @@
-import { Emitter } from './events'
+import { Emitter } from './events.js'
 
 /** A stat's value: points/lives are numbers, flags are booleans, labels strings. */
 export type StatValue = number | boolean | string

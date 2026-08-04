@@ -1,6 +1,6 @@
 import type { PrefabJson } from '@waica/engine'
 import { PLAYER_STATE_GRAPH } from '@waica/behaviors'
-import { DOG_SPRITE } from './scene-default'
+import { DOG_SPRITE } from './scene-default.js'
 
 /**
  * The archetype's reusable entity templates, keyed by ref ('characters/slime').

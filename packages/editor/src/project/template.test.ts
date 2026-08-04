@@ -1,7 +1,15 @@
+import { ARCHETYPE } from '@waica/archetype-platformer'
 import { describe, expect, it } from 'vitest'
 import { projectArtFiles, projectFiles } from './template'
 
 describe('projectFiles', () => {
+  it.each(['demo', 'blank'] as const)(
+    'matches the pre-refactor golden output for a %s start',
+    (start) => {
+      expect(projectFiles('fixture-name', start)).toMatchSnapshot()
+    },
+  )
+
   it('stamps the picked archetype id into game.json', () => {
     const files = projectFiles('my-game', 'demo', 'platformer')
     const game = JSON.parse(files['src/game.json'] ?? '') as { archetype?: unknown }
@@ -15,6 +23,18 @@ describe('projectFiles', () => {
     expect(main).toContain(
       "import.meta.glob(['./components/*.ts', './roles/*.ts', './states/*.ts'])",
     )
+  })
+
+  it('materializes prefabs from the manifest contract, not registry defaults', () => {
+    const registryPrefabs = ARCHETYPE.registry.prefabs
+    ARCHETYPE.registry.prefabs = {}
+
+    try {
+      const files = projectFiles('my-game')
+      expect(files['src/characters/player.character.json']).toBeDefined()
+    } finally {
+      ARCHETYPE.registry.prefabs = registryPrefabs
+    }
   })
 
   it('demo start ships the sample level, prefab files and UI files', () => {

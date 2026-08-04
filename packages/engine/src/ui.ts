@@ -1,4 +1,4 @@
-import type { Stats, StatValue } from './stats'
+import type { Stats, StatValue } from './stats.js'
 
 /**
  * The HTML UI layer. Each piece is a self-contained HTML fragment

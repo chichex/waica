@@ -1,5 +1,5 @@
 import { type RoleDefinition, type RoleGraph, type StateContext } from '@waica/engine'
-import { PlatformerMotor } from './platformer-motor'
+import { PlatformerMotor } from './platformer-motor.js'
 
 /**
  * The 'player' role: the character you control. All four default states

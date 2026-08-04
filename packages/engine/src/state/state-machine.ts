@@ -1,13 +1,13 @@
-import { Component } from '../component'
-import { AnimatedSprite } from '../components/animated-sprite'
-import type { Entity } from '../entity'
+import { Component } from '../component.js'
+import { AnimatedSprite } from '../components/animated-sprite.js'
+import type { Entity } from '../entity.js'
 import {
   closestLogicSet,
   logicSet,
   registeredLogicSets,
   type StateContext,
   type StateHooks,
-} from './hooks'
+} from './hooks.js'
 
 /** One outgoing edge: when `on` fires, the machine moves to `to`. */
 export interface StateTransitionJson {

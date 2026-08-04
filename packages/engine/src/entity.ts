@@ -1,6 +1,6 @@
 import * as THREE from 'three'
-import type { Component, ComponentClass } from './component'
-import type { Game } from './game'
+import type { Component, ComponentClass } from './component.js'
+import type { Game } from './game.js'
 
 /**
  * A live scene node: a transform (three Group) + components.

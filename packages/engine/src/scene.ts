@@ -1,7 +1,7 @@
-import type { SceneCameraJson } from './camera'
-import type { ComponentClass } from './component'
-import type { Entity } from './entity'
-import type { Game } from './game'
+import type { SceneCameraJson } from './camera.js'
+import type { ComponentClass } from './component.js'
+import type { Entity } from './entity.js'
+import type { Game } from './game.js'
 
 /**
  * Waica's scene format: declarative, git-friendly data, editable by the
