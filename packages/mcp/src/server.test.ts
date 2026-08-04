@@ -16,6 +16,23 @@ const TOOL_NAMES = [
   'scaffold_ui',
 ]
 
+const OPERATING_TOOLS = TOOL_NAMES.filter((name) => name !== 'create_project')
+
+function argumentsFor(name: string, projectPath: string): Record<string, unknown> {
+  const specific: Record<string, Record<string, unknown>> = {
+    create_project: { start: 'blank' },
+    list_components: {},
+    describe_archetype: {},
+    project_summary: {},
+    validate_project: {},
+    scaffold_component: { name: 'dash' },
+    scaffold_role: { role: 'guard' },
+    scaffold_state: { role: 'player', state: 'dash' },
+    scaffold_ui: { name: 'score' },
+  }
+  return { project_path: projectPath, ...specific[name] }
+}
+
 const roots: string[] = []
 afterEach(async () => cleanup(...roots.splice(0)))
 
@@ -81,18 +98,10 @@ describe('MCP server', () => {
   it.each(TOOL_NAMES)('%s rejects relative project paths with the stdio cwd explanation', async (name) => {
     const pair = await connectedPair()
     try {
-      const argumentsByTool: Record<string, Record<string, unknown>> = {
-        create_project: { project_path: 'relative-game', start: 'blank' },
-        list_components: { project_path: 'relative-game' },
-        describe_archetype: { project_path: 'relative-game' },
-        project_summary: { project_path: 'relative-game' },
-        validate_project: { project_path: 'relative-game' },
-        scaffold_component: { project_path: 'relative-game', name: 'dash' },
-        scaffold_role: { project_path: 'relative-game', role: 'guard' },
-        scaffold_state: { project_path: 'relative-game', role: 'player', state: 'dash' },
-        scaffold_ui: { project_path: 'relative-game', name: 'score' },
-      }
-      const result = await pair.client.callTool({ name, arguments: argumentsByTool[name] })
+      const result = await pair.client.callTool({
+        name,
+        arguments: argumentsFor(name, 'relative-game'),
+      })
       expect('toolResult' in result ? undefined : result.isError).toBe(true)
       expect(jsonResult(result)).toEqual({
         error: {
@@ -108,34 +117,37 @@ describe('MCP server', () => {
     }
   })
 
-  it('uses one cannot-operate error shape for missing and non-project directories', async () => {
-    const parent = await tempDir()
-    const nonProject = await tempDir()
-    roots.push(parent, nonProject)
-    const missing = `${parent}/missing`
-    const pair = await connectedPair()
-    try {
-      const missingResult = await pair.client.callTool({
-        name: 'project_summary',
-        arguments: { project_path: missing },
-      })
-      const nonProjectResult = await pair.client.callTool({
-        name: 'project_summary',
-        arguments: { project_path: nonProject },
-      })
-      expect(jsonResult(missingResult)).toMatchObject({
-        error: { code: 'cannot-operate', reason: 'missing-path', projectPath: missing },
-        provenance: [],
-      })
-      expect(jsonResult(nonProjectResult)).toMatchObject({
-        error: { code: 'cannot-operate', reason: 'not-waica-project', projectPath: nonProject },
-        provenance: [],
-      })
-      expect(Object.keys(jsonResult(missingResult).error as object).sort()).toEqual(
-        Object.keys(jsonResult(nonProjectResult).error as object).sort(),
-      )
-    } finally {
-      await pair.close()
-    }
-  })
+  it.each(OPERATING_TOOLS)(
+    '%s uses one cannot-operate error shape for missing and non-project directories',
+    async (name) => {
+      const parent = await tempDir()
+      const nonProject = await tempDir()
+      roots.push(parent, nonProject)
+      const missing = `${parent}/missing`
+      const pair = await connectedPair()
+      try {
+        const missingResult = await pair.client.callTool({
+          name,
+          arguments: argumentsFor(name, missing),
+        })
+        const nonProjectResult = await pair.client.callTool({
+          name,
+          arguments: argumentsFor(name, nonProject),
+        })
+        expect(jsonResult(missingResult)).toMatchObject({
+          error: { code: 'cannot-operate', reason: 'missing-path', projectPath: missing },
+          provenance: [],
+        })
+        expect(jsonResult(nonProjectResult)).toMatchObject({
+          error: { code: 'cannot-operate', reason: 'not-waica-project', projectPath: nonProject },
+          provenance: [],
+        })
+        expect(Object.keys(jsonResult(missingResult).error as object).sort()).toEqual(
+          Object.keys(jsonResult(nonProjectResult).error as object).sort(),
+        )
+      } finally {
+        await pair.close()
+      }
+    },
+  )
 })

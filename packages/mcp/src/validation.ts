@@ -150,8 +150,13 @@ function stateCodeExists(
   state: string,
   context: ValidationContext,
 ): boolean {
-  const builtIn = context.manifest.bundle.roles[role]?.states
-  return !!builtIn && Object.hasOwn(builtIn, state) || context.stateFiles.has(state)
+  const roleStates = context.manifest.bundle.roles[role]?.states
+  const logicStates = context.manifest.bundle.logicSets?.[role]
+  return (
+    (!!roleStates && Object.hasOwn(roleStates, state)) ||
+    (!!logicStates && Object.hasOwn(logicStates, state)) ||
+    context.stateFiles.has(state)
+  )
 }
 
 function validateStateMachines(
@@ -303,7 +308,7 @@ function validateScene(
           entity.prefab,
         )
       } else {
-        const componentTypes = new Set(prefab.components.map((component) => component.type))
+        const componentTypes = new Set(componentList(prefab.components).map((component) => component.type))
         for (const override of Object.keys(entity.overrides ?? {})) {
           if (!componentTypes.has(override)) {
             add(
