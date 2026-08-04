@@ -94,29 +94,29 @@ Mixto: **CA-B1..B9 y B12 ALTA** — fixtures deterministas bajo el `pnpm test` p
 
 ## Resultado de ejecución (2026-08-04)
 
-| CA | Estado | Evidencia |
+| CA | Status | Evidence |
 |---|---|---|
-| CA-B1 | verificado | `create-project.test.ts` pasó paridad completa demo/blank contra `projectFiles()`/`projectArtFiles()`, errores sin escrituras, bytes PNG, URIs y next steps. |
-| CA-B2 | verificado | `introspection.test.ts` observó las 13 clases, solo 3 `displayName`, params/defaults, constructor fallido y los tres directorios de código textual. |
-| CA-B3 | verificado | Fixtures con arquetipo adicional probaron id activo, selección explícita, ids disponibles, schema enumerado y `installed, not active`. |
-| CA-B4 | verificado | Fixture deep-equal verificó escenas, refs/tipos de prefabs, código, UI, stats, controles y arquetipo desde sus archivos declarados. |
-| CA-B5 | verificado | `validation.test.ts` produjo los 12 códigos estables, continuó tras JSON inválido, distinguió código project-owned y dejó un demo generado con `ok: true`. |
-| CA-B6 | verificado | Paridad de strings contra los cuatro módulos del editor, incluyendo ambas ramas de estado, nombres de componente y never-overwrite. |
-| CA-B7 | verificado | Cliente SDK sobre `InMemoryTransport.createLinkedPair()` vio exactamente 9 tools con schemas y completó un round-trip. |
-| CA-B8 | verificado | Matriz fixture project/bundled/partial/unloadable pasó con `createRequire`, provenance por paquete y warning de fuentes mixtas. |
-| CA-B9 | verificado | Metadata exacta bajo Vitest; `pnpm build` generó bin con shebang + `dist/template`; `pnpm test:dist` validó el tarball y ranges publicados. |
-| CA-B10 | pendiente humano | Checklist grep autónomo pasó: 9 tools, paths absolutos, coexistencia, caveat y referencia root. Restan las 3 preguntas binarias. |
-| CA-B11 | pendiente humano | El protocolo pre-publish con Claude Code y browser no se ejecutó autónomamente. |
-| CA-B12 | verificado | Matrices de path absoluto y cannot-operate pasaron para las 9 tools; `pnpm test:dist` lanzó el CLI empaquetado por stdio y creó un proyecto. |
+| CA-B1 | verified | `create-project.test.ts` proved complete demo/blank parity against `projectFiles()`/`projectArtFiles()`, no-write errors, PNG bytes, URIs and next steps. |
+| CA-B2 | verified | `introspection.test.ts` observed all 13 classes, only 3 `displayName` declarations, params/defaults, a throwing constructor and all three textual-code directories. |
+| CA-B3 | verified | Fixtures with an additional archetype proved the active id, explicit selection, available ids, the enumerated schema and `installed, not active`. |
+| CA-B4 | verified | A deep-equal fixture verified scenes, prefab refs/types, code, UI, stats, controls and archetype from their declared file sources. |
+| CA-B5 | verified | `validation.test.ts` produced all 12 stable codes, continued after invalid JSON, distinguished project-owned code and left a generated demo at `ok: true`. |
+| CA-B6 | verified | String parity passed against all four editor modules, including both state branches, component naming and never-overwrite behavior. |
+| CA-B7 | verified | An SDK client over `InMemoryTransport.createLinkedPair()` saw exactly 9 tools with schemas and completed a round-trip. |
+| CA-B8 | verified | The project/bundled/partial/unloadable fixture matrix passed with `createRequire`, per-package provenance and a mixed-source warning. |
+| CA-B9 | verified | Vitest checked exact metadata; `pnpm build` emitted the shebang bin plus `dist/template`; `pnpm test:dist` checked the tarball and published ranges. |
+| CA-B10 | pending human | The autonomous grep checklist passed: 9 tools, absolute paths, coexistence, caveat and root reference. The 3 binary questions remain. |
+| CA-B11 | pending human | The pre-publish Claude Code and browser protocol was not run autonomously. |
+| CA-B12 | verified | Absolute-path and cannot-operate matrices passed for all 9 tools; `pnpm test:dist` launched the packed CLI over stdio and created a project. |
 
-Regresión y escalera: `pnpm typecheck` verde; `pnpm test` verde con 493/493 tests en 59 archivos (49 nuevos); `pnpm build` verde con el warning preexistente de chunk del editor; `pnpm test:dist` verde; editor live smoke HTTP 200 y proceso detenido. Desviaciones de la spec: ninguna.
+Regression and ladder: `pnpm typecheck` passed; `pnpm test` passed 493/493 tests in 59 files (49 new); `pnpm build` passed with the pre-existing editor chunk warning; `pnpm test:dist` passed; the editor live smoke returned HTTP 200 and its process was stopped. Spec deviations: none.
 
-### Checklist humano pendiente
+### Pending human checklist
 
 **CA-B10**
-- [ ] ¿Se puede conectar el servidor usando únicamente el comando del README?
-- [ ] ¿Cada tool tiene una descripción de una línea?
-- [ ] ¿El caveat pre-publish está expresado claramente?
+- [ ] Can the server be connected using only the README command?
+- [ ] Does every tool have a one-line description?
+- [ ] Is the pre-publish caveat stated clearly?
 
 **CA-B11**
-- [ ] Ejecutar los pasos 1–5 del protocolo real-agent e2e de CA-B11 y conservar transcript + evidencia del demo renderizado.
+- [ ] Run steps 1–5 of CA-B11's real-agent e2e protocol and retain the transcript plus evidence of the rendered demo.
