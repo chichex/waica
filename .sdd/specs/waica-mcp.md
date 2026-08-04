@@ -98,18 +98,18 @@ Mixto: **CA-B1..B9 y B12 ALTA** — fixtures deterministas bajo el `pnpm test` p
 |---|---|---|
 | CA-B1 | verified | `create-project.test.ts` proved complete demo/blank parity against `projectFiles()`/`projectArtFiles()`, no-write errors, PNG bytes, URIs and next steps. |
 | CA-B2 | verified | `introspection.test.ts` observed all 13 classes, only 3 `displayName` declarations, params/defaults, a throwing constructor and all three textual-code directories. |
-| CA-B3 | verified | Fixtures with an additional archetype proved the active id, explicit selection, available ids, the enumerated schema and `installed, not active`. |
+| CA-B3 | verified | Fixtures proved active/explicit ids, malformed-game rejection, inactive missing-dependency isolation, the enumerated schema and `installed, not active`. |
 | CA-B4 | verified | A deep-equal fixture verified scenes, prefab refs/types, code, UI, stats, controls and archetype from their declared file sources. |
-| CA-B5 | verified | `validation.test.ts` produced all 12 stable codes, continued after invalid JSON, distinguished project-owned code and left a generated demo at `ok: true`. |
+| CA-B5 | verified | `validation.test.ts` produced all 12 stable codes, survived malformed entities, avoided override duplicates, matched text-node UI bindings and left a generated demo at `ok: true`. |
 | CA-B6 | verified | String parity passed against all four editor modules, including both state branches, component naming and never-overwrite behavior. |
 | CA-B7 | verified | An SDK client over `InMemoryTransport.createLinkedPair()` saw exactly 9 tools with schemas and completed a round-trip. |
-| CA-B8 | verified | The project/bundled/partial/unloadable fixture matrix passed with `createRequire`, per-package provenance and a mixed-source warning. |
-| CA-B9 | verified | Vitest checked exact metadata; `pnpm build` emitted the shebang bin plus `dist/template`; `pnpm test:dist` checked the tarball and published ranges. |
+| CA-B8 | verified | The project/bundled/partial/hoisted/workspace-link/unloadable matrix passed with project-anchored loading, provenance and mixed-source warnings. |
+| CA-B9 | verified | Vitest checked exact metadata; `pnpm build` emitted the shebang bin plus `dist/template`; `pnpm test:dist` checked both checkout and packed CLIs. |
 | CA-B10 | pending human | The autonomous grep checklist passed: 9 tools, absolute paths, coexistence, caveat and root reference. The 3 binary questions remain. |
 | CA-B11 | pending human | The pre-publish Claude Code and browser protocol was not run autonomously. |
-| CA-B12 | verified | Absolute-path and cannot-operate matrices passed for all 9 tools; `pnpm test:dist` launched the packed CLI over stdio and created a project. |
+| CA-B12 | verified | Absolute-path and cannot-operate matrices passed for all 9 tools; `pnpm test:dist` launched checkout and packed CLIs over stdio, including project workspace links. |
 
-Regression and ladder: `pnpm typecheck` passed; `pnpm test` passed 493/493 tests in 59 files (49 new); `pnpm build` passed with the pre-existing editor chunk warning; `pnpm test:dist` passed; the editor live smoke returned HTTP 200 and its process was stopped. Spec deviations: none.
+Regression and ladder: `pnpm typecheck` passed; `pnpm test` passed 502/502 tests in 59 files (58 new); `pnpm build` passed with the pre-existing editor chunk warning; `pnpm test:dist` passed; the editor live smoke returned HTTP 200 and its process was stopped. Spec deviations: none.
 
 ### Pending human checklist
 
@@ -120,3 +120,9 @@ Regression and ladder: `pnpm typecheck` passed; `pnpm test` passed 493/493 tests
 
 **CA-B11**
 - [ ] Run steps 1–5 of CA-B11's real-agent e2e protocol and retain the transcript plus evidence of the rendered demo.
+
+## Post-review hardening (2026-08-04)
+
+The correctness review added nine regression cases and closed twelve findings without expanding feature scope: checkout-local startup now maps built workspace packages before loading the server; project resolution handles hoists and this repository's pre-publish links while arbitrary unloadable installs still fail; package attribution uses stable component names across mixed sources; tolerant summaries handle non-object JSON values safely; state scaffolds reject names that cannot be TypeScript keys; validation ignores malformed entity entries, avoids unrelated override duplicates and scans UI text nodes only; malformed `game.json` no longer silently selects platformer for introspection; missing inactive archetype dependencies are isolated with a warning; and the dist gate's helper exclusion now matches the top-level tsconfig rule exactly.
+
+The user explicitly chose to preserve three reviewed behaviors because they are approved cross-package contracts rather than MCP-local defects: CA-B2 keeps the editor's enumerable-own-field defaults model; CA-B5/B6 keep the flat `src/states/<state>.ts` editor/runtime convention; and an unknown active archetype remains a cannot-validate tool error because the stable finding-code set defines no substitute. Those contracts should be redesigned in their owning engine/editor specs, not changed silently here.
