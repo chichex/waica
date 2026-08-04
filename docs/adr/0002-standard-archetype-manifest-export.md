@@ -1,0 +1,3 @@
+# Every archetype package exports a standard ArchetypeManifest
+
+The `ArchetypeManifest` shape (id, label, default scenes, registry, palette, prefabs, art, bindings, bundle) moves from the editor into `@waica/engine`, and every `@waica/archetype-*` package exports its manifest under the conventional name `ARCHETYPE`. Consumers (editor, MCP) resolve archetypes generically through this contract, so a new archetype works in the editor and with agents without changing either. Rejected alternative: each consumer assembling the manifest from per-archetype named exports (`PLATFORMER_*`), as the editor did — that hardcodes the archetype list and makes every new archetype a coordinated release across all consumers.

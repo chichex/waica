@@ -1,0 +1,5 @@
+# MCP tools answer from the project's installed @waica/* packages
+
+When `@waica/mcp` introspects or validates a game project, it imports `@waica/engine` and the archetype packages from the project's own `node_modules` — not from the copies bundled with the MCP — falling back to its bundled copies only when the project has none installed. An agent asking "what params does PlatformerMotor take?" must get the answer for the version the game actually runs: answering from the MCP's own (usually newer) copy yields params the user's installed engine silently ignores. This also makes the MCP forward-compatible: archetypes published after the MCP are discovered in the project's dependencies instead of requiring an MCP release.
+
+Consequences: project-owned TS (`src/components`, `src/roles`) is never executed by the MCP — validation marks those components "project-owned, not validated" — and semver discipline on `@waica/*` matters more, since tooling amplifies whatever the installed version says.
