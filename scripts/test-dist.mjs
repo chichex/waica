@@ -3,12 +3,12 @@ import { spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import {
   access,
-  cp,
   mkdir,
   mkdtemp,
   readFile,
   readdir,
   rm,
+  symlink,
   writeFile,
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -16,12 +16,16 @@ import { dirname, extname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+const requireFromMcp = createRequire(join(root, 'packages/mcp/package.json'))
+const { Client } = requireFromMcp('@modelcontextprotocol/sdk/client/index.js')
+const { StdioClientTransport } = requireFromMcp('@modelcontextprotocol/sdk/client/stdio.js')
 const sandbox = await mkdtemp(join(tmpdir(), 'waica-dist-'))
 const nodeModules = join(sandbox, 'node_modules')
 const packages = [
-  { directory: 'engine', name: '@waica/engine' },
-  { directory: 'behaviors', name: '@waica/behaviors' },
-  { directory: 'archetype-platformer', name: '@waica/archetype-platformer' },
+  { directory: 'engine', name: '@waica/engine', entry: 'index.js' },
+  { directory: 'behaviors', name: '@waica/behaviors', entry: 'index.js' },
+  { directory: 'archetype-platformer', name: '@waica/archetype-platformer', entry: 'index.js' },
+  { directory: 'mcp', name: '@waica/mcp', entry: 'cli.js' },
 ]
 
 function run(command, args, options = {}) {
@@ -57,7 +61,13 @@ async function assertDistMatchesSource(packageRoot, packageName) {
   const sourceRoot = join(packageRoot, 'src')
   const distRoot = join(packageRoot, 'dist')
   const expected = (await filesBelow(sourceRoot))
-    .filter((path) => path.endsWith('.ts') && !path.endsWith('.test.ts') && !path.endsWith('.d.ts'))
+    .filter(
+      (path) =>
+        path.endsWith('.ts') &&
+        !path.endsWith('.test.ts') &&
+        !path.endsWith('.d.ts') &&
+        !path.split('/').at(-1)?.startsWith('test-'),
+    )
     .map((path) => relative(sourceRoot, path).replace(/\.ts$/, '.js'))
     .sort()
   const actual = (await filesBelow(distRoot))
@@ -122,7 +132,10 @@ async function materializeExternalDependencies(pkg, manifest) {
     }
     const source = await findPackageRoot(entry, dependency)
     await mkdir(dirname(destination), { recursive: true })
-    await cp(source, destination, { recursive: true })
+    // Keep pnpm's real package location so the external package's own
+    // dependency graph remains available. The @waica packages themselves are
+    // always packed and extracted into this sandbox above.
+    await symlink(source, destination, process.platform === 'win32' ? 'junction' : 'dir')
   }
 }
 
@@ -132,7 +145,7 @@ try {
 
   for (const pkg of packages) {
     const packageRoot = join(root, 'packages', pkg.directory)
-    const distEntry = join(packageRoot, 'dist', 'index.js')
+    const distEntry = join(packageRoot, 'dist', pkg.entry)
     await access(distEntry).catch(() => {
       throw new Error(`Missing ${distEntry}; run pnpm build before scripts/test-dist.mjs`)
     })
@@ -172,6 +185,31 @@ try {
   await access(join(nodeModules, '@waica/archetype-platformer/dist/manifest.js'))
   await access(join(nodeModules, '@waica/archetype-platformer/dist/manifest.d.ts'))
 
+  const mcpSource = JSON.parse(await readFile(join(root, 'packages/mcp/package.json'), 'utf8'))
+  const mcpPacked = packedManifests.get('@waica/mcp')
+  assert.deepEqual(mcpSource.bin, { 'waica-mcp': 'dist/cli.js' })
+  assert.deepEqual(mcpSource.files, ['dist'])
+  assert.deepEqual(mcpSource.engines, { node: '>=20.19' })
+  assert.equal(mcpSource.exports, undefined, '@waica/mcp must stay pure-bin')
+  assert.deepEqual(mcpPacked.bin, mcpSource.bin)
+  assert.deepEqual(mcpPacked.files, ['dist'])
+  assert.equal(mcpPacked.exports, undefined, 'the packed MCP must stay pure-bin')
+  for (const dependency of [
+    '@waica/engine',
+    '@waica/behaviors',
+    '@waica/archetype-platformer',
+  ]) {
+    assert.equal(
+      mcpPacked.dependencies?.[dependency],
+      '^0.1.0',
+      `${dependency} workspace range must become its published version`,
+    )
+  }
+  const packedCli = join(nodeModules, '@waica/mcp/dist/cli.js')
+  assert.ok((await readFile(packedCli, 'utf8')).startsWith('#!/usr/bin/env node\n'))
+  await access(join(nodeModules, '@waica/mcp/dist/template/package.json.tpl'))
+  await access(join(nodeModules, '@waica/mcp/dist/template/src/main.ts'))
+
   for (const pkg of packages) {
     await materializeExternalDependencies(pkg, packedManifests.get(pkg.name))
   }
@@ -192,7 +230,39 @@ try {
   )
   run(process.execPath, [probe], { cwd: sandbox })
 
-  console.log('fresh packed packages and both platformer entry points load in plain Node')
+  const stdioTarget = join(sandbox, 'stdio-game')
+  const client = new Client({ name: 'waica-dist-smoke', version: '1.0.0' })
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [packedCli],
+    cwd: sandbox,
+    stderr: 'pipe',
+  })
+  let childStderr = ''
+  transport.stderr?.on('data', (chunk) => {
+    childStderr += chunk.toString()
+  })
+  try {
+    await client.connect(transport, { timeout: 10_000 })
+    const result = await client.callTool(
+      {
+        name: 'create_project',
+        arguments: { project_path: stdioTarget, start: 'blank' },
+      },
+      undefined,
+      { timeout: 10_000 },
+    )
+    assert.ok(!('toolResult' in result), 'create_project unexpectedly became a task')
+    assert.equal(result.isError, undefined, `stdio create_project failed: ${childStderr}`)
+    await access(join(stdioTarget, 'package.json'))
+    await access(join(stdioTarget, 'src/scenes/main.scene.json'))
+  } finally {
+    await client.close().catch(() => {})
+  }
+
+  console.log(
+    'fresh packed packages load in plain Node and @waica/mcp creates a project over real stdio',
+  )
 } finally {
   await rm(sandbox, { recursive: true, force: true })
 }
