@@ -142,7 +142,7 @@ async function execute(name: string, args: Record<string, unknown>): Promise<Rec
           projectPath,
         })
       }
-      return createProject(projectPath, start)
+      return { ...(await createProject(projectPath, start)) }
     }
     case 'list_components':
       return listComponents(projectPath)
