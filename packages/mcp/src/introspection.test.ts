@@ -73,6 +73,20 @@ describe('listComponents', () => {
     ])
   })
 
+  it('attributes mixed-source components by their stable package contract', async () => {
+    const project = await makeProject()
+    roots.push(project)
+    await stubPackage(project, '@waica/engine', {
+      root: `class Sprite { static componentName = 'Sprite' }\nmodule.exports = { Sprite }\n`,
+    })
+
+    const result = await listComponents(project)
+
+    expect(result.components.find((component) => component.componentName === 'Sprite')).toMatchObject({
+      sourcePackage: '@waica/engine',
+    })
+  })
+
   it('uses empty defaults when a registry constructor throws', async () => {
     const project = await makeProject()
     roots.push(project)
@@ -186,6 +200,28 @@ module.exports.ARCHETYPE = {
     expect(explicit.activeArchetype).toBe('fixture')
   })
 
+  it('skips an inactive declared archetype that is not installed', async () => {
+    const project = await makeProject()
+    roots.push(project)
+    const pkgPath = path.join(project, 'package.json')
+    const pkg = JSON.parse(await readFile(pkgPath, 'utf8')) as { dependencies: Record<string, string> }
+    pkg.dependencies['@waica/archetype-not-installed'] = '^1.0.0'
+    await writeFile(pkgPath, JSON.stringify(pkg))
+
+    const result = await describeArchetype(project)
+
+    expect(result.archetype.id).toBe('platformer')
+    expect(result.warnings).toContain(
+      'Declared archetype package @waica/archetype-not-installed is not installed; it was skipped.',
+    )
+  })
+
+  it('does not silently use platformer when game.json is malformed', async () => {
+    const project = await makeProject({ 'src/game.json': '{' })
+    roots.push(project)
+    await expect(describeArchetype(project)).rejects.toThrow(/src\/game\.json.*parse|parse.*src\/game\.json/i)
+  })
+
   it('rejects unknown ids and names every available id', async () => {
     const project = await makeProject()
     roots.push(project)
@@ -196,6 +232,21 @@ module.exports.ARCHETYPE = {
 })
 
 describe('projectSummary', () => {
+  it('treats valid JSON null values as empty tolerant inputs', async () => {
+    const project = await makeProject({
+      'src/game.json': 'null',
+      'src/stats.json': 'null',
+      'src/controls.json': 'null',
+    })
+    roots.push(project)
+
+    expect(await projectSummary(project)).toMatchObject({
+      archetype: null,
+      stats: [],
+      controls: {},
+    })
+  })
+
   it('deeply summarizes only the documented plain-file sources', async () => {
     const project = await makeProject({
       'src/scenes/main.scene.json': JSON.stringify({ waicaScene: 3, entities: [] }),

@@ -30,6 +30,30 @@ describe('PackageResolver', () => {
     expect(loaded.packageRoot).toBe(path.join(project, 'node_modules/@waica/engine'))
   })
 
+  it('honors a package hoisted above the project directory', async () => {
+    const parent = await makeProject()
+    const project = path.join(parent, 'games', 'nested-game')
+    roots.push(parent)
+    await writeTree(project, {
+      'package.json': JSON.stringify({ name: 'nested-game', dependencies: { '@waica/engine': '^6.0.0' } }),
+      'src/game.json': JSON.stringify({ waicaGame: 1, archetype: 'platformer' }),
+    })
+    await stubPackage(parent, '@waica/engine', {
+      version: '6.0.0',
+      root: `module.exports = { marker: 'hoisted-engine' }\n`,
+    })
+
+    const loaded = await new PackageResolver(project).load<{ marker: string }>('@waica/engine')
+
+    expect(loaded.module.marker).toBe('hoisted-engine')
+    expect(loaded.provenance).toEqual({
+      package: '@waica/engine',
+      version: '6.0.0',
+      source: 'project',
+    })
+    expect(loaded.packageRoot).toBe(path.join(parent, 'node_modules/@waica/engine'))
+  })
+
   it('falls back package-by-package and reports mixed provenance', async () => {
     const project = await makeProject()
     roots.push(project)

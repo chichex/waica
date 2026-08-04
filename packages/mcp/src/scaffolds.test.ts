@@ -63,6 +63,15 @@ describe('scaffolds', () => {
     )
   })
 
+  it.each(['dash-state', '2fast'])(
+    'rejects state name %s instead of emitting invalid TypeScript',
+    async (state) => {
+      const project = await makeProject()
+      roots.push(project)
+      await expect(scaffoldState(project, 'player', state)).rejects.toThrow(/TypeScript identifier/)
+    },
+  )
+
   it.each([
     ['player', 'dash'],
     ['guard', 'alert'],

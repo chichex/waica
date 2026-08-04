@@ -73,7 +73,8 @@ export class ProjectThing {
         ui: ['hud', 'missing-hud'],
       }),
       'src/scenes/bad.scene.json': '{ nope',
-      'src/ui/hud.html': '<style>.x { content: "{{css-only}}" }</style><div>{{points}} {{coins}}</div>',
+      'src/ui/hud.html':
+        '<style>.x { content: "{{css-only}}" }</style><div title="{{attribute-only}}">{{points}} {{coins}}</div>',
       'src/stats.json': JSON.stringify({ waicaStats: 1, stats: { points: 0 } }),
       'src/controls.json': JSON.stringify({ waicaControls: 1, bindings: { dash: [] } }),
       'public/waica.params.json': JSON.stringify({ Hero: { UnknownParamComponent: { speed: 2 } } }),
@@ -115,6 +116,7 @@ export class ProjectThing {
     expect(result.findings).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({ code: 'undeclared-stat', ref: 'css-only' }),
+        expect.objectContaining({ code: 'undeclared-stat', ref: 'attribute-only' }),
       ]),
     )
     expect(result.notes).toContain(
@@ -128,6 +130,52 @@ export class ProjectThing {
         file: expect.any(String),
       })
     }
+  })
+
+  it('ignores malformed scene entity entries instead of aborting validation', async () => {
+    const project = await makeProject({
+      'src/scenes/main.scene.json': JSON.stringify({
+        waicaScene: 3,
+        entities: [null, 42, {}, { name: 'Valid', components: [] }],
+      }),
+    })
+    roots.push(project)
+
+    const result = await validateProject(project)
+
+    expect(result.ok).toBe(true)
+  })
+
+  it('does not duplicate prefab state findings for unrelated entity overrides', async () => {
+    const project = await makeProject({
+      'src/characters/hero.character.json': JSON.stringify({
+        waicaPrefab: 1,
+        type: 'character',
+        components: [
+          { type: 'AnimatedSprite', props: { clips: {} } },
+          {
+            type: 'StateMachine',
+            props: { role: 'player', initial: 'idle', states: { idle: {} } },
+          },
+          { type: 'PlatformerMotor' },
+        ],
+      }),
+      'src/scenes/main.scene.json': JSON.stringify({
+        waicaScene: 3,
+        entities: [
+          {
+            name: 'Hero',
+            prefab: 'characters/hero',
+            overrides: { PlatformerMotor: { speed: 10 } },
+          },
+        ],
+      }),
+    })
+    roots.push(project)
+
+    const result = await validateProject(project)
+
+    expect(result.findings.filter((finding) => finding.code === 'missing-clip')).toHaveLength(1)
   })
 
   it('validates every fixed project JSON file that is present', async () => {
