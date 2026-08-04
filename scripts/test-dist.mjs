@@ -66,7 +66,7 @@ async function assertDistMatchesSource(packageRoot, packageName) {
         path.endsWith('.ts') &&
         !path.endsWith('.test.ts') &&
         !path.endsWith('.d.ts') &&
-        !path.split('/').at(-1)?.startsWith('test-'),
+        !relative(sourceRoot, path).startsWith('test-'),
     )
     .map((path) => relative(sourceRoot, path).replace(/\.ts$/, '.js'))
     .sort()
@@ -229,6 +229,57 @@ try {
     ].join('\n'),
   )
   run(process.execPath, [probe], { cwd: sandbox })
+
+  // The README's pre-publish command runs this checkout's built CLI directly,
+  // where workspace package exports still point at TypeScript source. Exercise
+  // that exact path, then prove project-first tools survive workspace links.
+  const sourceTarget = join(sandbox, 'source-stdio-game')
+  const sourceClient = new Client({ name: 'waica-source-dist-smoke', version: '1.0.0' })
+  const sourceTransport = new StdioClientTransport({
+    command: process.execPath,
+    args: [join(root, 'packages/mcp/dist/cli.js')],
+    cwd: root,
+    stderr: 'pipe',
+  })
+  let sourceStderr = ''
+  sourceTransport.stderr?.on('data', (chunk) => {
+    sourceStderr += chunk.toString()
+  })
+  try {
+    await sourceClient.connect(sourceTransport, { timeout: 10_000 })
+    const created = await sourceClient.callTool(
+      {
+        name: 'create_project',
+        arguments: { project_path: sourceTarget, start: 'blank' },
+      },
+      undefined,
+      { timeout: 10_000 },
+    )
+    assert.ok(!('toolResult' in created), 'source create_project unexpectedly became a task')
+    assert.equal(
+      created.isError,
+      undefined,
+      `source create_project failed: ${JSON.stringify(created)} ${sourceStderr}`,
+    )
+
+    await mkdir(join(sourceTarget, 'node_modules/@waica'), { recursive: true })
+    for (const directory of ['engine', 'behaviors', 'archetype-platformer']) {
+      await symlink(
+        join(root, 'packages', directory),
+        join(sourceTarget, 'node_modules/@waica', directory),
+        process.platform === 'win32' ? 'junction' : 'dir',
+      )
+    }
+    const listed = await sourceClient.callTool(
+      { name: 'list_components', arguments: { project_path: sourceTarget } },
+      undefined,
+      { timeout: 10_000 },
+    )
+    assert.ok(!('toolResult' in listed), 'source list_components unexpectedly became a task')
+    assert.equal(listed.isError, undefined, `workspace-linked list_components failed: ${sourceStderr}`)
+  } finally {
+    await sourceClient.close().catch(() => {})
+  }
 
   const stdioTarget = join(sandbox, 'stdio-game')
   const client = new Client({ name: 'waica-dist-smoke', version: '1.0.0' })
