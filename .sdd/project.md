@@ -17,7 +17,7 @@ TypeScript (tsc 7.x) end to end. pnpm monorepo (`pnpm@11.4.0`, workspace of 7 pr
 ## Ambientes
 - **Local only.** There is no staging, no prod service, no docker, no `.env` files, and no external services (DBs, APIs, queues). The app is fully client-side; dev servers need nothing but `pnpm install`.
 - **Prerequisite**: `pnpm install` at the repo root (node_modules present as of 2026-07-28).
-- **CI: none.** No `.github/workflows` — nothing runs remotely; the local ladder below is the only enforcement.
+- **CI: publish-only.** `.github/workflows/publish.yml` publishes `@chichex/waica` when a `v*` tag is pushed (npm trusted publishing via OIDC — no token, no 2FA; it re-runs typecheck+test+build first). No CI runs on PRs — the local ladder below is still the only pre-merge enforcement.
 - **Git**: default branch `main`; remote `origin` = `ssh://git@github.com/chichex/waica.git`; `gh` authenticated as `chichex`. `/sdd-run` branches from `main` and CAN open PRs.
 
 ## Verificacion autonoma
@@ -32,7 +32,7 @@ Ladder for this repo, in increasing order of confidence:
 
 ## Limites
 - No `pnpm release` / `pnpm publish` — ever — without explicit human confirmation (publishes to npm).
-- No `git push` to `main`; work on branches, end in a PR.
+- No `git push` to `main`; work on branches, end in a PR. Pushing a release tag (`v*`) is allowed — it is how npm publishes are triggered (see `/publish`).
 - No deleting or rewriting published git history.
 - Deploys/migrations/paid services: not applicable (none exist) — if one appears, it is human-only by default.
 
@@ -43,7 +43,7 @@ Sin politicas activas (corrida `--assume`: las politicas son elecciones humanas 
 (ninguna — corrida `--assume` del 2026-07-28; no se hicieron preguntas)
 
 ## Gaps
-- `[NEEDS-INPUT]` No CI exists. Assumed conservative: every PR must pass the full local ladder (typecheck + test + build) before opening. Decide whether to add GitHub Actions.
+- `[NEEDS-INPUT]` No CI on PRs (only the tag-triggered publish workflow exists). Assumed conservative: every PR must pass the full local ladder (typecheck + test + build) before opening. Decide whether to add a PR-triggered GitHub Actions check.
 - `[NEEDS-INPUT]` No coverage tooling is configured (no `--coverage` script, no baseline measured) — a coverage policy is not activable until it exists.
 - `[NEEDS-INPUT]` No scripted e2e suite; browser verification depends on Playwright MCP being available in the session. Decide whether a real Playwright suite is worth adding.
 - `pnpm release` intentionally left `no probado` (external mutation).

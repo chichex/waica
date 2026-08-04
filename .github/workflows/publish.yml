@@ -1,0 +1,62 @@
+name: Publish
+
+on:
+  push:
+    tags: ['v*']
+
+# OIDC trusted publishing: npm trusts this repo+workflow directly, so there is
+# no token stored anywhere and provenance comes for free.
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # No version input: pnpm/action-setup reads the packageManager field
+      # from the root package.json.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # Trusted publishing needs npm >= 11.5.1; node 22 bundles npm 10.
+      - name: Update npm
+        run: npm install -g npm@^11.5.1
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The tag is the release intent; refuse to publish a version that does
+      # not match it (e.g. a tag pushed on the wrong commit).
+      - name: Check tag matches package version
+        run: |
+          version="$(node -p "require('./packages/cli/package.json').version")"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "tag $GITHUB_REF_NAME does not match packages/cli@$version" >&2
+            exit 1
+          fi
+
+      - name: Typecheck and test
+        run: pnpm typecheck && pnpm test
+
+      # Topological order builds @waica/editor before the CLI, whose build
+      # copies the editor dist into its own dist/editor.
+      - name: Build workspace
+        run: pnpm -r build
+
+      # npm publish does not rewrite the workspace:^ devDependency the way
+      # pnpm publish would; devDependencies mean nothing to consumers, so
+      # drop them from the published manifest instead.
+      - name: Strip devDependencies from the manifest
+        run: npm pkg delete devDependencies
+        working-directory: packages/cli
+
+      - name: Publish
+        run: npm publish
+        working-directory: packages/cli
