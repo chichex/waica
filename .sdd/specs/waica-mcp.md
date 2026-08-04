@@ -1,5 +1,5 @@
 # Spec — @waica/mcp: MCP server for agentic game development
-<!-- Generada por /sdd-spec el 2026-08-04. Fuente: pedido libre (contrato de diseño @waica/mcp, sesión grill 2026-08-03). Estado: aprobada -->
+<!-- Generada por /sdd-spec el 2026-08-04. Fuente: pedido libre (contrato de diseño @waica/mcp, sesión grill 2026-08-03). Estado: implementada -->
 <!-- Spec B de 2 encadenadas: depende de .sdd/specs/archetype-manifest.md (Spec A). ADRs: docs/adr/0001, docs/adr/0002. -->
 
 ## Contexto
@@ -91,3 +91,32 @@ Mixto: **CA-B1..B9 y B12 ALTA** — fixtures deterministas bajo el `pnpm test` p
 - `@modelcontextprotocol/sdk` entra como primera dependencia runtime externa de un package publicable del repo (decisión confirmada #31/26); pinnear major.
 - El editor NO detecta cambios externos: la coexistencia es documental (README), no técnica — riesgo de pisadas si el usuario tiene el proyecto abierto en el editor mientras el agente escribe.
 - Findings preexistentes anotados (no se tocan en estas specs): drift `WAICA_VERSION='0.1.0'` hardcodeado en el editor vs CLI 0.2.0; contrato `.sdd/project.md` con conteo de tests desactualizado (424 vs 434).
+
+## Resultado de ejecución (2026-08-04)
+
+| CA | Estado | Evidencia |
+|---|---|---|
+| CA-B1 | verificado | `create-project.test.ts` pasó paridad completa demo/blank contra `projectFiles()`/`projectArtFiles()`, errores sin escrituras, bytes PNG, URIs y next steps. |
+| CA-B2 | verificado | `introspection.test.ts` observó las 13 clases, solo 3 `displayName`, params/defaults, constructor fallido y los tres directorios de código textual. |
+| CA-B3 | verificado | Fixtures con arquetipo adicional probaron id activo, selección explícita, ids disponibles, schema enumerado y `installed, not active`. |
+| CA-B4 | verificado | Fixture deep-equal verificó escenas, refs/tipos de prefabs, código, UI, stats, controles y arquetipo desde sus archivos declarados. |
+| CA-B5 | verificado | `validation.test.ts` produjo los 12 códigos estables, continuó tras JSON inválido, distinguió código project-owned y dejó un demo generado con `ok: true`. |
+| CA-B6 | verificado | Paridad de strings contra los cuatro módulos del editor, incluyendo ambas ramas de estado, nombres de componente y never-overwrite. |
+| CA-B7 | verificado | Cliente SDK sobre `InMemoryTransport.createLinkedPair()` vio exactamente 9 tools con schemas y completó un round-trip. |
+| CA-B8 | verificado | Matriz fixture project/bundled/partial/unloadable pasó con `createRequire`, provenance por paquete y warning de fuentes mixtas. |
+| CA-B9 | verificado | Metadata exacta bajo Vitest; `pnpm build` generó bin con shebang + `dist/template`; `pnpm test:dist` validó el tarball y ranges publicados. |
+| CA-B10 | pendiente humano | Checklist grep autónomo pasó: 9 tools, paths absolutos, coexistencia, caveat y referencia root. Restan las 3 preguntas binarias. |
+| CA-B11 | pendiente humano | El protocolo pre-publish con Claude Code y browser no se ejecutó autónomamente. |
+| CA-B12 | verificado | Matrices de path absoluto y cannot-operate pasaron para las 9 tools; `pnpm test:dist` lanzó el CLI empaquetado por stdio y creó un proyecto. |
+
+Regresión y escalera: `pnpm typecheck` verde; `pnpm test` verde con 493/493 tests en 59 archivos (49 nuevos); `pnpm build` verde con el warning preexistente de chunk del editor; `pnpm test:dist` verde; editor live smoke HTTP 200 y proceso detenido. Desviaciones de la spec: ninguna.
+
+### Checklist humano pendiente
+
+**CA-B10**
+- [ ] ¿Se puede conectar el servidor usando únicamente el comando del README?
+- [ ] ¿Cada tool tiene una descripción de una línea?
+- [ ] ¿El caveat pre-publish está expresado claramente?
+
+**CA-B11**
+- [ ] Ejecutar los pasos 1–5 del protocolo real-agent e2e de CA-B11 y conservar transcript + evidencia del demo renderizado.
