@@ -1,0 +1,38 @@
+{
+  "name": "@waica/mcp",
+  "version": "0.1.0",
+  "description": "Waica MCP server for agentic game development",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chichex/waica",
+    "directory": "packages/mcp"
+  },
+  "bin": {
+    "waica-mcp": "dist/cli.js"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node bundle-template.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@waica/archetype-platformer": "workspace:^",
+    "@waica/behaviors": "workspace:^",
+    "@waica/engine": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@waica/editor": "workspace:^"
+  }
+}
