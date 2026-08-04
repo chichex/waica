@@ -163,6 +163,11 @@ export async function scaffoldState(
 ): Promise<{ path: string; created: boolean; reason?: 'exists' }> {
   assertSafeSlug(role, 'role')
   assertSafeSlug(state, 'state')
+  if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(state)) {
+    throw new Error('state must be a valid TypeScript identifier because the scaffold uses it as an object key.')
+  }
+  // Role-agnostic by contract: the editor and shipped runtime both glob the
+  // flat src/states/*.ts convention, and the file self-registers its role.
   return writeOnce(projectPath, `src/states/${state}.ts`, stateTemplate(role, state))
 }
 

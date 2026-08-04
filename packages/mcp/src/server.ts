@@ -103,7 +103,12 @@ export const TOOLS: Tool[] = [
     inputSchema: schema(
       {
         role: { type: 'string', minLength: 1 },
-        state: { type: 'string', minLength: 1 },
+        state: {
+          type: 'string',
+          minLength: 1,
+          pattern: '^[A-Za-z][A-Za-z0-9_]*$',
+          description: 'TypeScript identifier used as the generated state object key.',
+        },
       },
       ['role', 'state'],
     ),

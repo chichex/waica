@@ -8,11 +8,7 @@ import type {
 } from '@waica/engine'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import {
-  activeArchetypeId,
-  discoverArchetypes,
-  pickArchetype,
-} from './archetypes.js'
+import { discoverArchetypes, pickArchetype } from './archetypes.js'
 import {
   PackageResolver,
   mixedSourceWarnings,
@@ -145,6 +141,7 @@ function machineStates(component: SceneComponentJson): Record<string, StateJson>
   return objectRecord(component.props?.states) as Record<string, StateJson>
 }
 
+/** Mirrors the editor's flat src/states/<state>.ts status convention. */
 function stateCodeExists(
   role: string,
   state: string,
@@ -274,7 +271,10 @@ function validateScene(
   uiNames: ReadonlySet<string>,
   context: ValidationContext,
 ): void {
-  const entities = Array.isArray(scene.entities) ? scene.entities : []
+  const entities = (Array.isArray(scene.entities) ? scene.entities : []).filter(
+    (entity): entity is SceneEntityJson =>
+      !!entity && typeof entity === 'object' && typeof entity.name === 'string',
+  )
   const entityNames = new Set(entities.map((entity) => entity.name).filter(Boolean))
   const follow = scene.camera?.follow
   if (typeof follow === 'string' && follow && !entityNames.has(follow)) {
@@ -308,7 +308,9 @@ function validateScene(
           entity.prefab,
         )
       } else {
-        const componentTypes = new Set(componentList(prefab.components).map((component) => component.type))
+        const componentTypes = new Set(
+          componentList(prefab.components).map((component) => component.type),
+        )
         for (const override of Object.keys(entity.overrides ?? {})) {
           if (!componentTypes.has(override)) {
             add(
@@ -323,9 +325,14 @@ function validateScene(
         }
       }
     }
-    // Observe state/clip behavior after per-entity overrides without repeating
-    // generic unknown-component findings already owned by prefab validation.
-    if (inline.length || (prefab && Object.keys(entity.overrides ?? {}).length)) {
+    // Re-evaluate inherited state behavior only when this entity actually
+    // changes a StateMachine or AnimatedSprite. Unrelated overrides keep the
+    // prefab-level finding as the single source of truth.
+    const stateTypes = new Set(['StateMachine', 'AnimatedSprite'])
+    const changesStateBehavior =
+      inline.some((component) => stateTypes.has(component.type)) ||
+      Object.keys(entity.overrides ?? {}).some((type) => stateTypes.has(type))
+    if (changesStateBehavior) {
       validateStateMachines(
         resolvedEntityComponents(entity, prefab),
         file,
@@ -337,9 +344,14 @@ function validateScene(
 }
 
 function statBindings(html: string): Set<string> {
-  const presentationOnly = html.replace(/<(style|script)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
+  // GameUi binds text nodes only: attributes, comments, style and script
+  // contents are not runtime bindings and must not create validator findings.
+  const textOnly = html
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<(style|script)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
+    .replace(/<[^>]*>/g, ' ')
   const names = new Set<string>()
-  for (const match of presentationOnly.matchAll(/\{\{\s*([\w-]+)\s*\}\}/g)) {
+  for (const match of textOnly.matchAll(/\{\{\s*([\w-]+)\s*\}\}/g)) {
     if (match[1]) names.add(match[1])
   }
   return names
@@ -356,14 +368,13 @@ export async function validateProject(projectPath: string): Promise<{
   const check = await requireWaicaProject(projectPath)
   const findings: ValidationFinding[] = []
   const resolver = new PackageResolver(projectPath)
-  const [engine, behaviors, archetypes, activeId, projectComponents] = await Promise.all([
+  const discoveryWarnings: string[] = []
+  const [engine, behaviors, archetypes, projectComponents] = await Promise.all([
     resolver.load('@waica/engine'),
     resolver.load('@waica/behaviors'),
-    discoverArchetypes(projectPath, resolver),
-    activeArchetypeId(projectPath),
+    discoverArchetypes(projectPath, resolver, discoveryWarnings),
     projectComponentCandidates(projectPath),
   ])
-  const manifest = pickArchetype(archetypes, activeId, projectPath).manifest
 
   const fixedPaths = [
     'src/game.json',
@@ -375,6 +386,10 @@ export async function validateProject(projectPath: string): Promise<{
   for (const relative of fixedPaths) {
     fixed.set(relative, await parseJson(projectPath, relative, findings))
   }
+  const game = objectRecord(fixed.get('src/game.json'))
+  const activeId =
+    typeof game.archetype === 'string' && game.archetype ? game.archetype : 'platformer'
+  const manifest = pickArchetype(archetypes, activeId, projectPath).manifest
   const controls = objectRecord(objectRecord(fixed.get('src/controls.json')).bindings)
   const bindings: Record<string, string[]> = {}
   for (const [name, value] of Object.entries(controls)) {
@@ -466,6 +481,6 @@ export async function validateProject(projectPath: string): Promise<{
       'The shipped runtime loads src/scenes/main.scene.json; other scenes are validated but are not loaded automatically.',
     ],
     provenance,
-    warnings: mixedSourceWarnings(provenance),
+    warnings: [...discoveryWarnings, ...mixedSourceWarnings(provenance)],
   }
 }
