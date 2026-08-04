@@ -49,7 +49,7 @@ export function projectArtFiles(
   return Object.fromEntries(
     archetype.art.map((art) => [
       `src/art/${art.file}`,
-      archetype.artUrls[art.file] ?? art.uri,
+      archetype.artUrls?.[art.file] ?? art.uri,
     ]),
   )
 }

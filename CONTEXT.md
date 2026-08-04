@@ -9,7 +9,7 @@ A genre + camera choice (platformer, top-down, …) packaged as a living declara
 _Avoid_: template, genre pack
 
 **Archetype Manifest**:
-The standard object every archetype package exports as `ARCHETYPE`: id, label, default scenes, registry, palette, prefabs, art, bindings and bundle. The contract through which the editor and the MCP consume archetypes.
+The standard object every archetype package exports as `ARCHETYPE`: id, label, default scenes, registry, palette, prefabs, art, entity icons, bindings, action labels and bundle. The contract through which the editor and the MCP consume archetypes.
 
 **Chassis**:
 The factory baseline something starts from and cannot shed: a prefab's core components (appearance, collision — configurable, never removable) and, by extension, the generic project skeleton every new project is created from.
