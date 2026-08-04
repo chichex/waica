@@ -1,10 +1,10 @@
-import { Component } from '../component'
+import { Component } from '../component.js'
 import {
   collisionBounds,
   resolveCollisionPoints,
   type CollisionPoint,
   type CollisionShape,
-} from '../collision-shape'
+} from '../collision-shape.js'
 
 /**
  * Static collider. Character motors (e.g. PlatformerMotor) collide against

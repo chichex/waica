@@ -1,5 +1,5 @@
 import { Component, THREE } from '@waica/engine'
-import { PlatformerMotor } from './platformer-motor'
+import { PlatformerMotor } from './platformer-motor.js'
 
 /**
  * Remembers the spawn point and puts the entity back there on death

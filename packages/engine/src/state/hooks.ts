@@ -1,6 +1,6 @@
-import type { Entity } from '../entity'
-import type { Game } from '../game'
-import type { StateJson, StateMachine } from './state-machine'
+import type { Entity } from '../entity.js'
+import type { Game } from '../game.js'
+import type { StateJson, StateMachine } from './state-machine.js'
 
 /** What state code receives: the entity, the game, and the machine itself. */
 export interface StateContext {

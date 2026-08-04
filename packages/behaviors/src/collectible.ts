@@ -1,5 +1,5 @@
 import { Component, type Entity } from '@waica/engine'
-import { isPlayer } from './player-identity'
+import { isPlayer } from './player-identity.js'
 
 /**
  * Collected when the entity with the player role touches

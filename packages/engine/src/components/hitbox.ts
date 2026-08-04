@@ -1,9 +1,9 @@
-import { Component } from '../component'
+import { Component } from '../component.js'
 import {
   resolveCollisionPoints,
   type CollisionPoint,
   type CollisionShape,
-} from '../collision-shape'
+} from '../collision-shape.js'
 
 /**
  * Trigger collider: the Game detects overlaps between Hitboxes and calls

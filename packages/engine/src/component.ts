@@ -1,6 +1,6 @@
-import type { Entity } from './entity'
-import type { Game } from './game'
-import type { Solid } from './components/solid'
+import type { Entity } from './entity.js'
+import type { Game } from './game.js'
+import type { Solid } from './components/solid.js'
 
 /** Metadata for a parameter editable from the inspector. */
 export interface ParamSpec {

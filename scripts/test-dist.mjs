@@ -76,7 +76,7 @@ try {
   await access(join(nodeModules, '@waica/archetype-platformer/dist/manifest.js'))
   await access(join(nodeModules, '@waica/archetype-platformer/dist/manifest.d.ts'))
 
-  const threeSource = await realpath(join(root, 'node_modules/three'))
+  const threeSource = await realpath(join(root, 'packages/engine/node_modules/three'))
   await symlink(threeSource, join(nodeModules, 'three'), 'dir')
 
   const probe = join(sandbox, 'probe.mjs')

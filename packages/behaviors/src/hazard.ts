@@ -1,7 +1,7 @@
 import { Component, type Entity } from '@waica/engine'
-import { PlatformerMotor } from './platformer-motor'
-import { isPlayer } from './player-identity'
-import { Respawnable } from './respawnable'
+import { PlatformerMotor } from './platformer-motor.js'
+import { isPlayer } from './player-identity.js'
+import { Respawnable } from './respawnable.js'
 
 export type HazardTouch = 'stomp' | 'hurt'
 

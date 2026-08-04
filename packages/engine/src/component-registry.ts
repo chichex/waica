@@ -1,5 +1,5 @@
-import { Component, type ComponentClass } from './component'
-import type { SceneRegistry } from './scene'
+import { Component, type ComponentClass } from './component.js'
+import type { SceneRegistry } from './scene.js'
 
 /** The namespace returned by importing one project code module. */
 export type ComponentModule = Readonly<Record<string, unknown>>

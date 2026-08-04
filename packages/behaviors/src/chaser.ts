@@ -7,7 +7,7 @@ import {
   type RoleDefinition,
   type RoleGraph,
 } from '@waica/engine'
-import { isPlayer } from './player-identity'
+import { isPlayer } from './player-identity.js'
 
 export type ChaserMode = 'walker' | 'ghost' | 'flyer'
 
