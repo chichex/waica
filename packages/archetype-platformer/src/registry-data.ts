@@ -17,10 +17,15 @@ import {
   PlatformerMotor,
   Respawnable,
 } from '@waica/behaviors'
+import { PLATFORMER_ART } from './art.js'
 import { PLATFORMER_PREFABS } from './prefabs.js'
 import { PLATFORMER_UI } from './ui.js'
 
-/** Node-safe registry data. Browser asset resolution is layered on separately. */
+const PACKAGE_ASSETS: Readonly<Record<string, string>> = Object.fromEntries(
+  PLATFORMER_ART.map((art) => [art.uri, `assets/${art.file}`]),
+)
+
+/** Asset-import-free registry. Browser URL resolution is layered on separately. */
 export const PLATFORMER_REGISTRY_DATA: SceneRegistry = {
   components: {
     Sprite,
@@ -37,6 +42,7 @@ export const PLATFORMER_REGISTRY_DATA: SceneRegistry = {
     Respawnable,
     Lifetime,
   },
+  resolveAsset: (uri) => PACKAGE_ASSETS[uri] ?? uri,
   prefabs: PLATFORMER_PREFABS,
   ui: PLATFORMER_UI,
 }

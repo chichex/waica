@@ -1,4 +1,9 @@
-import { Game, loadScene, type ArchetypeManifest, type Entity } from '@waica/engine'
+import {
+  Game,
+  loadScene,
+  type BrowserArchetypeManifest,
+  type Entity,
+} from '@waica/engine'
 import { ARCHETYPE as DATA_ARCHETYPE } from './manifest.js'
 import { PLATFORMER_REGISTRY, PLATFORMER_ART_URLS } from './registry.js'
 import { PLATFORMER_SCENE } from './scene-default.js'
@@ -16,7 +21,7 @@ export const ARCHETYPE = {
   ...DATA_ARCHETYPE,
   registry: PLATFORMER_REGISTRY,
   artUrls: PLATFORMER_ART_URLS,
-} satisfies ArchetypeManifest
+} satisfies BrowserArchetypeManifest
 
 export interface PlatformerSetup {
   player: Entity

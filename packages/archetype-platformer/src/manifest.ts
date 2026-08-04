@@ -12,7 +12,7 @@ const PLATFORMER_ENTITY_ICONS: Readonly<Record<string, string>> = {
   Hazard: '👾',
 }
 
-/** Pure-data manifest for Node tooling; its module graph contains no assets. */
+/** Asset-import-free manifest for Node tooling. */
 export const ARCHETYPE = {
   id: 'platformer',
   label: 'Platformer',

@@ -49,7 +49,7 @@ export function projectArtFiles(
   return Object.fromEntries(
     archetype.art.map((art) => [
       `src/art/${art.file}`,
-      archetype.artUrls?.[art.file] ?? art.uri,
+      archetype.artUrls[art.file] ?? art.uri,
     ]),
   )
 }
@@ -90,7 +90,7 @@ export function projectFiles(
   // One file per prefab, mirroring its ref: 'characters/slime' (type
   // 'character') → src/characters/slime.character.json. scripts/sync-scene.mjs
   // materializes the same layout into the wizard template and the repo example.
-  for (const [key, prefab] of Object.entries(archetype.registry.prefabs ?? {})) {
+  for (const [key, prefab] of Object.entries(archetype.prefabs)) {
     files[`src/${key}.${prefab.type}.json`] = projectJson(prefab, archetype)
   }
   // UI pieces are plain HTML files: presentation only, toggled from code.

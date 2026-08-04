@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { ARCHETYPE as NODE_ARCHETYPE } from './manifest'
+import { PLATFORMER_REGISTRY_DATA } from './registry-data'
 import {
   ARCHETYPE,
   PLATFORMER_ACTION_LABELS,
@@ -36,5 +38,18 @@ describe('platformer archetype manifest', () => {
       actionLabels: PLATFORMER_ACTION_LABELS,
       bundle: PLATFORMER_BUNDLE,
     })
+  })
+
+  it('exports the asset-free manifest directly from the Node-safe entry', () => {
+    const { artUrls: _artUrls, registry: _registry, ...sharedFields } = ARCHETYPE
+
+    expect(NODE_ARCHETYPE).toEqual({
+      ...sharedFields,
+      registry: PLATFORMER_REGISTRY_DATA,
+    })
+    expect(NODE_ARCHETYPE).not.toHaveProperty('artUrls')
+    expect(NODE_ARCHETYPE.registry.resolveAsset?.('waica:dog')).toBe(
+      'assets/waica-dog.png',
+    )
   })
 })

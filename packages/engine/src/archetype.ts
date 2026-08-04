@@ -19,7 +19,7 @@ export interface ArchetypeArt {
   uri: string
 }
 
-/** The conventional data contract exported by every archetype package. */
+/** The conventional contract exported by every archetype package. */
 export interface ArchetypeManifest {
   id: string
   label: string
@@ -29,28 +29,31 @@ export interface ArchetypeManifest {
   palette: EntityTemplate[]
   prefabs: Record<string, PrefabJson>
   art: ArchetypeArt[]
-  /** Browser-bundled asset URLs; intentionally absent from Node-safe manifests. */
-  artUrls?: Readonly<Record<string, string>>
   entityIcons: Readonly<Record<string, string>>
   bindings: Readonly<InputBindings>
   actionLabels: Readonly<Record<string, string>>
   bundle: ArchetypeBundle
 }
 
-// This literal is compiled with the engine source so additions to the public
-// contract cannot bypass a concrete, data-only shape check.
-const ARCHETYPE_MANIFEST_TYPE_FIXTURE = {
-  id: 'fixture',
-  label: 'Fixture',
-  scene: { waicaScene: 3, entities: [] },
-  blankScene: { waicaScene: 3, entities: [] },
-  registry: { components: {} },
-  palette: [],
-  prefabs: {},
-  art: [],
-  entityIcons: {},
-  bindings: {},
-  actionLabels: {},
-  bundle: { roles: {} },
-} satisfies ArchetypeManifest
-void ARCHETYPE_MANIFEST_TYPE_FIXTURE
+/** Browser manifest enriched with URLs produced by an asset-aware bundler. */
+export interface BrowserArchetypeManifest extends ArchetypeManifest {
+  artUrls: Readonly<Record<string, string>>
+}
+
+type AssertArchetypeManifest<T extends ArchetypeManifest> = T
+
+// Type-only fixture: checked by tsc and erased completely from the engine dist.
+type _ArchetypeManifestTypeFixture = AssertArchetypeManifest<{
+  id: 'fixture'
+  label: 'Fixture'
+  scene: { waicaScene: 3; entities: [] }
+  blankScene: { waicaScene: 3; entities: [] }
+  registry: { components: {} }
+  palette: []
+  prefabs: {}
+  art: []
+  entityIcons: {}
+  bindings: {}
+  actionLabels: {}
+  bundle: { roles: {} }
+}>

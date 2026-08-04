@@ -1,8 +1,8 @@
 import { ARCHETYPE } from '@waica/archetype-platformer'
-import type { ArchetypeManifest } from '@waica/engine'
+import type { BrowserArchetypeManifest } from '@waica/engine'
 import { createContext, useContext } from 'react'
 
-export type { ArchetypeManifest } from '@waica/engine'
+export type ArchetypeManifest = BrowserArchetypeManifest
 
 export const DEFAULT_ARCHETYPE_ID = 'platformer'
 
@@ -12,7 +12,10 @@ const ARCHETYPES: Readonly<Record<string, ArchetypeManifest>> = {
 
 /** Resolves project identity at runtime; legacy/unknown ids stay platformer-safe. */
 export function resolveArchetype(id?: string | null): ArchetypeManifest {
-  return ARCHETYPES[id ?? DEFAULT_ARCHETYPE_ID] ?? ARCHETYPE
+  const key = id ?? DEFAULT_ARCHETYPE_ID
+  return Object.hasOwn(ARCHETYPES, key)
+    ? (ARCHETYPES[key] as ArchetypeManifest)
+    : ARCHETYPE
 }
 
 /** Runtime manifest inherited by editor panels under the open project. */

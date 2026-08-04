@@ -20,7 +20,12 @@ export { collectModuleComponents, mergeRegistryComponents } from './component-re
 export type { ComponentModule } from './component-registry.js'
 export { Input, DEFAULT_BINDINGS } from './input.js'
 export type { ActionName, InputBindings } from './input.js'
-export type { ArchetypeArt, ArchetypeManifest, EntityTemplate } from './archetype.js'
+export type {
+  ArchetypeArt,
+  ArchetypeManifest,
+  BrowserArchetypeManifest,
+  EntityTemplate,
+} from './archetype.js'
 export { Stats } from './stats.js'
 export type { StatValue } from './stats.js'
 export { GameUi } from './ui.js'
