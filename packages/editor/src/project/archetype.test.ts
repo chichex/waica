@@ -1,8 +1,13 @@
+import { ARCHETYPE } from '@waica/archetype-platformer'
 import { describe, expect, it } from 'vitest'
 import { parseGameSettings } from './game'
 import { DEFAULT_ARCHETYPE_ID, resolveArchetype } from './archetype'
 
 describe('runtime archetype resolution', () => {
+  it('uses the package manifest field-by-field', () => {
+    expect(resolveArchetype('platformer')).toEqual(ARCHETYPE)
+  })
+
   it('resolves the id persisted by a current project', () => {
     const settings = parseGameSettings(JSON.stringify({ archetype: 'platformer' }))
 
