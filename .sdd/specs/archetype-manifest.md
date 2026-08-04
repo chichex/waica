@@ -1,5 +1,5 @@
 # Spec — Standard ArchetypeManifest export (ADR-0002)
-<!-- Generada por /sdd-spec el 2026-08-04. Fuente: pedido libre (contrato de diseño @waica/mcp, sesión grill 2026-08-03). Estado: aprobada -->
+<!-- Generada por /sdd-spec el 2026-08-04. Fuente: pedido libre (contrato de diseño @waica/mcp, sesión grill 2026-08-03). Estado: implementada -->
 <!-- Spec A de 2 encadenadas: esta primero, luego .sdd/specs/waica-mcp.md (Spec B, depende de esta). -->
 
 ## Contexto
@@ -52,4 +52,18 @@ Mixto: **CA-A2..A6 ALTA** — todo se observa con tests deterministas que el con
 - El snapshot dorado de CA-A4 debe capturarse desde main ANTES de empezar el refactor (si se captura después, no observa nada).
 - `test:dist` es infraestructura nueva: mantenerlo fuera del include del vitest raíz (`packages/**/src/**/*.test.ts`) — un test dist-dependiente dentro del suite rompería el `pnpm test` del contrato en clon fresco, o skipearía (verde que no observa).
 - Cambiar el emit de tsc (`rewriteRelativeImportExtensions`) toca los tres builds de libs a la vez; el snapshot de A4 + suite verde acotan la regresión.
-- `.sdd/project.md` registra 424 tests (2026-07-30); hoy son 434 — desactualización menor del contrato, no bloquea.
+- `.sdd/project.md` records 424 tests (2026-07-30); the suite had 434 before this run and now has 438 — minor contract drift, not blocking.
+
+## Resultado de ejecución (2026-08-04)
+
+| CA | Estado | Evidencia |
+|---|---|---|
+| CA-A1 | verificado | `pnpm typecheck` completed successfully across all 6 runnable workspace projects; the engine fixture satisfies `ArchetypeManifest`. |
+| CA-A2 | verificado | `manifest.test.ts` deep-equal passed; root `ARCHETYPE` includes all folded fields and the `/manifest` entry remained asset-free under the packed Node probe. |
+| CA-A3 | verificado | `archetype.test.ts` passed package-to-editor field equality; grep confirmed manual `PLATFORMER_*` assembly imports are absent. |
+| CA-A4 | verificado | Both pre-refactor full `projectFiles('fixture-name', start)` golden snapshots passed byte-for-byte under `pnpm test`. |
+| CA-A5 | verificado | `pnpm build && node scripts/sync-scene.mjs && git diff --exit-code -- packages/editor/template/src examples/platformer/src` exited 0. |
+| CA-A6 | verificado | `pnpm test:dist` packed all three packages, asserted the published `/manifest` mapping, and loaded engine, behaviors, and the manifest subpath in plain Node. |
+| CA-A7 | verificado | ADR-0002 contains both `entityIcons` and `actionLabels`. |
+
+Full regression: `pnpm test` passed 438/438 tests in 51 files; `pnpm build` passed with the pre-existing editor chunk-size warning. Autonomous ladder ceiling: editor live smoke returned HTTP 200 and the process was stopped cleanly. Deviations: none.
