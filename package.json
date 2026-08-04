@@ -8,9 +8,9 @@
     "editor": "pnpm --filter @waica/editor dev",
     "build": "pnpm -r build",
     "test": "vitest run",
-    "test:dist": "node scripts/test-dist.mjs",
+    "test:dist": "pnpm build && node scripts/test-dist.mjs",
     "typecheck": "pnpm -r typecheck",
-    "release": "pnpm -r --filter './packages/*' build && pnpm -r publish --access public"
+    "release": "pnpm test:dist && pnpm -r --filter './packages/*' publish --access public"
   },
   "devDependencies": {
     "happy-dom": "^20.11.0",
