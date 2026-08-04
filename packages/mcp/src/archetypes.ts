@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import {
   PackageResolver,
+  PackageUnavailableError,
   type LoadedPackage,
 } from './package-resolver.js'
 import { WaicaToolError } from './project-path.js'
@@ -33,32 +34,45 @@ async function dependencyNames(projectPath: string): Promise<string[]> {
 }
 
 export async function activeArchetypeId(projectPath: string): Promise<string> {
+  const relative = 'src/game.json'
+  let source: string
   try {
-    const parsed = JSON.parse(await readFile(path.join(projectPath, 'src/game.json'), 'utf8')) as {
-      archetype?: unknown
-    }
-    return typeof parsed.archetype === 'string' && parsed.archetype
-      ? parsed.archetype
-      : 'platformer'
-  } catch {
-    return 'platformer'
+    source = await readFile(path.join(projectPath, relative), 'utf8')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return 'platformer'
+    throw new Error(`Cannot read ${relative}: ${(error as Error).message}`, { cause: error })
   }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(source) as unknown
+  } catch (error) {
+    throw new Error(`Cannot parse ${relative}: ${(error as Error).message}`, { cause: error })
+  }
+  if (!parsed || typeof parsed !== 'object') return 'platformer'
+  const archetype = (parsed as { archetype?: unknown }).archetype
+  return typeof archetype === 'string' && archetype ? archetype : 'platformer'
 }
 
 export async function discoverArchetypes(
   projectPath: string,
   resolver = new PackageResolver(projectPath),
+  warnings: string[] = [],
 ): Promise<ResolvedArchetype[]> {
   const packages = new Set(await dependencyNames(projectPath))
   packages.add('@waica/archetype-platformer')
   const resolved: ResolvedArchetype[] = []
   for (const packageName of [...packages].sort()) {
-    const loaded = await resolver.load<{ ARCHETYPE: ArchetypeManifest }>(packageName, './manifest')
-    const manifest = loaded.module.ARCHETYPE
-    if (!manifest || typeof manifest.id !== 'string') {
-      throw new Error(`${packageName}/manifest does not export ARCHETYPE with a string id`)
+    try {
+      const loaded = await resolver.load<{ ARCHETYPE: ArchetypeManifest }>(packageName, './manifest')
+      const manifest = loaded.module.ARCHETYPE
+      if (!manifest || typeof manifest.id !== 'string') {
+        throw new Error(`${packageName}/manifest does not export ARCHETYPE with a string id`)
+      }
+      resolved.push({ packageName, loaded, manifest })
+    } catch (error) {
+      if (!(error instanceof PackageUnavailableError)) throw error
+      warnings.push(`Declared archetype package ${packageName} is not installed; it was skipped.`)
     }
-    resolved.push({ packageName, loaded, manifest })
   }
   return resolved
 }

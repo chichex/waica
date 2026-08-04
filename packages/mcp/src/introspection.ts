@@ -26,6 +26,11 @@ export interface ComponentDescription {
   sourcePackage: string
 }
 
+/**
+ * Deliberately mirrors the editor's classDefaults/CA-B2 contract: enumerable
+ * own fields from a fresh instance. It is not a general public-property
+ * reflection API; changing that model belongs to engine/editor design.
+ */
 function ownDefaults(Class: ComponentClass): Record<string, unknown> {
   try {
     return Object.fromEntries(Object.entries(new Class()).filter(([, value]) => value !== undefined))
@@ -34,14 +39,25 @@ function ownDefaults(Class: ComponentClass): Record<string, unknown> {
   }
 }
 
+function moduleDeclaresComponent(
+  module: Record<string, unknown>,
+  Class: ComponentClass,
+): boolean {
+  return Object.values(module).some((candidate) => {
+    if (candidate === Class) return true
+    if (typeof candidate !== 'function') return false
+    return (candidate as unknown as { componentName?: unknown }).componentName === Class.componentName
+  })
+}
+
 function sourcePackage(
   Class: ComponentClass,
   engineModule: Record<string, unknown>,
   behaviorModule: Record<string, unknown>,
   archetypePackage: string,
 ): string {
-  if (Object.values(engineModule).includes(Class)) return '@waica/engine'
-  if (Object.values(behaviorModule).includes(Class)) return '@waica/behaviors'
+  if (moduleDeclaresComponent(engineModule, Class)) return '@waica/engine'
+  if (moduleDeclaresComponent(behaviorModule, Class)) return '@waica/behaviors'
   return archetypePackage
 }
 
@@ -54,10 +70,11 @@ export async function listComponents(projectPath: string): Promise<{
 }> {
   const check = await requireWaicaProject(projectPath)
   const resolver = new PackageResolver(projectPath)
+  const discoveryWarnings: string[] = []
   const [engine, behaviors, archetypes, activeId] = await Promise.all([
     resolver.load<Record<string, unknown>>('@waica/engine'),
     resolver.load<Record<string, unknown>>('@waica/behaviors'),
-    discoverArchetypes(projectPath, resolver),
+    discoverArchetypes(projectPath, resolver, discoveryWarnings),
     activeArchetypeId(projectPath),
   ])
   const active = pickArchetype(archetypes, activeId, projectPath)
@@ -96,7 +113,7 @@ export async function listComponents(projectPath: string): Promise<{
     projectOwned,
     notes: check.notes,
     provenance,
-    warnings: mixedSourceWarnings(provenance),
+    warnings: [...discoveryWarnings, ...mixedSourceWarnings(provenance)],
   }
 }
 
@@ -136,10 +153,11 @@ export async function describeArchetype(
 }> {
   const check = await requireWaicaProject(projectPath)
   const resolver = new PackageResolver(projectPath)
+  const discoveryWarnings: string[] = []
   const [engine, behaviors, available, activeId] = await Promise.all([
     resolver.load('@waica/engine'),
     resolver.load('@waica/behaviors'),
-    discoverArchetypes(projectPath, resolver),
+    discoverArchetypes(projectPath, resolver, discoveryWarnings),
     activeArchetypeId(projectPath),
   ])
   const selected = pickArchetype(available, requestedId ?? activeId, projectPath)
@@ -183,13 +201,16 @@ export async function describeArchetype(
     installedArchetypes,
     notes: check.notes,
     provenance,
-    warnings: mixedSourceWarnings(provenance),
+    warnings: [...discoveryWarnings, ...mixedSourceWarnings(provenance)],
   }
 }
 
 async function tolerantJson(file: string): Promise<Record<string, unknown>> {
   try {
-    return JSON.parse(await readFile(file, 'utf8')) as Record<string, unknown>
+    const parsed = JSON.parse(await readFile(file, 'utf8')) as unknown
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {}
   } catch {
     return {}
   }
