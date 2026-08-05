@@ -1,9 +1,8 @@
 import type { ParamSpec } from '@waica/engine'
 import { existsSync, readFileSync } from 'node:fs'
-import { registerHooks } from 'node:module'
+import { createRequire, registerHooks } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import vm from 'node:vm'
 import { PackageResolver, projectAnchoredRequire } from './package-resolver.js'
 import { directFiles } from './project-path.js'
 
@@ -39,13 +38,14 @@ let nextRun = 0
 
 type NativeImport = (specifier: string) => Promise<Record<string, unknown>>
 
-// Vitest runs source modules in a VM. Its test-only trampoline selects Node's
-// main loader; the emitted MCP uses an ordinary native dynamic import.
-const nativeImport: NativeImport = process.env.VITEST
-  ? (new vm.Script('(specifier) => import(specifier)', {
-      importModuleDynamically: vm.constants.USE_MAIN_CONTEXT_DEFAULT_LOADER,
-    }).runInThisContext() as NativeImport)
-  : (specifier) => import(specifier) as Promise<Record<string, unknown>>
+// Loading this tiny CommonJS trampoline through Node keeps Vitest from
+// rewriting fixture imports; the build emits its .cts source as .cjs.
+const emittedImporter = new URL('./native-import.cjs', import.meta.url)
+const nativeImport = createRequire(import.meta.url)(
+  existsSync(fileURLToPath(emittedImporter))
+    ? fileURLToPath(emittedImporter)
+    : './native-import.cts',
+) as NativeImport
 
 function runFromParent(parentURL: string | undefined): {
   token: string
