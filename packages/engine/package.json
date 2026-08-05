@@ -1,6 +1,6 @@
 {
   "name": "@waica/engine",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Waica game engine core — archetype-driven, web-first, 2D & 3D",
   "license": "MIT",
   "type": "module",
