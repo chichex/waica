@@ -39,13 +39,8 @@ let nextRun = 0
 type NativeImport = (specifier: string) => Promise<Record<string, unknown>>
 
 // Loading this tiny CommonJS trampoline through Node keeps Vitest from
-// rewriting fixture imports; the build emits its .cts source as .cjs.
-const emittedImporter = new URL('./native-import.cjs', import.meta.url)
-const nativeImport = createRequire(import.meta.url)(
-  existsSync(fileURLToPath(emittedImporter))
-    ? fileURLToPath(emittedImporter)
-    : './native-import.cts',
-) as NativeImport
+// rewriting fixture imports. The build copies the same file byte-for-byte.
+const nativeImport = createRequire(import.meta.url)('./native-import.cjs') as NativeImport
 
 function runFromParent(parentURL: string | undefined): {
   token: string

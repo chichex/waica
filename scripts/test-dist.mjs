@@ -283,6 +283,7 @@ try {
   const mcpRoot = join(root, 'packages/mcp')
   await assertDistMatchesSource(mcpRoot, '@waica/mcp')
   await assertExplicitRelativeImports(mcpRoot, '@waica/mcp')
+  await access(join(mcpRoot, 'dist/native-import.cjs'))
   const mcpSource = JSON.parse(await readFile(join(mcpRoot, 'package.json'), 'utf8'))
   assert.equal(mcpSource.private, true, '@waica/mcp must stay unpublished: it ships inside the CLI')
   assert.equal(mcpSource.publishConfig, undefined, '@waica/mcp must carry no publish settings')
