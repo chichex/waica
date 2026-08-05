@@ -2,6 +2,8 @@
 <!-- Generada por /sdd-spec el 2026-08-04. Fuente: pedido libre (contrato de diseño @waica/mcp, sesión grill 2026-08-03). Estado: implementada -->
 <!-- Spec B de 2 encadenadas: depende de .sdd/specs/archetype-manifest.md (Spec A). ADRs: docs/adr/0001, docs/adr/0002. -->
 
+> **Superseded decision (2026-08-05):** Issue #20 deliberately replaces this spec's “project TypeScript is never executed” constraint for `validate_project` only. Validation now executes project component, role and state modules in isolation to inspect typed parameter references; `list_components` remains textual for project-owned code.
+
 ## Contexto
 
 DESIGN.md names "plain-text project + small typed API + headless CLI = the most comfortable engine to work on with AI" as a founding thesis; this spec ships it as `packages/mcp` → npm `@waica/mcp`: a stdio MCP server an agent host connects (`claude mcp add waica -- npx @waica/mcp`) to develop a USER's game project. Hybrid surface (the agent keeps editing JSON/TS with its own file tools): introspection + validation + a few high-leverage mutations. Truth comes from the project's own `node_modules` (ADR-0001); archetypes are discovered via the standard `ARCHETYPE` manifest (ADR-0002, Spec A). No live editor bridge in v1 — the MCP operates on files; coexistence with an open editor is documented, not engineered. The editor already owns every shape the MCP must replicate: project generation (`packages/editor/src/project/template.ts`), scaffold templates (`components.ts:56-75`, `states.ts:154-219`, `fs/ui-fs.ts:40-55`), and the validation model (`states.ts:88-146` stateIssues; engine `scene.ts:108-135` warn semantics).
