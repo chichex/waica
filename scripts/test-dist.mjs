@@ -289,7 +289,9 @@ try {
 
   const cliSource = JSON.parse(await readFile(join(root, 'packages/cli/package.json'), 'utf8'))
   const cliPacked = packedManifests.get('@waica/cli')
-  assert.deepEqual(cliSource.bin, { waica: 'dist/cli.js', 'waica-mcp': 'dist/mcp/cli.js' })
+  // One bin, so `npx @waica/cli` resolves it without needing a bin named
+  // after the package — see the npx note in packages/cli/src/package.test.ts.
+  assert.deepEqual(cliSource.bin, { waica: 'dist/cli.js' })
   assert.deepEqual(cliPacked.bin, cliSource.bin)
   assert.deepEqual(cliPacked.files, ['dist'])
   assert.deepEqual(cliPacked.engines, { node: '>=20.19' })
