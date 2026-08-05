@@ -22,7 +22,7 @@
     "node": ">=20.19"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && node bundle-template.mjs",
+    "build": "node ../../scripts/clean-dist.mjs && tsc -p tsconfig.build.json && node bundle-template.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

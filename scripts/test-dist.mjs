@@ -3,17 +3,19 @@ import { spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import {
   access,
+  cp,
   lstat,
   mkdir,
   mkdtemp,
   readFile,
   readdir,
+  realpath,
   rm,
   symlink,
   writeFile,
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, extname, join, relative } from 'node:path'
+import { dirname, extname, join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -122,32 +124,78 @@ async function findPackageRoot(entry, expectedName) {
   }
 }
 
+async function resolvedDependencyRoot(requireFromParent, dependency, optional) {
+  try {
+    let entry
+    try {
+      entry = requireFromParent.resolve(dependency)
+    } catch {
+      entry = requireFromParent.resolve(`${dependency}/package.json`)
+    }
+    return realpath(await findPackageRoot(entry, dependency))
+  } catch (error) {
+    if (optional && error?.code === 'MODULE_NOT_FOUND') return undefined
+    throw error
+  }
+}
+
+async function materializeExternalDependency(
+  dependency,
+  requireFromParent,
+  destinationNodeModules,
+  ancestors = new Set(),
+  optional = false,
+) {
+  if (dependency.startsWith('@waica/')) return
+  const source = await resolvedDependencyRoot(requireFromParent, dependency, optional)
+  if (!source || ancestors.has(source)) return
+
+  const destination = join(destinationNodeModules, ...dependency.split('/'))
+  try {
+    await access(destination)
+    return
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error
+  }
+
+  await mkdir(dirname(destination), { recursive: true })
+  const sourceNodeModules = join(source, 'node_modules')
+  await cp(source, destination, {
+    recursive: true,
+    dereference: true,
+    filter: (candidate) =>
+      candidate !== sourceNodeModules && !candidate.startsWith(`${sourceNodeModules}${sep}`),
+  })
+
+  const manifest = JSON.parse(await readFile(join(source, 'package.json'), 'utf8'))
+  const requireFromDependency = createRequire(join(source, 'package.json'))
+  const nextAncestors = new Set([...ancestors, source])
+  const nestedNodeModules = join(destination, 'node_modules')
+  for (const child of Object.keys(manifest.dependencies ?? {}).sort()) {
+    await materializeExternalDependency(
+      child,
+      requireFromDependency,
+      nestedNodeModules,
+      nextAncestors,
+    )
+  }
+  for (const child of Object.keys(manifest.optionalDependencies ?? {}).sort()) {
+    await materializeExternalDependency(
+      child,
+      requireFromDependency,
+      nestedNodeModules,
+      nextAncestors,
+      true,
+    )
+  }
+}
+
 async function materializeExternalDependencies(pkg, manifest) {
   const requireFromPackage = createRequire(
     join(root, 'packages', pkg.directory, 'package.json'),
   )
-  for (const dependency of Object.keys(manifest.dependencies ?? {})) {
-    if (dependency.startsWith('@waica/')) continue
-    const destination = join(nodeModules, ...dependency.split('/'))
-    try {
-      await access(destination)
-      continue
-    } catch (error) {
-      if (error?.code !== 'ENOENT') throw error
-    }
-
-    let entry
-    try {
-      entry = requireFromPackage.resolve(dependency)
-    } catch {
-      entry = requireFromPackage.resolve(`${dependency}/package.json`)
-    }
-    const source = await findPackageRoot(entry, dependency)
-    await mkdir(dirname(destination), { recursive: true })
-    // Keep pnpm's real package location so the external package's own
-    // dependency graph remains available. The @waica packages themselves are
-    // always packed and extracted into this sandbox above.
-    await symlink(source, destination, process.platform === 'win32' ? 'junction' : 'dir')
+  for (const dependency of Object.keys(manifest.dependencies ?? {}).sort()) {
+    await materializeExternalDependency(dependency, requireFromPackage, nodeModules)
   }
 }
 
@@ -211,9 +259,14 @@ try {
     '@waica/behaviors',
     '@waica/archetype-platformer',
   ]) {
+    const descriptor = packages.find((pkg) => pkg.name === dependency)
+    assert.ok(descriptor, `missing package descriptor for ${dependency}`)
+    const sourceManifest = JSON.parse(
+      await readFile(join(root, 'packages', descriptor.directory, 'package.json'), 'utf8'),
+    )
     assert.equal(
       mcpPacked.dependencies?.[dependency],
-      '^0.1.0',
+      `^${sourceManifest.version}`,
       `${dependency} workspace range must become its published version`,
     )
   }
@@ -251,6 +304,7 @@ try {
   // where workspace package exports still point at TypeScript source. Exercise
   // that exact path, then prove project-first tools survive workspace links.
   const sourceTarget = join(sandbox, 'source-stdio-game')
+  const projectOwnedTarget = join(sandbox, 'project-owned-stdio-game')
   const sourceClient = new Client({ name: 'waica-source-dist-smoke', version: '1.0.0' })
   const sourceTransport = new StdioClientTransport({
     command: process.execPath,
@@ -294,6 +348,83 @@ try {
     )
     assert.ok(!('toolResult' in listed), 'source list_components unexpectedly became a task')
     assert.equal(listed.isError, undefined, `workspace-linked list_components failed: ${sourceStderr}`)
+
+    const projectOwnedCreated = await sourceClient.callTool(
+      {
+        name: 'create_project',
+        arguments: { project_path: projectOwnedTarget, start: 'blank' },
+      },
+      undefined,
+      { timeout: 10_000 },
+    )
+    assert.ok(
+      !('toolResult' in projectOwnedCreated),
+      'project-owned create_project unexpectedly became a task',
+    )
+    assert.equal(projectOwnedCreated.isError, undefined, sourceStderr)
+    await mkdir(join(projectOwnedTarget, 'node_modules/@waica'), { recursive: true })
+    for (const dependency of [
+      '@waica/engine',
+      '@waica/behaviors',
+      '@waica/archetype-platformer',
+      'three',
+    ]) {
+      await cp(
+        join(nodeModules, ...dependency.split('/')),
+        join(projectOwnedTarget, 'node_modules', ...dependency.split('/')),
+        { recursive: true, dereference: true },
+      )
+    }
+    const projectArchetypeRoot = join(
+      projectOwnedTarget,
+      'node_modules/@waica/archetype-platformer',
+    )
+    const projectArchetypePackage = JSON.parse(
+      await readFile(join(projectArchetypeRoot, 'package.json'), 'utf8'),
+    )
+    projectArchetypePackage.version = '7.7.7'
+    await writeFile(
+      join(projectArchetypeRoot, 'package.json'),
+      `${JSON.stringify(projectArchetypePackage, null, 2)}\n`,
+    )
+    await writeFile(
+      join(projectArchetypeRoot, 'dist/manifest.js'),
+      [
+        "class ProjectOnly { static componentName = 'ProjectOnly'; static params = {}; value = 77 }",
+        'export const ARCHETYPE = {',
+        "  id: 'platformer', label: 'Project-owned platformer',",
+        '  scene: { waicaScene: 3, entities: [] }, blankScene: { waicaScene: 3, entities: [] },',
+        '  registry: { components: { ProjectOnly }, prefabs: {}, ui: {} },',
+        '  palette: [], prefabs: {}, art: [], entityIcons: {}, bindings: {}, actionLabels: {},',
+        '  bundle: { roles: {} },',
+        '}',
+      ].join('\n'),
+    )
+    const projectOwnedListed = await sourceClient.callTool(
+      { name: 'list_components', arguments: { project_path: projectOwnedTarget } },
+      undefined,
+      { timeout: 10_000 },
+    )
+    assert.ok(
+      !('toolResult' in projectOwnedListed),
+      'project-owned list_components unexpectedly became a task',
+    )
+    assert.equal(
+      projectOwnedListed.isError,
+      undefined,
+      `project-owned list_components failed: ${sourceStderr}`,
+    )
+    assert.deepEqual(
+      projectOwnedListed.structuredContent?.components?.map((component) => component.componentName),
+      ['ProjectOnly'],
+      'the checkout CLI must load the project-owned manifest rather than its own workspace copy',
+    )
+    assert.deepEqual(
+      projectOwnedListed.structuredContent?.provenance?.find(
+        (row) => row.package === '@waica/archetype-platformer',
+      ),
+      { package: '@waica/archetype-platformer', version: '7.7.7', source: 'project' },
+    )
   } finally {
     await sourceClient.close().catch(() => {})
   }
