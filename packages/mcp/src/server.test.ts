@@ -1,5 +1,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, makeProject, tempDir } from './test-helpers.js'
 import { createWaicaMcpServer } from './server.js'
@@ -61,6 +63,22 @@ function jsonResult(result: Awaited<ReturnType<Client['callTool']>>): Record<str
 }
 
 describe('MCP server', () => {
+  // The handshake is how a host learns which Waica it is driving. It answered
+  // 0.1.0 through the 0.4.x releases because the number was a literal in
+  // server.ts, so it has to come from the manifest of whatever ships the
+  // server — packages/mcp here, the CLI once it vendors the build.
+  it('reports the shipping package version in the handshake', async () => {
+    const pair = await connectedPair()
+    try {
+      const { version } = JSON.parse(
+        await readFile(path.resolve(import.meta.dirname, '../package.json'), 'utf8'),
+      ) as { version: string }
+      expect(pair.client.getServerVersion()).toEqual({ name: '@waica/mcp', version })
+    } finally {
+      await pair.close()
+    }
+  })
+
   it('registers exactly the nine tools with concrete JSON schemas', async () => {
     const pair = await connectedPair()
     try {

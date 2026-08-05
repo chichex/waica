@@ -499,6 +499,15 @@ try {
   })
   try {
     await client.connect(transport, { timeout: 10_000 })
+    // The packed CLI is the layout that ships, and the server resolves its
+    // version by walking up from dist/mcp — which lands on the CLI's own
+    // manifest here, not the one in packages/mcp. Only this rung exercises
+    // that path; in a checkout the walk stops somewhere else entirely.
+    assert.deepEqual(
+      client.getServerVersion(),
+      { name: '@waica/mcp', version: cliSource.version },
+      'the packed server must report the shipping CLI version in its handshake',
+    )
     const result = await client.callTool(
       {
         name: 'create_project',

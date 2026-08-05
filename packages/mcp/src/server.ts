@@ -1,3 +1,6 @@
+import { existsSync, readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import {
   CallToolRequestSchema,
@@ -240,9 +243,34 @@ function errorResult(error: unknown, args: Record<string, unknown>): CallToolRes
   )
 }
 
+/**
+ * The version reported over MCP: whatever artifact is shipping this server.
+ * In a checkout that is packages/mcp; once the CLI vendors the build into
+ * dist/mcp it is the CLI itself. Walking up to the nearest package.json finds
+ * the right one in both layouts, and every package in this repo moves on one
+ * version, so the host is told the release it is actually running instead of
+ * a number frozen in this file — which is how it reported 0.1.0 through the
+ * 0.4.x releases.
+ */
+function shippedVersion(): string {
+  let directory = path.dirname(fileURLToPath(import.meta.url))
+  for (;;) {
+    const manifest = path.join(directory, 'package.json')
+    if (existsSync(manifest)) {
+      const { version } = JSON.parse(readFileSync(manifest, 'utf8')) as { version?: string }
+      if (version) return version
+    }
+    const parent = path.dirname(directory)
+    if (parent === directory) return '0.0.0'
+    directory = parent
+  }
+}
+
 export function createWaicaMcpServer(): Server {
   const server = new Server(
-    { name: '@waica/mcp', version: '0.1.0' },
+    // The name stays fixed: it identifies the server to the host, not the
+    // package that happens to carry it.
+    { name: '@waica/mcp', version: shippedVersion() },
     {
       capabilities: { tools: {} },
       instructions:

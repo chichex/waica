@@ -14,7 +14,6 @@ describe('@waica/mcp package contract', () => {
     const pkg = await manifest('mcp')
     expect(pkg).toMatchObject({
       name: '@waica/mcp',
-      version: '0.1.0',
       private: true,
       type: 'module',
       bin: { 'waica-mcp': 'dist/cli.js' },
