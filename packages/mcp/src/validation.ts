@@ -15,6 +15,7 @@ import {
   provenanceRows,
   type Provenance,
 } from './package-resolver.js'
+import { loadProjectComponents } from './project-component-loader.js'
 import { directFiles, requireWaicaProject } from './project-path.js'
 
 export type FindingSeverity = 'error' | 'warning' | 'info'
@@ -32,6 +33,8 @@ export type FindingCode =
   | 'unknown-ui-piece'
   | 'camera-follow-unknown-entity'
   | 'unparseable-json'
+  | 'component-load-failed'
+  | 'component-load-unsupported'
 
 export interface ValidationFinding {
   severity: FindingSeverity
@@ -441,19 +444,35 @@ export async function validateProject(projectPath: string): Promise<{
 
   const resolver = new PackageResolver(projectPath)
   const discoveryWarnings: string[] = []
-  const [engine, behaviors, archetypes, projectComponents, roleStateSources] =
-    await Promise.all([
-      resolver.load('@waica/engine'),
-      resolver.load('@waica/behaviors'),
-      discoverArchetypes(
-        projectPath,
-        resolver,
-        discoveryWarnings,
-        activeId ? [activeId] : [],
-      ),
-      projectComponentCandidates(projectPath),
-      projectRoleStateSources(projectPath),
-    ])
+  const [
+    engine,
+    behaviors,
+    archetypes,
+    projectComponents,
+    roleStateSources,
+    loadedProjectComponents,
+  ] = await Promise.all([
+    resolver.load('@waica/engine'),
+    resolver.load('@waica/behaviors'),
+    discoverArchetypes(
+      projectPath,
+      resolver,
+      discoveryWarnings,
+      activeId ? [activeId] : [],
+    ),
+    projectComponentCandidates(projectPath),
+    projectRoleStateSources(projectPath),
+    loadProjectComponents(projectPath),
+  ])
+  for (const failure of loadedProjectComponents.failures) {
+    add(
+      { findings },
+      'error',
+      failure.code,
+      `Cannot execute project module: ${failure.message}`,
+      failure.file,
+    )
+  }
   const manifest = pickArchetype(archetypes, activeId, projectPath).manifest
   const controls = objectRecord(objectRecord(fixed.get('src/controls.json')).bindings)
   const bindings: Record<string, string[]> = {}

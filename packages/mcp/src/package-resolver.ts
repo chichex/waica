@@ -33,6 +33,11 @@ const BUNDLED_SPECIFIERS = new Set([
 ])
 
 const requireBundled = createRequire(import.meta.url)
+
+/** Node resolution anchored at a game project rather than the MCP host process. */
+export function projectAnchoredRequire(projectPath: string): NodeJS.Require {
+  return createRequire(path.join(projectPath, 'package.json'))
+}
 const BUILT_ENTRY_BY_SPECIFIER: Readonly<Record<string, string>> = {
   '@waica/engine': 'dist/index.js',
   '@waica/behaviors': 'dist/index.js',
@@ -176,7 +181,7 @@ export class PackageResolver {
 
   constructor(readonly projectPath?: string) {
     if (projectPath) {
-      this.projectRequire = createRequire(path.join(projectPath, 'package.json'))
+      this.projectRequire = projectAnchoredRequire(projectPath)
       this.projectManifestUsable = projectPackageJsonUsable(projectPath)
     }
   }

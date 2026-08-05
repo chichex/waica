@@ -25,6 +25,7 @@ export async function makeProject(
     'package.json': JSON.stringify({
       name: path.basename(root),
       private: true,
+      type: 'module',
       dependencies: {
         '@waica/engine': '^0.1.0',
         '@waica/behaviors': '^0.1.0',

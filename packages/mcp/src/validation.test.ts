@@ -22,6 +22,8 @@ const ALL_CODES = [
   'unknown-ui-piece',
   'camera-follow-unknown-entity',
   'unparseable-json',
+  'component-load-failed',
+  'component-load-unsupported',
 ]
 
 describe('validateProject', () => {
@@ -32,6 +34,9 @@ export class ProjectThing {
   static componentName = 'ProjectThing'
 }
 `,
+      'src/components/broken-load.ts': 'export const broken = ;\n',
+      'src/components/asset-load.ts': "import './sprite.png'\n",
+      'src/components/sprite.png': new Uint8Array([137, 80, 78, 71]),
       'src/states/present.ts': '// textual state code is enough\n',
       'src/characters/hero.character.json': JSON.stringify({
         waicaPrefab: 1,
