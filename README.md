@@ -49,4 +49,15 @@ pnpm dev   # platformer archetype — ← → move · space jump
 | `@waica/behaviors` | Curated game-feel library: `PlatformerMotor` and the `player` role, plus `patroller`, `chaser` and `npc`, `Collectible`, `Hazard`, `Respawnable`, `Lifetime` |
 | `@waica/archetype-platformer` | Opinionated platformer setup — playable from minute zero: default scene, prefabs, controls, HUD and stock art. The placeholder hero is Waica herself (pixel art, script-generated) |
 | `@waica/editor` | The app: create/open projects (owns the new-project template), viewport with drag & drop, inspector, state machine & animation editors, controls/stats views, play-in-editor, Monaco |
+| `@waica/mcp` | Stdio MCP server for agents: project creation, introspection, validation and exact editor-compatible scaffolds over absolute project paths |
 | `@chichex/waica` | One-command launcher: `npx @chichex/waica` serves the pre-built editor from a tiny dependency-free static server and opens your browser (the bare npm name `waica` is blocked by npm's similarity filter; the binary is still `waica`) |
+
+## Agentic development
+
+After the first coordinated `@waica/*` publish, connect the MCP server with:
+
+```bash
+claude mcp add waica -- npx @waica/mcp
+```
+
+See [`packages/mcp/README.md`](./packages/mcp/README.md) for all nine tools, the absolute `project_path` contract, editor-coexistence guidance, and the repository-local pre-publish workflow.
