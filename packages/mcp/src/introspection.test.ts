@@ -90,6 +90,7 @@ describe('listComponents', () => {
   it('keeps answering with a warning when project package.json is malformed', async () => {
     const project = await makeProject({ 'package.json': '{' })
     roots.push(project)
+    await stubPackage(project, '@waica/engine')
 
     const result = await listComponents(project)
 
@@ -245,9 +246,30 @@ module.exports.ARCHETYPE = {
     )
   })
 
+  it('surfaces the original failure when the broken declared archetype is active', async () => {
+    const project = await makeProject()
+    roots.push(project)
+    await stubPackage(project, '@waica/archetype-broken', {
+      manifest: `throw new Error('broken active manifest')\n`,
+    })
+    const pkgPath = path.join(project, 'package.json')
+    const pkg = JSON.parse(await readFile(pkgPath, 'utf8')) as { dependencies: Record<string, string> }
+    pkg.dependencies['@waica/archetype-broken'] = '^9.0.0'
+    await writeFile(pkgPath, JSON.stringify(pkg))
+    await writeFile(
+      path.join(project, 'src/game.json'),
+      JSON.stringify({ waicaGame: 1, archetype: 'broken' }),
+    )
+
+    await expect(describeArchetype(project)).rejects.toThrow(
+      /@waica\/archetype-broken.*broken active manifest/i,
+    )
+  })
+
   it('keeps describing the bundled archetype with a warning when package.json is malformed', async () => {
     const project = await makeProject({ 'package.json': '{' })
     roots.push(project)
+    await stubPackage(project, '@waica/engine')
 
     const result = await describeArchetype(project)
 

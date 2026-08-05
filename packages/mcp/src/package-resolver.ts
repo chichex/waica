@@ -1,6 +1,7 @@
 import { access, readFile, realpath } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 export type PackageSource = 'project' | 'bundled'
 
@@ -31,10 +32,28 @@ const BUNDLED_SPECIFIERS = new Set([
 ])
 
 const requireBundled = createRequire(import.meta.url)
+const BUILT_ENTRY_BY_SPECIFIER: Readonly<Record<string, string>> = {
+  '@waica/engine': 'dist/index.js',
+  '@waica/behaviors': 'dist/index.js',
+  '@waica/archetype-platformer/manifest': 'dist/manifest.js',
+}
 
 function specifierFor(packageName: string, subpath?: string): string {
   if (!subpath || subpath === '.') return packageName
   return `${packageName}/${subpath.replace(/^\.\//, '')}`
+}
+
+async function projectPackageJsonUsable(projectPath: string): Promise<boolean> {
+  try {
+    const parsed = JSON.parse(
+      await readFile(path.join(projectPath, 'package.json'), 'utf8'),
+    ) as unknown
+    return !!parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return true
+    if (error instanceof SyntaxError) return false
+    throw error
+  }
 }
 
 async function packageVersion(packageRoot: string): Promise<string> {
@@ -72,19 +91,25 @@ async function installedPackageRoot(
   projectPath: string,
   projectRequire: NodeJS.Require,
   packageName: string,
+  specifier: string,
 ): Promise<string | undefined> {
-  // Follow Node's ancestor node_modules search so hoisted installs count, but
-  // require a real package location before trusting resolve(). Vitest can
-  // resolve workspace aliases outside the project's search chain; those are
-  // the MCP fallback, not a project-owned install.
+  // Follow Node's ancestor node_modules search so hoisted installs count. A
+  // physical candidate distinguishes an absent package from a present but
+  // unloadable one; a successful resolution must point back to that candidate.
   for (let current = projectPath; ; current = path.dirname(current)) {
     const candidate = path.join(current, 'node_modules', ...packageName.split('/'))
     if (await exists(path.join(candidate, 'package.json'))) {
+      let entry: string
       try {
-        projectRequire.resolve(packageName)
+        entry = projectRequire.resolve(specifier)
       } catch {
-        // Keep the candidate: load() must surface a present-but-unloadable
-        // package rather than silently switching versions.
+        return candidate
+      }
+      const resolvedRoot = await packageRootFromEntry(entry, packageName)
+      if (!(await samePackage(candidate, resolvedRoot))) {
+        throw new Error(
+          `${specifier} resolved outside its installed package root ${candidate}: ${resolvedRoot}`,
+        )
       }
       return candidate
     }
@@ -94,12 +119,19 @@ async function installedPackageRoot(
 }
 
 /**
- * Literal lazy imports let Vitest consume workspace source while a built
- * checkout's CLI can register mappings to the real dist files before this
- * module graph is loaded. Published packages resolve these to their normal
- * packed exports.
+ * A built checkout and a published package both carry loadable dist files.
+ * Vitest runs buildless, so its literal-import fallback still consumes the
+ * workspace source through Vite without changing production resolution.
  */
-async function loadBundledModule(specifier: string): Promise<Record<string, unknown>> {
+async function loadBundledModule(
+  specifier: string,
+  packageRoot: string,
+): Promise<Record<string, unknown>> {
+  const builtRelative = BUILT_ENTRY_BY_SPECIFIER[specifier]
+  if (builtRelative) {
+    const builtEntry = path.join(packageRoot, builtRelative)
+    if (await exists(builtEntry)) return import(pathToFileURL(builtEntry).href)
+  }
   switch (specifier) {
     case '@waica/engine':
       return import('@waica/engine')
@@ -134,9 +166,13 @@ async function samePackage(a: string, b: string): Promise<boolean> {
  */
 export class PackageResolver {
   private readonly projectRequire?: NodeJS.Require
+  private readonly projectManifestUsable?: Promise<boolean>
 
   constructor(readonly projectPath?: string) {
-    if (projectPath) this.projectRequire = createRequire(path.join(projectPath, 'package.json'))
+    if (projectPath) {
+      this.projectRequire = createRequire(path.join(projectPath, 'package.json'))
+      this.projectManifestUsable = projectPackageJsonUsable(projectPath)
+    }
   }
 
   async load<T = Record<string, unknown>>(
@@ -145,8 +181,15 @@ export class PackageResolver {
   ): Promise<LoadedPackage<T>> {
     const specifier = specifierFor(packageName, subpath)
     const projectRoot =
-      this.projectPath && this.projectRequire
-        ? await installedPackageRoot(this.projectPath, this.projectRequire, packageName)
+      this.projectPath &&
+      this.projectRequire &&
+      (await this.projectManifestUsable)
+        ? await installedPackageRoot(
+            this.projectPath,
+            this.projectRequire,
+            packageName,
+            specifier,
+          )
         : undefined
     if (projectRoot && this.projectRequire) {
       let version = '(unknown version)'
@@ -164,7 +207,7 @@ export class PackageResolver {
             ? await bundledPackageRoot(packageName, specifier)
             : undefined
           if (!bundledRoot || !(await samePackage(projectRoot, bundledRoot))) throw error
-          loaded = (await loadBundledModule(specifier)) as T
+          loaded = (await loadBundledModule(specifier, bundledRoot)) as T
         }
         return {
           module: loaded,
@@ -184,7 +227,7 @@ export class PackageResolver {
       const packageRoot = await bundledPackageRoot(packageName, specifier)
       const version = await packageVersion(packageRoot)
       return {
-        module: (await loadBundledModule(specifier)) as T,
+        module: (await loadBundledModule(specifier, packageRoot)) as T,
         packageRoot,
         provenance: { package: packageName, version, source: 'bundled' },
       }

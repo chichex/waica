@@ -17,9 +17,10 @@ async function exists(target: string): Promise<boolean> {
 }
 
 /**
- * A checkout exports workspace TS for Vite, while plain Node must consume the
- * freshly built dist graph. Published installs already expose dist and need no
- * hook. This bridge only activates when the CLI itself lives in this repo.
+ * Built workspace packages still import one another by bare package name while
+ * checkout exports point at source TypeScript. Map only imports whose parent is
+ * already inside one of those built dist trees. Project-anchored resolution is
+ * deliberately outside this scope and therefore remains authoritative.
  */
 export async function prepareWorkspaceRuntime(): Promise<void> {
   const files: Record<string, string> = {
@@ -38,19 +39,28 @@ export async function prepareWorkspaceRuntime(): Promise<void> {
   const mappings = Object.fromEntries(
     Object.entries(files).map(([specifier, file]) => [specifier, pathToFileURL(file).href]),
   )
+  const parentPrefixes = ['engine', 'behaviors', 'archetype-platformer'].map(
+    (directory) =>
+      `${pathToFileURL(path.join(repositoryRoot, 'packages', directory, 'dist')).href}/`,
+  )
 
   const moduleApi = await import('node:module')
   if (typeof moduleApi.registerHooks === 'function') {
     workspaceHooks = moduleApi.registerHooks({
-      resolve(specifier, _context, nextResolve) {
+      resolve(specifier, context, nextResolve) {
         const mapped = mappings[specifier]
-        return mapped ? { url: mapped, shortCircuit: true } : nextResolve(specifier)
+        const parentURL = context.parentURL
+        const bundledParent =
+          parentURL !== undefined && parentPrefixes.some((prefix) => parentURL.startsWith(prefix))
+        return mapped && bundledParent
+          ? { url: mapped, shortCircuit: true }
+          : nextResolve(specifier, context)
       },
     })
     return
   }
   moduleApi.register(new URL('./workspace-loader.js', import.meta.url), {
     parentURL: import.meta.url,
-    data: mappings,
+    data: { mappings, parentPrefixes },
   })
 }

@@ -71,11 +71,16 @@ export async function listComponents(projectPath: string): Promise<{
   const check = await requireWaicaProject(projectPath)
   const resolver = new PackageResolver(projectPath)
   const discoveryWarnings: string[] = []
-  const [engine, behaviors, archetypes, activeId] = await Promise.all([
+  const activeId = await activeArchetypeId(projectPath)
+  const [engine, behaviors, archetypes] = await Promise.all([
     resolver.load<Record<string, unknown>>('@waica/engine'),
     resolver.load<Record<string, unknown>>('@waica/behaviors'),
-    discoverArchetypes(projectPath, resolver, discoveryWarnings),
-    activeArchetypeId(projectPath),
+    discoverArchetypes(
+      projectPath,
+      resolver,
+      discoveryWarnings,
+      activeId ? [activeId] : [],
+    ),
   ])
   const active = pickArchetype(archetypes, activeId, projectPath)
   const components = Object.values(active.manifest.registry.components).map((Class) => {
@@ -154,16 +159,21 @@ export async function describeArchetype(
   const check = await requireWaicaProject(projectPath)
   const resolver = new PackageResolver(projectPath)
   const discoveryWarnings: string[] = []
-  const [engine, behaviors, available, activeId] = await Promise.all([
+  const activeId = await activeArchetypeId(projectPath)
+  const requiredIds = [activeId, requestedId].filter(
+    (id): id is string => typeof id === 'string',
+  )
+  const [engine, behaviors, available] = await Promise.all([
     resolver.load('@waica/engine'),
     resolver.load('@waica/behaviors'),
-    discoverArchetypes(projectPath, resolver, discoveryWarnings),
-    activeArchetypeId(projectPath),
+    discoverArchetypes(projectPath, resolver, discoveryWarnings, requiredIds),
   ])
-  const selected = pickArchetype(available, requestedId ?? activeId, projectPath)
-  // The unrequested active id must also be valid: silently claiming another
-  // archetype would repeat the editor fallback this tool deliberately avoids.
-  pickArchetype(available, activeId, projectPath)
+  // The active id must be known even when another archetype was requested:
+  // the response cannot truthfully name an active archetype otherwise.
+  const active = pickArchetype(available, activeId, projectPath)
+  const selected = requestedId
+    ? pickArchetype(available, requestedId, projectPath)
+    : active
   const manifest = selected.manifest
   const archetype = {
     id: manifest.id,
@@ -187,7 +197,7 @@ export async function describeArchetype(
     entityIcons: manifest.entityIcons,
   }
   const installedArchetypes = available
-    .filter((entry) => entry.manifest.id !== activeId)
+    .filter((entry) => entry.manifest.id !== active.manifest.id)
     .map((entry) => ({
       id: entry.manifest.id,
       label: entry.manifest.label,
@@ -196,7 +206,7 @@ export async function describeArchetype(
     .sort((a, b) => a.id.localeCompare(b.id))
   const provenance = provenanceRows([engine, behaviors, ...available.map((entry) => entry.loaded)])
   return {
-    activeArchetype: activeId,
+    activeArchetype: active.manifest.id,
     archetype,
     installedArchetypes,
     notes: check.notes,
