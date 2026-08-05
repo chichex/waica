@@ -71,6 +71,18 @@ describe('loadProjectComponents', () => {
     })
   })
 
+  it('falls back to the MCP-bundled engine when project dependencies are not installed', async () => {
+    const project = await makeProject({
+      'src/components/target.ts': componentSource('objects/bundled'),
+    })
+    roots.push(project)
+
+    const result = await loadProjectComponents(project)
+
+    expect(result.failures).toEqual([])
+    expect(result.components.Target?.defaults).toEqual({ target: 'objects/bundled' })
+  })
+
   it('resolves extensionless relative imports', async () => {
     const project = await makeModuleProject({
       'src/components/default-target.ts': `export const defaultTarget: string = 'objects/helper'\n`,

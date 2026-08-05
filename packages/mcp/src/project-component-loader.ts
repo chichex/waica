@@ -4,7 +4,7 @@ import { registerHooks } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import vm from 'node:vm'
-import { projectAnchoredRequire } from './package-resolver.js'
+import { PackageResolver, projectAnchoredRequire } from './package-resolver.js'
 import { directFiles } from './project-path.js'
 
 export type ComponentLoadFailureCode =
@@ -30,6 +30,7 @@ export interface ProjectComponentLoadResult {
 
 interface HookContext {
   projectRequire: NodeJS.Require
+  packageBridges: Map<string, string>
 }
 
 const RUN_PARAM = 'waica-component-load'
@@ -74,8 +75,14 @@ registerHooks({
     if (!run) return nextResolve(specifier, context)
 
     if (specifier.startsWith('@waica/')) {
+      const bridge = run.context.packageBridges.get(specifier)
+      if (bridge) return { url: bridge, shortCircuit: true }
       const resolved = run.context.projectRequire.resolve(specifier)
-      return { url: pathToFileURL(resolved).href, shortCircuit: true }
+      const url = pathToFileURL(resolved)
+      return {
+        url: /\.tsx?$/.test(resolved) ? versioned(url, run.token) : url.href,
+        shortCircuit: true,
+      }
     }
 
     if (specifier.startsWith('.')) {
@@ -85,6 +92,15 @@ registerHooks({
         for (const extension of ['.ts', '.tsx', '.js']) {
           const candidate = new URL(unresolved)
           candidate.pathname += extension
+          if (existsSync(fileURLToPath(candidate))) {
+            return { url: versioned(candidate, run.token), shortCircuit: true }
+          }
+        }
+      }
+      if (!existsSync(unresolvedPath) && unresolvedPath.endsWith('.js')) {
+        for (const extension of ['.ts', '.tsx']) {
+          const candidate = new URL(unresolved)
+          candidate.pathname = candidate.pathname.slice(0, -'.js'.length) + extension
           if (existsSync(fileURLToPath(candidate))) {
             return { url: versioned(candidate, run.token), shortCircuit: true }
           }
@@ -176,6 +192,56 @@ function unsupportedByNode(error: unknown, source: string): boolean {
   return /^\s*@[$\w]+/m.test(source)
 }
 
+function bridgeModule(
+  token: string,
+  specifier: string,
+  module: Record<string, unknown>,
+): { key: string; url: string } {
+  const key = `waica.project-component.${process.pid}.${token}.${specifier}`
+  Reflect.set(process, Symbol.for(key), module)
+  const exports = Object.keys(module).filter((name) => /^[$A-Z_a-z][$\w]*$/.test(name))
+  const lines = [
+    `const value = process[Symbol.for(${JSON.stringify(key)})]`,
+    `if (!value) throw new Error(${JSON.stringify(`Missing package bridge for ${specifier}`)})`,
+  ]
+  let index = 0
+  for (const name of exports) {
+    if (name === 'default') {
+      lines.push('export default value.default')
+      continue
+    }
+    const binding = `binding${index++}`
+    lines.push(
+      `const ${binding} = value[${JSON.stringify(name)}]`,
+      `export { ${binding} as ${name} }`,
+    )
+  }
+  return {
+    key,
+    url: `data:text/javascript;charset=utf-8,${encodeURIComponent(lines.join('\n'))}`,
+  }
+}
+
+async function packageBridges(
+  projectPath: string,
+  token: string,
+): Promise<{ urls: Map<string, string>; keys: string[] }> {
+  const resolver = new PackageResolver(projectPath)
+  const urls = new Map<string, string>()
+  const keys: string[] = []
+  for (const specifier of ['@waica/engine', '@waica/behaviors']) {
+    try {
+      const loaded = await resolver.load<Record<string, unknown>>(specifier)
+      const bridge = bridgeModule(token, specifier, loaded.module)
+      urls.set(specifier, bridge.url)
+      keys.push(bridge.key)
+    } catch {
+      // The importing project file receives the anchored resolver's real error.
+    }
+  }
+  return { urls, keys }
+}
+
 async function projectModuleFiles(projectPath: string): Promise<string[]> {
   const groups = await Promise.all(
     ['components', 'roles', 'states'].map(async (directory) =>
@@ -195,7 +261,11 @@ export async function loadProjectComponents(
   projectPath: string,
 ): Promise<ProjectComponentLoadResult> {
   const token = String(++nextRun)
-  hookContexts.set(token, { projectRequire: projectAnchoredRequire(projectPath) })
+  const bridges = await packageBridges(projectPath, token)
+  hookContexts.set(token, {
+    projectRequire: projectAnchoredRequire(projectPath),
+    packageBridges: bridges.urls,
+  })
   const components: Record<string, ProjectComponentDescription> = {}
   const failures: ComponentLoadFailure[] = []
   try {
@@ -219,6 +289,7 @@ export async function loadProjectComponents(
     }
   } finally {
     hookContexts.delete(token)
+    for (const key of bridges.keys) Reflect.deleteProperty(process, Symbol.for(key))
   }
   return { components, failures }
 }
