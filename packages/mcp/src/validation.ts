@@ -47,6 +47,7 @@ interface ValidationContext {
   knownComponents: Set<string>
   projectComponents: Set<string>
   stateFiles: Set<string>
+  roleStateSources: Map<string, string[]>
   bindings: Record<string, string[]>
 }
 
@@ -141,7 +142,31 @@ function machineStates(component: SceneComponentJson): Record<string, StateJson>
   return objectRecord(component.props?.states) as Record<string, StateJson>
 }
 
-/** Mirrors the editor's flat src/states/<state>.ts status convention. */
+function escapedRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+async function projectRoleStateSources(projectPath: string): Promise<Map<string, string[]>> {
+  const sources = new Map<string, string[]>()
+  for (const file of await directFiles(path.join(projectPath, 'src/roles'), '.ts')) {
+    const source = await readFile(path.join(projectPath, 'src/roles', file), 'utf8')
+    for (const match of source.matchAll(/\bdefine(?:Role|States)\s*\(\s*(['"])([^'"]+)\1/g)) {
+      const role = match[2]
+      if (!role) continue
+      sources.set(role, [...(sources.get(role) ?? []), source.slice(match.index)])
+    }
+  }
+  return sources
+}
+
+function roleSourceHasState(source: string, state: string): boolean {
+  const statesMarkers = [...source.matchAll(/\bstates\s*:/g)]
+  const candidate = statesMarkers.at(-1)
+  const registration = candidate ? source.slice(candidate.index) : source
+  return new RegExp(`\\b${escapedRegex(state)}\\s*:`).test(registration)
+}
+
+/** Mirrors flat state files and textually recognizes project role registrations. */
 function stateCodeExists(
   role: string,
   state: string,
@@ -152,7 +177,10 @@ function stateCodeExists(
   return (
     (!!roleStates && Object.hasOwn(roleStates, state)) ||
     (!!logicStates && Object.hasOwn(logicStates, state)) ||
-    context.stateFiles.has(state)
+    context.stateFiles.has(state) ||
+    (context.roleStateSources.get(role) ?? []).some((source) =>
+      roleSourceHasState(source, state),
+    )
   )
 }
 
@@ -163,7 +191,9 @@ function validateStateMachines(
   context: ValidationContext,
 ): void {
   const animated = components.find((component) => component.type === 'AnimatedSprite')
-  const clips = new Set(Object.keys(objectRecord(animated?.props?.clips)))
+  const clips = animated
+    ? new Set(Object.keys(objectRecord(animated.props?.clips)))
+    : undefined
   for (const machine of components.filter((component) => component.type === 'StateMachine')) {
     const states = machineStates(machine)
     const realNames = Object.keys(states).filter((name) => name !== '*')
@@ -175,7 +205,7 @@ function validateStateMachines(
     for (const name of realNames) {
       const definition = objectRecord(states[name]) as StateJson
       const clip = typeof definition.clip === 'string' ? definition.clip : name
-      if (!clips.has(clip)) {
+      if (clips && !clips.has(clip)) {
         add(
           context,
           'warning',
@@ -236,7 +266,7 @@ function validateStateMachines(
           context,
           'info',
           'no-state-code',
-          `State "${name}" has no built-in code and no src/states/${name}.ts.`,
+          `State "${name}" has no built-in code, project role registration or src/states/${name}.ts.`,
           file,
           ref ?? name,
         )
@@ -245,12 +275,21 @@ function validateStateMachines(
   }
 }
 
-function resolvedEntityComponents(entity: SceneEntityJson, prefab?: PrefabJson): SceneComponentJson[] {
-  const inherited = (prefab?.components ?? []).map((component) => ({
+type LooseSceneEntity = Omit<Partial<SceneEntityJson>, 'name'> & { name?: unknown }
+
+function resolvedEntityComponents(
+  entity: LooseSceneEntity,
+  prefab?: PrefabJson,
+): SceneComponentJson[] {
+  const overrides = objectRecord(entity.overrides)
+  const inherited = componentList(prefab?.components).map((component) => ({
     type: component.type,
-    props: { ...component.props, ...entity.overrides?.[component.type] },
+    props: {
+      ...objectRecord(component.props),
+      ...objectRecord(overrides[component.type]),
+    },
   }))
-  return [...inherited, ...(entity.components ?? [])]
+  return [...inherited, ...componentList(entity.components)]
 }
 
 function validatePrefab(
@@ -271,11 +310,18 @@ function validateScene(
   uiNames: ReadonlySet<string>,
   context: ValidationContext,
 ): void {
-  const entities = (Array.isArray(scene.entities) ? scene.entities : []).filter(
-    (entity): entity is SceneEntityJson =>
-      !!entity && typeof entity === 'object' && typeof entity.name === 'string',
+  const rawEntities: unknown[] = Array.isArray(scene.entities) ? scene.entities : []
+  const entities = rawEntities
+    .map((entity, index) => ({ entity, index }))
+    .filter(
+      (entry): entry is { entity: LooseSceneEntity; index: number } =>
+        !!entry.entity && typeof entry.entity === 'object' && !Array.isArray(entry.entity),
+    )
+  const entityNames = new Set(
+    entities
+      .map(({ entity }) => (typeof entity.name === 'string' ? entity.name : ''))
+      .filter(Boolean),
   )
-  const entityNames = new Set(entities.map((entity) => entity.name).filter(Boolean))
   const follow = scene.camera?.follow
   if (typeof follow === 'string' && follow && !entityNames.has(follow)) {
     add(
@@ -292,34 +338,38 @@ function validateScene(
       add(context, 'warning', 'unknown-ui-piece', `Unknown UI piece "${ui}".`, file, ui)
     }
   }
-  for (const entity of entities) {
+  for (const { entity, index } of entities) {
+    const entityRef =
+      typeof entity.name === 'string' && entity.name ? entity.name : `entity[${index}]`
     const inline = componentList(entity.components)
-    for (const component of inline) checkComponent(component, file, entity.name, context)
+    for (const component of inline) checkComponent(component, file, entityRef, context)
+    const prefabRef = typeof entity.prefab === 'string' ? entity.prefab : undefined
+    const overrides = objectRecord(entity.overrides)
     let prefab: PrefabJson | undefined
-    if (entity.prefab) {
-      prefab = prefabs.get(entity.prefab)
+    if (prefabRef) {
+      prefab = prefabs.get(prefabRef)
       if (!prefab) {
         add(
           context,
           'error',
           'broken-prefab-ref',
-          `Entity "${entity.name}" references missing prefab "${entity.prefab}".`,
+          `Entity "${entityRef}" references missing prefab "${prefabRef}".`,
           file,
-          entity.prefab,
+          prefabRef,
         )
       } else {
         const componentTypes = new Set(
           componentList(prefab.components).map((component) => component.type),
         )
-        for (const override of Object.keys(entity.overrides ?? {})) {
+        for (const override of Object.keys(overrides)) {
           if (!componentTypes.has(override)) {
             add(
               context,
               'warning',
               'override-key-not-in-prefab',
-              `Override "${override}" is not a component in prefab "${entity.prefab}".`,
+              `Override "${override}" is not a component in prefab "${prefabRef}".`,
               file,
-              entity.prefab,
+              prefabRef,
             )
           }
         }
@@ -331,12 +381,12 @@ function validateScene(
     const stateTypes = new Set(['StateMachine', 'AnimatedSprite'])
     const changesStateBehavior =
       inline.some((component) => stateTypes.has(component.type)) ||
-      Object.keys(entity.overrides ?? {}).some((type) => stateTypes.has(type))
+      Object.keys(overrides).some((type) => stateTypes.has(type))
     if (changesStateBehavior) {
       validateStateMachines(
         resolvedEntityComponents(entity, prefab),
         file,
-        entity.name,
+        entityRef,
         context,
       )
     }
@@ -367,16 +417,8 @@ export async function validateProject(projectPath: string): Promise<{
 }> {
   const check = await requireWaicaProject(projectPath)
   const findings: ValidationFinding[] = []
-  const resolver = new PackageResolver(projectPath)
-  const discoveryWarnings: string[] = []
-  const [engine, behaviors, archetypes, projectComponents] = await Promise.all([
-    resolver.load('@waica/engine'),
-    resolver.load('@waica/behaviors'),
-    discoverArchetypes(projectPath, resolver, discoveryWarnings),
-    projectComponentCandidates(projectPath),
-  ])
-
   const fixedPaths = [
+    'package.json',
     'src/game.json',
     'src/controls.json',
     'src/stats.json',
@@ -387,8 +429,31 @@ export async function validateProject(projectPath: string): Promise<{
     fixed.set(relative, await parseJson(projectPath, relative, findings))
   }
   const game = objectRecord(fixed.get('src/game.json'))
+  const gameWasUnparseable = findings.some(
+    (finding) => finding.code === 'unparseable-json' && finding.file === 'src/game.json',
+  )
   const activeId =
-    typeof game.archetype === 'string' && game.archetype ? game.archetype : 'platformer'
+    typeof game.archetype === 'string' && game.archetype
+      ? game.archetype
+      : gameWasUnparseable
+        ? 'platformer'
+        : null
+
+  const resolver = new PackageResolver(projectPath)
+  const discoveryWarnings: string[] = []
+  const [engine, behaviors, archetypes, projectComponents, roleStateSources] =
+    await Promise.all([
+      resolver.load('@waica/engine'),
+      resolver.load('@waica/behaviors'),
+      discoverArchetypes(
+        projectPath,
+        resolver,
+        discoveryWarnings,
+        activeId ? [activeId] : [],
+      ),
+      projectComponentCandidates(projectPath),
+      projectRoleStateSources(projectPath),
+    ])
   const manifest = pickArchetype(archetypes, activeId, projectPath).manifest
   const controls = objectRecord(objectRecord(fixed.get('src/controls.json')).bindings)
   const bindings: Record<string, string[]> = {}
@@ -408,6 +473,7 @@ export async function validateProject(projectPath: string): Promise<{
     knownComponents: new Set(Object.keys(manifest.registry.components)),
     projectComponents,
     stateFiles,
+    roleStateSources,
     bindings,
   }
 

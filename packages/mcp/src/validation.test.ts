@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { cleanup, makeProject, tempDir, writeTree } from './test-helpers.js'
+import { cleanup, makeProject, stubPackage, tempDir, writeTree } from './test-helpers.js'
 import { createProject } from './create-project.js'
 import { scaffoldRole } from './scaffolds.js'
 import { validateProject } from './validation.js'
@@ -311,6 +311,7 @@ export class ProjectThing {
       'src/scenes/main.scene.json': JSON.stringify({ waicaScene: 3, entities: [] }),
     })
     roots.push(project)
+    await stubPackage(project, '@waica/engine')
     await writeFile(path.join(project, 'package.json'), '{')
 
     const result = await validateProject(project)

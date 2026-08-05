@@ -60,7 +60,7 @@ export const TOOLS: Tool[] = [
     name: 'list_components',
     description: 'List installed archetype component metadata and textual project-owned code paths.',
     inputSchema: schema({}),
-    annotations: { readOnlyHint: true, openWorldHint: false },
+    annotations: { openWorldHint: false },
   },
   {
     name: 'describe_archetype',
@@ -71,7 +71,7 @@ export const TOOLS: Tool[] = [
         description: 'Optional archetype manifest id; defaults to src/game.json.',
       },
     }),
-    annotations: { readOnlyHint: true, openWorldHint: false },
+    annotations: { openWorldHint: false },
   },
   {
     name: 'project_summary',
@@ -83,7 +83,7 @@ export const TOOLS: Tool[] = [
     name: 'validate_project',
     description: 'Validate every project scene, prefab and configuration file with machine findings.',
     inputSchema: schema({}),
-    annotations: { readOnlyHint: true, openWorldHint: false },
+    annotations: { openWorldHint: false },
   },
   {
     name: 'scaffold_component',
