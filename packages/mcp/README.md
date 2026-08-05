@@ -2,22 +2,22 @@
 
 MCP server for developing Waica games with an agent. It operates on the user's plain project files over stdio while the agent keeps using its normal file-editing and shell tools.
 
+This package is never published on its own: it ships inside `@chichex/waica`, which bundles the built server together with the `@waica` libraries it introspects.
+
 ## Connect
 
-After the first coordinated Waica publish:
-
 ```bash
-claude mcp add waica -- npx @waica/mcp
+claude mcp add waica -- npx -y @chichex/waica mcp
 ```
 
-From this repository before publication:
+From this repository, against the built checkout:
 
 ```bash
 pnpm build
-claude mcp add waica -- node /absolute/path/to/waica/packages/mcp/dist/cli.js
+claude mcp add waica -- node /absolute/path/to/waica/packages/cli/dist/cli.js mcp
 ```
 
-Pre-publish caveat: @waica/* packages are not available from npm until the first coordinated Waica publish.
+Caveat — generated projects do not install from npm yet: the `@waica/*` libraries a project depends on are not published, so `npm install` in a freshly created project fails. Every tool here still works, because the server answers from its own bundled copies. See "Running a generated project" below.
 
 ## `project_path` model
 
@@ -45,6 +45,8 @@ Scaffolds never overwrite an existing file. Project-owned TypeScript is listed a
 
 The MCP and editor both operate on the same files; there is no live bridge or file watcher in v1. Reload the project in the editor after agent edits. If the editor already has stale content open, saving it may overwrite the agent's changes, so coordinate which side is writing before saving.
 
-## Creating a project before the first publish
+## Running a generated project
 
-`create_project` deliberately returns the normal next steps (`npm install`, then `npm run dev`), but those commands cannot resolve the unpublished `@waica/*` packages yet. For a repository-local pre-publish test, change the generated `package.json`'s three `@waica/*` versions to `workspace:^`, add the project to this pnpm workspace, and install from the repository root.
+`create_project` deliberately returns the normal next steps (`npm install`, then `npm run dev`), but those commands cannot resolve the `@waica/*` packages: only the CLI is published, and the engine, behaviors and archetype libraries are not on npm. Publishing them is what will make the returned next steps work end to end.
+
+Until then, run a generated project from this repository: change the generated `package.json`'s three `@waica/*` versions to `workspace:^`, put the project inside this pnpm workspace, and install from the repository root.

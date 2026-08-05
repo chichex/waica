@@ -14,6 +14,25 @@ there you can create a project from an archetype, drag entities around, edit
 scenes and code, and play in place. Projects are saved straight to a folder on
 your disk (Chromium browsers; elsewhere the editor runs in demo mode).
 
+## MCP server
+
+The same package serves the waica MCP server, so an agent can create projects,
+introspect installed components, validate a project and write
+editor-compatible scaffolds:
+
+```sh
+claude mcp add waica -- npx -y @chichex/waica mcp
+```
+
+`waica mcp` speaks the Model Context Protocol on stdio and writes nothing else
+to stdout. See [the server's
+README](https://github.com/chichex/waica/blob/main/packages/mcp/README.md) for
+the nine tools and the absolute `project_path` contract.
+
+Caveat: the `@waica/*` libraries a generated project depends on are not on npm
+yet, so `npm install` inside a freshly created project fails. The tools
+themselves work — the server answers from the copies bundled here.
+
 ## Options
 
 | Flag | What it does |
@@ -22,6 +41,8 @@ your disk (Chromium browsers; elsewhere the editor runs in demo mode).
 | `--no-open` | do not open the browser |
 | `--version` | print the version |
 | `--help` | show help |
+
+The only positional argument is `mcp`.
 
 ## Behavior
 
@@ -37,5 +58,6 @@ your disk (Chromium browsers; elsewhere the editor runs in demo mode).
 
 ## What's in the box
 
-This package ships the pre-built editor (`dist/editor`) plus a tiny static
-server — no dependencies, nothing phones home, everything runs locally.
+This package ships the pre-built editor (`dist/editor`), a tiny static server,
+and the MCP server (`dist/mcp`) together with the `@waica` libraries it
+introspects. Nothing phones home; everything runs locally.

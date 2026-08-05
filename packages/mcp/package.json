@@ -2,6 +2,7 @@
   "name": "@waica/mcp",
   "version": "0.1.0",
   "description": "Waica MCP server for agentic game development",
+  "private": true,
   "license": "MIT",
   "type": "module",
   "repository": {
@@ -11,9 +12,6 @@
   },
   "bin": {
     "waica-mcp": "dist/cli.js"
-  },
-  "publishConfig": {
-    "access": "public"
   },
   "files": [
     "dist"

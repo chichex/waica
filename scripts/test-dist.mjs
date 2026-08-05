@@ -24,12 +24,17 @@ const { Client } = requireFromMcp('@modelcontextprotocol/sdk/client/index.js')
 const { StdioClientTransport } = requireFromMcp('@modelcontextprotocol/sdk/client/stdio.js')
 const sandbox = await mkdtemp(join(tmpdir(), 'waica-dist-'))
 const nodeModules = join(sandbox, 'node_modules')
+// @waica/mcp is absent on purpose: it is not published on its own, it ships
+// inside @chichex/waica. Its dist is checked in place and then exercised
+// through the packed CLI. The three libraries stay here because the CLI vendors
+// exactly these published shapes next to the bundled server.
 const packages = [
   { directory: 'engine', name: '@waica/engine', entry: 'index.js' },
   { directory: 'behaviors', name: '@waica/behaviors', entry: 'index.js' },
   { directory: 'archetype-platformer', name: '@waica/archetype-platformer', entry: 'index.js' },
-  { directory: 'mcp', name: '@waica/mcp', entry: 'cli.js' },
+  { directory: 'cli', name: '@chichex/waica', entry: 'cli.js', bundled: ['editor', 'mcp'] },
 ]
+const vendoredLibraries = ['@waica/engine', '@waica/behaviors', '@waica/archetype-platformer']
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -71,7 +76,13 @@ async function symbolicLinksBelow(directory) {
   return links
 }
 
-async function assertDistMatchesSource(packageRoot, packageName) {
+/** Directories the build copies in wholesale rather than compiles from src. */
+function outsideBundledTrees(distRoot, bundled) {
+  return (path) =>
+    !bundled.some((directory) => path.startsWith(`${join(distRoot, directory)}${sep}`))
+}
+
+async function assertDistMatchesSource(packageRoot, packageName, bundled = []) {
   const sourceRoot = join(packageRoot, 'src')
   const distRoot = join(packageRoot, 'dist')
   const expected = (await filesBelow(sourceRoot))
@@ -86,14 +97,16 @@ async function assertDistMatchesSource(packageRoot, packageName) {
     .sort()
   const actual = (await filesBelow(distRoot))
     .filter((path) => path.endsWith('.js'))
+    .filter(outsideBundledTrees(distRoot, bundled))
     .map((path) => relative(distRoot, path))
     .sort()
 
   assert.deepEqual(actual, expected, `${packageName} dist contains missing or stale JavaScript files`)
 }
 
-async function assertExplicitRelativeImports(packageRoot, packageName) {
-  for (const file of await filesBelow(join(packageRoot, 'dist'))) {
+async function assertExplicitRelativeImports(packageRoot, packageName, bundled = []) {
+  const distRoot = join(packageRoot, 'dist')
+  for (const file of (await filesBelow(distRoot)).filter(outsideBundledTrees(distRoot, bundled))) {
     if (!file.endsWith('.js')) continue
     const source = await readFile(file, 'utf8')
     for (const match of source.matchAll(
@@ -209,7 +222,7 @@ try {
     await access(distEntry).catch(() => {
       throw new Error(`Missing ${distEntry}; run pnpm build before scripts/test-dist.mjs`)
     })
-    await assertDistMatchesSource(packageRoot, pkg.name)
+    await assertDistMatchesSource(packageRoot, pkg.name, pkg.bundled)
 
     const archive = join(sandbox, `${pkg.directory}.tgz`)
     run('pnpm', ['pack', '--out', archive], { cwd: packageRoot })
@@ -217,7 +230,7 @@ try {
     const destination = join(nodeModules, ...pkg.name.split('/'))
     await mkdir(destination, { recursive: true })
     run('tar', ['-xzf', archive, '--strip-components=1', '-C', destination])
-    await assertExplicitRelativeImports(destination, pkg.name)
+    await assertExplicitRelativeImports(destination, pkg.name, pkg.bundled)
     packedManifests.set(
       pkg.name,
       JSON.parse(await readFile(join(destination, 'package.json'), 'utf8')),
@@ -245,35 +258,55 @@ try {
   await access(join(nodeModules, '@waica/archetype-platformer/dist/manifest.js'))
   await access(join(nodeModules, '@waica/archetype-platformer/dist/manifest.d.ts'))
 
-  const mcpSource = JSON.parse(await readFile(join(root, 'packages/mcp/package.json'), 'utf8'))
-  const mcpPacked = packedManifests.get('@waica/mcp')
-  assert.deepEqual(mcpSource.bin, { 'waica-mcp': 'dist/cli.js' })
-  assert.deepEqual(mcpSource.files, ['dist'])
-  assert.deepEqual(mcpSource.engines, { node: '>=20.19' })
-  assert.equal(mcpSource.exports, undefined, '@waica/mcp must stay pure-bin')
-  assert.deepEqual(mcpPacked.bin, mcpSource.bin)
-  assert.deepEqual(mcpPacked.files, ['dist'])
-  assert.equal(mcpPacked.exports, undefined, 'the packed MCP must stay pure-bin')
-  for (const dependency of [
-    '@waica/engine',
-    '@waica/behaviors',
-    '@waica/archetype-platformer',
-  ]) {
-    const descriptor = packages.find((pkg) => pkg.name === dependency)
-    assert.ok(descriptor, `missing package descriptor for ${dependency}`)
-    const sourceManifest = JSON.parse(
-      await readFile(join(root, 'packages', descriptor.directory, 'package.json'), 'utf8'),
-    )
-    assert.equal(
-      mcpPacked.dependencies?.[dependency],
-      `^${sourceManifest.version}`,
-      `${dependency} workspace range must become its published version`,
-    )
-  }
-  const packedCli = join(nodeModules, '@waica/mcp/dist/cli.js')
+  // The server is never packed on its own, so its dist is verified where it is
+  // built; the packed CLI below then runs that same dist, copied.
+  const mcpRoot = join(root, 'packages/mcp')
+  await assertDistMatchesSource(mcpRoot, '@waica/mcp')
+  await assertExplicitRelativeImports(mcpRoot, '@waica/mcp')
+  const mcpSource = JSON.parse(await readFile(join(mcpRoot, 'package.json'), 'utf8'))
+  assert.equal(mcpSource.private, true, '@waica/mcp must stay unpublished: it ships inside the CLI')
+  assert.equal(mcpSource.publishConfig, undefined, '@waica/mcp must carry no publish settings')
+
+  const cliSource = JSON.parse(await readFile(join(root, 'packages/cli/package.json'), 'utf8'))
+  const cliPacked = packedManifests.get('@chichex/waica')
+  assert.deepEqual(cliSource.bin, { waica: 'dist/cli.js', 'waica-mcp': 'dist/mcp/cli.js' })
+  assert.deepEqual(cliPacked.bin, cliSource.bin)
+  assert.deepEqual(cliPacked.files, ['dist'])
+  assert.deepEqual(cliPacked.engines, { node: '>=20.19' })
+  assert.equal(cliPacked.exports, undefined, '@chichex/waica must stay pure-bin')
+  assert.deepEqual(
+    Object.keys(cliPacked.dependencies ?? {}).sort(),
+    ['@modelcontextprotocol/sdk', 'three'],
+    'the published CLI must declare exactly the runtime deps its bundled server loads',
+  )
+
+  const packedCliRoot = join(nodeModules, '@chichex/waica')
+  const packedCli = join(packedCliRoot, 'dist/cli.js')
   assert.ok((await readFile(packedCli, 'utf8')).startsWith('#!/usr/bin/env node\n'))
-  await access(join(nodeModules, '@waica/mcp/dist/template/package.json.tpl'))
-  await access(join(nodeModules, '@waica/mcp/dist/template/src/main.ts'))
+  await access(join(packedCliRoot, 'dist/editor/index.html'))
+  await access(join(packedCliRoot, 'dist/mcp/stdio.js'))
+  await access(join(packedCliRoot, 'dist/mcp/template/package.json.tpl'))
+  await access(join(packedCliRoot, 'dist/mcp/template/src/main.ts'))
+
+  // These vendored copies are the bundled fallback for projects without their
+  // own node_modules. They must carry published exports — the checkout's point
+  // at TypeScript source, which plain Node refuses to load.
+  for (const name of vendoredLibraries) {
+    const vendorRoot = join(packedCliRoot, 'dist/mcp/node_modules', ...name.split('/'))
+    const vendored = JSON.parse(await readFile(join(vendorRoot, 'package.json'), 'utf8'))
+    const published = packedManifests.get(name)
+    assert.deepEqual(
+      vendored.exports,
+      published.exports,
+      `${name} must be vendored with its published exports`,
+    )
+    assert.equal(vendored.version, published.version, `${name} must be vendored at its real version`)
+    assert.equal(vendored.publishConfig, undefined)
+    for (const file of published.files) await access(join(vendorRoot, file))
+  }
+  await access(
+    join(packedCliRoot, 'dist/mcp/node_modules/@waica/archetype-platformer/assets/waica-dog.png'),
+  )
 
   for (const pkg of packages) {
     await materializeExternalDependencies(pkg, packedManifests.get(pkg.name))
@@ -302,13 +335,14 @@ try {
 
   // The README's pre-publish command runs this checkout's built CLI directly,
   // where workspace package exports still point at TypeScript source. Exercise
-  // that exact path, then prove project-first tools survive workspace links.
+  // that exact path — `waica mcp`, not the packed copy — then prove
+  // project-first tools survive workspace links.
   const sourceTarget = join(sandbox, 'source-stdio-game')
   const projectOwnedTarget = join(sandbox, 'project-owned-stdio-game')
   const sourceClient = new Client({ name: 'waica-source-dist-smoke', version: '1.0.0' })
   const sourceTransport = new StdioClientTransport({
     command: process.execPath,
-    args: [join(root, 'packages/mcp/dist/cli.js')],
+    args: [join(root, 'packages/cli/dist/cli.js'), 'mcp'],
     cwd: root,
     stderr: 'pipe',
   })
@@ -433,7 +467,7 @@ try {
   const client = new Client({ name: 'waica-dist-smoke', version: '1.0.0' })
   const transport = new StdioClientTransport({
     command: process.execPath,
-    args: [packedCli],
+    args: [packedCli, 'mcp'],
     cwd: sandbox,
     stderr: 'pipe',
   })
@@ -460,7 +494,7 @@ try {
   }
 
   console.log(
-    'fresh packed packages load in plain Node and @waica/mcp creates a project over real stdio',
+    'fresh packed packages load in plain Node and the packed `waica mcp` creates a project over real stdio',
   )
 } finally {
   await rm(sandbox, { recursive: true, force: true })
