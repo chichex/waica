@@ -102,7 +102,7 @@ and forbids pushing to `main` directly:
    `test:dist` builds from clean dists and is the only rung that proves the
    packed CLI still starts `waica mcp` over real stdio with its vendored
    `@waica` copies; a plain `pnpm build` does not.
-2. Branch `release-cli-vX.Y.Z`, commit the bump, push,
+2. Branch `release-vX.Y.Z`, commit the bump, push,
    `gh pr create`, `gh pr merge --merge --delete-branch`, `git pull`.
 
 ## 4. Tag and watch
