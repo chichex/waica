@@ -2,7 +2,7 @@
 <!-- Generada por /sdd-spec el 2026-08-04. Fuente: pedido libre (contrato de diseño @waica/mcp, sesión grill 2026-08-03). Estado: implementada -->
 <!-- Spec B de 2 encadenadas: depende de .sdd/specs/archetype-manifest.md (Spec A). ADRs: docs/adr/0001, docs/adr/0002. -->
 
-> **Superseded decision (2026-08-05):** Issue #20 deliberately replaces this spec's “project TypeScript is never executed” constraint for `validate_project` only. Validation now executes project component, role and state modules in isolation to inspect typed parameter references; `list_components` remains textual for project-owned code.
+> **Superseded decisions (2026-08-05):** Issue #20 deliberately replaces this spec's “project TypeScript is never executed” constraint for `validate_project` only. Validation now executes project component, role and state modules in isolation to inspect typed parameter references; `list_components` remains textual for project-owned code. The same issue raises the bundled MCP and CLI Node floor from `>=20.19` to `>=22.18`, where native type stripping is enabled by default.
 
 ## Contexto
 
