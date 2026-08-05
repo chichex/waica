@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import {
   access,
+  lstat,
   mkdir,
   mkdtemp,
   readFile,
@@ -55,6 +56,17 @@ async function filesBelow(directory) {
     }),
   )
   return files.flat()
+}
+
+async function symbolicLinksBelow(directory) {
+  const links = []
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const target = join(directory, entry.name)
+    const info = await lstat(target)
+    if (info.isSymbolicLink()) links.push(target)
+    else if (info.isDirectory()) links.push(...(await symbolicLinksBelow(target)))
+  }
+  return links
 }
 
 async function assertDistMatchesSource(packageRoot, packageName) {
@@ -213,6 +225,11 @@ try {
   for (const pkg of packages) {
     await materializeExternalDependencies(pkg, packedManifests.get(pkg.name))
   }
+  assert.deepEqual(
+    (await symbolicLinksBelow(nodeModules)).map((file) => relative(sandbox, file)),
+    [],
+    'the packed dependency graph must not contain symlinks that can escape the sandbox',
+  )
 
   const probe = join(sandbox, 'probe.mjs')
   await writeFile(

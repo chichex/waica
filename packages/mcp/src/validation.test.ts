@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { cleanup, makeProject, tempDir, writeTree } from './test-helpers.js'
 import { createProject } from './create-project.js'
+import { scaffoldRole } from './scaffolds.js'
 import { validateProject } from './validation.js'
 
 const roots: string[] = []
@@ -132,7 +134,32 @@ export class ProjectThing {
     }
   })
 
-  it('ignores malformed scene entity entries instead of aborting validation', async () => {
+  it('validates object scene entities even when their name is missing', async () => {
+    const project = await makeProject({
+      'src/scenes/main.scene.json': JSON.stringify({
+        waicaScene: 3,
+        entities: [
+          {
+            prefab: 'characters/not-there',
+            components: [{ type: 'DefinitelyUnknown' }],
+          },
+        ],
+      }),
+    })
+    roots.push(project)
+
+    const result = await validateProject(project)
+
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'broken-prefab-ref', ref: 'characters/not-there' }),
+        expect.objectContaining({ code: 'unknown-component', ref: 'entity[0]' }),
+      ]),
+    )
+    expect(result.ok).toBe(false)
+  })
+
+  it('ignores primitive scene entity entries instead of aborting validation', async () => {
     const project = await makeProject({
       'src/scenes/main.scene.json': JSON.stringify({
         waicaScene: 3,
@@ -144,6 +171,82 @@ export class ProjectThing {
     const result = await validateProject(project)
 
     expect(result.ok).toBe(true)
+  })
+
+  it('does not report missing clips when a state machine has no animated sprite', async () => {
+    const project = await makeProject({
+      'src/objects/switch.object.json': JSON.stringify({
+        waicaPrefab: 1,
+        type: 'object',
+        components: [
+          {
+            type: 'StateMachine',
+            props: { role: 'switch', initial: 'idle', states: { idle: {} } },
+          },
+        ],
+      }),
+    })
+    roots.push(project)
+
+    const result = await validateProject(project)
+
+    expect(result.findings).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'missing-clip' })]),
+    )
+  })
+
+  it('shape-checks inherited prefab components when applying state overrides', async () => {
+    const project = await makeProject({
+      'src/characters/hero.character.json': JSON.stringify({
+        waicaPrefab: 1,
+        type: 'character',
+        components: [
+          null,
+          { type: 'AnimatedSprite', props: { clips: { idle: { frames: [0] } } } },
+          {
+            type: 'StateMachine',
+            props: { role: 'player', initial: 'idle', states: { idle: {} } },
+          },
+        ],
+      }),
+      'src/scenes/main.scene.json': JSON.stringify({
+        waicaScene: 3,
+        entities: [
+          {
+            name: 'Hero',
+            prefab: 'characters/hero',
+            overrides: { StateMachine: { initial: 'idle' } },
+          },
+        ],
+      }),
+    })
+    roots.push(project)
+
+    await expect(validateProject(project)).resolves.toMatchObject({ ok: true })
+  })
+
+  it('recognizes state code included by a scaffolded role file', async () => {
+    const project = await makeProject({
+      'src/characters/guard.character.json': JSON.stringify({
+        waicaPrefab: 1,
+        type: 'character',
+        components: [
+          { type: 'AnimatedSprite', props: { clips: { idle: { frames: [0] } } } },
+          {
+            type: 'StateMachine',
+            props: { role: 'guard', initial: 'idle', states: { idle: {} } },
+          },
+        ],
+      }),
+    })
+    roots.push(project)
+    await scaffoldRole(project, 'guard')
+
+    const result = await validateProject(project)
+
+    expect(result.findings).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'no-state-code' })]),
+    )
   })
 
   it('does not duplicate prefab state findings for unrelated entity overrides', async () => {
@@ -201,6 +304,35 @@ export class ProjectThing {
       'src/game.json',
       'src/stats.json',
     ])
+  })
+
+  it('reports malformed package.json through findings instead of aborting', async () => {
+    const project = await makeProject({
+      'src/scenes/main.scene.json': JSON.stringify({ waicaScene: 3, entities: [] }),
+    })
+    roots.push(project)
+    await writeFile(path.join(project, 'package.json'), '{')
+
+    const result = await validateProject(project)
+
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        severity: 'error',
+        code: 'unparseable-json',
+        file: 'package.json',
+      }),
+    )
+    expect(result.ok).toBe(false)
+  })
+
+  it('does not infer platformer when the accepted project marker has no game.json', async () => {
+    const project = await makeProject({
+      'src/scenes/main.scene.json': JSON.stringify({ waicaScene: 3, entities: [] }),
+    })
+    roots.push(project)
+    await rm(path.join(project, 'src/game.json'))
+
+    await expect(validateProject(project)).rejects.toThrow(/active archetype|game\.json/i)
   })
 
   it('returns ok for an untouched generated demo', async () => {

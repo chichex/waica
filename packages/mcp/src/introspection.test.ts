@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { readFile, writeFile } from 'node:fs/promises'
+import { readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { cleanup, makeProject, stubPackage, writeTree } from './test-helpers.js'
 import {
@@ -85,6 +85,16 @@ describe('listComponents', () => {
     expect(result.components.find((component) => component.componentName === 'Sprite')).toMatchObject({
       sourcePackage: '@waica/engine',
     })
+  })
+
+  it('keeps answering with a warning when project package.json is malformed', async () => {
+    const project = await makeProject({ 'package.json': '{' })
+    roots.push(project)
+
+    const result = await listComponents(project)
+
+    expect(result.components).toHaveLength(13)
+    expect(result.warnings.join('\n')).toMatch(/package\.json.*parse|parse.*package\.json/i)
   })
 
   it('uses empty defaults when a registry constructor throws', async () => {
@@ -214,6 +224,46 @@ module.exports.ARCHETYPE = {
     expect(result.warnings).toContain(
       'Declared archetype package @waica/archetype-not-installed is not installed; it was skipped.',
     )
+  })
+
+  it('isolates a broken inactive declared archetype', async () => {
+    const project = await makeProject()
+    roots.push(project)
+    await stubPackage(project, '@waica/archetype-broken', {
+      manifest: `throw new Error('broken inactive manifest')\n`,
+    })
+    const pkgPath = path.join(project, 'package.json')
+    const pkg = JSON.parse(await readFile(pkgPath, 'utf8')) as { dependencies: Record<string, string> }
+    pkg.dependencies['@waica/archetype-broken'] = '^9.0.0'
+    await writeFile(pkgPath, JSON.stringify(pkg))
+
+    const result = await describeArchetype(project)
+
+    expect(result.archetype.id).toBe('platformer')
+    expect(result.warnings.join('\n')).toMatch(
+      /@waica\/archetype-broken.*broken inactive manifest/i,
+    )
+  })
+
+  it('keeps describing the bundled archetype with a warning when package.json is malformed', async () => {
+    const project = await makeProject({ 'package.json': '{' })
+    roots.push(project)
+
+    const result = await describeArchetype(project)
+
+    expect(result.archetype.id).toBe('platformer')
+    expect(result.warnings.join('\n')).toMatch(/package\.json.*parse|parse.*package\.json/i)
+  })
+
+  it('does not silently use platformer when game.json is missing', async () => {
+    const project = await makeProject({
+      'src/scenes/main.scene.json': JSON.stringify({ waicaScene: 3, entities: [] }),
+    })
+    roots.push(project)
+    await rm(path.join(project, 'src/game.json'))
+
+    await expect(describeArchetype(project)).rejects.toThrow(/active archetype|game\.json/i)
+    await expect(listComponents(project)).rejects.toThrow(/active archetype|game\.json/i)
   })
 
   it('does not silently use platformer when game.json is malformed', async () => {

@@ -17,7 +17,10 @@ describe('@waica/mcp package contract', () => {
       bin: { 'waica-mcp': 'dist/cli.js' },
       files: ['dist'],
       engines: { node: '>=20.19' },
-      scripts: { build: 'tsc -p tsconfig.build.json && node bundle-template.mjs' },
+      scripts: {
+        build:
+          'node ../../scripts/clean-dist.mjs && tsc -p tsconfig.build.json && node bundle-template.mjs',
+      },
       dependencies: {
         '@modelcontextprotocol/sdk': expect.stringMatching(/^\^1\./),
         '@waica/engine': 'workspace:^',

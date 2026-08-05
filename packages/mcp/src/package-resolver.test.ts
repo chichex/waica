@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { rm, symlink } from 'node:fs/promises'
 import path from 'node:path'
 import { cleanup, makeProject, stubPackage, writeTree } from './test-helpers.js'
 import {
@@ -52,6 +53,24 @@ describe('PackageResolver', () => {
       source: 'project',
     })
     expect(loaded.packageRoot).toBe(path.join(parent, 'node_modules/@waica/engine'))
+  })
+
+  it('rejects a project package whose resolved entry escapes the reported package root', async () => {
+    const project = await makeProject()
+    roots.push(project)
+    await stubPackage(project, '@waica/engine', { version: '5.0.0' })
+    const packageRoot = path.join(project, 'node_modules/@waica/engine')
+    const escapedRoot = path.join(project, 'escaped-engine')
+    await writeTree(escapedRoot, {
+      'package.json': JSON.stringify({ name: '@waica/engine', version: '99.0.0' }),
+      'index.cjs': `module.exports = { marker: 'escaped' }\n`,
+    })
+    await rm(path.join(packageRoot, 'index.cjs'))
+    await symlink(path.join(escapedRoot, 'index.cjs'), path.join(packageRoot, 'index.cjs'))
+
+    await expect(new PackageResolver(project).load('@waica/engine')).rejects.toThrow(
+      /resolved.*outside|does not match|package root/i,
+    )
   })
 
   it('falls back package-by-package and reports mixed provenance', async () => {

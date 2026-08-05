@@ -72,6 +72,11 @@ describe('MCP server', () => {
         expect(tool.inputSchema.required).toContain('project_path')
         expect(tool.description).toBeTruthy()
       }
+      const byName = new Map(listed.tools.map((tool) => [tool.name, tool]))
+      for (const name of ['list_components', 'describe_archetype', 'validate_project']) {
+        expect(byName.get(name)?.annotations?.readOnlyHint).not.toBe(true)
+      }
+      expect(byName.get('project_summary')?.annotations?.readOnlyHint).toBe(true)
     } finally {
       await pair.close()
     }
