@@ -2,12 +2,12 @@
 
 MCP server for developing Waica games with an agent. It operates on the user's plain project files over stdio while the agent keeps using its normal file-editing and shell tools.
 
-This package is never published on its own: it ships inside `@chichex/waica`, which bundles the built server together with the `@waica` libraries it introspects.
+This package is never published on its own: it ships inside `@waica/cli`, which bundles the built server together with the `@waica` libraries it introspects.
 
 ## Connect
 
 ```bash
-claude mcp add waica -- npx -y @chichex/waica mcp
+claude mcp add waica -- npx -y @waica/cli mcp
 ```
 
 From this repository, against the built checkout:

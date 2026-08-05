@@ -4,14 +4,14 @@ import path from 'node:path'
 
 const packageRoot = path.resolve(import.meta.dirname, '..')
 
-describe('@chichex/waica package contract', () => {
+describe('@waica/cli package contract', () => {
   it('publishes both the editor and the MCP server from one bin set', async () => {
     const pkg = JSON.parse(await readFile(path.join(packageRoot, 'package.json'), 'utf8')) as Record<
       string,
       unknown
     >
     expect(pkg).toMatchObject({
-      name: '@chichex/waica',
+      name: '@waica/cli',
       type: 'module',
       bin: { waica: 'dist/cli.js', 'waica-mcp': 'dist/mcp/cli.js' },
       files: ['dist'],

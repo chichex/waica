@@ -26,14 +26,14 @@ const { StdioClientTransport } = requireFromMcp('@modelcontextprotocol/sdk/clien
 const sandbox = await mkdtemp(join(tmpdir(), 'waica-dist-'))
 const nodeModules = join(sandbox, 'node_modules')
 // @waica/mcp is absent on purpose: it is not published on its own, it ships
-// inside @chichex/waica. Its dist is checked in place and then exercised
+// inside @waica/cli. Its dist is checked in place and then exercised
 // through the packed CLI. The three libraries stay here because the CLI vendors
 // exactly these published shapes next to the bundled server.
 const packages = [
   { directory: 'engine', name: '@waica/engine', entry: 'index.js' },
   { directory: 'behaviors', name: '@waica/behaviors', entry: 'index.js' },
   { directory: 'archetype-platformer', name: '@waica/archetype-platformer', entry: 'index.js' },
-  { directory: 'cli', name: '@chichex/waica', entry: 'cli.js', bundled: ['editor', 'mcp'] },
+  { directory: 'cli', name: '@waica/cli', entry: 'cli.js', bundled: ['editor', 'mcp'] },
 ]
 const vendoredLibraries = ['@waica/engine', '@waica/behaviors', '@waica/archetype-platformer']
 
@@ -288,19 +288,19 @@ try {
   assert.equal(mcpSource.publishConfig, undefined, '@waica/mcp must carry no publish settings')
 
   const cliSource = JSON.parse(await readFile(join(root, 'packages/cli/package.json'), 'utf8'))
-  const cliPacked = packedManifests.get('@chichex/waica')
+  const cliPacked = packedManifests.get('@waica/cli')
   assert.deepEqual(cliSource.bin, { waica: 'dist/cli.js', 'waica-mcp': 'dist/mcp/cli.js' })
   assert.deepEqual(cliPacked.bin, cliSource.bin)
   assert.deepEqual(cliPacked.files, ['dist'])
   assert.deepEqual(cliPacked.engines, { node: '>=20.19' })
-  assert.equal(cliPacked.exports, undefined, '@chichex/waica must stay pure-bin')
+  assert.equal(cliPacked.exports, undefined, '@waica/cli must stay pure-bin')
   assert.deepEqual(
     Object.keys(cliPacked.dependencies ?? {}).sort(),
     ['@modelcontextprotocol/sdk', 'three'],
     'the published CLI must declare exactly the runtime deps its bundled server loads',
   )
 
-  const packedCliRoot = join(nodeModules, '@chichex/waica')
+  const packedCliRoot = join(nodeModules, '@waica/cli')
   const packedCli = join(packedCliRoot, 'dist/cli.js')
   assert.ok((await readFile(packedCli, 'utf8')).startsWith('#!/usr/bin/env node\n'))
   await access(join(packedCliRoot, 'dist/editor/index.html'))

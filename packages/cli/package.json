@@ -1,7 +1,7 @@
 {
-  "name": "@chichex/waica",
+  "name": "@waica/cli",
   "version": "0.3.0",
-  "description": "Waica in one command — `npx @chichex/waica` opens the editor, `waica mcp` serves the MCP server",
+  "description": "Waica in one command — `npx @waica/cli` opens the editor, `waica mcp` serves the MCP server",
   "license": "MIT",
   "type": "module",
   "repository": {

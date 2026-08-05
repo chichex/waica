@@ -3,7 +3,7 @@
 The [waica](https://github.com/chichex/waica) editor, one command away:
 
 ```sh
-npx @chichex/waica
+npx @waica/cli
 ```
 
 (The bare name `waica` is blocked by npm's name-similarity filter, so the
@@ -21,7 +21,7 @@ introspect installed components, validate a project and write
 editor-compatible scaffolds:
 
 ```sh
-claude mcp add waica -- npx -y @chichex/waica mcp
+claude mcp add waica -- npx -y @waica/cli mcp
 ```
 
 `waica mcp` speaks the Model Context Protocol on stdio and writes nothing else

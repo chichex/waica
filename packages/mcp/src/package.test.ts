@@ -32,7 +32,7 @@ describe('@waica/mcp package contract', () => {
       devDependencies: { '@waica/editor': 'workspace:^' },
     })
     expect(pkg).not.toHaveProperty('exports')
-    // @chichex/waica is the only published entry point, so this package must
+    // @waica/cli is the only published entry point, so this package must
     // never be picked up by `pnpm -r publish`.
     expect(pkg).not.toHaveProperty('publishConfig')
     expect(Object.keys(pkg.dependencies as object).sort()).toEqual([

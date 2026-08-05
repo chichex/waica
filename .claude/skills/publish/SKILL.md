@@ -1,11 +1,11 @@
 ---
 name: publish
-description: Release a new waica version to npm — the CLI (@chichex/waica) plus the three @waica libraries, which ship together on one version number. Bumps all four, runs the verification ladder, ships the bump through a PR, then tags the release so GitHub Actions publishes it via npm trusted publishing (no token, no 2FA prompt), and verifies the published packages end to end. Use whenever the user wants to publish, release or ship a new version, bump the package version, or says things like "publicá", "sacá una versión", "release the CLI", "ship 0.3.0" — even when they only mention npm or a version number loosely.
+description: Release a new waica version to npm — the CLI (@waica/cli) plus the three @waica libraries, which ship together on one version number. Bumps all four, runs the verification ladder, ships the bump through a PR, then tags the release so GitHub Actions publishes it via npm trusted publishing (no token, no 2FA prompt), and verifies the published packages end to end. Use whenever the user wants to publish, release or ship a new version, bump the package version, or says things like "publicá", "sacá una versión", "release the CLI", "ship 0.3.0" — even when they only mention npm or a version number loosely.
 ---
 
 # Publish a new waica version
 
-Releases four packages on one version number: `@chichex/waica` (packages/cli)
+Releases four packages on one version number: `@waica/cli` (packages/cli)
 and the three libraries a generated project installs — `@waica/engine`,
 `@waica/behaviors`, `@waica/archetype-platformer`. The CLI bundles the
 pre-built editor (`dist/editor`), the MCP server (`dist/mcp`) and vendored
@@ -40,28 +40,38 @@ Burning the current number on the bootstrap keeps the next release clean: CI
 refuses to publish over an existing version, so a library hand-published at
 the release version would abort the workflow before it reaches the CLI.
 
-Hand it to the human as a block to run, in dependency order:
+Hand it to the human one package at a time, in dependency order (engine,
+behaviors, archetype-platformer, then the CLI). Each publish opens its own
+browser authorization, so a loop just makes it harder to tell which one failed:
 
 ```sh
-for dir in engine behaviors archetype-platformer; do
-  (cd "packages/$dir" && pnpm publish --access public --no-git-checks)
-done
+cd packages/<name> && pnpm publish --access public --no-git-checks
 ```
 
 `pnpm publish` — not `npm publish` — because it rewrites `workspace:^` and
-applies `publishConfig` on its own, leaving the checkout untouched. It prompts
-for the OTP per package.
+applies `publishConfig` on its own, leaving the checkout untouched. Do not
+pass `--otp`: this account authorizes writes through the browser, and pnpm
+needs a real TTY for that, so it cannot run through a tool call.
+
+Verify each one landed (`npm view <pkg> version`) before the next. A library
+skipped mid-sequence publishes a dependent that points at nothing — that
+happened once with `@waica/behaviors`, and `@waica/archetype-platformer` sat
+on npm for minutes declaring a dependency that did not exist.
 
 Then they configure the Trusted Publisher on each new package's npm settings
 page (repo `chichex/waica`, workflow `publish.yml`). From the next release on,
 every package goes out through CI and nobody touches a token again.
+
+Done as of 2026-08-05 for all four current packages. The `@waica` org exists
+and owns the scope, so no other account can publish `@waica/*` — names do not
+need to be squatted to be safe.
 
 ## 1. Preconditions
 
 - On `main`, clean tree, synced (`git fetch origin && git status`). A release
   must never include unmerged or local-only state.
 - Compare `packages/cli/package.json` version with the published one
-  (`npm view @chichex/waica version`). They should match before bumping; if
+  (`npm view @waica/cli version`). They should match before bumping; if
   the local version is already ahead, a previous release half-finished
   (merged but never tagged/published) — skip to "Tag and watch" and release
   THAT version instead of bumping again.
@@ -131,12 +141,12 @@ failed **after** one package went out, do not retry the tag; bump and re-release
 - All four on the registry at the new version:
 
   ```sh
-  for pkg in @chichex/waica @waica/engine @waica/behaviors @waica/archetype-platformer; do
+  for pkg in @waica/cli @waica/engine @waica/behaviors @waica/archetype-platformer; do
     echo "$pkg $(npm view "$pkg" version)"
   done
   ```
 - Editor smoke, from a scratch directory (never the repo):
-  `npx -y @chichex/waica@latest --no-open --port 5401 &`, then
+  `npx -y @waica/cli@latest --no-open --port 5401 &`, then
   `curl http://127.0.0.1:5401/__waica.json` → JSON reporting the new version.
 - Clean up by port, not by the npx pid:
   `lsof -ti tcp:5401 | xargs kill`. Killing the npx wrapper orphans the
@@ -149,7 +159,7 @@ failed **after** one package went out, do not retry the tag; bump and re-release
     '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"1.0.0"}}}' \
     '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
     '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
-    | npx -y @chichex/waica@latest mcp 2>/dev/null | head -2
+    | npx -y @waica/cli@latest mcp 2>/dev/null | head -2
   ```
 
   Expect two JSON-RPC replies: `serverInfo` for id 1, and nine tools for id 2.
@@ -163,7 +173,7 @@ failed **after** one package went out, do not retry the tag; bump and re-release
   through the workspace and pass while npm is broken):
 
   ```sh
-  cd "$(mktemp -d)" && npx -y @chichex/waica@latest mcp <<'EOF' >/dev/null
+  cd "$(mktemp -d)" && npx -y @waica/cli@latest mcp <<'EOF' >/dev/null
   {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"1.0.0"}}}
   {"jsonrpc":"2.0","method":"notifications/initialized"}
   {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"create_project","arguments":{"project_path":"REPLACE_WITH_ABSOLUTE_PATH/smoke-game"}}}

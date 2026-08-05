@@ -224,7 +224,7 @@ describe('fetchLatestVersion', () => {
   it('returns the version the registry reports', async () => {
     const stub = await registryStub((res) => {
       res.writeHead(200, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ name: '@chichex/waica', version: '9.9.9' }))
+      res.end(JSON.stringify({ name: '@waica/cli', version: '9.9.9' }))
     })
     expect(await fetchLatestVersion(stub.url, 1000)).toBe('9.9.9')
     await stub.close()

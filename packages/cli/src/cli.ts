@@ -27,7 +27,7 @@ Usage: waica [options]
 
 Commands:
   mcp          serve the waica MCP server on stdio, for agent hosts:
-               claude mcp add waica -- npx -y @chichex/waica mcp
+               claude mcp add waica -- npx -y @waica/cli mcp
 
 Options:
   --port <n>   preferred port (default ${DEFAULT_PORT}; the next free one is used if taken)
