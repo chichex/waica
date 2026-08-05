@@ -59,12 +59,15 @@ describe('@waica/cli package contract', () => {
     ).toBe(true)
   })
 
-  // One release, one number. The CLI vendors the three libraries and the
-  // generated project asks npm for them by version, so a package left behind
-  // publishes a CLI whose bundled copies disagree with the registry. The git
-  // tag is checked against every one of these in .github/workflows/publish.yml.
+  // One release, one number — including the two private packages. The CLI
+  // vendors the three libraries and the generated project asks npm for them by
+  // version, so a package left behind publishes a CLI whose bundled copies
+  // disagree with the registry. `editor` and `mcp` never reach npm, but they
+  // ride inside the CLI and the MCP server reports its own manifest version
+  // to the host, so a stale number there misidentifies the running release.
+  // The git tag is checked against these in .github/workflows/publish.yml.
   it('keeps every published package on the same version', async () => {
-    const packages = ['cli', 'engine', 'behaviors', 'archetype-platformer']
+    const packages = ['cli', 'engine', 'behaviors', 'archetype-platformer', 'editor', 'mcp']
     const versions = await Promise.all(
       packages.map(async (directory) => {
         const manifest = JSON.parse(

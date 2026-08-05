@@ -83,15 +83,18 @@ ask which one. Bump all four published packages to the same number, even the
 ones nothing touched — that is what lockstep means:
 
 ```sh
-for dir in cli engine behaviors archetype-platformer; do
+for dir in cli engine behaviors archetype-platformer editor mcp; do
   (cd "packages/$dir" && npm version X.Y.Z --no-git-tag-version)
 done
 ```
 
-`@waica/editor` and `@waica/mcp` are `private` and ship inside the CLI; leave
-their versions alone. Nothing else needs editing: the generated project's
-`@waica/*` range is read from `packages/engine/package.json` at build time,
-not written down anywhere.
+That includes `@waica/editor` and `@waica/mcp`, which are `private` and never
+reach npm. They ride inside the CLI, and the MCP server reports its own
+manifest version in the handshake — a stale number there tells the host it is
+driving a release it is not. One number for the whole repo, no exceptions.
+
+Nothing else needs editing: the generated project's `@waica/*` range is read
+from `packages/engine/package.json` at build time, not written down anywhere.
 
 ## 3. Ladder, then PR
 
