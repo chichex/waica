@@ -33,7 +33,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # The tag is the release intent; refuse to publish a version that does
-      # not match it (e.g. a tag pushed on the wrong commit).
+      # not match it (e.g. a tag pushed on the wrong commit). Checking the CLI
+      # alone covers all four packages: they release in lockstep, and the unit
+      # test below fails if any of them is left on a different version.
       - name: Check tag matches package version
         run: |
           version="$(node -p "require('./packages/cli/package.json').version")"
@@ -49,6 +51,25 @@ jobs:
       # with plain Node, and also builds the editor before the CLI bundles it.
       - name: Build and verify published package shape
         run: pnpm test:dist
+
+      # The libraries go first: a CLI on npm whose generated projects depend on
+      # @waica versions the registry does not have yet is broken for everyone
+      # who installs it in between. Everything that can fail has already run,
+      # so what is left is registry trouble — if it strikes mid-sequence, npm
+      # will not take the same version twice, and the fix is to bump the patch
+      # and re-tag the whole set.
+      - name: Prepare the libraries for publishing
+        run: node scripts/prepare-publish.mjs > /tmp/publish-order.txt
+
+      # @waica is a scoped package with no publishConfig of its own, and scoped
+      # packages default to restricted.
+      - name: Publish the libraries
+        run: |
+          while read -r directory; do
+            echo "::group::npm publish $directory"
+            (cd "$directory" && npm publish --access public)
+            echo "::endgroup::"
+          done < /tmp/publish-order.txt
 
       # npm publish does not rewrite the workspace:^ devDependency the way
       # pnpm publish would; devDependencies mean nothing to consumers, so

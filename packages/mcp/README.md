@@ -17,7 +17,7 @@ pnpm build
 claude mcp add waica -- node /absolute/path/to/waica/packages/cli/dist/cli.js mcp
 ```
 
-Caveat — generated projects do not install from npm yet: the `@waica/*` libraries a project depends on are not published, so `npm install` in a freshly created project fails. Every tool here still works, because the server answers from its own bundled copies. See "Running a generated project" below.
+Generated projects install from npm like any other: the `@waica/*` libraries a project depends on are published alongside the CLI, on the same version. The tools themselves never need them installed — the server answers from its own bundled copies. See "Running a generated project" below.
 
 ## `project_path` model
 
@@ -47,6 +47,6 @@ The MCP and editor both operate on the same files; there is no live bridge or fi
 
 ## Running a generated project
 
-`create_project` deliberately returns the normal next steps (`npm install`, then `npm run dev`), but those commands cannot resolve the `@waica/*` packages: only the CLI is published, and the engine, behaviors and archetype libraries are not on npm. Publishing them is what will make the returned next steps work end to end.
+`create_project` returns the normal next steps — `npm install`, then `npm run dev` — and they work: the generated `package.json` pins the three `@waica/*` libraries at the version that shipped with the CLI that created it, and all four are published together.
 
-Until then, run a generated project from this repository: change the generated `package.json`'s three `@waica/*` versions to `workspace:^`, put the project inside this pnpm workspace, and install from the repository root.
+To run a generated project against uncommitted engine changes instead of the published libraries, put it inside this pnpm workspace, change its three `@waica/*` versions to `workspace:^`, and install from the repository root.

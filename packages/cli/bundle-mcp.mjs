@@ -5,15 +5,19 @@
 // createRequire find them exactly the way it finds installed dependencies.
 // Runs after tsc in this package's build script; pnpm's topological ordering
 // (via the @waica/mcp devDependency) guarantees the server is built first.
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import {
+  libraryVersions,
+  publishedManifest,
+  readLibraryManifests,
+} from '../../scripts/published-manifest.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const packages = path.join(here, '..')
 const mcpDist = path.join(packages, 'mcp', 'dist')
 const target = path.join(here, 'dist', 'mcp')
-const vendored = ['engine', 'behaviors', 'archetype-platformer']
 
 function fail(message) {
   console.error(`waica: ${message}`)
@@ -30,32 +34,11 @@ if (!existsSync(path.join(mcpDist, 'template', 'package.json.tpl'))) {
 rmSync(target, { recursive: true, force: true })
 cpSync(mcpDist, target, { recursive: true })
 
-/**
- * Rewrites a workspace manifest the way `pnpm publish` would: publishConfig
- * wins, workspace ranges become real versions, and build-time-only fields go
- * away. The resolver reads `version` and `exports` from this file, so it has to
- * describe the built package rather than the checkout.
- */
-function publishedManifest(source, versions) {
-  const { publishConfig = {}, scripts, devDependencies, ...rest } = source
-  const manifest = { ...rest, ...publishConfig }
-  if (manifest.dependencies) {
-    manifest.dependencies = Object.fromEntries(
-      Object.entries(manifest.dependencies).map(([name, range]) => [
-        name,
-        range === 'workspace:^' ? `^${versions.get(name) ?? ''}` : range,
-      ]),
-    )
-  }
-  return manifest
-}
-
-const manifests = vendored.map((directory) => ({
-  directory,
-  root: path.join(packages, directory),
-  source: JSON.parse(readFileSync(path.join(packages, directory, 'package.json'), 'utf8')),
-}))
-const versions = new Map(manifests.map(({ source }) => [source.name, source.version]))
+// The vendored copies must describe the packages npm serves, not the checkout:
+// the resolver reads `version` and `exports` off these manifests. Sharing the
+// rewrite with the publish step is what keeps the two descriptions the same.
+const manifests = readLibraryManifests()
+const versions = libraryVersions(manifests)
 
 for (const { directory, root, source } of manifests) {
   const destination = path.join(target, 'node_modules', ...source.name.split('/'))
@@ -76,4 +59,4 @@ for (const { directory, root, source } of manifests) {
   )
 }
 
-console.log(`waica: bundled MCP server and ${vendored.length} @waica packages from ${path.relative(process.cwd(), mcpDist)}`)
+console.log(`waica: bundled MCP server and ${manifests.length} @waica packages from ${path.relative(process.cwd(), mcpDist)}`)

@@ -10,7 +10,7 @@
     "test": "vitest run",
     "test:dist": "pnpm build && node scripts/test-dist.mjs",
     "typecheck": "pnpm -r typecheck",
-    "release": "pnpm test:dist && pnpm -r --filter './packages/*' publish --access public"
+    "release": "node -e \"console.error('waica: releases are triggered by pushing a vX.Y.Z tag, which publishes all four packages in lockstep via OIDC. Publishing from here would skip the tag check and the trusted-publishing identity. See .claude/skills/publish/SKILL.md'); process.exit(1)\""
   },
   "devDependencies": {
     "happy-dom": "^20.11.0",

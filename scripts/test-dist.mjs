@@ -17,6 +17,7 @@ import {
 import { tmpdir } from 'node:os'
 import { dirname, extname, join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { libraryVersions, publishedManifest, readLibraryManifests } from './published-manifest.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const requireFromMcp = createRequire(join(root, 'packages/mcp/package.json'))
@@ -235,6 +236,25 @@ try {
       pkg.name,
       JSON.parse(await readFile(join(destination, 'package.json'), 'utf8')),
     )
+  }
+
+  // CI publishes the libraries with `npm publish`, which needs the manifest
+  // lowered by scripts/prepare-publish.mjs because it does not understand
+  // `workspace:^` or publishConfig. `pnpm pack` above did that lowering for
+  // real, so the two must agree on everything a consumer resolves against —
+  // otherwise the registry gets a package this suite never actually tested.
+  const libraryManifests = readLibraryManifests()
+  const libraryVersionMap = libraryVersions(libraryManifests)
+  for (const { source } of libraryManifests) {
+    const lowered = publishedManifest(source, libraryVersionMap)
+    const packed = packedManifests.get(source.name)
+    for (const field of ['name', 'version', 'type', 'files', 'exports', 'dependencies']) {
+      assert.deepEqual(
+        lowered[field],
+        packed[field],
+        `prepare-publish.mjs and pnpm pack disagree on ${source.name} ${field}`,
+      )
+    }
   }
 
   const platformerSource = JSON.parse(

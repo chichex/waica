@@ -1,12 +1,26 @@
 import { ARCHETYPE } from '@waica/archetype-platformer'
 import { describe, expect, it } from 'vitest'
+import enginePackage from '../../../engine/package.json'
 import { projectArtFiles, projectFiles } from './template'
+
+// The golden output is about the shape of a generated project, not about which
+// release it pins: the @waica/* range moves with every publish, and the
+// dependency test at the bottom is what guards its real value.
+function withStableWaicaVersion(files: Record<string, string>): Record<string, string> {
+  return {
+    ...files,
+    'package.json': (files['package.json'] ?? '').replaceAll(
+      /("@waica\/[a-z-]+": ")\^\d+\.\d+\.\d+"/g,
+      '$1^0.0.0-snapshot"',
+    ),
+  }
+}
 
 describe('projectFiles', () => {
   it.each(['demo', 'blank'] as const)(
     'matches the pre-refactor golden output for a %s start',
     (start) => {
-      expect(projectFiles('fixture-name', start)).toMatchSnapshot()
+      expect(withStableWaicaVersion(projectFiles('fixture-name', start))).toMatchSnapshot()
     },
   )
 
@@ -107,5 +121,19 @@ describe('projectFiles', () => {
       }
       expect(pkg.name).toBe('dog-quest')
     }
+  })
+
+  // The generated project installs the @waica/* libraries from npm, so the
+  // range it asks for has to track what actually gets published — never a
+  // number written down in the editor, which silently rots past a release.
+  it('depends on the published @waica version, read from the engine', () => {
+    const pkg = JSON.parse(projectFiles('dog-quest')['package.json'] ?? '') as {
+      dependencies: Record<string, string>
+    }
+    expect(pkg.dependencies).toEqual({
+      '@waica/engine': `^${enginePackage.version}`,
+      '@waica/behaviors': `^${enginePackage.version}`,
+      '@waica/archetype-platformer': `^${enginePackage.version}`,
+    })
   })
 })

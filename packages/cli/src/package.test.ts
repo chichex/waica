@@ -37,4 +37,25 @@ describe('@chichex/waica package contract', () => {
     ])
     await access(path.join(packageRoot, 'bundle-mcp.mjs'))
   })
+
+  // One release, one number. The CLI vendors the three libraries and the
+  // generated project asks npm for them by version, so a package left behind
+  // publishes a CLI whose bundled copies disagree with the registry. The git
+  // tag is checked against every one of these in .github/workflows/publish.yml.
+  it('keeps every published package on the same version', async () => {
+    const packages = ['cli', 'engine', 'behaviors', 'archetype-platformer']
+    const versions = await Promise.all(
+      packages.map(async (directory) => {
+        const manifest = JSON.parse(
+          await readFile(path.resolve(packageRoot, '..', directory, 'package.json'), 'utf8'),
+        ) as { version: string }
+        return [directory, manifest.version] as const
+      }),
+    )
+    const [, release] = versions[0]!
+    expect(Object.fromEntries(versions)).toEqual(
+      Object.fromEntries(packages.map((directory) => [directory, release])),
+    )
+    expect(release).toMatch(/^\d+\.\d+\.\d+$/)
+  })
 })

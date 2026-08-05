@@ -29,9 +29,10 @@ to stdout. See [the server's
 README](https://github.com/chichex/waica/blob/main/packages/mcp/README.md) for
 the nine tools and the absolute `project_path` contract.
 
-Caveat: the `@waica/*` libraries a generated project depends on are not on npm
-yet, so `npm install` inside a freshly created project fails. The tools
-themselves work — the server answers from the copies bundled here.
+The `@waica/*` libraries a generated project depends on are published together
+with this package, on the same version, so `npm install` inside a freshly
+created project resolves them. The tools themselves never need that install —
+the server answers from the copies bundled here.
 
 ## Options
 

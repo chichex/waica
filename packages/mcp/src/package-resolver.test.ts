@@ -7,6 +7,12 @@ import {
   mixedSourceWarnings,
   provenanceRows,
 } from './package-resolver.js'
+import enginePackage from '../../engine/package.json'
+
+// A bundled row reports whatever the checkout's libraries carry, and they all
+// carry the same number (packages/cli/src/package.test.ts enforces that), so
+// one read stands in for the three instead of pinning a released version here.
+const BUNDLED = enginePackage.version
 
 const roots: string[] = []
 afterEach(async () => cleanup(...roots.splice(0)))
@@ -86,8 +92,8 @@ describe('PackageResolver', () => {
 
     expect(rows).toEqual([
       { package: '@waica/engine', version: '8.0.0', source: 'project' },
-      { package: '@waica/behaviors', version: '0.1.0', source: 'bundled' },
-      { package: '@waica/archetype-platformer', version: '0.1.0', source: 'bundled' },
+      { package: '@waica/behaviors', version: BUNDLED, source: 'bundled' },
+      { package: '@waica/archetype-platformer', version: BUNDLED, source: 'bundled' },
     ])
     expect(mixedSourceWarnings(rows)).toEqual([
       'Mixed @waica package sources: @waica/engine from the project; @waica/behaviors, @waica/archetype-platformer from the MCP bundle.',
@@ -101,7 +107,7 @@ describe('PackageResolver', () => {
     const first = await resolver.load('@waica/engine')
     const second = await resolver.load('@waica/engine')
     expect(provenanceRows([first, second])).toEqual([
-      { package: '@waica/engine', version: '0.1.0', source: 'bundled' },
+      { package: '@waica/engine', version: BUNDLED, source: 'bundled' },
     ])
   })
 

@@ -68,9 +68,9 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
     "preview": "vite preview"
   },
   "dependencies": {
-    "@waica/archetype-platformer": "^0.1.0",
-    "@waica/behaviors": "^0.1.0",
-    "@waica/engine": "^0.1.0"
+    "@waica/archetype-platformer": "^0.0.0-snapshot",
+    "@waica/behaviors": "^0.0.0-snapshot",
+    "@waica/engine": "^0.0.0-snapshot"
   },
   "devDependencies": {
     "typescript": "^7.0.0",
@@ -327,9 +327,9 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
     "preview": "vite preview"
   },
   "dependencies": {
-    "@waica/archetype-platformer": "^0.1.0",
-    "@waica/behaviors": "^0.1.0",
-    "@waica/engine": "^0.1.0"
+    "@waica/archetype-platformer": "^0.0.0-snapshot",
+    "@waica/behaviors": "^0.0.0-snapshot",
+    "@waica/engine": "^0.0.0-snapshot"
   },
   "devDependencies": {
     "typescript": "^7.0.0",
