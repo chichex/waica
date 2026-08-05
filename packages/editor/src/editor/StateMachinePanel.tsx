@@ -337,10 +337,17 @@ export function StateEditorModal({
 
           <label className="ed-row">
             <span>animation</span>
-            <select value={clip} onChange={(e) => setClip(e.target.value)}>
+            <select
+              className={clip !== '' && !clips.includes(clip) ? 'is-missing' : undefined}
+              value={clip}
+              onChange={(e) => setClip(e.target.value)}
+            >
               <option value="">
                 {clips.includes(nextName) ? `same name (${nextName})` : `same name (${nextName}) — missing`}
               </option>
+              {clip !== '' && !clips.includes(clip) && (
+                <option value={clip}>{clip} — missing ⚠</option>
+              )}
               {clips.map((c) => (
                 <option key={c} value={c}>
                   {c}

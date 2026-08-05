@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { resolveCollisionPoints, resolveSceneCamera, roleDefinition, sheetCell, type PrefabJson, type SceneCameraJson, type SceneComponentJson, type SceneEntityJson, type SceneJson, type SheetGridParams, type StateJson } from '@waica/engine'
 import { useArchetype, type ArchetypeManifest } from '../project/archetype'
 import { classDefaults } from '../project/component-defaults'
@@ -19,7 +19,9 @@ import { StateMachineCard, type StateTarget } from './StateMachinePanel'
 import { collectDroppedFiles, IMAGE_RE, type ArtItem, type DroppedFile } from './use-project-art'
 import { ArtSearchGrid } from './ArtPicker'
 import type { ViewportComponentVisibility } from './Viewport'
-import type { ClipDef, CollisionPoint, ParamSpec, SheetCell } from '@waica/engine'
+import type { ClipDef, CollisionPoint, InputBindings, ParamSpec, SheetCell } from '@waica/engine'
+import type { ProjectStats } from '../project/stats'
+import { availableRefTargets, type RefEntityContext, type RefProjectState } from './ref-targets'
 
 /** What the inspector is editing, mirroring the explorer view. */
 export type InspectorSelection =
@@ -80,6 +82,9 @@ function driverWarning(
 interface Props {
   selection: InspectorSelection
   prefabs: Record<string, PrefabJson>
+  /** Project stats and merged actions available to typed-reference pickers. */
+  stats: ProjectStats
+  actions: InputBindings
   /** The project's image library, for the appearance picker. */
   art: ArtItem[]
   urlFor(uri: string): string
@@ -148,6 +153,15 @@ interface Props {
   /** Opens the state editor modal. */
   onEditState(target: StateTarget): void
 }
+
+interface RefTargetContext {
+  project: RefProjectState
+  entity?: RefEntityContext
+}
+
+const RefTargetsContext = createContext<RefTargetContext>({
+  project: { prefabs: {}, stats: {}, actions: {} },
+})
 
 function componentKeys(comp: SceneComponentJson, archetype: ArchetypeManifest): string[] {
   const Class = archetype.registry.components[comp.type]
@@ -352,6 +366,11 @@ function PropRow({
   /** Pushes the override into the prefab (shown only while overridden). */
   onApply?(): void
 }) {
+  const referenceContext = useContext(RefTargetsContext)
+  const referenceTargets =
+    spec?.ref && spec.options === undefined
+      ? availableRefTargets(referenceContext.project, spec.ref, referenceContext.entity)
+      : undefined
   // Rows are <label>s: stop clicks on these buttons from activating the input.
   const press = (fn: () => void) => (e: React.MouseEvent) => {
     e.preventDefault()
@@ -435,6 +454,29 @@ function PropRow({
           {spec.options.map((option) => (
             <option key={option} value={option}>
               {option}
+            </option>
+          ))}
+        </select>
+      </label>
+    )
+  }
+  if (typeof value === 'string' && referenceTargets) {
+    const missing = value !== '' && !referenceTargets.includes(value)
+    return (
+      <label className="ed-row">
+        {name}
+        <select
+          className={missing ? 'is-missing' : undefined}
+          value={value}
+          aria-invalid={missing || undefined}
+          title={missing ? `Missing ${spec?.ref} reference: ${value}` : undefined}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          <option value="">none</option>
+          {missing && <option value={value}>{value} — missing ⚠</option>}
+          {referenceTargets.map((target) => (
+            <option key={target} value={target}>
+              {target}
             </option>
           ))}
         </select>
@@ -1787,8 +1829,21 @@ function ScriptInspector({ name }: { name: string }) {
 export function Inspector(props: Props) {
   const archetype = useArchetype()
   const { selection } = props
+  const referenceComponents =
+    selection?.kind === 'entity'
+      ? resolveComponents(selection.entity, props.prefabs)
+      : selection?.kind === 'prefab'
+        ? selection.prefab.components
+        : selection?.kind === 'multi' && selection.entities[0]
+          ? resolveComponents(selection.entities[0], props.prefabs)
+          : undefined
+  const referenceContext: RefTargetContext = {
+    project: { prefabs: props.prefabs, stats: props.stats, actions: props.actions },
+    ...(referenceComponents ? { entity: { components: referenceComponents } } : {}),
+  }
   return (
-    <section className="ed-panel ed-inspector">
+    <RefTargetsContext.Provider value={referenceContext}>
+      <section className="ed-panel ed-inspector">
       <header className="ed-panel-head">Inspector</header>
       {selection == null && <div className="ed-hint ed-pad">nothing selected</div>}
       {selection != null && (
@@ -1897,6 +1952,7 @@ export function Inspector(props: Props) {
           />
         </div>
       )}
-    </section>
+      </section>
+    </RefTargetsContext.Provider>
   )
 }

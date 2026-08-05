@@ -1809,6 +1809,11 @@ button.ed-crumb:hover {
   background-position: right 7px center;
 }
 
+.ed-row select.is-missing {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
 .ed-row input[type='checkbox'] {
   justify-self: start;
   accent-color: var(--accent);
