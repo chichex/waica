@@ -1,7 +1,7 @@
 {
   "name": "@chichex/waica",
-  "version": "0.2.0",
-  "description": "Waica in one command — `npx @chichex/waica` opens the editor in your browser",
+  "version": "0.3.0",
+  "description": "Waica in one command — `npx @chichex/waica` opens the editor, `waica mcp` serves the MCP server",
   "license": "MIT",
   "type": "module",
   "repository": {
@@ -10,7 +10,8 @@
     "directory": "packages/cli"
   },
   "bin": {
-    "waica": "dist/cli.js"
+    "waica": "dist/cli.js",
+    "waica-mcp": "dist/mcp/cli.js"
   },
   "publishConfig": {
     "access": "public"
@@ -18,12 +19,20 @@
   "files": [
     "dist"
   ],
+  "engines": {
+    "node": ">=20.19"
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && node bundle-editor.mjs",
+    "build": "tsc -p tsconfig.build.json && node bundle-editor.mjs && node bundle-mcp.mjs",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
-    "@waica/editor": "workspace:^"
+    "@waica/editor": "workspace:^",
+    "@waica/mcp": "workspace:^"
   }
 }

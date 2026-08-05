@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import readline from 'node:readline/promises'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
   DEFAULT_PORT,
   type CliArgs,
@@ -23,6 +23,11 @@ const HOST = '127.0.0.1'
 const HELP = `waica — the waica editor, one command away
 
 Usage: waica [options]
+       waica mcp
+
+Commands:
+  mcp          serve the waica MCP server on stdio, for agent hosts:
+               claude mcp add waica -- npx -y @chichex/waica mcp
 
 Options:
   --port <n>   preferred port (default ${DEFAULT_PORT}; the next free one is used if taken)
@@ -138,10 +143,42 @@ async function startServer(
   return null
 }
 
+/**
+ * Serves the bundled MCP server. stdout is the protocol channel once the
+ * transport connects, so this path runs before the banner and the update check
+ * and keeps every message it emits on stderr.
+ */
+async function runMcpServer(extra: string[]): Promise<void> {
+  if (extra.length > 0) {
+    console.error(`waica mcp: unexpected argument "${extra[0]}" — the server takes no options`)
+    process.exit(1)
+  }
+  const entry = path.join(here, 'mcp', 'stdio.js')
+  if (!existsSync(entry)) {
+    console.error('waica: bundled MCP server is missing — this install looks broken, try reinstalling')
+    process.exit(1)
+  }
+  const { startStdioServer } = (await import(pathToFileURL(entry).href)) as {
+    startStdioServer: () => Promise<void>
+  }
+  try {
+    await startStdioServer()
+  } catch (error) {
+    console.error(`waica mcp: ${error instanceof Error ? error.message : String(error)}`)
+    process.exitCode = 1
+  }
+}
+
 async function main(): Promise<void> {
+  const argv = process.argv.slice(2)
+  if (argv[0] === 'mcp') {
+    await runMcpServer(argv.slice(1))
+    return
+  }
+
   let args
   try {
-    args = parseArgs(process.argv.slice(2))
+    args = parseArgs(argv)
   } catch (error) {
     console.error(`waica: ${(error as Error).message}`)
     process.exit(1)

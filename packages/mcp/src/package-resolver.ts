@@ -2,6 +2,7 @@ import { access, readFile, realpath } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { workspacePackageRoot } from './workspace-runtime.js'
 
 export type PackageSource = 'project' | 'bundled'
 
@@ -84,6 +85,11 @@ async function packageRootFromEntry(entry: string, packageName: string): Promise
 }
 
 async function bundledPackageRoot(packageName: string, specifier: string): Promise<string> {
+  // In a built checkout the workspace copy is the bundle: the CLI's vendored
+  // directory is a copy of it, and preferring the original keeps a
+  // workspace-linked project recognisable as project-owned.
+  const workspaceRoot = await workspacePackageRoot(packageName)
+  if (workspaceRoot !== undefined) return workspaceRoot
   return packageRootFromEntry(requireBundled.resolve(specifier), packageName)
 }
 
