@@ -1,6 +1,6 @@
 {
   "name": "@waica/cli",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Waica in one command — `npx @waica/cli` opens the editor, `waica mcp` serves the MCP server",
   "license": "MIT",
   "type": "module",
@@ -10,8 +10,7 @@
     "directory": "packages/cli"
   },
   "bin": {
-    "waica": "dist/cli.js",
-    "waica-mcp": "dist/mcp/cli.js"
+    "waica": "dist/cli.js"
   },
   "publishConfig": {
     "access": "public"

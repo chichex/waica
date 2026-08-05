@@ -13,7 +13,7 @@ describe('@waica/cli package contract', () => {
     expect(pkg).toMatchObject({
       name: '@waica/cli',
       type: 'module',
-      bin: { waica: 'dist/cli.js', 'waica-mcp': 'dist/mcp/cli.js' },
+      bin: { waica: 'dist/cli.js' },
       files: ['dist'],
       // Matches the MCP server's floor: it is the same process.
       engines: { node: '>=20.19' },
@@ -36,6 +36,27 @@ describe('@waica/cli package contract', () => {
       'three',
     ])
     await access(path.join(packageRoot, 'bundle-mcp.mjs'))
+  })
+
+  // `npx <pkg>` picks the entry point by name: with exactly one bin it runs
+  // that one, but with several it looks for a bin named after the package
+  // minus its scope, and dies with "could not determine executable to run"
+  // when none matches. 0.4.0 shipped with two bins under a package called
+  // `@waica/cli`, so `npx @waica/cli` — the first line of every README —
+  // resolved to nothing. The binaries were fine; it is the relationship
+  // between the package name and the bin names that broke, and nothing here
+  // was watching it because every other test invokes the bins by path.
+  it('exposes a bin set npx can resolve', async () => {
+    const pkg = JSON.parse(await readFile(path.join(packageRoot, 'package.json'), 'utf8')) as {
+      name: string
+      bin: Record<string, string>
+    }
+    const bins = Object.keys(pkg.bin)
+    const unscoped = pkg.name.replace(/^@[^/]+\//, '')
+    expect(
+      bins.length === 1 || bins.includes(unscoped),
+      `npx runs "${pkg.name}" only if it declares a single bin or one named "${unscoped}"; it declares: ${bins.join(', ')}`,
+    ).toBe(true)
   })
 
   // One release, one number. The CLI vendors the three libraries and the
