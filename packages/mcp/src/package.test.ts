@@ -17,7 +17,7 @@ describe('@waica/mcp package contract', () => {
       private: true,
       type: 'module',
       bin: { 'waica-mcp': 'dist/cli.js' },
-      engines: { node: '>=20.19' },
+      engines: { node: '>=22.18' },
       scripts: {
         build:
           'node ../../scripts/clean-dist.mjs && tsc -p tsconfig.build.json && node bundle-template.mjs',

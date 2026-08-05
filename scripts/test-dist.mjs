@@ -294,7 +294,7 @@ try {
   assert.deepEqual(cliSource.bin, { waica: 'dist/cli.js' })
   assert.deepEqual(cliPacked.bin, cliSource.bin)
   assert.deepEqual(cliPacked.files, ['dist'])
-  assert.deepEqual(cliPacked.engines, { node: '>=20.19' })
+  assert.deepEqual(cliPacked.engines, { node: '>=22.18' })
   assert.equal(cliPacked.exports, undefined, '@waica/cli must stay pure-bin')
   assert.deepEqual(
     Object.keys(cliPacked.dependencies ?? {}).sort(),

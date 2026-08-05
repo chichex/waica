@@ -19,7 +19,7 @@
     "dist"
   ],
   "engines": {
-    "node": ">=20.19"
+    "node": ">=22.18"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json && node bundle-editor.mjs && node bundle-mcp.mjs",

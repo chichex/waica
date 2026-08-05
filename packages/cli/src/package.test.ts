@@ -16,7 +16,7 @@ describe('@waica/cli package contract', () => {
       bin: { waica: 'dist/cli.js' },
       files: ['dist'],
       // Matches the MCP server's floor: it is the same process.
-      engines: { node: '>=20.19' },
+      engines: { node: '>=22.18' },
       publishConfig: { access: 'public' },
       scripts: {
         build: 'tsc -p tsconfig.build.json && node bundle-editor.mjs && node bundle-mcp.mjs',
@@ -29,6 +29,13 @@ describe('@waica/cli package contract', () => {
         '@waica/editor': 'workspace:^',
         '@waica/mcp': 'workspace:^',
       },
+    })
+    const mcpPkg = JSON.parse(
+      await readFile(path.resolve(packageRoot, '../mcp/package.json'), 'utf8'),
+    ) as Record<string, unknown>
+    expect(mcpPkg).toMatchObject({
+      name: '@waica/mcp',
+      engines: { node: '>=22.18' },
     })
     expect(pkg).not.toHaveProperty('exports')
     expect(Object.keys(pkg.dependencies as object).sort()).toEqual([
