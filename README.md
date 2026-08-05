@@ -50,7 +50,9 @@ pnpm dev   # platformer archetype — ← → move · space jump
 | `@waica/archetype-platformer` | Opinionated platformer setup — playable from minute zero: default scene, prefabs, controls, HUD and stock art. The placeholder hero is Waica herself (pixel art, script-generated) |
 | `@waica/editor` | The app: create/open projects (owns the new-project template), viewport with drag & drop, inspector, state machine & animation editors, controls/stats views, play-in-editor, Monaco |
 | `@waica/mcp` | Stdio MCP server for agents: project creation, introspection, validation and exact editor-compatible scaffolds over absolute project paths. Not published on its own — it ships inside `@chichex/waica` |
-| `@chichex/waica` | One-command launcher and the only published package: `npx @chichex/waica` serves the pre-built editor and opens your browser, `waica mcp` serves the MCP server (the bare npm name `waica` is blocked by npm's similarity filter; the binary is still `waica`) |
+| `@chichex/waica` | One-command launcher: `npx @chichex/waica` serves the pre-built editor and opens your browser, `waica mcp` serves the MCP server (the bare npm name `waica` is blocked by npm's similarity filter; the binary is still `waica`) |
+
+The engine, behaviors and archetype libraries are published to npm together with `@chichex/waica`, always on the same version — that is what a generated project installs. `@waica/editor` and `@waica/mcp` are not published on their own; they ship inside the CLI.
 
 ## Agentic development
 
@@ -58,4 +60,4 @@ pnpm dev   # platformer archetype — ← → move · space jump
 claude mcp add waica -- npx -y @chichex/waica mcp
 ```
 
-See [`packages/mcp/README.md`](./packages/mcp/README.md) for all nine tools, the absolute `project_path` contract, editor-coexistence guidance, and how to run a generated project while the `@waica/*` libraries are unpublished.
+See [`packages/mcp/README.md`](./packages/mcp/README.md) for all nine tools, the absolute `project_path` contract, editor-coexistence guidance, and how to run a generated project against the workspace instead of the published libraries.

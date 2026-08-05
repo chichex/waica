@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { projectArtFiles, projectFiles } from '../../editor/src/project/template.js'
-import { createProject, PRE_PUBLISH_CAVEAT } from './create-project.js'
+import { createProject } from './create-project.js'
 import { cleanup, readJson, tempDir, writeTree } from './test-helpers.js'
 
 const roots: string[] = []
@@ -28,11 +28,15 @@ async function textTree(root: string): Promise<Record<string, string>> {
   return out
 }
 
+// The editor and the server derive the @waica range from the same file, so the
+// expectation reads it too rather than pinning a number every release invalidates.
 async function expectedEditorFiles(
   name: string,
   start: 'demo' | 'blank',
-  version: string,
 ): Promise<Record<string, string>> {
+  const { version } = await readJson<{ version: string }>(
+    path.resolve(import.meta.dirname, '../../engine/package.json'),
+  )
   const expected = projectFiles(name, start)
   const pkg = JSON.parse(expected['package.json'] ?? '{}') as {
     dependencies: Record<string, string>
@@ -53,9 +57,7 @@ describe('createProject', () => {
       path.resolve(import.meta.dirname, '../../engine/package.json'),
     )
 
-    expect(await textTree(target)).toEqual(
-      await expectedEditorFiles('agent-game', 'demo', enginePackage.version),
-    )
+    expect(await textTree(target)).toEqual(await expectedEditorFiles('agent-game', 'demo'))
     const artPaths = (await filesBelow(target)).filter((file) => file.endsWith('.png'))
     expect(artPaths).toEqual(Object.keys(projectArtFiles()).sort())
     for (const relative of artPaths) {
@@ -86,7 +88,6 @@ describe('createProject', () => {
     expect(result.nextSteps).toContain('cd agent-game')
     expect(result.nextSteps).toContain('npm install')
     expect(result.nextSteps).toContain('npm run dev')
-    expect(result.nextSteps).toContain(PRE_PUBLISH_CAVEAT)
   })
 
   it('creates only the exact 12-file chassis for a blank start', async () => {
@@ -97,7 +98,7 @@ describe('createProject', () => {
     await createProject(target, 'blank')
 
     expect(await filesBelow(target)).toEqual(Object.keys(projectFiles('blank-game', 'blank')).sort())
-    expect(await textTree(target)).toEqual(await expectedEditorFiles('blank-game', 'blank', '0.1.0'))
+    expect(await textTree(target)).toEqual(await expectedEditorFiles('blank-game', 'blank'))
   })
 
   it('accepts an existing empty directory', async () => {

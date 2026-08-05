@@ -11,8 +11,13 @@ import viteConfigTs from '../../template/vite.config.ts?raw'
 import readmeMd from '../../template/README.md?raw'
 import gitignore from '../../template/_gitignore?raw'
 import { resolveArchetype, type ArchetypeManifest } from './archetype'
+import enginePackage from '../../../engine/package.json'
 
-const WAICA_VERSION = '0.1.0'
+// The @waica/* range a fresh project depends on, read from the engine rather
+// than written down here: the published libraries move in lockstep, so the
+// version that ships is the one the generated package.json must ask npm for.
+// packages/mcp/src/create-project.ts derives the same number the same way.
+const WAICA_VERSION = enginePackage.version
 
 /** How a new project starts: the archetype's demo level, or just the chassis. */
 export type ProjectStart = 'demo' | 'blank'

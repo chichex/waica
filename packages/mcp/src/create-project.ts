@@ -12,9 +12,6 @@ import { assertAbsoluteProjectPath } from './project-path.js'
 
 export type ProjectStart = 'demo' | 'blank'
 
-export const PRE_PUBLISH_CAVEAT =
-  'Pre-publish caveat: @waica/* packages are not available from npm until the first coordinated Waica publish.'
-
 export interface CreateProjectResult {
   projectPath: string
   name: string
@@ -192,7 +189,7 @@ export async function createProject(
     name: target.name,
     start,
     createdFiles: Object.keys(files).sort(),
-    nextSteps: `cd ${target.name}\nnpm install\nnpm run dev\n\n${PRE_PUBLISH_CAVEAT}`,
+    nextSteps: `cd ${target.name}\nnpm install\nnpm run dev`,
     provenance,
     warnings: mixedSourceWarnings(provenance),
   }
