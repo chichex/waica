@@ -8,8 +8,10 @@ export interface ParamSpec {
   min?: number
   max?: number
   step?: number
-  /** Allowed values for a string param; rendered as a dropdown. */
+  /** Allowed values for a string param; rendered as a dropdown. Takes precedence over ref. */
   options?: string[]
+  /** Project value this string param names; rendered and validated as a typed reference. */
+  ref?: 'prefab' | 'stat' | 'action' | 'clip'
 }
 
 export interface ComponentClass<T extends Component = Component> {

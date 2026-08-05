@@ -10,7 +10,7 @@ export class Collectible extends Component {
   static override componentName = 'Collectible'
   static override params = {
     value: { label: 'Value', min: 1, max: 100, step: 1 },
-    stat: { label: 'Adds to stat' },
+    stat: { label: 'Adds to stat', ref: 'stat' as const },
   }
 
   value = 1

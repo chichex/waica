@@ -22,7 +22,7 @@ export interface StateTransitionJson {
  * transitions instead of a real state.
  */
 export interface StateJson {
-  /** Clip to play on enter; defaults to the state's own name. */
+  /** Clip reference resolved against the sibling AnimatedSprite; defaults to the state's name. */
   clip?: string
   transitions?: StateTransitionJson[]
 }

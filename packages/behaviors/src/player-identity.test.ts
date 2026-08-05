@@ -49,6 +49,12 @@ function machine(role: string): StateMachine {
   return stateMachine
 }
 
+describe('Collectible metadata', () => {
+  it('declares its stat string as a stat reference', () => {
+    expect(Collectible.params.stat.ref).toBe('stat')
+  })
+})
+
 describe('driver-agnostic player identity', () => {
   it('collects for role=player without requiring a PlatformerMotor', () => {
     const game = makeGame()
