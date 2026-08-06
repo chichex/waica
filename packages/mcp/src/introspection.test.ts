@@ -65,7 +65,22 @@ describe('listComponents', () => {
     })
     expect(result.components.find((component) => component.componentName === 'Sprite')).toMatchObject({
       sourcePackage: '@waica/engine',
+      defaults: { color: 0xffffff, shape: 'rectangle', width: 1, height: 1 },
     })
+    expect(
+      result.components.some((component) =>
+        Object.keys(component.defaults).some((key) => key.startsWith('_')),
+      ),
+    ).toBe(false)
+    const motorDefaults = result.components.find(
+      (component) => component.componentName === 'PlatformerMotor',
+    )!.defaults
+    expect(motorDefaults).toMatchObject({ moveSpeed: 9, hitboxWidth: 0.9, hitboxHeight: 0.95 })
+    expect(motorDefaults).not.toHaveProperty('coyoteTimer')
+    expect(motorDefaults).not.toHaveProperty('grounded')
+    for (const component of result.components) {
+      expect(JSON.parse(JSON.stringify(component.defaults))).toEqual(component.defaults)
+    }
     expect(result.projectOwned).toEqual([
       { path: 'src/components/dash.ts', validated: false },
       { path: 'src/roles/guard.ts', validated: false },
