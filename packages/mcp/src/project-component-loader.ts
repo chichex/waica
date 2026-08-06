@@ -4,7 +4,8 @@ import { existsSync, readFileSync } from 'node:fs'
 import * as nodeModule from 'node:module'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { PackageResolver, projectAnchoredRequire } from './package-resolver.js'
+import { classDefaults, objectRecord } from './component-metadata.js'
+import { causeText, PackageResolver, projectAnchoredRequire } from './package-resolver.js'
 import { directFiles } from './project-path.js'
 
 const { createRequire } = nodeModule
@@ -189,22 +190,6 @@ if (hooksSupported) {
   })
 }
 
-function objectRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {}
-}
-
-function ownDefaults(Class: new () => object): Record<string, unknown> {
-  try {
-    return Object.fromEntries(
-      Object.entries(new Class()).filter(([, value]) => value !== undefined),
-    )
-  } catch {
-    return {}
-  }
-}
-
 function componentDescriptions(
   module: Record<string, unknown>,
   file: string,
@@ -221,7 +206,7 @@ function componentDescriptions(
     descriptions[Class.componentName] = {
       file,
       params: objectRecord(Class.params) as Record<string, ParamSpec>,
-      defaults: ownDefaults(Class),
+      defaults: classDefaults(Class),
     }
   }
   return descriptions
@@ -237,12 +222,6 @@ function errorChain(error: unknown): Error[] {
     current = current.cause
   }
   return errors
-}
-
-function failureMessage(error: unknown): string {
-  if (!(error instanceof Error)) return String(error)
-  const code = (error as NodeJS.ErrnoException).code
-  return `${code ? `${code}: ` : ''}${error.message}`
 }
 
 function unsupportedByNode(error: unknown): boolean {
@@ -295,30 +274,43 @@ function bridgeModule(
   }
 }
 
+const BRIDGED_SPECIFIERS = ['@waica/engine', '@waica/behaviors', '@waica/archetype-platformer'] as const
+
 async function packageBridges(
   projectPath: string,
   token: string,
+  // Defaults to a fresh resolver for standalone callers (e.g. tests); the
+  // real loadProjectComponents call site reuses validateProject's resolver
+  // so these packages are not re-resolved from scratch a second time.
+  resolver: PackageResolver = new PackageResolver(projectPath),
 ): Promise<{ urls: Map<string, string>; keys: string[] }> {
-  const resolver = new PackageResolver(projectPath)
-  const urls = new Map<string, string>()
-  const keys: string[] = []
   // @waica/archetype-platformer joins engine/behaviors here (not just the
   // separate projectRequire.resolve path below) so a freshly created,
   // not-yet-installed project still gets the MCP-bundled copy the same way
   // it already does for engine/behaviors, instead of a bare MODULE_NOT_FOUND.
-  for (const specifier of ['@waica/engine', '@waica/behaviors', '@waica/archetype-platformer']) {
-    try {
-      const loaded = await resolver.load<Record<string, unknown>>(specifier)
-      // Keyed by the resolved package's own version rather than a per-run
-      // counter, so re-validating without a dependency bump reuses the exact
-      // same data: URL — and therefore Node's already-cached module for it —
-      // instead of pinning a fresh, functionally identical one every run.
-      const bridge = bridgeModule(`${token}:${loaded.provenance.version}`, specifier, loaded.module)
-      urls.set(specifier, bridge.url)
-      keys.push(bridge.key)
-    } catch {
-      // The importing project file receives the anchored resolver's real error.
-    }
+  // The three packages are independent, so they load concurrently.
+  const bridges = await Promise.all(
+    BRIDGED_SPECIFIERS.map(async (specifier) => {
+      try {
+        const loaded = await resolver.load<Record<string, unknown>>(specifier)
+        // Keyed by the resolved package's own version rather than a per-run
+        // counter, so re-validating without a dependency bump reuses the exact
+        // same data: URL — and therefore Node's already-cached module for it —
+        // instead of pinning a fresh, functionally identical one every run.
+        const bridge = bridgeModule(`${token}:${loaded.provenance.version}`, specifier, loaded.module)
+        return { specifier, bridge }
+      } catch {
+        // The importing project file receives the anchored resolver's real error.
+        return undefined
+      }
+    }),
+  )
+  const urls = new Map<string, string>()
+  const keys: string[] = []
+  for (const entry of bridges) {
+    if (!entry) continue
+    urls.set(entry.specifier, entry.bridge.url)
+    keys.push(entry.bridge.key)
   }
   return { urls, keys }
 }
@@ -340,12 +332,13 @@ async function projectModuleFiles(projectPath: string): Promise<string[]> {
  */
 export async function loadProjectComponents(
   projectPath: string,
+  resolver?: PackageResolver,
 ): Promise<ProjectComponentLoadResult> {
   if (!hooksSupported) {
     return { components: {}, failures: [unsupportedNodeFailure()] }
   }
   const token = projectToken(projectPath)
-  const bridges = await packageBridges(projectPath, token)
+  const bridges = await packageBridges(projectPath, token, resolver)
   hookContexts.set(token, {
     projectRequire: projectAnchoredRequire(projectPath),
     packageBridges: bridges.urls,
@@ -363,7 +356,7 @@ export async function loadProjectComponents(
         failures.push({
           code: unsupportedByNode(error) ? 'component-load-unsupported' : 'component-load-failed',
           file: relative,
-          message: failureMessage(error),
+          message: causeText(error),
         })
       }
     }

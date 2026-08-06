@@ -150,6 +150,32 @@ describe('validateProject parameter references', () => {
     ])
   })
 
+  it('flags an action ref named after an inherited Object property as unbound', async () => {
+    // bindings is a plain object indexed by an untrusted action name; a
+    // component author could plausibly name a stat-like action "constructor"
+    // or "toString". Object.prototype's own members resolve through the
+    // prototype chain (with a function's non-zero .length) and must not be
+    // mistaken for a real binding array.
+    const project = await refProject({
+      'src/components/ref.ts': refComponent('action'),
+      'src/controls.json': JSON.stringify({ waicaControls: 1, bindings: { shoot: ['KeyF'] } }),
+      'src/objects/a-prototype.object.json': prefab([
+        { type: 'RefComponent', props: { target: 'constructor' } },
+      ]),
+    })
+
+    const result = await validateProject(project)
+
+    expect(paramFindings(result.findings)).toEqual([
+      {
+        severity: 'warning',
+        code: 'input-action-unbound',
+        file: 'src/objects/a-prototype.object.json',
+        ref: 'RefComponent.target',
+      },
+    ])
+  })
+
   it('resolves clip refs against the sibling AnimatedSprite and skips entities without one', async () => {
     const withTarget = (target: string): string =>
       prefab([
@@ -226,6 +252,53 @@ describe('validateProject parameter references', () => {
         code: 'broken-prefab-ref',
         file: 'src/scenes/main.scene.json',
         ref: 'RefComponent.target',
+      },
+    ])
+  })
+
+  it('does not duplicate a prefab-level param finding for a param an override never touched', async () => {
+    // RefComponent has two ref params. The prefab only sets `target`
+    // (valid); `other` falls back to its broken class default and is
+    // reported once, at the prefab. The scene override only touches
+    // `target` (with a still-valid value) — it must not cause `other` to be
+    // re-checked and re-reported a second time under the scene file.
+    const project = await refProject({
+      'src/components/ref.ts': `
+import { Component } from '@waica/engine'
+export class RefComponent extends Component {
+  static componentName = 'RefComponent'
+  static params = {
+    target: { ref: 'prefab' },
+    other: { ref: 'prefab' },
+  }
+  target = ''
+  other = 'objects/missing'
+}
+`,
+      'src/objects/owner.object.json': prefab([
+        { type: 'RefComponent', props: { target: 'objects/target' } },
+      ]),
+      'src/objects/target.object.json': prefab([]),
+      'src/scenes/main.scene.json': JSON.stringify({
+        waicaScene: 3,
+        entities: [
+          {
+            name: 'Owner',
+            prefab: 'objects/owner',
+            overrides: { RefComponent: { target: 'objects/target' } },
+          },
+        ],
+      }),
+    })
+
+    const result = await validateProject(project)
+
+    expect(paramFindings(result.findings)).toEqual([
+      {
+        severity: 'error',
+        code: 'broken-prefab-ref',
+        file: 'src/objects/owner.object.json',
+        ref: 'RefComponent.other',
       },
     ])
   })

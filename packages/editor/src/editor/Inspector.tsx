@@ -28,6 +28,7 @@ import {
   type RefProjectState,
   type RefTarget,
 } from './ref-targets'
+import { MissingOption, missingOptionClass } from './missing-option'
 
 /** What the inspector is editing, mirroring the explorer view. */
 export type InspectorSelection =
@@ -411,7 +412,7 @@ function RefRow({
         <span className="ed-ref-custom">
           <input
             type="text"
-            className={missing ? 'is-missing' : undefined}
+            className={missingOptionClass(missing)}
             value={value}
             onChange={(e) => onChange(e.target.value)}
           />
@@ -431,7 +432,7 @@ function RefRow({
     <label className="ed-row">
       {name}
       <select
-        className={missing ? 'is-missing' : undefined}
+        className={missingOptionClass(missing)}
         value={value}
         aria-invalid={missing || undefined}
         title={missing ? `Missing ${refKind} reference: ${value}` : undefined}
@@ -444,7 +445,7 @@ function RefRow({
         }}
       >
         <option value="">none</option>
-        {missing && <option value={value}>{value} — missing ⚠</option>}
+        {missing && <MissingOption value={value} />}
         {targets.map((target) => (
           <option key={target.value} value={target.value}>
             {target.label}

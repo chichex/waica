@@ -10,6 +10,7 @@ import {
   discoverArchetypes,
   pickArchetype,
 } from './archetypes.js'
+import { classDefaults } from './component-metadata.js'
 import {
   PackageResolver,
   mixedSourceWarnings,
@@ -24,19 +25,6 @@ export interface ComponentDescription {
   params: Record<string, unknown>
   defaults: Record<string, unknown>
   sourcePackage: string
-}
-
-/**
- * Deliberately mirrors the editor's classDefaults/CA-B2 contract: enumerable
- * own fields from a fresh instance. It is not a general public-property
- * reflection API; changing that model belongs to engine/editor design.
- */
-function ownDefaults(Class: ComponentClass): Record<string, unknown> {
-  try {
-    return Object.fromEntries(Object.entries(new Class()).filter(([, value]) => value !== undefined))
-  } catch {
-    return {}
-  }
 }
 
 function moduleDeclaresComponent(
@@ -87,7 +75,7 @@ export async function listComponents(projectPath: string): Promise<{
     const description: ComponentDescription = {
       componentName: Class.componentName,
       params: (Class.params ?? {}) as Record<string, unknown>,
-      defaults: ownDefaults(Class),
+      defaults: classDefaults(Class),
       sourcePackage: sourcePackage(
         Class,
         engine.module,

@@ -159,7 +159,7 @@ async function loadBundledModule(
   }
 }
 
-function causeText(error: unknown): string {
+export function causeText(error: unknown): string {
   if (!(error instanceof Error)) return String(error)
   const code = (error as NodeJS.ErrnoException).code
   return `${code ? `${code}: ` : ''}${error.message}`

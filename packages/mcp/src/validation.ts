@@ -11,6 +11,7 @@ import type {
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { discoverArchetypes, pickArchetype } from './archetypes.js'
+import { classDefaults, objectRecord } from './component-metadata.js'
 import {
   PackageResolver,
   mixedSourceWarnings,
@@ -145,39 +146,48 @@ function componentList(value: unknown): SceneComponentJson[] {
   )
 }
 
-function objectRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {}
+function classMetadata(Class: ComponentClass): ComponentMetadata {
+  // A throwing constructor has no observable defaults, matching list_components.
+  return { params: Class.params ?? {}, defaults: classDefaults(Class) }
 }
 
-function classMetadata(Class: ComponentClass): ComponentMetadata {
-  let defaults: Record<string, unknown> = {}
-  try {
-    defaults = Object.fromEntries(
-      Object.entries(new Class()).filter(([, value]) => value !== undefined),
-    )
-  } catch {
-    // A throwing constructor has no observable defaults, matching list_components.
-  }
-  return { params: Class.params ?? {}, defaults }
+/** Clip names declared by the sibling AnimatedSprite, or undefined when there is none (no animation contract to check). */
+function siblingClips(siblings: SceneComponentJson[]): Set<string> | undefined {
+  const animated = siblings.find((component) => component.type === 'AnimatedSprite')
+  return animated ? new Set(Object.keys(objectRecord(animated.props?.clips))) : undefined
+}
+
+/** Whether `action` has at least one real binding — an own key, since bindings is keyed by an untrusted string. */
+function isBoundAction(bindings: Record<string, string[]>, action: string): boolean {
+  return Object.hasOwn(bindings, action) && (bindings[action]?.length ?? 0) > 0
+}
+
+interface ParamReferenceEntry {
+  component: SceneComponentJson
+  /**
+   * Restricts the check to these param names. Used when re-validating a
+   * scene-overridden component so the untouched params it inherited from
+   * the prefab do not repeat the prefab-level finding a second time under
+   * the scene file. Undefined means "check every declared ref param",
+   * which is correct for prefab components and inline scene components —
+   * neither was already validated elsewhere.
+   */
+  only?: ReadonlySet<string>
 }
 
 function validateParamReferences(
-  components: SceneComponentJson[],
+  entries: ParamReferenceEntry[],
   siblings: SceneComponentJson[],
   file: string,
   context: ValidationContext,
 ): void {
-  const animated = siblings.find((component) => component.type === 'AnimatedSprite')
-  const clips = animated
-    ? new Set(Object.keys(objectRecord(animated.props?.clips)))
-    : undefined
-  for (const component of components) {
+  const clips = siblingClips(siblings)
+  for (const { component, only } of entries) {
     const metadata = context.componentMetadata.get(component.type)
     if (!metadata) continue
     const props = objectRecord(component.props)
     for (const [param, spec] of Object.entries(metadata.params)) {
+      if (only && !only.has(param)) continue
       if (!spec.ref || spec.options !== undefined) continue
       const value = Object.hasOwn(props, param) ? props[param] : metadata.defaults[param]
       if (typeof value !== 'string' || value === '') continue
@@ -208,7 +218,7 @@ function validateParamReferences(
           }
           break
         case 'action':
-          if (!context.bindings[value]?.length) {
+          if (!isBoundAction(context.bindings, value)) {
             add(
               context,
               // Consistent with the pre-existing state-transition check for the
@@ -291,10 +301,7 @@ function validateStateMachines(
   ref: string | undefined,
   context: ValidationContext,
 ): void {
-  const animated = components.find((component) => component.type === 'AnimatedSprite')
-  const clips = animated
-    ? new Set(Object.keys(objectRecord(animated.props?.clips)))
-    : undefined
+  const clips = siblingClips(components)
   for (const machine of components.filter((component) => component.type === 'StateMachine')) {
     const states = machineStates(machine)
     const realNames = Object.keys(states).filter((name) => name !== '*')
@@ -407,7 +414,12 @@ function validatePrefab(
 ): void {
   const components = componentList(prefab.components)
   for (const component of components) checkComponent(component, file, ref, context)
-  validateParamReferences(components, components, file, context)
+  validateParamReferences(
+    components.map((component) => ({ component })),
+    components,
+    file,
+    context,
+  )
   validateStateMachines(components, file, ref, context)
 }
 
@@ -483,39 +495,66 @@ function validateScene(
         }
       }
     }
-    const effectiveComponents = resolvedEntityComponents(entity, prefab)
-    const referenceComponents = [...inline]
+    // Lazily resolved: only computed when a consumer below actually needs
+    // the merged prefab+override component list (an override that changes a
+    // ref param, a clip-context change, an inline ref:clip lookup that needs
+    // the effective sibling AnimatedSprite, or state-machine revalidation).
+    // A plain "prefab: ref" entity with no overrides and no inline
+    // components never pays for building it (restores the pre-typed-refs
+    // laziness that only ran this for state-behavior changes).
+    let cachedEffectiveComponents: SceneComponentJson[] | undefined
+    const effectiveComponents = (): SceneComponentJson[] => {
+      cachedEffectiveComponents ??= resolvedEntityComponents(entity, prefab)
+      return cachedEffectiveComponents
+    }
+    const hasRefKind = (type: string, kind: NonNullable<ParamSpec['ref']>): boolean =>
+      Object.values(context.componentMetadata.get(type)?.params ?? {}).some(
+        (spec) => spec.ref === kind && spec.options === undefined,
+      )
+
+    // Undefined scope means "check every declared ref param" — correct for
+    // inline components (never validated elsewhere) and for a component a
+    // clip-context change forces a full recheck of. A Set scopes the check
+    // to only the override's changed params, so a prefab-level finding for
+    // a param the override never touched is not reported a second time
+    // under the scene file.
+    const referenceScopes = new Map<SceneComponentJson, ReadonlySet<string> | undefined>()
+    for (const component of inline) referenceScopes.set(component, undefined)
+
     const inlineTypes = new Set(inline.map((component) => component.type))
     for (const [type, rawPatch] of Object.entries(overrides)) {
       if (inlineTypes.has(type)) continue
       const metadata = context.componentMetadata.get(type)
       const patch = objectRecord(rawPatch)
-      const changesReference = Object.entries(metadata?.params ?? {}).some(
-        ([param, spec]) =>
-          spec.ref !== undefined &&
-          spec.options === undefined &&
-          Object.hasOwn(patch, param),
+      const changedRefParams = new Set(
+        Object.entries(metadata?.params ?? {})
+          .filter(
+            ([param, spec]) =>
+              spec.ref !== undefined && spec.options === undefined && Object.hasOwn(patch, param),
+          )
+          .map(([param]) => param),
       )
-      if (!changesReference) continue
-      const effective = effectiveComponents.find((component) => component.type === type)
-      if (effective) referenceComponents.push(effective)
+      if (changedRefParams.size === 0) continue
+      const effective = effectiveComponents().find((component) => component.type === type)
+      if (effective && !referenceScopes.has(effective)) referenceScopes.set(effective, changedRefParams)
     }
     const changesClipContext =
       inline.some((component) => component.type === 'AnimatedSprite') ||
       Object.hasOwn(overrides, 'AnimatedSprite')
     if (changesClipContext) {
-      for (const component of effectiveComponents) {
-        const hasClipReference = Object.values(
-          context.componentMetadata.get(component.type)?.params ?? {},
-        ).some((spec) => spec.ref === 'clip' && spec.options === undefined)
-        if (hasClipReference && !referenceComponents.includes(component)) {
-          referenceComponents.push(component)
-        }
+      for (const component of effectiveComponents()) {
+        // A clip-context change can affect params this component didn't
+        // itself change, so this always widens to a full check rather than
+        // narrowing an already-scoped entry from the override loop above.
+        if (hasRefKind(component.type, 'clip')) referenceScopes.set(component, undefined)
       }
     }
+    const needsSiblings =
+      cachedEffectiveComponents !== undefined ||
+      [...referenceScopes.keys()].some((component) => hasRefKind(component.type, 'clip'))
     validateParamReferences(
-      referenceComponents,
-      effectiveComponents,
+      [...referenceScopes.entries()].map(([component, only]) => ({ component, only })),
+      needsSiblings ? effectiveComponents() : [...referenceScopes.keys()],
       file,
       context,
     )
@@ -528,7 +567,7 @@ function validateScene(
       inline.some((component) => stateTypes.has(component.type)) ||
       Object.keys(overrides).some((type) => stateTypes.has(type))
     if (changesStateBehavior) {
-      validateStateMachines(effectiveComponents, file, entityRef, context)
+      validateStateMachines(effectiveComponents(), file, entityRef, context)
     }
   }
 }
@@ -599,7 +638,7 @@ export async function validateProject(projectPath: string): Promise<{
     ),
     projectComponentCandidates(projectPath),
     projectRoleStateSources(projectPath),
-    loadProjectComponents(projectPath),
+    loadProjectComponents(projectPath, resolver),
   ])
   for (const failure of loadedProjectComponents.failures) {
     add(
