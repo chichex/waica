@@ -6,6 +6,13 @@ import { Health } from './health.js'
  * because leaving the level is lethal by nature — being hurt by a hard
  * landing is a different mechanic, measured on ground contact, and project
  * code can write it with Health.damage and the motor's readable velocity.
+ *
+ * "Lethal" still goes through Health.damage, which means invulnerability
+ * frames delay it: an entity that falls right after taking a hit keeps
+ * falling until its i-frames lapse. That is deliberate — damage() has no
+ * bypass, by design — and it resolves itself because this check re-runs
+ * every frame. An entity with no Health is destroyed outright instead;
+ * unlike Hazard, this does NOT fall back to Respawnable.
  */
 export class OutOfBounds extends Component {
   static override componentName = 'OutOfBounds'
