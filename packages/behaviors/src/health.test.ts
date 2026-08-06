@@ -103,6 +103,15 @@ describe('Health arithmetic', () => {
     expect(health.current).toBe(0)
   })
 
+  it('dies from repeated fractional damage that leaves a floating-point residual instead of exact zero', () => {
+    const { entity, health } = makeHealth({ max: 1 })
+
+    for (let i = 0; i < 10; i++) health.damage(0.1)
+
+    expect(health.current).toBe(0)
+    expect(entity.destroy).toHaveBeenCalledOnce()
+  })
+
   it('treats Infinity as lethal, with no separate kill path', () => {
     const { entity, health } = makeHealth({ max: 100 })
 

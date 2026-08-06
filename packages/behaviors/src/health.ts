@@ -1,6 +1,15 @@
 import { Component, StateMachine, type Entity, type StateJson } from '@waica/engine'
 
 /**
+ * Below this, current is treated as exactly zero. Repeated fractional
+ * damage (e.g. ten hits of 0.1 against max: 1) can leave a floating-point
+ * residual — Math.max(0, current - amount) only clamps values that land
+ * at or below zero, not tiny positive ones — that current === 0 would
+ * otherwise miss forever, leaving the entity undead at 0 HP.
+ */
+const DEATH_EPSILON = 1e-9
+
+/**
  * Whether a state graph reacts to death on its own: a 'signal:death' edge
  * on the current state or on '*'. Mirrors the merge nextTransition performs,
  * because StateMachine.signal is fire-and-forget — it cannot report whether
@@ -60,6 +69,7 @@ export class Health extends Component {
     // it is false forever after).
     if (!(amount > 0) || this.current <= 0 || this.invulnerable > 0) return
     this.current = Math.max(0, this.current - amount)
+    if (this.current < DEATH_EPSILON) this.current = 0
     this.game.events.emit('damage', {
       entity: this.entity,
       amount,
