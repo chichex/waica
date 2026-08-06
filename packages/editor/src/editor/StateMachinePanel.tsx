@@ -15,6 +15,7 @@ import {
   type MachineProps,
 } from '../project/states'
 import type { CharacterIdentity } from '../project/chassis'
+import { MissingOption, missingOptionClass } from './missing-option'
 
 /** Whose StateMachine a state edit applies to (mirrors AnimTarget). */
 export type StateTarget =
@@ -267,6 +268,7 @@ export function StateEditorModal({
   }, [onCancel])
 
   const nextName = name.trim() || state
+  const clipMissing = clip !== '' && !clips.includes(clip)
   const renameTaken =
     nextName !== state &&
     (RESERVED_STATE_NAMES.has(nextName) || machine.states[nextName] !== undefined)
@@ -338,16 +340,14 @@ export function StateEditorModal({
           <label className="ed-row">
             <span>animation</span>
             <select
-              className={clip !== '' && !clips.includes(clip) ? 'is-missing' : undefined}
+              className={missingOptionClass(clipMissing)}
               value={clip}
               onChange={(e) => setClip(e.target.value)}
             >
               <option value="">
                 {clips.includes(nextName) ? `same name (${nextName})` : `same name (${nextName}) — missing`}
               </option>
-              {clip !== '' && !clips.includes(clip) && (
-                <option value={clip}>{clip} — missing ⚠</option>
-              )}
+              {clipMissing && <MissingOption value={clip} />}
               {clips.map((c) => (
                 <option key={c} value={c}>
                   {c}
