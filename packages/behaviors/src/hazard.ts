@@ -39,6 +39,7 @@ export class Hazard extends Component {
     stompDamage: { label: 'Stomp damage', min: 0, max: 20, step: 1 },
     contactDamage: { label: 'Contact damage', min: 0, max: 20, step: 1 },
   }
+  static override transient = ['bouncing']
 
   stompable = true
   bounce = 10
@@ -46,6 +47,15 @@ export class Hazard extends Component {
   stompDamage = 1
   /** Dealt to whoever touches it any other way. */
   contactDamage = 1
+
+  /**
+   * Set once a stomp bounces the player, until it stops rising. The bounce
+   * (motor.vy = this.bounce) can leave the hitboxes still overlapping on
+   * the very next check, and with vy no longer < 0 resolveHazardTouch reads
+   * that as 'hurt' — a survivor would otherwise hurt the player it is still
+   * bouncing away from.
+   */
+  private bouncing = false
 
   override onCollide(other: Entity): void {
     if (!isPlayer(other)) return
@@ -63,7 +73,12 @@ export class Hazard extends Component {
         if (health) health.damage(this.stompDamage)
         else this.entity.destroy()
         motor.vy = this.bounce
+        this.bouncing = true
         return
+      }
+      if (this.bouncing) {
+        if (motor.vy > 0) return
+        this.bouncing = false
       }
     }
     const health = other.get(Health)

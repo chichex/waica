@@ -118,6 +118,26 @@ describe('Hazard stomp', () => {
 
     expect(stompable.motor.vy).toBe(9)
   })
+
+  it('does not hurt the stomper on the next overlapping frame when the hazard survives', () => {
+    // The bounce sets motor.vy to +bounce, so the very next collision check
+    // (hitboxes still overlapping — nothing has moved apart yet) reads as
+    // 'hurt' by resolveHazardTouch's own rules (vy is no longer < 0). Before
+    // this PR the hazard always destroyed itself on a stomp, so the pair
+    // could never collide again; now a survivor must remember it was just
+    // stomped instead of hurting the player it's still bouncing away from.
+    const { hazardEntity, hazard, player, motor } = scene(true)
+    withHealth(hazardEntity, 3)
+    const playerHealth = withHealth(player, 3)
+    hazard.stompDamage = 1
+
+    hazard.onCollide(player)
+    expect(motor.vy).toBe(hazard.bounce)
+
+    hazard.onCollide(player)
+
+    expect(playerHealth.current).toBe(3)
+  })
 })
 
 describe('Hazard contact', () => {
