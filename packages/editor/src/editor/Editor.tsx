@@ -24,7 +24,14 @@ import {
   toggleAnimated,
   type CharacterIdentity,
 } from '../project/chassis'
-import { CONTROLS_PATH, parseControls, serializeControls } from '../project/controls'
+import {
+  CONTROLS_PATH,
+  parseControlLabels,
+  parseControls,
+  serializeControls,
+  type ActionLabels,
+  type ProjectControls,
+} from '../project/controls'
 import {
   listComponentFiles,
   scaffoldComponentFile,
@@ -164,6 +171,8 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const [justCreatedFolder, setJustCreatedFolder] = useState<{ name: string } | null>(null)
   /** null until src/controls.json is read (or defaulted). */
   const [controls, setControls] = useState<InputBindings | null>(null)
+  /** The project's own names for its actions; the archetype's stay in its manifest. */
+  const [controlLabels, setControlLabels] = useState<ActionLabels>({})
   /** null until src/stats.json is read (or defaulted). */
   const [stats, setStats] = useState<ProjectStats | null>(null)
   /** null until src/game.json is read (or defaulted). */
@@ -255,6 +264,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       setRoleFiles(roles)
       setArchetype(resolvedArchetype)
       setControls(parseControls(controlsText, resolvedArchetype.bindings))
+      setControlLabels(parseControlLabels(controlsText))
       setStats(parseStats(statsText))
       setGameSettings(settings)
       setEditorSettings(parseEditorSettings(editorText))
@@ -321,18 +331,23 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     }
   }, [])
 
-  const applyControls = (next: InputBindings): void => {
-    setControls(next)
+  const applyControls = (next: ProjectControls): void => {
+    setControls(next.bindings)
+    setControlLabels(next.labels)
     setSaveState('saving')
     writer.current.schedule('controls', () => {
-      fs.writeText(CONTROLS_PATH, serializeControls(next))
+      fs.writeText(CONTROLS_PATH, serializeControls(next.bindings, next.labels))
         .then(() => setSaveState('saved'))
         .catch(() => setSaveState('error'))
     })
   }
 
-  const commitControls = (next: InputBindings): void => {
-    if (controls) record({ kind: 'controls', before: controls, after: next })
+  const commitControls = (next: ProjectControls): void => {
+    // Labels travel with the bindings so undoing a new action also undoes the
+    // name it was born with.
+    if (controls) {
+      record({ kind: 'controls', before: { bindings: controls, labels: controlLabels }, after: next })
+    }
     applyControls(next)
   }
 
@@ -1411,7 +1426,10 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       if (!controls) return <div className="ed-vp-hint">loading…</div>
       return (
         <ProjectPane savePath={CONTROLS_PATH}>
-          <ControlsEditor bindings={controls} onChange={commitControls} />
+          <ControlsEditor
+            controls={{ bindings: controls, labels: controlLabels }}
+            onChange={commitControls}
+          />
         </ProjectPane>
       )
     }

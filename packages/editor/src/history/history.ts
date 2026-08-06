@@ -1,4 +1,5 @@
-import type { InputBindings, PrefabJson, SceneJson } from '@waica/engine'
+import type { PrefabJson, SceneJson } from '@waica/engine'
+import type { ProjectControls } from '../project/controls'
 import type { GameSettings } from '../project/game'
 import type { ProjectStats } from '../project/stats'
 
@@ -17,7 +18,7 @@ export type AtomicEntry =
   | { kind: 'sceneFile'; path: string; before: string | null; after: string | null }
   | { kind: 'prefab'; ref: string; before: PrefabJson | null; after: PrefabJson | null }
   | { kind: 'ui'; name: string; before: string | null; after: string | null }
-  | { kind: 'controls'; before: InputBindings; after: InputBindings }
+  | { kind: 'controls'; before: ProjectControls; after: ProjectControls }
   | { kind: 'stats'; before: ProjectStats; after: ProjectStats }
   | { kind: 'game'; before: GameSettings; after: GameSettings }
 
