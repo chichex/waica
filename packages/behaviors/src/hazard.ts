@@ -70,7 +70,7 @@ export class Hazard extends Component {
       )
       if (touch === 'stomp') {
         const health = this.entity.get(Health)
-        if (health) health.damage(this.stompDamage)
+        if (health) health.damage(this.stompDamage, other)
         else this.entity.destroy()
         motor.vy = this.bounce
         this.bouncing = true

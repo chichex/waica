@@ -89,6 +89,21 @@ describe('Hazard stomp', () => {
     expect(motor.vy).toBe(hazard.bounce)
   })
 
+  it('names the stomping player as the source of stomp damage', () => {
+    const { hazardEntity, hazard, player } = scene(true)
+    withHealth(hazardEntity, 3)
+    hazard.stompDamage = 2
+
+    hazard.onCollide(player)
+
+    expect(hazardEntity.game.events.emit).toHaveBeenCalledWith('damage', {
+      entity: hazardEntity,
+      amount: 2,
+      current: 1,
+      source: player,
+    })
+  })
+
   it('kills a one-health hazard in a single stomp, as the archetype expects', () => {
     const { hazardEntity, hazard, player } = scene(true)
     const health = withHealth(hazardEntity, 1)
