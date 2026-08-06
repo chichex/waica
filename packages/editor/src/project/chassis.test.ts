@@ -144,12 +144,14 @@ describe('newPrefabComponents', () => {
     expect(patroller[1]?.props?.initial).toBe('walk')
   })
 
-  it('adds the identity extras: player respawns, enemies hurt, npcs bring nothing', () => {
+  it('adds the identity extras: players take damage and come back, enemies hurt and can be hurt, npcs bring nothing', () => {
     expect(newPrefabComponents('character', 'player', 'player').map((c) => c.type)).toEqual([
       'Sprite',
       'StateMachine',
       'PlatformerMotor',
       'Respawnable',
+      'Health',
+      'OutOfBounds',
       'Hitbox',
     ])
     expect(newPrefabComponents('character', 'chaser', 'enemy').map((c) => c.type)).toEqual([
@@ -157,6 +159,7 @@ describe('newPrefabComponents', () => {
       'StateMachine',
       'Chaser',
       'Hazard',
+      'Health',
       'Hitbox',
     ])
     expect(newPrefabComponents('character', 'npc', 'npc').map((c) => c.type)).toEqual([

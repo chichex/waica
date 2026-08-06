@@ -5,10 +5,12 @@ import { componentDefaults, componentKeys } from './Inspector'
 
 /**
  * Golden captured from main before list-components-authoring-defaults touched
- * any defaults logic (issue #21). For each of the 13 platformer registry
- * components, with no props set, this is the exact row set componentKeys +
+ * any defaults logic (issue #21). For each platformer registry component,
+ * with no props set, this is the exact row set componentKeys +
  * componentDefaults resolve to today. Must stay byte-identical afterwards —
  * see CA-5 of .sdd/specs/list-components-authoring-defaults (issue body).
+ * Issue #22 added Health and OutOfBounds and emptied Respawnable; every
+ * pre-existing row is untouched.
  */
 const GOLDEN: Record<string, Record<string, unknown>> = {
   Sprite: { offsetX: 0, offsetY: 0, layer: 0 },
@@ -46,15 +48,17 @@ const GOLDEN: Record<string, Record<string, unknown>> = {
   Collectible: { value: 1, stat: 'points' },
   Patrol: { axis: 'horizontal', distance: 3, speed: 2 },
   Chaser: { mode: 'walker', range: 6, speed: 3, gravity: 42 },
-  Hazard: { stompable: true, bounce: 10 },
-  Respawnable: { killY: -12 },
+  Hazard: { stompable: true, bounce: 10, stompDamage: 1, contactDamage: 1 },
+  Health: { max: 3, invulnerability: 0 },
+  Respawnable: {},
+  OutOfBounds: { minY: -12 },
   Lifetime: { seconds: 1 },
 }
 
 describe('Inspector component rows (golden, behavior preservation)', () => {
   const archetype = resolveArchetype('platformer')
 
-  it('lists exactly the 13 platformer registry components in the golden', () => {
+  it('lists exactly the 15 platformer registry components in the golden', () => {
     expect(Object.keys(archetype.registry.components).sort()).toEqual(
       Object.keys(GOLDEN).sort(),
     )

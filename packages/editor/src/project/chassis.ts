@@ -63,13 +63,15 @@ const DEFAULT_SPRITE = { width: 1, height: 1, color: DEFAULT_COLOR }
 export type CharacterIdentity = 'player' | 'enemy' | 'npc' | 'custom'
 
 /**
- * Components an identity is born with beyond the role package: players
- * come back after death, enemies hurt on touch, bystanders and custom
- * roles bring nothing.
+ * Components an identity is born with beyond the role package: players take
+ * damage, fall out of the world and come back; enemies hurt on touch and can
+ * be hurt back; bystanders and custom roles bring nothing. Health is on both
+ * fighting identities because "hurts you" and "can be hurt" are separate —
+ * an enemy needs each half spelled out.
  */
 export const IDENTITY_EXTRAS: Record<CharacterIdentity, readonly string[]> = {
-  player: ['Respawnable'],
-  enemy: ['Hazard'],
+  player: ['Respawnable', 'Health', 'OutOfBounds'],
+  enemy: ['Hazard', 'Health'],
   npc: [],
   custom: [],
 }
@@ -79,9 +81,8 @@ export const IDENTITY_EXTRAS: Record<CharacterIdentity, readonly string[]> = {
  * take the role chosen at creation and are born whole: the role installs
  * its starter graph AND the driver its states move, so the character works
  * in Play from second zero — there is no "machine without its driver" gap.
- * The identity adds its extras on top (player → Respawnable, enemy →
- * Hazard); the role is fixed at birth — changing it means recreating the
- * character.
+ * The identity adds its extras on top (see IDENTITY_EXTRAS); the role is
+ * fixed at birth — changing it means recreating the character.
  */
 export function newPrefabComponents(
   type: PrefabType,

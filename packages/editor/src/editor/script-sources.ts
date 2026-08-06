@@ -5,7 +5,9 @@
 import chaser from '../../../behaviors/src/chaser.ts?raw'
 import collectible from '../../../behaviors/src/collectible.ts?raw'
 import hazard from '../../../behaviors/src/hazard.ts?raw'
+import health from '../../../behaviors/src/health.ts?raw'
 import lifetime from '../../../behaviors/src/lifetime.ts?raw'
+import outOfBounds from '../../../behaviors/src/out-of-bounds.ts?raw'
 import patrol from '../../../behaviors/src/patrol.ts?raw'
 import platformerMotor from '../../../behaviors/src/platformer-motor.ts?raw'
 import respawnable from '../../../behaviors/src/respawnable.ts?raw'
@@ -20,7 +22,9 @@ export const SCRIPT_SOURCES: Record<string, ScriptSource> = {
   Chaser: { file: 'chaser.ts', source: chaser },
   Collectible: { file: 'collectible.ts', source: collectible },
   Hazard: { file: 'hazard.ts', source: hazard },
+  Health: { file: 'health.ts', source: health },
   Lifetime: { file: 'lifetime.ts', source: lifetime },
+  OutOfBounds: { file: 'out-of-bounds.ts', source: outOfBounds },
   Patrol: { file: 'patrol.ts', source: patrol },
   PlatformerMotor: { file: 'platformer-motor.ts', source: platformerMotor },
   Respawnable: { file: 'respawnable.ts', source: respawnable },

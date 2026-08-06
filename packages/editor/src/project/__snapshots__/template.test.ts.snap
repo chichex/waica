@@ -453,6 +453,23 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
                 "to": "idle"
               }
             ]
+          },
+          "dead": {
+            "clip": "idle",
+            "transitions": [
+              {
+                "on": "timer:0.8",
+                "to": "idle"
+              }
+            ]
+          },
+          "*": {
+            "transitions": [
+              {
+                "on": "signal:death",
+                "to": "dead"
+              }
+            ]
           }
         }
       }
@@ -465,9 +482,19 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
       }
     },
     {
-      "type": "Respawnable",
+      "type": "Respawnable"
+    },
+    {
+      "type": "Health",
       "props": {
-        "killY": -12
+        "max": 3,
+        "invulnerability": 1
+      }
+    },
+    {
+      "type": "OutOfBounds",
+      "props": {
+        "minY": -12
       }
     }
   ]
@@ -530,6 +557,12 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
       "props": {
         "stompable": true,
         "bounce": 10
+      }
+    },
+    {
+      "type": "Health",
+      "props": {
+        "max": 1
       }
     }
   ]

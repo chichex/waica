@@ -104,9 +104,18 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
   Hazard: {
     stompable: true,
     bounce: 10,
+    stompDamage: 1,
+    contactDamage: 1,
   },
-  Respawnable: {
-    killY: -12,
+  Health: {
+    max: 3,
+    invulnerability: 0,
+  },
+  // Nothing authorable left: the remembered spawn is transient, and the
+  // kill height moved out to OutOfBounds.
+  Respawnable: {},
+  OutOfBounds: {
+    minY: -12,
   },
   Lifetime: {
     seconds: 1,
@@ -114,7 +123,7 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
 }
 
 describe('PLATFORMER_REGISTRY_DATA authoring defaults', () => {
-  it('covers exactly the 13 registered components', () => {
+  it('covers exactly the 15 registered components', () => {
     expect(Object.keys(PLATFORMER_REGISTRY_DATA.components).sort()).toEqual(
       Object.keys(EXPECTED_DEFAULTS).sort(),
     )
