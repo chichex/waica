@@ -103,6 +103,33 @@ describe('StateMachine runtime characterization', () => {
     expect(machine.current).toBe('idle')
   })
 
+  it('does not re-enter a state the hop loop just landed on, even while the firing signal is still queued', () => {
+    // A '*' edge is re-merged into whatever state the loop just entered, so
+    // a signal that has not been cleared yet (signals.clear() only runs
+    // after the whole loop) keeps firing on every remaining hop. Without a
+    // same-state guard this replays onExit/onEnter for 'target' up to 7
+    // more times within the single frame that entered it.
+    const enters: string[] = []
+    const exits: string[] = []
+    const { machine } = makeMachine({
+      idle: {},
+      target: { transitions: [{ on: 'timer:0.8', to: 'idle' }] },
+      '*': { transitions: [{ on: 'signal:go', to: 'target' }] },
+    })
+    machine.on('target', {
+      onEnter: () => enters.push('target'),
+      onExit: () => exits.push('target'),
+    })
+    machine.onReady()
+    machine.signal('go')
+
+    machine.onUpdate(0.016)
+
+    expect(machine.current).toBe('target')
+    expect(enters).toEqual(['target'])
+    expect(exits).toEqual([])
+  })
+
   it('dispatches collision hooks for wildcard and current state with context and other', () => {
     const calls: Array<{ phase: string; ctxEntity: Entity; other: Entity }> = []
     const other = otherEntity('Other')
