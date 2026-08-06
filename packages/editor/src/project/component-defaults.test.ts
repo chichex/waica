@@ -16,6 +16,24 @@ class ThrowingGun extends Component {
   }
 }
 
+class WithTransient extends Component {
+  static override componentName = 'WithTransient'
+  static override transient = ['runtime']
+  runtime = 'state'
+  tunable = 5
+}
+
+class WithGetterParam extends Component {
+  static override componentName = 'WithGetterParam'
+  private _speed = 7
+  get speed(): number {
+    return this._speed
+  }
+  set speed(value: number) {
+    this._speed = value
+  }
+}
+
 describe('classDefaults', () => {
   it('reads the class field defaults with their real types', () => {
     expect(classDefaults(Gun as unknown as ComponentClass, 'Gun')).toMatchObject({
@@ -36,5 +54,17 @@ describe('classDefaults', () => {
     expect(onError).toHaveBeenCalledOnce()
     expect(onError.mock.calls[0]?.[0]).toContain('Gun')
     expect(onError.mock.calls[0]?.[0]).toContain('ctor boom')
+  })
+
+  it('excludes fields declared transient — runtime state, not an authorable default', () => {
+    expect(classDefaults(WithTransient as unknown as ComponentClass, 'WithTransient')).toEqual({
+      tunable: 5,
+    })
+  })
+
+  it('resolves a getter-backed param to its real value through the shared helper', () => {
+    expect(classDefaults(WithGetterParam as unknown as ComponentClass, 'WithGetterParam')).toEqual({
+      speed: 7,
+    })
   })
 })
