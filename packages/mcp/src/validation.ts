@@ -492,6 +492,19 @@ function validateScene(
       const effective = effectiveComponents.find((component) => component.type === type)
       if (effective) referenceComponents.push(effective)
     }
+    const changesClipContext =
+      inline.some((component) => component.type === 'AnimatedSprite') ||
+      Object.hasOwn(overrides, 'AnimatedSprite')
+    if (changesClipContext) {
+      for (const component of effectiveComponents) {
+        const hasClipReference = Object.values(
+          context.componentMetadata.get(component.type)?.params ?? {},
+        ).some((spec) => spec.ref === 'clip' && spec.options === undefined)
+        if (hasClipReference && !referenceComponents.includes(component)) {
+          referenceComponents.push(component)
+        }
+      }
+    }
     validateParamReferences(
       referenceComponents,
       effectiveComponents,

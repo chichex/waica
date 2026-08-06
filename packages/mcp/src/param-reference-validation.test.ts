@@ -219,6 +219,39 @@ describe('validateProject parameter references', () => {
     ])
   })
 
+  it('revalidates inherited clip refs when a scene changes the sibling clip set', async () => {
+    const project = await refProject({
+      'src/components/ref.ts': refComponent('clip'),
+      'src/objects/owner.object.json': prefab([
+        { type: 'AnimatedSprite', props: { clips: { idle: { frames: [0] } } } },
+        { type: 'RefComponent', props: { target: 'idle' } },
+      ]),
+      'src/scenes/main.scene.json': JSON.stringify({
+        waicaScene: 3,
+        entities: [
+          {
+            name: 'Owner',
+            prefab: 'objects/owner',
+            overrides: {
+              AnimatedSprite: { clips: { run: { frames: [1] } } },
+            },
+          },
+        ],
+      }),
+    })
+
+    const result = await validateProject(project)
+
+    expect(paramFindings(result.findings)).toEqual([
+      {
+        severity: 'error',
+        code: 'missing-clip',
+        file: 'src/scenes/main.scene.json',
+        ref: 'RefComponent.target',
+      },
+    ])
+  })
+
   it('ignores ref metadata when a param also declares options', async () => {
     const project = await refProject({
       'src/components/ref.ts': refComponent('prefab', 'literal', ['literal']),
