@@ -43,9 +43,19 @@ export class Hazard extends Component {
 
   stompable = true
   bounce = 10
-  /** Dealt to this entity when the player stomps it. */
+  /**
+   * Dealt to this entity when the player stomps it. Only read on the
+   * Health path — with no Health on this entity, a stomp always destroys
+   * it outright (the legacy behavior), whatever this is set to. Setting it
+   * to 0 does not make a Health-less hazard survive a stomp.
+   */
   stompDamage = 1
-  /** Dealt to whoever touches it any other way. */
+  /**
+   * Dealt to whoever touches it any other way. Only read on the Health
+   * path — with no Health on the other entity, contact always respawns it
+   * (the legacy behavior), whatever this is set to. Setting it to 0 does
+   * not make contact harmless for a Health-less target.
+   */
   contactDamage = 1
 
   /**
