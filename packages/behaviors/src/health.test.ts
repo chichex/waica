@@ -90,6 +90,19 @@ describe('Health arithmetic', () => {
     expect(health.current).toBe(0)
   })
 
+  it('ignores NaN instead of poisoning current — every NaN comparison is false', () => {
+    const { game, health } = makeHealth({ max: 3 })
+
+    health.damage(NaN)
+
+    expect(health.current).toBe(3)
+    expect(game.events.emit).not.toHaveBeenCalled()
+    // A poisoned current would make every future guard false too: still
+    // damageable, never dying.
+    health.damage(3)
+    expect(health.current).toBe(0)
+  })
+
   it('treats Infinity as lethal, with no separate kill path', () => {
     const { entity, health } = makeHealth({ max: 100 })
 

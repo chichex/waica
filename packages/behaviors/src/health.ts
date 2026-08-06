@@ -54,7 +54,11 @@ export class Health extends Component {
    * listeners that care who hit them.
    */
   damage(amount: number, source?: Entity): void {
-    if (amount <= 0 || this.current <= 0 || this.invulnerable > 0) return
+    // Written as !(amount > 0) rather than amount <= 0 so NaN is rejected
+    // too — every NaN comparison is false, so amount <= 0 lets it through
+    // and poisons current (NaN - anything is NaN, and every guard against
+    // it is false forever after).
+    if (!(amount > 0) || this.current <= 0 || this.invulnerable > 0) return
     this.current = Math.max(0, this.current - amount)
     this.game.events.emit('damage', {
       entity: this.entity,
