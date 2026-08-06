@@ -145,7 +145,12 @@ export class StateMachine extends Component {
     // capped so a degenerate cyclic graph can't hang the loop.
     for (let hops = 0; hops < 8; hops++) {
       const edge = nextTransition(this.states, this.current, this.env())
-      if (!edge) break
+      // A '*' edge is re-merged against whatever state the loop just
+      // entered, so a still-queued signal (signals.clear() only runs after
+      // this loop) keeps firing every remaining hop. Without this guard
+      // that replays onExit/onEnter on the state hops already settled into
+      // — goto() has the same guard for the same reason.
+      if (!edge || edge.to === this.current) break
       // A transition fired by a key press spends it: one press, one
       // transition — it can't fire again from the state just entered.
       if (edge.on.startsWith('input:')) this.game.input.consume(edge.on.slice('input:'.length))

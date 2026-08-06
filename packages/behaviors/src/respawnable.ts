@@ -2,19 +2,15 @@ import { Component, THREE } from '@waica/engine'
 import { PlatformerMotor } from './platformer-motor.js'
 
 /**
- * Remembers the spawn point and puts the entity back there on death
- * (falling off the world or touching a Hazard).
+ * Remembers where the entity started and puts it back there on demand.
+ * That is all: what counts as death, and whether death leads to a respawn
+ * at all, belongs to Health and to the role's state graph. The `killY`
+ * lower bound this used to author moved to OutOfBounds (docs/adr/0003).
  */
 export class Respawnable extends Component {
   static override componentName = 'Respawnable'
   static override displayName = 'Respawn'
-  static override params = {
-    killY: { label: 'Kill height', min: -50, max: 0, step: 1 },
-  }
   static override transient = ['spawn']
-
-  /** Falling below this height respawns. */
-  killY = -12
 
   private spawn = new THREE.Vector3()
 
@@ -25,9 +21,5 @@ export class Respawnable extends Component {
   respawn(): void {
     this.entity.position.copy(this.spawn)
     this.entity.get(PlatformerMotor)?.halt()
-  }
-
-  override onUpdate(): void {
-    if (this.entity.position.y < this.killY) this.respawn()
   }
 }

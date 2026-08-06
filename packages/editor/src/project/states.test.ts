@@ -5,6 +5,7 @@ import {
   listRoleFiles,
   listStateFiles,
   machineProps,
+  removeState,
   roleFileTemplate,
   stateCodeStatus,
   stateFileTemplate,
@@ -35,6 +36,42 @@ describe('machineProps', () => {
 describe('stateNames', () => {
   it("hides the '*' wildcard entry — it is edges, not a state", () => {
     expect(stateNames(machine({ states: { idle: {}, '*': {} } }))).toEqual(['idle'])
+  })
+})
+
+describe('removeState', () => {
+  it('deletes the state and prunes every transition that targeted it, including from *', () => {
+    // Deleting a state used to leave incoming edges dangling — most
+    // dangerously from '*', since the editor hides it from stateNames and
+    // no validation warns about a wildcard edge pointing at a state that
+    // no longer exists.
+    const states = {
+      idle: { transitions: [{ on: 'signal:go', to: 'dead' }] },
+      dead: { transitions: [{ on: 'timer:0.8', to: 'idle' }] },
+      '*': { transitions: [{ on: 'signal:death', to: 'dead' }] },
+    }
+
+    expect(removeState(states, 'dead')).toEqual({
+      idle: { transitions: [] },
+      '*': { transitions: [] },
+    })
+  })
+
+  it('leaves transitions to other states untouched', () => {
+    const states = {
+      idle: {
+        transitions: [
+          { on: 'signal:go', to: 'run' },
+          { on: 'signal:die', to: 'dead' },
+        ],
+      },
+      run: { transitions: [] },
+      dead: { transitions: [] },
+    }
+
+    expect(removeState(states, 'dead').idle).toEqual({
+      transitions: [{ on: 'signal:go', to: 'run' }],
+    })
   })
 })
 

@@ -8,6 +8,7 @@ import {
 } from '@waica/engine'
 import {
   machineProps,
+  removeState,
   roleKnown,
   stateCodeStatus,
   stateIssues,
@@ -75,8 +76,7 @@ export function StateMachineCard({
 
   const deleteState = (name: string): void => {
     if (!window.confirm(`Delete state "${name}"?`)) return
-    const states = { ...machine.states }
-    delete states[name]
+    const states = removeState(machine.states, name)
     const patch: Partial<MachineProps> = { states }
     if (machine.initial === name) {
       patch.initial = Object.keys(states).find((n) => n !== '*') ?? ''

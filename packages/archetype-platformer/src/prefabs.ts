@@ -23,7 +23,9 @@ export const PLATFORMER_PREFABS: Record<string, PrefabJson> = {
         },
       },
       { type: 'Hitbox', props: { width: 0.9, height: 0.95 } },
-      { type: 'Respawnable', props: { killY: -12 } },
+      { type: 'Respawnable' },
+      { type: 'Health', props: { max: 3, invulnerability: 1 } },
+      { type: 'OutOfBounds', props: { minY: -12 } },
     ],
   },
   'characters/slime': {
@@ -53,6 +55,10 @@ export const PLATFORMER_PREFABS: Record<string, PrefabJson> = {
       },
       { type: 'Hitbox', props: { width: 0.9, height: 0.6 } },
       { type: 'Hazard', props: { stompable: true, bounce: 10 } },
+      // One point: a stomp still kills it in a single hit, the same as
+      // before the damage model existed — now said out loud instead of
+      // hardcoded into Hazard.
+      { type: 'Health', props: { max: 1 } },
     ],
   },
   'objects/coin': {

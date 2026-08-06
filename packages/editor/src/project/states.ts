@@ -31,6 +31,24 @@ export function stateNames(machine: MachineProps): string[] {
   return Object.keys(machine.states).filter((name) => name !== '*')
 }
 
+/**
+ * Deletes a state and prunes every transition that targeted it — including
+ * from '*', which stateNames hides from the state list. Without this, a
+ * deleted state left dangling incoming edges (most easily missed on '*',
+ * since it never shows up to review) that no validation warns about.
+ */
+export function removeState(
+  states: Record<string, StateJson>,
+  name: string,
+): Record<string, StateJson> {
+  const next: Record<string, StateJson> = {}
+  for (const [key, state] of Object.entries(states)) {
+    if (key === name) continue
+    next[key] = { ...state, transitions: (state.transitions ?? []).filter((t) => t.to !== name) }
+  }
+  return next
+}
+
 export function stateFilePath(state: string): string {
   return `${STATES_DIR}/${state}.ts`
 }

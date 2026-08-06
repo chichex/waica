@@ -56,6 +56,12 @@
         "stompable": true,
         "bounce": 10
       }
+    },
+    {
+      "type": "Health",
+      "props": {
+        "max": 1
+      }
     }
   ]
 }

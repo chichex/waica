@@ -12,7 +12,7 @@ const roots: string[] = []
 afterEach(async () => cleanup(...roots.splice(0)))
 
 describe('listComponents', () => {
-  it('describes all 13 platformer classes and only the three declared display names', async () => {
+  it('describes all 15 platformer classes and only the four declared display names', async () => {
     const project = await makeProject({
       'src/components/dash.ts': `export class Dash { static componentName = 'Dash' }\n`,
       'src/roles/guard.ts': `// project role\n`,
@@ -23,7 +23,7 @@ describe('listComponents', () => {
 
     const result = await listComponents(project)
 
-    expect(result.components).toHaveLength(13)
+    expect(result.components).toHaveLength(15)
     expect(result.components.map((component) => component.componentName)).toEqual(
       expect.arrayContaining([
         'Sprite',
@@ -37,7 +37,9 @@ describe('listComponents', () => {
         'Patrol',
         'Chaser',
         'Hazard',
+        'Health',
         'Respawnable',
+        'OutOfBounds',
         'Lifetime',
       ]),
     )
@@ -49,6 +51,7 @@ describe('listComponents', () => {
       { componentName: 'StateMachine', displayName: 'State Machine' },
       { componentName: 'PlatformerMotor', displayName: 'Motor' },
       { componentName: 'Respawnable', displayName: 'Respawn' },
+      { componentName: 'OutOfBounds', displayName: 'Out of bounds' },
     ])
     expect(result.components.find((component) => component.componentName === 'Chaser')).toMatchObject({
       params: {
@@ -114,7 +117,7 @@ describe('listComponents', () => {
 
     const result = await listComponents(project)
 
-    expect(result.components).toHaveLength(13)
+    expect(result.components).toHaveLength(15)
     expect(result.warnings.join('\n')).toMatch(/package\.json.*parse|parse.*package\.json/i)
   })
 
@@ -164,13 +167,13 @@ describe('describeArchetype', () => {
       id: 'platformer',
       label: 'Platformer',
       palette: expect.arrayContaining([
-        { name: 'player', components: ['AnimatedSprite', 'PlatformerMotor', 'StateMachine', 'Hitbox', 'Respawnable'] },
+        { name: 'player', components: ['AnimatedSprite', 'PlatformerMotor', 'StateMachine', 'Hitbox', 'Respawnable', 'Health', 'OutOfBounds'] },
       ]),
       prefabs: expect.arrayContaining([
         {
           ref: 'characters/player',
           type: 'character',
-          components: ['AnimatedSprite', 'PlatformerMotor', 'StateMachine', 'Hitbox', 'Respawnable'],
+          components: ['AnimatedSprite', 'PlatformerMotor', 'StateMachine', 'Hitbox', 'Respawnable', 'Health', 'OutOfBounds'],
         },
       ]),
       roles: expect.arrayContaining([

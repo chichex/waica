@@ -112,6 +112,23 @@
                 "to": "idle"
               }
             ]
+          },
+          "dead": {
+            "clip": "idle",
+            "transitions": [
+              {
+                "on": "timer:0.8",
+                "to": "idle"
+              }
+            ]
+          },
+          "*": {
+            "transitions": [
+              {
+                "on": "signal:death",
+                "to": "dead"
+              }
+            ]
           }
         }
       }
@@ -124,9 +141,19 @@
       }
     },
     {
-      "type": "Respawnable",
+      "type": "Respawnable"
+    },
+    {
+      "type": "Health",
       "props": {
-        "killY": -12
+        "max": 3,
+        "invulnerability": 1
+      }
+    },
+    {
+      "type": "OutOfBounds",
+      "props": {
+        "minY": -12
       }
     },
     {
