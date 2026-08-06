@@ -88,6 +88,7 @@ export class StateMachine extends Component {
   static override params = {
     role: { label: 'Role' },
   }
+  static override transient = ['current', 'elapsed', 'instanceHooks', 'signals', 'warnedClips']
 
   /** The character's role — names the logic set providing its state code. */
   role = ''

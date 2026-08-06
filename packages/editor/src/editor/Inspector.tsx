@@ -196,7 +196,7 @@ const RefTargetsContext = createContext<RefTargetContext>({
   project: { prefabs: {}, stats: {}, actions: {} },
 })
 
-function componentKeys(comp: SceneComponentJson, archetype: ArchetypeManifest): string[] {
+export function componentKeys(comp: SceneComponentJson, archetype: ArchetypeManifest): string[] {
   const Class = archetype.registry.components[comp.type]
   const declared = Object.keys(Class?.params ?? {})
   return [...new Set([...Object.keys(comp.props ?? {}), ...declared])]
@@ -209,7 +209,7 @@ function componentLabel(type: string, archetype: ArchetypeManifest): string {
 
 // Unset params show the class defaults (what the game actually runs), so
 // their value AND type match reality — e.g. a boolean renders as a checkbox.
-function componentDefaults(
+export function componentDefaults(
   comp: SceneComponentJson,
   archetype: ArchetypeManifest,
 ): Record<string, unknown> {

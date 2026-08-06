@@ -17,6 +17,7 @@ export class Patrol extends Component {
     distance: { label: 'Distance', min: 0.5, max: 20, step: 0.5 },
     speed: { label: 'Speed', min: 0.5, max: 15, step: 0.5 },
   }
+  static override transient = ['originX', 'originY', 'dir']
 
   axis: PatrolAxis = 'horizontal'
   distance = 3

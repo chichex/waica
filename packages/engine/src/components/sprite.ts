@@ -16,6 +16,7 @@ export class Sprite extends Component {
     offsetY: { label: 'y offset' },
     layer: { label: 'layer', min: -5, max: 5, step: 1 },
   }
+  static override transient = ['mesh']
   // Size, color and offset are reactive so inspector edits update the live quad.
   // Texture still needs a rebuild. TODO(H1): fully reactive props.
 

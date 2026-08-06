@@ -1,8 +1,9 @@
-import type { ComponentClass } from '@waica/engine'
+import { authoringDefaults, type ComponentClass } from '@waica/engine'
 
 /**
- * A component class's field defaults, read by instantiating it — unset params
- * show what the game actually runs, so their value AND type match reality.
+ * A component class's authorable field defaults — the public surface
+ * authoringDefaults exposes, read by instantiating the class (unset params
+ * show what the game actually runs, so their value AND type match reality).
  *
  * The registry now carries project-owned classes, i.e. arbitrary user code,
  * and the inspector reads these during React render where an uncaught throw
@@ -15,11 +16,8 @@ export function classDefaults(
   onError: (message: string) => void = console.error,
 ): Record<string, unknown> {
   if (!Class) return {}
-  try {
-    return new Class() as unknown as Record<string, unknown>
-  } catch (error) {
+  return authoringDefaults(Class, (error) => {
     const message = error instanceof Error ? error.message : String(error)
     onError(`[waica] component "${type}" failed to construct: ${message}`)
-    return {}
-  }
+  })
 }

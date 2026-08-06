@@ -1,7 +1,8 @@
-import type {
-  ComponentClass,
-  RoleDefinition,
-  SceneComponentJson,
+import {
+  authoringDefaults,
+  type ComponentClass,
+  type RoleDefinition,
+  type SceneComponentJson,
 } from '@waica/engine'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -10,7 +11,6 @@ import {
   discoverArchetypes,
   pickArchetype,
 } from './archetypes.js'
-import { classDefaults } from './component-metadata.js'
 import {
   PackageResolver,
   mixedSourceWarnings,
@@ -75,7 +75,7 @@ export async function listComponents(projectPath: string): Promise<{
     const description: ComponentDescription = {
       componentName: Class.componentName,
       params: (Class.params ?? {}) as Record<string, unknown>,
-      defaults: classDefaults(Class),
+      defaults: authoringDefaults(Class),
       sourcePackage: sourcePackage(
         Class,
         engine.module,

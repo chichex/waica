@@ -6,9 +6,13 @@ export function objectRecord(value: unknown): Record<string, unknown> {
 }
 
 /**
- * Deliberately mirrors the editor's classDefaults/CA-B2 contract: enumerable
- * own fields from a fresh instance. It is not a general public-property
- * reflection API; changing that model belongs to engine/editor design.
+ * Own enumerable fields of a fresh instance — the raw internal-state model,
+ * superseded for the public authoring surface by @waica/engine's
+ * authoringDefaults (list_components/CA-3, editor classDefaults/CA-4; see
+ * `.sdd/specs/waica-mcp.md` CA-B2 and issue #21). Still correct for its
+ * remaining callers here: validating a component's own declared param
+ * defaults and describing project-owned components, neither of which is
+ * the public-authoring-surface question authoringDefaults answers.
  */
 export function classDefaults(Class: new () => object): Record<string, unknown> {
   try {
