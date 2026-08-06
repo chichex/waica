@@ -13,6 +13,7 @@ const TOOL_NAMES = [
   'project_summary',
   'validate_project',
   'scaffold_component',
+  'scaffold_prefab',
   'scaffold_role',
   'scaffold_state',
   'scaffold_ui',
@@ -28,6 +29,7 @@ function argumentsFor(name: string, projectPath: string): Record<string, unknown
     project_summary: {},
     validate_project: {},
     scaffold_component: { name: 'dash' },
+    scaffold_prefab: { name: 'bullet', type: 'object' },
     scaffold_role: { role: 'guard' },
     scaffold_state: { role: 'player', state: 'dash' },
     scaffold_ui: { name: 'score' },
@@ -79,7 +81,7 @@ describe('MCP server', () => {
     }
   })
 
-  it('registers exactly the nine tools with concrete JSON schemas', async () => {
+  it('registers exactly the ten tools with concrete JSON schemas', async () => {
     const pair = await connectedPair()
     try {
       const listed = await pair.client.listTools()
@@ -113,6 +115,34 @@ describe('MCP server', () => {
       })
       expect('toolResult' in result ? undefined : result.isError).not.toBe(true)
       expect(jsonResult(result)).toMatchObject({ archetype: 'platformer', scenes: ['main.scene.json'] })
+    } finally {
+      await pair.close()
+    }
+  })
+
+  // The tenth tool is the one that resolves the project's archetype before it
+  // writes, so the round-trip goes through a character rather than the inert
+  // object shape the shared error-shape cases use.
+  it('round-trips a scaffold_prefab call over the SDK transport', async () => {
+    const project = await makeProject()
+    roots.push(project)
+    const pair = await connectedPair()
+    try {
+      const result = await pair.client.callTool({
+        name: 'scaffold_prefab',
+        arguments: { project_path: project, name: 'hero', type: 'character', identity: 'player' },
+      })
+      expect('toolResult' in result ? undefined : result.isError).not.toBe(true)
+      expect(jsonResult(result)).toMatchObject({
+        path: 'src/characters/hero.character.json',
+        created: true,
+      })
+      const written = JSON.parse(
+        await readFile(path.join(project, 'src/characters/hero.character.json'), 'utf8'),
+      ) as { waicaPrefab: number; type: string; components: Array<{ type: string }> }
+      expect(written.waicaPrefab).toBe(1)
+      expect(written.type).toBe('character')
+      expect(written.components.map((component) => component.type)).toContain('StateMachine')
     } finally {
       await pair.close()
     }
