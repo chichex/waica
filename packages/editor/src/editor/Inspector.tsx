@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { resolveCollisionPoints, resolveSceneCamera, roleDefinition, sheetCell, type PrefabJson, type SceneCameraJson, type SceneComponentJson, type SceneEntityJson, type SceneJson, type SheetGridParams, type StateJson } from '@waica/engine'
 import { useArchetype, type ArchetypeManifest } from '../project/archetype'
 import { classDefaults } from '../project/component-defaults'
@@ -19,7 +19,15 @@ import { StateMachineCard, type StateTarget } from './StateMachinePanel'
 import { collectDroppedFiles, IMAGE_RE, type ArtItem, type DroppedFile } from './use-project-art'
 import { ArtSearchGrid } from './ArtPicker'
 import type { ViewportComponentVisibility } from './Viewport'
-import type { ClipDef, CollisionPoint, ParamSpec, SheetCell } from '@waica/engine'
+import type { ClipDef, CollisionPoint, InputBindings, ParamSpec, SheetCell } from '@waica/engine'
+import type { ProjectStats } from '../project/stats'
+import {
+  availableRefTargets,
+  type RefEntityContext,
+  type RefKind,
+  type RefProjectState,
+  type RefTarget,
+} from './ref-targets'
 
 /** What the inspector is editing, mirroring the explorer view. */
 export type InspectorSelection =
@@ -41,6 +49,32 @@ export type AnimTarget = { kind: 'prefab'; ref: string } | { kind: 'entity'; nam
 
 function clipsOf(comp: SceneComponentJson): Record<string, ClipDef> {
   return (comp.props?.clips as Record<string, ClipDef> | undefined) ?? {}
+}
+
+/**
+ * Ref context for a multi-selection's clip pickers: the INTERSECTION of every
+ * selected entity's own clip set, so a value picked here is valid on every
+ * entity it gets written to — not just the first one. Entities with no
+ * AnimatedSprite impose no constraint (mirrors availableRefTargets/
+ * validate_project treating "no sibling AnimatedSprite" as unconstrained,
+ * not as an empty set) and are excluded from the intersection rather than
+ * collapsing it to nothing. Returns undefined — "no constraint available" —
+ * only when NONE of the selected entities has an AnimatedSprite at all.
+ */
+function intersectedClipComponents(
+  entities: readonly SceneEntityJson[],
+  prefabs: Record<string, PrefabJson>,
+): SceneComponentJson[] | undefined {
+  const clipSets = entities
+    .map((entity) => resolveComponents(entity, prefabs).find((c) => c.type === 'AnimatedSprite'))
+    .filter((animated): animated is SceneComponentJson => animated !== undefined)
+    .map((animated) => new Set(Object.keys(clipsOf(animated))))
+  if (clipSets.length === 0) return undefined
+  const [first, ...rest] = clipSets as [Set<string>, ...Set<string>[]]
+  const shared = [...first].filter((clip) => rest.every((set) => set.has(clip)))
+  return [
+    { type: 'AnimatedSprite', props: { clips: Object.fromEntries(shared.map((c) => [c, {}])) } },
+  ]
 }
 
 /**
@@ -80,6 +114,9 @@ function driverWarning(
 interface Props {
   selection: InspectorSelection
   prefabs: Record<string, PrefabJson>
+  /** Project stats and merged actions available to typed-reference pickers. */
+  stats: ProjectStats
+  actions: InputBindings
   /** The project's image library, for the appearance picker. */
   art: ArtItem[]
   urlFor(uri: string): string
@@ -148,6 +185,15 @@ interface Props {
   /** Opens the state editor modal. */
   onEditState(target: StateTarget): void
 }
+
+interface RefTargetContext {
+  project: RefProjectState
+  entity?: RefEntityContext
+}
+
+const RefTargetsContext = createContext<RefTargetContext>({
+  project: { prefabs: {}, stats: {}, actions: {} },
+})
 
 function componentKeys(comp: SceneComponentJson, archetype: ArchetypeManifest): string[] {
   const Class = archetype.registry.components[comp.type]
@@ -330,6 +376,86 @@ function ViewportVisibilityButton({
   )
 }
 
+/** Sentinel option value: switches a ref row from the picker to free text. */
+const CUSTOM_REF_OPTION = ' waica-custom-ref'
+
+/**
+ * A typed-reference param: a picker over the project's known targets (with
+ * a "missing ⚠" marker when the current value fell out of that set), plus a
+ * "Custom…" escape hatch that swaps to a plain text input. The escape hatch
+ * exists because some refs are legitimately declared by use rather than by
+ * a project file — Collectible.stat is the standing example: validate_project
+ * keeps an undeclared stat a warning, not an error, because the runtime
+ * creates it on first write. Locking the row to only-known-values would make
+ * that workflow impossible from the Inspector.
+ */
+function RefRow({
+  name,
+  value,
+  refKind,
+  targets,
+  onChange,
+}: {
+  name: React.ReactNode
+  value: string
+  refKind: RefKind | undefined
+  targets: RefTarget[]
+  onChange(value: string): void
+}) {
+  const [custom, setCustom] = useState(false)
+  const missing = value !== '' && !targets.some((target) => target.value === value)
+  if (custom) {
+    return (
+      <label className="ed-row">
+        {name}
+        <span className="ed-ref-custom">
+          <input
+            type="text"
+            className={missing ? 'is-missing' : undefined}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+          />
+          <button
+            type="button"
+            className="ed-ref-toggle"
+            title="Pick from the project's known values instead"
+            onClick={() => setCustom(false)}
+          >
+            ▾
+          </button>
+        </span>
+      </label>
+    )
+  }
+  return (
+    <label className="ed-row">
+      {name}
+      <select
+        className={missing ? 'is-missing' : undefined}
+        value={value}
+        aria-invalid={missing || undefined}
+        title={missing ? `Missing ${refKind} reference: ${value}` : undefined}
+        onChange={(e) => {
+          if (e.target.value === CUSTOM_REF_OPTION) {
+            setCustom(true)
+            return
+          }
+          onChange(e.target.value)
+        }}
+      >
+        <option value="">none</option>
+        {missing && <option value={value}>{value} — missing ⚠</option>}
+        {targets.map((target) => (
+          <option key={target.value} value={target.value}>
+            {target.label}
+          </option>
+        ))}
+        <option value={CUSTOM_REF_OPTION}>Custom…</option>
+      </select>
+    </label>
+  )
+}
+
 function PropRow({
   label,
   value,
@@ -352,6 +478,11 @@ function PropRow({
   /** Pushes the override into the prefab (shown only while overridden). */
   onApply?(): void
 }) {
+  const referenceContext = useContext(RefTargetsContext)
+  const referenceTargets =
+    spec?.ref && spec.options === undefined
+      ? availableRefTargets(referenceContext.project, spec.ref, referenceContext.entity)
+      : undefined
   // Rows are <label>s: stop clicks on these buttons from activating the input.
   const press = (fn: () => void) => (e: React.MouseEvent) => {
     e.preventDefault()
@@ -439,6 +570,17 @@ function PropRow({
           ))}
         </select>
       </label>
+    )
+  }
+  if (typeof value === 'string' && referenceTargets) {
+    return (
+      <RefRow
+        name={name}
+        value={value}
+        refKind={spec?.ref}
+        targets={referenceTargets}
+        onChange={onChange}
+      />
     )
   }
   if (typeof value === 'string') {
@@ -1787,8 +1929,21 @@ function ScriptInspector({ name }: { name: string }) {
 export function Inspector(props: Props) {
   const archetype = useArchetype()
   const { selection } = props
+  const referenceComponents =
+    selection?.kind === 'entity'
+      ? resolveComponents(selection.entity, props.prefabs)
+      : selection?.kind === 'prefab'
+        ? selection.prefab.components
+        : selection?.kind === 'multi'
+          ? intersectedClipComponents(selection.entities, props.prefabs)
+          : undefined
+  const referenceContext: RefTargetContext = {
+    project: { prefabs: props.prefabs, stats: props.stats, actions: props.actions },
+    ...(referenceComponents ? { entity: { components: referenceComponents } } : {}),
+  }
   return (
-    <section className="ed-panel ed-inspector">
+    <RefTargetsContext.Provider value={referenceContext}>
+      <section className="ed-panel ed-inspector">
       <header className="ed-panel-head">Inspector</header>
       {selection == null && <div className="ed-hint ed-pad">nothing selected</div>}
       {selection != null && (
@@ -1897,6 +2052,7 @@ export function Inspector(props: Props) {
           />
         </div>
       )}
-    </section>
+      </section>
+    </RefTargetsContext.Provider>
   )
 }

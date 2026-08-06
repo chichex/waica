@@ -58,6 +58,11 @@ describe('listComponents', () => {
       defaults: { mode: 'walker', range: 6, speed: 3, gravity: 42 },
       sourcePackage: '@waica/behaviors',
     })
+    expect(result.components.find((component) => component.componentName === 'Collectible')).toMatchObject({
+      params: {
+        stat: { label: 'Adds to stat', ref: 'stat' },
+      },
+    })
     expect(result.components.find((component) => component.componentName === 'Sprite')).toMatchObject({
       sourcePackage: '@waica/engine',
     })

@@ -73,6 +73,7 @@ type SaveState = 'saved' | 'saving' | 'error'
 const EMPTY_SCENE: SceneJson = { waicaScene: 3, entities: [] }
 /** Stable fallback: a fresh {} per render would loop the UiPane preview effect. */
 const EMPTY_STATS: ProjectStats = {}
+const EMPTY_ACTIONS: InputBindings = {}
 const PREFAB_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9_-]*$/
 const IDENTITY_ASSET = (uri: string): string => uri
 
@@ -1672,6 +1673,8 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
           <Inspector
             selection={selection}
             prefabs={prefabLib}
+            stats={stats ?? EMPTY_STATS}
+            actions={controls ?? EMPTY_ACTIONS}
             art={projectArt.art}
             urlFor={projectArt.urlFor}
             onImportArt={projectArt.importArt}

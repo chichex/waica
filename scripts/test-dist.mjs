@@ -283,6 +283,7 @@ try {
   const mcpRoot = join(root, 'packages/mcp')
   await assertDistMatchesSource(mcpRoot, '@waica/mcp')
   await assertExplicitRelativeImports(mcpRoot, '@waica/mcp')
+  await access(join(mcpRoot, 'dist/native-import.cjs'))
   const mcpSource = JSON.parse(await readFile(join(mcpRoot, 'package.json'), 'utf8'))
   assert.equal(mcpSource.private, true, '@waica/mcp must stay unpublished: it ships inside the CLI')
   assert.equal(mcpSource.publishConfig, undefined, '@waica/mcp must carry no publish settings')
@@ -294,7 +295,7 @@ try {
   assert.deepEqual(cliSource.bin, { waica: 'dist/cli.js' })
   assert.deepEqual(cliPacked.bin, cliSource.bin)
   assert.deepEqual(cliPacked.files, ['dist'])
-  assert.deepEqual(cliPacked.engines, { node: '>=20.19' })
+  assert.deepEqual(cliPacked.engines, { node: '>=22.18' })
   assert.equal(cliPacked.exports, undefined, '@waica/cli must stay pure-bin')
   assert.deepEqual(
     Object.keys(cliPacked.dependencies ?? {}).sort(),
@@ -307,6 +308,7 @@ try {
   assert.ok((await readFile(packedCli, 'utf8')).startsWith('#!/usr/bin/env node\n'))
   await access(join(packedCliRoot, 'dist/editor/index.html'))
   await access(join(packedCliRoot, 'dist/mcp/stdio.js'))
+  await access(join(packedCliRoot, 'dist/mcp/native-import.cjs'))
   await access(join(packedCliRoot, 'dist/mcp/template/package.json.tpl'))
   await access(join(packedCliRoot, 'dist/mcp/template/src/main.ts'))
 
@@ -520,6 +522,66 @@ try {
     assert.equal(result.isError, undefined, `stdio create_project failed: ${childStderr}`)
     await access(join(stdioTarget, 'package.json'))
     await access(join(stdioTarget, 'src/scenes/main.scene.json'))
+
+    await mkdir(join(stdioTarget, 'src/components'), { recursive: true })
+    await mkdir(join(stdioTarget, 'src/objects'), { recursive: true })
+    const componentSource = (target) =>
+      [
+        "import { Component } from '@waica/engine'",
+        'export class PackedRef extends Component {',
+        "  static componentName = 'PackedRef'",
+        "  static params = { target: { ref: 'prefab' } }",
+        `  target = ${JSON.stringify(target)}`,
+        '}',
+      ].join('\n')
+    const componentFile = join(stdioTarget, 'src/components/packed-ref.ts')
+    await writeFile(componentFile, componentSource('objects/missing-one'))
+    await writeFile(
+      join(stdioTarget, 'src/objects/probe.object.json'),
+      JSON.stringify({
+        waicaPrefab: 1,
+        type: 'object',
+        components: [{ type: 'PackedRef' }],
+      }),
+    )
+    const validate = () =>
+      client.callTool(
+        { name: 'validate_project', arguments: { project_path: stdioTarget } },
+        undefined,
+        { timeout: 10_000 },
+      )
+    const firstValidation = await validate()
+    assert.equal(
+      firstValidation.isError,
+      undefined,
+      `packed validate_project failed: ${childStderr}`,
+    )
+    assert.ok(
+      firstValidation.structuredContent?.findings?.some(
+        (finding) =>
+          finding.code === 'broken-prefab-ref' &&
+          finding.ref === 'PackedRef.target' &&
+          finding.message.includes('objects/missing-one'),
+      ),
+      'the packed MCP must execute project TypeScript and validate its ref metadata',
+    )
+    assert.ok(
+      !firstValidation.structuredContent?.findings?.some((finding) =>
+        finding.code.startsWith('component-load-'),
+      ),
+      'the packed native project-module loader must not report a load failure',
+    )
+
+    await writeFile(componentFile, componentSource('objects/missing-two'))
+    const secondValidation = await validate()
+    assert.ok(
+      secondValidation.structuredContent?.findings?.some(
+        (finding) =>
+          finding.code === 'broken-prefab-ref' &&
+          finding.message.includes('objects/missing-two'),
+      ),
+      'the packed long-lived MCP must observe an edited project module',
+    )
   } finally {
     await client.close().catch(() => {})
   }

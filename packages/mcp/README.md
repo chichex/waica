@@ -39,7 +39,14 @@ Every tool takes `project_path`, and it must be an **absolute path** to the user
 | `scaffold_state` | Create the editor-compatible state-code starter for a role and state. |
 | `scaffold_ui` | Create the editor-compatible HTML starter for a UI piece. |
 
-Scaffolds never overwrite an existing file. Project-owned TypeScript is listed and scanned textually but never executed.
+Scaffolds never overwrite an existing file. `list_components` keeps project-owned TypeScript textual and does not execute it.
+
+## Project module execution during validation
+
+`validate_project` executes the project's own `src/components/*.ts`, `src/roles/*.ts` and `src/states/*.ts` modules in the MCP process to read component params and instance defaults. Module-scope code and side effects run, so validate only projects whose code you trust. One module cannot abort the tool or prevent the remaining files from being validated; load problems are returned as findings:
+
+- `component-load-failed` (severity `error`) means the project module has a genuine runtime defect, such as invalid syntax, a broken import or a module-scope throw.
+- `component-load-unsupported` (severity `info`) means the module can be valid in the browser toolchain but Node's strip-only loader cannot execute it, such as an asset import or unsupported TypeScript syntax — this never flips `ok` to `false` on its own. This also covers a host running Node older than 22.15: `node:module`'s `registerHooks` is unavailable there, so in-process component loading is skipped for the whole run.
 
 ## Editor coexistence
 

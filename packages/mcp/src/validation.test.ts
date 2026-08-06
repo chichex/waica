@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { rm, writeFile } from 'node:fs/promises'
+import { readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { cleanup, makeProject, stubPackage, tempDir, writeTree } from './test-helpers.js'
 import { createProject } from './create-project.js'
@@ -22,6 +22,8 @@ const ALL_CODES = [
   'unknown-ui-piece',
   'camera-follow-unknown-entity',
   'unparseable-json',
+  'component-load-failed',
+  'component-load-unsupported',
 ]
 
 describe('validateProject', () => {
@@ -32,6 +34,9 @@ export class ProjectThing {
   static componentName = 'ProjectThing'
 }
 `,
+      'src/components/broken-load.ts': 'export const broken = ;\n',
+      'src/components/asset-load.ts': "import './sprite.png'\n",
+      'src/components/sprite.png': new Uint8Array([137, 80, 78, 71]),
       'src/states/present.ts': '// textual state code is enough\n',
       'src/characters/hero.character.json': JSON.stringify({
         waicaPrefab: 1,
@@ -324,6 +329,33 @@ export class ProjectThing {
       }),
     )
     expect(result.ok).toBe(false)
+  })
+
+  it('does not crash when an archetype manifest declares no bindings', async () => {
+    // discoverArchetypes only runtime-validates manifest.id (archetypes.ts),
+    // so a third-party archetype package can reach validateProject with no
+    // `bindings` object at all; that must not throw.
+    const project = await makeProject()
+    roots.push(project)
+    const manifest = `
+module.exports.ARCHETYPE = {
+  id: 'fixture', label: 'Fixture', scene: { waicaScene: 3, entities: [] },
+  blankScene: { waicaScene: 3, entities: [] },
+  registry: { components: {}, prefabs: {}, ui: {} }, palette: [], prefabs: {}, art: [],
+  entityIcons: {}, actionLabels: {}, bundle: { roles: {} }
+}
+`
+    await stubPackage(project, '@waica/archetype-fixture', { manifest })
+    const pkgPath = path.join(project, 'package.json')
+    const pkg = JSON.parse(await readFile(pkgPath, 'utf8')) as { dependencies: Record<string, string> }
+    pkg.dependencies['@waica/archetype-fixture'] = '^9.0.0'
+    await writeFile(pkgPath, JSON.stringify(pkg))
+    await writeFile(
+      path.join(project, 'src/game.json'),
+      JSON.stringify({ waicaGame: 1, archetype: 'fixture' }),
+    )
+
+    await expect(validateProject(project)).resolves.toMatchObject({ ok: true })
   })
 
   it('does not infer platformer when the accepted project marker has no game.json', async () => {
