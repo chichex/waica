@@ -21,6 +21,16 @@ export class AnimatedSprite extends Component {
     offsetY: { label: 'y offset' },
     layer: { label: 'layer', min: -5, max: 5, step: 1 },
   }
+  static override transient = [
+    'current',
+    'player',
+    'sheets',
+    'texs',
+    'mesh',
+    'frame',
+    'frameScaleX',
+    'frameScaleY',
+  ]
 
   /** Spritesheet URL. */
   texture = ''

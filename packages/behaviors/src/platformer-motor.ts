@@ -26,6 +26,16 @@ export class PlatformerMotor extends Component {
     runThreshold: { label: 'Run threshold', min: 0, max: 5, step: 0.1 },
     squashStretch: { label: 'Squash & stretch' },
   }
+  static override transient = [
+    'vx',
+    'vy',
+    'grounded',
+    'facing',
+    'coyoteTimer',
+    'bufferTimer',
+    'squashX',
+    'squashY',
+  ]
 
   moveSpeed = 9
   acceleration = 60

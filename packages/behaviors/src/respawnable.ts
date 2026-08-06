@@ -11,6 +11,7 @@ export class Respawnable extends Component {
   static override params = {
     killY: { label: 'Kill height', min: -50, max: 0, step: 1 },
   }
+  static override transient = ['spawn']
 
   /** Falling below this height respawns. */
   killY = -12

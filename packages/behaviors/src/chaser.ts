@@ -28,6 +28,7 @@ export class Chaser extends Component {
     speed: { label: 'Speed', min: 0.5, max: 15, step: 0.5 },
     gravity: { label: 'Gravity (walker)', min: 5, max: 120, step: 1 },
   }
+  static override transient = ['vy', 'target']
 
   mode: ChaserMode = 'walker'
   range = 6
