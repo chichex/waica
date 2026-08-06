@@ -236,7 +236,10 @@ export async function scaffoldComponent(
 
 /**
  * A starter prefab of the given type, byte-identical to what the editor
- * writes for the same inputs. The caller names it: no auto-numbering, and an
+ * writes for the same inputs — for roles the active archetype defines. The
+ * editor also accepts a project's own custom roles (defineRole); this
+ * function does not, and rejects them instead of guessing (see the
+ * unknown-role error below). The caller names it: no auto-numbering, and an
  * existing file is left exactly as it is.
  */
 export async function scaffoldPrefab(
@@ -247,14 +250,17 @@ export async function scaffoldPrefab(
   identity?: string,
 ): Promise<{ path: string; created: boolean; reason?: 'exists' }> {
   assertSafeSlug(name, 'name')
-  const directory = PREFAB_DIRECTORIES[type as PrefabType]
-  if (!directory) {
+  // A plain index lookup on an object literal lets inherited
+  // Object.prototype keys ('toString', 'constructor', 'valueOf', …) through
+  // as a truthy "directory" — Object.hasOwn keeps this to the type's own keys.
+  if (!Object.hasOwn(PREFAB_DIRECTORIES, type)) {
     throw invalidInput(
       projectPath,
       `type must be one of ${Object.keys(PREFAB_DIRECTORIES).join(', ')}.`,
     )
   }
   const prefabType = type as PrefabType
+  const directory = PREFAB_DIRECTORIES[prefabType]
   if (prefabType !== 'character' && (role !== undefined || identity !== undefined)) {
     throw invalidInput(
       projectPath,
@@ -263,6 +269,16 @@ export async function scaffoldPrefab(
   }
   if (identity !== undefined && !(IDENTITIES as readonly string[]).includes(identity)) {
     throw invalidInput(projectPath, `identity must be one of ${IDENTITIES.join(', ')}.`)
+  }
+  // The editor's creation dialog never lets a non-player identity keep the
+  // player's role: picking "enemy" forces a movement-role pick too. Defaulting
+  // to 'player' here would silently hand an enemy/npc/custom the player's own
+  // driver instead of the role that identity is supposed to move it with.
+  if (identity !== undefined && identity !== 'player' && role === undefined) {
+    throw invalidInput(
+      projectPath,
+      `role is required when identity is "${identity}": the "player" default only applies when identity is "player" or omitted.`,
+    )
   }
   let definition: RoleDefinition | undefined
   // Same default the editor's creation dialog starts from.

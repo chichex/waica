@@ -195,6 +195,21 @@ describe('scaffoldPrefab', () => {
     )
   })
 
+  // PREFAB_DIRECTORIES is an object literal: an unguarded index lookup lets
+  // these inherited Object.prototype keys through as a truthy "directory",
+  // which used to write the prefab into a garbage path instead of rejecting
+  // it like any other unknown type.
+  it.each(['toString', 'constructor', 'valueOf'])(
+    'rejects the inherited-property type %s instead of resolving Object.prototype',
+    async (type) => {
+      const project = await makeProject()
+      roots.push(project)
+      await expect(scaffoldPrefab(project, 'bullet', type)).rejects.toThrow(
+        /character, object, tile/,
+      )
+    },
+  )
+
   // A character born with a role the archetype never defined would get an
   // empty state graph and no driver — the silent broken prefab this refuses.
   it('rejects a role the archetype does not define and lists the ones it does', async () => {
@@ -213,6 +228,21 @@ describe('scaffoldPrefab', () => {
       scaffoldPrefab(project, 'hero', 'character', 'player', 'boss'),
     ).rejects.toThrow(/player, enemy, npc, custom/)
   })
+
+  // The editor's creation dialog never lets you pick a non-player identity
+  // without also picking a movement role; scaffold_prefab defaulting role to
+  // "player" here would silently give an enemy/npc/custom the player's own
+  // driver instead.
+  it.each(['enemy', 'npc', 'custom'] as const)(
+    'rejects identity %s with no explicit role instead of defaulting to player',
+    async (identity) => {
+      const project = await makeProject()
+      roots.push(project)
+      await expect(
+        scaffoldPrefab(project, 'hero', 'character', undefined, identity),
+      ).rejects.toThrow(/role/i)
+    },
+  )
 
   it('refuses a role or identity on a type that has neither', async () => {
     const project = await makeProject()
