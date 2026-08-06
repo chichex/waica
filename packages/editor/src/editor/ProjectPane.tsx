@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react'
-import type { InputBindings, StatValue } from '@waica/engine'
+import type { StatValue } from '@waica/engine'
 import { useArchetype } from '../project/archetype'
-import { keyLabel, parseControls } from '../project/controls'
+import {
+  actionLabel,
+  deriveActionLabel,
+  keyLabel,
+  parseControls,
+  type ProjectControls,
+} from '../project/controls'
 import type { GameSettings } from '../project/game'
 import type { ProjectStats } from '../project/stats'
 import { NumberField } from './NumberField'
@@ -25,13 +31,14 @@ export function ProjectPane({
 }
 
 export function ControlsEditor({
-  bindings,
+  controls,
   onChange,
 }: {
-  bindings: InputBindings
-  onChange(next: InputBindings): void
+  controls: ProjectControls
+  onChange(next: ProjectControls): void
 }) {
   const archetype = useArchetype()
+  const { bindings, labels } = controls
   /** Action waiting for its next key press, if any. */
   const [capturing, setCapturing] = useState<string | null>(null)
   const [newAction, setNewAction] = useState('')
@@ -45,30 +52,40 @@ export function ControlsEditor({
       if (e.code !== 'Escape') {
         const codes = bindings[capturing] ?? []
         if (!codes.includes(e.code)) {
-          onChange({ ...bindings, [capturing]: [...codes, e.code] })
+          onChange({ bindings: { ...bindings, [capturing]: [...codes, e.code] }, labels })
         }
       }
       setCapturing(null)
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [capturing, bindings, onChange])
+  }, [capturing, bindings, labels, onChange])
 
   const removeKey = (action: string, code: string): void => {
-    onChange({ ...bindings, [action]: (bindings[action] ?? []).filter((c) => c !== code) })
+    onChange({
+      bindings: { ...bindings, [action]: (bindings[action] ?? []).filter((c) => c !== code) },
+      labels,
+    })
   }
 
   const removeAction = (action: string): void => {
-    const next = { ...bindings }
-    delete next[action]
-    onChange(next)
+    const nextBindings = { ...bindings }
+    delete nextBindings[action]
+    // The label goes with the action it named: leaving it behind would write
+    // a label for something the project no longer has.
+    const nextLabels = { ...labels }
+    delete nextLabels[action]
+    onChange({ bindings: nextBindings, labels: nextLabels })
   }
 
   const addName = newAction.trim()
   const addTaken = addName !== '' && addName in bindings
   const addAction = (): void => {
     if (!addName || addTaken) return
-    onChange({ ...bindings, [addName]: [] })
+    onChange({
+      bindings: { ...bindings, [addName]: [] },
+      labels: { ...labels, [addName]: deriveActionLabel(addName) },
+    })
     setNewAction('')
     setCapturing(addName)
   }
@@ -79,7 +96,9 @@ export function ControlsEditor({
         <header className="ed-sec-head">Keyboard</header>
         {Object.entries(bindings).map(([action, codes]) => (
           <div className="ed-keys-row" key={action}>
-            <span className="ed-keys-action">{archetype.actionLabels[action] ?? action}</span>
+            <span className="ed-keys-action">
+              {actionLabel(action, labels, archetype.actionLabels)}
+            </span>
             <div className="ed-keys">
               {codes.map((code) => (
                 <button
@@ -133,7 +152,9 @@ export function ControlsEditor({
       </div>
       <button
         className="ed-wide"
-        onClick={() => onChange(parseControls(null, archetype.bindings))}
+        onClick={() =>
+          onChange({ bindings: parseControls(null, archetype.bindings), labels: {} })
+        }
       >
         ↺ Reset to defaults
       </button>

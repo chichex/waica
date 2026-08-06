@@ -22,6 +22,7 @@ import {
 } from './project-path.js'
 import {
   scaffoldComponent,
+  scaffoldPrefab,
   scaffoldRole,
   scaffoldState,
   scaffoldUi,
@@ -92,6 +93,32 @@ export const TOOLS: Tool[] = [
     name: 'scaffold_component',
     description: 'Create the editor-compatible starter for a project-owned component.',
     inputSchema: schema({ name: { type: 'string', minLength: 1 } }, ['name']),
+    annotations: { destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  {
+    name: 'scaffold_prefab',
+    description: 'Create the editor-compatible starter prefab for a character, object or tile.',
+    inputSchema: schema(
+      {
+        name: { type: 'string', minLength: 1, description: 'Prefab file name, without the type suffix.' },
+        type: {
+          type: 'string',
+          enum: ['character', 'object', 'tile'],
+          description: 'Prefab category; it decides the directory and the file suffix.',
+        },
+        role: {
+          type: 'string',
+          minLength: 1,
+          description: 'Character role from the active archetype (characters only); defaults to player.',
+        },
+        identity: {
+          type: 'string',
+          enum: ['player', 'enemy', 'npc', 'custom'],
+          description: 'What the character is to the game (characters only); adds its starter components.',
+        },
+      },
+      ['name', 'type'],
+    ),
     annotations: { destructiveHint: false, idempotentHint: true, openWorldHint: false },
   },
   {
@@ -167,6 +194,21 @@ async function execute(name: string, args: Record<string, unknown>): Promise<Rec
       const check = await requireWaicaProject(projectPath)
       return {
         ...(await scaffoldComponent(projectPath, requiredString(args, 'name', projectPath))),
+        notes: check.notes,
+        provenance: [],
+        warnings: [],
+      }
+    }
+    case 'scaffold_prefab': {
+      const check = await requireWaicaProject(projectPath)
+      return {
+        ...(await scaffoldPrefab(
+          projectPath,
+          requiredString(args, 'name', projectPath),
+          requiredString(args, 'type', projectPath),
+          args.role === undefined ? undefined : requiredString(args, 'role', projectPath),
+          args.identity === undefined ? undefined : requiredString(args, 'identity', projectPath),
+        )),
         notes: check.notes,
         provenance: [],
         warnings: [],

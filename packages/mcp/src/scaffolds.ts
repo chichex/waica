@@ -1,6 +1,8 @@
 import { access, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { assertSafeSlug } from './project-path.js'
+import type { PrefabJson, RoleDefinition, SceneComponentJson } from '@waica/engine'
+import { activeArchetypeId, discoverArchetypes, pickArchetype } from './archetypes.js'
+import { WaicaToolError, assertSafeSlug } from './project-path.js'
 
 function nameWords(name: string): string[] {
   return name
@@ -35,11 +37,6 @@ function componentTemplate(name: string): string {
 // Project-owned behavior — loaded by the shipped game and editor Play.
 export class ${Class} extends Component {
   static override componentName = '${Class}'
-  static override params = {
-    speed: { label: 'Speed', min: 0, max: 30, step: 0.5 },
-  }
-
-  speed = 5
 
   override onUpdate(dt: number): void {
     // Add this component's per-frame behavior here.
@@ -111,6 +108,95 @@ defineStates('${role}', {
 `
 }
 
+type PrefabType = PrefabJson['type']
+
+/**
+ * Prefab directory under src/ per type — the editor's PREFAB_DIRS read the
+ * other way round. Duplicated here for the same reason every template above
+ * is: the published server cannot import the private editor package, so a
+ * parity test holds the two copies together instead of the type system.
+ */
+const PREFAB_DIRECTORIES: Readonly<Record<PrefabType, string>> = {
+  character: 'characters',
+  object: 'objects',
+  tile: 'tiles',
+}
+
+const IDENTITIES = ['player', 'enemy', 'npc', 'custom'] as const
+type CharacterIdentity = (typeof IDENTITIES)[number]
+
+const DEFAULT_SPRITE = { width: 1, height: 1, color: 0x8ecae6 }
+
+/** Mirrors the editor's IDENTITY_EXTRAS: what an identity is born with. */
+const IDENTITY_EXTRAS: Readonly<Record<CharacterIdentity, readonly SceneComponentJson[]>> = {
+  player: [
+    { type: 'Respawnable' },
+    { type: 'Health', props: { invulnerability: 1 } },
+    { type: 'OutOfBounds' },
+  ],
+  enemy: [{ type: 'Hazard' }, { type: 'Health', props: { max: 1 } }],
+  npc: [],
+  custom: [],
+}
+
+/**
+ * The editor's newPrefabComponents, with the role handed in instead of read
+ * from the engine's global registry — this server resolves the archetype
+ * itself and never installs a bundle into its own process.
+ */
+function prefabComponents(
+  type: PrefabType,
+  role: string,
+  definition: RoleDefinition | undefined,
+  identity?: CharacterIdentity,
+): SceneComponentJson[] {
+  switch (type) {
+    case 'character': {
+      const driver: SceneComponentJson[] = definition?.driver ? [{ type: definition.driver }] : []
+      return [
+        { type: 'Sprite', props: { ...DEFAULT_SPRITE, layer: 2 } },
+        {
+          type: 'StateMachine',
+          props: {
+            role,
+            initial: definition?.graph?.initial ?? '',
+            states: definition?.graph?.states ?? {},
+          },
+        },
+        ...driver,
+        ...(identity ? IDENTITY_EXTRAS[identity] : []),
+        { type: 'Hitbox', props: { width: 0.9, height: 0.95 } },
+      ]
+    }
+    case 'object':
+      return [
+        { type: 'Sprite', props: { ...DEFAULT_SPRITE, layer: 1 } },
+        { type: 'Hitbox', props: { width: 1, height: 1 } },
+      ]
+    case 'tile':
+      return [
+        { type: 'Sprite', props: { ...DEFAULT_SPRITE } },
+        { type: 'Solid', props: { width: 1, height: 1 } },
+      ]
+  }
+}
+
+/** The active archetype's roles — the only ones a scaffolded character may adopt. */
+async function archetypeRoles(projectPath: string): Promise<Record<string, RoleDefinition>> {
+  const activeId = await activeArchetypeId(projectPath)
+  const available = await discoverArchetypes(
+    projectPath,
+    undefined,
+    [],
+    activeId ? [activeId] : [],
+  )
+  return pickArchetype(available, activeId, projectPath).manifest.bundle.roles
+}
+
+function invalidInput(projectPath: string, message: string): WaicaToolError {
+  return new WaicaToolError({ code: 'invalid-input', message, projectPath })
+}
+
 const UI_TEMPLATE = `<style>
   .my-ui {
     position: absolute;
@@ -146,6 +232,86 @@ export async function scaffoldComponent(
 ): Promise<{ path: string; created: boolean; reason?: 'exists'; className: string }> {
   const className = componentClassName(name)
   return { ...(await writeOnce(projectPath, componentFilePath(name), componentTemplate(name))), className }
+}
+
+/**
+ * A starter prefab of the given type, byte-identical to what the editor
+ * writes for the same inputs — for roles the active archetype defines. The
+ * editor also accepts a project's own custom roles (defineRole); this
+ * function does not, and rejects them instead of guessing (see the
+ * unknown-role error below). The caller names it: no auto-numbering, and an
+ * existing file is left exactly as it is.
+ */
+export async function scaffoldPrefab(
+  projectPath: string,
+  name: string,
+  type: string,
+  role?: string,
+  identity?: string,
+): Promise<{ path: string; created: boolean; reason?: 'exists' }> {
+  assertSafeSlug(name, 'name')
+  // A plain index lookup on an object literal lets inherited
+  // Object.prototype keys ('toString', 'constructor', 'valueOf', …) through
+  // as a truthy "directory" — Object.hasOwn keeps this to the type's own keys.
+  if (!Object.hasOwn(PREFAB_DIRECTORIES, type)) {
+    throw invalidInput(
+      projectPath,
+      `type must be one of ${Object.keys(PREFAB_DIRECTORIES).join(', ')}.`,
+    )
+  }
+  const prefabType = type as PrefabType
+  const directory = PREFAB_DIRECTORIES[prefabType]
+  if (prefabType !== 'character' && (role !== undefined || identity !== undefined)) {
+    throw invalidInput(
+      projectPath,
+      `role and identity are character-only: a ${prefabType} prefab has neither.`,
+    )
+  }
+  if (identity !== undefined && !(IDENTITIES as readonly string[]).includes(identity)) {
+    throw invalidInput(projectPath, `identity must be one of ${IDENTITIES.join(', ')}.`)
+  }
+  // The editor's creation dialog never lets a non-player identity keep the
+  // player's role: picking "enemy" forces a movement-role pick too. Defaulting
+  // to 'player' here would silently hand an enemy/npc/custom the player's own
+  // driver instead of the role that identity is supposed to move it with.
+  if (identity !== undefined && identity !== 'player' && role === undefined) {
+    throw invalidInput(
+      projectPath,
+      `role is required when identity is "${identity}": the "player" default only applies when identity is "player" or omitted.`,
+    )
+  }
+  let definition: RoleDefinition | undefined
+  // Same default the editor's creation dialog starts from.
+  const roleName = role ?? 'player'
+  if (prefabType === 'character') {
+    const roles = await archetypeRoles(projectPath)
+    definition = roles[roleName]
+    if (!definition) {
+      // Falling back to an empty graph would write a character that stands
+      // still in Play and says nothing about why.
+      throw new WaicaToolError({
+        code: 'unknown-role',
+        message: `Unknown role "${roleName}". Available roles: ${Object.keys(roles).sort().join(', ')}.`,
+        projectPath,
+        available: Object.keys(roles).sort(),
+      })
+    }
+  }
+  const prefab: PrefabJson = {
+    waicaPrefab: 1,
+    type: prefabType,
+    components: prefabComponents(
+      prefabType,
+      roleName,
+      definition,
+      identity as CharacterIdentity | undefined,
+    ),
+  }
+  return writeOnce(
+    projectPath,
+    `src/${directory}/${name}.${prefabType}.json`,
+    JSON.stringify(prefab, null, 2) + '\n',
+  )
 }
 
 export async function scaffoldRole(
