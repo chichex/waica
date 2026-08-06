@@ -67,11 +67,18 @@ export type CharacterIdentity = 'player' | 'enemy' | 'npc' | 'custom'
  * damage, fall out of the world and come back; enemies hurt on touch and can
  * be hurt back; bystanders and custom roles bring nothing. Health is on both
  * fighting identities because "hurts you" and "can be hurt" are separate —
- * an enemy needs each half spelled out.
+ * an enemy needs each half spelled out. Props here mirror
+ * PLATFORMER_PREFABS's characters/player and characters/slime exactly, so a
+ * character born in the editor plays the same as one from the palette
+ * instead of landing on Health's bare class defaults.
  */
-export const IDENTITY_EXTRAS: Record<CharacterIdentity, readonly string[]> = {
-  player: ['Respawnable', 'Health', 'OutOfBounds'],
-  enemy: ['Hazard', 'Health'],
+export const IDENTITY_EXTRAS: Record<CharacterIdentity, readonly SceneComponentJson[]> = {
+  player: [
+    { type: 'Respawnable' },
+    { type: 'Health', props: { invulnerability: 1 } },
+    { type: 'OutOfBounds' },
+  ],
+  enemy: [{ type: 'Hazard' }, { type: 'Health', props: { max: 1 } }],
   npc: [],
   custom: [],
 }
@@ -97,9 +104,11 @@ export function newPrefabComponents(
       // the archetype's.
       const def = roleDefinition(role)
       const driver: SceneComponentJson[] = def?.driver ? [{ type: def.driver }] : []
-      const extras: SceneComponentJson[] = (identity ? IDENTITY_EXTRAS[identity] : []).map(
-        (t) => ({ type: t }),
-      )
+      // Cloned so two prefabs never share a props object (mirrors the state
+      // graph clone below).
+      const extras: SceneComponentJson[] = structuredClone(
+        identity ? IDENTITY_EXTRAS[identity] : [],
+      ) as SceneComponentJson[]
       return [
         { type: 'Sprite', props: { ...DEFAULT_SPRITE, layer: 2 } },
         {

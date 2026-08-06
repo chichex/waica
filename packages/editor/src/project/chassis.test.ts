@@ -169,6 +169,26 @@ describe('newPrefabComponents', () => {
     ])
   })
 
+  it('gives the identity extras the same props as the archetype prefabs, not bare class defaults', () => {
+    // PLATFORMER_PREFABS ships Health { invulnerability: 1 } on the player
+    // and Health { max: 1 } on the slime — an editor-born character must
+    // land on the same numbers, not the component's bare authoring
+    // defaults (invulnerability: 0, max: 3).
+    const player = newPrefabComponents('character', 'player', 'player')
+    expect(player.find((c) => c.type === 'Health')?.props).toEqual({ invulnerability: 1 })
+
+    const enemy = newPrefabComponents('character', 'chaser', 'enemy')
+    expect(enemy.find((c) => c.type === 'Health')?.props).toEqual({ max: 1 })
+  })
+
+  it('gives every identity extras component its own props object', () => {
+    const a = newPrefabComponents('character', 'player', 'player')
+    const b = newPrefabComponents('character', 'player', 'player')
+    const aHealth = a.find((c) => c.type === 'Health')
+    const bHealth = b.find((c) => c.type === 'Health')
+    expect(aHealth?.props).not.toBe(bHealth?.props)
+  })
+
   it('births unknown roles machine-only, with an empty graph', () => {
     const custom = newPrefabComponents('character', 'my-own-role')
     expect(custom.map((c) => c.type)).toEqual(['Sprite', 'StateMachine', 'Hitbox'])
