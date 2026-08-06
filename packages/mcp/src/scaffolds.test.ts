@@ -45,6 +45,17 @@ describe('scaffolds', () => {
     },
   )
 
+  it('scaffolds a component with no placeholder field, exactly like the editor', async () => {
+    const project = await makeProject()
+    roots.push(project)
+
+    await scaffoldComponent(project, 'dash')
+    const code = await readFile(path.join(project, componentFilePath('dash')), 'utf8')
+
+    expect(code).not.toContain('params')
+    expect(code).not.toContain('speed')
+  })
+
   it('rejects the reserved Component class exactly like the editor', async () => {
     const project = await makeProject()
     roots.push(project)

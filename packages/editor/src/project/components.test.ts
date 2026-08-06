@@ -35,13 +35,23 @@ describe('project component files', () => {
     expect(await listComponentFiles(fs)).toEqual([])
   })
 
-  it('generates an exported Component subclass with a stable name and inspector params', () => {
+  it('generates an exported Component subclass with a stable name and an empty update stub', () => {
     const code = componentFileTemplate('Gun')
 
     expect(code).toContain("import { Component } from '@waica/engine'")
     expect(code).toContain('export class Gun extends Component')
     expect(code).toContain("static override componentName = 'Gun'")
-    expect(code).toContain('static override params = {')
+    expect(code).toContain('override onUpdate(dt: number): void')
+    expect(code).toContain("// Add this component's per-frame behavior here.")
+  })
+
+  it('invents no state: the starter carries neither a placeholder field nor its params entry', () => {
+    // Every component written in a real session deleted the speed placeholder
+    // and the params block that described it — the starter stopped shipping them.
+    const code = componentFileTemplate('Gun')
+
+    expect(code).not.toContain('params')
+    expect(code).not.toContain('speed')
   })
 
   it('scaffolds once and never overwrites an existing file', async () => {

@@ -60,11 +60,6 @@ export function componentFileTemplate(name: string): string {
 // Project-owned behavior — loaded by the shipped game and editor Play.
 export class ${Class} extends Component {
   static override componentName = '${Class}'
-  static override params = {
-    speed: { label: 'Speed', min: 0, max: 30, step: 0.5 },
-  }
-
-  speed = 5
 
   override onUpdate(dt: number): void {
     // Add this component's per-frame behavior here.
