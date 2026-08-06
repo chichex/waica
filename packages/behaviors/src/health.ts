@@ -1,0 +1,89 @@
+import { Component, StateMachine, type Entity, type StateJson } from '@waica/engine'
+
+/**
+ * Whether a state graph reacts to death on its own: a 'signal:death' edge
+ * on the current state or on '*'. Mirrors the merge nextTransition performs,
+ * because StateMachine.signal is fire-and-forget — it cannot report whether
+ * anybody handled the signal, so the graph is asked statically instead.
+ */
+export function declaresDeathHandling(
+  states: Record<string, StateJson>,
+  current: string,
+): boolean {
+  const edges = [...(states[current]?.transitions ?? []), ...(states['*']?.transitions ?? [])]
+  return edges.some((transition) => transition.on === 'signal:death')
+}
+
+/**
+ * How much punishment an entity takes before it dies. Deliberately separate
+ * from Hazard's "hurts on touch": an enemy is both, a spike is only the
+ * hazard, and a projectile targets only what can be hurt.
+ *
+ * There is no kill(): lethality is arithmetic, so damage(Infinity) is the
+ * only death path and every death goes through the same policy.
+ */
+export class Health extends Component {
+  static override componentName = 'Health'
+  static override params = {
+    max: { label: 'Max health', min: 1, max: 20, step: 1 },
+    invulnerability: { label: 'Invulnerability', min: 0, max: 5, step: 0.1 },
+  }
+  static override transient = ['current', 'invulnerable']
+
+  max = 3
+  /** Seconds of immunity granted by taking a hit. 0 disables i-frames. */
+  invulnerability = 0
+
+  /** Health left; 0 is dead. Filled in from max on ready. */
+  current = 0
+
+  /** Seconds left in the invulnerability window. */
+  private invulnerable = 0
+
+  override onReady(): void {
+    this.current = this.max
+  }
+
+  override onUpdate(dt: number): void {
+    if (this.invulnerable > 0) this.invulnerable = Math.max(0, this.invulnerable - dt)
+  }
+
+  /**
+   * Takes `amount` off unless already dead or still invulnerable, then opens
+   * the invulnerability window. `source` is whatever dealt the damage, for
+   * listeners that care who hit them.
+   */
+  damage(amount: number, source?: Entity): void {
+    if (amount <= 0 || this.current <= 0 || this.invulnerable > 0) return
+    this.current = Math.max(0, this.current - amount)
+    this.game.events.emit('damage', {
+      entity: this.entity,
+      amount,
+      current: this.current,
+      source,
+    })
+    this.invulnerable = this.invulnerability
+    if (this.current === 0) this.die()
+  }
+
+  /** Gives health back, capped at max. heal(Infinity) is a full restore. */
+  heal(amount: number): void {
+    if (amount <= 0) return
+    this.current = Math.min(this.max, this.current + amount)
+  }
+
+  /**
+   * Announces the death, then lets the role decide — but only if it says it
+   * can: a graph with no death edge would swallow the signal silently, so
+   * destroying is the fallback rather than the exception.
+   */
+  private die(): void {
+    this.game.events.emit('death', { entity: this.entity })
+    const machine = this.entity.get(StateMachine)
+    if (machine && declaresDeathHandling(machine.states, machine.current)) {
+      machine.signal('death')
+      return
+    }
+    this.entity.destroy()
+  }
+}
