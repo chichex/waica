@@ -109,6 +109,11 @@ export const PLAYER_ROLE: RoleDefinition = {
     // Coming back is what leaving death means, so it hangs off onExit: any
     // other way out of this state (a project's own edge) revives too.
     dead: {
+      // A state without its own onUpdate falls back to the role's default
+      // body update — the shape every custom state relies on — so without
+      // this no-op the player kept running, jumping and falling for the
+      // whole death beat instead of the graph taking control away.
+      onUpdate() {},
       onExit({ entity }) {
         entity.get(Respawnable)?.respawn()
         entity.get(Health)?.heal(Infinity)

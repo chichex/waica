@@ -123,6 +123,24 @@ describe('the player graph handles its own death', () => {
     expect(machine.current).not.toBe('dead')
   })
 
+  it('freezes the body while dead: no gravity or input moves it before the timer', () => {
+    // Without an onUpdate of its own, 'dead' falls back to the role's
+    // default body update (the shape every other custom state relies on),
+    // so the player kept running, jumping and falling for the whole 0.8s
+    // beat, then got yanked back to spawn instead of staying put.
+    const { entity, machine, health, motor } = makePlayer()
+    health.damage(3)
+    machine.onUpdate(0.016)
+    expect(machine.current).toBe('dead')
+    const frozenY = entity.position.y
+    const frozenVy = motor.vy
+
+    machine.onUpdate(DEAD_SECONDS / 2)
+
+    expect(entity.position.y).toBe(frozenY)
+    expect(motor.vy).toBe(frozenVy)
+  })
+
   it('the timer hands control back to idle, with the body update out of the way', () => {
     // No motor: playerUpdate early-returns without one, so nothing signals
     // over the timer's edge and the state it lands on is the graph's answer,
