@@ -57,6 +57,18 @@ describe('Health arithmetic', () => {
     expect(health.current).toBe(5)
   })
 
+  it('dies on ready when authored with a non-positive max, instead of becoming permanently invulnerable', () => {
+    // damage() early-returns while current <= 0, and onReady used to set
+    // current = max verbatim: an authored max of 0 (the inspector has no
+    // min clamp) left current at 0 forever without ever calling die(), so
+    // the entity could never be damaged, never emitted 'death', and was
+    // never destroyed or routed through the graph's death policy.
+    const { entity, health } = makeHealth({ max: 0 })
+
+    expect(health.current).toBe(0)
+    expect(entity.destroy).toHaveBeenCalledOnce()
+  })
+
   it('subtracts the damage taken and reports it on the event bus', () => {
     const { game, entity, health } = makeHealth({ max: 3 })
     const source = makeEntity(game, 'Spike')

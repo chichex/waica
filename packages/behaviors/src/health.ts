@@ -50,7 +50,13 @@ export class Health extends Component {
   private invulnerable = 0
 
   override onReady(): void {
-    this.current = this.max
+    // The inspector has no min clamp on max, so an authored 0 (or a
+    // negative value) is reachable. Without this, current lands at <= 0
+    // and stays there forever: damage() early-returns while current <= 0,
+    // so die() is never reached — permanently invulnerable instead of
+    // already dead.
+    this.current = Math.max(0, this.max)
+    if (this.current === 0) this.die()
   }
 
   override onUpdate(dt: number): void {
