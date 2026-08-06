@@ -10,18 +10,40 @@ import { Component, StateMachine, type Entity, type StateJson } from '@waica/eng
 const DEATH_EPSILON = 1e-9
 
 /**
+ * Where a 'signal:death' from `current` could land: the targets of every
+ * death edge on the current state or on '*'. Mirrors the merge
+ * nextTransition performs.
+ */
+export function deathTargets(states: Record<string, StateJson>, current: string): string[] {
+  const edges = [...(states[current]?.transitions ?? []), ...(states['*']?.transitions ?? [])]
+  return edges.filter((transition) => transition.on === 'signal:death').map((t) => t.to)
+}
+
+/**
  * Whether a state graph reacts to death on its own: a 'signal:death' edge
  * on the current state or on '*'. Mirrors the merge nextTransition performs,
  * because StateMachine.signal is fire-and-forget — it cannot report whether
  * anybody handled the signal, so the graph is asked statically instead.
+ *
+ * Declaring an edge is not the same as taking it: nextTransition returns the
+ * FIRST firing edge, so a death edge listed after another edge that also
+ * fires loses the race and the signal is dropped. That is why signalling is
+ * followed by the deferred check in Health.onUpdate rather than trusted.
  */
 export function declaresDeathHandling(
   states: Record<string, StateJson>,
   current: string,
 ): boolean {
-  const edges = [...(states[current]?.transitions ?? []), ...(states['*']?.transitions ?? [])]
-  return edges.some((transition) => transition.on === 'signal:death')
+  return deathTargets(states, current).length > 0
 }
+
+/**
+ * Frames to wait before deciding the graph ignored the death signal. Two,
+ * not one, because component update order is prefab-authored: with Health
+ * listed before its StateMachine, one frame would check before the machine
+ * ever ran. Two guarantees the machine got a full tick either way.
+ */
+const DEATH_GRACE_FRAMES = 2
 
 /**
  * How much punishment an entity takes before it dies. Deliberately separate
@@ -37,7 +59,7 @@ export class Health extends Component {
     max: { label: 'Max health', min: 1, max: 20, step: 1 },
     invulnerability: { label: 'Invulnerability', min: 0, max: 5, step: 0.1 },
   }
-  static override transient = ['current', 'invulnerable']
+  static override transient = ['current', 'invulnerable', 'deathGrace', 'expectedStates']
 
   max = 3
   /** Seconds of immunity granted by taking a hit. 0 disables i-frames. */
@@ -48,6 +70,11 @@ export class Health extends Component {
 
   /** Seconds left in the invulnerability window. */
   private invulnerable = 0
+
+  /** Frames left before the signalled death is checked; 0 when not waiting. */
+  private deathGrace = 0
+  /** States the death signal was supposed to reach. */
+  private expectedStates: string[] = []
 
   override onReady(): void {
     // The inspector has no min clamp on max, so an authored 0 (or a
@@ -61,6 +88,24 @@ export class Health extends Component {
 
   override onUpdate(dt: number): void {
     if (this.invulnerable > 0) this.invulnerable = Math.max(0, this.invulnerable - dt)
+    if (this.deathGrace > 0 && --this.deathGrace === 0) this.settleDeath()
+  }
+
+  /**
+   * Makes good on a death the graph said it would handle. Signalling is
+   * fire-and-forget, so "it declared an edge" is a promise, not a receipt:
+   * if the machine is not in one of the states that edge led to and the
+   * entity is still dead, nobody took it and the destroy fallback applies
+   * after all. Being healed back up counts as handled — a project that
+   * revives on death did resolve it, just not by changing state.
+   */
+  private settleDeath(): void {
+    const expected = this.expectedStates
+    this.expectedStates = []
+    if (!this.entity.alive || this.current > 0) return
+    const machine = this.entity.get(StateMachine)
+    if (machine && expected.includes(machine.current)) return
+    this.entity.destroy()
   }
 
   /**
@@ -100,8 +145,13 @@ export class Health extends Component {
   private die(): void {
     this.game.events.emit('death', { entity: this.entity })
     const machine = this.entity.get(StateMachine)
-    if (machine && declaresDeathHandling(machine.states, machine.current)) {
+    const targets = machine ? deathTargets(machine.states, machine.current) : []
+    if (machine && targets.length > 0) {
       machine.signal('death')
+      // Trust, then verify: settleDeath falls back to destroying if the
+      // signal never actually moved the machine anywhere it said it would.
+      this.expectedStates = targets
+      this.deathGrace = DEATH_GRACE_FRAMES
       return
     }
     this.entity.destroy()

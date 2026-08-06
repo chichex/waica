@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
-import { StateMachine, THREE, type Component, type Entity, type Game } from '@waica/engine'
+import {
+  StateMachine,
+  THREE,
+  authoringDefaults,
+  type Component,
+  type Entity,
+  type Game,
+} from '@waica/engine'
 import { Health, declaresDeathHandling } from './health'
 
 interface StubEntity extends Entity {
@@ -309,5 +316,129 @@ describe('Health death policy', () => {
     health.damage(1)
 
     expect(game.events.emit).toHaveBeenCalledWith('death', { entity })
+  })
+})
+
+describe('Health deferred death fallback', () => {
+  /**
+   * A real StateMachine over a real graph — the point of these tests is what
+   * the machine actually does with the signal, which a stubbed signal() by
+   * definition cannot show.
+   */
+  function makeGraphed(states: StateMachine['states'], initial: string) {
+    const game = makeGame()
+    ;(game as unknown as { input: unknown }).input = {
+      justPressed: () => false,
+      consumed: () => false,
+      consume: vi.fn(),
+      axis: () => 0,
+    }
+    const entity = makeEntity(game, 'Character')
+    const machine = new StateMachine()
+    machine.states = states
+    machine.initial = initial
+    entity.addStub(machine)
+    machine.onReady()
+    const health = new Health()
+    health.max = 1
+    entity.addStub(health)
+    health.onReady()
+    /** One engine frame: the machine settles transitions, then Health checks. */
+    const frame = (dt = 0.016) => {
+      machine.onUpdate(dt)
+      health.onUpdate(dt)
+    }
+    return { game, entity, health, machine, frame }
+  }
+
+  const DEATH_EDGE = { on: 'signal:death', to: 'dead' }
+
+  it('destroys the entity when a declared death edge loses the race and the signal is dropped', () => {
+    // 'signal:move' is listed first, so nextTransition picks it and the queued
+    // 'death' is cleared unhandled — the exact hole declaresDeathHandling
+    // cannot see statically.
+    const { entity, health, machine, frame } = makeGraphed(
+      {
+        idle: { transitions: [{ on: 'signal:move', to: 'run' }, DEATH_EDGE] },
+        run: {},
+        dead: {},
+      },
+      'idle',
+    )
+    machine.signal('move')
+
+    health.damage(1)
+    frame()
+    expect(machine.current).toBe('run')
+    expect(entity.destroy).not.toHaveBeenCalled()
+
+    frame()
+    frame()
+
+    expect(entity.destroy).toHaveBeenCalledOnce()
+  })
+
+  it('leaves the entity alone when the graph really did take the death', () => {
+    const { entity, health, machine, frame } = makeGraphed(
+      { idle: {}, dead: {}, '*': { transitions: [DEATH_EDGE] } },
+      'idle',
+    )
+
+    health.damage(1)
+    frame()
+    frame()
+    frame()
+
+    expect(machine.current).toBe('dead')
+    expect(entity.destroy).not.toHaveBeenCalled()
+  })
+
+  it('does not destroy a player sitting out a long death beat at 0 health', () => {
+    // The shipped player stays in `dead` for 0.8s at 0 HP before onExit heals
+    // it. A fallback that merely re-checked "still at 0 HP" would kill it here.
+    const { entity, health, machine, frame } = makeGraphed(
+      { idle: {}, dead: { transitions: [{ on: 'timer:0.8', to: 'idle' }] }, '*': { transitions: [DEATH_EDGE] } },
+      'idle',
+    )
+
+    health.damage(1)
+    for (let i = 0; i < 40; i++) frame()
+
+    expect(machine.current).toBe('dead')
+    expect(health.current).toBe(0)
+    expect(entity.destroy).not.toHaveBeenCalled()
+  })
+
+  it('spares an entity something revived before the grace ran out, graph or no graph', () => {
+    // A project that resurrects on the 'death' event rather than through a
+    // state: the death was resolved, just not by moving the machine. The
+    // fallback must not undo that by destroying the entity anyway.
+    const { entity, health, machine, frame } = makeGraphed(
+      { idle: { transitions: [{ on: 'signal:move', to: 'run' }, DEATH_EDGE] }, run: {}, dead: {} },
+      'idle',
+    )
+    machine.signal('move')
+
+    health.damage(1)
+    health.heal(Infinity)
+    frame()
+    frame()
+    frame()
+
+    expect(machine.current).toBe('run')
+    expect(health.current).toBe(1)
+    expect(entity.destroy).not.toHaveBeenCalled()
+  })
+
+  it('still destroys immediately when the graph declares no death edge at all', () => {
+    const { entity, health } = makeGraphed({ idle: {} }, 'idle')
+
+    health.damage(1)
+
+    expect(entity.destroy).toHaveBeenCalledOnce()
+  })
+
+  it('keeps the deferred bookkeeping out of the authoring surface', () => {
+    expect(authoringDefaults(Health)).toEqual({ max: 3, invulnerability: 0 })
   })
 })
