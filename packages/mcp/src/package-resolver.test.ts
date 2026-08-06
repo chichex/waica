@@ -100,6 +100,19 @@ describe('PackageResolver', () => {
     ])
   })
 
+  it('falls back to the MCP-bundled archetype-platformer for the bare specifier, not only ./manifest', async () => {
+    const project = await makeProject()
+    roots.push(project)
+
+    const loaded = await new PackageResolver(project).load('@waica/archetype-platformer')
+
+    expect(loaded.provenance).toEqual({
+      package: '@waica/archetype-platformer',
+      version: BUNDLED,
+      source: 'bundled',
+    })
+  })
+
   it('reports only one row for a package resolved more than once', async () => {
     const project = await makeProject()
     roots.push(project)

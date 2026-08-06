@@ -211,7 +211,10 @@ function validateParamReferences(
           if (!context.bindings[value]?.length) {
             add(
               context,
-              'error',
+              // Consistent with the pre-existing state-transition check for the
+              // same condition (below): an unbound action is a real gap the
+              // agent should look at, but not one that flips ok:false.
+              'warning',
               'input-action-unbound',
               `Component "${component.type}" param "${param}" references unbound input action "${value}".`,
               file,
@@ -304,7 +307,12 @@ function validateStateMachines(
       const definition = objectRecord(states[name]) as StateJson
       const explicitClip = typeof definition.clip === 'string' ? definition.clip : undefined
       const clip = explicitClip ?? name
-      if (explicitClip !== '' && clips && !clips.has(clip)) {
+      // No "empty means none" special case here: the runtime looks up
+      // `this.states[state]?.clip ?? state`, and '' survives that nullish
+      // coalesce, so an explicit empty clip is looked up literally and must
+      // be validated like any other explicit value (unlike Collectible.stat,
+      // which the runtime genuinely treats as unset).
+      if (clips && !clips.has(clip)) {
         add(
           context,
           explicitClip === undefined ? 'warning' : 'error',
@@ -596,7 +604,11 @@ export async function validateProject(projectPath: string): Promise<{
   for (const failure of loadedProjectComponents.failures) {
     add(
       { findings },
-      'error',
+      // component-load-unsupported means Node's strip-only loader cannot run
+      // code that can still be perfectly valid in the project's Vite/browser
+      // toolchain (asset imports, TS enums, an old Node host) — that is not a
+      // project defect, so it must not flip a healthy project to ok:false.
+      failure.code === 'component-load-unsupported' ? 'info' : 'error',
       failure.code,
       `Cannot execute project module: ${failure.message}`,
       failure.file,
@@ -604,9 +616,13 @@ export async function validateProject(projectPath: string): Promise<{
   }
   const manifest = pickArchetype(archetypes, activeId, projectPath).manifest
   const controls = objectRecord(objectRecord(fixed.get('src/controls.json')).bindings)
-  const bindings: Record<string, string[]> = Object.fromEntries(
-    Object.entries(manifest.bindings).map(([name, value]) => [name, [...value]]),
-  )
+  // Bound/unbound is decided from controls.json alone: the shipped runtime
+  // installs exactly controls.json's bindings (template main.ts passes
+  // controls.bindings raw; engine DEFAULT_BINDINGS is {}), so an action an
+  // archetype defines by default but controls.json drops is genuinely
+  // unbound at runtime even though discoverArchetypes never guarantees
+  // manifest.bindings exists (only manifest.id is validated).
+  const bindings: Record<string, string[]> = {}
   for (const [name, value] of Object.entries(controls)) {
     if (Array.isArray(value) && value.every((entry) => typeof entry === 'string')) {
       bindings[name] = value

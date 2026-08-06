@@ -1,10 +1,13 @@
 import type { ParamSpec } from '@waica/engine'
+import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
-import { createRequire, registerHooks } from 'node:module'
+import * as nodeModule from 'node:module'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { PackageResolver, projectAnchoredRequire } from './package-resolver.js'
 import { directFiles } from './project-path.js'
+
+const { createRequire } = nodeModule
 
 export type ComponentLoadFailureCode =
   | 'component-load-failed'
@@ -32,9 +35,16 @@ interface HookContext {
   packageBridges: Map<string, string>
 }
 
-const RUN_PARAM = 'waica-component-load'
+// Two independent identifiers travel on every module URL this loader hands
+// out: PROJECT_PARAM routes a resolve-hook call back to the validation run
+// that started it (an ephemeral, in-memory lookup, cleaned up per run), and
+// LOAD_PARAM is a content hash that only changes when the file's own bytes
+// change. Splitting them is what lets re-validating unchanged files reuse
+// Node's module cache instead of pinning a fresh entry on every run (see
+// loadProjectComponents below).
+const PROJECT_PARAM = 'waica-component-project'
+const LOAD_PARAM = 'waica-component-load'
 const hookContexts = new Map<string, HookContext>()
-let nextRun = 0
 
 type NativeImport = (specifier: string) => Promise<Record<string, unknown>>
 
@@ -42,13 +52,45 @@ type NativeImport = (specifier: string) => Promise<Record<string, unknown>>
 // rewriting fixture imports. The build copies the same file byte-for-byte.
 const nativeImport = createRequire(import.meta.url)('./native-import.cjs') as NativeImport
 
+const MODULE_HOOKS_MIN_NODE = '22.15'
+
+/** Pure so it can be exercised directly, independent of the running Node. */
+export function nodeSupportsModuleHooks(
+  moduleApi: { registerHooks?: unknown } = nodeModule,
+): boolean {
+  return typeof moduleApi.registerHooks === 'function'
+}
+
+/**
+ * `node:module`'s `registerHooks` landed in Node 22.15; this MCP server is
+ * still expected to start (and serve every other tool) on the older Node
+ * hosts an agent may be running. A static named import of `registerHooks`
+ * would fail ESM linking on those hosts before the transport ever connects
+ * (see workspace-runtime.ts for the same guard on the same API), so this is
+ * a namespace import feature-checked at runtime instead.
+ */
+const hooksSupported = nodeSupportsModuleHooks()
+
+/** The single finding emitted in place of real component loading on a host too old for module hooks. */
+export function unsupportedNodeFailure(nodeVersion: string = process.version): ComponentLoadFailure {
+  return {
+    code: 'component-load-unsupported',
+    file: 'src',
+    message:
+      `Deep component validation requires Node >= ${MODULE_HOOKS_MIN_NODE} (node:module registerHooks) ` +
+      `to run project components, roles and states in-process; this host runs Node ${nodeVersion}. ` +
+      'Skipping in-process module loading: component params and instance defaults from project code ' +
+      'will not appear in validate_project or list_components until the host upgrades.',
+  }
+}
+
 function runFromParent(parentURL: string | undefined): {
   token: string
   context: HookContext
 } | undefined {
   if (!parentURL) return undefined
   try {
-    const token = new URL(parentURL).searchParams.get(RUN_PARAM)
+    const token = new URL(parentURL).searchParams.get(PROJECT_PARAM)
     const context = token ? hookContexts.get(token) : undefined
     return token && context ? { token, context } : undefined
   } catch {
@@ -56,58 +98,96 @@ function runFromParent(parentURL: string | undefined): {
   }
 }
 
-function versioned(url: URL, token: string): string {
-  url.searchParams.set(RUN_PARAM, token)
+function versioned(url: URL, token: string, content: string): string {
+  url.searchParams.set(PROJECT_PARAM, token)
+  url.searchParams.set(LOAD_PARAM, content)
   return url.href
 }
 
+function projectToken(projectPath: string): string {
+  return createHash('sha1').update(path.resolve(projectPath)).digest('hex').slice(0, 16)
+}
+
+/** Content identity for cache-busting: stable across runs, changes only when the file's bytes do. */
+function contentToken(filePath: string): string {
+  try {
+    return createHash('sha1').update(readFileSync(filePath)).digest('hex').slice(0, 16)
+  } catch {
+    // The subsequent import attempt reports the real read/import error; this
+    // token only needs to exist so versioned() has something to stamp.
+    return 'unreadable'
+  }
+}
+
+const RELATIVE_EXTENSIONS = ['.ts', '.tsx', '.js']
+
+/** Mirrors the editor's resolveProjectImport (play-code.ts): direct, direct+ext, direct/index+ext. */
+function relativeCandidates(unresolvedPath: string): string[] {
+  const candidates = [
+    ...RELATIVE_EXTENSIONS.map((extension) => `${unresolvedPath}${extension}`),
+    ...RELATIVE_EXTENSIONS.map((extension) => path.join(unresolvedPath, `index${extension}`)),
+  ]
+  if (unresolvedPath.endsWith('.js')) {
+    const withoutJs = unresolvedPath.slice(0, -'.js'.length)
+    candidates.unshift(`${withoutJs}.ts`, `${withoutJs}.tsx`)
+  }
+  return candidates
+}
+
+function resolveRelativeCandidate(unresolvedPath: string): string | undefined {
+  return relativeCandidates(unresolvedPath).find((candidate) => existsSync(candidate))
+}
+
 // The synchronous hook is process-wide, but it is inert for imports that were
-// not initiated by this loader. A unique query token both selects the project
-// resolver and gives each validation run fresh module-cache URLs.
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const run = runFromParent(context.parentURL)
-    if (!run) return nextResolve(specifier, context)
+// not initiated by this loader. The PROJECT_PARAM token selects the project
+// resolver for a given run; nextResolve is always tried first so real Node
+// resolution (package "exports" maps, symlinks, literal existing paths) stays
+// authoritative, and our TypeScript-project conventions are only a fallback.
+if (hooksSupported) {
+  nodeModule.registerHooks({
+    resolve(specifier, context, nextResolve) {
+      const run = runFromParent(context.parentURL)
+      if (!run) return nextResolve(specifier, context)
 
-    if (specifier.startsWith('@waica/')) {
-      const bridge = run.context.packageBridges.get(specifier)
-      if (bridge) return { url: bridge, shortCircuit: true }
-      const resolved = run.context.projectRequire.resolve(specifier)
-      const url = pathToFileURL(resolved)
-      return {
-        url: /\.tsx?$/.test(resolved) ? versioned(url, run.token) : url.href,
-        shortCircuit: true,
-      }
-    }
-
-    if (specifier.startsWith('.')) {
-      const unresolved = new URL(specifier, context.parentURL)
-      const unresolvedPath = fileURLToPath(unresolved)
-      if (path.extname(unresolvedPath) === '') {
-        for (const extension of ['.ts', '.tsx', '.js']) {
-          const candidate = new URL(unresolved)
-          candidate.pathname += extension
-          if (existsSync(fileURLToPath(candidate))) {
-            return { url: versioned(candidate, run.token), shortCircuit: true }
-          }
+      if (specifier.startsWith('@waica/')) {
+        const bridge = run.context.packageBridges.get(specifier)
+        if (bridge) return { url: bridge, shortCircuit: true }
+        const resolved = run.context.projectRequire.resolve(specifier)
+        const url = pathToFileURL(resolved)
+        return {
+          url: /\.tsx?$/.test(resolved)
+            ? versioned(url, run.token, contentToken(resolved))
+            : url.href,
+          shortCircuit: true,
         }
       }
-      if (!existsSync(unresolvedPath) && unresolvedPath.endsWith('.js')) {
-        for (const extension of ['.ts', '.tsx']) {
-          const candidate = new URL(unresolved)
-          candidate.pathname = candidate.pathname.slice(0, -'.js'.length) + extension
-          if (existsSync(fileURLToPath(candidate))) {
-            return { url: versioned(candidate, run.token), shortCircuit: true }
-          }
+
+      if (specifier.startsWith('.')) {
+        const unresolved = new URL(specifier, context.parentURL)
+        let resolvedURL: URL
+        try {
+          resolvedURL = new URL(nextResolve(specifier, context).url)
+        } catch (error) {
+          // Directory imports (./lib -> ./lib/index.ts) and multi-dot
+          // specifiers (./foo.helper -> ./foo.helper.ts) are valid under the
+          // project's moduleResolution "bundler" and run fine in Vite, but
+          // Node's default resolver rejects both — fall back to the same
+          // candidates the editor tries before giving up.
+          const fallback = resolveRelativeCandidate(fileURLToPath(unresolved))
+          if (!fallback) throw error
+          resolvedURL = pathToFileURL(fallback)
+        }
+        const resolvedPath = fileURLToPath(resolvedURL)
+        return {
+          url: versioned(resolvedURL, run.token, contentToken(resolvedPath)),
+          shortCircuit: true,
         }
       }
-      const resolved = nextResolve(specifier, context)
-      return { ...resolved, url: versioned(new URL(resolved.url), run.token) }
-    }
 
-    return nextResolve(specifier, context)
-  },
-})
+      return nextResolve(specifier, context)
+    },
+  })
+}
 
 function objectRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -165,7 +245,7 @@ function failureMessage(error: unknown): string {
   return `${code ? `${code}: ` : ''}${error.message}`
 }
 
-function unsupportedByNode(error: unknown, source: string): boolean {
+function unsupportedByNode(error: unknown): boolean {
   for (const candidate of errorChain(error)) {
     const code = (candidate as NodeJS.ErrnoException).code
     if (
@@ -182,9 +262,7 @@ function unsupportedByNode(error: unknown, source: string): boolean {
       return true
     }
   }
-  // Legacy decorators are valid to the project's Vite/TypeScript toolchain but
-  // are intentionally not transformed by Node's strip-only loader.
-  return /^\s*@[$\w]+/m.test(source)
+  return false
 }
 
 function bridgeModule(
@@ -224,10 +302,18 @@ async function packageBridges(
   const resolver = new PackageResolver(projectPath)
   const urls = new Map<string, string>()
   const keys: string[] = []
-  for (const specifier of ['@waica/engine', '@waica/behaviors']) {
+  // @waica/archetype-platformer joins engine/behaviors here (not just the
+  // separate projectRequire.resolve path below) so a freshly created,
+  // not-yet-installed project still gets the MCP-bundled copy the same way
+  // it already does for engine/behaviors, instead of a bare MODULE_NOT_FOUND.
+  for (const specifier of ['@waica/engine', '@waica/behaviors', '@waica/archetype-platformer']) {
     try {
       const loaded = await resolver.load<Record<string, unknown>>(specifier)
-      const bridge = bridgeModule(token, specifier, loaded.module)
+      // Keyed by the resolved package's own version rather than a per-run
+      // counter, so re-validating without a dependency bump reuses the exact
+      // same data: URL — and therefore Node's already-cached module for it —
+      // instead of pinning a fresh, functionally identical one every run.
+      const bridge = bridgeModule(`${token}:${loaded.provenance.version}`, specifier, loaded.module)
       urls.set(specifier, bridge.url)
       keys.push(bridge.key)
     } catch {
@@ -255,7 +341,10 @@ async function projectModuleFiles(projectPath: string): Promise<string[]> {
 export async function loadProjectComponents(
   projectPath: string,
 ): Promise<ProjectComponentLoadResult> {
-  const token = String(++nextRun)
+  if (!hooksSupported) {
+    return { components: {}, failures: [unsupportedNodeFailure()] }
+  }
+  const token = projectToken(projectPath)
   const bridges = await packageBridges(projectPath, token)
   hookContexts.set(token, {
     projectRequire: projectAnchoredRequire(projectPath),
@@ -266,17 +355,13 @@ export async function loadProjectComponents(
   try {
     for (const relative of await projectModuleFiles(projectPath)) {
       const file = path.join(projectPath, relative)
-      const entry = pathToFileURL(file)
-      entry.searchParams.set(RUN_PARAM, token)
       try {
-        const module = await nativeImport(entry.href)
+        const entryHref = versioned(pathToFileURL(file), token, contentToken(file))
+        const module = await nativeImport(entryHref)
         Object.assign(components, componentDescriptions(module, relative))
       } catch (error) {
-        const source = readFileSync(file, 'utf8')
         failures.push({
-          code: unsupportedByNode(error, source)
-            ? 'component-load-unsupported'
-            : 'component-load-failed',
+          code: unsupportedByNode(error) ? 'component-load-unsupported' : 'component-load-failed',
           file: relative,
           message: failureMessage(error),
         })

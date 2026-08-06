@@ -1809,9 +1809,38 @@ button.ed-crumb:hover {
   background-position: right 7px center;
 }
 
-.ed-row select.is-missing {
+.ed-row select.is-missing,
+.ed-row input[type='text'].is-missing {
   border-color: var(--gold);
   color: var(--gold);
+}
+
+/* Typed-reference row in "Custom…" mode: free-text input + a small toggle
+   back to the picker, sharing the row's normal 110px value column. */
+.ed-ref-custom {
+  display: flex;
+  gap: 4px;
+}
+
+.ed-ref-custom input {
+  flex: 1;
+  min-width: 0;
+}
+
+.ed-ref-toggle {
+  flex: none;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-panel-2);
+  color: var(--text-dim);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.ed-ref-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .ed-row input[type='checkbox'] {

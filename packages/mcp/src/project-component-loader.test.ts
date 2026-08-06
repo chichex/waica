@@ -2,7 +2,11 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { cleanup, makeProject, stubPackage } from './test-helpers.js'
-import { loadProjectComponents } from './project-component-loader.js'
+import {
+  loadProjectComponents,
+  nodeSupportsModuleHooks,
+  unsupportedNodeFailure,
+} from './project-component-loader.js'
 
 const roots: string[] = []
 afterEach(async () => cleanup(...roots.splice(0)))
@@ -83,6 +87,68 @@ describe('loadProjectComponents', () => {
     expect(result.components.Target?.defaults).toEqual({ target: 'objects/bundled' })
   })
 
+  it('falls back to the MCP-bundled archetype-platformer when project dependencies are not installed', async () => {
+    // @waica/archetype-platformer is a declared dependency of every generated
+    // project (create_project), but a freshly created project has not run
+    // `npm install` yet — the same uninstalled state the engine/behaviors
+    // fallback above already supports.
+    const project = await makeProject({
+      'src/components/target.ts': `
+import { PLATFORMER_BINDINGS } from '@waica/archetype-platformer'
+export class Target {
+  static componentName = 'Target'
+  target = typeof PLATFORMER_BINDINGS
+}
+`,
+    })
+    roots.push(project)
+
+    const result = await loadProjectComponents(project)
+
+    expect(result.failures).toEqual([])
+    expect(result.components.Target?.defaults).toEqual({ target: 'object' })
+  })
+
+  it('resolves directory imports to their index file', async () => {
+    const project = await makeModuleProject({
+      'src/components/lib/index.ts': `export const libTarget: string = 'objects/from-index'\n`,
+      'src/components/target.ts': `
+import { Component } from '@waica/engine'
+import { libTarget } from './lib'
+export class Target extends Component {
+  static componentName = 'Target'
+  static params = { target: { ref: 'prefab' } }
+  target = libTarget
+}
+`,
+    })
+
+    const result = await loadProjectComponents(project)
+
+    expect(result.failures).toEqual([])
+    expect(result.components.Target?.defaults).toEqual({ target: 'objects/from-index' })
+  })
+
+  it('resolves multi-dot relative specifiers, not only fully extensionless ones', async () => {
+    const project = await makeModuleProject({
+      'src/components/foo.helper.ts': `export const helperTarget: string = 'objects/from-helper'\n`,
+      'src/components/target.ts': `
+import { Component } from '@waica/engine'
+import { helperTarget } from './foo.helper'
+export class Target extends Component {
+  static componentName = 'Target'
+  static params = { target: { ref: 'prefab' } }
+  target = helperTarget
+}
+`,
+    })
+
+    const result = await loadProjectComponents(project)
+
+    expect(result.failures).toEqual([])
+    expect(result.components.Target?.defaults).toEqual({ target: 'objects/from-helper' })
+  })
+
   it('resolves extensionless relative imports', async () => {
     const project = await makeModuleProject({
       'src/components/default-target.ts': `export const defaultTarget: string = 'objects/helper'\n`,
@@ -161,6 +227,73 @@ export const mode = Mode.On
     ])
   })
 
+  it('does not classify a genuine defect as unsupported just because the file also contains an "@" line', async () => {
+    // Regression: the old fallback classified ANY load error as
+    // component-load-unsupported whenever any line of the file started with
+    // '@' (CSS-in-TS template literals, decorators...), steering an agent
+    // away from a real defect like this module-scope throw.
+    const project = await makeModuleProject({
+      'src/components/broken.ts': `
+const style = \`@media (max-width: 600px) { .x { color: red } }\`
+void style
+throw new Error('module scope exploded')
+`,
+    })
+
+    const result = await loadProjectComponents(project)
+
+    expect(result.failures).toEqual([
+      expect.objectContaining({
+        code: 'component-load-failed',
+        file: 'src/components/broken.ts',
+        message: expect.stringContaining('module scope exploded'),
+      }),
+    ])
+  })
+
+  it('reuses the cached module instance across runs when the file is unchanged', async () => {
+    // Regression: a per-run counter in the cache-busting token pinned a
+    // fresh, functionally identical module version on every validate_project
+    // call, leaking without bound in a long-lived server. A content-derived
+    // token should let an unchanged file's module be instantiated once.
+    const marker = `waicaCacheMarker_${Math.random().toString(36).slice(2)}`
+    const source = `
+const g = globalThis
+g.${marker} = (g.${marker} ?? 0) + 1
+export class Target {
+  static componentName = 'Target'
+  target = String(g.${marker})
+}
+`
+    const project = await makeModuleProject({ 'src/components/target.ts': source })
+
+    const first = await loadProjectComponents(project)
+    const second = await loadProjectComponents(project)
+
+    expect(first.components.Target?.defaults).toEqual({ target: '1' })
+    expect(second.components.Target?.defaults).toEqual({ target: '1' })
+  })
+
+  it('instantiates a fresh module when the file content changes', async () => {
+    const marker = `waicaCacheMarker_${Math.random().toString(36).slice(2)}`
+    const source = (label: string): string => `
+const g = globalThis
+g.${marker} = (g.${marker} ?? 0) + 1
+export class Target {
+  static componentName = 'Target'
+  target = ${JSON.stringify(label)} + ':' + g.${marker}
+}
+`
+    const project = await makeModuleProject({ 'src/components/target.ts': source('first') })
+
+    const first = await loadProjectComponents(project)
+    await writeFile(path.join(project, 'src/components/target.ts'), source('second'))
+    const second = await loadProjectComponents(project)
+
+    expect(first.components.Target?.defaults).toEqual({ target: 'first:1' })
+    expect(second.components.Target?.defaults).toEqual({ target: 'second:2' })
+  })
+
   it('uses a fresh module URL on each load so edits are visible in one process', async () => {
     const project = await makeModuleProject({
       'src/components/target.ts': componentSource('objects/first'),
@@ -197,5 +330,31 @@ export const mode = Mode.On
         message: expect.stringContaining('scope exploded'),
       }),
     ])
+  })
+})
+
+describe('nodeSupportsModuleHooks', () => {
+  it('detects registerHooks by feature, not by Node version', () => {
+    expect(nodeSupportsModuleHooks({})).toBe(false)
+    expect(nodeSupportsModuleHooks({ registerHooks: undefined })).toBe(false)
+    expect(nodeSupportsModuleHooks({ registerHooks: () => undefined })).toBe(true)
+  })
+
+  it('agrees with the real node:module on this host', () => {
+    // This dev/CI environment runs a Node new enough for registerHooks; the
+    // false branch above is what a Node 20.19-22.14 host actually takes at
+    // module load, which cannot be reproduced without an old Node binary.
+    expect(nodeSupportsModuleHooks()).toBe(true)
+  })
+})
+
+describe('unsupportedNodeFailure', () => {
+  it('names the Node requirement and the host version, without crashing the server', () => {
+    const failure = unsupportedNodeFailure('20.19.0')
+
+    expect(failure.code).toBe('component-load-unsupported')
+    expect(failure.message).toContain('20.19.0')
+    expect(failure.message).toMatch(/22\.15/)
+    expect(failure.message).toMatch(/validate_project|list_components/)
   })
 })

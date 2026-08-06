@@ -106,7 +106,12 @@ describe('validateProject parameter references', () => {
     ])
   })
 
-  it('resolves actions from project bindings merged over archetype defaults', async () => {
+  it('resolves actions from controls.json only, not archetype defaults', async () => {
+    // The shipped runtime installs exactly controls.json's bindings (template
+    // main.ts passes controls.bindings raw; engine DEFAULT_BINDINGS is {}),
+    // so an action the archetype binds by default but controls.json drops
+    // (here "left", never mentioned in controls.json below) is genuinely
+    // unbound at runtime and must be flagged like any other unbound action.
     const project = await refProject({
       'src/components/ref.ts': refComponent('action'),
       'src/controls.json': JSON.stringify({
@@ -131,7 +136,13 @@ describe('validateProject parameter references', () => {
 
     expect(paramFindings(result.findings)).toEqual([
       {
-        severity: 'error',
+        severity: 'warning',
+        code: 'input-action-unbound',
+        file: 'src/objects/a-default.object.json',
+        ref: 'RefComponent.target',
+      },
+      {
+        severity: 'warning',
         code: 'input-action-unbound',
         file: 'src/objects/c-unbound.object.json',
         ref: 'RefComponent.target',
@@ -273,6 +284,37 @@ describe('validateProject parameter references', () => {
             role: 'fixture',
             initial: 'idle',
             states: { idle: { clip: 'missing' } },
+          },
+        },
+      ]),
+    })
+
+    const result = await validateProject(project)
+
+    expect(paramFindings(result.findings)).toEqual([
+      {
+        severity: 'error',
+        code: 'missing-clip',
+        file: 'src/objects/machine.object.json',
+        ref: 'StateMachine.states.idle.clip',
+      },
+    ])
+  })
+
+  it('treats an explicit empty StateJson.clip as a missing-clip reference, not "no reference"', async () => {
+    // Unlike Collectible.stat, the runtime does not treat '' as unset here:
+    // state-machine.ts resolves `this.states[state]?.clip ?? state`, and ''
+    // survives that nullish coalesce, so it is looked up literally and the
+    // sprite freezes on state entry with no matching clip.
+    const project = await refProject({
+      'src/objects/machine.object.json': prefab([
+        { type: 'AnimatedSprite', props: { clips: { idle: { frames: [0] } } } },
+        {
+          type: 'StateMachine',
+          props: {
+            role: 'fixture',
+            initial: 'idle',
+            states: { idle: { clip: '' } },
           },
         },
       ]),
