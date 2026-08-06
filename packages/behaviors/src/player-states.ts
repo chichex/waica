@@ -1,5 +1,7 @@
 import { type RoleDefinition, type RoleGraph, type StateContext } from '@waica/engine'
+import { Health } from './health.js'
 import { PlatformerMotor } from './platformer-motor.js'
+import { Respawnable } from './respawnable.js'
 
 /**
  * The 'player' role: the character you control. All four default states
@@ -40,6 +42,17 @@ export const PLAYER_STATE_GRAPH: RoleGraph = {
         { on: 'signal:land', to: 'idle' },
       ],
     },
+    dead: {
+      // The stock dog sheet has no death animation; freeze on idle rather
+      // than name a clip that does not exist and warn every frame.
+      clip: 'idle',
+      // A beat before control comes back, so death reads as an event.
+      transitions: [{ on: 'timer:0.8', to: 'idle' }],
+    },
+    // Dying is the same from every state, so the edge lives on '*'. Its
+    // presence is also the contract Health checks before signalling: a graph
+    // without it gets its entity destroyed instead.
+    '*': { transitions: [{ on: 'signal:death', to: 'dead' }] },
   },
 }
 
@@ -93,5 +106,13 @@ export const PLAYER_ROLE: RoleDefinition = {
     run: { onUpdate: playerUpdate },
     jump: { onUpdate: playerUpdate },
     fall: { onUpdate: playerUpdate },
+    // Coming back is what leaving death means, so it hangs off onExit: any
+    // other way out of this state (a project's own edge) revives too.
+    dead: {
+      onExit({ entity }) {
+        entity.get(Respawnable)?.respawn()
+        entity.get(Health)?.heal(Infinity)
+      },
+    },
   },
 }
