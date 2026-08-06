@@ -25,6 +25,12 @@ export interface ComponentClass<T extends Component = Component> {
   displayName?: string
   /** Which properties the inspector exposes, with their ranges. */
   params?: Record<string, ParamSpec>
+  /**
+   * Instance fields holding runtime state rather than authorable defaults.
+   * Excluded from authoringDefaults(); a subclass that does not redeclare
+   * this inherits its base's list.
+   */
+  transient?: readonly string[]
 }
 
 /** Cardinal unit normal pointing away from the contacted Solid surface. */
@@ -50,6 +56,7 @@ export abstract class Component {
   static componentName = 'Component'
   static displayName?: string
   static params?: Record<string, ParamSpec>
+  static transient?: readonly string[]
 
   entity!: Entity
   game!: Game

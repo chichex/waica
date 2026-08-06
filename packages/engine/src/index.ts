@@ -10,6 +10,7 @@ export { CAMERA_DEFAULTS, resolveSceneCamera, stepSceneCamera } from './camera.j
 export type { SceneCameraJson, CameraLimitsJson, ResolvedSceneCamera } from './camera.js'
 export { Entity } from './entity.js'
 export { Component } from './component.js'
+export { authoringDefaults } from './authoring-defaults.js'
 export type {
   ComponentClass,
   ContactNormal,
