@@ -110,6 +110,21 @@ describe('listComponents', () => {
     ])
   })
 
+  it('keeps project-owned code textual and never executes it', async () => {
+    const project = await makeProject({
+      'src/components/explodes.ts': `throw new Error('list_components executed project code')\n`,
+    })
+    roots.push(project)
+
+    const result = await listComponents(project)
+
+    expect(result.projectOwned).toContainEqual({
+      path: 'src/components/explodes.ts',
+      validated: false,
+    })
+    expect(result.components).toHaveLength(15)
+  })
+
   it('attributes mixed-source components by their stable package contract', async () => {
     const project = await makeProject()
     roots.push(project)
