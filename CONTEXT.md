@@ -18,6 +18,18 @@ _Avoid_: boilerplate, skeleton
 **Project**:
 A user's game: a plain-files Vite app (JSON scenes/prefabs/controls/stats, HTML UI, TS roles) depending on published `@waica/*` packages. The unit the editor opens and the MCP operates on.
 
+**Run Session**:
+A live, MCP-owned execution of one standalone Project for observation and control. It is keyed by canonical Project path, unique per Project within an MCP server, and never outlives its owning server.
+_Avoid_: Dev server, run
+
+**Runtime Bridge**:
+The temporary control boundary through which a Run Session observes and controls the single live Game in its Project. It exists only while that Run Session is active.
+_Avoid_: Inspection handle, live editor bridge
+
+**Runtime Snapshot**:
+A read-only, point-in-time view of a Run Session's game stats and live entities, transforms and component state. It can be filtered for focused observation without changing the Game.
+_Avoid_: State dump, save state
+
 **Project-owned code**:
 The TS a user writes inside their project (`src/components`, `src/roles`, `src/states`) extending the archetype baseline. The game executes it, and `validate_project` evaluates it for deep metadata validation; other MCP introspection keeps it distinct from installed package code.
 
