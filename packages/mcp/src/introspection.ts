@@ -24,6 +24,8 @@ export interface ComponentDescription {
   displayName?: string
   params: Record<string, unknown>
   defaults: Record<string, unknown>
+  updates: boolean
+  updateAfter: string[]
   sourcePackage: string
 }
 
@@ -76,6 +78,8 @@ export async function listComponents(projectPath: string): Promise<{
       componentName: Class.componentName,
       params: (Class.params ?? {}) as Record<string, unknown>,
       defaults: authoringDefaults(Class),
+      updates: typeof Class.prototype.onUpdate === 'function',
+      updateAfter: [...(Class.updateAfter ?? [])],
       sourcePackage: sourcePackage(
         Class,
         engine.module,

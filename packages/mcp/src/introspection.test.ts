@@ -83,7 +83,21 @@ describe('listComponents', () => {
     expect(motorDefaults).not.toHaveProperty('grounded')
     for (const component of result.components) {
       expect(JSON.parse(JSON.stringify(component.defaults))).toEqual(component.defaults)
+      expect(component.updates).toEqual(expect.any(Boolean))
+      expect(component.updateAfter).toEqual(expect.any(Array))
     }
+    expect(result.components.find(({ componentName }) => componentName === 'AnimatedSprite')).toMatchObject({
+      updates: true,
+      updateAfter: ['StateMachine'],
+    })
+    expect(result.components.find(({ componentName }) => componentName === 'OutOfBounds')).toMatchObject({
+      updates: true,
+      updateAfter: ['DynamicBody', 'Health', 'StateMachine'],
+    })
+    expect(result.components.find(({ componentName }) => componentName === 'PlatformerMotor')).toMatchObject({
+      updates: false,
+      updateAfter: [],
+    })
     expect(result.projectOwned).toEqual([
       { path: 'src/components/dash.ts', validated: false },
       { path: 'src/roles/guard.ts', validated: false },
@@ -149,6 +163,8 @@ module.exports.ARCHETYPE = {
         componentName: 'Explodes',
         params: {},
         defaults: {},
+        updates: false,
+        updateAfter: [],
         sourcePackage: '@waica/archetype-fixture',
       },
     ])
