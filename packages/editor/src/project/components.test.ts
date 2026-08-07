@@ -52,6 +52,7 @@ describe('project component files', () => {
 
     expect(code).not.toContain('params')
     expect(code).not.toContain('speed')
+    expect(code).not.toContain('updateAfter')
   })
 
   it('scaffolds once and never overwrites an existing file', async () => {

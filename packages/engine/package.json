@@ -10,7 +10,8 @@
     "directory": "packages/engine"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "exports": {
     ".": "./src/index.ts"

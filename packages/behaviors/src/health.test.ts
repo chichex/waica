@@ -415,7 +415,7 @@ describe('Health deferred death fallback', () => {
     expect(entity.destroy).not.toHaveBeenCalled()
   })
 
-  it('spares an entity something revived before the grace ran out, graph or no graph', () => {
+  it('spares an entity revived before its scheduled settlement, graph or no graph', () => {
     // A project that resurrects on the 'death' event rather than through a
     // state: the death was resolved, just not by moving the machine. The
     // fallback must not undo that by destroying the entity anyway.

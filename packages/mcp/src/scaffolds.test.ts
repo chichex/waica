@@ -62,6 +62,7 @@ describe('scaffolds', () => {
 
     expect(code).not.toContain('params')
     expect(code).not.toContain('speed')
+    expect(code).not.toContain('updateAfter')
   })
 
   it('rejects the reserved Component class exactly like the editor', async () => {
