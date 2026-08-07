@@ -19,7 +19,13 @@ _Avoid_: boilerplate, skeleton
 A user's game: a plain-files Vite app (JSON scenes/prefabs/controls/stats, HTML UI, TS roles) depending on published `@waica/*` packages. The unit the editor opens and the MCP operates on.
 
 **Project-owned code**:
-The TS a user writes inside their project (`src/components`, `src/roles`, `src/states`) extending the archetype baseline. The game loads it via glob imports; tooling never executes it (the MCP marks it "not validated").
+The TS a user writes inside their project (`src/components`, `src/roles`, `src/states`) extending the archetype baseline. The game executes it, and `validate_project` evaluates it for deep metadata validation; other MCP introspection keeps it distinct from installed package code.
 
 **Role**:
 A named behavior definition (`defineRole`) a character references from its prefab JSON — `player`, `patroller`, `chaser`, or project-owned ones in `src/roles/`.
+
+**Component Update Schedule**:
+The deterministic per-entity sequence in which Waica advances component behavior each frame. It is derived from update constraints and canonical component identity, never from prefab authoring order.
+
+**Update Constraint**:
+A component-owned declaration that its per-frame update occurs after named sibling components when they are present. It expresses temporal ordering, not mandatory composition.
