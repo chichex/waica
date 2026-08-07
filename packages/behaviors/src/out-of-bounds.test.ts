@@ -1,5 +1,15 @@
-import { describe, expect, it, vi } from 'vitest'
-import { THREE, type Component, type Entity, type Game } from '@waica/engine'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  DynamicBody,
+  StateMachine,
+  THREE,
+  defineStates,
+  resetRegistries,
+  resolveComponentUpdateSchedule,
+  type Component,
+  type Entity,
+  type Game,
+} from '@waica/engine'
 import { Health } from './health'
 import { OutOfBounds } from './out-of-bounds'
 
@@ -38,6 +48,8 @@ function makeSubject(y: number, options: { health?: number } = {}) {
   entity.addStub(bounds)
   return { entity, bounds, health, game }
 }
+
+beforeEach(() => resetRegistries())
 
 describe('OutOfBounds', () => {
   it('leaves an entity above the bound alone', () => {
@@ -94,6 +106,37 @@ describe('OutOfBounds', () => {
 
     bounds.onUpdate()
 
+    expect(entity.destroy).toHaveBeenCalledOnce()
+  })
+
+  it('observes a same-frame StateMachine write even when authored before the machine', () => {
+    defineStates('falling-probe', {
+      idle: {
+        onUpdate({ entity }) {
+          entity.position.y = -20
+        },
+      },
+    })
+    const { entity, bounds } = makeSubject(0)
+    const machine = new StateMachine()
+    machine.role = 'falling-probe'
+    machine.initial = 'idle'
+    machine.states = { idle: {} }
+    entity.addStub(machine)
+    machine.onReady()
+    const result = resolveComponentUpdateSchedule(
+      ['OutOfBounds', 'StateMachine'],
+      { DynamicBody, Health, OutOfBounds, StateMachine },
+    )
+    if (!result.ok) throw new Error(result.issues.map((issue) => issue.cause).join(' '))
+    const byName = new Map<string, Component>([
+      ['OutOfBounds', bounds],
+      ['StateMachine', machine],
+    ])
+
+    for (const name of result.order) byName.get(name)?.onUpdate?.(0.016)
+
+    expect(result.order).toEqual(['StateMachine', 'OutOfBounds'])
     expect(entity.destroy).toHaveBeenCalledOnce()
   })
 

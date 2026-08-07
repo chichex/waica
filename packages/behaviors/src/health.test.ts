@@ -3,7 +3,9 @@ import {
   StateMachine,
   THREE,
   authoringDefaults,
+  resolveComponentUpdateSchedule,
   type Component,
+  type ComponentClass,
   type Entity,
   type Game,
 } from '@waica/engine'
@@ -334,19 +336,27 @@ describe('Health deferred death fallback', () => {
       axis: () => 0,
     }
     const entity = makeEntity(game, 'Character')
+    const health = new Health()
+    health.max = 1
+    entity.addStub(health)
+    health.onReady()
     const machine = new StateMachine()
     machine.states = states
     machine.initial = initial
     entity.addStub(machine)
     machine.onReady()
-    const health = new Health()
-    health.max = 1
-    entity.addStub(health)
-    health.onReady()
-    /** One engine frame: the machine settles transitions, then Health checks. */
+    // Deliberately authored in the wrong order: the public resolver, not this
+    // source array, puts StateMachine before Health on every frame.
+    const source = [health, machine]
+    const registry: Record<string, ComponentClass> = { Health, StateMachine }
+    const byName = new Map(source.map((component) => [
+      (component.constructor as unknown as ComponentClass).componentName,
+      component,
+    ]))
     const frame = (dt = 0.016) => {
-      machine.onUpdate(dt)
-      health.onUpdate(dt)
+      const result = resolveComponentUpdateSchedule([...byName.keys()], registry)
+      if (!result.ok) throw new Error(result.issues.map((issue) => issue.cause).join(' '))
+      for (const name of result.order) byName.get(name)?.onUpdate?.(dt)
     }
     return { game, entity, health, machine, frame }
   }
@@ -369,12 +379,8 @@ describe('Health deferred death fallback', () => {
 
     health.damage(1)
     frame()
+
     expect(machine.current).toBe('run')
-    expect(entity.destroy).not.toHaveBeenCalled()
-
-    frame()
-    frame()
-
     expect(entity.destroy).toHaveBeenCalledOnce()
   })
 

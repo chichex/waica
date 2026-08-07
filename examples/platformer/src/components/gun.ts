@@ -4,6 +4,7 @@ import { PlatformerMotor } from '@waica/behaviors'
 /** Example project code: input plus runtime prefab spawn makes a simple gun. */
 export class Gun extends Component {
   static override componentName = 'Gun'
+  static override updateAfter: readonly string[] = ['StateMachine']
   static override params = {
     projectileSpeed: { label: 'Bullet speed', min: 1, max: 40, step: 0.5 },
     cooldown: { label: 'Cooldown', min: 0, max: 2, step: 0.05 },
