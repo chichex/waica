@@ -24,14 +24,32 @@ const ALL_CODES = [
   'unparseable-json',
   'component-load-failed',
   'component-load-unsupported',
+  'duplicate-component',
+  'invalid-update-constraint',
+  'component-update-cycle',
 ]
 
 describe('validateProject', () => {
   it('reports every stable finding through result data and keeps validating after bad JSON', async () => {
     const project = await makeProject({
       'src/components/project.ts': `
-export class ProjectThing {
+import { Component } from '@waica/engine'
+export class ProjectThing extends Component {
   static componentName = 'ProjectThing'
+}
+export class PassiveSchedule extends Component {
+  static componentName = 'PassiveSchedule'
+  static updateAfter = ['StateMachine']
+}
+export class CycleLeft extends Component {
+  static componentName = 'CycleLeft'
+  static updateAfter = ['CycleRight']
+  onUpdate() {}
+}
+export class CycleRight extends Component {
+  static componentName = 'CycleRight'
+  static updateAfter = ['CycleLeft']
+  onUpdate() {}
 }
 `,
       'src/components/broken-load.ts': 'export const broken = ;\n',
@@ -44,6 +62,9 @@ export class ProjectThing {
         components: [
           { type: 'UnknownBuiltin' },
           { type: 'ProjectThing' },
+          { type: 'PassiveSchedule' },
+          { type: 'CycleLeft' },
+          { type: 'CycleRight' },
           { type: 'AnimatedSprite', props: { clips: { idle: { frames: [0] } } } },
           {
             type: 'StateMachine',
@@ -63,6 +84,7 @@ export class ProjectThing {
               },
             },
           },
+          { type: 'StateMachine' },
         ],
       }),
       'src/objects/broken.object.json': '{ definitely not json',
@@ -252,6 +274,129 @@ export class ProjectThing {
     expect(result.findings).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ code: 'no-state-code' })]),
     )
+  })
+
+  it('validates package and executable project update metadata with minimal attribution', async () => {
+    const project = await makeProject({
+      'src/components/schedule.ts': `
+import { Component } from '@waica/engine'
+export class PassiveDeclarer extends Component {
+  static componentName = 'PassiveDeclarer'
+  static updateAfter = ['StateMachine']
+}
+export class CycleA extends Component {
+  static componentName = 'CycleA'
+  static updateAfter = ['CycleB']
+  onUpdate() {}
+}
+export class CycleB extends Component {
+  static componentName = 'CycleB'
+  static updateAfter = ['CycleA']
+  onUpdate() {}
+}
+export class AfterKnownAbsent extends Component {
+  static componentName = 'AfterKnownAbsent'
+  static updateAfter = ['Health']
+  onUpdate() {}
+}
+`,
+      'src/objects/broken.object.json': JSON.stringify({
+        waicaPrefab: 1,
+        type: 'object',
+        components: [
+          { type: 'CycleA' },
+          { type: 'CycleB' },
+          { type: 'PassiveDeclarer' },
+          { type: 'StateMachine' },
+          { type: 'StateMachine' },
+        ],
+      }),
+      'src/objects/known.object.json': JSON.stringify({
+        waicaPrefab: 1,
+        type: 'object',
+        components: [{ type: 'AfterKnownAbsent' }],
+      }),
+      'src/objects/cycle-half.object.json': JSON.stringify({
+        waicaPrefab: 1,
+        type: 'object',
+        components: [{ type: 'CycleA' }],
+      }),
+      'src/scenes/main.scene.json': JSON.stringify({
+        waicaScene: 3,
+        entities: [
+          { name: 'Broken one', prefab: 'objects/broken' },
+          { name: 'Broken two', prefab: 'objects/broken' },
+          {
+            name: 'Inline duplicate',
+            prefab: 'objects/known',
+            components: [{ type: 'AfterKnownAbsent' }],
+          },
+          {
+            name: 'Inline cycle',
+            prefab: 'objects/cycle-half',
+            components: [{ type: 'CycleB' }],
+          },
+        ],
+      }),
+    })
+    roots.push(project)
+
+    const result = await validateProject(project)
+    const scheduleFindings = result.findings.filter((finding) =>
+      ['duplicate-component', 'invalid-update-constraint', 'component-update-cycle'].includes(
+        finding.code,
+      ),
+    )
+
+    expect(scheduleFindings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          severity: 'error',
+          code: 'invalid-update-constraint',
+          file: 'src/components/schedule.ts',
+          ref: 'PassiveDeclarer',
+          message: expect.stringMatching(/PassiveDeclarer.*onUpdate/),
+        }),
+        expect.objectContaining({
+          severity: 'error',
+          code: 'component-update-cycle',
+          file: 'src/objects/broken.object.json',
+          ref: 'objects/broken',
+          message: expect.stringMatching(/CycleA.*CycleB/),
+        }),
+        expect.objectContaining({
+          severity: 'error',
+          code: 'duplicate-component',
+          file: 'src/objects/broken.object.json',
+          ref: 'objects/broken',
+          message: expect.stringMatching(/StateMachine.*2/),
+        }),
+        expect.objectContaining({
+          severity: 'error',
+          code: 'duplicate-component',
+          file: 'src/scenes/main.scene.json',
+          ref: 'Inline duplicate',
+          message: expect.stringMatching(/AfterKnownAbsent.*2/),
+        }),
+        expect.objectContaining({
+          severity: 'error',
+          code: 'component-update-cycle',
+          file: 'src/scenes/main.scene.json',
+          ref: 'Inline cycle',
+          message: expect.stringMatching(/CycleA.*CycleB/),
+        }),
+      ]),
+    )
+    expect(scheduleFindings.filter((finding) => finding.code === 'component-update-cycle')).toHaveLength(2)
+    expect(scheduleFindings.some((finding) => /Broken one|Broken two/.test(finding.ref ?? ''))).toBe(false)
+    expect(
+      scheduleFindings.some(
+        (finding) =>
+          finding.code === 'invalid-update-constraint' &&
+          finding.message.includes('AfterKnownAbsent'),
+      ),
+    ).toBe(false)
+    expect(result.ok).toBe(false)
   })
 
   it('does not duplicate prefab state findings for unrelated entity overrides', async () => {
