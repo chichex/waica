@@ -13,10 +13,10 @@ import {
 } from '@waica/engine'
 import { PLATFORMER_REGISTRY } from '@waica/archetype-platformer'
 import { PlatformerMotor } from '@waica/behaviors'
-import player from '../characters/player.character.json'
-import bullet from '../objects/bullet.object.json'
-import { Gun } from './gun'
-import { Projectile } from './projectile'
+import player from './characters/player.character.json'
+import { Gun } from './components/gun'
+import { Projectile } from './components/projectile'
+import bullet from './objects/bullet.object.json'
 
 beforeEach(() => resetRegistries())
 
