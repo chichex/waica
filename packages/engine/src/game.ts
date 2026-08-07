@@ -7,6 +7,11 @@ import { Hitbox } from './components/hitbox.js'
 import { Entity } from './entity.js'
 import { Emitter } from './events.js'
 import { Input, type InputBindings } from './input.js'
+import {
+  activeRuntimeBridgeHook,
+  EngineRuntimeBridge,
+} from './runtime-bridge.js'
+import { RuntimeInspector } from './runtime-inspection.js'
 import { registryEntry, spawnFromJson, type SceneRegistry } from './scene.js'
 import { Stats, type StatValue } from './stats.js'
 import { GameUi } from './ui.js'
@@ -73,6 +78,7 @@ export class Game {
   private viewHeight: number
   private sceneCamera: ResolvedSceneCamera | null = null
   private lastTime = 0
+  private runtimeBridge: EngineRuntimeBridge | null = null
 
   constructor(options: GameOptions) {
     const { canvas, background = 0x1a1a2e, viewHeight = 10 } = options
@@ -170,6 +176,25 @@ export class Game {
   }
 
   start(): void {
+    const activation = activeRuntimeBridgeHook()
+    if (activation) {
+      if (!this.runtimeBridge) {
+        const inspector = new RuntimeInspector(this)
+        this.runtimeBridge = new EngineRuntimeBridge(this.renderer.domElement, activation, {
+          step: (dt) => this.runFrame(dt),
+          resume: (frame) => this.resumeRuntime(frame),
+          pause: () => this.stop(),
+          injectAction: (action, operation) => this.input.injectAction(action, operation),
+          availableActions: () => this.input.availableActions(),
+          heldActions: () => this.input.heldActions(),
+          inspect: (metadata, filters) => inspector.snapshot(metadata, filters),
+        })
+        activation.register(this.runtimeBridge)
+        window.addEventListener('pagehide', this.unregisterRuntimeBridge)
+      }
+      this.renderSurface()
+      return
+    }
     this.renderer.setAnimationLoop((time) => this.tick(time))
   }
 
@@ -196,6 +221,7 @@ export class Game {
   /** Shuts the game down completely (loop, input, GPU). */
   dispose(): void {
     this.stop()
+    this.unregisterRuntimeBridge()
     this.input.dispose()
     this.resizeObserver.disconnect()
     this.ui.dispose()
@@ -203,10 +229,23 @@ export class Game {
     this.renderer.dispose()
   }
 
+  private resumeRuntime(frame: (dt: number) => void): void {
+    let previousTime: number | null = null
+    this.renderer.setAnimationLoop((time) => {
+      const dt = previousTime === null ? 0 : Math.min((time - previousTime) / 1000, 0.1)
+      previousTime = time
+      frame(dt)
+    })
+  }
+
   private tick(time: number): void {
     // Clamp dt: switching tabs or pausing doesn't fast-forward the simulation.
     const dt = Math.min((time - this.lastTime) / 1000, 0.1)
     this.lastTime = time
+    this.runFrame(dt)
+  }
+
+  private runFrame(dt: number): void {
     if (this.simulate) {
       for (const entity of [...this.entities]) {
         const schedule = this.componentUpdateSchedule(entity)
@@ -220,6 +259,17 @@ export class Game {
     this.ui.setActive(this.simulate)
     for (const fn of this.updateFns) fn(dt)
     this.input.endFrame()
+    this.renderSurface()
+  }
+
+  private unregisterRuntimeBridge = (): void => {
+    window.removeEventListener('pagehide', this.unregisterRuntimeBridge)
+    this.runtimeBridge?.unregister()
+    this.runtimeBridge = null
+  }
+
+  private renderSurface(): void {
+    this.ui.setActive(this.simulate)
     if (this.resolution) {
       // Letterbox bars: clear the whole canvas, then render inside the scissor.
       this.renderer.setScissorTest(false)
