@@ -30,6 +30,11 @@ class PassiveDeclarer extends Component {
   static override updateAfter = ['Writer'] as const
 }
 
+class PassiveEmptyDeclarer extends Component {
+  static override componentName = 'PassiveEmptyDeclarer'
+  static override updateAfter = [] as const
+}
+
 class ReaderAfterPassive extends Component {
   static override componentName = 'ReaderAfterPassive'
   static override updateAfter = ['Passive'] as const
@@ -145,6 +150,24 @@ describe('resolveComponentUpdateSchedule', () => {
       ],
     })
     expect('order' in result).toBe(false)
+  })
+
+  it('rejects a passive constraint declarer even when its declared list is empty', () => {
+    expect(
+      resolveComponentUpdateSchedule(['PassiveEmptyDeclarer'], {
+        PassiveEmptyDeclarer,
+      }),
+    ).toMatchObject({
+      ok: false,
+      issues: [
+        {
+          code: 'invalid-update-constraint',
+          reason: 'passive-declarer',
+          declarer: 'PassiveEmptyDeclarer',
+          componentNames: ['PassiveEmptyDeclarer'],
+        },
+      ],
+    })
   })
 
   it('rejects a passive constraint declarer and a present passive target', () => {

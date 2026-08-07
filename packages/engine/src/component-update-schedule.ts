@@ -145,7 +145,7 @@ export function resolveComponentUpdateSchedule(
 
   for (const declarer of [...present].sort(codeUnitCompare)) {
     const Class = registeredClass(registry, declarer)
-    if ((Class?.updateAfter?.length ?? 0) > 0 && !updates(Class)) {
+    if (Class?.updateAfter !== undefined && !updates(Class)) {
       issues.push({
         code: 'invalid-update-constraint',
         reason: 'passive-declarer',
