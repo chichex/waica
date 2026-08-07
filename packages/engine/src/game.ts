@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { collisionOverlap } from './collision-shape.js'
 import { resolveSceneCamera, stepSceneCamera, type ResolvedSceneCamera, type SceneCameraJson } from './camera.js'
 import type { Component, ComponentClass } from './component.js'
+import { resolveComponentUpdateSchedule } from './component-update-schedule.js'
 import { Hitbox } from './components/hitbox.js'
 import { Entity } from './entity.js'
 import { Emitter } from './events.js'
@@ -67,6 +68,7 @@ export class Game {
   private readonly renderer: THREE.WebGLRenderer
   private readonly resizeObserver: ResizeObserver
   private readonly updateFns = new Set<UpdateFn>()
+  private readonly invalidUpdateCompositions = new WeakMap<Entity, string>()
   private readonly resolution: GameResolution | null
   private viewHeight: number
   private sceneCamera: ResolvedSceneCamera | null = null
@@ -207,7 +209,9 @@ export class Game {
     this.lastTime = time
     if (this.simulate) {
       for (const entity of [...this.entities]) {
-        for (const component of [...entity.components]) component.onUpdate?.(dt)
+        const schedule = this.componentUpdateSchedule(entity)
+        if (!schedule) continue
+        for (const component of schedule) component.onUpdate?.(dt)
       }
       this.dispatchCollisions()
       this.updateSceneCamera(dt)
@@ -224,6 +228,41 @@ export class Game {
       this.renderer.setScissorTest(true)
     }
     this.renderer.render(this.scene, this.camera)
+  }
+
+  private componentUpdateSchedule(entity: Entity): Component[] | null {
+    const components = [...entity.components]
+    const registry: Record<string, ComponentClass> = {
+      ...(this.registry?.components ?? {}),
+    }
+    const byName = new Map<string, Component>()
+    const names: string[] = []
+    const signatureParts: string[] = []
+    for (const component of components) {
+      const Class = component.constructor as unknown as ComponentClass
+      const name = Class.componentName
+      registry[name] = Class
+      names.push(name)
+      byName.set(name, component)
+      signatureParts.push(
+        `${name}:${typeof Class.prototype.onUpdate === 'function' ? 'updates' : 'passive'}:` +
+          [...new Set(Class.updateAfter ?? [])].sort().join(','),
+      )
+    }
+    const result = resolveComponentUpdateSchedule(names, registry)
+    if (!result.ok) {
+      const signature = signatureParts.sort().join('|')
+      if (this.invalidUpdateCompositions.get(entity) !== signature) {
+        this.invalidUpdateCompositions.set(entity, signature)
+        console.error(
+          `[waica] invalid component update schedule for "${entity.name}": ` +
+            result.issues.map((issue) => issue.cause).join(' '),
+        )
+      }
+      return null
+    }
+    this.invalidUpdateCompositions.delete(entity)
+    return result.order.map((name) => byName.get(name)!)
   }
 
   private updateSceneCamera(dt: number): void {
