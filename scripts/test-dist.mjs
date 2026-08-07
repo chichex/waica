@@ -264,6 +264,13 @@ try {
     /updateAfter[\s\S]*Unicode code-unit[\s\S]*fail closed/i,
     'the packed engine must include its component update contract README',
   )
+  const packedEngineTypes = await readFile(
+    join(nodeModules, '@waica/engine/dist/index.d.ts'),
+    'utf8',
+  )
+  assert.match(packedEngineTypes, /resolveComponentUpdateSchedule/)
+  assert.match(packedEngineTypes, /ComponentUpdateScheduleResult/)
+  assert.match(packedEngineTypes, /ComponentUpdateScheduleIssue/)
 
   const platformerSource = JSON.parse(
     await readFile(join(root, 'packages/archetype-platformer/package.json'), 'utf8'),
