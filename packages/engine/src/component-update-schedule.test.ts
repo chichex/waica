@@ -25,6 +25,21 @@ class Alpha extends Component {
   override onUpdate(): void {}
 }
 
+class UpperZ extends Component {
+  static override componentName = 'Z'
+  override onUpdate(): void {}
+}
+
+class LowerA extends Component {
+  static override componentName = 'a'
+  override onUpdate(): void {}
+}
+
+class UmlautA extends Component {
+  static override componentName = 'Ä'
+  override onUpdate(): void {}
+}
+
 class PassiveDeclarer extends Component {
   static override componentName = 'PassiveDeclarer'
   static override updateAfter = ['Writer'] as const
@@ -121,6 +136,16 @@ describe('resolveComponentUpdateSchedule', () => {
         issues: [],
       })
     }
+  })
+
+  it('uses case-sensitive Unicode code units rather than locale collation', () => {
+    expect(
+      resolveComponentUpdateSchedule(['Ä', 'a', 'Z'], {
+        Z: UpperZ,
+        a: LowerA,
+        Ä: UmlautA,
+      }),
+    ).toEqual({ ok: true, order: ['Z', 'a', 'Ä'], issues: [] })
   })
 
   it('treats a registered but absent target as a conditional no-op', () => {
