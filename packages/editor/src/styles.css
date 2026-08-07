@@ -2011,12 +2011,42 @@ button.ed-crumb:hover {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 6px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--accent-2);
   margin-bottom: 4px;
+}
+
+.ed-update-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.ed-update-badge {
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--line));
+  border-radius: 999px;
+  padding: 1px 6px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.ed-update-after {
+  color: var(--text-dim);
+}
+
+.ed-update-error {
+  margin: 8px 0;
+  overflow-wrap: anywhere;
 }
 
 .ed-add-comp {
