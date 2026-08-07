@@ -48,7 +48,7 @@ pnpm dev   # platformer archetype — ← → move · space jump
 
 | Package | What it is |
 |---|---|
-| `@waica/engine` | Core: game loop, Entity + Components, scene JSON + prefab registry, `StateMachine` + role registry (`defineRole`/`defineStates`), `DynamicBody`/`Solid`/`Hitbox` collisions, input actions, sprites + animation contracts, scene camera, stats, HTML UI layer, `THREE` re-export |
+| [`@waica/engine`](./packages/engine/README.md) | Core: game loop, Entity + Components, scene JSON + prefab registry, `StateMachine` + role registry (`defineRole`/`defineStates`), `DynamicBody`/`Solid`/`Hitbox` collisions, input actions, sprites + animation contracts, scene camera, stats, HTML UI layer, `THREE` re-export |
 | `@waica/behaviors` | Curated game-feel library: `PlatformerMotor` and the `player` role, plus `patroller`, `chaser` and `npc`, `Collectible`, `Hazard`, `Respawnable`, `Lifetime` |
 | `@waica/archetype-platformer` | Opinionated platformer setup — playable from minute zero: default scene, prefabs, controls, HUD and stock art. The placeholder hero is Waica herself (pixel art, script-generated) |
 | `@waica/editor` | The app: create/open projects (owns the new-project template), viewport with drag & drop, inspector, state machine & animation editors, controls/stats views, play-in-editor, Monaco |

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
-import { resolveCollisionPoints, resolveSceneCamera, roleDefinition, sheetCell, type PrefabJson, type SceneCameraJson, type SceneComponentJson, type SceneEntityJson, type SceneJson, type SheetGridParams, type StateJson } from '@waica/engine'
+import { resolveCollisionPoints, resolveComponentUpdateSchedule, resolveSceneCamera, roleDefinition, sheetCell, type PrefabJson, type SceneCameraJson, type SceneComponentJson, type SceneEntityJson, type SceneJson, type SheetGridParams, type StateJson } from '@waica/engine'
 import { useArchetype, type ArchetypeManifest } from '../project/archetype'
 import { classDefaults } from '../project/component-defaults'
 import { countOverrides, prefabOwns, resolveComponents } from '../scene/ops'
@@ -19,7 +19,7 @@ import { StateMachineCard, type StateTarget } from './StateMachinePanel'
 import { collectDroppedFiles, IMAGE_RE, type ArtItem, type DroppedFile } from './use-project-art'
 import { ArtSearchGrid } from './ArtPicker'
 import type { ViewportComponentVisibility } from './Viewport'
-import type { ClipDef, CollisionPoint, InputBindings, ParamSpec, SheetCell } from '@waica/engine'
+import type { ClipDef, CollisionPoint, ComponentClass, InputBindings, ParamSpec, SheetCell } from '@waica/engine'
 import type { ProjectStats } from '../project/stats'
 import {
   availableRefTargets,
@@ -50,6 +50,68 @@ export type AnimTarget = { kind: 'prefab'; ref: string } | { kind: 'entity'; nam
 
 function clipsOf(comp: SceneComponentJson): Record<string, ClipDef> {
   return (comp.props?.clips as Record<string, ClipDef> | undefined) ?? {}
+}
+
+interface UpdateScheduleAnnotation {
+  position: number
+  after: string[]
+}
+
+type InspectorUpdateSchedule =
+  | { ok: true; annotations: ReadonlyMap<string, UpdateScheduleAnnotation> }
+  | { ok: false; message: string }
+
+const UpdateScheduleContext = createContext<InspectorUpdateSchedule | null>(null)
+
+function updateScheduleFor(
+  owner: string,
+  components: readonly SceneComponentJson[],
+  registry: Readonly<Record<string, ComponentClass>>,
+): InspectorUpdateSchedule {
+  const names = components.map((component) => component.type)
+  const result = resolveComponentUpdateSchedule(names, registry)
+  if (!result.ok) {
+    return {
+      ok: false,
+      message: `Invalid component update schedule for "${owner}": ${result.issues
+        .map((issue) => issue.cause)
+        .join(' ')}`,
+    }
+  }
+  const present = new Set(names)
+  const annotations = new Map<string, UpdateScheduleAnnotation>()
+  result.order.forEach((componentName, index) => {
+    const Class = Object.hasOwn(registry, componentName) ? registry[componentName] : undefined
+    const after = [...new Set(Class?.updateAfter ?? [])].filter((target) => present.has(target))
+    annotations.set(componentName, { position: index + 1, after })
+  })
+  return { ok: true, annotations }
+}
+
+function UpdateScheduleMeta({
+  position,
+  after,
+}: {
+  position: number | 'varies'
+  after: readonly string[]
+}) {
+  return (
+    <span className="ed-update-meta">
+      <span className="ed-update-badge">update {position}</span>
+      {after.length > 0 && <span className="ed-update-after">after: {after.join(', ')}</span>}
+    </span>
+  )
+}
+
+function ComponentUpdateSchedule({ type }: { type: string }) {
+  const schedule = useContext(UpdateScheduleContext)
+  if (!schedule?.ok) return null
+  const annotation = schedule.annotations.get(type)
+  return annotation ? <UpdateScheduleMeta {...annotation} /> : null
+}
+
+function UpdateScheduleError({ schedule }: { schedule: InspectorUpdateSchedule }) {
+  return schedule.ok ? null : <div className="ed-warn-card ed-update-error">⚠ {schedule.message}</div>
 }
 
 /**
@@ -663,6 +725,62 @@ function MultiPropsSection({
   )
 }
 
+function MultiUpdateScheduleSection({
+  entities,
+  prefabs,
+}: {
+  entities: readonly SceneEntityJson[]
+  prefabs: Record<string, PrefabJson>
+}) {
+  const archetype = useArchetype()
+  const resolved = entities.map((entity) => resolveComponents(entity, prefabs))
+  const schedules = entities.map((entity, index) =>
+    updateScheduleFor(entity.name, resolved[index] ?? [], archetype.registry.components),
+  )
+  const invalid = schedules.filter(
+    (schedule): schedule is Extract<InspectorUpdateSchedule, { ok: false }> => !schedule.ok,
+  )
+  if (invalid.length > 0) {
+    return (
+      <div className="ed-section ed-update-multi">
+        <header className="ed-sec-head">Update schedule</header>
+        {invalid.map((schedule) => (
+          <UpdateScheduleError key={schedule.message} schedule={schedule} />
+        ))}
+      </div>
+    )
+  }
+  const valid = schedules as Array<Extract<InspectorUpdateSchedule, { ok: true }>>
+  const sharedTypes = [...new Set((resolved[0] ?? []).map((component) => component.type))].filter(
+    (type) => valid.every((schedule) => schedule.annotations.has(type)),
+  )
+  if (sharedTypes.length === 0) return null
+  return (
+    <div className="ed-section ed-update-multi">
+      <header className="ed-sec-head">Update schedule</header>
+      {sharedTypes.map((type) => {
+        const annotations = valid.map((schedule) => schedule.annotations.get(type)!)
+        const position = annotations.every(({ position }) => position === annotations[0]?.position)
+          ? annotations[0]!.position
+          : 'varies'
+        const after = annotations.every(
+          ({ after }) => after.join('\0') === annotations[0]?.after.join('\0'),
+        )
+          ? annotations[0]!.after
+          : []
+        return (
+          <div className="ed-comp" key={type}>
+            <header className="ed-comp-head">
+              <span>{componentLabel(type, archetype)}</span>
+              <UpdateScheduleMeta position={position} after={after} />
+            </header>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function RoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="ed-row">
@@ -738,6 +856,7 @@ function ComponentCard({
         title={onRemove ? undefined : 'defined by the prefab — edit the prefab to change it'}
       >
         <span>{componentLabel(comp.type, archetype)}</span>
+        <ComponentUpdateSchedule type={comp.type} />
         {onRemove && (
           <button className="ed-mini" title="Remove component" onClick={onRemove}>
             ✕
@@ -924,6 +1043,7 @@ function AppearanceSection({
     <div className="ed-section">
       <header className="ed-sec-head">
         <span>Appearance</span>
+        <ComponentUpdateSchedule type={comp.type} />
         <ViewportVisibilityButton
           label="Appearance"
           visible={viewportVisible}
@@ -1357,6 +1477,7 @@ function BehavioursSection({
                 onCreateRoleFile={machine.onCreateRoleFile}
                 onEditState={machine.onEditState}
                 onRemove={canRemove(comp) ? () => onRemove(comp.type) : undefined}
+                updateSchedule={<ComponentUpdateSchedule type={comp.type} />}
               />
               {driverComp && <div className="ed-role-driver">{driverCard(driverComp)}</div>}
             </div>
@@ -1455,8 +1576,11 @@ function EntityInspector({
   const overrideCount = countOverrides(entity)
   const resetOf = (type: string) => (key: string) => onResetProp(entity.name, type, key)
   const applyOf = (type: string) => (key: string) => onApplyProp(entity.name, type, key)
+  const updateSchedule = updateScheduleFor(entity.name, components, archetype.registry.components)
   return (
+    <UpdateScheduleContext.Provider value={updateSchedule}>
     <div className="ed-pad">
+      <UpdateScheduleError schedule={updateSchedule} />
       <label className="ed-row">
         <span>name</span>
         <input
@@ -1606,6 +1730,7 @@ function EntityInspector({
         🗑 Delete entity
       </button>
     </div>
+    </UpdateScheduleContext.Provider>
   )
 }
 
@@ -1667,8 +1792,11 @@ function PrefabInspector({
       : touching.length
         ? `no hitbox — ${touching.join('/')} won't react`
         : 'no hitbox — this object is decorative'
+  const updateSchedule = updateScheduleFor(refName, prefab.components, archetype.registry.components)
   return (
+    <UpdateScheduleContext.Provider value={updateSchedule}>
     <div className="ed-pad">
+      <UpdateScheduleError schedule={updateSchedule} />
       {appearance && (
         <AppearanceSection
           key={refName}
@@ -1724,6 +1852,7 @@ function PrefabInspector({
         onAdd={onAdd}
       />
     </div>
+    </UpdateScheduleContext.Provider>
   )
 }
 
@@ -1988,6 +2117,7 @@ export function Inspector(props: Props) {
             drag any of them in the viewport to move the group · Shift-click adds or removes one
             · ⌘/Ctrl+D duplicates · Delete removes — or right-click a selected row
           </div>
+          <MultiUpdateScheduleSection entities={selection.entities} prefabs={props.prefabs} />
           <MultiPropsSection
             entities={selection.entities}
             prefabs={props.prefabs}

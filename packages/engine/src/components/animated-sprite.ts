@@ -16,6 +16,7 @@ const loader = new THREE.TextureLoader()
  */
 export class AnimatedSprite extends Component {
   static override componentName = 'AnimatedSprite'
+  static override updateAfter: readonly string[] = ['StateMachine']
   static override params = {
     offsetX: { label: 'x offset' },
     offsetY: { label: 'y offset' },

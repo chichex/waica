@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Component } from '../component'
+import { resolveComponentUpdateSchedule } from '../component-update-schedule'
 import { AnimatedSprite } from '../components/animated-sprite'
 import type { Entity } from '../entity'
 import type { Game } from '../game'
@@ -69,6 +71,41 @@ describe('StateMachine runtime characterization', () => {
     machine.onReady()
 
     expect(play).toHaveBeenCalledWith('stand')
+  })
+
+  it('lets AnimatedSprite observe a clip selected by StateMachine in the same frame under reversed source order', () => {
+    const sprite = new AnimatedSprite()
+    sprite.clips = {
+      idle: { frames: [0], fps: 1 },
+      run: { frames: [1], fps: 1 },
+    }
+    const { machine } = makeMachine(
+      {
+        idle: { transitions: [{ on: 'signal:run', to: 'run' }] },
+        run: {},
+      },
+      sprite,
+    )
+    machine.onReady()
+    let observedClip: string | undefined
+    vi.spyOn(sprite, 'onUpdate').mockImplementation(() => {
+      observedClip = sprite.current
+    })
+    machine.signal('run')
+    const result = resolveComponentUpdateSchedule(
+      ['AnimatedSprite', 'StateMachine'],
+      { AnimatedSprite, StateMachine },
+    )
+    if (!result.ok) throw new Error(result.issues.map((issue) => issue.cause).join(' '))
+    const byName = new Map<string, Component>([
+      ['AnimatedSprite', sprite],
+      ['StateMachine', machine],
+    ])
+
+    for (const name of result.order) byName.get(name)?.onUpdate?.(0.016)
+
+    expect(result.order).toEqual(['StateMachine', 'AnimatedSprite'])
+    expect(observedClip).toBe('run')
   })
 
   it('consumes one key press so it cannot transition twice in the same frame', () => {

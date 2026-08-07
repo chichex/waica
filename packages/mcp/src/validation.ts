@@ -1,12 +1,14 @@
-import type {
-  ArchetypeManifest,
-  ComponentClass,
-  ParamSpec,
-  PrefabJson,
-  SceneComponentJson,
-  SceneEntityJson,
-  SceneJson,
-  StateJson,
+import {
+  resolveComponentUpdateSchedule,
+  type ArchetypeManifest,
+  type ComponentClass,
+  type ComponentUpdateScheduleIssue,
+  type ParamSpec,
+  type PrefabJson,
+  type SceneComponentJson,
+  type SceneEntityJson,
+  type SceneJson,
+  type StateJson,
 } from '@waica/engine'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -38,6 +40,9 @@ export type FindingCode =
   | 'unparseable-json'
   | 'component-load-failed'
   | 'component-load-unsupported'
+  | 'duplicate-component'
+  | 'invalid-update-constraint'
+  | 'component-update-cycle'
 
 export interface ValidationFinding {
   severity: FindingSeverity
@@ -48,8 +53,10 @@ export interface ValidationFinding {
 }
 
 interface ComponentMetadata {
+  Class: ComponentClass
   params: Record<string, ParamSpec>
   defaults: Record<string, unknown>
+  sourceFile?: string
 }
 
 interface ValidationContext {
@@ -58,6 +65,8 @@ interface ValidationContext {
   knownComponents: Set<string>
   projectComponents: Set<string>
   componentMetadata: Map<string, ComponentMetadata>
+  componentRegistry: Record<string, ComponentClass>
+  reportedClassConstraints: Set<string>
   prefabRefs: Set<string>
   declaredStats: Set<string>
   stateFiles: Set<string>
@@ -148,7 +157,7 @@ function componentList(value: unknown): SceneComponentJson[] {
 
 function classMetadata(Class: ComponentClass): ComponentMetadata {
   // A throwing constructor has no observable defaults, matching list_components.
-  return { params: Class.params ?? {}, defaults: classDefaults(Class) }
+  return { Class, params: Class.params ?? {}, defaults: classDefaults(Class) }
 }
 
 /** Clip names declared by the sibling AnimatedSprite, or undefined when there is none (no animation contract to check). */
@@ -406,6 +415,79 @@ function resolvedEntityComponents(
   return [...inherited, ...componentList(entity.components)]
 }
 
+function componentUpdateIssueKey(issue: ComponentUpdateScheduleIssue): string {
+  switch (issue.code) {
+    case 'duplicate-component':
+      return `${issue.code}:${issue.componentName}:${issue.count}`
+    case 'invalid-update-constraint':
+      return `${issue.code}:${issue.reason}:${issue.declarer}:${issue.target ?? ''}`
+    case 'component-update-cycle':
+      return `${issue.code}:${issue.componentNames.join('\0')}`
+  }
+}
+
+function componentUpdateIssues(
+  components: readonly SceneComponentJson[],
+  context: ValidationContext,
+): ComponentUpdateScheduleIssue[] {
+  const result = resolveComponentUpdateSchedule(
+    components.map((component) => component.type),
+    context.componentRegistry,
+  )
+  return result.ok ? [] : [...result.issues]
+}
+
+function addComponentUpdateFinding(
+  issue: ComponentUpdateScheduleIssue,
+  file: string,
+  ref: string | undefined,
+  context: ValidationContext,
+): void {
+  let findingFile = file
+  let findingRef = ref
+  if (issue.code === 'invalid-update-constraint') {
+    const source = context.componentMetadata.get(issue.declarer)?.sourceFile
+    if (source) {
+      const key = `${source}:${componentUpdateIssueKey(issue)}`
+      if (context.reportedClassConstraints.has(key)) return
+      context.reportedClassConstraints.add(key)
+      findingFile = source
+      findingRef = issue.declarer
+    }
+  }
+  add(context, 'error', issue.code, issue.cause, findingFile, findingRef)
+}
+
+function validateComponentUpdateSchedule(
+  components: readonly SceneComponentJson[],
+  file: string,
+  ref: string | undefined,
+  context: ValidationContext,
+  inheritedIssues: ReadonlySet<string> = new Set(),
+): void {
+  for (const issue of componentUpdateIssues(components, context)) {
+    if (inheritedIssues.has(componentUpdateIssueKey(issue))) continue
+    addComponentUpdateFinding(issue, file, ref, context)
+  }
+}
+
+function validateComponentClassUpdateContracts(context: ValidationContext): void {
+  for (const componentName of Object.keys(context.componentRegistry).sort()) {
+    const metadata = context.componentMetadata.get(componentName)
+    const result = resolveComponentUpdateSchedule([componentName], context.componentRegistry)
+    if (result.ok) continue
+    for (const issue of result.issues) {
+      if (issue.code !== 'invalid-update-constraint') continue
+      addComponentUpdateFinding(
+        issue,
+        metadata?.sourceFile ?? 'package.json',
+        componentName,
+        context,
+      )
+    }
+  }
+}
+
 function validatePrefab(
   prefab: PrefabJson,
   file: string,
@@ -421,6 +503,7 @@ function validatePrefab(
     context,
   )
   validateStateMachines(components, file, ref, context)
+  validateComponentUpdateSchedule(components, file, ref, context)
 }
 
 function validateScene(
@@ -569,6 +652,24 @@ function validateScene(
     if (changesStateBehavior) {
       validateStateMachines(effectiveComponents(), file, entityRef, context)
     }
+
+    // A plain prefab instance inherits the prefab-level result already emitted
+    // above. Inline components create a new effective composition; report only
+    // the issues they introduce, not every inherited issue again.
+    if (inline.length > 0) {
+      const inheritedIssues = new Set(
+        componentUpdateIssues(componentList(prefab?.components), context).map(
+          componentUpdateIssueKey,
+        ),
+      )
+      validateComponentUpdateSchedule(
+        effectiveComponents(),
+        file,
+        entityRef,
+        context,
+        inheritedIssues,
+      )
+    }
   }
 }
 
@@ -675,16 +776,22 @@ export async function validateProject(projectPath: string): Promise<{
   const declaredStats = new Set(
     Object.keys(objectRecord(objectRecord(fixed.get('src/stats.json')).stats)),
   )
+  const componentRegistry: Record<string, ComponentClass> = {
+    ...manifest.registry.components,
+  }
   const componentMetadata = new Map<string, ComponentMetadata>(
-    Object.entries(manifest.registry.components).map(([name, Class]) => [
+    Object.entries(componentRegistry).map(([name, Class]) => [
       name,
       classMetadata(Class),
     ]),
   )
   for (const [name, description] of Object.entries(loadedProjectComponents.components)) {
+    componentRegistry[name] = description.Class
     componentMetadata.set(name, {
+      Class: description.Class,
       params: description.params,
       defaults: description.defaults,
+      sourceFile: description.file,
     })
     projectComponents.add(name)
   }
@@ -715,12 +822,15 @@ export async function validateProject(projectPath: string): Promise<{
     knownComponents: new Set(Object.keys(manifest.registry.components)),
     projectComponents,
     componentMetadata,
+    componentRegistry,
+    reportedClassConstraints: new Set(),
     prefabRefs: new Set(prefabs.keys()),
     declaredStats,
     stateFiles,
     roleStateSources,
     bindings,
   }
+  validateComponentClassUpdateContracts(context)
   for (const { prefab, relative, ref } of prefabFiles) {
     validatePrefab(prefab, relative, ref, context)
   }

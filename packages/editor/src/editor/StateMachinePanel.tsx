@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import {
   registeredRoles,
   roleDefinition,
@@ -40,6 +40,7 @@ export function StateMachineCard({
   onCreateRoleFile,
   onEditState,
   onRemove,
+  updateSchedule,
 }: {
   comp: SceneComponentJson
   /** Clip names on the sibling AnimatedSprite, for the warnings. */
@@ -53,6 +54,8 @@ export function StateMachineCard({
   onEditState(state: string): void
   /** Absent = locked (prefab-owned at the entity level). */
   onRemove?(): void
+  /** Read-only effective component update position supplied by the Inspector. */
+  updateSchedule?: ReactNode
 }) {
   const machine = machineProps(comp)
   const names = stateNames(machine)
@@ -91,6 +94,7 @@ export function StateMachineCard({
         title={onRemove ? undefined : 'defined by the prefab — edit the prefab to change it'}
       >
         <span>Role</span>
+        {updateSchedule}
         {onRemove && (
           <button className="ed-mini" title="Remove component" onClick={onRemove}>
             ✕

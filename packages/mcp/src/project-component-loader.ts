@@ -1,4 +1,4 @@
-import type { ParamSpec } from '@waica/engine'
+import type { ComponentClass, ParamSpec } from '@waica/engine'
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import * as nodeModule from 'node:module'
@@ -16,6 +16,7 @@ export type ComponentLoadFailureCode =
 
 export interface ProjectComponentDescription {
   file: string
+  Class: ComponentClass
   params: Record<string, ParamSpec>
   defaults: Record<string, unknown>
 }
@@ -205,6 +206,7 @@ function componentDescriptions(
     if (typeof Class.componentName !== 'string' || !Class.componentName) continue
     descriptions[Class.componentName] = {
       file,
+      Class: Class as unknown as ComponentClass,
       params: objectRecord(Class.params) as Record<string, ParamSpec>,
       defaults: classDefaults(Class),
     }

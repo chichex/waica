@@ -257,6 +257,21 @@ try {
     }
   }
 
+  const packedEngineReadme = join(nodeModules, '@waica/engine/README.md')
+  await access(packedEngineReadme)
+  assert.match(
+    await readFile(packedEngineReadme, 'utf8'),
+    /updateAfter[\s\S]*Unicode code-unit[\s\S]*fail closed/i,
+    'the packed engine must include its component update contract README',
+  )
+  const packedEngineTypes = await readFile(
+    join(nodeModules, '@waica/engine/dist/index.d.ts'),
+    'utf8',
+  )
+  assert.match(packedEngineTypes, /resolveComponentUpdateSchedule/)
+  assert.match(packedEngineTypes, /ComponentUpdateScheduleResult/)
+  assert.match(packedEngineTypes, /ComponentUpdateScheduleIssue/)
+
   const platformerSource = JSON.parse(
     await readFile(join(root, 'packages/archetype-platformer/package.json'), 'utf8'),
   )
@@ -345,7 +360,12 @@ try {
   await writeFile(
     probe,
     [
-      "await import('@waica/engine')",
+      "const enginePackage = await import('@waica/engine')",
+      "if (typeof enginePackage.resolveComponentUpdateSchedule !== 'function') throw new Error('engine root has no schedule resolver')",
+      "class PackedProducer extends enginePackage.Component { static componentName = 'PackedProducer'; onUpdate() {} }",
+      "class PackedConsumer extends enginePackage.Component { static componentName = 'PackedConsumer'; static updateAfter = ['PackedProducer']; onUpdate() {} }",
+      "const packedSchedule = enginePackage.resolveComponentUpdateSchedule(['PackedConsumer', 'PackedProducer'], { PackedConsumer, PackedProducer })",
+      "if (!packedSchedule.ok || packedSchedule.order.join(',') !== 'PackedProducer,PackedConsumer') throw new Error('packed engine resolver contract failed')",
       "await import('@waica/behaviors')",
       "const rootPackage = await import('@waica/archetype-platformer')",
       "const nodePackage = await import('@waica/archetype-platformer/manifest')",

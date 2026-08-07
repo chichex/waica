@@ -28,7 +28,7 @@ export function deathTargets(states: Record<string, StateJson>, current: string)
  * Declaring an edge is not the same as taking it: nextTransition returns the
  * FIRST firing edge, so a death edge listed after another edge that also
  * fires loses the race and the signal is dropped. That is why signalling is
- * followed by the deferred check in Health.onUpdate rather than trusted.
+ * followed by a check on Health's first eligible update after StateMachine.
  */
 export function declaresDeathHandling(
   states: Record<string, StateJson>,
@@ -36,14 +36,6 @@ export function declaresDeathHandling(
 ): boolean {
   return deathTargets(states, current).length > 0
 }
-
-/**
- * Frames to wait before deciding the graph ignored the death signal. Two,
- * not one, because component update order is prefab-authored: with Health
- * listed before its StateMachine, one frame would check before the machine
- * ever ran. Two guarantees the machine got a full tick either way.
- */
-const DEATH_GRACE_FRAMES = 2
 
 /**
  * How much punishment an entity takes before it dies. Deliberately separate
@@ -55,11 +47,12 @@ const DEATH_GRACE_FRAMES = 2
  */
 export class Health extends Component {
   static override componentName = 'Health'
+  static override updateAfter: readonly string[] = ['StateMachine']
   static override params = {
     max: { label: 'Max health', min: 1, max: 20, step: 1 },
     invulnerability: { label: 'Invulnerability', min: 0, max: 5, step: 0.1 },
   }
-  static override transient = ['current', 'invulnerable', 'deathGrace', 'expectedStates']
+  static override transient = ['current', 'invulnerable', 'deathPending', 'expectedStates']
 
   max = 3
   /** Seconds of immunity granted by taking a hit. 0 disables i-frames. */
@@ -71,8 +64,8 @@ export class Health extends Component {
   /** Seconds left in the invulnerability window. */
   private invulnerable = 0
 
-  /** Frames left before the signalled death is checked; 0 when not waiting. */
-  private deathGrace = 0
+  /** Whether the signalled death must be checked on this component's next update. */
+  private deathPending = false
   /** States the death signal was supposed to reach. */
   private expectedStates: string[] = []
 
@@ -88,7 +81,10 @@ export class Health extends Component {
 
   override onUpdate(dt: number): void {
     if (this.invulnerable > 0) this.invulnerable = Math.max(0, this.invulnerable - dt)
-    if (this.deathGrace > 0 && --this.deathGrace === 0) this.settleDeath()
+    if (this.deathPending) {
+      this.deathPending = false
+      this.settleDeath()
+    }
   }
 
   /**
@@ -148,10 +144,11 @@ export class Health extends Component {
     const targets = machine ? deathTargets(machine.states, machine.current) : []
     if (machine && targets.length > 0) {
       machine.signal('death')
-      // Trust, then verify: settleDeath falls back to destroying if the
-      // signal never actually moved the machine anywhere it said it would.
+      // Trust, then verify: the deterministic schedule puts Health after the
+      // machine, so its first eligible update can settle this without an
+      // authored-order grace period.
       this.expectedStates = targets
-      this.deathGrace = DEATH_GRACE_FRAMES
+      this.deathPending = true
       return
     }
     this.entity.destroy()
