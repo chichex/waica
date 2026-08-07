@@ -25,6 +25,8 @@ export interface ComponentClass<T extends Component = Component> {
   displayName?: string
   /** Which properties the inspector exposes, with their ranges. */
   params?: Record<string, ParamSpec>
+  /** Sibling component updates that must complete before this one when present. */
+  updateAfter?: readonly string[]
   /**
    * Instance fields holding runtime state rather than authorable defaults.
    * Excluded from authoringDefaults(); a subclass that does not redeclare
@@ -56,6 +58,7 @@ export abstract class Component {
   static componentName = 'Component'
   static displayName?: string
   static params?: Record<string, ParamSpec>
+  static updateAfter?: readonly string[]
   static transient?: readonly string[]
 
   entity!: Entity

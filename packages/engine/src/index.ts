@@ -19,6 +19,18 @@ export type {
 } from './component.js'
 export { collectModuleComponents, mergeRegistryComponents } from './component-registry.js'
 export type { ComponentModule } from './component-registry.js'
+export { resolveComponentUpdateSchedule } from './component-update-schedule.js'
+export type {
+  ComponentUpdateCycleIssue,
+  ComponentUpdateRegistry,
+  ComponentUpdateScheduleIssue,
+  ComponentUpdateScheduleResult,
+  DuplicateComponentUpdateIssue,
+  InvalidComponentUpdateConstraintIssue,
+  InvalidComponentUpdateSchedule,
+  InvalidUpdateConstraintReason,
+  ValidComponentUpdateSchedule,
+} from './component-update-schedule.js'
 export { Input, DEFAULT_BINDINGS } from './input.js'
 export type { ActionName, InputBindings } from './input.js'
 export type {
