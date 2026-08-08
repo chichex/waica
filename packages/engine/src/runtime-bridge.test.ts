@@ -214,7 +214,7 @@ describe('Runtime Bridge protocol', () => {
     expect(registered).toHaveLength(1)
     expect(registered[0]?.metadata()).toEqual({
       bridgeVersion: 1,
-      engineVersion: '0.5.0',
+      engineVersion: '0.6.0',
       mode: 'paused',
       frame: 0,
       simulationTime: 0,
