@@ -11,6 +11,10 @@ _Avoid_: template, genre pack
 **Archetype Manifest**:
 The standard object every archetype package exports as `ARCHETYPE`: id, label, default scenes, registry, palette, prefabs, art, entity icons, bindings, action labels and bundle. Browser entries enrich it with art URLs; Node tooling uses an asset-import-free entry whose registry points at package-relative assets.
 
+**Animation Contract**:
+An archetype's declaration of which animation clips a role's states require and how a missing clip resolves through fallbacks. Direction-aware archetypes resolve clips per state × facing, with mirroring as a declarable fallback.
+_Avoid_: clip list, animation set
+
 **Chassis**:
 The factory baseline something starts from and cannot shed: a prefab's core components (appearance, collision — configurable, never removable) and, by extension, the generic project skeleton every new project is created from.
 _Avoid_: boilerplate, skeleton
