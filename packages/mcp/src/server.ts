@@ -34,6 +34,7 @@ import {
   type RuntimeService,
 } from './runtime-service.js'
 import { createDefaultRuntimeSessionManager } from './runtime-session-manager.js'
+import { ProjectComponentLoader } from './project-component-loader.js'
 import { validateProject } from './validation.js'
 
 const PROJECT_PATH = {
@@ -407,6 +408,8 @@ async function execute(
   name: string,
   args: Record<string, unknown>,
   runtime: RuntimeService,
+  signal: AbortSignal,
+  componentLoader: ProjectComponentLoader,
 ): Promise<Record<string, unknown> | RuntimeScreenshotResult> {
   const isRuntimeTool = RUNTIME_TOOL_NAMES.has(name)
   const rawProjectPath = args.project_path
@@ -451,7 +454,7 @@ async function execute(
     case 'project_summary':
       return projectSummary(projectPath)
     case 'validate_project':
-      return validateProject(projectPath)
+      return validateProject(projectPath, { signal, componentLoader })
     case 'scaffold_component': {
       const check = await requireWaicaProject(projectPath)
       return {
@@ -638,10 +641,12 @@ function shippedVersion(): string {
 
 export interface WaicaMcpServerOptions {
   runtime?: RuntimeService
+  componentLoader?: ProjectComponentLoader
 }
 
 export function createWaicaMcpServer(options: WaicaMcpServerOptions = {}): Server {
   const runtime = options.runtime ?? createDefaultRuntimeSessionManager()
+  const componentLoader = options.componentLoader ?? new ProjectComponentLoader()
   const server = new Server(
     // The name stays fixed: it identifies the server to the host, not the
     // package that happens to carry it.
@@ -653,29 +658,36 @@ export function createWaicaMcpServer(options: WaicaMcpServerOptions = {}): Serve
     },
   )
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }))
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     const args = (request.params.arguments ?? {}) as Record<string, unknown>
     try {
-      const executed = await execute(request.params.name, args, runtime)
+      const executed = await execute(
+        request.params.name,
+        args,
+        runtime,
+        extra.signal,
+        componentLoader,
+      )
       return request.params.name === 'capture_screenshot'
         ? screenshotResult(executed as RuntimeScreenshotResult)
         : result(executed as Record<string, unknown>)
     } catch (error) {
+      if (extra.signal.aborted) throw (extra.signal.reason ?? error)
       return errorResult(error, args, request.params.name)
     }
   })
 
   let cleanup: Promise<void> | undefined
-  const cleanupRuntime = (): Promise<void> => {
-    cleanup ??= runtime.close()
+  const cleanupResources = (): Promise<void> => {
+    cleanup ??= Promise.all([runtime.close(), componentLoader.close()]).then(() => undefined)
     return cleanup
   }
   server.onclose = () => {
-    void cleanupRuntime()
+    void cleanupResources()
   }
   const closeProtocol = server.close.bind(server)
   server.close = async () => {
-    await cleanupRuntime()
+    await cleanupResources()
     await closeProtocol()
   }
   return server

@@ -1,26 +1,13 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { reportProjectCodeFailure } from './stdio.js'
+import { describe, expect, it } from 'vitest'
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 
-describe('reportProjectCodeFailure', () => {
-  afterEach(() => vi.restoreAllMocks())
+describe('stdio process failure handling', () => {
+  it('leaves unexpected MCP rejections and exceptions to Node default handling', async () => {
+    const source = await readFile(path.join(import.meta.dirname, 'stdio.ts'), 'utf8')
 
-  it('logs to stderr (console.error) rather than stdout, which carries the JSON-RPC transport', () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
-
-    reportProjectCodeFailure('unhandledRejection', new Error('floating fetch() rejected'))
-
-    expect(errorSpy).toHaveBeenCalledTimes(1)
-    expect(errorSpy.mock.calls[0]?.join(' ')).toContain('unhandledRejection')
-    expect(logSpy).not.toHaveBeenCalled()
-  })
-
-  it('reports uncaughtException without throwing, keeping the server process alive', () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-
-    expect(() =>
-      reportProjectCodeFailure('uncaughtException', new Error('module-scope throw')),
-    ).not.toThrow()
-    expect(errorSpy).toHaveBeenCalledTimes(1)
+    expect(source).not.toMatch(/process\.on\(['"]unhandledRejection/)
+    expect(source).not.toMatch(/process\.on\(['"]uncaughtException/)
+    expect(source).not.toContain('reportProjectCodeFailure')
   })
 })

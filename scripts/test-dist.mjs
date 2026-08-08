@@ -299,7 +299,11 @@ try {
   const mcpRoot = join(root, 'packages/mcp')
   await assertDistMatchesSource(mcpRoot, '@waica/mcp')
   await assertExplicitRelativeImports(mcpRoot, '@waica/mcp')
-  await access(join(mcpRoot, 'dist/native-import.cjs'))
+  await access(join(mcpRoot, 'dist/project-component-runner.js'))
+  await assert.rejects(
+    access(join(mcpRoot, 'dist/native-import.cjs')),
+    'the obsolete in-process native importer must not ship',
+  )
   const mcpSource = JSON.parse(await readFile(join(mcpRoot, 'package.json'), 'utf8'))
   assert.equal(mcpSource.private, true, '@waica/mcp must stay unpublished: it ships inside the CLI')
   assert.equal(mcpSource.publishConfig, undefined, '@waica/mcp must carry no publish settings')
@@ -324,7 +328,11 @@ try {
   assert.ok((await readFile(packedCli, 'utf8')).startsWith('#!/usr/bin/env node\n'))
   await access(join(packedCliRoot, 'dist/editor/index.html'))
   await access(join(packedCliRoot, 'dist/mcp/stdio.js'))
-  await access(join(packedCliRoot, 'dist/mcp/native-import.cjs'))
+  await access(join(packedCliRoot, 'dist/mcp/project-component-runner.js'))
+  await assert.rejects(
+    access(join(packedCliRoot, 'dist/mcp/native-import.cjs')),
+    'the packed CLI must not retain the obsolete in-process native importer',
+  )
   await access(join(packedCliRoot, 'dist/mcp/template/package.json.tpl'))
   await access(join(packedCliRoot, 'dist/mcp/template/src/main.ts'))
   for (const module of [
@@ -620,6 +628,38 @@ try {
           finding.message.includes('objects/missing-two'),
       ),
       'the packed long-lived MCP must observe an edited project module',
+    )
+
+    const exitingFile = join(stdioTarget, 'src/components/exits-before-reply.ts')
+    await writeFile(exitingFile, 'process.exit(0)\n')
+    const isolatedExit = await validate()
+    assert.equal(
+      isolatedExit.isError,
+      undefined,
+      `one exiting Project entry must remain finding data: ${childStderr}`,
+    )
+    assert.ok(
+      isolatedExit.structuredContent?.findings?.some(
+        (finding) =>
+          finding.code === 'component-load-failed' &&
+          finding.file === 'src/components/exits-before-reply.ts',
+      ),
+      'an entry that exits before replying must produce one file finding',
+    )
+
+    const afterExit = await client.callTool(
+      { name: 'project_summary', arguments: { project_path: stdioTarget } },
+      undefined,
+      { timeout: 10_000 },
+    )
+    assert.equal(
+      afterExit.isError,
+      undefined,
+      `the same packed MCP must answer after a Project child exits: ${childStderr}`,
+    )
+    assert.ok(
+      afterExit.structuredContent?.components?.includes('exits-before-reply.ts'),
+      'the subsequent static tool call must come from the still-live MCP process',
     )
   } finally {
     await client.close().catch(() => {})

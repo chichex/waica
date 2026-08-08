@@ -43,6 +43,8 @@ describe('@waica/mcp package contract', () => {
       'playwright-core',
     ])
     await access(path.join(packageRoot, 'bundle-template.mjs'))
+    await access(path.join(packageRoot, 'src/project-component-runner.ts'))
+    await expect(access(path.join(packageRoot, 'src/native-import.cjs'))).rejects.toThrow()
   })
 
   it('has its runtime dependencies provided by the CLI that bundles it', async () => {

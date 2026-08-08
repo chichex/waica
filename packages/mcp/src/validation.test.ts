@@ -30,6 +30,111 @@ const ALL_CODES = [
 ]
 
 describe('validateProject', () => {
+  it('preserves the complete healthy project-module validation result', async () => {
+    const project = await makeProject({
+      'src/components/parity.ts': `
+import { Component } from '@waica/engine'
+class UpdatingBase extends Component {
+  onUpdate() {}
+}
+export class RefAndSchedule extends UpdatingBase {
+  static componentName = 'RefAndSchedule'
+  static params = {
+    target: { ref: 'prefab' },
+    literal: { ref: 'prefab', options: ['literal'] },
+  }
+  static updateAfter = ['PassiveTarget']
+  target = 'objects/missing'
+  literal = 'not-a-prefab'
+}
+export class PassiveDeclarer extends Component {
+  static componentName = 'PassiveDeclarer'
+  static updateAfter = ['RefAndSchedule']
+}
+export class PassiveTarget extends Component {
+  static componentName = 'PassiveTarget'
+}
+`,
+      'src/objects/parity.object.json': JSON.stringify({
+        waicaPrefab: 1,
+        type: 'object',
+        components: [
+          { type: 'RefAndSchedule' },
+          { type: 'PassiveDeclarer' },
+          { type: 'PassiveTarget' },
+        ],
+      }),
+    })
+    roots.push(project)
+
+    const result = await validateProject(project)
+
+    // Characterization golden captured against the pre-isolation loader.
+    // Keep this literal: deriving it from the implementation would make the
+    // parity check tautological.
+    expect(result).toEqual({
+      findings: [
+        {
+          severity: 'error',
+          code: 'invalid-update-constraint',
+          message:
+            'Passive component "PassiveDeclarer" declares updateAfter but does not implement onUpdate.',
+          file: 'src/components/parity.ts',
+          ref: 'PassiveDeclarer',
+        },
+        {
+          severity: 'info',
+          code: 'unknown-component',
+          message: 'Component "RefAndSchedule" is project-owned, not validated.',
+          file: 'src/objects/parity.object.json',
+          ref: 'objects/parity',
+        },
+        {
+          severity: 'info',
+          code: 'unknown-component',
+          message: 'Component "PassiveDeclarer" is project-owned, not validated.',
+          file: 'src/objects/parity.object.json',
+          ref: 'objects/parity',
+        },
+        {
+          severity: 'info',
+          code: 'unknown-component',
+          message: 'Component "PassiveTarget" is project-owned, not validated.',
+          file: 'src/objects/parity.object.json',
+          ref: 'objects/parity',
+        },
+        {
+          severity: 'error',
+          code: 'broken-prefab-ref',
+          message:
+            'Component "RefAndSchedule" param "target" references missing prefab "objects/missing".',
+          file: 'src/objects/parity.object.json',
+          ref: 'RefAndSchedule.target',
+        },
+        {
+          severity: 'error',
+          code: 'invalid-update-constraint',
+          message:
+            'Component "RefAndSchedule" declares updateAfter target "PassiveTarget", but "PassiveTarget" does not implement onUpdate.',
+          file: 'src/components/parity.ts',
+          ref: 'RefAndSchedule',
+        },
+      ],
+      summary: { errors: 3, warnings: 0, infos: 3 },
+      ok: false,
+      notes: [
+        'Project marker src/scenes/main.scene.json is missing; src/game.json was accepted.',
+        'The shipped runtime loads src/scenes/main.scene.json; other scenes are validated but are not loaded automatically.',
+      ],
+      provenance: [
+        { package: '@waica/engine', version: '0.5.0', source: 'bundled' },
+        { package: '@waica/behaviors', version: '0.5.0', source: 'bundled' },
+        { package: '@waica/archetype-platformer', version: '0.5.0', source: 'bundled' },
+      ],
+      warnings: [],
+    })
+  })
+
   it('reports every stable finding through result data and keeps validating after bad JSON', async () => {
     const project = await makeProject({
       'src/components/project.ts': `
@@ -199,6 +304,67 @@ export class CycleRight extends Component {
 
     expect(result.ok).toBe(true)
   })
+
+  it.each(['constructor', 'toString', 'valueOf'])(
+    'uses own-property binding semantics for the state-transition action %s',
+    async (action) => {
+      const machine = JSON.stringify({
+        waicaPrefab: 1,
+        type: 'object',
+        components: [
+          {
+            type: 'StateMachine',
+            props: {
+              role: 'fixture',
+              initial: 'idle',
+              states: {
+                idle: { transitions: [{ on: `input:${action}`, to: 'idle' }] },
+              },
+            },
+          },
+        ],
+      })
+      const unbound = await makeProject({
+        'src/controls.json': JSON.stringify({
+          waicaControls: 1,
+          bindings: { shoot: ['KeyF'] },
+        }),
+        'src/objects/machine.object.json': machine,
+      })
+      const bound = await makeProject({
+        'src/controls.json': JSON.stringify({
+          waicaControls: 1,
+          bindings: { [action]: ['KeyX'] },
+        }),
+        'src/objects/machine.object.json': machine,
+      })
+      roots.push(unbound, bound)
+
+      const [unboundResult, boundResult] = await Promise.all([
+        validateProject(unbound),
+        validateProject(bound),
+      ])
+
+      expect(
+        unboundResult.findings.filter(
+          (finding) => finding.code === 'input-action-unbound' && finding.ref === action,
+        ),
+      ).toEqual([
+        {
+          severity: 'warning',
+          code: 'input-action-unbound',
+          message: `Input action "${action}" has no bindings.`,
+          file: 'src/objects/machine.object.json',
+          ref: action,
+        },
+      ])
+      expect(
+        boundResult.findings.filter(
+          (finding) => finding.code === 'input-action-unbound' && finding.ref === action,
+        ),
+      ).toEqual([])
+    },
+  )
 
   it('does not report missing clips when a state machine has no animated sprite', async () => {
     const project = await makeProject({

@@ -1,9 +1,10 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
-import { readFile, realpath } from 'node:fs/promises'
+import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, makeProject, tempDir } from './test-helpers.js'
+import { ProjectComponentLoader } from './project-component-loader.js'
 import { createWaicaMcpServer } from './server.js'
 import type { RuntimeService } from './runtime-service.js'
 
@@ -50,21 +51,56 @@ function argumentsFor(name: string, projectPath: string): Record<string, unknown
 const roots: string[] = []
 afterEach(async () => cleanup(...roots.splice(0)))
 
-async function connectedPair(runtime?: RuntimeService): Promise<{
+async function connectedPair(
+  runtime?: RuntimeService,
+  componentLoader?: ProjectComponentLoader,
+): Promise<{
   client: Client
+  server: ReturnType<typeof createWaicaMcpServer>
   close: () => Promise<void>
 }> {
-  const server = createWaicaMcpServer(runtime ? { runtime } : undefined)
+  const server = createWaicaMcpServer({
+    ...(runtime ? { runtime } : {}),
+    ...(componentLoader ? { componentLoader } : {}),
+  })
   const client = new Client({ name: 'waica-mcp-test', version: '1.0.0' })
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)])
   return {
     client,
+    server,
     close: async () => {
       await client.close()
       await server.close()
     },
   }
+}
+
+async function waitForLines(file: string, count: number): Promise<string[]> {
+  const deadline = Date.now() + 3_000
+  while (Date.now() < deadline) {
+    try {
+      const lines = (await readFile(file, 'utf8')).trim().split('\n').filter(Boolean)
+      if (lines.length >= count) return lines
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+  throw new Error(`Timed out waiting for ${count} lines in ${file}`)
+}
+
+async function waitForPidExit(pid: number): Promise<boolean> {
+  const deadline = Date.now() + 1_000
+  while (Date.now() < deadline) {
+    try {
+      process.kill(pid, 0)
+    } catch {
+      return true
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+  return false
 }
 
 function jsonResult(result: Awaited<ReturnType<Client['callTool']>>): Record<string, unknown> {
@@ -281,6 +317,49 @@ describe('MCP server', () => {
     }
   })
 
+  it.each(['missing', 'incompatible'] as const)(
+    'returns one tool-error when the isolated runner is %s',
+    async (failure) => {
+      const project = await makeProject({
+        'src/components/a.ts': 'export class A { static componentName = "A" }\n',
+        'src/components/b.ts': 'export class B { static componentName = "B" }\n',
+      })
+      roots.push(project)
+      const runner = path.join(project, `${failure}-runner.mjs`)
+      if (failure === 'incompatible') {
+        await writeFile(
+          runner,
+          `
+process.send({ kind: 'project-entry-ready', version: 999 })
+setInterval(() => {}, 1_000)
+`,
+        )
+      }
+      const pair = await connectedPair(
+        undefined,
+        new ProjectComponentLoader({ runnerPath: runner, deadlineMs: 500 }),
+      )
+      try {
+        const response = await pair.client.callTool({
+          name: 'validate_project',
+          arguments: { project_path: project },
+        })
+
+        expect('toolResult' in response ? undefined : response.isError).toBe(true)
+        expect(jsonResult(response)).toEqual({
+          error: {
+            code: 'tool-error',
+            message: expect.stringMatching(/runner|handshake/i),
+            projectPath: project,
+          },
+          provenance: [],
+        })
+      } finally {
+        await pair.close()
+      }
+    },
+  )
+
   it('round-trips a tool call over the SDK transport', async () => {
     const project = await makeProject({
       'src/scenes/main.scene.json': JSON.stringify({ waicaScene: 3, entities: [] }),
@@ -296,6 +375,115 @@ describe('MCP server', () => {
       expect(jsonResult(result)).toMatchObject({ archetype: 'platformer', scenes: ['main.scene.json'] })
     } finally {
       await pair.close()
+    }
+  })
+
+  it('cancels only one overlapping validation child and starts no later entry for it', async () => {
+    const project = await makeProject()
+    roots.push(project)
+    const starts = path.join(project, 'validation-starts.txt')
+    const lock = path.join(project, 'first-validation.lock')
+    const later = path.join(project, 'later-entry.txt')
+    await mkdir(path.join(project, 'src/components'), { recursive: true })
+    await Promise.all([
+      writeFile(
+        path.join(project, 'src/components/a-gate.ts'),
+        `
+import { appendFileSync, closeSync, openSync } from 'node:fs'
+let first = false
+try {
+  closeSync(openSync(${JSON.stringify(lock)}, 'wx'))
+  first = true
+} catch (error) {
+  if (error.code !== 'EEXIST') throw error
+}
+appendFileSync(${JSON.stringify(starts)}, (first ? 'cancel' : 'complete') + ':' + process.pid + '\\n')
+if (first) await new Promise(() => setInterval(() => {}, 1_000))
+else await new Promise((resolve) => setTimeout(resolve, 30))
+export class Gate { static componentName = 'Gate' }
+`,
+      ),
+      writeFile(
+        path.join(project, 'src/components/b-later.ts'),
+        `
+import { appendFileSync } from 'node:fs'
+appendFileSync(${JSON.stringify(later)}, String(process.pid) + '\\n')
+export class Later { static componentName = 'Later' }
+`,
+      ),
+    ])
+    const pair = await connectedPair()
+    try {
+      const controller = new AbortController()
+      const cancelledOutcome = pair.client
+        .callTool(
+          { name: 'validate_project', arguments: { project_path: project } },
+          undefined,
+          { signal: controller.signal, timeout: 3_000 },
+        )
+        .then(
+          (value) => ({ value }),
+          (error: unknown) => ({ error }),
+        )
+      const [cancelRow] = await waitForLines(starts, 1)
+      const cancelledPid = Number(cancelRow!.split(':')[1])
+
+      const completing = pair.client.callTool(
+        { name: 'validate_project', arguments: { project_path: project } },
+        undefined,
+        { timeout: 3_000 },
+      )
+      await waitForLines(starts, 2)
+      controller.abort(new Error('cancel only the first validation'))
+
+      const [cancelled, completed] = await Promise.all([cancelledOutcome, completing])
+      expect(cancelled).toHaveProperty('error')
+      expect('toolResult' in completed ? undefined : completed.isError).not.toBe(true)
+      expect(await waitForPidExit(cancelledPid)).toBe(true)
+      expect(await waitForLines(later, 1)).toHaveLength(1)
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      expect((await readFile(later, 'utf8')).trim().split('\n')).toHaveLength(1)
+    } finally {
+      await pair.close()
+    }
+  })
+
+  it('force-terminates and observes every active validation child before server close completes', async () => {
+    const project = await makeProject()
+    roots.push(project)
+    const starts = path.join(project, 'shutdown-starts.txt')
+    await mkdir(path.join(project, 'src/components'), { recursive: true })
+    await writeFile(
+      path.join(project, 'src/components/hang.ts'),
+      `
+import { appendFileSync } from 'node:fs'
+appendFileSync(${JSON.stringify(starts)}, String(process.pid) + '\\n')
+await new Promise(() => setInterval(() => {}, 1_000))
+`,
+    )
+    const pair = await connectedPair()
+    const calls = [
+      pair.client.callTool(
+        { name: 'validate_project', arguments: { project_path: project } },
+        undefined,
+        { timeout: 10_000 },
+      ).catch(() => undefined),
+      pair.client.callTool(
+        { name: 'validate_project', arguments: { project_path: project } },
+        undefined,
+        { timeout: 10_000 },
+      ).catch(() => undefined),
+    ]
+    try {
+      const pids = (await waitForLines(starts, 2)).map(Number)
+
+      await pair.server.close()
+
+      expect(await Promise.all(pids.map(waitForPidExit))).toEqual([true, true])
+      await Promise.all(calls)
+    } finally {
+      await pair.client.close().catch(() => undefined)
+      await pair.server.close().catch(() => undefined)
     }
   })
 

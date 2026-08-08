@@ -75,9 +75,13 @@ Full page reload reconnects to a fresh paused baseline. Runtime operations rejec
 
 ## Project module execution during validation
 
-`validate_project` executes the Project's `src/components/*.ts`, `src/roles/*.ts` and `src/states/*.ts` modules in the MCP process to inspect typed parameter references. Module-scope code and side effects run, so validate only code you trust. One broken module becomes a finding instead of aborting the remaining validation:
+The `validate_project` parent owns validation and executes each direct `.ts` entry under `src/components`, then `src/roles`, then `src/states` in its own short-lived OS child. Entries are sorted within each directory and attempted sequentially, with a five-second deadline per direct entry and no aggregate timeout. The child returns only typed-reference and update-scheduling metadata; constructors, instances and methods do not cross IPC. Every validation starts fresh children, so module scope executes again and helpers imported by multiple direct entries may execute once per entry.
 
-- `component-load-failed` means the module has a runtime defect such as invalid syntax, a broken import or a module-scope throw.
+Module-scope code still runs with the user's local permissions. This boundary is not a filesystem or network sandbox: trusted Project code can modify files, use the network, exhaust host resources or spawn descendants. Waica force-terminates and observes only the direct validation child on timeout, request cancellation or MCP shutdown; it does not own or clean descendants deliberately spawned by Project code.
+
+One broken entry becomes a file finding and does not prevent later entries from contributing metadata:
+
+- `component-load-failed` means the child timed out, exited abnormally or observed a runtime defect such as invalid syntax, a broken import or a module-scope throw.
 - `component-load-unsupported` means valid browser-oriented code cannot be evaluated by Node's strip-only loader; it is informational.
 
 ## Editor coexistence

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { cleanup, makeProject, stubPackage } from './test-helpers.js'
 import {
@@ -42,6 +42,65 @@ export class Target extends Component {
 }
 
 describe('loadProjectComponents', () => {
+  it('runs sorted direct entries sequentially in fresh child processes that inherit the host cwd', async () => {
+    // Build the source separately so the fixture records the absolute path
+    // without relying on the child process working directory.
+    const project = await makeModuleProject({})
+    const logFile = path.join(project, 'entry-processes.ndjson')
+    const source = (label: string, className: string): string => `
+import { appendFileSync } from 'node:fs'
+const record = (event) => appendFileSync(
+  ${JSON.stringify(logFile)},
+  JSON.stringify({ event, label: ${JSON.stringify(label)}, pid: process.pid, cwd: process.cwd() }) + '\\n',
+)
+record('start')
+await new Promise((resolve) => setTimeout(resolve, 20))
+record('end')
+export class ${className} { static componentName = ${JSON.stringify(className)} }
+`
+    await Promise.all(
+      ['components', 'roles', 'states'].map((directory) =>
+        mkdir(path.join(project, 'src', directory), { recursive: true }),
+      ),
+    )
+    await Promise.all([
+      writeFile(path.join(project, 'src/components/b.ts'), source('component-b', 'ComponentB')),
+      writeFile(path.join(project, 'src/components/a.ts'), source('component-a', 'ComponentA')),
+    ])
+    await Promise.all([
+      writeFile(path.join(project, 'src/roles/a.ts'), source('role-a', 'RoleA')),
+      writeFile(path.join(project, 'src/states/a.ts'), source('state-a', 'StateA')),
+    ])
+
+    const first = await loadProjectComponents(project)
+    const second = await loadProjectComponents(project)
+    const records = (await readFile(logFile, 'utf8'))
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as {
+        event: 'start' | 'end'
+        label: string
+        pid: number
+        cwd: string
+      })
+
+    expect(first.failures).toEqual([])
+    expect(second.failures).toEqual([])
+    const expectedLabels = ['component-a', 'component-b', 'role-a', 'state-a']
+    expect(records.map(({ event, label }) => `${event}:${label}`)).toEqual(
+      [expectedLabels, expectedLabels].flatMap((labels) =>
+        labels.flatMap((label) => [`start:${label}`, `end:${label}`]),
+      ),
+    )
+    const firstPids = records.slice(0, 8).filter(({ event }) => event === 'start').map(({ pid }) => pid)
+    const secondPids = records.slice(8).filter(({ event }) => event === 'start').map(({ pid }) => pid)
+    expect(new Set(firstPids).size).toBe(4)
+    expect(new Set(secondPids).size).toBe(4)
+    expect(new Set([...firstPids, ...secondPids]).size).toBe(8)
+    expect(records.every(({ pid }) => pid !== process.pid)).toBe(true)
+    expect(records.every(({ cwd }) => cwd === process.cwd())).toBe(true)
+  })
+
   it('exposes static params and instance defaults from all three project module directories', async () => {
     const project = await makeModuleProject({
       'src/components/target.ts': componentSource('objects/default'),
@@ -97,6 +156,7 @@ describe('loadProjectComponents', () => {
 import { PLATFORMER_BINDINGS } from '@waica/archetype-platformer'
 export class Target {
   static componentName = 'Target'
+  static params = { target: { ref: 'stat' } }
   target = typeof PLATFORMER_BINDINGS
 }
 `,
@@ -251,17 +311,14 @@ throw new Error('module scope exploded')
     ])
   })
 
-  it('reuses the cached module instance across runs when the file is unchanged', async () => {
-    // Regression: a per-run counter in the cache-busting token pinned a
-    // fresh, functionally identical module version on every validate_project
-    // call, leaking without bound in a long-lived server. A content-derived
-    // token should let an unchanged file's module be instantiated once.
+  it('re-executes an unchanged module in a fresh process on every validation', async () => {
     const marker = `waicaCacheMarker_${Math.random().toString(36).slice(2)}`
     const source = `
 const g = globalThis
 g.${marker} = (g.${marker} ?? 0) + 1
 export class Target {
   static componentName = 'Target'
+  static params = { target: { ref: 'stat' } }
   target = String(g.${marker})
 }
 `
@@ -281,6 +338,7 @@ const g = globalThis
 g.${marker} = (g.${marker} ?? 0) + 1
 export class Target {
   static componentName = 'Target'
+  static params = { target: { ref: 'stat' } }
   target = ${JSON.stringify(label)} + ':' + g.${marker}
 }
 `
@@ -291,7 +349,7 @@ export class Target {
     const second = await loadProjectComponents(project)
 
     expect(first.components.Target?.defaults).toEqual({ target: 'first:1' })
-    expect(second.components.Target?.defaults).toEqual({ target: 'second:2' })
+    expect(second.components.Target?.defaults).toEqual({ target: 'second:1' })
   })
 
   it('uses a fresh module URL on each load so edits are visible in one process', async () => {

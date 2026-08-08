@@ -2,7 +2,7 @@
 <!-- Generada por /sdd-spec el 2026-08-04. Fuente: pedido libre (contrato de diseño @waica/mcp, sesión grill 2026-08-03). Estado: implementada -->
 <!-- Spec B de 2 encadenadas: depende de .sdd/specs/archetype-manifest.md (Spec A). ADRs: docs/adr/0001, docs/adr/0002. -->
 
-> **Superseded decisions (2026-08-05):** Issue #20 deliberately replaces this spec's “project TypeScript is never executed” constraint for `validate_project` only. Validation now executes project component, role and state modules in isolation to inspect typed parameter references; `list_components` remains textual for project-owned code. The same issue raises the bundled MCP and CLI Node floor from `>=20.19` to `>=22.18`, where native type stripping is enabled by default. Below that floor — `node:module`'s `registerHooks` only needs Node >=22.15 — the server still starts and every other tool still works: deep component loading is skipped with a `component-load-unsupported` info finding until the host upgrades.
+> **Project-module decisions superseded (2026-08-08):** Issues #20 and #27 replace this spec's original “project TypeScript is never executed” constraint for `validate_project` only; `list_components` remains textual. The validation parent executes one short-lived OS child per sorted direct component, role or state entry, sequentially with a five-second deadline. Children return only declarative reference and scheduling facts. Every validation re-executes module scope in fresh processes; a file-local abnormal exit becomes `component-load-failed`, while Node strip-only gaps remain informational `component-load-unsupported`. This boundary is not a filesystem or network sandbox: Waica owns the direct child only and does not own or clean Project-spawned descendants. The bundled MCP and CLI require Node `>=22.18`.
 >
 > **Run/bridge/screenshot exclusion superseded (2026-08-08):** issue #24 replaces this spec's former live Runtime Bridge, Run Session and screenshot non-goal. The file-oriented contracts below remain historical input; `.sdd/specs/issue-24-mcp-runtime-harness.md` owns the shipped runtime contract.
 
@@ -30,7 +30,7 @@ DESIGN.md names "plain-text project + small typed API + headless CLI = the most 
 ## Fuera de alcance
 
 - Editor Play integration and editor file watching. Standalone Run Sessions, the engine-owned Runtime Bridge and screenshots are now owned by issue #24.
-- Executing project-owned TS in any form (introspection of `src/**` stays textual).
+- Executing Project-owned TypeScript from `list_components` or other textual introspection tools. `validate_project` is the issue #20/#27 exception described above.
 - `mcp` subcommand in `@chichex/waica` (the CLI stays dependency-free and untouched).
 - Extracting the editor's `projectFiles()` to a shared package (duplicated in MCP + parity test instead — inference #40).
 - `AnimationContract` per-archetype data; multi-archetype editor UI; publishing to npm (human-only per contract).
