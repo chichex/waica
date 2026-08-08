@@ -23,7 +23,15 @@ export const DOG_SPRITE = {
  */
 export const PLATFORMER_SCENE: SceneJson = {
   waicaScene: 3,
-  camera: { position: [0, -1], zoom: 12, follow: 'Player' },
+  camera: {
+    position: [0, -1],
+    zoom: 12,
+    follow: 'Player',
+    // Clamped to the walls and the ground so falling out of the level
+    // happens off-screen: the view bottom (-7) sits just under the ground
+    // (bottom edge -6), above the kill height (-8).
+    limits: { minX: -16, maxX: 26, minY: -7, maxY: 5 },
+  },
   entities: [
     { name: 'Player', prefab: 'characters/player', position: [0, -1] },
     {

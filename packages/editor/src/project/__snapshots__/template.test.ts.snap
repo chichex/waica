@@ -499,7 +499,7 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
     {
       "type": "OutOfBounds",
       "props": {
-        "minY": -12
+        "minY": -8
       }
     }
   ]
@@ -764,7 +764,13 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
       -1
     ],
     "zoom": 12,
-    "follow": "Player"
+    "follow": "Player",
+    "limits": {
+      "minX": -16,
+      "maxX": 26,
+      "minY": -7,
+      "maxY": 5
+    }
   },
   "entities": [
     {

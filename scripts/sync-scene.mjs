@@ -25,7 +25,7 @@ registerHooks({
       const dist = pathToFileURL(join(root, 'packages', pkg, 'dist', 'index.js')).href
       return nextResolve(dist, context)
     }
-    if (specifier.startsWith('.') && !specifier.endsWith('.js')) {
+    if (specifier.startsWith('.') && !specifier.endsWith('.js') && !specifier.endsWith('.json')) {
       return nextResolve(`${specifier}.js`, context)
     }
     return nextResolve(specifier, context)

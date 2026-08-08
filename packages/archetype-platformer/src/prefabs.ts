@@ -25,7 +25,7 @@ export const PLATFORMER_PREFABS: Record<string, PrefabJson> = {
       { type: 'Hitbox', props: { width: 0.9, height: 0.95 } },
       { type: 'Respawnable' },
       { type: 'Health', props: { max: 3, invulnerability: 1 } },
-      { type: 'OutOfBounds', props: { minY: -12 } },
+      { type: 'OutOfBounds', props: { minY: -8 } },
     ],
   },
   'characters/slime': {
