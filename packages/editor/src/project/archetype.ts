@@ -10,12 +10,20 @@ const ARCHETYPES: Readonly<Record<string, ArchetypeManifest>> = {
   platformer: ARCHETYPE,
 }
 
-/** Resolves project identity at runtime; legacy/unknown ids stay platformer-safe. */
+/**
+ * Resolves project identity at runtime. An absent id stays platformer-safe
+ * (legacy projects); a present-but-unknown id is an explicit error — opening
+ * such a project as platformer would silently misread it.
+ */
 export function resolveArchetype(id?: string | null): ArchetypeManifest {
   const key = id ?? DEFAULT_ARCHETYPE_ID
-  return Object.hasOwn(ARCHETYPES, key)
-    ? (ARCHETYPES[key] as ArchetypeManifest)
-    : ARCHETYPE
+  if (!Object.hasOwn(ARCHETYPES, key)) {
+    throw new Error(
+      `Unknown archetype "${key}". This project declares an archetype this editor ` +
+        `does not know — check the "archetype" field in src/game.json or update waica.`,
+    )
+  }
+  return ARCHETYPES[key] as ArchetypeManifest
 }
 
 /** Runtime manifest inherited by editor panels under the open project. */
