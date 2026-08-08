@@ -20,7 +20,10 @@ import {
   provenanceRows,
   type Provenance,
 } from './package-resolver.js'
-import { loadProjectComponents } from './project-component-loader.js'
+import {
+  loadProjectComponents,
+  type ProjectComponentLoader,
+} from './project-component-loader.js'
 import { directFiles, requireWaicaProject } from './project-path.js'
 
 export type FindingSeverity = 'error' | 'warning' | 'info'
@@ -687,7 +690,15 @@ function statBindings(html: string): Set<string> {
   return names
 }
 
-export async function validateProject(projectPath: string): Promise<{
+export interface ValidateProjectOptions {
+  signal?: AbortSignal
+  componentLoader?: ProjectComponentLoader
+}
+
+export async function validateProject(
+  projectPath: string,
+  options: ValidateProjectOptions = {},
+): Promise<{
   findings: ValidationFinding[]
   summary: { errors: number; warnings: number; infos: number }
   ok: boolean
@@ -695,6 +706,7 @@ export async function validateProject(projectPath: string): Promise<{
   provenance: Provenance[]
   warnings: string[]
 }> {
+  options.signal?.throwIfAborted()
   const check = await requireWaicaProject(projectPath)
   const findings: ValidationFinding[] = []
   const fixedPaths = [
@@ -739,7 +751,9 @@ export async function validateProject(projectPath: string): Promise<{
     ),
     projectComponentCandidates(projectPath),
     projectRoleStateSources(projectPath),
-    loadProjectComponents(projectPath, resolver),
+    options.componentLoader
+      ? options.componentLoader.load(projectPath, resolver, { signal: options.signal })
+      : loadProjectComponents(projectPath, resolver, { signal: options.signal }),
   ])
   for (const failure of loadedProjectComponents.failures) {
     add(

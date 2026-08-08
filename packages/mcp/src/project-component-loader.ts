@@ -1,5 +1,10 @@
 import type { ComponentClass, ParamSpec } from '@waica/engine'
-import { execFile, fork, type ChildProcess } from 'node:child_process'
+import {
+  execFile,
+  fork,
+  type ChildProcess,
+  type ForkOptions,
+} from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { existsSync, rmSync } from 'node:fs'
 import { copyFile, cp, mkdir, mkdtemp } from 'node:fs/promises'
@@ -56,9 +61,17 @@ export interface ProjectComponentLoadOptions {
   runnerPath?: string
 }
 
+export type ProjectComponentChildLauncher = (
+  modulePath: string,
+  args: string[],
+  options: ForkOptions,
+) => ChildProcess
+
 export interface ProjectComponentLoaderOptions {
   deadlineMs?: number
   runnerPath?: string
+  /** OS-process boundary adapter; production uses node:child_process.fork. */
+  launcher?: ProjectComponentChildLauncher
 }
 
 interface ComponentParamRow {
@@ -503,7 +516,7 @@ export class ProjectComponentLoader {
     const token = randomUUID()
     let child: ChildProcess
     try {
-      child = fork(input.runnerPath, [], {
+      child = (this.defaults.launcher ?? fork)(input.runnerPath, [], {
         stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
         serialization: 'json',
         execArgv: [],

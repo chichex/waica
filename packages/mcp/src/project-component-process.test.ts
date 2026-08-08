@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { fork, type ChildProcess, type ForkOptions } from 'node:child_process'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { cleanup, makeProject, stubPackage } from './test-helpers.js'
 import {
   loadProjectComponents,
+  ProjectComponentLoader,
   PROJECT_COMPONENT_DEADLINE_MS,
   PROJECT_COMPONENT_PROTOCOL_VERSION,
 } from './project-component-loader.js'
@@ -197,6 +199,61 @@ process.exit(1)
     expect(noisy?.message).not.toContain('SUCCESS_OUTPUT_MUST_BE_DISCARDED')
     expect(Buffer.byteLength(noisy?.message ?? '')).toBeLessThanOrEqual(132_000)
     expect(elapsed).toBeLessThan(1_000)
+  })
+
+  it('rejects shutdown cleanup when direct-child termination is not confirmed', async () => {
+    const project = await processProject({})
+    const started = path.join(project, 'cleanup-started.txt')
+    await mkdir(path.join(project, 'src/components'), { recursive: true })
+    await writeFile(
+      path.join(project, 'src/components/hang.ts'),
+      `
+import { writeFileSync } from 'node:fs'
+writeFileSync(${JSON.stringify(started)}, String(process.pid))
+await new Promise(() => setInterval(() => {}, 1_000))
+`,
+    )
+    const loader = new ProjectComponentLoader({
+      launcher: (
+        modulePath: string,
+        args: string[],
+        options: ForkOptions,
+      ): ChildProcess => {
+        const child = fork(modulePath, args, options)
+        const actualKill = child.kill.bind(child)
+        child.kill = ((signal?: NodeJS.Signals | number): boolean => {
+          actualKill(signal)
+          return false
+        }) as ChildProcess['kill']
+        return child
+      },
+    })
+    const loading = loader.load(project).then(
+      () => undefined,
+      (error: unknown) => error,
+    )
+    const deadline = Date.now() + 3_000
+    while (Date.now() < deadline) {
+      try {
+        await readFile(started, 'utf8')
+        break
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    }
+    const pid = Number(await readFile(started, 'utf8'))
+
+    await expect(loader.close()).rejects.toThrow(/force-terminate/i)
+    await loading
+    expect(await (async () => {
+      try {
+        process.kill(pid, 0)
+        return false
+      } catch {
+        return true
+      }
+    })()).toBe(true)
   })
 
   it('rejects malformed, unbound and duplicate terminal payloads atomically', async () => {
