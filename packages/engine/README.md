@@ -67,3 +67,19 @@ if (result.ok) {
 ```
 
 The resolver is pure. Pass the effective component-name list and the complete class registry, including project-owned classes. A valid result contains `order` and no issues; an invalid result contains typed, actionable issues and no executable order.
+
+## Runtime inspection
+
+The engine owns Runtime Bridge protocol 1, but it is dormant during ordinary execution: there is no string-named global, network endpoint or per-frame bridge work. An MCP-owned browser context can install the symbol-keyed ephemeral activation hook before navigation. In that context `Game.start()` registers the fully constructed Game at a paused frame-zero baseline; `Game.dispose()` or page unload unregisters it.
+
+Runtime Snapshots automatically inspect public own component fields and setter-backed accessors while excluding `_` fields, `entity`, `game` and functions. A component can replace automatic discovery with the optional public contract:
+
+```ts
+class PathFinder extends Component {
+  inspectState(): unknown {
+    return { target: this.target, remaining: this.path.length }
+  }
+}
+```
+
+The return value still passes through the bounded safe projector; it is not serialized with arbitrary `toJSON()`. The package root exports the Runtime Snapshot, projection marker, metadata, control and activation types plus `RUNTIME_BRIDGE_PROTOCOL_VERSION` and `RUNTIME_PROJECTION_LIMITS`.
