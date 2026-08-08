@@ -1,0 +1,3 @@
+# Project module validation uses one process per entry file
+
+`validate_project` executes each direct Project-owned component, role, and state entry in its own short-lived OS child, sequentially with a five-second per-file deadline, and returns only declarative metadata to the MCP parent for validation. This contains hangs, exits, late asynchronous failures, native crashes, and module-cache growth to one file while preserving findings from every other file; it deliberately accepts process startup cost, repeated module side effects, and no shared ESM state instead of using one process per validation or Workers. Project code remains trusted rather than sandboxed, and Waica owns only the direct child it launches.
