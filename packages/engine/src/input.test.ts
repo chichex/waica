@@ -65,6 +65,20 @@ describe('Input bindings', () => {
     expect(input.heldActions()).toEqual([])
   })
 
+  it('upgrades a queued press to a persistent hold without adding another edge', () => {
+    const input = makeInput({ jump: ['Space'] })
+    input.injectAction('jump', 'press')
+
+    input.injectAction('jump', 'hold')
+    expect(input.justPressed('jump')).toBe(true)
+    input.endFrame()
+
+    expect(input.held('jump')).toBe(true)
+    expect(input.justPressed('jump')).toBe(false)
+    input.injectAction('jump', 'release')
+    expect(input.held('jump')).toBe(false)
+  })
+
   it('releases every held action when the window loses focus', () => {
     const input = makeInput({ left: ['KeyA'], up: ['KeyW'] })
     key('keydown', 'KeyA')

@@ -59,7 +59,10 @@ export class Input {
       this.injectedPresses.delete(action)
       return true
     }
-    if (this.held(action)) return true
+    if (this.held(action)) {
+      if (operation === 'hold') this.injectedPresses.delete(action)
+      return true
+    }
     this.injectedDown.add(action)
     this.injectedJustDown.add(action)
     if (operation === 'press') this.injectedPresses.add(action)
