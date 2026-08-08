@@ -201,6 +201,31 @@ process.exit(1)
     expect(elapsed).toBeLessThan(1_000)
   })
 
+  it('starts no child when its owner closes during entry discovery', async () => {
+    const project = await processProject({})
+    const executed = path.join(project, 'must-not-execute.txt')
+    await mkdir(path.join(project, 'src/components'), { recursive: true })
+    await writeFile(
+      path.join(project, 'src/components/late.ts'),
+      `
+import { writeFileSync } from 'node:fs'
+writeFileSync(${JSON.stringify(executed)}, 'executed')
+export class Late { static componentName = 'Late' }
+`,
+    )
+    const loader = new ProjectComponentLoader()
+    const loading = loader.load(project).then(
+      (value) => ({ value }),
+      (error: unknown) => ({ error }),
+    )
+
+    await loader.close()
+    const outcome = await loading
+
+    expect(outcome).toHaveProperty('error')
+    await expect(readFile(executed, 'utf8')).rejects.toThrow()
+  })
+
   it('rejects shutdown cleanup when direct-child termination is not confirmed', async () => {
     const project = await processProject({})
     const started = path.join(project, 'cleanup-started.txt')

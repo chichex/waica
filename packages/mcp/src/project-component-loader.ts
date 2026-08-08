@@ -459,11 +459,11 @@ export class ProjectComponentLoader {
     _resolver?: PackageResolver,
     options: ProjectComponentLoadOptions = {},
   ): Promise<ProjectComponentLoadResult> {
-    if (this.closed) {
-      throw unavailable('Project component runner is unavailable because its owner is closed.')
-    }
+    this.assertOpen()
     options.signal?.throwIfAborted()
     const files = await projectModuleFiles(projectPath)
+    this.assertOpen()
+    options.signal?.throwIfAborted()
     if (files.length === 0) return { components: {}, failures: [] }
 
     const runnerPath = options.runnerPath ?? this.defaults.runnerPath ?? runnerFromModule()
@@ -477,9 +477,12 @@ export class ProjectComponentLoader {
     } catch (error) {
       throw unavailable('Cannot prepare source fallback packages for the project component runner.', error)
     }
+    this.assertOpen()
+    options.signal?.throwIfAborted()
     const components: Record<string, ProjectComponentDescription> = {}
     const failures: ComponentLoadFailure[] = []
     for (const relativeFile of files) {
+      this.assertOpen()
       options.signal?.throwIfAborted()
       const outcome = await this.runEntry({
         projectPath,
@@ -496,6 +499,12 @@ export class ProjectComponentLoader {
       }
     }
     return { components, failures }
+  }
+
+  private assertOpen(): void {
+    if (this.closed) {
+      throw unavailable('Project component runner is unavailable because its owner is closed.')
+    }
   }
 
   async close(): Promise<void> {
