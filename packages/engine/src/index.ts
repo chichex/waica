@@ -6,6 +6,8 @@ export type {
   UpdateFn,
   ParamOverrides,
 } from './game.js'
+export { ySortZ } from './render-sort.js'
+export type { YSortEntry } from './render-sort.js'
 export { CAMERA_DEFAULTS, isCameraVelocityProvider, resolveSceneCamera, stepSceneCamera } from './camera.js'
 export type {
   SceneCameraJson,
@@ -97,7 +99,14 @@ export type {
 } from './collision-shape.js'
 export { Emitter } from './events.js'
 export { loadScene, spawnFromJson, resolveEntityComponents, resolveProps } from './scene.js'
-export type { SceneJson, SceneEntityJson, SceneComponentJson, SceneRegistry, PrefabJson } from './scene.js'
+export type {
+  SceneJson,
+  SceneEntityJson,
+  SceneComponentJson,
+  SceneRegistry,
+  SceneRenderJson,
+  PrefabJson,
+} from './scene.js'
 export { ClipPlayer } from './animation/clip-player.js'
 export type { ClipDef } from './animation/clip-player.js'
 export { sheetCell, sheetFrameCount, locateFrame } from './animation/sheet.js'

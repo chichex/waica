@@ -32,10 +32,21 @@ export interface PrefabJson {
   components: SceneComponentJson[]
 }
 
+/** Scene-wide render options (v3). */
+export interface SceneRenderJson {
+  /**
+   * 'y' orders same-layer sprites by their entity's world Y — lower Y renders
+   * in front (top-down depth). Absent: spawn order breaks same-layer ties.
+   */
+  sort?: 'y'
+}
+
 export interface SceneJson {
   waicaScene: 1 | 2 | 3
   /** The scene's built-in camera (v3); absent = the host keeps control. */
   camera?: SceneCameraJson
+  /** Draw-order policy (v3); absent = layer bands with spawn-order ties. */
+  render?: SceneRenderJson
   entities: SceneEntityJson[]
   /** UI pieces (src/ui/*.html) mounted visible when the scene loads. */
   ui?: string[]
@@ -149,6 +160,7 @@ export function spawnFromJson(game: Game, json: SceneEntityJson, registry: Scene
 /** Loads a full scene into the game. */
 export function loadScene(game: Game, scene: SceneJson, registry: SceneRegistry): void {
   game.registry = registry
+  game.setSceneRender(scene.render)
   for (const entityJson of scene.entities) spawnFromJson(game, entityJson, registry)
   // After the spawns: with a follow target, the camera starts centered on it.
   game.setSceneCamera(scene.camera)

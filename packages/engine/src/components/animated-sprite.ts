@@ -98,6 +98,11 @@ export class AnimatedSprite extends Component {
     if (this.mesh) this.mesh.position.z = value * 0.01
   }
 
+  /** Y-sort pass hook: overrides the layer-derived z for this frame. */
+  setSortZ(z: number): void {
+    if (this.mesh) this.mesh.position.z = z
+  }
+
   clips: Record<string, ClipDef> = {}
   initialClip?: string
 

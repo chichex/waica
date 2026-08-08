@@ -27,6 +27,7 @@ import { Component, type SolidContact } from './component'
 import { DynamicBody } from './components/dynamic-body'
 import { Hitbox } from './components/hitbox'
 import { Solid } from './components/solid'
+import { Sprite } from './components/sprite'
 import type { Entity } from './entity'
 import { Game } from './game'
 import { loadScene, type SceneRegistry } from './scene'
@@ -367,5 +368,92 @@ describe('Game glue characterization', () => {
     game.dispose()
 
     expect(observer?.disconnect).toHaveBeenCalledOnce()
+  })
+})
+
+describe('y-sort render mode', () => {
+  const meshZ = (game: Game, name: string): number => {
+    const entity = game.entities.find((e) => e.name === name)!
+    return (entity.node.children[0] as { position: { z: number } }).position.z
+  }
+
+  const step = (game: Game): void => {
+    ;(game as unknown as { runFrame(dt: number): void }).runFrame(1 / 60)
+  }
+
+  const spriteAt = (name: string, y: number, layer: number, props = {}) => ({
+    name,
+    position: [0, y] as [number, number],
+    components: [{ type: 'Sprite', props: { layer, ...props } }],
+  })
+
+  const registry: SceneRegistry = { components: { Sprite } }
+
+  it('keeps the exact layer-only z for scenes without a render block', () => {
+    const game = makeGame()
+    loadScene(
+      game,
+      { waicaScene: 3, entities: [spriteAt('A', 2, 1), spriteAt('B', -2, 1)] },
+      registry,
+    )
+    step(game)
+    expect(meshZ(game, 'A')).toBe(0.01)
+    expect(meshZ(game, 'B')).toBe(0.01)
+    game.dispose()
+  })
+
+  it('orders same-layer sprites by world Y and flips on crossing', () => {
+    const game = makeGame()
+    loadScene(
+      game,
+      {
+        waicaScene: 3,
+        render: { sort: 'y' },
+        entities: [spriteAt('A', 2, 0), spriteAt('B', -2, 0)],
+      },
+      registry,
+    )
+    step(game)
+    // Lower Y renders in front: B (y -2) above A (y 2).
+    expect(meshZ(game, 'B')).toBeGreaterThan(meshZ(game, 'A'))
+
+    game.entities.find((e) => e.name === 'A')!.position.y = -5
+    step(game)
+    expect(meshZ(game, 'A')).toBeGreaterThan(meshZ(game, 'B'))
+    game.dispose()
+  })
+
+  it('keeps a higher layer in front regardless of Y', () => {
+    const game = makeGame()
+    loadScene(
+      game,
+      {
+        waicaScene: 3,
+        render: { sort: 'y' },
+        entities: [spriteAt('Front', 10, 2), spriteAt('Back', -10, 1)],
+      },
+      registry,
+    )
+    step(game)
+    expect(meshZ(game, 'Front')).toBeGreaterThan(meshZ(game, 'Back'))
+    game.dispose()
+  })
+
+  it('sorts on entity Y: a sprite offsetY does not shift the key', () => {
+    const game = makeGame()
+    loadScene(
+      game,
+      {
+        waicaScene: 3,
+        render: { sort: 'y' },
+        entities: [spriteAt('Offset', 0, 0, { offsetY: -10 }), spriteAt('Lower', -1, 0)],
+      },
+      registry,
+    )
+    step(game)
+    // Entity Y decides: Lower (y -1) in front of Offset (y 0), however far
+    // the offset visually drops the Offset quad.
+    expect(meshZ(game, 'Lower')).toBeGreaterThan(meshZ(game, 'Offset'))
+    game.dispose()
   })
 })
