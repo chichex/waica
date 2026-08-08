@@ -6,6 +6,11 @@ export type ArchetypeManifest = BrowserArchetypeManifest
 
 export const DEFAULT_ARCHETYPE_ID = 'platformer'
 
+/** npm package that ships an archetype, by repo convention. */
+export function archetypePackageName(id: string): string {
+  return `@waica/archetype-${id}`
+}
+
 const ARCHETYPES: Readonly<Record<string, ArchetypeManifest>> = {
   platformer: ARCHETYPE,
 }

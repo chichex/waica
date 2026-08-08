@@ -6,6 +6,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const PROTOCOL_VERSION = 1
 const { createRequire } = nodeModule
 const hostRequire = createRequire(import.meta.url)
+// This file runs as a standalone forked child (see runnerFromModule in the
+// loader) and cannot import siblings, so it mirrors known-archetypes.ts by
+// hand: one entry per KNOWN_ARCHETYPES row, plus engine and behaviors.
 const FALLBACK_PACKAGES = new Set([
   '@waica/engine',
   '@waica/behaviors',

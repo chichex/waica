@@ -10,7 +10,7 @@ import tsconfigJson from '../../template/tsconfig.json?raw'
 import viteConfigTs from '../../template/vite.config.ts?raw'
 import readmeMd from '../../template/README.md?raw'
 import gitignore from '../../template/_gitignore?raw'
-import { resolveArchetype, type ArchetypeManifest } from './archetype'
+import { archetypePackageName, resolveArchetype, type ArchetypeManifest } from './archetype'
 import enginePackage from '../../../engine/package.json'
 
 // The @waica/* range a fresh project depends on, read from the engine rather
@@ -72,16 +72,18 @@ export function projectFiles(
     ...(JSON.parse(controlsJson) as Record<string, unknown>),
     bindings: archetype.bindings,
   }
+  const archetypePackage = archetypePackageName(archetype.id)
   const files: Record<string, string> = {
     'package.json': pkgTpl
       .replaceAll('__PROJECT_NAME__', name)
-      .replaceAll('__WAICA_VERSION__', WAICA_VERSION),
+      .replaceAll('__WAICA_VERSION__', WAICA_VERSION)
+      .replaceAll('__ARCHETYPE_PACKAGE__', archetypePackage),
     'index.html': indexHtml,
     'tsconfig.json': tsconfigJson,
     'vite.config.ts': viteConfigTs,
     'README.md': readmeMd,
     '.gitignore': gitignore,
-    'src/main.ts': mainTs,
+    'src/main.ts': mainTs.replaceAll('__ARCHETYPE_PACKAGE__', archetypePackage),
     'src/controls.json': JSON.stringify(controls, null, 2) + '\n',
     'src/stats.json': statsJson,
     'src/game.json': JSON.stringify(game, null, 2) + '\n',

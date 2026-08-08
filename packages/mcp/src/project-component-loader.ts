@@ -13,6 +13,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
+import { KNOWN_ARCHETYPES } from './known-archetypes.js'
 import type { PackageResolver } from './package-resolver.js'
 import { directFiles } from './project-path.js'
 
@@ -22,11 +23,11 @@ export const PROJECT_COMPONENT_DIAGNOSTIC_BYTES = 64 * 1_024
 
 const MODULE_HOOKS_MIN_NODE = '22.15'
 const REF_KINDS = new Set(['prefab', 'clip', 'action', 'stat'])
-const FALLBACK_PACKAGE_DIRECTORIES = [
+const FALLBACK_PACKAGE_DIRECTORIES: ReadonlyArray<readonly [string, string]> = [
   ['@waica/engine', 'engine'],
   ['@waica/behaviors', 'behaviors'],
-  ['@waica/archetype-platformer', 'archetype-platformer'],
-] as const
+  ...KNOWN_ARCHETYPES.map(({ packageName, directory }) => [packageName, directory] as const),
+]
 const execFileAsync = promisify(execFile)
 let sourceFallbackEntries: Promise<Record<string, string>> | undefined
 

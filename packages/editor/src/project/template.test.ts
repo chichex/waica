@@ -32,6 +32,22 @@ describe('projectFiles', () => {
     expect(game.archetype).toBe('platformer')
   })
 
+  it('generates a main.ts consuming the standard ARCHETYPE export, free of platformer symbols', () => {
+    const main = projectFiles('my-game', 'demo', 'platformer')['src/main.ts'] ?? ''
+
+    expect(main).toContain("import { ARCHETYPE } from '@waica/archetype-platformer'")
+    expect(main).not.toContain('PLATFORMER_')
+    expect(main).not.toContain('__ARCHETYPE_PACKAGE__')
+  })
+
+  it('substitutes the archetype package token everywhere it appears', () => {
+    const files = projectFiles('my-game', 'demo', 'platformer')
+
+    for (const [path, content] of Object.entries(files)) {
+      expect(content, `unsubstituted token in ${path}`).not.toContain('__ARCHETYPE_PACKAGE__')
+    }
+  })
+
   it.each([
     ['generated project', projectFiles('my-game')['src/main.ts'] ?? ''],
     ['platformer example', exampleMain],

@@ -2,6 +2,7 @@ import type { ArchetypeManifest } from '@waica/engine'
 import { access, mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { DEFAULT_ARCHETYPE_ID, knownArchetype, knownArchetypeIds } from './known-archetypes.js'
 import {
   PackageResolver,
   mixedSourceWarnings,
@@ -64,6 +65,7 @@ async function chassisFiles(
   start: ProjectStart,
   version: string,
   archetype: ArchetypeManifest,
+  archetypePackage: string,
 ): Promise<Record<string, string | Uint8Array>> {
   const read = (relative: string): Promise<string> => readFile(path.join(root, relative), 'utf8')
   const [pkgTpl, indexHtml, mainTs, controlsText, statsJson, gameText, tsconfig, vite, readme, gitignore, params] =
@@ -92,13 +94,14 @@ async function chassisFiles(
   return {
     'package.json': pkgTpl
       .replaceAll('__PROJECT_NAME__', name)
-      .replaceAll('__WAICA_VERSION__', version),
+      .replaceAll('__WAICA_VERSION__', version)
+      .replaceAll('__ARCHETYPE_PACKAGE__', archetypePackage),
     'index.html': indexHtml,
     'tsconfig.json': tsconfig,
     'vite.config.ts': vite,
     'README.md': readme,
     '.gitignore': gitignore,
-    'src/main.ts': mainTs,
+    'src/main.ts': mainTs.replaceAll('__ARCHETYPE_PACKAGE__', archetypePackage),
     'src/controls.json': JSON.stringify(controls, null, 2) + '\n',
     'src/stats.json': statsJson,
     'src/game.json': JSON.stringify(game, null, 2) + '\n',
@@ -145,14 +148,21 @@ async function validateTarget(target: string): Promise<{ exists: boolean; name: 
 export async function createProject(
   projectPath: string,
   start: ProjectStart = 'demo',
+  archetypeId: string = DEFAULT_ARCHETYPE_ID,
 ): Promise<CreateProjectResult> {
   if (start !== 'demo' && start !== 'blank') throw new Error('start must be "demo" or "blank"')
+  const known = knownArchetype(archetypeId)
+  if (!known) {
+    throw new Error(
+      `Unknown archetype "${archetypeId}"; available: ${knownArchetypeIds().join(', ')}.`,
+    )
+  }
   const target = await validateTarget(projectPath)
   const resolver = new PackageResolver()
   const [engine, behaviors, archetypePackage] = await Promise.all([
     resolver.load('@waica/engine'),
     resolver.load('@waica/behaviors'),
-    resolver.load<{ ARCHETYPE: ArchetypeManifest }>('@waica/archetype-platformer', './manifest'),
+    resolver.load<{ ARCHETYPE: ArchetypeManifest }>(known.packageName, './manifest'),
   ])
   const archetype = archetypePackage.module.ARCHETYPE
   const files = await chassisFiles(
@@ -161,6 +171,7 @@ export async function createProject(
     start,
     engine.provenance.version,
     archetype,
+    known.packageName,
   )
   if (start === 'demo') {
     for (const [ref, prefab] of Object.entries(archetype.prefabs)) {

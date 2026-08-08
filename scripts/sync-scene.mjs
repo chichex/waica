@@ -2,6 +2,8 @@
 // JSONs — the scene plus one file per prefab (src/<key>.<type>.json, the
 // same layout the editor's projectFiles() emits) plus the stock art PNGs
 // (src/art/<file>) — into the repo example and the editor's project template.
+// Each target declares its archetype in src/game.json; the matching
+// packages/archetype-<id> manifest drives the sync.
 // Requires built dists: pnpm -r build (archetype, behaviors, engine)
 //
 //   node scripts/sync-scene.mjs
@@ -32,29 +34,32 @@ registerHooks({
   },
 })
 
-const { PLATFORMER_SCENE } = await import('../packages/archetype-platformer/dist/scene-default.js')
-const { PLATFORMER_PREFABS } = await import('../packages/archetype-platformer/dist/prefabs.js')
-const { PLATFORMER_UI } = await import('../packages/archetype-platformer/dist/ui.js')
-const { PLATFORMER_ART } = await import('../packages/archetype-platformer/dist/art.js')
-
-// Materialized projects own their art as files: registry URIs ('waica:dog')
-// become project paths ('src/art/waica-dog.png'), same as projectFiles().
-const uriToPath = Object.fromEntries(
-  PLATFORMER_ART.map((art) => [art.uri, `src/art/${art.file}`]),
-)
-const toJson = (value) =>
-  JSON.stringify(value, (_key, v) => (typeof v === 'string' ? (uriToPath[v] ?? v) : v), 2) + '\n'
-
-// String values are written verbatim (the UI pieces' HTML); the rest as JSON.
-const FILES = { 'scenes/main.scene.json': PLATFORMER_SCENE }
-const PREFAB_FILES = new Set()
-for (const [key, prefab] of Object.entries(PLATFORMER_PREFABS)) {
-  const rel = `${key}.${prefab.type}.json`
-  FILES[rel] = prefab
-  PREFAB_FILES.add(rel)
+// The target's archetype id, from its game.json ('platformer' when absent —
+// the same legacy default the editor applies).
+function archetypeIdOf(srcDir) {
+  const gamePath = join(srcDir, 'game.json')
+  if (!existsSync(gamePath)) return 'platformer'
+  try {
+    const game = JSON.parse(readFileSync(gamePath, 'utf8'))
+    return typeof game.archetype === 'string' && game.archetype ? game.archetype : 'platformer'
+  } catch {
+    return 'platformer'
+  }
 }
-for (const [name, html] of Object.entries(PLATFORMER_UI)) {
-  FILES[`ui/${name}.html`] = html
+
+// One Node-safe manifest (the ARCHETYPE export) per archetype id, cached.
+const manifests = new Map()
+function manifestFor(id) {
+  if (!manifests.has(id)) {
+    const entry = pathToFileURL(
+      join(root, 'packages', `archetype-${id}`, 'dist', 'manifest.js'),
+    ).href
+    manifests.set(
+      id,
+      import(entry).then((module) => module.ARCHETYPE),
+    )
+  }
+  return manifests.get(id)
 }
 
 // Projects own components the archetype knows nothing about (src/components/*.ts,
@@ -81,17 +86,41 @@ const TARGETS = [
   join(root, 'packages', 'editor', 'template', 'src'),
 ]
 for (const srcDir of TARGETS) {
-  for (const [rel, data] of Object.entries(FILES)) {
+  const id = archetypeIdOf(srcDir)
+  const archetype = await manifestFor(id)
+
+  // Materialized projects own their art as files: registry URIs ('waica:dog')
+  // become project paths ('src/art/waica-dog.png'), same as projectFiles().
+  const uriToPath = Object.fromEntries(
+    archetype.art.map((art) => [art.uri, `src/art/${art.file}`]),
+  )
+  const toJson = (value) =>
+    JSON.stringify(value, (_key, v) => (typeof v === 'string' ? (uriToPath[v] ?? v) : v), 2) +
+    '\n'
+
+  // String values are written verbatim (the UI pieces' HTML); the rest as JSON.
+  const files = { 'scenes/main.scene.json': archetype.scene }
+  const prefabFiles = new Set()
+  for (const [key, prefab] of Object.entries(archetype.prefabs)) {
+    const rel = `${key}.${prefab.type}.json`
+    files[rel] = prefab
+    prefabFiles.add(rel)
+  }
+  for (const [name, html] of Object.entries(archetype.registry.ui ?? {})) {
+    files[`ui/${name}.html`] = html
+  }
+
+  for (const [rel, data] of Object.entries(files)) {
     const target = join(srcDir, rel)
     mkdirSync(dirname(target), { recursive: true })
-    const value = PREFAB_FILES.has(rel) ? keepProjectComponents(target, data) : data
+    const value = prefabFiles.has(rel) ? keepProjectComponents(target, data) : data
     writeFileSync(target, typeof value === 'string' ? value : toJson(value))
     console.log(`sync → ${target}`)
   }
-  for (const art of PLATFORMER_ART) {
+  for (const art of archetype.art) {
     const target = join(srcDir, 'art', art.file)
     mkdirSync(dirname(target), { recursive: true })
-    copyFileSync(join(root, 'packages', 'archetype-platformer', 'assets', art.file), target)
+    copyFileSync(join(root, 'packages', `archetype-${id}`, 'assets', art.file), target)
     console.log(`sync → ${target}`)
   }
 }

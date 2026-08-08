@@ -2,6 +2,7 @@ import { access, readFile, realpath } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { KNOWN_ARCHETYPES } from './known-archetypes.js'
 import { workspacePackageRoot } from './workspace-runtime.js'
 
 export type PackageSource = 'project' | 'bundled'
@@ -29,8 +30,7 @@ export class PackageUnavailableError extends Error {
 const BUNDLED_SPECIFIERS = new Set([
   '@waica/engine',
   '@waica/behaviors',
-  '@waica/archetype-platformer',
-  '@waica/archetype-platformer/manifest',
+  ...KNOWN_ARCHETYPES.flatMap(({ packageName }) => [packageName, `${packageName}/manifest`]),
 ])
 
 const requireBundled = createRequire(import.meta.url)
@@ -42,8 +42,12 @@ export function projectAnchoredRequire(projectPath: string): NodeJS.Require {
 const BUILT_ENTRY_BY_SPECIFIER: Readonly<Record<string, string>> = {
   '@waica/engine': 'dist/index.js',
   '@waica/behaviors': 'dist/index.js',
-  '@waica/archetype-platformer': 'dist/index.js',
-  '@waica/archetype-platformer/manifest': 'dist/manifest.js',
+  ...Object.fromEntries(
+    KNOWN_ARCHETYPES.flatMap(({ packageName }) => [
+      [packageName, 'dist/index.js'],
+      [`${packageName}/manifest`, 'dist/manifest.js'],
+    ]),
+  ),
 }
 
 function specifierFor(packageName: string, subpath?: string): string {
