@@ -2,7 +2,7 @@ name: Publish
 
 on:
   push:
-    tags: ['v*']
+    tags: ['v*', 'chichex-waica-v*']
 
 # OIDC trusted publishing: npm trusts this repo+workflow directly, so there is
 # no token stored anywhere and provenance comes for free.
@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   publish:
+    if: startsWith(github.ref_name, 'v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -81,3 +82,33 @@ jobs:
       - name: Publish
         run: npm publish
         working-directory: packages/cli
+
+  # One-shot legacy publish: the final @chichex/waica, which tells old-name
+  # installs about the rename to @waica/cli (see stubs/chichex-waica). It
+  # reuses this workflow file because npm's trusted-publisher config for
+  # @chichex/waica trusts exactly this repo + publish.yml.
+  publish-rename-stub:
+    if: startsWith(github.ref_name, 'chichex-waica-v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # Trusted publishing needs npm >= 11.5.1; node 22 bundles npm 10.
+      - name: Update npm
+        run: npm install -g npm@^11.5.1
+
+      - name: Check tag matches stub version
+        run: |
+          version="$(node -p "require('./stubs/chichex-waica/package.json').version")"
+          if [ "chichex-waica-v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "tag $GITHUB_REF_NAME does not match stubs/chichex-waica@$version" >&2
+            exit 1
+          fi
+
+      - name: Publish
+        run: npm publish --access public
+        working-directory: stubs/chichex-waica
