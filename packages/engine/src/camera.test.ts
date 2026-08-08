@@ -12,6 +12,7 @@ describe('resolveSceneCamera', () => {
       deadzoneWidth: CAMERA_DEFAULTS.deadzoneWidth,
       deadzoneHeight: CAMERA_DEFAULTS.deadzoneHeight,
       lookahead: CAMERA_DEFAULTS.lookahead,
+      lookaheadY: CAMERA_DEFAULTS.lookaheadY,
       smoothing: CAMERA_DEFAULTS.smoothing,
       limits: null,
     })
@@ -74,6 +75,44 @@ describe('stepSceneCamera', () => {
     })
     const next = stepSceneCamera(cam, { ...VIEW, x: 0, y: 0, target: { x: 50, y: 0 } })
     expect(next.x).toBe(10 - VIEW.halfW)
+  })
+})
+
+describe('vertical lookahead', () => {
+  it('fills lookaheadY with 0 by default and keeps a declared value', () => {
+    expect(resolveSceneCamera().lookaheadY).toBe(0)
+    expect(resolveSceneCamera({ lookaheadY: 2 }).lookaheadY).toBe(2)
+  })
+
+  it('adds vertical lookahead in the direction of travel', () => {
+    const cam = resolveSceneCamera({
+      follow: 'Player',
+      smoothing: 1000,
+      deadzoneHeight: 0,
+      lookaheadY: 2,
+    })
+    const still = stepSceneCamera(cam, { ...VIEW, x: 0, y: 0, target: { x: 0, y: 5 } })
+    const rising = stepSceneCamera(cam, { ...VIEW, x: 0, y: 0, target: { x: 0, y: 5 }, vy: 8 })
+    const dropping = stepSceneCamera(cam, { ...VIEW, x: 0, y: 0, target: { x: 0, y: 5 }, vy: -8 })
+    expect(rising.y).toBeCloseTo(still.y + cam.lookaheadY, 3)
+    expect(dropping.y).toBeCloseTo(still.y - cam.lookaheadY, 3)
+  })
+
+  it('ignores vertical speed at or below the 1-unit threshold', () => {
+    const cam = resolveSceneCamera({
+      follow: 'Player',
+      smoothing: 1000,
+      deadzoneHeight: 0,
+      lookaheadY: 2,
+    })
+    const atThreshold = stepSceneCamera(cam, { ...VIEW, x: 0, y: 0, target: { x: 0, y: 5 }, vy: 1 })
+    expect(atThreshold.y).toBeCloseTo(5, 3)
+  })
+
+  it('gives a scene that declares no lookaheadY none, regardless of vy', () => {
+    const cam = resolveSceneCamera({ follow: 'Player', smoothing: 1000, deadzoneHeight: 0 })
+    const rising = stepSceneCamera(cam, { ...VIEW, x: 0, y: 0, target: { x: 0, y: 5 }, vy: 30 })
+    expect(rising.y).toBeCloseTo(5, 3)
   })
 })
 

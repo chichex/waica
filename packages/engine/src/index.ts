@@ -6,8 +6,14 @@ export type {
   UpdateFn,
   ParamOverrides,
 } from './game.js'
-export { CAMERA_DEFAULTS, resolveSceneCamera, stepSceneCamera } from './camera.js'
-export type { SceneCameraJson, CameraLimitsJson, ResolvedSceneCamera } from './camera.js'
+export { CAMERA_DEFAULTS, isCameraVelocityProvider, resolveSceneCamera, stepSceneCamera } from './camera.js'
+export type {
+  SceneCameraJson,
+  CameraLimitsJson,
+  CameraVelocity,
+  CameraVelocityProvider,
+  ResolvedSceneCamera,
+} from './camera.js'
 export { Entity } from './entity.js'
 export { Component } from './component.js'
 export { authoringDefaults } from './authoring-defaults.js'

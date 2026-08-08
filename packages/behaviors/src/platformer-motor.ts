@@ -1,4 +1,11 @@
-import { Component, resolveSolidAxis, THREE, type CollisionBody } from '@waica/engine'
+import {
+  Component,
+  resolveSolidAxis,
+  THREE,
+  type CameraVelocity,
+  type CameraVelocityProvider,
+  type CollisionBody,
+} from '@waica/engine'
 
 /**
  * Passive platformer motor: tuning params, physical state and movement
@@ -10,7 +17,7 @@ import { Component, resolveSolidAxis, THREE, type CollisionBody } from '@waica/e
  * Per-axis collision against the scene's Solids — deterministic genre
  * movement (Celeste-style), not "realistic" physics.
  */
-export class PlatformerMotor extends Component {
+export class PlatformerMotor extends Component implements CameraVelocityProvider {
   static override componentName = 'PlatformerMotor'
   static override displayName = 'Motor'
   static override params = {
@@ -64,6 +71,11 @@ export class PlatformerMotor extends Component {
   private bufferTimer = 0
   private squashX = 1
   private squashY = 1
+
+  /** The scene camera reads follow velocity through this explicit seam. */
+  getCameraVelocity(): CameraVelocity {
+    return { vx: this.vx, vy: this.vy }
+  }
 
   /**
    * Per-frame bookkeeping: forgiveness timers, squash decay and the

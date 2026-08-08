@@ -1,6 +1,13 @@
 import * as THREE from 'three'
 import { collisionOverlap } from './collision-shape.js'
-import { resolveSceneCamera, stepSceneCamera, type ResolvedSceneCamera, type SceneCameraJson } from './camera.js'
+import {
+  isCameraVelocityProvider,
+  resolveSceneCamera,
+  stepSceneCamera,
+  type CameraVelocityProvider,
+  type ResolvedSceneCamera,
+  type SceneCameraJson,
+} from './camera.js'
 import type { Component, ComponentClass } from './component.js'
 import { resolveComponentUpdateSchedule } from './component-update-schedule.js'
 import { Hitbox } from './components/hitbox.js'
@@ -319,16 +326,18 @@ export class Game {
     const cam = this.sceneCamera
     if (!cam) return
     const followed = cam.follow ? this.find(cam.follow) : undefined
-    const mover = followed?.components.find(
-      (c) => typeof (c as unknown as { vx?: unknown }).vx === 'number',
-    ) as unknown as { vx: number } | undefined
+    const provider = followed?.components.find(
+      (c): c is Component & CameraVelocityProvider => isCameraVelocityProvider(c),
+    )
+    const velocity = provider?.getCameraVelocity()
     const next = stepSceneCamera(cam, {
       x: this.camera.position.x,
       y: this.camera.position.y,
       halfW: (this.camera.right - this.camera.left) / 2,
       halfH: this.viewHeight / 2,
       target: followed ? { x: followed.position.x, y: followed.position.y } : null,
-      vx: mover?.vx ?? 0,
+      vx: velocity?.vx ?? 0,
+      vy: velocity?.vy ?? 0,
       dt,
     })
     this.camera.position.x = next.x

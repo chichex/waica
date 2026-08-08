@@ -25,6 +25,8 @@ export interface SceneCameraJson {
   deadzoneWidth?: number
   deadzoneHeight?: number
   lookahead?: number
+  /** Vertical lookahead in world units; 0 (the default) disables it. */
+  lookaheadY?: number
   smoothing?: number
   limits?: CameraLimitsJson
 }
@@ -36,6 +38,7 @@ export interface ResolvedSceneCamera {
   deadzoneWidth: number
   deadzoneHeight: number
   lookahead: number
+  lookaheadY: number
   smoothing: number
   limits: CameraLimitsJson | null
 }
@@ -47,6 +50,7 @@ export const CAMERA_DEFAULTS = {
   deadzoneWidth: 2,
   deadzoneHeight: 2.5,
   lookahead: 1.5,
+  lookaheadY: 0,
   smoothing: 6,
 } as const
 
@@ -59,6 +63,7 @@ export function resolveSceneCamera(json?: SceneCameraJson): ResolvedSceneCamera 
     deadzoneWidth: json?.deadzoneWidth ?? CAMERA_DEFAULTS.deadzoneWidth,
     deadzoneHeight: json?.deadzoneHeight ?? CAMERA_DEFAULTS.deadzoneHeight,
     lookahead: json?.lookahead ?? CAMERA_DEFAULTS.lookahead,
+    lookaheadY: json?.lookaheadY ?? CAMERA_DEFAULTS.lookaheadY,
     smoothing: json?.smoothing ?? CAMERA_DEFAULTS.smoothing,
     limits: json?.limits ?? null,
   }
@@ -69,6 +74,28 @@ function clampAxis(center: number, halfView: number, min: number, max: number): 
   // Limits narrower than the view: center the view on them.
   if (max - min <= halfView * 2) return (min + max) / 2
   return Math.min(Math.max(center, min + halfView), max - halfView)
+}
+
+/** Two-axis velocity a followed entity reports for camera lookahead. */
+export interface CameraVelocity {
+  vx: number
+  vy: number
+}
+
+/**
+ * The explicit seam a component opts into so the scene camera can read the
+ * followed entity's velocity — the engine never guesses from field names.
+ */
+export interface CameraVelocityProvider {
+  getCameraVelocity(): CameraVelocity
+}
+
+export function isCameraVelocityProvider(value: unknown): value is CameraVelocityProvider {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as CameraVelocityProvider).getCameraVelocity === 'function'
+  )
 }
 
 export interface CameraStepInput {
@@ -82,6 +109,8 @@ export interface CameraStepInput {
   target: { x: number; y: number } | null
   /** Followed entity's horizontal velocity, for lookahead. */
   vx: number
+  /** Followed entity's vertical velocity, for lookaheadY; omitted = 0. */
+  vy?: number
   dt: number
 }
 
@@ -106,6 +135,8 @@ export function stepSceneCamera(
     if (Math.abs(dx) > halfDzW) wantX = input.target.x - Math.sign(dx) * halfDzW
     if (Math.abs(dy) > halfDzH) wantY = input.target.y - Math.sign(dy) * halfDzH
     if (Math.abs(input.vx) > 1) wantX += Math.sign(input.vx) * cam.lookahead
+    const vy = input.vy ?? 0
+    if (Math.abs(vy) > 1) wantY += Math.sign(vy) * cam.lookaheadY
     x = THREE.MathUtils.damp(x, wantX, cam.smoothing, input.dt)
     y = THREE.MathUtils.damp(y, wantY, cam.smoothing, input.dt)
   }

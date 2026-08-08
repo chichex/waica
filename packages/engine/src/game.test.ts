@@ -22,6 +22,7 @@ vi.mock('three', async (importOriginal) => {
   return { ...actual, WebGLRenderer }
 })
 
+import type { CameraVelocity, CameraVelocityProvider } from './camera'
 import { Component, type SolidContact } from './component'
 import { DynamicBody } from './components/dynamic-body'
 import { Hitbox } from './components/hitbox'
@@ -42,7 +43,16 @@ class ResizeObserverStub {
   observe(): void {}
 }
 
-class VelocityProbe extends Component {
+class VelocityProviderProbe extends Component implements CameraVelocityProvider {
+  vx = 5
+  vy = 5
+  getCameraVelocity(): CameraVelocity {
+    return { vx: this.vx, vy: this.vy }
+  }
+}
+
+/** The pre-provider duck shape: a bare vx field with no provider method. */
+class BareVxProbe extends Component {
   vx = 5
 }
 
@@ -98,15 +108,40 @@ afterEach(() => {
 })
 
 describe('Game glue characterization', () => {
-  it('discovers camera velocity through the mover component vx seam', () => {
+  it('discovers camera velocity through the CameraVelocityProvider seam', () => {
     const game = makeGame()
     const target = game.spawn('Player')
-    target.add(VelocityProbe)
+    target.add(VelocityProviderProbe)
     game.setSceneCamera({ follow: 'Player', lookahead: 2, smoothing: 20 })
 
     ;(game as unknown as { updateSceneCamera(dt: number): void }).updateSceneCamera(0.1)
 
     expect(game.camera.position.x).toBeGreaterThan(target.position.x)
+    game.dispose()
+  })
+
+  it('feeds provider vy into the vertical lookahead', () => {
+    const game = makeGame()
+    const target = game.spawn('Player')
+    target.add(VelocityProviderProbe)
+    game.setSceneCamera({ follow: 'Player', lookaheadY: 2, smoothing: 20 })
+
+    ;(game as unknown as { updateSceneCamera(dt: number): void }).updateSceneCamera(0.1)
+
+    expect(game.camera.position.y).toBeGreaterThan(target.position.y)
+    game.dispose()
+  })
+
+  it('ignores a component that only exposes a bare vx field', () => {
+    const game = makeGame()
+    game.spawn('Player').add(BareVxProbe)
+    game.setSceneCamera({ follow: 'Player', lookahead: 2, smoothing: 20 })
+
+    ;(game as unknown as { updateSceneCamera(dt: number): void }).updateSceneCamera(0.1)
+
+    // Target and camera both sit at the origin: any drift could only come
+    // from lookahead, which must not fire off the retired duck-typed seam.
+    expect(game.camera.position.x).toBe(0)
     game.dispose()
   })
 
