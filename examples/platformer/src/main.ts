@@ -14,7 +14,12 @@ import settings from './game.json'
 
 // Components, roles and state code extend the installed archetype baseline
 // when main() imports them.
-const projectCode = import.meta.glob(['./components/*.ts', './roles/*.ts', './states/*.ts'])
+const projectCode = import.meta.glob([
+  './components/*.ts',
+  './roles/*.ts',
+  './states/*.ts',
+  '!**/*.test.ts',
+])
 
 // The project's prefabs ARE its files (src/characters|objects|tiles/*.json).
 // Nothing else: the game knows exactly what the editor lists.

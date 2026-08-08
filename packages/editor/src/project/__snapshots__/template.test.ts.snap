@@ -126,7 +126,12 @@ import settings from './game.json'
 
 // Your components, roles and state code extend the installed archetype
 // baseline when main() imports them.
-const projectCode = import.meta.glob(['./components/*.ts', './roles/*.ts', './states/*.ts'])
+const projectCode = import.meta.glob([
+  './components/*.ts',
+  './roles/*.ts',
+  './states/*.ts',
+  '!**/*.test.ts',
+])
 
 // Your prefabs ARE these files (saved by the editor, or hand-edited — they're
 // just JSON). Nothing else: delete one and the game stops knowing about it.
@@ -614,7 +619,12 @@ import settings from './game.json'
 
 // Your components, roles and state code extend the installed archetype
 // baseline when main() imports them.
-const projectCode = import.meta.glob(['./components/*.ts', './roles/*.ts', './states/*.ts'])
+const projectCode = import.meta.glob([
+  './components/*.ts',
+  './roles/*.ts',
+  './states/*.ts',
+  '!**/*.test.ts',
+])
 
 // Your prefabs ARE these files (saved by the editor, or hand-edited — they're
 // just JSON). Nothing else: delete one and the game stops knowing about it.

@@ -1,6 +1,7 @@
 import { ARCHETYPE } from '@waica/archetype-platformer'
 import { describe, expect, it } from 'vitest'
 import enginePackage from '../../../engine/package.json'
+import exampleMain from '../../../../examples/platformer/src/main.ts?raw'
 import { projectArtFiles, projectFiles } from './template'
 
 // The golden output is about the shape of a generated project, not about which
@@ -31,12 +32,22 @@ describe('projectFiles', () => {
     expect(game.archetype).toBe('platformer')
   })
 
-  it('loads project components alongside roles and states', () => {
-    const main = projectFiles('my-game')['src/main.ts'] ?? ''
+  it.each([
+    ['generated project', projectFiles('my-game')['src/main.ts'] ?? ''],
+    ['platformer example', exampleMain],
+  ])('loads runtime modules but excludes colocated tests in the %s', (_name, main) => {
+    const patterns = [
+      ...(main.match(/const projectCode = import\.meta\.glob\(\[([\s\S]*?)\]\)/)?.[1] ?? '').matchAll(
+        /'([^']+)'/g,
+      ),
+    ].map((match) => match[1])
 
-    expect(main).toContain(
-      "import.meta.glob(['./components/*.ts', './roles/*.ts', './states/*.ts'])",
-    )
+    expect(patterns).toEqual([
+      './components/*.ts',
+      './roles/*.ts',
+      './states/*.ts',
+      '!**/*.test.ts',
+    ])
   })
 
   it('materializes prefabs from the manifest contract, not registry defaults', () => {
