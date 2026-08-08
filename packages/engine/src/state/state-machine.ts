@@ -1,3 +1,9 @@
+import {
+  installedDirectionalAnimation,
+  isAnimationFacingProvider,
+  resolveDirectionalClip,
+  type AnimationFacingProvider,
+} from '../animation/directional.js'
 import { Component } from '../component.js'
 import { AnimatedSprite } from '../components/animated-sprite.js'
 import type { Entity } from '../entity.js'
@@ -215,6 +221,7 @@ export class StateMachine extends Component {
     const sprite = this.entity.get(AnimatedSprite)
     if (!sprite) return
     const clip = this.states[state]?.clip ?? state
+    if (this.playDirectionalClip(sprite, clip)) return
     if (sprite.clips[clip]) {
       sprite.play(clip)
     } else if (!this.warnedClips.has(state)) {
@@ -224,5 +231,29 @@ export class StateMachine extends Component {
           `keeping "${sprite.current ?? 'none'}"`,
       )
     }
+  }
+
+  /**
+   * Directional resolution: with an installed contract AND a sibling that
+   * reports facing, plays state × facing (mirroring included). Returns false
+   * to keep the name-based path — no contract, no facing, no playable clip.
+   */
+  private playDirectionalClip(sprite: AnimatedSprite, clip: string): boolean {
+    const animation = installedDirectionalAnimation()
+    if (!animation) return false
+    const provider = this.entity.components.find(
+      (c): c is Component & AnimationFacingProvider => isAnimationFacingProvider(c),
+    )
+    if (!provider) return false
+    const resolved = resolveDirectionalClip(
+      animation,
+      Object.keys(sprite.clips),
+      clip,
+      provider.getAnimationFacing(),
+    )
+    if (!resolved.clip || !sprite.clips[resolved.clip]) return false
+    sprite.setFlipX(resolved.flip)
+    sprite.play(resolved.clip)
+    return true
   }
 }

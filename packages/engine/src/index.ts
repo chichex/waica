@@ -6,6 +6,18 @@ export type {
   UpdateFn,
   ParamOverrides,
 } from './game.js'
+export {
+  installDirectionalAnimation,
+  installedDirectionalAnimation,
+  isAnimationFacingProvider,
+  resolveDirectionalClip,
+} from './animation/directional.js'
+export type {
+  AnimationFacingProvider,
+  DirectionalAnimation,
+  DirectionalFallback,
+  ResolvedDirectionalClip,
+} from './animation/directional.js'
 export { ySortZ } from './render-sort.js'
 export type { YSortEntry } from './render-sort.js'
 export { CAMERA_DEFAULTS, isCameraVelocityProvider, resolveSceneCamera, stepSceneCamera } from './camera.js'

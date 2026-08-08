@@ -103,6 +103,14 @@ export class AnimatedSprite extends Component {
     if (this.mesh) this.mesh.position.z = z
   }
 
+  private _flipX = false
+  /** Mirrors the quad horizontally — directional clips reuse east art for west. */
+  setFlipX(value: boolean): void {
+    if (this._flipX === value) return
+    this._flipX = value
+    this.syncQuad()
+  }
+
   clips: Record<string, ClipDef> = {}
   initialClip?: string
 
@@ -182,7 +190,11 @@ export class AnimatedSprite extends Component {
   /** Repositions/rescales the quad from size, offsets and the frame scale. */
   private syncQuad(): void {
     if (!this.mesh) return
-    this.mesh.scale.set(this._width * this.frameScaleX, this._height * this.frameScaleY, 1)
+    this.mesh.scale.set(
+      this._width * this.frameScaleX * (this._flipX ? -1 : 1),
+      this._height * this.frameScaleY,
+      1,
+    )
     // Bottom-center anchor: a shrunk frame keeps its feet on the quad's floor.
     this.mesh.position.x = this._offsetX
     this.mesh.position.y = this._offsetY - (this._height * (1 - this.frameScaleY)) / 2

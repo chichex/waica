@@ -1,3 +1,4 @@
+import { installDirectionalAnimation } from '../animation/directional.js'
 import type { Entity } from '../entity.js'
 import type { Game } from '../game.js'
 import type { StateJson, StateMachine } from './state-machine.js'
@@ -77,10 +78,11 @@ export interface ArchetypeBundle {
   logicSets?: Readonly<Record<string, StateLogic>>
 }
 
-/** Clears role definitions and every named logic set. */
+/** Clears role definitions, every named logic set and the directional contract. */
 export function resetRegistries(): void {
   roles.clear()
   sets.clear()
+  installDirectionalAnimation(null)
 }
 
 /**
