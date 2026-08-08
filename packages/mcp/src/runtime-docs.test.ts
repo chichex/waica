@@ -42,6 +42,37 @@ describe('Runtime harness documentation', () => {
     },
   )
 
+  it.each(['packages/mcp/README.md', '.sdd/specs/waica-mcp.md'])(
+    '%s records the per-entry validation boundary and its limits',
+    async (file) => {
+      const source = await text(file)
+      expect(source).toMatch(/one .*child.*direct.*entry|one .*process.*entry/is)
+      expect(source).toMatch(/five.second|5,000 ms/is)
+      expect(source).toMatch(/parent.*validat/is)
+      expect(source).toMatch(/re-execut|executes again|every validation/is)
+      expect(source).toContain('component-load-failed')
+      expect(source).toContain('component-load-unsupported')
+      expect(source).toMatch(/filesystem.*network|network.*filesystem/is)
+      expect(source).toMatch(
+        /descendants?.*(not owned|does not own|not clean)|(does not own|does not clean).*descendants?/is,
+      )
+      expect(source).not.toMatch(/Project.*modules?.*in the MCP process/is)
+      expect(source).not.toMatch(/global.*exception.*guard|shared.*hook context|shared.*ESM cache/is)
+    },
+  )
+
+  it('uses only platform-neutral direct-child lifecycle APIs for static validation', async () => {
+    const lifecycle = `${await text('packages/mcp/src/project-component-loader.ts')}\n${await text('packages/mcp/src/project-component-runner.ts')}`
+
+    expect(lifecycle).toMatch(/launcher \?\? fork/)
+    expect(lifecycle).toContain("child.kill('SIGKILL')")
+    expect(lifecycle).toMatch(/child\.once\(['"]close/)
+    expect(lifecycle).not.toMatch(/\bdetached\s*:/)
+    expect(lifecycle).not.toMatch(/\bshell\s*:/)
+    expect(lifecycle).not.toMatch(/process\.kill\(\s*-/)
+    expect(lifecycle).not.toMatch(/process\.platform\s*===?\s*['"]win32['"]/)
+  })
+
   it('marks the old exclusion superseded and records the observed browser gate', async () => {
     const [oldSpec, contract, context, bridgeAdr, deterministicAdr] = await Promise.all([
       text('.sdd/specs/waica-mcp.md'),
