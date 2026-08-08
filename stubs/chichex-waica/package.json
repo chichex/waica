@@ -1,0 +1,23 @@
+{
+  "name": "@chichex/waica",
+  "version": "0.3.1",
+  "description": "Renamed to @waica/cli — this package only points you there",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chichex/waica",
+    "directory": "stubs/chichex-waica"
+  },
+  "bin": {
+    "waica": "cli.js"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "cli.js"
+  ],
+  "engines": {
+    "node": ">=20.19"
+  }
+}
