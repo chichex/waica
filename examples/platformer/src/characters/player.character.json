@@ -153,7 +153,7 @@
     {
       "type": "OutOfBounds",
       "props": {
-        "minY": -12
+        "minY": -8
       }
     },
     {
