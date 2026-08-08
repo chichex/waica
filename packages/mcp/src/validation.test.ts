@@ -305,6 +305,67 @@ export class CycleRight extends Component {
     expect(result.ok).toBe(true)
   })
 
+  it.each(['constructor', 'toString', 'valueOf'])(
+    'uses own-property binding semantics for the state-transition action %s',
+    async (action) => {
+      const machine = JSON.stringify({
+        waicaPrefab: 1,
+        type: 'object',
+        components: [
+          {
+            type: 'StateMachine',
+            props: {
+              role: 'fixture',
+              initial: 'idle',
+              states: {
+                idle: { transitions: [{ on: `input:${action}`, to: 'idle' }] },
+              },
+            },
+          },
+        ],
+      })
+      const unbound = await makeProject({
+        'src/controls.json': JSON.stringify({
+          waicaControls: 1,
+          bindings: { shoot: ['KeyF'] },
+        }),
+        'src/objects/machine.object.json': machine,
+      })
+      const bound = await makeProject({
+        'src/controls.json': JSON.stringify({
+          waicaControls: 1,
+          bindings: { [action]: ['KeyX'] },
+        }),
+        'src/objects/machine.object.json': machine,
+      })
+      roots.push(unbound, bound)
+
+      const [unboundResult, boundResult] = await Promise.all([
+        validateProject(unbound),
+        validateProject(bound),
+      ])
+
+      expect(
+        unboundResult.findings.filter(
+          (finding) => finding.code === 'input-action-unbound' && finding.ref === action,
+        ),
+      ).toEqual([
+        {
+          severity: 'warning',
+          code: 'input-action-unbound',
+          message: `Input action "${action}" has no bindings.`,
+          file: 'src/objects/machine.object.json',
+          ref: action,
+        },
+      ])
+      expect(
+        boundResult.findings.filter(
+          (finding) => finding.code === 'input-action-unbound' && finding.ref === action,
+        ),
+      ).toEqual([])
+    },
+  )
+
   it('does not report missing clips when a state machine has no animated sprite', async () => {
     const project = await makeProject({
       'src/objects/switch.object.json': JSON.stringify({

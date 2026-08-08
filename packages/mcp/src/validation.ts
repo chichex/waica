@@ -358,7 +358,7 @@ function validateStateMachines(
         }
         if (typeof on === 'string' && on.startsWith('input:')) {
           const action = on.slice('input:'.length)
-          if (!context.bindings[action]?.length) {
+          if (!isBoundAction(context.bindings, action)) {
             add(
               context,
               'warning',
