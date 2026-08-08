@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import enginePackage from '../package.json' with { type: 'json' }
 
 const renderer = vi.hoisted(() => ({
   loop: null as ((time: number) => void) | null,
@@ -214,7 +215,7 @@ describe('Runtime Bridge protocol', () => {
     expect(registered).toHaveLength(1)
     expect(registered[0]?.metadata()).toEqual({
       bridgeVersion: 1,
-      engineVersion: '0.6.0',
+      engineVersion: enginePackage.version,
       mode: 'paused',
       frame: 0,
       simulationTime: 0,

@@ -9,6 +9,11 @@ import { validateProject } from './validation.js'
 const roots: string[] = []
 afterEach(async () => cleanup(...roots.splice(0)))
 
+async function workspaceVersion(packageDir: string): Promise<string> {
+  const manifestUrl = new URL(`../../${packageDir}/package.json`, import.meta.url)
+  return (JSON.parse(await readFile(manifestUrl, 'utf8')) as { version: string }).version
+}
+
 const ALL_CODES = [
   'unknown-component',
   'broken-prefab-ref',
@@ -127,9 +132,13 @@ export class PassiveTarget extends Component {
         'The shipped runtime loads src/scenes/main.scene.json; other scenes are validated but are not loaded automatically.',
       ],
       provenance: [
-        { package: '@waica/engine', version: '0.6.0', source: 'bundled' },
-        { package: '@waica/behaviors', version: '0.6.0', source: 'bundled' },
-        { package: '@waica/archetype-platformer', version: '0.6.0', source: 'bundled' },
+        { package: '@waica/engine', version: await workspaceVersion('engine'), source: 'bundled' },
+        { package: '@waica/behaviors', version: await workspaceVersion('behaviors'), source: 'bundled' },
+        {
+          package: '@waica/archetype-platformer',
+          version: await workspaceVersion('archetype-platformer'),
+          source: 'bundled',
+        },
       ],
       warnings: [],
     })
