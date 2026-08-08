@@ -1,6 +1,6 @@
 {
   "name": "@waica/archetype-platformer",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Waica platformer archetype — opinionated setup for side-scrolling platformers",
   "license": "MIT",
   "type": "module",
