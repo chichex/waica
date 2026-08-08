@@ -9,11 +9,11 @@ TypeScript (tsc 7.x) end to end. pnpm monorepo (`pnpm@11.4.0`, workspace of 8 pr
 ## Comandos
 | Accion | Comando | cwd | Estado | Duracion | Notas |
 |---|---|---|---|---|---|
-| test | `pnpm test` | . | verificado 2026-08-08 | 3.1s | vitest run: 805 tests in 86 files, all passing. Deterministic, no external services. |
-| typecheck | `pnpm typecheck` | . | verificado 2026-08-06 | ~2s | `tsc --noEmit` in the 7 workspace projects that declare the script (everything but the root), all clean. |
-| build | `pnpm build` | . | verificado 2026-08-08 | ~2s | Cleans library dists, then builds libraries, editor, example and CLI. Warning: editor main chunk is 4.7 MB (>500 kB limit) — pre-existing, not a failure. |
-| runtime browser e2e | `pnpm test:e2e` | . | verificado 2026-08-08 | 6.3s on Google Chrome 151.0.7922.77 | Fresh build plus a network-free controlled Vite Project driven through the built checkout CLI over real MCP stdio: paused readiness, semantic input, exact steps, filtered snapshot, paused/real-time PNG with HTML UI pixel, reload baseline, explicit stop/closed port and HTTP-200-without-Game rejection. Missing compatible Chrome is a failure, never a skip. |
-| published-shape test | `pnpm test:dist` | . | verificado 2026-08-08 | measured in final issue #24 run | Runs a fresh build, proves each dist exactly matches source, packs the three libraries plus the CLI, checks the publish manifest, imports public entry points with plain Node, drives static tools over real stdio, then repeats the critical Runtime Session happy path through the packed CLI in a symlink-free materialized sandbox. |
+| test | `pnpm test` | . | verificado 2026-08-08 | 3.59s | vitest run: 805 tests in 86 files, all passing. Deterministic, no external services. |
+| typecheck | `pnpm typecheck` | . | verificado 2026-08-08 | 1.61s | `tsc --noEmit` in the 7 workspace projects that declare the script (everything but the root), all clean. |
+| build | `pnpm build` | . | verificado 2026-08-08 | 3.26s | Cleans library dists, then builds libraries, editor, example and CLI. Warning: editor main chunk is 4.7 MB (>500 kB limit) — pre-existing, not a failure. |
+| runtime browser e2e | `pnpm test:e2e` | . | verificado 2026-08-08 | 9.62s total; browser leg 6.009s on Google Chrome 151.0.7922.77 | Fresh build plus a network-free controlled Vite Project driven through the built checkout CLI over real MCP stdio: paused readiness, semantic input, exact steps, filtered snapshot, paused/real-time PNG with HTML UI pixel, reload baseline, explicit stop/closed port and HTTP-200-without-Game rejection. Missing compatible Chrome is a failure, never a skip. |
+| published-shape test | `pnpm test:dist` | . | verificado 2026-08-08 | 15.00s total; packed browser leg 3.436s | Runs a fresh build, proves each dist exactly matches source, packs the three libraries plus the CLI, checks the publish manifest, imports public entry points with plain Node, drives static tools over real stdio, then repeats the critical Runtime Session happy path through the packed CLI in a symlink-free materialized sandbox. |
 | run (editor) | `pnpm editor` | . | verificado 2026-08-06 | up in <5s | Vite dev server. Alive when `curl -sf http://localhost:<port>` answers 200; port is printed by Vite (5174 when 5173 is busy, else 5173). |
 | run (example) | `pnpm dev` | . | verificado 2026-08-06 | up in <5s | Platformer example on Vite (5173 by default). Same liveness check. |
 | release | push a `vX.Y.Z` tag (see `/publish`) | . | no probado (publishes to npm — mutates external state, never run autonomously) | — | `.github/workflows/publish.yml` publishes the four packages in lockstep via OIDC. `pnpm release` refuses to run: publishing from a laptop skips the tag check and the trusted-publishing identity. Human-only. |
@@ -26,9 +26,9 @@ TypeScript (tsc 7.x) end to end. pnpm monorepo (`pnpm@11.4.0`, workspace of 8 pr
 
 ## Verificacion autonoma
 Ladder for this repo, in increasing order of confidence:
-1. **typecheck** — `pnpm typecheck` (~2s). Catches API misuse across all packages.
-2. **unit/component tests** — `pnpm test` (~2s). 720 vitest tests, happy-dom, deterministic. The cheapest strong signal; TDD is viable here.
-3. **build** — `pnpm build` (~2s). Cleans library dists and proves the editor and example still bundle.
+1. **typecheck** — `pnpm typecheck` (~1.6s). Catches API misuse across all packages.
+2. **unit/component tests** — `pnpm test` (~3.6s). 805 vitest tests in 86 files, happy-dom where needed, deterministic. The cheapest strong signal; TDD is viable here.
+3. **build** — `pnpm build` (~3.3s). Cleans library dists and proves the editor and example still bundle.
 4. **published package shape** — `pnpm test:dist` (~11s). Rebuilds from clean library dists, rejects stale or extensionless output, pack-simulates the public libraries and loads their real exports with plain Node.
 5. **scripted browser e2e (Runtime Session)** — `pnpm test:e2e` builds, launches the checkout CLI over real stdio and runs a controlled standalone Project through readiness/input/step/snapshot/screenshot/reload/cleanup plus the HTTP-200-without-Game negative case. Deterministic gameplay assertions; real browser/process integration may expose host failures. Missing Chrome is red.
 6. **packed Runtime Session browser e2e** — the final leg of `pnpm test:dist` repeats the critical happy path through the packed CLI and packed engine, proving `playwright-core` resolves from normal installation and no browser binary is bundled.
