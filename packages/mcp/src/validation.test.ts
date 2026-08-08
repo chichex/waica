@@ -127,9 +127,9 @@ export class PassiveTarget extends Component {
         'The shipped runtime loads src/scenes/main.scene.json; other scenes are validated but are not loaded automatically.',
       ],
       provenance: [
-        { package: '@waica/engine', version: '0.5.0', source: 'bundled' },
-        { package: '@waica/behaviors', version: '0.5.0', source: 'bundled' },
-        { package: '@waica/archetype-platformer', version: '0.5.0', source: 'bundled' },
+        { package: '@waica/engine', version: '0.6.0', source: 'bundled' },
+        { package: '@waica/behaviors', version: '0.6.0', source: 'bundled' },
+        { package: '@waica/archetype-platformer', version: '0.6.0', source: 'bundled' },
       ],
       warnings: [],
     })
