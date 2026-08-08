@@ -4,6 +4,7 @@ import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, makeProject, tempDir } from './test-helpers.js'
+import { ProjectComponentLoader } from './project-component-loader.js'
 import { createWaicaMcpServer } from './server.js'
 import type { RuntimeService } from './runtime-service.js'
 
@@ -50,12 +51,18 @@ function argumentsFor(name: string, projectPath: string): Record<string, unknown
 const roots: string[] = []
 afterEach(async () => cleanup(...roots.splice(0)))
 
-async function connectedPair(runtime?: RuntimeService): Promise<{
+async function connectedPair(
+  runtime?: RuntimeService,
+  componentLoader?: ProjectComponentLoader,
+): Promise<{
   client: Client
   server: ReturnType<typeof createWaicaMcpServer>
   close: () => Promise<void>
 }> {
-  const server = createWaicaMcpServer(runtime ? { runtime } : undefined)
+  const server = createWaicaMcpServer({
+    ...(runtime ? { runtime } : {}),
+    ...(componentLoader ? { componentLoader } : {}),
+  })
   const client = new Client({ name: 'waica-mcp-test', version: '1.0.0' })
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)])
@@ -309,6 +316,49 @@ describe('MCP server', () => {
       await pair.close()
     }
   })
+
+  it.each(['missing', 'incompatible'] as const)(
+    'returns one tool-error when the isolated runner is %s',
+    async (failure) => {
+      const project = await makeProject({
+        'src/components/a.ts': 'export class A { static componentName = "A" }\n',
+        'src/components/b.ts': 'export class B { static componentName = "B" }\n',
+      })
+      roots.push(project)
+      const runner = path.join(project, `${failure}-runner.mjs`)
+      if (failure === 'incompatible') {
+        await writeFile(
+          runner,
+          `
+process.send({ kind: 'project-entry-ready', version: 999 })
+setInterval(() => {}, 1_000)
+`,
+        )
+      }
+      const pair = await connectedPair(
+        undefined,
+        new ProjectComponentLoader({ runnerPath: runner, deadlineMs: 500 }),
+      )
+      try {
+        const response = await pair.client.callTool({
+          name: 'validate_project',
+          arguments: { project_path: project },
+        })
+
+        expect('toolResult' in response ? undefined : response.isError).toBe(true)
+        expect(jsonResult(response)).toEqual({
+          error: {
+            code: 'tool-error',
+            message: expect.stringMatching(/runner|handshake/i),
+            projectPath: project,
+          },
+          provenance: [],
+        })
+      } finally {
+        await pair.close()
+      }
+    },
+  )
 
   it('round-trips a tool call over the SDK transport', async () => {
     const project = await makeProject({
