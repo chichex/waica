@@ -23,6 +23,7 @@ describe('@waica/cli package contract', () => {
       },
       dependencies: {
         '@modelcontextprotocol/sdk': expect.stringMatching(/^\^1\./),
+        'playwright-core': expect.stringMatching(/^\^1\./),
         three: expect.stringMatching(/^\^0\./),
       },
       devDependencies: {
@@ -40,6 +41,7 @@ describe('@waica/cli package contract', () => {
     expect(pkg).not.toHaveProperty('exports')
     expect(Object.keys(pkg.dependencies as object).sort()).toEqual([
       '@modelcontextprotocol/sdk',
+      'playwright-core',
       'three',
     ])
     await access(path.join(packageRoot, 'bundle-mcp.mjs'))

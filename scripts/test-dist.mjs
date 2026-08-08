@@ -18,6 +18,7 @@ import { tmpdir } from 'node:os'
 import { dirname, extname, join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { libraryVersions, publishedManifest, readLibraryManifests } from './published-manifest.mjs'
+import { runRuntimeE2e } from './runtime-e2e.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const requireFromMcp = createRequire(join(root, 'packages/mcp/package.json'))
@@ -314,7 +315,7 @@ try {
   assert.equal(cliPacked.exports, undefined, '@waica/cli must stay pure-bin')
   assert.deepEqual(
     Object.keys(cliPacked.dependencies ?? {}).sort(),
-    ['@modelcontextprotocol/sdk', 'three'],
+    ['@modelcontextprotocol/sdk', 'playwright-core', 'three'],
     'the published CLI must declare exactly the runtime deps its bundled server loads',
   )
 
@@ -326,6 +327,19 @@ try {
   await access(join(packedCliRoot, 'dist/mcp/native-import.cjs'))
   await access(join(packedCliRoot, 'dist/mcp/template/package.json.tpl'))
   await access(join(packedCliRoot, 'dist/mcp/template/src/main.ts'))
+  for (const module of [
+    'runtime-browser.js',
+    'runtime-dev-server.js',
+    'runtime-preflight.js',
+    'runtime-service.js',
+    'runtime-session-manager.js',
+  ]) {
+    await access(join(packedCliRoot, 'dist/mcp', module))
+  }
+  await assert.rejects(
+    access(join(packedCliRoot, 'dist/mcp/node_modules/playwright-core')),
+    'playwright-core must be supplied by normal CLI installation, not copied into the MCP bundle',
+  )
 
   // These vendored copies are the bundled fallback for projects without their
   // own node_modules. They must carry published exports — the checkout's point
@@ -354,6 +368,11 @@ try {
     (await symbolicLinksBelow(nodeModules)).map((file) => relative(sandbox, file)),
     [],
     'the packed dependency graph must not contain symlinks that can escape the sandbox',
+  )
+  await access(join(nodeModules, 'playwright-core/package.json'))
+  await assert.rejects(
+    access(join(nodeModules, 'playwright-core/.local-browsers')),
+    'playwright-core must not materialize a downloaded browser',
   )
 
   const probe = join(sandbox, 'probe.mjs')
@@ -606,8 +625,18 @@ try {
     await client.close().catch(() => {})
   }
 
+  await runRuntimeE2e({
+    root,
+    cliPath: packedCli,
+    engineRoot: join(nodeModules, '@waica/engine'),
+    label: 'packed-cli',
+    includeNegative: false,
+    includeReload: false,
+    includeAlias: false,
+  })
+
   console.log(
-    'fresh packed packages load in plain Node and the packed `waica mcp` creates a project over real stdio',
+    'fresh packed packages load in plain Node and the packed `waica mcp` runs static and browser tools over real stdio',
   )
 } finally {
   await rm(sandbox, { recursive: true, force: true })

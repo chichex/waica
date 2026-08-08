@@ -1,12 +1,13 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
-import { readFile } from 'node:fs/promises'
+import { readFile, realpath } from 'node:fs/promises'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, makeProject, tempDir } from './test-helpers.js'
 import { createWaicaMcpServer } from './server.js'
+import type { RuntimeService } from './runtime-service.js'
 
-const TOOL_NAMES = [
+const STATIC_TOOL_NAMES = [
   'create_project',
   'list_components',
   'describe_archetype',
@@ -19,7 +20,16 @@ const TOOL_NAMES = [
   'scaffold_ui',
 ]
 
-const OPERATING_TOOLS = TOOL_NAMES.filter((name) => name !== 'create_project')
+const RUNTIME_TOOL_NAMES = [
+  'start_project',
+  'stop_project',
+  'inspect_runtime',
+  'control_runtime',
+  'capture_screenshot',
+]
+
+const TOOL_NAMES = [...STATIC_TOOL_NAMES, ...RUNTIME_TOOL_NAMES]
+const OPERATING_TOOLS = STATIC_TOOL_NAMES.filter((name) => name !== 'create_project')
 
 function argumentsFor(name: string, projectPath: string): Record<string, unknown> {
   const specific: Record<string, Record<string, unknown>> = {
@@ -40,11 +50,11 @@ function argumentsFor(name: string, projectPath: string): Record<string, unknown
 const roots: string[] = []
 afterEach(async () => cleanup(...roots.splice(0)))
 
-async function connectedPair(): Promise<{
+async function connectedPair(runtime?: RuntimeService): Promise<{
   client: Client
   close: () => Promise<void>
 }> {
-  const server = createWaicaMcpServer()
+  const server = createWaicaMcpServer(runtime ? { runtime } : undefined)
   const client = new Client({ name: 'waica-mcp-test', version: '1.0.0' })
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)])
@@ -81,7 +91,7 @@ describe('MCP server', () => {
     }
   })
 
-  it('registers exactly the ten tools with concrete JSON schemas', async () => {
+  it('registers exactly the fifteen tools with strict schemas and runtime annotations', async () => {
     const pair = await connectedPair()
     try {
       const listed = await pair.client.listTools()
@@ -97,6 +107,175 @@ describe('MCP server', () => {
         expect(byName.get(name)?.annotations?.readOnlyHint).not.toBe(true)
       }
       expect(byName.get('project_summary')?.annotations?.readOnlyHint).toBe(true)
+      expect(byName.get('inspect_runtime')?.annotations?.readOnlyHint).toBe(true)
+      expect(byName.get('capture_screenshot')?.annotations?.readOnlyHint).toBe(true)
+      expect(byName.get('control_runtime')?.annotations?.readOnlyHint).not.toBe(true)
+      for (const name of RUNTIME_TOOL_NAMES) {
+        expect(byName.get(name)?.inputSchema.additionalProperties).toBe(false)
+      }
+    } finally {
+      await pair.close()
+    }
+  })
+
+  it('returns structured runtime metadata and one non-duplicated PNG block', async () => {
+    const metadata = {
+      projectPath: '/canonical/game',
+      url: 'http://127.0.0.1:43123/',
+      engineVersion: '0.5.0',
+      bridgeVersion: 1,
+      mode: 'paused',
+      frame: 4,
+      simulationTime: 0.1,
+      provenance: [{ package: '@waica/engine', version: '0.5.0', source: 'project' }],
+    }
+    let closed = 0
+    const runtime: RuntimeService = {
+      start: async () => ({
+        ...metadata,
+        reused: false,
+        viewport: { width: 640, height: 360 },
+        initialSnapshot: { bridgeVersion: 1, mode: 'paused', frame: 0, simulationTime: 0 },
+      }),
+      stop: async () => ({ projectPath: metadata.projectPath, stopped: true }),
+      inspect: async () => ({ ...metadata, snapshot: { entities: [] } }),
+      control: async () => ({ ...metadata, heldActions: [] }),
+      captureScreenshot: async () => ({ metadata, data: 'iVBORw0KGgoAAAANSUhEUg==' }),
+      close: async () => {
+        closed += 1
+      },
+    }
+    const pair = await connectedPair(runtime)
+    try {
+      const started = await pair.client.callTool({
+        name: 'start_project',
+        arguments: { project_path: '/alias/game' },
+      })
+      expect(jsonResult(started)).toMatchObject({ ...metadata, reused: false })
+
+      const screenshot = await pair.client.callTool({
+        name: 'capture_screenshot',
+        arguments: { project_path: '/alias/game' },
+      })
+      if ('toolResult' in screenshot) throw new Error('unexpected task result')
+      expect(screenshot.structuredContent).toEqual(metadata)
+      expect(screenshot.content).toEqual([
+        { type: 'text', text: JSON.stringify(metadata, null, 2) },
+        { type: 'image', mimeType: 'image/png', data: 'iVBORw0KGgoAAAANSUhEUg==' },
+      ])
+      expect(JSON.stringify(screenshot.structuredContent)).not.toContain('iVBOR')
+      expect((screenshot.content[0] as { text: string }).text).not.toContain('iVBOR')
+    } finally {
+      await pair.close()
+    }
+    expect(closed).toBe(1)
+  })
+
+  it('rejects invalid runtime arguments before calling the Run Session service', async () => {
+    let calls = 0
+    const called = async (): Promise<Record<string, unknown>> => {
+      calls += 1
+      return {}
+    }
+    const runtime: RuntimeService = {
+      start: called,
+      stop: called,
+      inspect: called,
+      control: called,
+      captureScreenshot: async () => {
+        calls += 1
+        return { metadata: {}, data: 'png' }
+      },
+      close: async () => {},
+    }
+    const pair = await connectedPair(runtime)
+    try {
+      const cases = [
+        { name: 'start_project', arguments: { project_path: '/game', extra: true } },
+        { name: 'stop_project', arguments: { project_path: '/game', extra: true } },
+        { name: 'inspect_runtime', arguments: { project_path: '/game', entity_ids: [3] } },
+        {
+          name: 'control_runtime',
+          arguments: { project_path: '/game', operation: 'press', action: 'jump', frames: 2 },
+        },
+        {
+          name: 'control_runtime',
+          arguments: { project_path: '/game', operation: 'step', action: 'jump' },
+        },
+        { name: 'capture_screenshot', arguments: { project_path: '/game', extra: true } },
+      ]
+      for (const request of cases) {
+        const response = await pair.client.callTool(request)
+        expect('toolResult' in response ? undefined : response.isError).toBe(true)
+        expect(jsonResult(response)).toMatchObject({
+          error: {
+            code: 'runtime-operation-failed',
+            message: expect.any(String),
+            projectPath: '/game',
+          },
+        })
+      }
+
+      const relative = await pair.client.callTool({
+        name: 'start_project',
+        arguments: { project_path: 'relative-game' },
+      })
+      expect(jsonResult(relative)).toEqual({
+        error: {
+          code: 'runtime-prerequisite-missing',
+          stage: 'project',
+          message:
+            "project_path must be absolute because a stdio server's working directory belongs to the agent host, not the game project.",
+          projectPath: 'relative-game',
+        },
+      })
+      expect(calls).toBe(0)
+    } finally {
+      await pair.close()
+    }
+  })
+
+  it('keeps unexpected runtime-service failures inside the stable runtime error contract', async () => {
+    const runtime: RuntimeService = {
+      start: async () => { throw new Error('adapter boom') },
+      stop: async () => { throw new Error('adapter boom') },
+      inspect: async () => { throw new Error('adapter boom') },
+      control: async () => { throw new Error('adapter boom') },
+      captureScreenshot: async () => { throw new Error('adapter boom') },
+      close: async () => {},
+    }
+    const pair = await connectedPair(runtime)
+    try {
+      const response = await pair.client.callTool({
+        name: 'inspect_runtime',
+        arguments: { project_path: '/game' },
+      })
+      expect('toolResult' in response ? undefined : response.isError).toBe(true)
+      expect(jsonResult(response)).toEqual({
+        error: {
+          code: 'runtime-operation-failed',
+          stage: 'game',
+          message: 'adapter boom',
+          projectPath: '/game',
+        },
+      })
+    } finally {
+      await pair.close()
+    }
+  })
+
+  it('stops an absent Runtime Session idempotently even when the Project path is missing', async () => {
+    const parent = await tempDir()
+    roots.push(parent)
+    const missing = path.join(await realpath(parent), 'missing-project')
+    const pair = await connectedPair()
+    try {
+      const stopped = await pair.client.callTool({
+        name: 'stop_project',
+        arguments: { project_path: missing },
+      })
+      expect('toolResult' in stopped ? undefined : stopped.isError).not.toBe(true)
+      expect(jsonResult(stopped)).toEqual({ projectPath: missing, stopped: false })
     } finally {
       await pair.close()
     }
@@ -148,7 +327,7 @@ describe('MCP server', () => {
     }
   })
 
-  it.each(TOOL_NAMES)('%s rejects relative project paths with the stdio cwd explanation', async (name) => {
+  it.each(STATIC_TOOL_NAMES)('%s rejects relative project paths with the stdio cwd explanation', async (name) => {
     const pair = await connectedPair()
     try {
       const result = await pair.client.callTool({

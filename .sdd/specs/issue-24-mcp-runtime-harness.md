@@ -42,7 +42,7 @@ This spec deliberately supersedes `.sdd/specs/waica-mcp.md`'s prior run/bridge/s
 
 - **CA-7 — Startup preflight, Project command and browser selection (HIGH):** The MVP supports macOS and Linux. Windows rejects `start_project` before mutation with `runtime-unsupported-host`; every existing non-runtime MCP tool continues working there. Startup requires a valid Waica Project, a readable `package.json`, a nonempty `scripts.dev`, already resolvable Project dependencies and an available package-manager executable. It selects the manager from a valid root `packageManager` field, otherwise exactly one root lockfile (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `bun.lock`/`bun.lockb`), otherwise npm; an unsupported field value or conflicting lockfiles is an actionable prerequisite error. It supports npm, pnpm, Yarn and Bun but never runs install, mutates a lockfile or downloads a browser.
 
-  The trusted Project's declared `dev` script is run from the canonical Project root with Vite-compatible `--host 127.0.0.1 --port 0 --strictPort`; no arbitrary command is accepted. The emitted loopback URL is parsed and probed. A script that exits, binds non-loopback, fails to forward the required options or never reports a usable URL fails at `dev-server`. Browser selection uses the explicit path when supplied, otherwise deterministic macOS/Linux Chrome/Chromium discovery; compatibility means `playwright-core` can launch it and create the required isolated context. Viewport defaults to valid positive `src/game.json.resolution.width/height`, otherwise 640×360; explicit dimensions must be positive integers with at most 1,000,000 pixels, and browser device scale factor is 1.
+  The trusted Project's declared `dev` script is run from the canonical Project root with Vite-compatible `--host 127.0.0.1 --port <allocated-loopback-port> --strictPort`; no arbitrary command is accepted. The MCP chooses a currently free loopback port and retries a detected bind collision with a newly allocated port a bounded number of times. The emitted loopback URL is parsed and probed. A script that exits, binds non-loopback, fails to forward the required options or never reports a usable URL fails at `dev-server`. Browser selection uses the explicit path when supplied, otherwise deterministic macOS/Linux Chrome/Chromium discovery; compatibility means `playwright-core` can launch it and create the required isolated context. Viewport defaults to valid positive `src/game.json.resolution.width/height`, otherwise 640×360; explicit dimensions must be positive integers with at most 1,000,000 pixels, and browser device scale factor is 1.
 
   Readiness requires process alive + HTTP page loaded + bridge v1 + exactly one live `Game` + successful initial snapshot. Timeout or failure captures at most the final 64 KiB each of stdout/stderr and the final 100 browser console/page errors, reports the failed stage, and cleans every resource. A successful `start_project` returns `reused`, viewport, runtime metadata and `initialSnapshot`.
 
@@ -84,7 +84,7 @@ This spec deliberately supersedes `.sdd/specs/waica-mcp.md`'s prior run/bridge/s
 | 4 | Executable override | `browser_executable_path` on `start_project` | Environment/server flag | high | confirmed |
 | 5 | Viewport | `game.json` or 640×360, DPR 1, max 1,000,000 pixels | Fixed 1280×720 or unbounded | low | confirmed |
 | 6 | Package-manager detection | `packageManager` → one lockfile → npm; npm/pnpm/Yarn/Bun | npm only | medium | confirmed |
-| 7 | Vite binding | Loopback, port 0, strictPort; parse emitted URL | Project chooses freely | medium | confirmed |
+| 7 | Vite binding | Loopback, MCP-allocated free port, strictPort; bounded retry on bind collision; parse emitted URL | Project chooses freely | medium | confirmed; execution deviation 2026-08-08 |
 | 8 | Timeout/diagnostics | 30s configurable, staged bounded process/browser tails | Fixed/unstructured | low | confirmed |
 | 9 | Lifecycle outputs | Start returns reuse/readiness/snapshot; absent stop succeeds | Absent stop errors | high | confirmed |
 | 10 | Forced cleanup | Process-group terminate, 2s grace, force-kill | Signal and return | medium | confirmed |
@@ -143,6 +143,10 @@ pnpm test:dist
 ```
 
 The final report must state the discovered Chrome executable/version and exact duration/results for both browser gates. It must not claim subjective game feel or visual correctness was verified.
+
+## Execution changelog
+
+- **2026-08-08 — [DEVIATION, confirmed]:** Vite 8.1.5 treats CLI `--port 0` as falsy and binds its default 5173 (`vite --host 127.0.0.1 --port 0 --strictPort` was observed returning `http://127.0.0.1:5173/`). That made CA-7's literal mechanism incompatible with CA-8's concurrent Projects. The user confirmed replacing it with an MCP-allocated free loopback port plus bounded bind-collision retry. Scope and externally observable behavior are unchanged; only the impossible port-selection mechanism changed.
 
 ## Risks and gaps
 
