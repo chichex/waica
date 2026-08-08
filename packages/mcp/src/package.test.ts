@@ -24,6 +24,7 @@ describe('@waica/mcp package contract', () => {
       },
       dependencies: {
         '@modelcontextprotocol/sdk': expect.stringMatching(/^\^1\./),
+        'playwright-core': expect.stringMatching(/^\^1\./),
         '@waica/engine': 'workspace:^',
         '@waica/behaviors': 'workspace:^',
         '@waica/archetype-platformer': 'workspace:^',
@@ -39,6 +40,7 @@ describe('@waica/mcp package contract', () => {
       '@waica/archetype-platformer',
       '@waica/behaviors',
       '@waica/engine',
+      'playwright-core',
     ])
     await access(path.join(packageRoot, 'bundle-template.mjs'))
   })
@@ -58,5 +60,8 @@ describe('@waica/mcp package contract', () => {
       dependencies(mcp)['@modelcontextprotocol/sdk'],
     )
     expect(dependencies(cli)['three']).toBe(dependencies(engine)['three'])
+    expect(dependencies(cli)['playwright-core']).toBe(dependencies(mcp)['playwright-core'])
+    expect(dependencies(mcp)).not.toHaveProperty('playwright')
+    expect(dependencies(mcp)).not.toHaveProperty('puppeteer')
   })
 })

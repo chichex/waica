@@ -30,6 +30,55 @@ describe('Input bindings', () => {
     expect(input.held('jump')).toBe(false)
   })
 
+  it('injects one semantic press for exactly one consumable frame', () => {
+    const input = makeInput({ jump: ['Space'] })
+
+    expect(input.injectAction('jump', 'press')).toBe(true)
+    expect(input.held('jump')).toBe(true)
+    expect(input.justPressed('jump')).toBe(true)
+    input.consume('jump')
+    expect(input.consumed('jump')).toBe(true)
+
+    input.endFrame()
+
+    expect(input.held('jump')).toBe(false)
+    expect(input.justPressed('jump')).toBe(false)
+    expect(input.consumed('jump')).toBe(false)
+  })
+
+  it('holds and releases installed actions without repeating the press edge', () => {
+    const input = makeInput({ right: ['KeyD'], left: ['KeyA'] })
+
+    expect(input.availableActions()).toEqual(['left', 'right'])
+    expect(input.injectAction('right', 'hold')).toBe(true)
+    expect(input.heldActions()).toEqual(['right'])
+    expect(input.justPressed('right')).toBe(true)
+    input.endFrame()
+
+    expect(input.held('right')).toBe(true)
+    expect(input.justPressed('right')).toBe(false)
+    input.injectAction('right', 'hold')
+    expect(input.justPressed('right')).toBe(false)
+
+    expect(input.injectAction('right', 'release')).toBe(true)
+    expect(input.injectAction('missing', 'press')).toBe(false)
+    expect(input.heldActions()).toEqual([])
+  })
+
+  it('upgrades a queued press to a persistent hold without adding another edge', () => {
+    const input = makeInput({ jump: ['Space'] })
+    input.injectAction('jump', 'press')
+
+    input.injectAction('jump', 'hold')
+    expect(input.justPressed('jump')).toBe(true)
+    input.endFrame()
+
+    expect(input.held('jump')).toBe(true)
+    expect(input.justPressed('jump')).toBe(false)
+    input.injectAction('jump', 'release')
+    expect(input.held('jump')).toBe(false)
+  })
+
   it('releases every held action when the window loses focus', () => {
     const input = makeInput({ left: ['KeyA'], up: ['KeyW'] })
     key('keydown', 'KeyA')

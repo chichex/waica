@@ -32,7 +32,32 @@ export type {
   ValidComponentUpdateSchedule,
 } from './component-update-schedule.js'
 export { Input, DEFAULT_BINDINGS } from './input.js'
-export type { ActionName, InputBindings } from './input.js'
+export type { ActionName, InjectedActionOperation, InputBindings } from './input.js'
+export {
+  RUNTIME_BRIDGE_PROTOCOL_VERSION,
+  RUNTIME_BRIDGE_SYMBOL,
+  RuntimeBridgeOperationError,
+} from './runtime-bridge.js'
+export type {
+  RuntimeBridge,
+  RuntimeBridgeActivation,
+  RuntimeControlRequest,
+  RuntimeControlResult,
+  RuntimeMetadata,
+  RuntimeMode,
+} from './runtime-bridge.js'
+export { RUNTIME_PROJECTION_LIMITS } from './runtime-inspection.js'
+export type {
+  ProjectedValue,
+  ProjectionIssue,
+  ProjectionMarker,
+  ProjectionMarkerKind,
+  RuntimeComponentSnapshot,
+  RuntimeEntitySnapshot,
+  RuntimeSnapshot,
+  RuntimeSnapshotFilters,
+  RuntimeTransformSnapshot,
+} from './runtime-inspection.js'
 export type {
   ArchetypeArt,
   ArchetypeManifest,

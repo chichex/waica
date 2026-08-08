@@ -1,8 +1,8 @@
 # @waica/mcp
 
-MCP server for developing Waica games with an agent. It operates on the user's plain project files over stdio while the agent keeps using its normal file-editing and shell tools.
+MCP server for developing Waica games with an agent. It operates on a Project's plain files and can own a temporary browser-backed Run Session for deterministic runtime observation and control.
 
-This package is never published on its own: it ships inside `@waica/cli`, which bundles the built server together with the `@waica` libraries it introspects.
+This package is private and is never published on its own. It ships inside `@waica/cli`, together with the built server and fallback `@waica/*` libraries.
 
 ## Connect
 
@@ -17,43 +17,73 @@ pnpm build
 claude mcp add waica -- node /absolute/path/to/waica/packages/cli/dist/cli.js mcp
 ```
 
-Generated projects install from npm like any other: the `@waica/*` libraries a project depends on are published alongside the CLI, on the same version. The tools themselves never need them installed — the server answers from its own bundled copies. See "Running a generated project" below.
+## Prerequisites and trust boundary
+
+All tools require Node 22.18 or newer. Runtime tools additionally require:
+
+- macOS or Linux. `start_project` rejects Windows; the ten file-oriented tools continue to work there.
+- The Project's dependencies already installed and its declared npm, pnpm, Yarn or Bun executable available.
+- A compatible system Google Chrome or Chromium installation. The server uses `playwright-core`; it never downloads or bundles a browser.
+
+`start_project` executes the trusted Project's declared `dev` script and loads the Project in a real browser. Trusted Project code runs with the user's normal local permissions; this is **not a sandbox**. The server never runs install, changes a lockfile, accepts an arbitrary command, or exposes a network control endpoint.
 
 ## `project_path` model
 
-Every tool takes `project_path`, and it must be an **absolute path** to the user's game. An MCP stdio process is launched by an agent host, so its working directory does not identify the game project reliably. Relative paths are rejected rather than interpreted against the host's directory.
+Every tool takes an absolute `project_path`. An MCP stdio process belongs to the agent host, so its working directory does not identify the Project reliably. Relative paths are rejected.
 
-`create_project` expects a missing target whose parent already exists, or an empty directory. Every other tool expects a Waica project marked by `src/game.json` or `src/scenes/main.scene.json`.
+`create_project` expects a missing target whose parent exists, or an empty directory. File-oriented and runtime tools expect a Waica Project marked by `src/game.json` or `src/scenes/main.scene.json`. Run Sessions canonicalize real paths, so symlink aliases identify the same session. No public session id is exposed.
 
 ## Tools
 
 | Tool | Description |
 |---|---|
-| `create_project` | Create the 12-file project chassis, optionally with the playable archetype demo. |
+| `create_project` | Create the Project chassis, optionally with the playable archetype demo. |
 | `list_components` | List installed component metadata and textual project-owned code paths. |
-| `describe_archetype` | Describe the active or requested archetype manifest and other installed archetypes. |
+| `describe_archetype` | Describe the active or requested installed archetype manifest. |
 | `project_summary` | Summarize scenes, prefabs, code, UI, stats and controls from plain files. |
-| `validate_project` | Return machine-readable findings for all project scenes, prefabs and configuration. |
+| `validate_project` | Return machine-readable findings for every Project file and typed reference. |
 | `scaffold_component` | Create the editor-compatible TypeScript starter for a component. |
+| `scaffold_prefab` | Create an object, tile or character prefab without overwriting an existing file. |
 | `scaffold_role` | Create the editor-compatible TypeScript starter for a custom role. |
-| `scaffold_state` | Create the editor-compatible state-code starter for a role and state. |
+| `scaffold_state` | Create state code for a role and state. |
 | `scaffold_ui` | Create the editor-compatible HTML starter for a UI piece. |
+| `start_project` | Start or reuse a browser-backed Run Session and return its paused initial Runtime Snapshot. |
+| `stop_project` | Stop a Run Session and prove its browser, process group and loopback port are gone. |
+| `inspect_runtime` | Read a filtered Runtime Snapshot without mutating the live Game. |
+| `control_runtime` | Press, hold or release a semantic action; pause, resume or step simulation frames. |
+| `capture_screenshot` | Capture the composited Game surface, including Waica HTML UI, as one PNG block. |
 
-Scaffolds never overwrite an existing file. `list_components` keeps project-owned TypeScript textual and does not execute it.
+Scaffolds never overwrite existing files. `list_components` keeps project-owned TypeScript textual and does not execute it.
+
+## Run Sessions
+
+`start_project` validates the Project, package manager, installed dependencies and browser before starting resources. It invokes only `scripts.dev`, forces a loopback host and an MCP-allocated strict port, probes the emitted URL, installs the ephemeral Runtime Bridge before navigation, and waits for exactly one live `Game` plus an initial snapshot. `headless` defaults to true; `browser_executable_path`, viewport and timeout can be overridden.
+
+A ready Run Session starts **paused** at frame 0 and simulation time 0. The Game surface and visible HTML UI remain rendered, but components, collisions, camera updates, callbacks and input end-of-frame work do not advance until `control_runtime` steps or resumes it.
+
+- `press` is held for one simulation frame and releases automatically.
+- `hold` stays down until `release`; repeated down operations do not create another edge.
+- `step` defaults to one frame at `dt = 1/60` and accepts 1–600 frames with `0 < dt <= 0.1`.
+- `resume` uses RAF-driven real time; `pause` returns to deterministic control without wall-clock catch-up.
+- Only action names installed in the live Game bindings are accepted. Physical key codes, pointers and arbitrary DOM events are not exposed.
+
+`inspect_runtime` returns stats plus live entities, stable opaque ids, transforms and safely projected component state. Filters are OR within `entity_ids`, `entity_names` or `component_types`, and AND across those categories. Projection is read-only and bounded; `Date`, `BigInt`, `Map` and `Set` have typed JSON representations, cycles/errors/truncation have `$waica` markers, and a component may provide `inspectState()`. There is no arbitrary JavaScript evaluation or runtime mutation tool.
+
+`capture_screenshot` captures the canvas rectangle after browser compositing, so visible Waica HTML UI is included while unrelated full-page content and browser chrome are excluded. PNG bytes appear only in the MCP image block, never duplicated in text or structured metadata.
+
+Full page reload reconnects to a fresh paused baseline. Runtime operations reject while reloading; a timeout, page/browser/dev-process failure or second simultaneous Game ends the session. `stop_project` and MCP transport close both clean every owned browser context and whole dev-process group; cleanup failure is reported rather than claimed as success.
 
 ## Project module execution during validation
 
-`validate_project` executes the project's own `src/components/*.ts`, `src/roles/*.ts` and `src/states/*.ts` modules in the MCP process to read component params and instance defaults. Module-scope code and side effects run, so validate only projects whose code you trust. One module cannot abort the tool or prevent the remaining files from being validated; load problems are returned as findings:
+`validate_project` executes the Project's `src/components/*.ts`, `src/roles/*.ts` and `src/states/*.ts` modules in the MCP process to inspect typed parameter references. Module-scope code and side effects run, so validate only code you trust. One broken module becomes a finding instead of aborting the remaining validation:
 
-- `component-load-failed` (severity `error`) means the project module has a genuine runtime defect, such as invalid syntax, a broken import or a module-scope throw.
-- `component-load-unsupported` (severity `info`) means the module can be valid in the browser toolchain but Node's strip-only loader cannot execute it, such as an asset import or unsupported TypeScript syntax — this never flips `ok` to `false` on its own. This also covers a host running Node older than 22.15: `node:module`'s `registerHooks` is unavailable there, so in-process component loading is skipped for the whole run.
+- `component-load-failed` means the module has a runtime defect such as invalid syntax, a broken import or a module-scope throw.
+- `component-load-unsupported` means valid browser-oriented code cannot be evaluated by Node's strip-only loader; it is informational.
 
 ## Editor coexistence
 
-The MCP and editor both operate on the same files; there is no live bridge or file watcher in v1. Reload the project in the editor after agent edits. If the editor already has stale content open, saving it may overwrite the agent's changes, so coordinate which side is writing before saving.
+The MCP and editor can edit the same files, but Run Sessions execute standalone Projects and do not integrate with editor Play or editor file watching. Reload the editor after agent edits and coordinate saves so stale editor content does not overwrite external changes.
 
-## Running a generated project
+## Running a generated Project
 
-`create_project` returns the normal next steps — `npm install`, then `npm run dev` — and they work: the generated `package.json` pins the three `@waica/*` libraries at the version that shipped with the CLI that created it, and all four are published together.
-
-To run a generated project against uncommitted engine changes instead of the published libraries, put it inside this pnpm workspace, change its three `@waica/*` versions to `workspace:^`, and install from the repository root.
+`create_project` returns the normal next steps: `npm install`, then `npm run dev`. Generated dependencies use the same version as the CLI release. To run against uncommitted workspace libraries, place the Project in this pnpm workspace, change its three `@waica/*` ranges to `workspace:^`, and install from the repository root.

@@ -64,6 +64,9 @@ export abstract class Component {
   entity!: Entity
   game!: Game
 
+  /** Replaces automatic runtime-state discovery for Runtime Snapshots. */
+  inspectState?(): unknown
+
   /** Runs once the component is mounted on its entity. */
   onReady?(): void
   /** Runs once per frame. */

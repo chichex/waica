@@ -1,4 +1,5 @@
 export type ActionName = string
+export type InjectedActionOperation = 'press' | 'hold' | 'release'
 
 /** Action → KeyboardEvent.code list. */
 export type InputBindings = Record<string, string[]>
@@ -14,6 +15,9 @@ export class Input {
   private readonly bindings = new Map<string, Set<string>>()
   private readonly down = new Set<string>()
   private readonly justDown = new Set<string>()
+  private readonly injectedDown = new Set<ActionName>()
+  private readonly injectedJustDown = new Set<ActionName>()
+  private readonly injectedPresses = new Set<ActionName>()
   private readonly used = new Set<string>()
 
   /** Installs exactly the action map supplied by the active archetype/project. */
@@ -29,12 +33,40 @@ export class Input {
 
   /** Is the action held this frame? */
   held(action: ActionName): boolean {
-    return this.isActive(action, this.down)
+    return this.injectedDown.has(action) || this.isActive(action, this.down)
   }
 
   /** Was the action pressed exactly this frame? */
   justPressed(action: ActionName): boolean {
-    return this.isActive(action, this.justDown)
+    return this.injectedJustDown.has(action) || this.isActive(action, this.justDown)
+  }
+
+  /** Installed semantic action names in deterministic order. */
+  availableActions(): ActionName[] {
+    return [...this.bindings.keys()].sort()
+  }
+
+  /** Currently held semantic action names in deterministic order. */
+  heldActions(): ActionName[] {
+    return this.availableActions().filter((action) => this.held(action))
+  }
+
+  /** Injects an action by semantic name; false means the action is not installed. */
+  injectAction(action: ActionName, operation: InjectedActionOperation): boolean {
+    if (!this.bindings.has(action)) return false
+    if (operation === 'release') {
+      this.injectedDown.delete(action)
+      this.injectedPresses.delete(action)
+      return true
+    }
+    if (this.held(action)) {
+      if (operation === 'hold') this.injectedPresses.delete(action)
+      return true
+    }
+    this.injectedDown.add(action)
+    this.injectedJustDown.add(action)
+    if (operation === 'press') this.injectedPresses.add(action)
+    return true
   }
 
   /** -1..1 axis from two actions (left/right by default). */
@@ -60,10 +92,16 @@ export class Input {
   /** Called by the Game at the end of each frame. */
   endFrame(): void {
     this.justDown.clear()
+    this.injectedJustDown.clear()
+    for (const action of this.injectedPresses) this.injectedDown.delete(action)
+    this.injectedPresses.clear()
     this.used.clear()
   }
 
   dispose(): void {
+    this.injectedDown.clear()
+    this.injectedJustDown.clear()
+    this.injectedPresses.clear()
     window.removeEventListener('keydown', this.onKeyDown)
     window.removeEventListener('keyup', this.onKeyUp)
     window.removeEventListener('blur', this.releaseAll)
