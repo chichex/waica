@@ -7,7 +7,7 @@ describe('ySortZ', () => {
       { layer: 0, y: 2 },
       { layer: 0, y: -2 },
     ])
-    expect(z[1]).toBeGreaterThan(z[0])
+    expect(z[1]).toBeGreaterThan(z[0]!)
   })
 
   it('keeps the layer as the primary band regardless of Y', () => {
@@ -15,7 +15,7 @@ describe('ySortZ', () => {
       { layer: 1, y: -1000 },
       { layer: 2, y: 1000 },
     ])
-    expect(z[1]).toBeGreaterThan(z[0])
+    expect(z[1]).toBeGreaterThan(z[0]!)
   })
 
   it('confines every offset to its own 0.01 layer band', () => {
@@ -42,7 +42,26 @@ describe('ySortZ', () => {
       { layer: 0, y: 3 },
       { layer: 0, y: 3 },
     ])
-    expect(z[0]).toBeLessThan(z[1])
-    expect(z[1]).toBeLessThan(z[2])
+    expect(z[0]).toBeLessThan(z[1]!)
+    expect(z[1]).toBeLessThan(z[2]!)
+  })
+
+  it('caps a fractional layer band at the gap to the next distinct layer, however extreme Y gets', () => {
+    const ys = [-5000, -1, 1, 5000]
+    const z = ySortZ([
+      ...ys.map((y) => ({ layer: 0, y })),
+      ...ys.map((y) => ({ layer: 0.5, y })),
+    ])
+    const layer0 = z.slice(0, 4)
+    const layer05 = z.slice(4)
+    // Every layer-0 offset stays below every layer-0.5 offset: with enough
+    // entries per band the old fixed-0.01-band math let a crowded lower
+    // layer bleed into a fractional layer right above it.
+    expect(Math.max(...layer0)).toBeLessThan(Math.min(...layer05))
+    // Ordering within each band still holds: lower Y renders in front.
+    expect(layer0[0]).toBeGreaterThan(layer0[1]!)
+    expect(layer0[1]).toBeGreaterThan(layer0[2]!)
+    expect(layer0[2]).toBeGreaterThan(layer0[3]!)
+    expect(layer05[0]).toBeGreaterThan(layer05[1]!)
   })
 })
