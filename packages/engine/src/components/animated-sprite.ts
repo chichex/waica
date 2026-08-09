@@ -196,7 +196,9 @@ export class AnimatedSprite extends Component {
       1,
     )
     // Bottom-center anchor: a shrunk frame keeps its feet on the quad's floor.
-    this.mesh.position.x = this._offsetX
+    // The offset mirrors along with the art, or a flipped sprite with a
+    // nonzero offsetX would shift to the wrong side.
+    this.mesh.position.x = this._flipX ? -this._offsetX : this._offsetX
     this.mesh.position.y = this._offsetY - (this._height * (1 - this.frameScaleY)) / 2
   }
 
