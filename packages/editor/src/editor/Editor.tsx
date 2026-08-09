@@ -1565,6 +1565,9 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
         <div className="ed-vp-hint" role="alert">
           ⚠️ {archetypeFailed}
         </div>
+        <button className="ed-mini" onClick={onClose}>
+          ← projects
+        </button>
       </div>
     )
   }
