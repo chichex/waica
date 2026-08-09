@@ -1,4 +1,4 @@
-import { resolveClip, type AnimationContract } from './contract.js'
+import type { AnimationContract } from './contract.js'
 
 /**
  * Directional animation contract: the archetype declares which facing
@@ -28,9 +28,39 @@ export interface ResolvedDirectionalClip {
 }
 
 /**
+ * Walks the exact `<state>-<dir>` clip, then the declared directional
+ * fallback chain (accumulating flips), cycle-safe. Undefined at a dead end —
+ * callers decide what to try next, instead of this reaching for anything else.
+ */
+function directionalChain(
+  animation: DirectionalAnimation,
+  available: ReadonlySet<string>,
+  state: string,
+  facing: string,
+): ResolvedDirectionalClip | undefined {
+  const seen = new Set<string>()
+  let dir: string | undefined = facing
+  let flip = false
+  while (dir && !seen.has(dir)) {
+    const candidate = `${state}-${dir}`
+    if (available.has(candidate)) return { clip: candidate, flip }
+    seen.add(dir)
+    const fallback: DirectionalFallback | undefined = animation.fallbacks?.[dir]
+    if (!fallback) break
+    if (fallback.flip) flip = !flip
+    dir = fallback.dir
+  }
+  return undefined
+}
+
+/**
  * Resolves state × facing to a playable clip: the exact `<state>-<dir>`
- * clip, else the declared directional fallback chain (accumulating flips),
- * else the base AnimationContract chain via resolveClip, unflipped.
+ * clip, else the declared directional fallback chain (accumulating flips).
+ * On a dead end, walks the base AnimationContract's state fallback chain
+ * (cycle-safe) and, for each candidate state in turn, retries the
+ * directional chain against it before trying its bare name. An invalid
+ * facing, or a chain that dead-ends everywhere, resolves to nothing rather
+ * than guessing — the caller's name-based fallback path handles that.
  */
 export function resolveDirectionalClip(
   animation: DirectionalAnimation,
@@ -38,20 +68,24 @@ export function resolveDirectionalClip(
   state: string,
   facing: string,
 ): ResolvedDirectionalClip {
+  if (!animation.directions.includes(facing)) return { clip: undefined, flip: false }
   const set = new Set(available)
-  const seen = new Set<string>()
-  let dir: string | undefined = facing
-  let flip = false
-  while (dir && !seen.has(dir)) {
-    const candidate = `${state}-${dir}`
-    if (set.has(candidate)) return { clip: candidate, flip }
-    seen.add(dir)
-    const fallback: DirectionalFallback | undefined = animation.fallbacks?.[dir]
-    if (!fallback) break
-    if (fallback.flip) flip = !flip
-    dir = fallback.dir
+
+  const direct = directionalChain(animation, set, state, facing)
+  if (direct) return direct
+
+  const seenStates = new Set<string>()
+  let candidate: string | undefined = state
+  while (candidate && !seenStates.has(candidate)) {
+    seenStates.add(candidate)
+    if (candidate !== state) {
+      const viaDirection = directionalChain(animation, set, candidate, facing)
+      if (viaDirection) return viaDirection
+    }
+    if (set.has(candidate)) return { clip: candidate, flip: false }
+    candidate = animation.contract.fallbacks[candidate]
   }
-  return { clip: resolveClip(animation.contract, set, state), flip: false }
+  return { clip: undefined, flip: false }
 }
 
 let installed: DirectionalAnimation | null = null
