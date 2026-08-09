@@ -35,16 +35,19 @@ registerHooks({
 })
 
 // The target's archetype id, from its game.json ('platformer' when absent —
-// the same legacy default the editor applies).
+// the same legacy default the editor applies). A game.json that exists but
+// fails to parse is a real error, not a silent platformer sync: swallowing
+// it would overwrite an unrelated archetype's project with platformer content.
 function archetypeIdOf(srcDir) {
   const gamePath = join(srcDir, 'game.json')
   if (!existsSync(gamePath)) return 'platformer'
+  let game
   try {
-    const game = JSON.parse(readFileSync(gamePath, 'utf8'))
-    return typeof game.archetype === 'string' && game.archetype ? game.archetype : 'platformer'
-  } catch {
-    return 'platformer'
+    game = JSON.parse(readFileSync(gamePath, 'utf8'))
+  } catch (err) {
+    throw new Error(`Malformed ${gamePath}: ${err.message}`)
   }
+  return typeof game.archetype === 'string' && game.archetype ? game.archetype : 'platformer'
 }
 
 // One Node-safe manifest (the ARCHETYPE export) per archetype id, cached.
