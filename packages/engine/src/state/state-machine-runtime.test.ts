@@ -309,6 +309,8 @@ describe('StateMachine directional clip resolution', () => {
     machine: StateMachine
     play: ReturnType<typeof vi.spyOn>
     setFlipX: ReturnType<typeof vi.spyOn>
+    /** Mutates the facing the sibling AnimationFacingProvider reports, live. */
+    setFacing(next: string): void
   }
 
   function makeDirectionalMachine(clips: string[], facing: string | null): DirectionalHarness {
@@ -319,7 +321,8 @@ describe('StateMachine directional clip resolution', () => {
     const game = {
       input: { justPressed: () => false, consumed: () => false, consume: () => {} },
     } as unknown as Game
-    const components: unknown[] = facing === null ? [] : [{ getAnimationFacing: () => facing }]
+    let current = facing
+    const components: unknown[] = facing === null ? [] : [{ getAnimationFacing: () => current }]
     const entity = {
       name: 'Walker',
       game,
@@ -332,7 +335,7 @@ describe('StateMachine directional clip resolution', () => {
     machine.game = game
     machine.states = { walk: {} }
     machine.initial = 'walk'
-    return { machine, play, setFlipX }
+    return { machine, play, setFlipX, setFacing: (next) => (current = next) }
   }
 
   it('plays the exact state-facing clip when it exists', () => {
@@ -381,5 +384,48 @@ describe('StateMachine directional clip resolution', () => {
 
     expect(play).toHaveBeenCalledWith('walk')
     expect(setFlipX).not.toHaveBeenCalled()
+  })
+
+  it('re-resolves the directional clip when facing changes mid-state', () => {
+    installDirectionalAnimation(DIRECTIONAL)
+    const { machine, play, setFlipX, setFacing } = makeDirectionalMachine(['walk-e'], 'e')
+
+    machine.onReady()
+    setFacing('w')
+    machine.onUpdate(0.016)
+
+    // west has no 'walk-w' clip, so it mirrors the declared w -> e fallback.
+    expect(play).toHaveBeenLastCalledWith('walk-e')
+    expect(setFlipX).toHaveBeenLastCalledWith(true)
+  })
+
+  it('does not re-resolve every frame when facing is unchanged', () => {
+    installDirectionalAnimation(DIRECTIONAL)
+    const { machine, play, setFlipX } = makeDirectionalMachine(['walk-e'], 'e')
+
+    machine.onReady()
+    play.mockClear()
+    setFlipX.mockClear()
+    machine.onUpdate(0.016)
+
+    expect(play).not.toHaveBeenCalled()
+    expect(setFlipX).not.toHaveBeenCalled()
+  })
+
+  it('warns once and keeps the previous clip when directional resolution dead-ends with nothing to fall back to', () => {
+    installDirectionalAnimation(DIRECTIONAL)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    // 'walk-n' exists, but facing is 'e' (no declared e -> n fallback) and
+    // neither 'walk' nor the base contract's 'idle' has a bare or
+    // directional clip in this set — a true dead end.
+    const { machine, play } = makeDirectionalMachine(['walk-n'], 'e')
+
+    machine.onReady()
+
+    expect(play).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalledWith(
+      '[waica] "Walker": no clip "walk" for state "walk" — keeping "none"',
+    )
+    warn.mockRestore()
   })
 })
