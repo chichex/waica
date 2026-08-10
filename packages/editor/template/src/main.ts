@@ -6,7 +6,7 @@ import {
   mergeRegistryComponents,
   type PrefabJson,
 } from '@waica/engine'
-import { PLATFORMER_BUNDLE, PLATFORMER_REGISTRY } from '@waica/archetype-platformer'
+import { ARCHETYPE } from '__ARCHETYPE_PACKAGE__'
 import scene from './scenes/main.scene.json'
 import controls from './controls.json'
 import stats from './stats.json'
@@ -60,14 +60,14 @@ for (const [path, url] of Object.entries(artFiles)) {
 }
 
 const registryBase = {
-  ...PLATFORMER_REGISTRY,
+  ...ARCHETYPE.registry,
   // Keep these two: the spread above carries the archetype's own catalogs,
   // and these replace them with yours. Drop one and the game starts
   // resolving pieces that are nowhere in src/.
   prefabs,
   ui,
   resolveAsset: (uri: string) =>
-    artUrls[uri] ?? PLATFORMER_REGISTRY.resolveAsset?.(uri) ?? uri,
+    artUrls[uri] ?? ARCHETYPE.registry.resolveAsset?.(uri) ?? uri,
 }
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')
@@ -82,7 +82,7 @@ if (canvas.dataset.waica) {
 }
 
 async function main(canvas: HTMLCanvasElement): Promise<void> {
-  installArchetype(PLATFORMER_BUNDLE)
+  installArchetype(ARCHETYPE.bundle)
   const projectModules = await Promise.all(Object.values(projectCode).map((load) => load()))
   const registry = mergeRegistryComponents(
     registryBase,

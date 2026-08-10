@@ -137,6 +137,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const [openScenePath, setOpenScenePath] = useState<string | null>(null)
   const [scene, setScene] = useState<SceneJson | null>(null)
   const [sceneFailed, setSceneFailed] = useState(false)
+  const [archetypeFailed, setArchetypeFailed] = useState<string | null>(null)
   const [view, setView] = useState<ExplorerView | null>(null)
   const [epoch, setEpoch] = useState(0)
   const [mode, setMode] = useState<'edit' | 'play'>('edit')
@@ -248,7 +249,13 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
         fs.readText(EDITOR_SETTINGS_PATH),
       ])
       const settings = parseGameSettings(gameText)
-      const resolvedArchetype = resolveArchetype(settings.archetype)
+      let resolvedArchetype
+      try {
+        resolvedArchetype = resolveArchetype(settings.archetype)
+      } catch (error) {
+        if (!stale) setArchetypeFailed(error instanceof Error ? error.message : String(error))
+        return
+      }
       const projectCode = await loadComponentCode(fs, playRunner, resolvedArchetype.bundle)
       if (stale) return
       for (const { path, message } of projectCode.errors) {
@@ -1551,6 +1558,19 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       )}
     </div>
   )
+
+  if (archetypeFailed) {
+    return (
+      <div className="ed-root">
+        <div className="ed-vp-hint" role="alert">
+          ⚠️ {archetypeFailed}
+        </div>
+        <button className="ed-mini" onClick={onClose}>
+          ← projects
+        </button>
+      </div>
+    )
+  }
 
   return (
     <ArchetypeContext.Provider value={editorArchetype}>

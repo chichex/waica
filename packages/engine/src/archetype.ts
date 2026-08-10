@@ -1,3 +1,4 @@
+import type { DirectionalAnimation } from './animation/directional.js'
 import type { InputBindings } from './input.js'
 import type { PrefabJson, SceneEntityJson, SceneJson, SceneRegistry } from './scene.js'
 import type { ArchetypeBundle } from './state/hooks.js'
@@ -33,6 +34,8 @@ export interface ArchetypeManifest {
   bindings: Readonly<InputBindings>
   actionLabels: Readonly<Record<string, string>>
   bundle: ArchetypeBundle
+  /** Directional animation contract, for genres where characters face around. */
+  animation?: DirectionalAnimation
 }
 
 /** Browser manifest enriched with URLs produced by an asset-aware bundler. */
@@ -56,4 +59,25 @@ type _ArchetypeManifestTypeFixture = AssertArchetypeManifest<{
   bindings: {}
   actionLabels: {}
   bundle: { roles: {} }
+}>
+
+// Same fixture with the optional directional animation contract declared.
+type _ArchetypeManifestWithAnimationTypeFixture = AssertArchetypeManifest<{
+  id: 'fixture'
+  label: 'Fixture'
+  scene: { waicaScene: 3; entities: [] }
+  blankScene: { waicaScene: 3; entities: [] }
+  registry: { components: {} }
+  palette: []
+  prefabs: {}
+  art: []
+  entityIcons: {}
+  bindings: {}
+  actionLabels: {}
+  bundle: { roles: {} }
+  animation: {
+    directions: ['n', 's', 'e', 'w']
+    fallbacks: { w: { dir: 'e'; flip: true } }
+    contract: { required: ['idle']; fallbacks: {} }
+  }
 }>

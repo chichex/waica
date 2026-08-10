@@ -1,3 +1,9 @@
+import {
+  installedDirectionalAnimation,
+  isAnimationFacingProvider,
+  resolveDirectionalClip,
+  type AnimationFacingProvider,
+} from '../animation/directional.js'
 import { Component } from '../component.js'
 import { AnimatedSprite } from '../components/animated-sprite.js'
 import type { Entity } from '../entity.js'
@@ -88,7 +94,14 @@ export class StateMachine extends Component {
   static override params = {
     role: { label: 'Role' },
   }
-  static override transient = ['current', 'elapsed', 'instanceHooks', 'signals', 'warnedClips']
+  static override transient = [
+    'current',
+    'elapsed',
+    'instanceHooks',
+    'signals',
+    'warnedClips',
+    'lastFacing',
+  ]
 
   /** The character's role — names the logic set providing its state code. */
   role = ''
@@ -104,6 +117,8 @@ export class StateMachine extends Component {
   private readonly instanceHooks = new Map<string, StateHooks[]>()
   private readonly signals = new Set<string>()
   private readonly warnedClips = new Set<string>()
+  /** Facing last used to resolve a directional clip — detects a turn mid-state. */
+  private lastFacing: string | undefined
 
   override onReady(): void {
     if (this.role && !logicSet(this.role)) {
@@ -157,6 +172,7 @@ export class StateMachine extends Component {
       this.enter(edge.to)
     }
     this.signals.clear()
+    this.reresolveOnFacingChange()
   }
 
   override onCollide(other: Entity): void {
@@ -215,6 +231,7 @@ export class StateMachine extends Component {
     const sprite = this.entity.get(AnimatedSprite)
     if (!sprite) return
     const clip = this.states[state]?.clip ?? state
+    if (this.playDirectionalClip(sprite, clip)) return
     if (sprite.clips[clip]) {
       sprite.play(clip)
     } else if (!this.warnedClips.has(state)) {
@@ -224,5 +241,47 @@ export class StateMachine extends Component {
           `keeping "${sprite.current ?? 'none'}"`,
       )
     }
+  }
+
+  /**
+   * Directional resolution: with an installed contract AND a sibling that
+   * reports facing, plays state × facing (mirroring included). Returns false
+   * to keep the name-based path — no contract, no facing, no playable clip.
+   */
+  private playDirectionalClip(sprite: AnimatedSprite, clip: string): boolean {
+    const animation = installedDirectionalAnimation()
+    if (!animation) return false
+    const provider = this.facingProvider()
+    if (!provider) return false
+    const facing = provider.getAnimationFacing()
+    this.lastFacing = facing
+    const resolved = resolveDirectionalClip(animation, Object.keys(sprite.clips), clip, facing)
+    if (!resolved.clip || !sprite.clips[resolved.clip]) return false
+    sprite.setFlipX(resolved.flip)
+    sprite.play(resolved.clip)
+    return true
+  }
+
+  private facingProvider(): (Component & AnimationFacingProvider) | undefined {
+    return this.entity.components.find(
+      (c): c is Component & AnimationFacingProvider => isAnimationFacingProvider(c),
+    )
+  }
+
+  /**
+   * playDirectionalClip only runs at enter() time (via playClip), so a
+   * facing change that doesn't cross a state boundary — turning while
+   * still walking, say — never re-resolves the clip on its own. Catch that
+   * here every frame: same state, new facing, re-run the resolution.
+   * AnimatedSprite.play() no-ops on an unchanged clip name, so this is
+   * cheap when facing hasn't moved the resolved clip.
+   */
+  private reresolveOnFacingChange(): void {
+    if (!this.current || !installedDirectionalAnimation()) return
+    const sprite = this.entity.get(AnimatedSprite)
+    if (!sprite) return
+    const provider = this.facingProvider()
+    if (!provider || provider.getAnimationFacing() === this.lastFacing) return
+    this.playDirectionalClip(sprite, this.states[this.current]?.clip ?? this.current)
   }
 }

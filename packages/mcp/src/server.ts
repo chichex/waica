@@ -10,6 +10,11 @@ import {
 } from '@modelcontextprotocol/sdk/types.js'
 import { createProject } from './create-project.js'
 import {
+  DEFAULT_ARCHETYPE_ID,
+  knownArchetype,
+  knownArchetypeIds,
+} from './known-archetypes.js'
+import {
   describeArchetype,
   listComponents,
   projectSummary,
@@ -64,6 +69,12 @@ export const TOOLS: Tool[] = [
         enum: ['demo', 'blank'],
         default: 'demo',
         description: 'demo includes archetype content; blank creates only the chassis.',
+      },
+      archetype: {
+        type: 'string',
+        enum: knownArchetypeIds(),
+        default: DEFAULT_ARCHETYPE_ID,
+        description: 'Archetype the project is created for.',
       },
     }),
     annotations: { destructiveHint: false, idempotentHint: false, openWorldHint: false },
@@ -442,7 +453,18 @@ async function execute(
           projectPath,
         })
       }
-      return { ...(await createProject(projectPath, start)) }
+      const archetype =
+        args.archetype === undefined
+          ? DEFAULT_ARCHETYPE_ID
+          : requiredString(args, 'archetype', projectPath)
+      if (!knownArchetype(archetype)) {
+        throw new WaicaToolError({
+          code: 'unknown-archetype',
+          message: `Unknown archetype "${archetype}"; available: ${knownArchetypeIds().join(', ')}.`,
+          projectPath,
+        })
+      }
+      return { ...(await createProject(projectPath, start, archetype)) }
     }
     case 'list_components':
       return listComponents(projectPath)

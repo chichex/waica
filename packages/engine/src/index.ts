@@ -6,8 +6,28 @@ export type {
   UpdateFn,
   ParamOverrides,
 } from './game.js'
-export { CAMERA_DEFAULTS, resolveSceneCamera, stepSceneCamera } from './camera.js'
-export type { SceneCameraJson, CameraLimitsJson, ResolvedSceneCamera } from './camera.js'
+export {
+  installDirectionalAnimation,
+  installedDirectionalAnimation,
+  isAnimationFacingProvider,
+  resolveDirectionalClip,
+} from './animation/directional.js'
+export type {
+  AnimationFacingProvider,
+  DirectionalAnimation,
+  DirectionalFallback,
+  ResolvedDirectionalClip,
+} from './animation/directional.js'
+export { ySortZ } from './render-sort.js'
+export type { YSortEntry } from './render-sort.js'
+export { CAMERA_DEFAULTS, isCameraVelocityProvider, resolveSceneCamera, stepSceneCamera } from './camera.js'
+export type {
+  SceneCameraJson,
+  CameraLimitsJson,
+  CameraVelocity,
+  CameraVelocityProvider,
+  ResolvedSceneCamera,
+} from './camera.js'
 export { Entity } from './entity.js'
 export { Component } from './component.js'
 export { authoringDefaults } from './authoring-defaults.js'
@@ -91,7 +111,14 @@ export type {
 } from './collision-shape.js'
 export { Emitter } from './events.js'
 export { loadScene, spawnFromJson, resolveEntityComponents, resolveProps } from './scene.js'
-export type { SceneJson, SceneEntityJson, SceneComponentJson, SceneRegistry, PrefabJson } from './scene.js'
+export type {
+  SceneJson,
+  SceneEntityJson,
+  SceneComponentJson,
+  SceneRegistry,
+  SceneRenderJson,
+  PrefabJson,
+} from './scene.js'
 export { ClipPlayer } from './animation/clip-player.js'
 export type { ClipDef } from './animation/clip-player.js'
 export { sheetCell, sheetFrameCount, locateFrame } from './animation/sheet.js'

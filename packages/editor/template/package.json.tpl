@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@waica/archetype-platformer": "^__WAICA_VERSION__",
+    "__ARCHETYPE_PACKAGE__": "^__WAICA_VERSION__",
     "@waica/behaviors": "^__WAICA_VERSION__",
     "@waica/engine": "^__WAICA_VERSION__"
   },

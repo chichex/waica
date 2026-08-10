@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Solid, THREE, type Entity, type Game } from '@waica/engine'
+import { isCameraVelocityProvider, Solid, THREE, type Entity, type Game } from '@waica/engine'
 import { PlatformerMotor } from './platformer-motor'
 
 interface MotorHarness {
@@ -121,5 +121,16 @@ describe('PlatformerMotor axis collision characterization', () => {
     motor.tick(0.016)
 
     expect(motor.wantsJump()).toBe(true)
+  })
+})
+
+describe('PlatformerMotor camera velocity provider', () => {
+  it('advertises live two-axis velocity through the provider seam', () => {
+    const { motor } = makeMotor()
+    motor.vx = 3
+    motor.vy = -7
+
+    expect(isCameraVelocityProvider(motor)).toBe(true)
+    expect(motor.getCameraVelocity()).toEqual({ vx: 3, vy: -7 })
   })
 })

@@ -110,6 +110,24 @@ describe('createProject', () => {
     expect(await filesBelow(target)).toHaveLength(12)
   })
 
+  it('rejects an unknown archetype id and writes nothing', async () => {
+    const parent = await tempDir()
+    roots.push(parent)
+    const target = path.join(parent, 'banana-game')
+    await expect(createProject(target, 'demo', 'banana')).rejects.toThrow(
+      'Unknown archetype "banana"',
+    )
+    await expect(stat(target)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('creates the same demo project when the archetype is passed explicitly', async () => {
+    const parent = await tempDir()
+    roots.push(parent)
+    const target = path.join(parent, 'explicit-game')
+    await createProject(target, 'blank', 'platformer')
+    expect(await textTree(target)).toEqual(await expectedEditorFiles('explicit-game', 'blank'))
+  })
+
   it('rejects an invalid basename before creating anything', async () => {
     const parent = await tempDir()
     roots.push(parent)

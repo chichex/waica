@@ -78,6 +78,11 @@ export class Sprite extends Component {
     if (this.mesh) this.mesh.position.z = value * 0.01
   }
 
+  /** Y-sort pass hook: overrides the layer-derived z for this frame. */
+  setSortZ(z: number): void {
+    if (this.mesh) this.mesh.position.z = z
+  }
+
   private _shape: SpriteShape = 'rectangle'
   get shape(): SpriteShape {
     return this._shape

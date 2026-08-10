@@ -1,5 +1,5 @@
 # Spec — Topdown foundations: y-sort, two-axis camera, directional animation contract, archetype unlock
-<!-- Generada por /sdd-spec el 2026-08-08. Fuente: grill .sdd/grills/2026-08-08-archetype-topdown.md. Estado: aprobada -->
+<!-- Generada por /sdd-spec el 2026-08-08. Fuente: grill .sdd/grills/2026-08-08-archetype-topdown.md. Estado: implementada -->
 
 ## Contexto
 The repo is about to grow its second archetype (`@waica/archetype-topdown` — Spec 2 of the partition fixed by the grill handoff). This is Spec 1: the engine generalizations the top-down genre needs — automatic y-sort, two-axis camera follow, the directional animation contract in the manifest — plus removal of the platformer hardcodes left in template/MCP/scripts. Today draw order is a manual `layer` int mapped to z (`packages/engine/src/components/sprite.ts:76-79`), camera lookahead is horizontal-only and the followed entity's velocity is discovered by `.vx` duck-typing (`packages/engine/src/camera.ts:108`, `packages/engine/src/game.ts:322-324`), `AnimationContract` exists (`packages/engine/src/animation/contract.ts:8-13`) but is absent from `ArchetypeManifest`, and the template/MCP hardcode `@waica/archetype-platformer` (`packages/editor/template/src/main.ts:9`, `template/package.json.tpl:12`, `packages/mcp/src/package-resolver.ts:29-47`, `packages/mcp/src/create-project.ts:144-160`, `scripts/sync-scene.mjs:35-38`, `packages/editor/src/project/archetype.ts:9-19`).
@@ -76,3 +76,33 @@ The repo is about to grow its second archetype (`@waica/archetype-topdown` — S
 - Blast radius ~20+ files in one PR (no size policy active; hardening precedent accepted by the requester via the grill partition decision).
 - `pnpm test:e2e`/`test:dist` require a system Chrome; the publish-CI provisioning gap from the contract (`[NEEDS-INPUT]`) is unchanged by this spec.
 - Spec 2 (archetype + demo + fifth package) depends on this spec landing; the portable archetype conformance suite stays deferred to Spec 2 (where a second archetype exists to exercise it).
+
+## Resultado de ejecucion (2026-08-08 · HEAD 13d6bed)
+Baseline note: the suite on `main` had grown to 825 tests / 87 files since this spec quoted 805/86; the run ends at 865 tests / 90 files (40 new).
+
+| CA | Estado | Evidencia |
+|---|---|---|
+| CA-1 | verificado | `pnpm test`: game.test.ts "keeps the exact layer-only z for scenes without a render block" pins z = layer × 0.01 with spawn-order ties; `render` block typed into `SceneJson` (scene.ts) |
+| CA-2 | verificado | game.test.ts "orders same-layer sprites by world Y and flips on crossing" — flip observed after moving an entity past the other's Y |
+| CA-3 | verificado | render-sort.test.ts "keeps the layer as the primary band" (+ band-confinement property) and game.test.ts "keeps a higher layer in front regardless of Y" |
+| CA-4 | verificado | game.test.ts "sorts on entity Y: a sprite offsetY does not shift the key" |
+| CA-5 | verificado | camera.test.ts "vertical lookahead" (4 tests): default 0, symmetric application, |vy| > 1 threshold, no-lookaheadY scenes unaffected |
+| CA-6 | verificado | game.test.ts provider-seam pin + negative pin (bare `.vx` field no longer moves the camera, exact 0); `grep "\.vx" packages/engine/src/game.ts` → only the typed `velocity?.vx` read; PlatformerMotor implements the interface (platformer-motor.test.ts) |
+| CA-7 | verificado | Golden tests committed at 7643c0b BEFORE touching stepSceneCamera (exact damp values incl. the shipped platformer camera block); green before and after the two-axis change |
+| CA-8 | verificado | directional.test.ts: exact clip → declared fallback with flip → chained flips → base `resolveClip` chain → cycle safety; 8-direction type fixture compiles under `pnpm typecheck` |
+| CA-9 | verificado | `pnpm typecheck` green with both manifest fixtures (with and without `animation`); platformer manifest untouched (manifest.test.ts exhaustive toEqual intact); full suite green |
+| CA-10 | verificado | state-machine-runtime.test.ts directional block (5 tests) with stubbed facing: exact, mirrored, base-chain, no-contract and no-facing paths |
+| CA-11 | verificado | template.test.ts: generated main.ts contains `ARCHETYPE` import and no `PLATFORMER_` symbol; token sweep over all generated files; snapshot diff is exactly the 4 sanctioned lines × 2 starts; MCP create-project byte-equality suite green |
+| CA-12 | verificado | archetype.test.ts: 4 present-but-unknown ids throw `Unknown archetype "<id>"`; absent id resolves platformer; error surfaced in Editor pane (`role="alert"`) and Home alert |
+| CA-13 | verificado | known-archetypes.test.ts + create-project.test.ts "rejects an unknown archetype id and writes nothing" (ENOENT asserted) + explicit-param equality; resolver/workspace-runtime/loader maps derive from the single list. Nota: the forked component runner cannot import siblings (standalone child), so it mirrors the list with a pointer comment |
+| CA-14 | verificado | `node scripts/sync-scene.mjs && git diff --exit-code` on the committed tree → unchanged; the script resolves each target's archetype from its `game.json` via the Node-safe `ARCHETYPE` manifest |
+| CA-15 | verificado | `pnpm test` 865/90 · `pnpm typecheck` 7 projects clean · `pnpm build` · `pnpm test:dist` (packed Runtime Session e2e, Chrome 151.0.7922.77) · `pnpm test:e2e` (checkout, Chrome 151) — all green, no assertion changed in those suites |
+| CA-16 | pendiente humano | Protocol (~2 min) in `## Plan de verificacion`; checklist in the PR |
+
+### Post-review fixes (2026-08-08)
+- Stale directional facing (state-machine.ts): `playDirectionalClip` only ran on state transitions, so a facing change mid-state (e.g. turning while still walking) never re-resolved the clip/mirror. Added `lastFacing` tracking and a `reresolveOnFacingChange` check in `onUpdate`, after transition handling, that re-runs the directional resolution for the current state when the sibling `AnimationFacingProvider`'s facing has moved.
+- `setFlipX` ignored `offsetX` (animated-sprite.ts `syncQuad`): the quad mirrored via `scale.x` but kept `mesh.position.x` unnegated, shifting mirrored art with a nonzero `offsetX` to the wrong side. `mesh.position.x` now negates along with the flip.
+- Dead-end directional resolution played an arbitrary clip (directional.ts `resolveDirectionalClip`): a chain dead-end fell through to `resolveClip`'s "first available clip" last resort, which could return an unrelated directional clip (e.g. `walk-n` for an idle character) or ignore an invalid facing entirely. Rewrote the dead-end path to walk the base contract's state fallback chain (cycle-safe), retrying the directional chain then the bare name per candidate state, and to reject a facing outside `animation.directions` up front — both now resolve to `{ clip: undefined, flip: false }` instead of guessing.
+- Fractional y-sort layers overlapped bands (render-sort.ts `ySortZ`): the fixed `0.01` band width assumed integer-spaced layers, so a fractional layer (e.g. `0.5`) could bleed into the layer above it under enough entries per band. Each layer's band width is now capped at the gap in z-units to the next distinct layer present; integer-only scenes are unaffected (their gap is always >= 1).
+- Unknown-archetype error screen was a dead end (Editor.tsx): the `archetypeFailed` pane rendered only the alert with no way back to the project list. Added the same `← projects` back button used elsewhere in the toolbar.
+- `sync-scene.mjs` silently synced a malformed `game.json` as platformer (`archetypeIdOf`): a parse failure on an *existing* `game.json` was swallowed and defaulted to `'platformer'`, risking a silent overwrite of a non-platformer project. A missing `game.json` still defaults to `'platformer'` (legacy behavior); a present-but-malformed one now throws, naming the file path.

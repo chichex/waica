@@ -11,12 +11,17 @@ describe('runtime archetype resolution', () => {
     expect(resolveArchetype('platformer')).toBe(ARCHETYPE)
   })
 
-  it.each(['toString', 'constructor', '__proto__'])(
-    'falls back safely for the prototype-colliding id %s',
+  it.each(['banana', 'toString', 'constructor', '__proto__'])(
+    'rejects the present-but-unknown id %s with an explicit error',
     (id) => {
-      expect(resolveArchetype(id)).toBe(ARCHETYPE)
+      expect(() => resolveArchetype(id)).toThrowError(`Unknown archetype "${id}"`)
     },
   )
+
+  it('resolves an absent id to platformer (legacy compat)', () => {
+    expect(resolveArchetype(undefined)).toBe(ARCHETYPE)
+    expect(resolveArchetype(null)).toBe(ARCHETYPE)
+  })
 
   it('resolves the id persisted by a current project', () => {
     const settings = parseGameSettings(JSON.stringify({ archetype: 'platformer' }))

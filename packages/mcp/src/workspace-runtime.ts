@@ -1,12 +1,15 @@
 import { access, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { KNOWN_ARCHETYPES } from './known-archetypes.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const WORKSPACE_DIRECTORIES: Readonly<Record<string, string>> = {
   '@waica/engine': 'engine',
   '@waica/behaviors': 'behaviors',
-  '@waica/archetype-platformer': 'archetype-platformer',
+  ...Object.fromEntries(
+    KNOWN_ARCHETYPES.map(({ packageName, directory }) => [packageName, directory]),
+  ),
 }
 let workspaceHooks: { deregister(): void } | undefined
 let workspacePackages: Promise<Map<string, string>> | undefined
@@ -85,20 +88,25 @@ export async function prepareWorkspaceRuntime(): Promise<void> {
   const files: Record<string, string> = {
     '@waica/engine': path.join(repositoryRoot, 'packages/engine/dist/index.js'),
     '@waica/behaviors': path.join(repositoryRoot, 'packages/behaviors/dist/index.js'),
-    '@waica/archetype-platformer': path.join(
-      repositoryRoot,
-      'packages/archetype-platformer/dist/index.js',
-    ),
-    '@waica/archetype-platformer/manifest': path.join(
-      repositoryRoot,
-      'packages/archetype-platformer/dist/manifest.js',
+    ...Object.fromEntries(
+      KNOWN_ARCHETYPES.flatMap(({ packageName, directory }) => [
+        [packageName, path.join(repositoryRoot, 'packages', directory, 'dist/index.js')],
+        [
+          `${packageName}/manifest`,
+          path.join(repositoryRoot, 'packages', directory, 'dist/manifest.js'),
+        ],
+      ]),
     ),
   }
   if (!(await Promise.all(Object.values(files).map(exists))).every(Boolean)) return
   const mappings = Object.fromEntries(
     Object.entries(files).map(([specifier, file]) => [specifier, pathToFileURL(file).href]),
   )
-  const parentPrefixes = ['engine', 'behaviors', 'archetype-platformer'].map(
+  const parentPrefixes = [
+    'engine',
+    'behaviors',
+    ...KNOWN_ARCHETYPES.map(({ directory }) => directory),
+  ].map(
     (directory) =>
       `${pathToFileURL(path.join(repositoryRoot, 'packages', directory, 'dist')).href}/`,
   )

@@ -97,7 +97,13 @@ export function Home({
       const scene = await fs.readText(SCENE_PATH)
       if (scene == null) {
         const settings = parseGameSettings(await fs.readText(GAME_PATH))
-        const archetype = resolveArchetype(settings.archetype)
+        let archetype
+        try {
+          archetype = resolveArchetype(settings.archetype)
+        } catch (err) {
+          alert(err instanceof Error ? err.message : String(err))
+          return
+        }
         const make = confirm(
           `"${handle.name}" has no ${SCENE_PATH}. Create an empty scene (${archetype.label} archetype) there?`,
         )

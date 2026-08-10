@@ -12,6 +12,7 @@ describe('resolveSceneCamera', () => {
       deadzoneWidth: CAMERA_DEFAULTS.deadzoneWidth,
       deadzoneHeight: CAMERA_DEFAULTS.deadzoneHeight,
       lookahead: CAMERA_DEFAULTS.lookahead,
+      lookaheadY: CAMERA_DEFAULTS.lookaheadY,
       smoothing: CAMERA_DEFAULTS.smoothing,
       limits: null,
     })
@@ -74,5 +75,86 @@ describe('stepSceneCamera', () => {
     })
     const next = stepSceneCamera(cam, { ...VIEW, x: 0, y: 0, target: { x: 50, y: 0 } })
     expect(next.x).toBe(10 - VIEW.halfW)
+  })
+})
+
+describe('vertical lookahead', () => {
+  it('fills lookaheadY with 0 by default and keeps a declared value', () => {
+    expect(resolveSceneCamera().lookaheadY).toBe(0)
+    expect(resolveSceneCamera({ lookaheadY: 2 }).lookaheadY).toBe(2)
+  })
+
+  it('adds vertical lookahead in the direction of travel', () => {
+    const cam = resolveSceneCamera({
+      follow: 'Player',
+      smoothing: 1000,
+      deadzoneHeight: 0,
+      lookaheadY: 2,
+    })
+    const still = stepSceneCamera(cam, { ...VIEW, x: 0, y: 0, target: { x: 0, y: 5 } })
+    const rising = stepSceneCamera(cam, { ...VIEW, x: 0, y: 0, target: { x: 0, y: 5 }, vy: 8 })
+    const dropping = stepSceneCamera(cam, { ...VIEW, x: 0, y: 0, target: { x: 0, y: 5 }, vy: -8 })
+    expect(rising.y).toBeCloseTo(still.y + cam.lookaheadY, 3)
+    expect(dropping.y).toBeCloseTo(still.y - cam.lookaheadY, 3)
+  })
+
+  it('ignores vertical speed at or below the 1-unit threshold', () => {
+    const cam = resolveSceneCamera({
+      follow: 'Player',
+      smoothing: 1000,
+      deadzoneHeight: 0,
+      lookaheadY: 2,
+    })
+    const atThreshold = stepSceneCamera(cam, { ...VIEW, x: 0, y: 0, target: { x: 0, y: 5 }, vy: 1 })
+    expect(atThreshold.y).toBeCloseTo(5, 3)
+  })
+
+  it('gives a scene that declares no lookaheadY none, regardless of vy', () => {
+    const cam = resolveSceneCamera({ follow: 'Player', smoothing: 1000, deadzoneHeight: 0 })
+    const rising = stepSceneCamera(cam, { ...VIEW, x: 0, y: 0, target: { x: 0, y: 5 }, vy: 30 })
+    expect(rising.y).toBeCloseTo(5, 3)
+  })
+})
+
+// Golden pins of the exact outputs platformer scenes get today. A camera block
+// that never declares vertical lookahead must keep producing these numbers.
+describe('stepSceneCamera golden values for platformer-shaped scenes', () => {
+  it('pins one chase step of the shipped platformer camera', () => {
+    // The exact camera block @waica/archetype-platformer ships in its scene.
+    const cam = resolveSceneCamera({
+      position: [0, -1],
+      zoom: 12,
+      follow: 'Player',
+      limits: { minX: -16, maxX: 26, minY: -7, maxY: 5 },
+    })
+    const next = stepSceneCamera(cam, { ...VIEW, x: 0, y: 0, target: { x: 6, y: 3 }, vx: 8 })
+    expect(next.x).toBeCloseTo(0.6185567827662631, 12)
+    // The platformer limits span exactly the view height, so y centers on them.
+    expect(next.y).toBeCloseTo(-1, 12)
+  })
+
+  it('pins one chase step with default camera settings and no limits', () => {
+    const cam = resolveSceneCamera({ follow: 'Player' })
+    const next = stepSceneCamera(cam, { ...VIEW, x: 2, y: 1, target: { x: 9, y: 7 }, vx: -3 })
+    expect(next.x).toBeCloseTo(2.4282316188381823, 12)
+    expect(next.y).toBeCloseTo(1.4520222643291922, 12)
+  })
+
+  it('pins ten iterated steps converging on a still target', () => {
+    const cam = resolveSceneCamera({ follow: 'Player' })
+    let center = { x: 0, y: 0 }
+    for (let i = 0; i < 10; i++) {
+      center = stepSceneCamera(cam, { ...VIEW, ...center, target: { x: 10, y: 0 } })
+    }
+    expect(center.x).toBeCloseTo(5.689085029457021, 12)
+    expect(center.y).toBeCloseTo(0, 12)
+  })
+
+  it('pins the lookahead threshold: |vx| of exactly 1 adds none', () => {
+    const cam = resolveSceneCamera({ follow: 'Player', smoothing: 1000, deadzoneWidth: 0 })
+    const atThreshold = stepSceneCamera(cam, { ...VIEW, x: 0, y: 0, target: { x: 5, y: 0 }, vx: 1 })
+    const above = stepSceneCamera(cam, { ...VIEW, x: 0, y: 0, target: { x: 5, y: 0 }, vx: 1.01 })
+    expect(atThreshold.x).toBeCloseTo(5, 3)
+    expect(above.x).toBeCloseTo(5 + cam.lookahead, 3)
   })
 })
