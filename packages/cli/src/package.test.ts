@@ -69,7 +69,7 @@ describe('@waica/cli package contract', () => {
   })
 
   // One release, one number — including the two private packages. The CLI
-  // vendors the three libraries and the generated project asks npm for them by
+  // vendors the published libraries and the generated project asks npm for them by
   // version, so a package left behind publishes a CLI whose bundled copies
   // disagree with the registry. `editor` and `mcp` never reach npm, but they
   // ride inside the CLI and the MCP server reports its own manifest version
