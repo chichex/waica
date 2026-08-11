@@ -4,11 +4,15 @@ import type { SceneJson } from '@waica/engine'
  * Clips matching the top-down animation contract, applied to the hero
  * sheet: 3×3 grid, one row per facing (s/n/e), columns idle/walk-A/walk-B.
  * West clips come from mirroring east at runtime (the contract's fallback).
+ * Cells sit 1px apart — transparent gutters keep frame-edge sampling
+ * (MSAA extrapolation, linear filtering) from bleeding a neighbour in.
  */
 export const HERO_SPRITE = {
   texture: 'waica:hero',
   cols: 3,
   rows: 3,
+  spacingX: 1,
+  spacingY: 1,
   width: 1.2,
   height: 1.2,
   clips: {

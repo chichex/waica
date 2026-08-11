@@ -41,6 +41,8 @@ export const TOPDOWN_PREFABS: Record<string, PrefabJson> = {
           texture: 'waica:npc',
           cols: 3,
           rows: 3,
+          spacingX: 1,
+          spacingY: 1,
           width: 1.2,
           height: 1.2,
           clips: {

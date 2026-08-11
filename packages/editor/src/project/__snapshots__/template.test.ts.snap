@@ -427,6 +427,8 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
         "texture": "src/art/waica-hero.png",
         "cols": 3,
         "rows": 3,
+        "spacingX": 1,
+        "spacingY": 1,
         "width": 1.2,
         "height": 1.2,
         "clips": {
@@ -554,6 +556,8 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
         "texture": "src/art/waica-npc.png",
         "cols": 3,
         "rows": 3,
+        "spacingX": 1,
+        "spacingY": 1,
         "width": 1.2,
         "height": 1.2,
         "clips": {

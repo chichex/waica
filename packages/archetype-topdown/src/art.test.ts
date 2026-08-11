@@ -21,6 +21,8 @@ interface SpriteProps {
   texture?: string
   cols?: number
   rows?: number
+  spacingX?: number
+  spacingY?: number
   width?: number
   height?: number
   clips?: Record<string, { frames: number[] }>
@@ -43,8 +45,12 @@ describe('topdown stock art', () => {
         const { width, height } = pngSize(artFileFor(sprite.texture!))
         const cols = sprite.cols ?? 1
         const rows = sprite.rows ?? 1
-        expect(width, `${ref} sheet width`).toBe(cols * 16)
-        expect(height, `${ref} sheet height`).toBe(rows * 16)
+        // Multi-cell sheets carry transparent gutters between cells so
+        // frame-edge sampling (MSAA/linear) never reaches a neighbour.
+        expect(sprite.spacingX ?? 0, `${ref} gutter x`).toBe(cols > 1 ? 1 : 0)
+        expect(sprite.spacingY ?? 0, `${ref} gutter y`).toBe(rows > 1 ? 1 : 0)
+        expect(width, `${ref} sheet width`).toBe(cols * 16 + (cols - 1) * (sprite.spacingX ?? 0))
+        expect(height, `${ref} sheet height`).toBe(rows * 16 + (rows - 1) * (sprite.spacingY ?? 0))
         for (const [clip, def] of Object.entries(sprite.clips ?? {})) {
           for (const frame of def.frames) {
             expect(frame, `${ref} ${clip}`).toBeLessThan(cols * rows)

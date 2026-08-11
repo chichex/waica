@@ -17,8 +17,8 @@ Tile coordinates below are `(column, row)`, zero-based, into each pack's
 
 | File | Size | Source | Composition |
 |---|---|---|---|
-| `waica-hero.png` | 48×48 | RPG Urban | Character 1 (rows 0–2). 3×3 grid: rows = facing s/n/e (source columns 24/25/23), columns = idle / walk A / walk B (source rows base+0/1/2). West is mirrored from east at runtime. |
-| `waica-npc.png` | 48×48 | RPG Urban | Character 4, the farmer (rows 9–11). Same 3×3 layout as the hero. |
+| `waica-hero.png` | 50×50 | RPG Urban | Character 1 (rows 0–2). 3×3 grid of 16×16 cells with 1px transparent gutters between them (frame-edge sampling never reaches a neighbour): rows = facing s/n/e (source columns 24/25/26), columns = idle / walk A / walk B (source rows base+0/1/2). West is mirrored from east at runtime. |
+| `waica-npc.png` | 50×50 | RPG Urban | Character 4, the farmer (rows 9–11). Same 3×3 gutter layout as the hero. |
 | `waica-blob.png` | 16×16 | Tiny Dungeon | (0, 9) — the green blob. |
 | `waica-potion.png` | 16×16 | Tiny Dungeon | (7, 9) — the red potion. |
 | `waica-grass.png` | 16×16 | RPG Urban | (1, 1) — plain grass. |
