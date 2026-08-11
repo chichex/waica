@@ -1,5 +1,6 @@
 # Spec — Topdown archetype: @waica/archetype-topdown, TopDownMotor, Zelda-like demo, fifth-package release wiring
-<!-- Generada por /sdd-spec el 2026-08-10. Fuente: grill .sdd/grills/2026-08-08-archetype-topdown.md (Spec 2) + issue #44. Estado: aprobada -->
+<!-- Generada por /sdd-spec el 2026-08-10. Fuente: grill .sdd/grills/2026-08-08-archetype-topdown.md (Spec 2) + issue #44. Estado: implementada -->
+<!-- Changelog 2026-08-10 (/sdd-run, aclaración sin cambio de alcance): CA-20 asumía una "pata platformer" en pnpm test:e2e; la pata preexistente es sintética y sin arquetipo (solo engine). Esa pata quedó intacta y la pata topdown se agregó nueva vía create_project(archetype: topdown). Señalado y aprobado en el gate del plan. -->
 
 ## Contexto
 Spec 1 (PR #43, merged as `d242391`) landed the engine foundations: opt-in y-sort (`render.sort: 'y'`), two-axis camera (`lookaheadY` + `CameraVelocityProvider`), the directional animation contract (`ArchetypeManifest.animation`, `resolveDirectionalClip`, `AnimationFacingProvider`, `setFlipX`) and the archetype unlock (tokenized template, strict editor registry, MCP `known-archetypes.ts` + `create_project archetype` param, archetype-agnostic `sync-scene.mjs`). This spec ships the consumer: the second archetype, published as the fifth lockstep package. The platformer package (~440 lines of pure data + 6 test files) is the mold; `pnpm -r build` orders topologically so the new package needs no build wiring. Issue #44 lists the landmines from the PR #43 review that this spec absorbs. All six manifests sit at 0.6.1.
@@ -87,3 +88,30 @@ Spec 1 (PR #43, merged as `d242391`) landed the engine foundations: opt-in y-sor
 - `pnpm test:e2e`/`test:dist` require host Chrome; the publish-CI Chrome provisioning gap from the contract (`[NEEDS-INPUT]`) is unchanged.
 - Broadphase O(n²) stays unmeasured until the demo map exists; if the demo feels slow, measure there (grill deferred branch #4) — not a CA of this spec.
 - The directional contract is a module-global registry (review finding, PLAUSIBLE): acceptable while one Game runs at a time; revisit if the editor ever runs two live games side by side.
+
+## Resultado de ejecucion (2026-08-10 · HEAD e2c75d1)
+| CA | Estado | Evidencia |
+|---|---|---|
+| CA-1 | verificado | `pnpm typecheck` (8 proyectos, incluye el nuevo) y `pnpm build` (topológico, sin wiring explícito) verdes; lockstep 0.6.1×7 en `packages/cli/src/package.test.ts` (`pnpm test` 978/978) |
+| CA-2 | verificado | `manifest.test.ts` twin: fold `toEqual` exhaustivo, node = browser − artUrls/registry, `resolveAsset('waica:hero') === 'assets/waica-hero.png'` |
+| CA-3 | verificado | pin del contrato en `manifest.test.ts` (`n/s/e/w`, `w→e flip`, `walk→idle`) + chequeo directional-aware de la conformance suite |
+| CA-4 | verificado | `controls.test.ts` twin: mapa exacto (flechas+WASD, interact KeyE/Space) y label por acción |
+| CA-5 | verificado | `prefabs.test.ts` (modelo del género, capas de suelo, tree anclado al tronco, solids) + `scene-default.test.ts` (render.sort y, follow+lookaheadY>0+limits, árboles en campo jugable, elenco completo, blank sin follow) |
+| CA-6 | verificado | `topdown-motor.test.ts` 12 tests: flush 0.3, anti-tunneling 0.5 @ dt 0.1, diagonal == cardinal (normalización), decel a 0, sin gravedad, facing eje dominante con empate que mantiene, ambos provider seams |
+| CA-7 | verificado | `topdown-player-states.test.ts`: consistencia del grafo, move/stop, death beat, default = topdownPlayerUpdate, hook '*', update behavioral con motor real |
+| CA-8 | verificado | `interactable.test.ts` 6 tests: press en radio → `stats.set('npcLine')` + show, hide fuera de radio, sin re-trigger (press consumido), nearest gana |
+| CA-9 | verificado (checks) | `art.test.ts`: 9 filas con archivo en disco, IHDR = cols/rows×16, frames < cols·rows, aspect de tiles texturados; ATTRIBUTION.md con packs CC0 y coordenadas. Calidad visual → CA-22 |
+| CA-10 | verificado | `grep -rn "three @waica\|all four" README* .claude/skills/publish` sin hits (exit 1); build logueó `bundled MCP server and 4 @waica packages`; SKILL.md/§0/publish.yml/READMEs actualizados |
+| CA-11 | verificado | `pnpm test:dist` verde: packed set + vendoredLibraries con topdown, asserts de `exports['./manifest']`, probe plain-Node (id, sin artUrls, animation, resolveAsset) y asset vendoreado sobrevive el pack |
+| CA-12 | verificado | snapshots `projectFiles(…, 'topdown')` demo/blank + byte-equality con `createProject(…, 'topdown')` (`create-project.test.ts`) + pin de card ready/blurb (`archetype-catalog.test.ts`); `Home.demo()` intacto |
+| CA-13 | verificado | `introspection.test.ts`: `describe_archetype 'topdown'` resuelve en cualquier proyecto (pin viejo reescrito deliberadamente), unknown 'isometric' nombra ambos ids; literales :75/:89 derivados de `KNOWN_ARCHETYPES`; pins de deps/known-archetypes |
+| CA-14 | verificado | `workspace-runtime.test.ts` 3 tests: plan completo, arquetipo faltante excluye solo sus mappings con warning, core faltante no instala nada |
+| CA-15 | verificado | `chassis.test.ts` (installa y limpia el contrato), template test (`installDirectionalAnimation(ARCHETYPE.animation ?? null)` presente), snapshots regenerados, byte-equality MCP verde |
+| CA-16 | verificado | tests y-sort preexistentes de engine intactos (receipt: 0 asserts eliminados en `game.test.ts`/`render-sort.test.ts`); seam nuevo con tests propios (participante custom se ordena, guard admite ambas clases stock) |
+| CA-17 | verificado | `ops.test.ts` setRenderProp (stamp v3, drop de bloque vacío, inmutable) + `scene-render-inspector.test.ts` (slider Lookahead (vertical) solo con follow, toggle y-sort refleja render.sort) |
+| CA-18 | verificado | `archetype-conformance.test.ts`: 18 tests sobre ambos manifests, incluida la convención `archetypePackageName(id) === KNOWN_ARCHETYPES[id].packageName` (gate del gap #44) |
+| CA-19 | verificado | `node scripts/sync-scene.mjs && git diff --exit-code` → 0 (idempotente); `examples/topdown` typechequea y buildea; `dev:topdown` en el root |
+| CA-20 | verificado | `pnpm test:e2e` (Chrome 151.0.7922.77): proyecto real `create_project(archetype: topdown)` por MCP stdio — hold right mueve al este con clip `walk-e` sin espejo; hold left mueve al oeste con facing `w`, clip `walk-e` y `flipX: true` (fallback del contrato); pata preexistente intacta |
+| CA-21 | verificado | Escalera completa en HEAD e2c75d1: `pnpm test` 978/978 (baseline 873, +105), `pnpm typecheck`, `pnpm build`, `pnpm test:dist`, `pnpm test:e2e` — todas verdes |
+| CA-22 | pendiente humano | Protocolo (~3 min) en esta spec; checklist en el PR |
+| CA-23 | pendiente humano | Bootstrap npm de `@waica/archetype-topdown` antes del próximo tag `v*`; anotado en `/publish` §0 y checklisteado en el PR |
