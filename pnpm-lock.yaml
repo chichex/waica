@@ -43,6 +43,15 @@ importers:
         specifier: workspace:^
         version: link:../engine
 
+  packages/archetype-topdown:
+    dependencies:
+      '@waica/behaviors':
+        specifier: workspace:^
+        version: link:../behaviors
+      '@waica/engine':
+        specifier: workspace:^
+        version: link:../engine
+
   packages/behaviors:
     dependencies:
       '@waica/engine':

@@ -76,7 +76,15 @@ describe('@waica/cli package contract', () => {
   // to the host, so a stale number there misidentifies the running release.
   // The git tag is checked against these in .github/workflows/publish.yml.
   it('keeps every published package on the same version', async () => {
-    const packages = ['cli', 'engine', 'behaviors', 'archetype-platformer', 'editor', 'mcp']
+    const packages = [
+      'cli',
+      'engine',
+      'behaviors',
+      'archetype-platformer',
+      'archetype-topdown',
+      'editor',
+      'mcp',
+    ]
     const versions = await Promise.all(
       packages.map(async (directory) => {
         const manifest = JSON.parse(
