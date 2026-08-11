@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { Component } from '../component.js'
 import { ClipPlayer, type ClipDef } from '../animation/clip-player.js'
 import { locateFrame, sheetCell, type SheetCell, type SheetDef } from '../animation/sheet.js'
+import type { YSortParticipant } from '../render-sort.js'
 
 const loader = new THREE.TextureLoader()
 
@@ -14,7 +15,7 @@ const loader = new THREE.TextureLoader()
  * so the quad rescales per frame, anchored bottom-center — width/height size
  * the sheet's largest frame and smaller ones keep their feet planted.
  */
-export class AnimatedSprite extends Component {
+export class AnimatedSprite extends Component implements YSortParticipant {
   static override componentName = 'AnimatedSprite'
   static override updateAfter: readonly string[] = ['StateMachine']
   static override params = {

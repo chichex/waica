@@ -456,4 +456,34 @@ describe('y-sort render mode', () => {
     expect(meshZ(game, 'Lower')).toBeGreaterThan(meshZ(game, 'Offset'))
     game.dispose()
   })
+
+  it('sorts any component that opts into the y-sort seam, not just stock sprites', () => {
+    class DepthMarker extends Component {
+      static override componentName = 'DepthMarker'
+      layer = 0
+      sortZ: number | null = null
+      setSortZ(z: number): void {
+        this.sortZ = z
+      }
+    }
+    const game = makeGame()
+    loadScene(
+      game,
+      {
+        waicaScene: 3,
+        render: { sort: 'y' },
+        entities: [
+          spriteAt('Above', 2, 0),
+          { name: 'Marker', position: [0, -2], components: [{ type: 'DepthMarker' }] },
+        ],
+      },
+      { components: { Sprite, DepthMarker } },
+    )
+    step(game)
+    const marker = game.entities.find((e) => e.name === 'Marker')!.get(DepthMarker)!
+    // The marker shares the band with the sprite: lower Y sorts in front.
+    expect(marker.sortZ).not.toBeNull()
+    expect(marker.sortZ!).toBeGreaterThan(meshZ(game, 'Above'))
+    game.dispose()
+  })
 })

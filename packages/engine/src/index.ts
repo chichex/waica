@@ -18,8 +18,8 @@ export type {
   DirectionalFallback,
   ResolvedDirectionalClip,
 } from './animation/directional.js'
-export { ySortZ } from './render-sort.js'
-export type { YSortEntry } from './render-sort.js'
+export { isYSortParticipant, ySortZ } from './render-sort.js'
+export type { YSortEntry, YSortParticipant } from './render-sort.js'
 export { CAMERA_DEFAULTS, isCameraVelocityProvider, resolveSceneCamera, stepSceneCamera } from './camera.js'
 export type {
   SceneCameraJson,

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { ySortZ } from './render-sort'
+import { AnimatedSprite } from './components/animated-sprite'
+import { Sprite } from './components/sprite'
+import { isYSortParticipant, ySortZ } from './render-sort'
 
 describe('ySortZ', () => {
   it('renders lower Y in front within a layer', () => {
@@ -63,5 +65,19 @@ describe('ySortZ', () => {
     expect(layer0[1]).toBeGreaterThan(layer0[2]!)
     expect(layer0[2]).toBeGreaterThan(layer0[3]!)
     expect(layer05[0]).toBeGreaterThan(layer05[1]!)
+  })
+})
+
+describe('isYSortParticipant', () => {
+  it('admits both stock sprite classes through the opt-in seam', () => {
+    expect(isYSortParticipant(new Sprite())).toBe(true)
+    expect(isYSortParticipant(new AnimatedSprite())).toBe(true)
+  })
+
+  it('rejects values that do not implement the full seam', () => {
+    expect(isYSortParticipant(null)).toBe(false)
+    expect(isYSortParticipant({})).toBe(false)
+    expect(isYSortParticipant({ layer: 3 })).toBe(false)
+    expect(isYSortParticipant({ setSortZ() {} })).toBe(false)
   })
 })
