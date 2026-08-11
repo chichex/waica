@@ -36,5 +36,8 @@
   "dependencies": {
     "@waica/behaviors": "workspace:^",
     "@waica/engine": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3"
   }
 }
