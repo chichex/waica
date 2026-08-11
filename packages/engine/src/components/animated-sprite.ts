@@ -25,6 +25,7 @@ export class AnimatedSprite extends Component implements YSortParticipant {
   }
   static override transient = [
     'current',
+    'flipX',
     'player',
     'sheets',
     'texs',
@@ -104,11 +105,12 @@ export class AnimatedSprite extends Component implements YSortParticipant {
     if (this.mesh) this.mesh.position.z = z
   }
 
-  private _flipX = false
+  /** Mirrored state, readable by Runtime Snapshots; write via setFlipX. */
+  flipX = false
   /** Mirrors the quad horizontally — directional clips reuse east art for west. */
   setFlipX(value: boolean): void {
-    if (this._flipX === value) return
-    this._flipX = value
+    if (this.flipX === value) return
+    this.flipX = value
     this.syncQuad()
   }
 
@@ -192,14 +194,14 @@ export class AnimatedSprite extends Component implements YSortParticipant {
   private syncQuad(): void {
     if (!this.mesh) return
     this.mesh.scale.set(
-      this._width * this.frameScaleX * (this._flipX ? -1 : 1),
+      this._width * this.frameScaleX * (this.flipX ? -1 : 1),
       this._height * this.frameScaleY,
       1,
     )
     // Bottom-center anchor: a shrunk frame keeps its feet on the quad's floor.
     // The offset mirrors along with the art, or a flipped sprite with a
     // nonzero offsetX would shift to the wrong side.
-    this.mesh.position.x = this._flipX ? -this._offsetX : this._offsetX
+    this.mesh.position.x = this.flipX ? -this._offsetX : this._offsetX
     this.mesh.position.y = this._offsetY - (this._height * (1 - this.frameScaleY)) / 2
   }
 
