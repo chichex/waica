@@ -41,7 +41,8 @@ The Waica Editor runs in your browser, local-first: create a project into any em
 ## Run the example
 
 ```bash
-pnpm dev   # platformer archetype — ← → move · space jump
+pnpm dev           # platformer archetype — ← → move · space jump
+pnpm dev:topdown   # topdown archetype — arrows/WASD move · E interact
 ```
 
 ## Packages

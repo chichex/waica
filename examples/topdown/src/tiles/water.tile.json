@@ -1,0 +1,22 @@
+{
+  "waicaPrefab": 1,
+  "type": "tile",
+  "components": [
+    {
+      "type": "Sprite",
+      "props": {
+        "texture": "src/art/waica-water.png",
+        "width": 1,
+        "height": 1,
+        "layer": -1
+      }
+    },
+    {
+      "type": "Solid",
+      "props": {
+        "width": 1,
+        "height": 1
+      }
+    }
+  ]
+}

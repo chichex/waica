@@ -1,0 +1,15 @@
+{
+  "waicaPrefab": 1,
+  "type": "tile",
+  "components": [
+    {
+      "type": "Sprite",
+      "props": {
+        "texture": "src/art/waica-grass.png",
+        "width": 1,
+        "height": 1,
+        "layer": -1
+      }
+    }
+  ]
+}

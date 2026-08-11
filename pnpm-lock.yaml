@@ -34,6 +34,22 @@ importers:
         specifier: ^8.1.5
         version: 8.1.5(@types/node@24.13.3)
 
+  examples/topdown:
+    dependencies:
+      '@waica/archetype-topdown':
+        specifier: workspace:*
+        version: link:../../packages/archetype-topdown
+      '@waica/behaviors':
+        specifier: workspace:*
+        version: link:../../packages/behaviors
+      '@waica/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
+    devDependencies:
+      vite:
+        specifier: ^8.1.5
+        version: 8.1.5(@types/node@24.13.3)
+
   packages/archetype-platformer:
     dependencies:
       '@waica/behaviors':
