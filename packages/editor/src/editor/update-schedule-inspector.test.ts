@@ -98,6 +98,7 @@ function props(
     onPrefabSetCollision: vi.fn(),
     onEditAnimation: vi.fn(),
     onCameraProp: vi.fn(),
+    onRenderProp: vi.fn(),
     pixelsPerUnit: 16,
     resolution: { mode: 'fixed', width: 640, height: 360 },
     sceneCamera: undefined,

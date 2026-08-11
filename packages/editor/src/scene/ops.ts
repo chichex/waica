@@ -29,6 +29,18 @@ export function moveCamera(scene: SceneJson, position: [number, number]): SceneJ
 }
 
 /**
+ * Sets one render prop (undefined deletes it, and an emptied block drops
+ * entirely). Writing the render block makes the file a v3 scene.
+ */
+export function setRenderProp(scene: SceneJson, key: string, value: unknown): SceneJson {
+  const render = { ...scene.render, [key]: value } as NonNullable<SceneJson['render']>
+  if (value === undefined) delete render[key as keyof typeof render]
+  const next: SceneJson = { ...scene, waicaScene: 3, render }
+  if (Object.keys(render).length === 0) delete next.render
+  return next
+}
+
+/**
  * In-memory upgrade of a freshly loaded scene. Pre-HTML-UI projects kept
  * the HUD as entities with a 'ui/<piece>' prefab — a prefab type that no
  * longer exists; those become entries in the scene's "ui" list. The

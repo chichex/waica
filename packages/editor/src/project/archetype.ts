@@ -1,4 +1,5 @@
 import { ARCHETYPE } from '@waica/archetype-platformer'
+import { ARCHETYPE as TOPDOWN_ARCHETYPE } from '@waica/archetype-topdown'
 import type { BrowserArchetypeManifest } from '@waica/engine'
 import { createContext, useContext } from 'react'
 
@@ -13,6 +14,7 @@ export function archetypePackageName(id: string): string {
 
 const ARCHETYPES: Readonly<Record<string, ArchetypeManifest>> = {
   platformer: ARCHETYPE,
+  topdown: TOPDOWN_ARCHETYPE,
 }
 
 /**
@@ -60,8 +62,8 @@ export const ARCHETYPE_CATALOG: Record<'2d' | '3d', ArchetypeCard[]> = {
       id: 'topdown',
       icon: '🗺️',
       label: 'Top-down',
-      blurb: 'Zelda-style overhead view: 4-direction movement, no gravity.',
-      status: 'soon',
+      blurb: 'Zelda-style overhead view: 8-direction movement with depth-sorted drawing.',
+      status: 'ready',
     },
     {
       id: 'isometric',

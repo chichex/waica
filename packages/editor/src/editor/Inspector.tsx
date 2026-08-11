@@ -217,6 +217,8 @@ interface Props {
   onEditAnimation(target: AnimTarget): void
   /** Sets one prop of the open scene's camera block (undefined deletes it). */
   onCameraProp(key: string, value: unknown): void
+  /** Sets one prop of the open scene's render block (undefined deletes it). */
+  onRenderProp(key: string, value: unknown): void
   /** Project art scale (game.json), for pixel↔unit conversions. */
   pixelsPerUnit: number
   /** Project resolution (game.json), for the camera view's aspect. */
@@ -1862,6 +1864,7 @@ const CAMERA_SPECS: Record<string, ParamSpec> = {
   deadzoneWidth: { label: 'Deadzone width', min: 0, max: 10, step: 0.25 },
   deadzoneHeight: { label: 'Deadzone height', min: 0, max: 10, step: 0.25 },
   lookahead: { label: 'Lookahead', min: 0, max: 6, step: 0.25 },
+  lookaheadY: { label: 'Lookahead (vertical)', min: 0, max: 6, step: 0.25 },
   smoothing: { label: 'Smoothing', min: 1, max: 20, step: 0.5 },
 }
 
@@ -1886,7 +1889,9 @@ function CameraInspector({
   const view = cameraViewSize(cam.zoom, resolution.width / resolution.height)
   // The zoom that shows exactly the game resolution's height in art pixels.
   const resolutionZoom = Math.round((resolution.height / pixelsPerUnit) * 1000) / 1000
-  const slider = (key: 'zoom' | 'deadzoneWidth' | 'deadzoneHeight' | 'lookahead' | 'smoothing') => (
+  const slider = (
+    key: 'zoom' | 'deadzoneWidth' | 'deadzoneHeight' | 'lookahead' | 'lookaheadY' | 'smoothing',
+  ) => (
     <PropRow
       key={key}
       label={key}
@@ -1971,6 +1976,7 @@ function CameraInspector({
             {slider('deadzoneWidth')}
             {slider('deadzoneHeight')}
             {slider('lookahead')}
+            {slider('lookaheadY')}
             {slider('smoothing')}
           </>
         ) : (
@@ -2006,7 +2012,13 @@ function CameraInspector({
 }
 
 /** Scene-level summary shown while nothing inside the scene is selected. */
-function SceneInspector({ scene }: { scene: SceneJson }) {
+function SceneInspector({
+  scene,
+  onRenderProp,
+}: {
+  scene: SceneJson
+  onRenderProp(key: string, value: unknown): void
+}) {
   const cam = resolveSceneCamera(scene.camera)
   return (
     <div className="ed-pad">
@@ -2016,6 +2028,18 @@ function SceneInspector({ scene }: { scene: SceneJson }) {
         label="camera"
         value={cam.follow ? `follows ${cam.follow}` : `fixed at ${cam.position[0]}, ${cam.position[1]}`}
       />
+      <label className="ed-row">
+        <span>y-sort draw order</span>
+        <input
+          type="checkbox"
+          data-testid="ysort-toggle"
+          checked={scene.render?.sort === 'y'}
+          onChange={(e) => onRenderProp('sort', e.target.checked ? 'y' : undefined)}
+        />
+      </label>
+      <div className="ed-hint">
+        y-sort draws same-layer sprites lower on screen in front — top-down depth
+      </div>
       <div className="ed-hint">
         click an entity in the viewport or the tree to edit it — drag prefabs from the left
         panel to add more
@@ -2101,7 +2125,9 @@ export function Inspector(props: Props) {
           }
         />
       )}
-      {selection?.kind === 'scene' && <SceneInspector scene={selection.scene} />}
+      {selection?.kind === 'scene' && (
+        <SceneInspector scene={selection.scene} onRenderProp={props.onRenderProp} />
+      )}
       {selection?.kind === 'entity' && <EntityInspector {...props} entity={selection.entity} />}
       {selection?.kind === 'multi' && (
         <div className="ed-pad">

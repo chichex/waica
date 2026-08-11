@@ -2,6 +2,7 @@ import {
   collectModuleComponents,
   Game,
   installArchetype,
+  installDirectionalAnimation,
   loadScene,
   mergeRegistryComponents,
   type PrefabJson,
@@ -83,6 +84,9 @@ if (canvas.dataset.waica) {
 
 async function main(canvas: HTMLCanvasElement): Promise<void> {
   installArchetype(ARCHETYPE.bundle)
+  // installArchetype resets the directional registry, so the contract goes
+  // right after it (archetypes without one install null — a no-op).
+  installDirectionalAnimation(ARCHETYPE.animation ?? null)
   const projectModules = await Promise.all(Object.values(projectCode).map((load) => load()))
   const registry = mergeRegistryComponents(
     registryBase,

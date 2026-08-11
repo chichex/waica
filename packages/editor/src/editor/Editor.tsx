@@ -130,7 +130,7 @@ function ArtStage({
 export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const [archetype, setArchetype] = useState<ArchetypeManifest>(() => {
     const initial = resolveArchetype()
-    installChassisArchetype(initial.bundle)
+    installChassisArchetype(initial.bundle, initial.animation ?? null)
     return initial
   })
   const [scenePaths, setScenePaths] = useState<string[]>([])
@@ -256,7 +256,12 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
         if (!stale) setArchetypeFailed(error instanceof Error ? error.message : String(error))
         return
       }
-      const projectCode = await loadComponentCode(fs, playRunner, resolvedArchetype.bundle)
+      const projectCode = await loadComponentCode(
+        fs,
+        playRunner,
+        resolvedArchetype.bundle,
+        resolvedArchetype.animation ?? null,
+      )
       if (stale) return
       for (const { path, message } of projectCode.errors) {
         console.error(`[waica] Project could not run ${path}: ${message}`)
@@ -946,7 +951,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     setMulti([])
     // Project components, states and roles register before the Play game is
     // built, so the run uses the same extension layer as the shipped game.
-    const projectCode = await loadPlayCode(fs, playRunner, archetype.bundle)
+    const projectCode = await loadPlayCode(fs, playRunner, archetype.bundle, archetype.animation ?? null)
     for (const { path, message } of projectCode.errors) {
       console.error(`[waica] Play could not run ${path}: ${message}`)
     }
@@ -1160,7 +1165,12 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
 
   /** Re-executes project components after a scaffold or CodePane save. */
   const refreshComponentCode = async (): Promise<void> => {
-    const projectCode = await loadComponentCode(fs, playRunner, archetype.bundle)
+    const projectCode = await loadComponentCode(
+      fs,
+      playRunner,
+      archetype.bundle,
+      archetype.animation ?? null,
+    )
     for (const { path, message } of projectCode.errors) {
       console.error(`[waica] Project could not run ${path}: ${message}`)
     }
@@ -1895,6 +1905,9 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             }}
             onCameraProp={(key, value) => {
               if (scene) commit(ops.setCameraProp(scene, key, value), false, `camera:${key}`)
+            }}
+            onRenderProp={(key, value) => {
+              if (scene) commit(ops.setRenderProp(scene, key, value), false, `render:${key}`)
             }}
             pixelsPerUnit={gameSettings?.pixelsPerUnit ?? DEFAULT_GAME_SETTINGS.pixelsPerUnit}
             resolution={gameSettings?.resolution ?? DEFAULT_GAME_SETTINGS.resolution}

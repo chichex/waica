@@ -1,5 +1,1346 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`projectFiles > matches the golden output for a topdown blank start 1`] = `
+{
+  ".gitignore": "node_modules/
+dist/
+.vite/
+*.local
+.DS_Store
+",
+  "README.md": "# My game 🐕
+
+Made with [Waica](https://github.com/chichex/waica), the archetype-driven web game engine.
+
+## Run
+
+\`\`\`bash
+npm install
+npm run dev
+\`\`\`
+
+- **← →** move · **space** jump
+- Parameter overrides live in \`public/waica.params.json\` — tweak them there to beat the component defaults.
+- Your character is the placeholder dog: replace it in \`src/main.ts\` keeping the contract clips (\`idle\`, \`run\`, \`jump\`, \`fall\`).
+
+## Export for the web
+
+\`\`\`bash
+npm run build
+\`\`\`
+
+The \`dist/\` folder is ready to upload to itch.io or any static hosting.
+",
+  "index.html": "<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐕</text></svg>" />
+    <title>My game — made with Waica</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+      }
+      #game {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
+",
+  "package.json": "{
+  "name": "fixture-name",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@waica/archetype-topdown": "^0.0.0-snapshot",
+    "@waica/behaviors": "^0.0.0-snapshot",
+    "@waica/engine": "^0.0.0-snapshot"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.0",
+    "vite": "^8.0.0"
+  }
+}
+",
+  "public/waica.params.json": "{}
+",
+  "src/controls.json": "{
+  "waicaControls": 1,
+  "bindings": {
+    "up": [
+      "ArrowUp",
+      "KeyW"
+    ],
+    "down": [
+      "ArrowDown",
+      "KeyS"
+    ],
+    "left": [
+      "ArrowLeft",
+      "KeyA"
+    ],
+    "right": [
+      "ArrowRight",
+      "KeyD"
+    ],
+    "interact": [
+      "KeyE",
+      "Space"
+    ]
+  }
+}
+",
+  "src/game.json": "{
+  "waicaGame": 1,
+  "archetype": "topdown",
+  "resolution": {
+    "mode": "fill",
+    "width": 640,
+    "height": 360
+  },
+  "pixelsPerUnit": 16
+}
+",
+  "src/main.ts": "import {
+  collectModuleComponents,
+  Game,
+  installArchetype,
+  installDirectionalAnimation,
+  loadScene,
+  mergeRegistryComponents,
+  type PrefabJson,
+} from '@waica/engine'
+import { ARCHETYPE } from '@waica/archetype-topdown'
+import scene from './scenes/main.scene.json'
+import controls from './controls.json'
+import stats from './stats.json'
+import settings from './game.json'
+
+// Your components, roles and state code extend the installed archetype
+// baseline when main() imports them.
+const projectCode = import.meta.glob([
+  './components/*.ts',
+  './roles/*.ts',
+  './states/*.ts',
+  '!**/*.test.ts',
+])
+
+// Your prefabs ARE these files (saved by the editor, or hand-edited — they're
+// just JSON). Nothing else: delete one and the game stops knowing about it.
+const prefabFiles = import.meta.glob<PrefabJson>(
+  ['./characters/*.character.json', './objects/*.object.json', './tiles/*.tile.json'],
+  { eager: true, import: 'default' },
+)
+const prefabs: Record<string, PrefabJson> = {}
+for (const [path, prefab] of Object.entries(prefabFiles)) {
+  // './characters/slime.character.json' -> 'characters/slime'
+  prefabs[path.slice(2, path.indexOf('.', 2))] = prefab
+}
+
+// UI pieces are plain HTML (src/ui/*.html): presentation only — markup,
+// styles and {{stat}} bindings. Code toggles them via game.ui.
+const uiFiles = import.meta.glob<string>('./ui/*.html', {
+  eager: true,
+  query: '?raw',
+  import: 'default',
+})
+const ui: Record<string, string> = {}
+for (const [path, html] of Object.entries(uiFiles)) {
+  // './ui/coin-counter.html' -> 'coin-counter'
+  ui[path.slice('./ui/'.length, -'.html'.length)] = html
+}
+
+// Your art (src/art/*): texture props store the project path
+// ('src/art/hero.png'); this map turns each into a served, build-safe URL.
+const artFiles = import.meta.glob<string>('./art/*', {
+  eager: true,
+  query: '?url',
+  import: 'default',
+})
+const artUrls: Record<string, string> = {}
+for (const [path, url] of Object.entries(artFiles)) {
+  // './art/hero.png' -> 'src/art/hero.png'
+  artUrls[\`src/\${path.slice(2)}\`] = url
+}
+
+const registryBase = {
+  ...ARCHETYPE.registry,
+  // Keep these two: the spread above carries the archetype's own catalogs,
+  // and these replace them with yours. Drop one and the game starts
+  // resolving pieces that are nowhere in src/.
+  prefabs,
+  ui,
+  resolveAsset: (uri: string) =>
+    artUrls[uri] ?? ARCHETYPE.registry.resolveAsset?.(uri) ?? uri,
+}
+
+const canvas = document.querySelector<HTMLCanvasElement>('#game')
+if (!canvas) throw new Error('missing <canvas id="game">')
+
+// One game per page (guards against module re-runs).
+if (canvas.dataset.waica) {
+  location.reload()
+} else {
+  canvas.dataset.waica = 'mounted'
+  void main(canvas)
+}
+
+async function main(canvas: HTMLCanvasElement): Promise<void> {
+  installArchetype(ARCHETYPE.bundle)
+  // installArchetype resets the directional registry, so the contract goes
+  // right after it (archetypes without one install null — a no-op).
+  installDirectionalAnimation(ARCHETYPE.animation ?? null)
+  const projectModules = await Promise.all(Object.values(projectCode).map((load) => load()))
+  const registry = mergeRegistryComponents(
+    registryBase,
+    collectModuleComponents(projectModules as Array<Record<string, unknown>>),
+  )
+
+  // Controls, stats and game settings come from src/*.json (the editor's
+  // Project views). The camera (start framing, zoom, follow) lives in the scene.
+  const game = new Game({
+    canvas,
+    background: 0x1a1a2e,
+    resolution: settings.resolution.mode === 'fixed' ? settings.resolution : undefined,
+    bindings: controls.bindings,
+    stats: stats.stats,
+  })
+
+  // Persisted parameter overrides (public/waica.params.json) beat the defaults.
+  await game.loadParams('/waica.params.json')
+
+  // Your scene: edit it with the Waica editor or by hand — it's just JSON.
+  // Its "ui" list mounts the UI pieces it starts with (the coin counter).
+  loadScene(game, scene as never, registry)
+
+  game.start()
+}
+",
+  "src/scenes/main.scene.json": "{
+  "waicaScene": 3,
+  "render": {
+    "sort": "y"
+  },
+  "camera": {
+    "position": [
+      0,
+      0
+    ],
+    "zoom": 12
+  },
+  "entities": []
+}
+",
+  "src/stats.json": "{
+  "waicaStats": 1,
+  "stats": {
+    "points": 0,
+    "lives": 3
+  }
+}
+",
+  "tsconfig.json": "{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["vite/client"]
+  },
+  "include": ["src"]
+}
+",
+  "vite.config.ts": "import { defineConfig } from 'vite'
+
+export default defineConfig({})
+",
+}
+`;
+
+exports[`projectFiles > matches the golden output for a topdown demo start 1`] = `
+{
+  ".gitignore": "node_modules/
+dist/
+.vite/
+*.local
+.DS_Store
+",
+  "README.md": "# My game 🐕
+
+Made with [Waica](https://github.com/chichex/waica), the archetype-driven web game engine.
+
+## Run
+
+\`\`\`bash
+npm install
+npm run dev
+\`\`\`
+
+- **← →** move · **space** jump
+- Parameter overrides live in \`public/waica.params.json\` — tweak them there to beat the component defaults.
+- Your character is the placeholder dog: replace it in \`src/main.ts\` keeping the contract clips (\`idle\`, \`run\`, \`jump\`, \`fall\`).
+
+## Export for the web
+
+\`\`\`bash
+npm run build
+\`\`\`
+
+The \`dist/\` folder is ready to upload to itch.io or any static hosting.
+",
+  "index.html": "<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐕</text></svg>" />
+    <title>My game — made with Waica</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+      }
+      #game {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
+",
+  "package.json": "{
+  "name": "fixture-name",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@waica/archetype-topdown": "^0.0.0-snapshot",
+    "@waica/behaviors": "^0.0.0-snapshot",
+    "@waica/engine": "^0.0.0-snapshot"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.0",
+    "vite": "^8.0.0"
+  }
+}
+",
+  "public/waica.params.json": "{}
+",
+  "src/characters/blob.character.json": "{
+  "waicaPrefab": 1,
+  "type": "character",
+  "components": [
+    {
+      "type": "AnimatedSprite",
+      "props": {
+        "texture": "src/art/waica-blob.png",
+        "cols": 1,
+        "rows": 1,
+        "width": 1,
+        "height": 1,
+        "clips": {
+          "idle": {
+            "frames": [
+              0
+            ],
+            "fps": 2
+          }
+        },
+        "initialClip": "idle"
+      }
+    },
+    {
+      "type": "Patrol",
+      "props": {
+        "distance": 2,
+        "speed": 2
+      }
+    },
+    {
+      "type": "StateMachine",
+      "props": {
+        "role": "patroller",
+        "initial": "walk",
+        "states": {
+          "walk": {
+            "clip": "idle"
+          }
+        }
+      }
+    },
+    {
+      "type": "Hitbox",
+      "props": {
+        "width": 0.8,
+        "height": 0.7
+      }
+    },
+    {
+      "type": "Hazard",
+      "props": {
+        "stompable": false,
+        "contactDamage": 1
+      }
+    }
+  ]
+}
+",
+  "src/characters/player.character.json": "{
+  "waicaPrefab": 1,
+  "type": "character",
+  "components": [
+    {
+      "type": "AnimatedSprite",
+      "props": {
+        "texture": "src/art/waica-hero.png",
+        "cols": 3,
+        "rows": 3,
+        "width": 1.2,
+        "height": 1.2,
+        "clips": {
+          "idle-s": {
+            "frames": [
+              0
+            ],
+            "fps": 2
+          },
+          "idle-n": {
+            "frames": [
+              3
+            ],
+            "fps": 2
+          },
+          "idle-e": {
+            "frames": [
+              6
+            ],
+            "fps": 2
+          },
+          "walk-s": {
+            "frames": [
+              1,
+              0,
+              2,
+              0
+            ],
+            "fps": 8
+          },
+          "walk-n": {
+            "frames": [
+              4,
+              3,
+              5,
+              3
+            ],
+            "fps": 8
+          },
+          "walk-e": {
+            "frames": [
+              7,
+              6,
+              8,
+              6
+            ],
+            "fps": 8
+          }
+        },
+        "initialClip": "idle-s"
+      }
+    },
+    {
+      "type": "TopDownMotor"
+    },
+    {
+      "type": "StateMachine",
+      "props": {
+        "role": "player",
+        "initial": "idle",
+        "states": {
+          "idle": {
+            "transitions": [
+              {
+                "on": "signal:move",
+                "to": "walk"
+              }
+            ]
+          },
+          "walk": {
+            "transitions": [
+              {
+                "on": "signal:stop",
+                "to": "idle"
+              }
+            ]
+          },
+          "dead": {
+            "clip": "idle",
+            "transitions": [
+              {
+                "on": "timer:0.8",
+                "to": "idle"
+              }
+            ]
+          },
+          "*": {
+            "transitions": [
+              {
+                "on": "signal:death",
+                "to": "dead"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "Hitbox",
+      "props": {
+        "width": 0.8,
+        "height": 0.8
+      }
+    },
+    {
+      "type": "Respawnable"
+    },
+    {
+      "type": "Health",
+      "props": {
+        "max": 3,
+        "invulnerability": 1
+      }
+    }
+  ]
+}
+",
+  "src/characters/villager.character.json": "{
+  "waicaPrefab": 1,
+  "type": "character",
+  "components": [
+    {
+      "type": "AnimatedSprite",
+      "props": {
+        "texture": "src/art/waica-npc.png",
+        "cols": 3,
+        "rows": 3,
+        "width": 1.2,
+        "height": 1.2,
+        "clips": {
+          "idle": {
+            "frames": [
+              0
+            ],
+            "fps": 2
+          },
+          "idle-s": {
+            "frames": [
+              0
+            ],
+            "fps": 2
+          },
+          "idle-n": {
+            "frames": [
+              3
+            ],
+            "fps": 2
+          },
+          "idle-e": {
+            "frames": [
+              6
+            ],
+            "fps": 2
+          },
+          "walk-s": {
+            "frames": [
+              1,
+              0,
+              2,
+              0
+            ],
+            "fps": 8
+          },
+          "walk-n": {
+            "frames": [
+              4,
+              3,
+              5,
+              3
+            ],
+            "fps": 8
+          },
+          "walk-e": {
+            "frames": [
+              7,
+              6,
+              8,
+              6
+            ],
+            "fps": 8
+          }
+        },
+        "initialClip": "idle"
+      }
+    },
+    {
+      "type": "StateMachine",
+      "props": {
+        "role": "npc",
+        "initial": "idle",
+        "states": {
+          "idle": {}
+        }
+      }
+    },
+    {
+      "type": "Interactable",
+      "props": {
+        "line": "Hello, traveler!",
+        "radius": 1.5
+      }
+    },
+    {
+      "type": "Solid",
+      "props": {
+        "width": 0.8,
+        "height": 0.5
+      }
+    }
+  ]
+}
+",
+  "src/controls.json": "{
+  "waicaControls": 1,
+  "bindings": {
+    "up": [
+      "ArrowUp",
+      "KeyW"
+    ],
+    "down": [
+      "ArrowDown",
+      "KeyS"
+    ],
+    "left": [
+      "ArrowLeft",
+      "KeyA"
+    ],
+    "right": [
+      "ArrowRight",
+      "KeyD"
+    ],
+    "interact": [
+      "KeyE",
+      "Space"
+    ]
+  }
+}
+",
+  "src/game.json": "{
+  "waicaGame": 1,
+  "archetype": "topdown",
+  "resolution": {
+    "mode": "fill",
+    "width": 640,
+    "height": 360
+  },
+  "pixelsPerUnit": 16
+}
+",
+  "src/main.ts": "import {
+  collectModuleComponents,
+  Game,
+  installArchetype,
+  installDirectionalAnimation,
+  loadScene,
+  mergeRegistryComponents,
+  type PrefabJson,
+} from '@waica/engine'
+import { ARCHETYPE } from '@waica/archetype-topdown'
+import scene from './scenes/main.scene.json'
+import controls from './controls.json'
+import stats from './stats.json'
+import settings from './game.json'
+
+// Your components, roles and state code extend the installed archetype
+// baseline when main() imports them.
+const projectCode = import.meta.glob([
+  './components/*.ts',
+  './roles/*.ts',
+  './states/*.ts',
+  '!**/*.test.ts',
+])
+
+// Your prefabs ARE these files (saved by the editor, or hand-edited — they're
+// just JSON). Nothing else: delete one and the game stops knowing about it.
+const prefabFiles = import.meta.glob<PrefabJson>(
+  ['./characters/*.character.json', './objects/*.object.json', './tiles/*.tile.json'],
+  { eager: true, import: 'default' },
+)
+const prefabs: Record<string, PrefabJson> = {}
+for (const [path, prefab] of Object.entries(prefabFiles)) {
+  // './characters/slime.character.json' -> 'characters/slime'
+  prefabs[path.slice(2, path.indexOf('.', 2))] = prefab
+}
+
+// UI pieces are plain HTML (src/ui/*.html): presentation only — markup,
+// styles and {{stat}} bindings. Code toggles them via game.ui.
+const uiFiles = import.meta.glob<string>('./ui/*.html', {
+  eager: true,
+  query: '?raw',
+  import: 'default',
+})
+const ui: Record<string, string> = {}
+for (const [path, html] of Object.entries(uiFiles)) {
+  // './ui/coin-counter.html' -> 'coin-counter'
+  ui[path.slice('./ui/'.length, -'.html'.length)] = html
+}
+
+// Your art (src/art/*): texture props store the project path
+// ('src/art/hero.png'); this map turns each into a served, build-safe URL.
+const artFiles = import.meta.glob<string>('./art/*', {
+  eager: true,
+  query: '?url',
+  import: 'default',
+})
+const artUrls: Record<string, string> = {}
+for (const [path, url] of Object.entries(artFiles)) {
+  // './art/hero.png' -> 'src/art/hero.png'
+  artUrls[\`src/\${path.slice(2)}\`] = url
+}
+
+const registryBase = {
+  ...ARCHETYPE.registry,
+  // Keep these two: the spread above carries the archetype's own catalogs,
+  // and these replace them with yours. Drop one and the game starts
+  // resolving pieces that are nowhere in src/.
+  prefabs,
+  ui,
+  resolveAsset: (uri: string) =>
+    artUrls[uri] ?? ARCHETYPE.registry.resolveAsset?.(uri) ?? uri,
+}
+
+const canvas = document.querySelector<HTMLCanvasElement>('#game')
+if (!canvas) throw new Error('missing <canvas id="game">')
+
+// One game per page (guards against module re-runs).
+if (canvas.dataset.waica) {
+  location.reload()
+} else {
+  canvas.dataset.waica = 'mounted'
+  void main(canvas)
+}
+
+async function main(canvas: HTMLCanvasElement): Promise<void> {
+  installArchetype(ARCHETYPE.bundle)
+  // installArchetype resets the directional registry, so the contract goes
+  // right after it (archetypes without one install null — a no-op).
+  installDirectionalAnimation(ARCHETYPE.animation ?? null)
+  const projectModules = await Promise.all(Object.values(projectCode).map((load) => load()))
+  const registry = mergeRegistryComponents(
+    registryBase,
+    collectModuleComponents(projectModules as Array<Record<string, unknown>>),
+  )
+
+  // Controls, stats and game settings come from src/*.json (the editor's
+  // Project views). The camera (start framing, zoom, follow) lives in the scene.
+  const game = new Game({
+    canvas,
+    background: 0x1a1a2e,
+    resolution: settings.resolution.mode === 'fixed' ? settings.resolution : undefined,
+    bindings: controls.bindings,
+    stats: stats.stats,
+  })
+
+  // Persisted parameter overrides (public/waica.params.json) beat the defaults.
+  await game.loadParams('/waica.params.json')
+
+  // Your scene: edit it with the Waica editor or by hand — it's just JSON.
+  // Its "ui" list mounts the UI pieces it starts with (the coin counter).
+  loadScene(game, scene as never, registry)
+
+  game.start()
+}
+",
+  "src/objects/potion.object.json": "{
+  "waicaPrefab": 1,
+  "type": "object",
+  "components": [
+    {
+      "type": "AnimatedSprite",
+      "props": {
+        "texture": "src/art/waica-potion.png",
+        "cols": 1,
+        "rows": 1,
+        "width": 0.7,
+        "height": 0.7,
+        "clips": {
+          "idle": {
+            "frames": [
+              0
+            ],
+            "fps": 2
+          }
+        },
+        "initialClip": "idle"
+      }
+    },
+    {
+      "type": "Hitbox",
+      "props": {
+        "width": 0.5,
+        "height": 0.5
+      }
+    },
+    {
+      "type": "Collectible",
+      "props": {
+        "value": 1
+      }
+    }
+  ]
+}
+",
+  "src/scenes/main.scene.json": "{
+  "waicaScene": 3,
+  "render": {
+    "sort": "y"
+  },
+  "camera": {
+    "position": [
+      0,
+      0
+    ],
+    "zoom": 12,
+    "follow": "Player",
+    "lookaheadY": 1,
+    "limits": {
+      "minX": -11,
+      "maxX": 11,
+      "minY": -7,
+      "maxY": 7
+    }
+  },
+  "entities": [
+    {
+      "name": "Player",
+      "prefab": "characters/player",
+      "position": [
+        0,
+        -2
+      ]
+    },
+    {
+      "name": "Meadow",
+      "prefab": "tiles/meadow",
+      "position": [
+        0,
+        0
+      ],
+      "overrides": {
+        "Sprite": {
+          "width": 22,
+          "height": 14
+        }
+      }
+    },
+    {
+      "name": "Path-1",
+      "prefab": "tiles/path",
+      "position": [
+        -2,
+        0
+      ]
+    },
+    {
+      "name": "Path-2",
+      "prefab": "tiles/path",
+      "position": [
+        -1,
+        0
+      ]
+    },
+    {
+      "name": "Path-3",
+      "prefab": "tiles/path",
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Path-4",
+      "prefab": "tiles/path",
+      "position": [
+        1,
+        0
+      ]
+    },
+    {
+      "name": "Path-5",
+      "prefab": "tiles/path",
+      "position": [
+        2,
+        0
+      ]
+    },
+    {
+      "name": "Path-6",
+      "prefab": "tiles/path",
+      "position": [
+        0,
+        -1
+      ]
+    },
+    {
+      "name": "Path-7",
+      "prefab": "tiles/path",
+      "position": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "Grass-1",
+      "prefab": "tiles/grass",
+      "position": [
+        -4,
+        1
+      ]
+    },
+    {
+      "name": "Grass-2",
+      "prefab": "tiles/grass",
+      "position": [
+        1,
+        2
+      ]
+    },
+    {
+      "name": "Grass-3",
+      "prefab": "tiles/grass",
+      "position": [
+        5,
+        -2
+      ]
+    },
+    {
+      "name": "Grass-4",
+      "prefab": "tiles/grass",
+      "position": [
+        -8,
+        3
+      ]
+    },
+    {
+      "name": "Grass-5",
+      "prefab": "tiles/grass",
+      "position": [
+        8,
+        -3
+      ]
+    },
+    {
+      "name": "Grass-6",
+      "prefab": "tiles/grass",
+      "position": [
+        -1,
+        -4
+      ]
+    },
+    {
+      "name": "Water-1",
+      "prefab": "tiles/water",
+      "position": [
+        -7,
+        -2
+      ]
+    },
+    {
+      "name": "Water-2",
+      "prefab": "tiles/water",
+      "position": [
+        -6,
+        -2
+      ]
+    },
+    {
+      "name": "Water-3",
+      "prefab": "tiles/water",
+      "position": [
+        -5,
+        -2
+      ]
+    },
+    {
+      "name": "Water-4",
+      "prefab": "tiles/water",
+      "position": [
+        -7,
+        -3
+      ]
+    },
+    {
+      "name": "Water-5",
+      "prefab": "tiles/water",
+      "position": [
+        -6,
+        -3
+      ]
+    },
+    {
+      "name": "Water-6",
+      "prefab": "tiles/water",
+      "position": [
+        -5,
+        -3
+      ]
+    },
+    {
+      "name": "Tree-1",
+      "prefab": "tiles/tree",
+      "position": [
+        -6,
+        3
+      ]
+    },
+    {
+      "name": "Tree-2",
+      "prefab": "tiles/tree",
+      "position": [
+        -2,
+        3.5
+      ]
+    },
+    {
+      "name": "Tree-3",
+      "prefab": "tiles/tree",
+      "position": [
+        2,
+        4
+      ]
+    },
+    {
+      "name": "Tree-4",
+      "prefab": "tiles/tree",
+      "position": [
+        6,
+        3
+      ]
+    },
+    {
+      "name": "Tree-5",
+      "prefab": "tiles/tree",
+      "position": [
+        4,
+        -1
+      ]
+    },
+    {
+      "name": "Tree-6",
+      "prefab": "tiles/tree",
+      "position": [
+        -4,
+        -3
+      ]
+    },
+    {
+      "name": "Fence-1",
+      "prefab": "tiles/fence",
+      "position": [
+        5,
+        -4
+      ]
+    },
+    {
+      "name": "Fence-2",
+      "prefab": "tiles/fence",
+      "position": [
+        6,
+        -4
+      ]
+    },
+    {
+      "name": "Fence-3",
+      "prefab": "tiles/fence",
+      "position": [
+        7,
+        -4
+      ]
+    },
+    {
+      "name": "Villager",
+      "prefab": "characters/villager",
+      "position": [
+        3,
+        1
+      ],
+      "overrides": {
+        "Interactable": {
+          "line": "Lovely day in Waica Village!"
+        }
+      }
+    },
+    {
+      "name": "Blob",
+      "prefab": "characters/blob",
+      "position": [
+        -2,
+        -4
+      ],
+      "overrides": {
+        "Patrol": {
+          "distance": 2.5,
+          "speed": 1.5
+        }
+      }
+    },
+    {
+      "name": "Potion-1",
+      "prefab": "objects/potion",
+      "position": [
+        -3,
+        2
+      ]
+    },
+    {
+      "name": "Potion-2",
+      "prefab": "objects/potion",
+      "position": [
+        7,
+        1
+      ]
+    },
+    {
+      "name": "Potion-3",
+      "prefab": "objects/potion",
+      "position": [
+        -6,
+        1
+      ]
+    },
+    {
+      "name": "Potion-4",
+      "prefab": "objects/potion",
+      "position": [
+        2,
+        -4
+      ]
+    }
+  ],
+  "ui": [
+    "potion-counter"
+  ]
+}
+",
+  "src/stats.json": "{
+  "waicaStats": 1,
+  "stats": {
+    "points": 0,
+    "lives": 3
+  }
+}
+",
+  "src/tiles/fence.tile.json": "{
+  "waicaPrefab": 1,
+  "type": "tile",
+  "components": [
+    {
+      "type": "Sprite",
+      "props": {
+        "texture": "src/art/waica-fence.png",
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "type": "Solid",
+      "props": {
+        "width": 1,
+        "height": 0.6
+      }
+    }
+  ]
+}
+",
+  "src/tiles/grass.tile.json": "{
+  "waicaPrefab": 1,
+  "type": "tile",
+  "components": [
+    {
+      "type": "Sprite",
+      "props": {
+        "texture": "src/art/waica-grass.png",
+        "width": 1,
+        "height": 1,
+        "layer": -1
+      }
+    }
+  ]
+}
+",
+  "src/tiles/meadow.tile.json": "{
+  "waicaPrefab": 1,
+  "type": "tile",
+  "components": [
+    {
+      "type": "Sprite",
+      "props": {
+        "width": 1,
+        "height": 1,
+        "color": 3722155,
+        "layer": -2
+      }
+    }
+  ]
+}
+",
+  "src/tiles/path.tile.json": "{
+  "waicaPrefab": 1,
+  "type": "tile",
+  "components": [
+    {
+      "type": "Sprite",
+      "props": {
+        "texture": "src/art/waica-path.png",
+        "width": 1,
+        "height": 1,
+        "layer": -1
+      }
+    }
+  ]
+}
+",
+  "src/tiles/tree.tile.json": "{
+  "waicaPrefab": 1,
+  "type": "tile",
+  "components": [
+    {
+      "type": "Sprite",
+      "props": {
+        "texture": "src/art/waica-tree.png",
+        "width": 1,
+        "height": 2,
+        "offsetY": 0.5
+      }
+    },
+    {
+      "type": "Solid",
+      "props": {
+        "width": 0.8,
+        "height": 0.6
+      }
+    }
+  ]
+}
+",
+  "src/tiles/water.tile.json": "{
+  "waicaPrefab": 1,
+  "type": "tile",
+  "components": [
+    {
+      "type": "Sprite",
+      "props": {
+        "texture": "src/art/waica-water.png",
+        "width": 1,
+        "height": 1,
+        "layer": -1
+      }
+    },
+    {
+      "type": "Solid",
+      "props": {
+        "width": 1,
+        "height": 1
+      }
+    }
+  ]
+}
+",
+  "src/ui/npc-line.html": "<style>
+  .npc-line {
+    position: absolute;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    max-width: 70%;
+    padding: 10px 18px;
+    border-radius: 8px;
+    background: #1a1a2ecc;
+    border: 1px solid #ffffff2e;
+    font: 500 18px system-ui, sans-serif;
+    color: #f5f5f5;
+    text-shadow: 0 1px 2px #000a;
+    user-select: none;
+  }
+</style>
+<div class="npc-line">{{npcLine}}</div>
+",
+  "src/ui/potion-counter.html": "<style>
+  .potion-counter {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    font: 600 20px system-ui, sans-serif;
+    color: #ff6b6b;
+    text-shadow: 0 1px 3px #000a;
+    user-select: none;
+  }
+</style>
+<div class="potion-counter">🧪 {{points}}</div>
+",
+  "tsconfig.json": "{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["vite/client"]
+  },
+  "include": ["src"]
+}
+",
+  "vite.config.ts": "import { defineConfig } from 'vite'
+
+export default defineConfig({})
+",
+}
+`;
+
 exports[`projectFiles > matches the pre-refactor golden output for a blank start 1`] = `
 {
   ".gitignore": "node_modules/
@@ -114,6 +1455,7 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
   collectModuleComponents,
   Game,
   installArchetype,
+  installDirectionalAnimation,
   loadScene,
   mergeRegistryComponents,
   type PrefabJson,
@@ -195,6 +1537,9 @@ if (canvas.dataset.waica) {
 
 async function main(canvas: HTMLCanvasElement): Promise<void> {
   installArchetype(ARCHETYPE.bundle)
+  // installArchetype resets the directional registry, so the contract goes
+  // right after it (archetypes without one install null — a no-op).
+  installDirectionalAnimation(ARCHETYPE.animation ?? null)
   const projectModules = await Promise.all(Object.values(projectCode).map((load) => load()))
   const registry = mergeRegistryComponents(
     registryBase,
@@ -607,6 +1952,7 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
   collectModuleComponents,
   Game,
   installArchetype,
+  installDirectionalAnimation,
   loadScene,
   mergeRegistryComponents,
   type PrefabJson,
@@ -688,6 +2034,9 @@ if (canvas.dataset.waica) {
 
 async function main(canvas: HTMLCanvasElement): Promise<void> {
   installArchetype(ARCHETYPE.bundle)
+  // installArchetype resets the directional registry, so the contract goes
+  // right after it (archetypes without one install null — a no-op).
+  installDirectionalAnimation(ARCHETYPE.animation ?? null)
   const projectModules = await Promise.all(Object.values(projectCode).map((load) => load()))
   const registry = mergeRegistryComponents(
     registryBase,

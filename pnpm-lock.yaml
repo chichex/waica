@@ -96,6 +96,9 @@ importers:
       '@waica/archetype-platformer':
         specifier: workspace:^
         version: link:../archetype-platformer
+      '@waica/archetype-topdown':
+        specifier: workspace:^
+        version: link:../archetype-topdown
       '@waica/behaviors':
         specifier: workspace:^
         version: link:../behaviors
