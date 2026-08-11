@@ -15,6 +15,14 @@ describe('known archetypes', () => {
     })
   })
 
+  it('lists topdown with its package and workspace directory', () => {
+    expect(knownArchetype('topdown')).toEqual({
+      id: 'topdown',
+      packageName: '@waica/archetype-topdown',
+      directory: 'archetype-topdown',
+    })
+  })
+
   it('returns undefined for an unknown id', () => {
     expect(knownArchetype('banana')).toBeUndefined()
     expect(knownArchetype('toString')).toBeUndefined()

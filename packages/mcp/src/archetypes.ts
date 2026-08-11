@@ -1,6 +1,7 @@
 import type { ArchetypeManifest } from '@waica/engine'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
+import { DEFAULT_ARCHETYPE_ID, KNOWN_ARCHETYPES, knownArchetype } from './known-archetypes.js'
 import {
   PackageResolver,
   PackageUnavailableError,
@@ -72,7 +73,9 @@ export async function discoverArchetypes(
   requiredIds: readonly string[] = [],
 ): Promise<ResolvedArchetype[]> {
   const packages = new Set(await dependencyNames(projectPath, warnings))
-  packages.add('@waica/archetype-platformer')
+  // Every known archetype ships with the server, so all of them are
+  // force-attempted — a project can describe or scaffold any of them.
+  for (const known of KNOWN_ARCHETYPES) packages.add(known.packageName)
   const resolved: ResolvedArchetype[] = []
   for (const packageName of [...packages].sort()) {
     try {
@@ -86,7 +89,7 @@ export async function discoverArchetypes(
       if (error instanceof PackageUnavailableError) {
         warnings.push(`Declared archetype package ${packageName} is not installed; it was skipped.`)
       } else if (
-        packageName === '@waica/archetype-platformer' ||
+        packageName === knownArchetype(DEFAULT_ARCHETYPE_ID)?.packageName ||
         requiredIds.includes(packageName.slice('@waica/archetype-'.length))
       ) {
         throw error

@@ -51,6 +51,10 @@ importers:
       '@waica/engine':
         specifier: workspace:^
         version: link:../engine
+    devDependencies:
+      '@types/node':
+        specifier: ^24.13.3
+        version: 24.13.3
 
   packages/behaviors:
     dependencies:
@@ -142,6 +146,9 @@ importers:
       '@waica/archetype-platformer':
         specifier: workspace:^
         version: link:../archetype-platformer
+      '@waica/archetype-topdown':
+        specifier: workspace:^
+        version: link:../archetype-topdown
       '@waica/behaviors':
         specifier: workspace:^
         version: link:../behaviors

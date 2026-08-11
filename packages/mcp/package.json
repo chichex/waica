@@ -26,6 +26,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@waica/archetype-platformer": "workspace:^",
+    "@waica/archetype-topdown": "workspace:^",
     "@waica/behaviors": "workspace:^",
     "@waica/engine": "workspace:^",
     "playwright-core": "^1.62.1"
