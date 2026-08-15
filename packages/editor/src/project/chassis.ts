@@ -1,7 +1,9 @@
 import {
   installArchetype,
+  installDirectionalAnimation,
   roleDefinition,
   type ArchetypeBundle,
+  type DirectionalAnimation,
   type PrefabJson,
   type SceneComponentJson,
 } from '@waica/engine'
@@ -15,9 +17,17 @@ import {
 
 export type PrefabType = PrefabJson['type']
 
-/** Installs the resolved project's role/state baseline into the engine. */
-export function installChassisArchetype(bundle: ArchetypeBundle): void {
+/**
+ * Installs the resolved project's role/state baseline into the engine,
+ * plus its directional animation contract — installArchetype resets that
+ * registry, so the contract must be (re)applied right after it.
+ */
+export function installChassisArchetype(
+  bundle: ArchetypeBundle,
+  animation: DirectionalAnimation | null = null,
+): void {
   installArchetype(bundle)
+  installDirectionalAnimation(animation)
 }
 
 export const APPEARANCE_TYPES = ['Sprite', 'AnimatedSprite'] as const

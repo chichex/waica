@@ -414,6 +414,112 @@ async function runHappyPath({
   }
 }
 
+/**
+ * The topdown leg: a real generated Project (create_project archetype:
+ * 'topdown') through the same Run Session — semantic move input must move
+ * the player AND the directional animation contract must respond: walking
+ * east plays walk-e, reversing keeps the east art mirrored (flipX) with
+ * the motor facing west.
+ */
+async function runTopdownLeg({ client, root, parent, chrome, viteBin, engineRoot }) {
+  const project = path.join(parent, 'waica-topdown')
+  const created = await call(client, 'create_project', {
+    project_path: project,
+    start: 'demo',
+    archetype: 'topdown',
+  })
+  assert.equal(created.isError, undefined, `create_project(topdown) failed: ${JSON.stringify(created)}`)
+
+  // The generated dev script expects an installed toolchain; the fixture
+  // runs the workspace vite (its empty config is equivalent to defaults) and
+  // drops the devDependencies so the readiness dependency check only sees
+  // the @waica libraries materialized below.
+  const manifestPath = path.join(project, 'package.json')
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+  manifest.scripts.dev = `node ${quoteForPackageScript(viteBin)}`
+  delete manifest.devDependencies
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+  await rm(path.join(project, 'vite.config.ts'), { force: true })
+  await materializeRuntimeDependencies(project, engineRoot)
+  for (const directory of ['behaviors', 'archetype-topdown']) {
+    await copyPackage(
+      path.join(root, 'packages', directory),
+      path.join(project, 'node_modules/@waica', directory),
+    )
+  }
+
+  const start = await call(client, 'start_project', {
+    project_path: project,
+    browser_executable_path: chrome.executablePath,
+    timeout_ms: 15_000,
+  })
+  assert.equal(start.isError, undefined, `topdown start_project failed: ${JSON.stringify(start)}`)
+  assert.equal(start.structuredContent.mode, 'paused')
+  assert.ok(
+    start.structuredContent.initialSnapshot.entities.some((entity) => entity.name === 'Player'),
+    'topdown initial snapshot must contain Player',
+  )
+
+  const inspectPlayer = async () => {
+    const inspected = await call(client, 'inspect_runtime', {
+      project_path: project,
+      entity_names: ['Player'],
+    })
+    const player = inspected.structuredContent.snapshot.entities[0]
+    assert.ok(player, 'topdown snapshot must contain Player')
+    const state = (type) => player.components.find((component) => component.type === type)?.state
+    return {
+      position: player.transform.position,
+      motor: state('TopDownMotor'),
+      sprite: state('AnimatedSprite'),
+    }
+  }
+
+  const hold = (action) =>
+    call(client, 'control_runtime', { project_path: project, operation: 'hold', action })
+  const release = (action) =>
+    call(client, 'control_runtime', { project_path: project, operation: 'release', action })
+  const step = () =>
+    call(client, 'control_runtime', {
+      project_path: project,
+      operation: 'step',
+      dt: 1 / 60,
+      frames: 30,
+    })
+
+  const baseline = await inspectPlayer()
+  assert.equal(baseline.sprite.current, 'idle-s', 'the paused player idles facing the camera')
+
+  await hold('right')
+  await step()
+  await release('right')
+  const east = await inspectPlayer()
+  assert.ok(
+    east.position.x > baseline.position.x + 0.5,
+    `holding right must move the player east: ${baseline.position.x} -> ${east.position.x}`,
+  )
+  assert.equal(east.motor.facing, 'e', 'the motor must face east while walking east')
+  assert.equal(east.sprite.current, 'walk-e', 'walking east must play the walk-e clip')
+  assert.equal(east.sprite.flipX, false, 'east art is not mirrored')
+
+  await hold('left')
+  await step()
+  await release('left')
+  const west = await inspectPlayer()
+  assert.ok(
+    west.position.x < east.position.x - 0.2,
+    `holding left must move the player back west: ${east.position.x} -> ${west.position.x}`,
+  )
+  assert.equal(west.motor.facing, 'w', 'the motor must face west after reversing')
+  assert.equal(west.sprite.current, 'walk-e', 'west reuses the east clip via the contract fallback')
+  assert.equal(west.sprite.flipX, true, 'the contract mirrors east art for west')
+
+  const stopped = await call(client, 'stop_project', { project_path: project })
+  assert.equal(stopped.structuredContent.stopped, true)
+  await assertUrlClosed(start.structuredContent.url)
+  return { topdownUrl: start.structuredContent.url }
+}
+
 async function runNegativeReadiness({ client, fixture, chrome }) {
   const result = await call(client, 'start_project', {
     project_path: fixture.project,
@@ -436,6 +542,7 @@ export async function runRuntimeE2e({
   includeNegative = true,
   includeReload = true,
   includeAlias = true,
+  includeTopdown = true,
 }) {
   if (process.platform === 'win32') {
     throw new Error('The browser e2e gate requires its supported macOS/Linux host, not Windows.')
@@ -477,6 +584,16 @@ export async function runRuntimeE2e({
       includeReload,
       includeAlias,
     })
+    const topdownResult = includeTopdown
+      ? await runTopdownLeg({
+          client,
+          root,
+          parent: temporaryParent,
+          chrome,
+          viteBin,
+          engineRoot,
+        })
+      : {}
     if (negative) await runNegativeReadiness({ client, fixture: negative, chrome })
     const result = {
       label,
@@ -484,6 +601,7 @@ export async function runRuntimeE2e({
       chromeVersion: chrome.version,
       durationMs: Date.now() - startedAt,
       ...happyResult,
+      ...topdownResult,
     }
     console.log(`waica runtime e2e (${label}): ${JSON.stringify(result)}`)
     return result

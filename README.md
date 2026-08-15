@@ -41,7 +41,8 @@ The Waica Editor runs in your browser, local-first: create a project into any em
 ## Run the example
 
 ```bash
-pnpm dev   # platformer archetype — ← → move · space jump
+pnpm dev           # platformer archetype — ← → move · space jump
+pnpm dev:topdown   # topdown archetype — arrows/WASD move · E interact
 ```
 
 ## Packages
@@ -51,6 +52,7 @@ pnpm dev   # platformer archetype — ← → move · space jump
 | [`@waica/engine`](./packages/engine/README.md) | Core: game loop, Entity + Components, scene JSON + prefab registry, `StateMachine` + role registry (`defineRole`/`defineStates`), `DynamicBody`/`Solid`/`Hitbox` collisions, input actions, sprites + animation contracts, scene camera, stats, HTML UI layer, `THREE` re-export |
 | `@waica/behaviors` | Curated game-feel library: `PlatformerMotor` and the `player` role, plus `patroller`, `chaser` and `npc`, `Collectible`, `Hazard`, `Respawnable`, `Lifetime` |
 | `@waica/archetype-platformer` | Opinionated platformer setup — playable from minute zero: default scene, prefabs, controls, HUD and stock art. The placeholder hero is Waica herself (pixel art, script-generated) |
+| `@waica/archetype-topdown` | Opinionated Zelda-like overhead setup: 8-direction movement, y-sorted depth, NPC dialogue via `interact`, village demo scene and CC0 stock art (Kenney) |
 | `@waica/editor` | The app: create/open projects (owns the new-project template), viewport with drag & drop, inspector, state machine & animation editors, controls/stats views, play-in-editor, Monaco |
 | `@waica/mcp` | Stdio MCP server for agents: project creation, introspection, validation, scaffolds, and browser-backed Run Sessions with deterministic control, Runtime Snapshots and screenshots. Not published on its own — it ships inside `@waica/cli` |
 | `@waica/cli` | One-command launcher: `npx @waica/cli` serves the pre-built editor and opens your browser, `waica mcp` serves the MCP server. The package is scoped; the binary it installs is plain `waica` |

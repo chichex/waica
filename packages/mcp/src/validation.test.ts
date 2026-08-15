@@ -139,6 +139,11 @@ export class PassiveTarget extends Component {
           version: await workspaceVersion('archetype-platformer'),
           source: 'bundled',
         },
+        {
+          package: '@waica/archetype-topdown',
+          version: await workspaceVersion('archetype-topdown'),
+          source: 'bundled',
+        },
       ],
       warnings: [],
     })

@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  installedDirectionalAnimation,
   logicSet,
   registeredRoles,
   type ArchetypeBundle,
+  type DirectionalAnimation,
   type PrefabJson,
 } from '@waica/engine'
 import { PLATFORMER_BUNDLE } from '@waica/archetype-platformer'
@@ -43,6 +45,22 @@ describe('archetype chassis installation', () => {
 
   it('does not claim the platformer package through a bare side-effect import', () => {
     expect(chassisSource).not.toMatch(/import\s+['"]@waica\/behaviors['"]/)
+  })
+
+  it('installs the directional animation contract alongside the bundle', () => {
+    const animation: DirectionalAnimation = {
+      directions: ['n', 's', 'e', 'w'],
+      fallbacks: { w: { dir: 'e', flip: true } },
+      contract: { required: ['idle'], fallbacks: {} },
+    }
+
+    installChassisArchetype(PLATFORMER_BUNDLE, animation)
+    expect(installedDirectionalAnimation()).toEqual(animation)
+
+    // Reinstalling without one clears it — an archetype swap never leaks
+    // the previous project's contract.
+    installChassisArchetype(PLATFORMER_BUNDLE)
+    expect(installedDirectionalAnimation()).toBeNull()
   })
 })
 

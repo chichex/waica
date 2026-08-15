@@ -1,0 +1,38 @@
+{
+  "waicaPrefab": 1,
+  "type": "object",
+  "components": [
+    {
+      "type": "AnimatedSprite",
+      "props": {
+        "texture": "src/art/waica-potion.png",
+        "cols": 1,
+        "rows": 1,
+        "width": 0.7,
+        "height": 0.7,
+        "clips": {
+          "idle": {
+            "frames": [
+              0
+            ],
+            "fps": 2
+          }
+        },
+        "initialClip": "idle"
+      }
+    },
+    {
+      "type": "Hitbox",
+      "props": {
+        "width": 0.5,
+        "height": 0.5
+      }
+    },
+    {
+      "type": "Collectible",
+      "props": {
+        "value": 1
+      }
+    }
+  ]
+}

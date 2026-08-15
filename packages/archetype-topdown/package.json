@@ -1,0 +1,43 @@
+{
+  "name": "@waica/archetype-topdown",
+  "version": "0.6.1",
+  "description": "Waica top-down archetype — opinionated setup for Zelda-like overhead adventures",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chichex/waica",
+    "directory": "packages/archetype-topdown"
+  },
+  "files": [
+    "dist",
+    "assets"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./manifest": "./src/manifest.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./manifest": {
+        "types": "./dist/manifest.d.ts",
+        "default": "./dist/manifest.js"
+      }
+    }
+  },
+  "scripts": {
+    "build": "node ../../scripts/clean-dist.mjs && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@waica/behaviors": "workspace:^",
+    "@waica/engine": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3"
+  }
+}

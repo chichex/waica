@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { Component } from '../component.js'
+import type { YSortParticipant } from '../render-sort.js'
 
 const loader = new THREE.TextureLoader()
 
@@ -9,7 +10,7 @@ export type SpriteShape = 'rectangle' | 'circle'
  * Textured or flat-color quad. In the unified pipeline, a 2D sprite is a
  * plane in front of the orthographic camera (see DESIGN.md §6, decision 2).
  */
-export class Sprite extends Component {
+export class Sprite extends Component implements YSortParticipant {
   static override componentName = 'Sprite'
   static override params = {
     offsetX: { label: 'x offset' },

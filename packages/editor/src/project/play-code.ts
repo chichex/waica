@@ -3,6 +3,7 @@ import {
   type ArchetypeBundle,
   type ComponentClass,
   type ComponentModule,
+  type DirectionalAnimation,
 } from '@waica/engine'
 import type { ProjectFS, TreeNode } from '../fs/project-fs'
 import { installChassisArchetype } from './chassis'
@@ -130,8 +131,9 @@ async function loadCode(
   runner: PlayCodeRunner,
   bundle: ArchetypeBundle,
   groups: readonly CodeGroup[],
+  animation: DirectionalAnimation | null = null,
 ): Promise<PlayCodeResult> {
-  installChassisArchetype(bundle)
+  installChassisArchetype(bundle, animation)
   runner.reset?.()
 
   const entries = await entryPaths(fs, groups)
@@ -227,8 +229,9 @@ export function loadComponentCode(
   fs: ProjectFS,
   runner: PlayCodeRunner,
   bundle: ArchetypeBundle,
+  animation: DirectionalAnimation | null = null,
 ): Promise<PlayCodeResult> {
-  return loadCode(fs, runner, bundle, ['components'])
+  return loadCode(fs, runner, bundle, ['components'], animation)
 }
 
 /** Runs components, then every project state and role over a clean baseline. */
@@ -236,6 +239,7 @@ export function loadPlayCode(
   fs: ProjectFS,
   runner: PlayCodeRunner,
   bundle: ArchetypeBundle,
+  animation: DirectionalAnimation | null = null,
 ): Promise<PlayCodeResult> {
-  return loadCode(fs, runner, bundle, ['components', 'states', 'roles'])
+  return loadCode(fs, runner, bundle, ['components', 'states', 'roles'], animation)
 }

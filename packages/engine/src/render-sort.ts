@@ -10,6 +10,26 @@ export interface YSortEntry {
 }
 
 /**
+ * The explicit seam a component opts into to participate in y-sort: it
+ * exposes its draw-order layer and accepts the per-frame z the pass derives.
+ * Both stock sprite classes implement it; a custom renderable can too.
+ */
+export interface YSortParticipant {
+  readonly layer: number
+  /** Y-sort pass hook: overrides the layer-derived z for this frame. */
+  setSortZ(z: number): void
+}
+
+export function isYSortParticipant(value: unknown): value is YSortParticipant {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as YSortParticipant).layer === 'number' &&
+    typeof (value as YSortParticipant).setSortZ === 'function'
+  )
+}
+
+/**
  * Z per entry under y-sort. Each layer keeps its 0.01 band; within a band,
  * lower Y gets a higher z (renders in front), and exact Y ties keep input
  * order. Offsets stay strictly inside (layer, layer + 1) × 0.01 for integer

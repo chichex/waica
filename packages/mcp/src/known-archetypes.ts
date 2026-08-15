@@ -20,6 +20,11 @@ export const KNOWN_ARCHETYPES: readonly KnownArchetype[] = [
     packageName: '@waica/archetype-platformer',
     directory: 'archetype-platformer',
   },
+  {
+    id: 'topdown',
+    packageName: '@waica/archetype-topdown',
+    directory: 'archetype-topdown',
+  },
 ]
 
 export function knownArchetype(id: string): KnownArchetype | undefined {

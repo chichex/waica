@@ -19,9 +19,7 @@ import {
   EngineRuntimeBridge,
 } from './runtime-bridge.js'
 import { RuntimeInspector } from './runtime-inspection.js'
-import { AnimatedSprite } from './components/animated-sprite.js'
-import { Sprite } from './components/sprite.js'
-import { ySortZ, type YSortEntry } from './render-sort.js'
+import { isYSortParticipant, ySortZ, type YSortEntry, type YSortParticipant } from './render-sort.js'
 import { registryEntry, spawnFromJson, type SceneRegistry, type SceneRenderJson } from './scene.js'
 import { Stats, type StatValue } from './stats.js'
 import { GameUi } from './ui.js'
@@ -287,20 +285,20 @@ export class Game {
     this.runtimeBridge = null
   }
 
-  /** Under y-sort, re-derives every sprite z from layer band + entity Y. */
+  /** Under y-sort, re-derives every participant's z from layer band + entity Y. */
   private applyYSort(): void {
-    const sprites: Array<Sprite | AnimatedSprite> = []
+    const participants: YSortParticipant[] = []
     const entries: YSortEntry[] = []
     for (const entity of this.entities) {
       for (const component of entity.components) {
-        if (component instanceof Sprite || component instanceof AnimatedSprite) {
-          sprites.push(component)
+        if (isYSortParticipant(component)) {
+          participants.push(component)
           entries.push({ layer: component.layer, y: entity.position.y })
         }
       }
     }
     const z = ySortZ(entries)
-    for (const [index, sprite] of sprites.entries()) sprite.setSortZ(z[index]!)
+    for (const [index, participant] of participants.entries()) participant.setSortZ(z[index]!)
   }
 
   private renderSurface(): void {

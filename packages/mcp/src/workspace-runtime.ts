@@ -76,6 +76,58 @@ export async function workspacePackageRoot(packageName: string): Promise<string 
   return (await workspacePackages).get(packageName)
 }
 
+export interface WorkspaceRuntimePlan {
+  /** Bare specifier → file URL of the built checkout entry. */
+  mappings: Record<string, string>
+  parentPrefixes: string[]
+  /** One line per known archetype skipped for lack of a built dist. */
+  warnings: string[]
+}
+
+/**
+ * Which workspace mappings the runtime hook should install. Engine and
+ * behaviors gate the whole plan — nothing loads without them — but each
+ * archetype only gates itself: a missing archetype dist drops that
+ * archetype's mappings with a warning instead of disabling every mapping.
+ */
+export async function planWorkspaceRuntime(
+  repositoryRoot: string,
+  fileExists: (target: string) => Promise<boolean> = exists,
+): Promise<WorkspaceRuntimePlan | undefined> {
+  const core: Record<string, string> = {
+    '@waica/engine': path.join(repositoryRoot, 'packages/engine/dist/index.js'),
+    '@waica/behaviors': path.join(repositoryRoot, 'packages/behaviors/dist/index.js'),
+  }
+  if (!(await Promise.all(Object.values(core).map(fileExists))).every(Boolean)) return undefined
+
+  const files: Record<string, string> = { ...core }
+  const directories = ['engine', 'behaviors']
+  const warnings: string[] = []
+  for (const { packageName, directory } of KNOWN_ARCHETYPES) {
+    const index = path.join(repositoryRoot, 'packages', directory, 'dist/index.js')
+    const manifest = path.join(repositoryRoot, 'packages', directory, 'dist/manifest.js')
+    if ((await fileExists(index)) && (await fileExists(manifest))) {
+      files[packageName] = index
+      files[`${packageName}/manifest`] = manifest
+      directories.push(directory)
+    } else {
+      warnings.push(
+        `waica-mcp: workspace archetype ${packageName} has no built dist; its workspace mappings were skipped.`,
+      )
+    }
+  }
+  return {
+    mappings: Object.fromEntries(
+      Object.entries(files).map(([specifier, file]) => [specifier, pathToFileURL(file).href]),
+    ),
+    parentPrefixes: directories.map(
+      (directory) =>
+        `${pathToFileURL(path.join(repositoryRoot, 'packages', directory, 'dist')).href}/`,
+    ),
+    warnings,
+  }
+}
+
 /**
  * Built workspace packages still import one another by bare package name while
  * checkout exports point at source TypeScript. Map only imports whose parent is
@@ -85,31 +137,10 @@ export async function workspacePackageRoot(packageName: string): Promise<string 
 export async function prepareWorkspaceRuntime(): Promise<void> {
   const repositoryRoot = await findWorkspaceRoot()
   if (repositoryRoot === undefined) return
-  const files: Record<string, string> = {
-    '@waica/engine': path.join(repositoryRoot, 'packages/engine/dist/index.js'),
-    '@waica/behaviors': path.join(repositoryRoot, 'packages/behaviors/dist/index.js'),
-    ...Object.fromEntries(
-      KNOWN_ARCHETYPES.flatMap(({ packageName, directory }) => [
-        [packageName, path.join(repositoryRoot, 'packages', directory, 'dist/index.js')],
-        [
-          `${packageName}/manifest`,
-          path.join(repositoryRoot, 'packages', directory, 'dist/manifest.js'),
-        ],
-      ]),
-    ),
-  }
-  if (!(await Promise.all(Object.values(files).map(exists))).every(Boolean)) return
-  const mappings = Object.fromEntries(
-    Object.entries(files).map(([specifier, file]) => [specifier, pathToFileURL(file).href]),
-  )
-  const parentPrefixes = [
-    'engine',
-    'behaviors',
-    ...KNOWN_ARCHETYPES.map(({ directory }) => directory),
-  ].map(
-    (directory) =>
-      `${pathToFileURL(path.join(repositoryRoot, 'packages', directory, 'dist')).href}/`,
-  )
+  const plan = await planWorkspaceRuntime(repositoryRoot)
+  if (plan === undefined) return
+  for (const warning of plan.warnings) console.warn(warning)
+  const { mappings, parentPrefixes } = plan
 
   const moduleApi = await import('node:module')
   if (typeof moduleApi.registerHooks === 'function') {

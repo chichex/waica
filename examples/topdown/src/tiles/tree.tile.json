@@ -1,0 +1,22 @@
+{
+  "waicaPrefab": 1,
+  "type": "tile",
+  "components": [
+    {
+      "type": "Sprite",
+      "props": {
+        "texture": "src/art/waica-tree.png",
+        "width": 1,
+        "height": 2,
+        "offsetY": 0.5
+      }
+    },
+    {
+      "type": "Solid",
+      "props": {
+        "width": 0.8,
+        "height": 0.6
+      }
+    }
+  ]
+}

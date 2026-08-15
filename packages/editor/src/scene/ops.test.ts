@@ -9,6 +9,7 @@ import {
   dissolveFolder,
   migrateScene,
   removeEntities,
+  setRenderProp,
   renameFolder,
   reorderEntities,
   reorderEntity,
@@ -48,6 +49,33 @@ describe('migrateScene', () => {
       ui: ['coin-counter'],
     }
     expect(migrateScene(scene)).toBe(scene)
+  })
+})
+
+describe('setRenderProp', () => {
+  const scene: SceneJson = {
+    waicaScene: 2,
+    entities: [{ name: 'Player', prefab: 'characters/player', position: [0, 0] }],
+  }
+
+  it('sets the sort and stamps the file as a v3 scene', () => {
+    const next = setRenderProp(scene, 'sort', 'y')
+    expect(next.render).toEqual({ sort: 'y' })
+    expect(next.waicaScene).toBe(3)
+    expect(next.entities).toBe(scene.entities)
+  })
+
+  it('drops the render block entirely when its last prop is deleted', () => {
+    const sorted = setRenderProp(scene, 'sort', 'y')
+    const next = setRenderProp(sorted, 'sort', undefined)
+    expect(next.render).toBeUndefined()
+    expect(next.waicaScene).toBe(3)
+  })
+
+  it('does not mutate its input', () => {
+    const before = structuredClone(scene)
+    setRenderProp(scene, 'sort', 'y')
+    expect(scene).toEqual(before)
   })
 })
 

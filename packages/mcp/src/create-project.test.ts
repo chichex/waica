@@ -33,11 +33,12 @@ async function textTree(root: string): Promise<Record<string, string>> {
 async function expectedEditorFiles(
   name: string,
   start: 'demo' | 'blank',
+  archetypeId = 'platformer',
 ): Promise<Record<string, string>> {
   const { version } = await readJson<{ version: string }>(
     path.resolve(import.meta.dirname, '../../engine/package.json'),
   )
-  const expected = projectFiles(name, start)
+  const expected = projectFiles(name, start, archetypeId)
   const pkg = JSON.parse(expected['package.json'] ?? '{}') as {
     dependencies: Record<string, string>
   }
@@ -47,6 +48,26 @@ async function expectedEditorFiles(
 }
 
 describe('createProject', () => {
+  it('creates a topdown demo byte-for-byte like the editor and copies its art', async () => {
+    const parent = await tempDir()
+    roots.push(parent)
+    const target = path.join(parent, 'agent-game')
+
+    await createProject(target, 'demo', 'topdown')
+
+    expect(await textTree(target)).toEqual(await expectedEditorFiles('agent-game', 'demo', 'topdown'))
+    const artPaths = (await filesBelow(target)).filter((file) => file.endsWith('.png'))
+    expect(artPaths).toEqual(Object.keys(projectArtFiles('demo', 'topdown')).sort())
+    for (const relative of artPaths) {
+      const source = path.resolve(
+        import.meta.dirname,
+        '../../archetype-topdown/assets',
+        path.basename(relative),
+      )
+      expect(await readFile(path.join(target, relative))).toEqual(await readFile(source))
+    }
+  })
+
   it('creates the demo byte-for-byte like the editor and copies manifest art', async () => {
     const parent = await tempDir()
     roots.push(parent)

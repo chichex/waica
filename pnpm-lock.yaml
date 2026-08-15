@@ -34,6 +34,22 @@ importers:
         specifier: ^8.1.5
         version: 8.1.5(@types/node@24.13.3)
 
+  examples/topdown:
+    dependencies:
+      '@waica/archetype-topdown':
+        specifier: workspace:*
+        version: link:../../packages/archetype-topdown
+      '@waica/behaviors':
+        specifier: workspace:*
+        version: link:../../packages/behaviors
+      '@waica/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
+    devDependencies:
+      vite:
+        specifier: ^8.1.5
+        version: 8.1.5(@types/node@24.13.3)
+
   packages/archetype-platformer:
     dependencies:
       '@waica/behaviors':
@@ -42,6 +58,19 @@ importers:
       '@waica/engine':
         specifier: workspace:^
         version: link:../engine
+
+  packages/archetype-topdown:
+    dependencies:
+      '@waica/behaviors':
+        specifier: workspace:^
+        version: link:../behaviors
+      '@waica/engine':
+        specifier: workspace:^
+        version: link:../engine
+    devDependencies:
+      '@types/node':
+        specifier: ^24.13.3
+        version: 24.13.3
 
   packages/behaviors:
     dependencies:
@@ -83,6 +112,9 @@ importers:
       '@waica/archetype-platformer':
         specifier: workspace:^
         version: link:../archetype-platformer
+      '@waica/archetype-topdown':
+        specifier: workspace:^
+        version: link:../archetype-topdown
       '@waica/behaviors':
         specifier: workspace:^
         version: link:../behaviors
@@ -133,6 +165,9 @@ importers:
       '@waica/archetype-platformer':
         specifier: workspace:^
         version: link:../archetype-platformer
+      '@waica/archetype-topdown':
+        specifier: workspace:^
+        version: link:../archetype-topdown
       '@waica/behaviors':
         specifier: workspace:^
         version: link:../behaviors

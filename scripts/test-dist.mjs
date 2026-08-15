@@ -28,15 +28,21 @@ const sandbox = await mkdtemp(join(tmpdir(), 'waica-dist-'))
 const nodeModules = join(sandbox, 'node_modules')
 // @waica/mcp is absent on purpose: it is not published on its own, it ships
 // inside @waica/cli. Its dist is checked in place and then exercised
-// through the packed CLI. The three libraries stay here because the CLI vendors
-// exactly these published shapes next to the bundled server.
+// through the packed CLI. The published libraries stay here because the CLI
+// vendors exactly these published shapes next to the bundled server.
 const packages = [
   { directory: 'engine', name: '@waica/engine', entry: 'index.js' },
   { directory: 'behaviors', name: '@waica/behaviors', entry: 'index.js' },
   { directory: 'archetype-platformer', name: '@waica/archetype-platformer', entry: 'index.js' },
+  { directory: 'archetype-topdown', name: '@waica/archetype-topdown', entry: 'index.js' },
   { directory: 'cli', name: '@waica/cli', entry: 'cli.js', bundled: ['editor', 'mcp'] },
 ]
-const vendoredLibraries = ['@waica/engine', '@waica/behaviors', '@waica/archetype-platformer']
+const vendoredLibraries = [
+  '@waica/engine',
+  '@waica/behaviors',
+  '@waica/archetype-platformer',
+  '@waica/archetype-topdown',
+]
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -294,6 +300,23 @@ try {
   await access(join(nodeModules, '@waica/archetype-platformer/dist/manifest.js'))
   await access(join(nodeModules, '@waica/archetype-platformer/dist/manifest.d.ts'))
 
+  const topdownSource = JSON.parse(
+    await readFile(join(root, 'packages/archetype-topdown/package.json'), 'utf8'),
+  )
+  const topdownPacked = packedManifests.get('@waica/archetype-topdown')
+  assert.deepEqual(
+    topdownSource.publishConfig?.exports?.['./manifest'],
+    expectedManifestExport,
+    'topdown publishConfig.exports must map ./manifest to the built manifest files',
+  )
+  assert.deepEqual(
+    topdownPacked.exports?.['./manifest'],
+    expectedManifestExport,
+    'the packed topdown package must expose the published ./manifest mapping',
+  )
+  await access(join(nodeModules, '@waica/archetype-topdown/dist/manifest.js'))
+  await access(join(nodeModules, '@waica/archetype-topdown/dist/manifest.d.ts'))
+
   // The server is never packed on its own, so its dist is verified where it is
   // built; the packed CLI below then runs that same dist, copied.
   const mcpRoot = join(root, 'packages/mcp')
@@ -368,6 +391,9 @@ try {
   await access(
     join(packedCliRoot, 'dist/mcp/node_modules/@waica/archetype-platformer/assets/waica-dog.png'),
   )
+  await access(
+    join(packedCliRoot, 'dist/mcp/node_modules/@waica/archetype-topdown/assets/waica-hero.png'),
+  )
 
   for (const pkg of packages) {
     await materializeExternalDependencies(pkg, packedManifests.get(pkg.name))
@@ -400,6 +426,13 @@ try {
       "if (nodePackage.ARCHETYPE?.id !== 'platformer') throw new Error('invalid Node-safe manifest')",
       "if ('artUrls' in nodePackage.ARCHETYPE) throw new Error('Node-safe manifest contains browser art URLs')",
       "if (nodePackage.ARCHETYPE.registry.resolveAsset?.('waica:dog') !== 'assets/waica-dog.png') throw new Error('Node-safe registry cannot resolve package assets')",
+      "const topdownRoot = await import('@waica/archetype-topdown')",
+      "const topdownNode = await import('@waica/archetype-topdown/manifest')",
+      "if (topdownRoot.ARCHETYPE?.id !== 'topdown') throw new Error('invalid topdown root manifest')",
+      "if (topdownNode.ARCHETYPE?.id !== 'topdown') throw new Error('invalid topdown Node-safe manifest')",
+      "if ('artUrls' in topdownNode.ARCHETYPE) throw new Error('topdown Node-safe manifest contains browser art URLs')",
+      "if (!topdownNode.ARCHETYPE.animation) throw new Error('topdown Node-safe manifest lost its animation contract')",
+      "if (topdownNode.ARCHETYPE.registry.resolveAsset?.('waica:hero') !== 'assets/waica-hero.png') throw new Error('topdown Node-safe registry cannot resolve package assets')",
     ].join('\n'),
   )
   run(process.execPath, [probe], { cwd: sandbox })
@@ -439,7 +472,7 @@ try {
     )
 
     await mkdir(join(sourceTarget, 'node_modules/@waica'), { recursive: true })
-    for (const directory of ['engine', 'behaviors', 'archetype-platformer']) {
+    for (const directory of ['engine', 'behaviors', 'archetype-platformer', 'archetype-topdown']) {
       await symlink(
         join(root, 'packages', directory),
         join(sourceTarget, 'node_modules/@waica', directory),
@@ -665,6 +698,8 @@ try {
     await client.close().catch(() => {})
   }
 
+  // The packed leg repeats the critical happy path only; the topdown leg is
+  // pnpm test:e2e's, over the checkout CLI.
   await runRuntimeE2e({
     root,
     cliPath: packedCli,
@@ -673,6 +708,7 @@ try {
     includeNegative: false,
     includeReload: false,
     includeAlias: false,
+    includeTopdown: false,
   })
 
   console.log(

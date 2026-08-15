@@ -90,4 +90,4 @@ The MCP and editor can edit the same files, but Run Sessions execute standalone 
 
 ## Running a generated Project
 
-`create_project` returns the normal next steps: `npm install`, then `npm run dev`. Generated dependencies use the same version as the CLI release. To run against uncommitted workspace libraries, place the Project in this pnpm workspace, change its three `@waica/*` ranges to `workspace:^`, and install from the repository root.
+`create_project` returns the normal next steps: `npm install`, then `npm run dev`. Generated dependencies use the same version as the CLI release. To run against uncommitted workspace libraries, place the Project in this pnpm workspace, change its `@waica/*` ranges to `workspace:^`, and install from the repository root.

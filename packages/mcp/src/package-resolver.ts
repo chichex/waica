@@ -158,6 +158,10 @@ async function loadBundledModule(
       return import('@waica/archetype-platformer')
     case '@waica/archetype-platformer/manifest':
       return import('@waica/archetype-platformer/manifest')
+    case '@waica/archetype-topdown':
+      return import('@waica/archetype-topdown')
+    case '@waica/archetype-topdown/manifest':
+      return import('@waica/archetype-topdown/manifest')
     default:
       throw new PackageUnavailableError(specifier)
   }

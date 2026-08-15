@@ -25,6 +25,33 @@ describe('projectFiles', () => {
     },
   )
 
+  it.each(['demo', 'blank'] as const)(
+    'matches the golden output for a topdown %s start',
+    (start) => {
+      expect(
+        withStableWaicaVersion(projectFiles('fixture-name', start, 'topdown')),
+      ).toMatchSnapshot()
+    },
+  )
+
+  it('generates a topdown main.ts importing its package and the animation contract', () => {
+    const main = projectFiles('my-game', 'demo', 'topdown')['src/main.ts'] ?? ''
+
+    expect(main).toContain("import { ARCHETYPE } from '@waica/archetype-topdown'")
+    expect(main).toContain('installDirectionalAnimation(ARCHETYPE.animation ?? null)')
+  })
+
+  it('depends on the topdown package when that archetype is picked', () => {
+    const pkg = JSON.parse(projectFiles('dog-quest', 'demo', 'topdown')['package.json'] ?? '') as {
+      dependencies: Record<string, string>
+    }
+    expect(pkg.dependencies).toEqual({
+      '@waica/engine': `^${enginePackage.version}`,
+      '@waica/behaviors': `^${enginePackage.version}`,
+      '@waica/archetype-topdown': `^${enginePackage.version}`,
+    })
+  })
+
   it('stamps the picked archetype id into game.json', () => {
     const files = projectFiles('my-game', 'demo', 'platformer')
     const game = JSON.parse(files['src/game.json'] ?? '') as { archetype?: unknown }

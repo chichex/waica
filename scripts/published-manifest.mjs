@@ -11,7 +11,12 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /** The published libraries, in dependency order — behaviors needs engine. */
-export const PUBLISHED_LIBRARIES = ['engine', 'behaviors', 'archetype-platformer']
+export const PUBLISHED_LIBRARIES = [
+  'engine',
+  'behaviors',
+  'archetype-platformer',
+  'archetype-topdown',
+]
 
 export const packagesRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -19,7 +24,7 @@ export const packagesRoot = path.resolve(
   'packages',
 )
 
-/** Reads the three library manifests off the checkout, in dependency order. */
+/** Reads the published library manifests off the checkout, in dependency order. */
 export function readLibraryManifests() {
   return PUBLISHED_LIBRARIES.map((directory) => {
     const root = path.join(packagesRoot, directory)
