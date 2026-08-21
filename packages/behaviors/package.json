@@ -1,6 +1,6 @@
 {
   "name": "@waica/behaviors",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "Waica built-in behaviors — the curated game-feel library",
   "license": "MIT",
   "type": "module",
