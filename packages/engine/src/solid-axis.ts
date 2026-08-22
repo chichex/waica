@@ -1,6 +1,7 @@
 import { collisionBounds, collisionOverlap, type CollisionBody } from './collision-shape.js'
 import { Solid } from './components/solid.js'
 import type { Entity } from './entity.js'
+import { sceneSolids } from './scene-solids.js'
 
 export type CollisionAxis = 'x' | 'y'
 
@@ -43,10 +44,7 @@ export function resolveSolidAxis({
 }: SolidAxisOptions): boolean {
   const position = entity.position
   const target = position[axis]
-  const solids = entity.game.entities
-    .filter((other) => other !== entity)
-    .map((other) => other.get(Solid))
-    .filter((solid): solid is Solid => solid !== undefined)
+  const solids = sceneSolids(entity.game, entity)
 
   position[axis] = previous
   // Preserve the established spawn-inside-wall bail: pre-existing overlaps
