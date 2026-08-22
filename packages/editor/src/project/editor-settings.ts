@@ -7,8 +7,7 @@
 
 export const EDITOR_SETTINGS_PATH = 'src/editor.json'
 
-/** 'isometric' joins this union when the iso archetype lands (H5). */
-export type GridType = 'square'
+export type GridType = 'square' | 'isometric'
 
 /** Grids finer than this are visual noise and explode the line count. */
 export const MIN_GRID_SIZE = 0.05
@@ -46,7 +45,7 @@ export function parseEditorSettings(text: string | null): EditorSettings {
   try {
     const json = JSON.parse(text) as Partial<EditorSettingsJson>
     const grid = json.grid
-    if (grid?.type === 'square') settings.grid.type = grid.type
+    if (grid?.type === 'square' || grid?.type === 'isometric') settings.grid.type = grid.type
     if (typeof grid?.show === 'boolean') settings.grid.show = grid.show
     if (typeof grid?.snap === 'boolean') settings.grid.snap = grid.snap
     if (typeof grid?.size === 'number' && isFinite(grid.size) && grid.size >= MIN_GRID_SIZE) {

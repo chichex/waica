@@ -709,6 +709,7 @@ try {
     includeReload: false,
     includeAlias: false,
     includeTopdown: false,
+    includeProjection: false,
   })
 
   console.log(

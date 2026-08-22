@@ -29,6 +29,8 @@ import {
   type RefTarget,
 } from './ref-targets'
 import { MissingOption, missingOptionClass } from './missing-option'
+import { TilemapCard } from './TilemapCard'
+import type { TilemapBrushSelection } from './tilemap-brush'
 
 /** What the inspector is editing, mirroring the explorer view. */
 export type InspectorSelection =
@@ -202,8 +204,10 @@ interface Props {
   onAddComponent(entity: string, type: string): void
   onRemoveComponent(entity: string, type: string): void
   onSetEntityCollision(entity: string, type: 'Hitbox' | 'Solid' | null): void
-  /** Points an entity's appearance at a texture (instance override on prefabs). */
+  /** Points an entity component at a texture (instance override on prefabs). */
   onSetTexture(entity: string, componentType: string, uri: string): void
+  tilemapBrush?: TilemapBrushSelection | null
+  onTilemapBrush?(selection: TilemapBrushSelection | null): void
   onDelete(name: string): void
   onOpenPrefab(ref: string): void
   onPrefabProp(ref: string, componentType: string, key: string, value: unknown): void
@@ -1501,7 +1505,7 @@ function AddComponentRow({ present, onAdd }: { present: Set<string>; onAdd(type:
   return (
     <div className="ed-add-comp">
       <select value={adding} onChange={(e) => setAdding(e.target.value)}>
-        <option value="">+ behaviour…</option>
+        <option value="">{available.includes('Tilemap') ? '+ component…' : '+ behaviour…'}</option>
         {available.map((t) => (
           <option key={t} value={t}>
             {componentLabel(t, archetype)}
@@ -1539,6 +1543,8 @@ function EntityInspector({
   onRemoveComponent,
   onSetEntityCollision,
   onSetTexture,
+  tilemapBrush,
+  onTilemapBrush,
   onDelete,
   onOpenPrefab,
   onEditAnimation,
@@ -1574,6 +1580,8 @@ function EntityInspector({
   const split = splitComponents(components)
   const appearance = split.appearance
   const collision = split.collision
+  const tilemap = components.find((component) => component.type === 'Tilemap')
+  const activeBrush = tilemapBrush?.entity === entity.name ? tilemapBrush : null
   const overridesOf = (type: string) => new Set(Object.keys(entity.overrides?.[type] ?? {}))
   const overrideCount = countOverrides(entity)
   const resetOf = (type: string) => (key: string) => onResetProp(entity.name, type, key)
@@ -1696,9 +1704,28 @@ function EntityInspector({
             />
           )}
 
+      {tilemap && (
+        <TilemapCard
+          id={entity.name}
+          props={tilemap.props ?? {}}
+          art={art}
+          urlFor={urlFor}
+          selectedTile={activeBrush?.tile ?? 0}
+          paint={activeBrush?.paint ?? false}
+          onProp={(key, value) => onProp(entity.name, 'Tilemap', key, value)}
+          onPickTexture={(uri) => onSetTexture(entity.name, 'Tilemap', uri)}
+          onSelectTile={(tile) =>
+            onTilemapBrush?.({ entity: entity.name, tile, paint: activeBrush?.paint ?? false })
+          }
+          onPaint={(paint) =>
+            onTilemapBrush?.({ entity: entity.name, tile: activeBrush?.tile ?? 0, paint })
+          }
+        />
+      )}
+
       <BehavioursSection
         id={entity.name}
-        comps={[...split.behaviours, ...split.extras]}
+        comps={[...split.behaviours, ...split.extras].filter((comp) => comp.type !== 'Tilemap')}
         present={new Set(components.map((c) => c.type))}
         warning={driverWarning(components, archetype)}
         canRemove={(c) => !prefabOwns(entity, c.type, prefabs)}
@@ -1787,6 +1814,7 @@ function PrefabInspector({
   const rule = CHASSIS[prefab.type]
   const split = splitComponents(prefab.components)
   const appearance = split.appearance
+  const tilemap = prefab.components.find((component) => component.type === 'Tilemap')
   const touching = touchBehaviourNames(split.behaviours, archetype)
   const offHint =
     rule.collision?.type === 'Solid'
@@ -1835,9 +1863,24 @@ function PrefabInspector({
           onToggle={rule.collision.optional ? onSetCollision : undefined}
         />
       )}
+      {tilemap && (
+        <TilemapCard
+          id={refName}
+          props={tilemap.props ?? {}}
+          art={art}
+          urlFor={urlFor}
+          selectedTile={0}
+          paint={false}
+          brushEnabled={false}
+          onProp={(key, value) => onProp('Tilemap', key, value)}
+          onPickTexture={(uri) => onProp('Tilemap', 'texture', uri)}
+          onSelectTile={() => {}}
+          onPaint={() => {}}
+        />
+      )}
       <BehavioursSection
         id={refName}
-        comps={[...split.behaviours, ...split.extras]}
+        comps={[...split.behaviours, ...split.extras].filter((comp) => comp.type !== 'Tilemap')}
         present={new Set(prefab.components.map((c) => c.type))}
         warning={driverWarning(prefab.components, archetype)}
         canRemove={() => true}
@@ -2039,6 +2082,20 @@ function SceneInspector({
       </label>
       <div className="ed-hint">
         y-sort draws same-layer sprites lower on screen in front — top-down depth
+      </div>
+      <label className="ed-row">
+        <span>Isometric projection</span>
+        <input
+          type="checkbox"
+          data-testid="isometric-toggle"
+          checked={scene.render?.projection === 'isometric'}
+          onChange={(e) =>
+            onRenderProp('projection', e.target.checked ? 'isometric' : undefined)
+          }
+        />
+      </label>
+      <div className="ed-hint">
+        entities stay in logical coordinates while the scene renders on a 2:1 diamond lattice
       </div>
       <div className="ed-hint">
         click an entity in the viewport or the tree to edit it — drag prefabs from the left

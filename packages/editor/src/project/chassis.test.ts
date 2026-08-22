@@ -246,6 +246,8 @@ describe('toggleAnimated', () => {
           rows: 1,
           width: 0.6,
           height: 0.6,
+          anchorX: 0.25,
+          anchorY: 0,
           clips: { spin: { frames: [0, 1, 2, 3], fps: 8 } },
           initialClip: 'spin',
         },
@@ -255,12 +257,27 @@ describe('toggleAnimated', () => {
     const toStatic = toggleAnimated(prefab)
     expect(toStatic?.components[0]).toEqual({
       type: 'Sprite',
-      props: { width: 0.6, height: 0.6, texture: 'waica:coin' },
+      props: {
+        width: 0.6,
+        height: 0.6,
+        anchorX: 0.25,
+        anchorY: 0,
+        texture: 'waica:coin',
+      },
     })
     const back = toggleAnimated(toStatic as PrefabJson)
     expect(back?.components[0]).toEqual({
       type: 'AnimatedSprite',
-      props: { width: 0.6, height: 0.6, texture: 'waica:coin', cols: 1, rows: 1, clips: {} },
+      props: {
+        width: 0.6,
+        height: 0.6,
+        anchorX: 0.25,
+        anchorY: 0,
+        texture: 'waica:coin',
+        cols: 1,
+        rows: 1,
+        clips: {},
+      },
     })
     expect(back?.components[1]).toEqual(prefab.components[1])
   })

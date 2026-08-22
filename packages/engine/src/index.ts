@@ -20,6 +20,10 @@ export type {
 } from './animation/directional.js'
 export { isYSortParticipant, ySortZ } from './render-sort.js'
 export type { YSortEntry, YSortParticipant } from './render-sort.js'
+export { projectIsometric, unprojectIsometric } from './projection.js'
+export type { ProjectedPoint } from './projection.js'
+export { spritePlacement } from './sprite-placement.js'
+export type { SpritePlacement, SpritePlacementInput } from './sprite-placement.js'
 export { CAMERA_DEFAULTS, isCameraVelocityProvider, resolveSceneCamera, stepSceneCamera } from './camera.js'
 export type {
   SceneCameraJson,
@@ -92,9 +96,18 @@ export { Solid } from './components/solid.js'
 export { Hitbox } from './components/hitbox.js'
 export { DynamicBody } from './components/dynamic-body.js'
 export { AnimatedSprite } from './components/animated-sprite.js'
+export { Tilemap } from './components/tilemap.js'
 export { aabbOverlap } from './aabb.js'
 export { resolveSolidAxis } from './solid-axis.js'
 export type { CollisionAxis, SolidAxisOptions } from './solid-axis.js'
+export { isSolidSource, sceneSolids, SOLID_SOURCE_SYMBOL } from './scene-solids.js'
+export type { SolidSource } from './scene-solids.js'
+export { cellAt, cellBounds, cellIndex } from './tilemap-grid.js'
+export type {
+  TilemapCell,
+  TilemapCellBounds,
+  TilemapGridSpec,
+} from './tilemap-grid.js'
 export {
   COLLISION_SHAPES,
   DEFAULT_COLLISION_POLYGON,

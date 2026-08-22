@@ -8,6 +8,7 @@ import {
   type CollisionShape,
 } from '../collision-shape.js'
 import { Component, type ContactNormal, type SolidContact } from '../component.js'
+import { sceneSolids } from '../scene-solids.js'
 import { resolveSolidAxis, type CollisionAxis } from '../solid-axis.js'
 import { Solid } from './solid.js'
 
@@ -210,10 +211,7 @@ export class DynamicBody extends Component {
   }
 
   private solids(): Solid[] {
-    return this.game.entities
-      .filter((entity) => entity !== this.entity)
-      .map((entity) => entity.get(Solid))
-      .filter((solid): solid is Solid => solid !== undefined)
+    return sceneSolids(this.game, this.entity)
   }
 
   private collisionBody(): CollisionBody {

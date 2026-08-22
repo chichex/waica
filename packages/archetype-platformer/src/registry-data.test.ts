@@ -17,6 +17,8 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     color: 0xffffff,
     offsetX: 0,
     offsetY: 0,
+    anchorX: 0.5,
+    anchorY: 0.5,
     layer: 0,
     shape: 'rectangle',
   },
@@ -38,6 +40,8 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     height: 1,
     offsetX: 0,
     offsetY: 0,
+    anchorX: 0.5,
+    anchorY: 0.5,
     layer: 0,
   },
   Solid: {

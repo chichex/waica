@@ -81,7 +81,7 @@ describe('CameraInspector vertical lookahead', () => {
   })
 })
 
-describe('SceneInspector y-sort toggle', () => {
+describe('SceneInspector render toggles', () => {
   const scene = (render?: SceneJson['render']): SceneJson => ({
     waicaScene: 3,
     entities: [],
@@ -99,5 +99,17 @@ describe('SceneInspector y-sort toggle', () => {
     render({ kind: 'scene', name: 'main', scene: scene({ sort: 'y' }) })
     const toggle = document.querySelector<HTMLInputElement>('input[data-testid="ysort-toggle"]')
     expect(toggle!.checked).toBe(true)
+  })
+
+  it('shows isometric projection off by default and on when declared', () => {
+    render({ kind: 'scene', name: 'main', scene: scene() })
+    expect(
+      document.querySelector<HTMLInputElement>('input[data-testid="isometric-toggle"]')?.checked,
+    ).toBe(false)
+
+    render({ kind: 'scene', name: 'main', scene: scene({ projection: 'isometric' }) })
+    expect(
+      document.querySelector<HTMLInputElement>('input[data-testid="isometric-toggle"]')?.checked,
+    ).toBe(true)
   })
 })

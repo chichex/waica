@@ -9,6 +9,7 @@ import type { Game } from './game.js'
 export class Entity {
   readonly node = new THREE.Group()
   readonly components: Component[] = []
+  private logicalPosition: THREE.Vector3 | null = null
   private destroyed = false
 
   get alive(): boolean {
@@ -21,7 +22,18 @@ export class Entity {
   ) {}
 
   get position(): THREE.Vector3 {
-    return this.node.position
+    return this.logicalPosition ?? this.node.position
+  }
+
+  /** Keeps identity scenes zero-copy while projected scenes own a logical transform. */
+  setProjected(projected: boolean): void {
+    if (projected === (this.logicalPosition !== null)) return
+    if (projected) {
+      this.logicalPosition = this.node.position.clone()
+      return
+    }
+    this.node.position.copy(this.logicalPosition!)
+    this.logicalPosition = null
   }
 
   get scale(): THREE.Vector3 {

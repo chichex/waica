@@ -1,8 +1,10 @@
 import * as THREE from 'three'
 import { Component } from '../component.js'
 import type { YSortParticipant } from '../render-sort.js'
+import { spritePlacement } from '../sprite-placement.js'
 
 const loader = new THREE.TextureLoader()
+const clampAnchor = (value: number): number => Math.min(1, Math.max(0, value))
 
 export type SpriteShape = 'rectangle' | 'circle'
 
@@ -15,6 +17,8 @@ export class Sprite extends Component implements YSortParticipant {
   static override params = {
     offsetX: { label: 'x offset' },
     offsetY: { label: 'y offset' },
+    anchorX: { label: 'x anchor', min: 0, max: 1, step: 0.25 },
+    anchorY: { label: 'y anchor', min: 0, max: 1, step: 0.25 },
     layer: { label: 'layer', min: -5, max: 5, step: 1 },
   }
   static override transient = ['mesh']
@@ -28,14 +32,14 @@ export class Sprite extends Component implements YSortParticipant {
   }
   set width(value: number) {
     this._width = value
-    this.mesh?.scale.set(this._width, this._height, 1)
+    this.syncQuad()
   }
   get height(): number {
     return this._height
   }
   set height(value: number) {
     this._height = value
-    this.mesh?.scale.set(this._width, this._height, 1)
+    this.syncQuad()
   }
 
   private _color = 0xffffff
@@ -54,14 +58,31 @@ export class Sprite extends Component implements YSortParticipant {
   }
   set offsetX(value: number) {
     this._offsetX = value
-    if (this.mesh) this.mesh.position.x = value
+    this.syncQuad()
   }
   get offsetY(): number {
     return this._offsetY
   }
   set offsetY(value: number) {
     this._offsetY = value
-    if (this.mesh) this.mesh.position.y = value
+    this.syncQuad()
+  }
+
+  private _anchorX = 0.5
+  private _anchorY = 0.5
+  get anchorX(): number {
+    return this._anchorX
+  }
+  set anchorX(value: number) {
+    this._anchorX = clampAnchor(value)
+    this.syncQuad()
+  }
+  get anchorY(): number {
+    return this._anchorY
+  }
+  set anchorY(value: number) {
+    this._anchorY = clampAnchor(value)
+    this.syncQuad()
   }
 
   /** Optional texture URL; with pixelArt on it filters in nearest. */
@@ -110,8 +131,8 @@ export class Sprite extends Component implements YSortParticipant {
       material.color.set(0xffffff)
     }
     this.mesh = new THREE.Mesh(this.createGeometry(), material)
-    this.mesh.scale.set(this._width, this._height, 1)
-    this.mesh.position.set(this._offsetX, this._offsetY, this.layer * 0.01)
+    this.mesh.position.z = this.layer * 0.01
+    this.syncQuad()
     this.entity.node.add(this.mesh)
   }
 
@@ -119,6 +140,24 @@ export class Sprite extends Component implements YSortParticipant {
     this.mesh?.removeFromParent()
     this.mesh?.geometry.dispose()
     this.mesh?.material.dispose()
+  }
+
+  private syncQuad(): void {
+    if (!this.mesh) return
+    const placement = spritePlacement({
+      width: this.width,
+      height: this.height,
+      offsetX: this.offsetX,
+      offsetY: this.offsetY,
+      anchorX: this.anchorX,
+      anchorY: this.anchorY,
+      flipX: false,
+      frameScaleX: 1,
+      frameScaleY: 1,
+    })
+    this.mesh.position.x = placement.x
+    this.mesh.position.y = placement.y
+    this.mesh.scale.set(placement.scaleX, placement.scaleY, 1)
   }
 
   private createGeometry(): THREE.BufferGeometry {

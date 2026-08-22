@@ -4,6 +4,7 @@ import {
   Solid,
   Sprite,
   StateMachine,
+  Tilemap,
   type EntityTemplate,
   type SceneRegistry,
 } from '@waica/engine'
@@ -35,6 +36,7 @@ export const TOPDOWN_REGISTRY_DATA: SceneRegistry = {
   components: {
     Sprite,
     AnimatedSprite,
+    Tilemap,
     Solid,
     Hitbox,
     StateMachine,

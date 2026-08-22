@@ -1,3 +1,4 @@
+import { projectIsometric, unprojectIsometric } from '@waica/engine'
 import type { GridSettings } from '../project/editor-settings'
 
 /**
@@ -20,18 +21,40 @@ export function snapActive(snap: boolean, shiftKey: boolean): boolean {
   return snap !== shiftKey
 }
 
-/** The grid vertex nearest to a world point. */
+/** The grid vertex nearest to a render-space point. */
 export function snapPoint(spec: GridSpec, x: number, y: number): [number, number] {
-  return [Math.round(x / spec.size) * spec.size, Math.round(y / spec.size) * spec.size]
+  if (spec.type === 'square') {
+    return [Math.round(x / spec.size) * spec.size, Math.round(y / spec.size) * spec.size]
+  }
+  const logical = unprojectIsometric(x, y)
+  const projected = projectIsometric(
+    Math.round(logical.x / spec.size) * spec.size,
+    Math.round(logical.y / spec.size) * spec.size,
+  )
+  return [projected.x, projected.y]
 }
 
-/** The rect's cover in whole cell indices: same cover ⇒ identical lines. */
+/** The rect's logical cover in whole cell indices: same cover ⇒ identical lines. */
 function cover(spec: GridSpec, rect: WorldRect) {
+  if (spec.type === 'square') {
+    return {
+      minX: Math.floor(rect.minX / spec.size),
+      maxX: Math.ceil(rect.maxX / spec.size),
+      minY: Math.floor(rect.minY / spec.size),
+      maxY: Math.ceil(rect.maxY / spec.size),
+    }
+  }
+  const corners = [
+    unprojectIsometric(rect.minX, rect.minY),
+    unprojectIsometric(rect.minX, rect.maxY),
+    unprojectIsometric(rect.maxX, rect.minY),
+    unprojectIsometric(rect.maxX, rect.maxY),
+  ]
   return {
-    minX: Math.floor(rect.minX / spec.size),
-    maxX: Math.ceil(rect.maxX / spec.size),
-    minY: Math.floor(rect.minY / spec.size),
-    maxY: Math.ceil(rect.maxY / spec.size),
+    minX: Math.floor(Math.min(...corners.map(({ x }) => x)) / spec.size),
+    maxX: Math.ceil(Math.max(...corners.map(({ x }) => x)) / spec.size),
+    minY: Math.floor(Math.min(...corners.map(({ y }) => y)) / spec.size),
+    maxY: Math.ceil(Math.max(...corners.map(({ y }) => y)) / spec.size),
   }
 }
 
@@ -49,21 +72,37 @@ export function gridLineVertices(spec: GridSpec, rect: WorldRect): Float32Array 
   const rows = c.maxY - c.minY + 1
   const out = new Float32Array((cols + rows) * 6)
   let i = 0
-  for (let x = c.minX; x <= c.maxX; x++) {
-    out[i++] = x * s
-    out[i++] = c.minY * s
-    out[i++] = 0
-    out[i++] = x * s
-    out[i++] = c.maxY * s
+  const point = (logicalX: number, logicalY: number): void => {
+    const projected = projectIsometric(logicalX, logicalY)
+    out[i++] = projected.x
+    out[i++] = projected.y
     out[i++] = 0
   }
+  for (let x = c.minX; x <= c.maxX; x++) {
+    if (spec.type === 'square') {
+      out[i++] = x * s
+      out[i++] = c.minY * s
+      out[i++] = 0
+      out[i++] = x * s
+      out[i++] = c.maxY * s
+      out[i++] = 0
+    } else {
+      point(x * s, c.minY * s)
+      point(x * s, c.maxY * s)
+    }
+  }
   for (let y = c.minY; y <= c.maxY; y++) {
-    out[i++] = c.minX * s
-    out[i++] = y * s
-    out[i++] = 0
-    out[i++] = c.maxX * s
-    out[i++] = y * s
-    out[i++] = 0
+    if (spec.type === 'square') {
+      out[i++] = c.minX * s
+      out[i++] = y * s
+      out[i++] = 0
+      out[i++] = c.maxX * s
+      out[i++] = y * s
+      out[i++] = 0
+    } else {
+      point(c.minX * s, y * s)
+      point(c.maxX * s, y * s)
+    }
   }
   return out
 }

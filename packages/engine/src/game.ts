@@ -19,6 +19,7 @@ import {
   EngineRuntimeBridge,
 } from './runtime-bridge.js'
 import { RuntimeInspector } from './runtime-inspection.js'
+import { projectIsometric } from './projection.js'
 import { isYSortParticipant, ySortZ, type YSortEntry, type YSortParticipant } from './render-sort.js'
 import { registryEntry, spawnFromJson, type SceneRegistry, type SceneRenderJson } from './scene.js'
 import { Stats, type StatValue } from './stats.js'
@@ -86,6 +87,7 @@ export class Game {
   private viewHeight: number
   private sceneCamera: ResolvedSceneCamera | null = null
   private renderSort: 'y' | null = null
+  private sceneProjection: 'isometric' | null = null
   private lastTime = 0
   private runtimeBridge: EngineRuntimeBridge | null = null
 
@@ -109,6 +111,7 @@ export class Game {
   /** Creates a live entity in the scene. */
   spawn(name: string): Entity {
     const entity = new Entity(this, name)
+    entity.setProjected(this.sceneProjection === 'isometric')
     this.entities.push(entity)
     this.scene.add(entity.node)
     return entity
@@ -168,6 +171,13 @@ export class Game {
    */
   setSceneRender(json?: SceneRenderJson): void {
     this.renderSort = json?.sort === 'y' ? 'y' : null
+    const projection = json?.projection === 'isometric' ? 'isometric' : null
+    if (projection === this.sceneProjection) return
+    this.sceneProjection = projection
+    for (const entity of this.entities) {
+      entity.setProjected(projection === 'isometric')
+      for (const component of entity.components) component.onProjectionChange?.(projection)
+    }
   }
 
   /**
@@ -184,11 +194,11 @@ export class Game {
     // With a follow target the declared position is moot: start centered on
     // the target so play begins framed like the editor shows it.
     const followed = this.sceneCamera.follow ? this.find(this.sceneCamera.follow) : undefined
-    const [x, y] = followed
-      ? [followed.position.x, followed.position.y]
-      : this.sceneCamera.position
-    this.camera.position.x = x
-    this.camera.position.y = y
+    const center = followed
+      ? this.renderPoint(followed.position.x, followed.position.y)
+      : { x: this.sceneCamera.position[0], y: this.sceneCamera.position[1] }
+    this.camera.position.x = center.x
+    this.camera.position.y = center.y
     this.setViewHeight(this.sceneCamera.zoom)
   }
 
@@ -223,6 +233,11 @@ export class Game {
   removeEntity(entity: Entity): void {
     const i = this.entities.indexOf(entity)
     if (i !== -1) this.entities.splice(i, 1)
+  }
+
+  /** The scene's render projection; null keeps logical and render space identical. */
+  get projection(): 'isometric' | null {
+    return this.sceneProjection
   }
 
   /** Visible world height (2D camera zoom). */
@@ -293,7 +308,7 @@ export class Game {
       for (const component of entity.components) {
         if (isYSortParticipant(component)) {
           participants.push(component)
-          entries.push({ layer: component.layer, y: entity.position.y })
+          entries.push({ layer: component.layer, y: entity.node.position.y })
         }
       }
     }
@@ -302,6 +317,13 @@ export class Game {
   }
 
   private renderSurface(): void {
+    if (this.sceneProjection === 'isometric') {
+      for (const entity of this.entities) {
+        const projected = projectIsometric(entity.position.x, entity.position.y)
+        entity.node.position.x = projected.x
+        entity.node.position.y = projected.y
+      }
+    }
     if (this.renderSort === 'y') this.applyYSort()
     this.ui.setActive(this.simulate)
     if (this.resolution) {
@@ -357,18 +379,28 @@ export class Game {
       (c): c is Component & CameraVelocityProvider => isCameraVelocityProvider(c),
     )
     const velocity = provider?.getCameraVelocity()
+    const target = followed
+      ? this.renderPoint(followed.position.x, followed.position.y)
+      : null
+    const renderVelocity = velocity
+      ? this.renderPoint(velocity.vx, velocity.vy)
+      : { x: 0, y: 0 }
     const next = stepSceneCamera(cam, {
       x: this.camera.position.x,
       y: this.camera.position.y,
       halfW: (this.camera.right - this.camera.left) / 2,
       halfH: this.viewHeight / 2,
-      target: followed ? { x: followed.position.x, y: followed.position.y } : null,
-      vx: velocity?.vx ?? 0,
-      vy: velocity?.vy ?? 0,
+      target,
+      vx: renderVelocity.x,
+      vy: renderVelocity.y,
       dt,
     })
     this.camera.position.x = next.x
     this.camera.position.y = next.y
+  }
+
+  private renderPoint(x: number, y: number): { x: number; y: number } {
+    return this.sceneProjection === 'isometric' ? projectIsometric(x, y) : { x, y }
   }
 
   private dispatchCollisions(): void {

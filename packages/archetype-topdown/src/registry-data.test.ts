@@ -17,6 +17,8 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     color: 0xffffff,
     offsetX: 0,
     offsetY: 0,
+    anchorX: 0.5,
+    anchorY: 0.5,
     layer: 0,
     shape: 'rectangle',
   },
@@ -38,6 +40,27 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     height: 1,
     offsetX: 0,
     offsetY: 0,
+    anchorX: 0.5,
+    anchorY: 0.5,
+    layer: 0,
+  },
+  Tilemap: {
+    texture: '',
+    color: 0xffffff,
+    cols: 1,
+    rows: 1,
+    gridOffsetX: 0,
+    gridOffsetY: 0,
+    spacingX: 0,
+    spacingY: 0,
+    cellWidth: 0,
+    cellHeight: 0,
+    pixelArt: true,
+    mapWidth: 1,
+    mapHeight: 1,
+    cellSize: 1,
+    cells: [],
+    solidTiles: [],
     layer: 0,
   },
   Solid: {
@@ -105,7 +128,7 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
 }
 
 describe('TOPDOWN_REGISTRY_DATA authoring defaults', () => {
-  it('covers exactly the 14 registered components', () => {
+  it('covers exactly the 15 registered components', () => {
     expect(Object.keys(TOPDOWN_REGISTRY_DATA.components).sort()).toEqual(
       Object.keys(EXPECTED_DEFAULTS).sort(),
     )

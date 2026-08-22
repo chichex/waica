@@ -47,4 +47,38 @@ describe('resolveSolidAxis', () => {
     expect(collided).toBe(true)
     expect(entity.position.x).toBeCloseTo(0.5, 3)
   })
+
+  it('collects one Solid per other entity in entity order', () => {
+    const game = { entities: [] as Entity[] } as unknown as Game
+    const entity = {
+      game,
+      position: new THREE.Vector3(0, 0, 0),
+    } as unknown as Entity
+    const first = solidEntity(game, 1, 0.5)
+    const withoutSolid = {
+      game,
+      position: new THREE.Vector3(10, 0, 0),
+      get: () => undefined,
+    } as unknown as Entity
+    const second = solidEntity(game, 1, 0.5)
+    game.entities.push(entity, first, withoutSolid, second)
+    entity.position.x = 2
+    const contacts: Solid[] = []
+
+    resolveSolidAxis({
+      entity,
+      axis: 'x',
+      previous: 0,
+      body: () => ({
+        x: entity.position.x,
+        y: entity.position.y,
+        width: 1,
+        height: 1,
+        shape: 'rectangle',
+      }),
+      onContact: (solid) => contacts.push(solid),
+    })
+
+    expect(contacts).toEqual([first.get(Solid), second.get(Solid)])
+  })
 })

@@ -71,6 +71,8 @@ export abstract class Component {
   onReady?(): void
   /** Runs once per frame. */
   onUpdate?(dt: number): void
+  /** Runs after the scene changes between identity and projected rendering. */
+  onProjectionChange?(projection: 'isometric' | null): void
   /** Runs when this entity's Hitbox overlaps another one's. */
   onCollide?(other: Entity): void
   /** Runs when this entity's DynamicBody physically contacts a Solid. */

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { gridCoverKey, gridLineVertices, snapActive, snapPoint, type GridSpec } from './grid'
 
 const SQUARE: GridSpec = { type: 'square', size: 0.5 }
+const ISOMETRIC: GridSpec = { type: 'isometric', size: 1 }
 
 describe('snapActive', () => {
   it('follows the toggle', () => {
@@ -24,6 +25,11 @@ describe('snapPoint', () => {
   it('leaves exact vertices in place', () => {
     expect(snapPoint({ type: 'square', size: 1 }, -3, 2)).toEqual([-3, 2])
   })
+
+  it('snaps isometric screen points through the logical lattice', () => {
+    expect(snapPoint(ISOMETRIC, 1.1, -1.4)).toEqual([1, -1.5])
+    expect(snapPoint(ISOMETRIC, 1, -1.5)).toEqual([1, -1.5])
+  })
 })
 
 describe('gridLineVertices', () => {
@@ -45,6 +51,17 @@ describe('gridLineVertices', () => {
     }
     expect([...xs].sort((a, b) => a - b)).toEqual([0, 1, 2])
   })
+
+  it('draws both projected diagonal families over the logical cover', () => {
+    const verts = gridLineVertices(ISOMETRIC, { minX: -2, maxX: 2, minY: -1, maxY: 0 })
+    expect(verts).toHaveLength(8 * 6)
+    for (let index = 0; index < verts.length; index += 6) {
+      const dx = Math.abs((verts[index + 3] ?? 0) - (verts[index] ?? 0))
+      const dy = Math.abs((verts[index + 4] ?? 0) - (verts[index + 1] ?? 0))
+      expect(dx).toBeGreaterThan(0)
+      expect(dy).toBeGreaterThan(0)
+    }
+  })
 })
 
 describe('gridCoverKey', () => {
@@ -65,5 +82,11 @@ describe('gridCoverKey', () => {
     expect(gridCoverKey(SQUARE, rect)).not.toBe(
       gridCoverKey({ type: 'square', size: 1 }, rect),
     )
+  })
+
+  it('keeps an isometric logical cover stable across sub-cell screen pans', () => {
+    const a = gridCoverKey(ISOMETRIC, { minX: -1.8, maxX: 1.8, minY: -0.8, maxY: 0.8 })
+    const b = gridCoverKey(ISOMETRIC, { minX: -1.8, maxX: 1.8, minY: -0.85, maxY: 0.75 })
+    expect(a).toBe(b)
   })
 })

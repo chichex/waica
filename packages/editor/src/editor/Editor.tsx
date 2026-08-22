@@ -74,6 +74,7 @@ import { scriptSource } from './script-sources'
 import { useProjectArt, type ArtItem } from './use-project-art'
 import { loadWorkspace, saveWorkspace, type WorkspaceView } from './workspace'
 import { WriteScheduler } from './write-scheduler'
+import type { TilemapBrushSelection } from './tilemap-brush'
 
 type SaveState = 'saved' | 'saving' | 'error'
 
@@ -146,6 +147,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     appearance: true,
     collision: true,
   })
+  const [tilemapBrush, setTilemapBrush] = useState<TilemapBrushSelection | null>(null)
   /** Multi-selection in the scene tree: [] or 2+ entity names, never one. */
   const [multi, setMulti] = useState<string[]>([])
   const [saveState, setSaveState] = useState<SaveState>('saved')
@@ -1294,6 +1296,10 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
           grid={editorSettings?.grid}
           onGridChange={commitGrid}
           componentVisibility={viewportVisibility}
+          tilemapBrush={tilemapBrush}
+          onTilemapStroke={(name, cells) => {
+            commit(ops.setComponentProp(scene, name, 'Tilemap', 'cells', cells, prefabLib))
+          }}
           selected={selected}
           multiSelected={multi}
           onSelect={selectEntity}
@@ -1727,6 +1733,8 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             urlFor={projectArt.urlFor}
             onImportArt={projectArt.importArt}
             viewportVisibility={viewportVisibility}
+            tilemapBrush={tilemapBrush}
+            onTilemapBrush={setTilemapBrush}
             onViewportVisibility={(role, visible) =>
               setViewportVisibility((current) => ({ ...current, [role]: visible }))
             }
@@ -1834,12 +1842,14 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             onPrefabProp={(ref, componentType, key, value) => {
               const prefab = prefabLib[ref]
               if (!prefab) return
-              // The prefab stage names its single entity after the ref base.
-              viewport.current?.applyProp(refBase(ref), componentType, key, value)
+              const structural = componentType === 'Tilemap' && key === 'texture'
+              // Stored asset paths need registry resolution, so a Tilemap
+              // texture swap recreates the stage instead of patching the URI.
+              if (!structural) viewport.current?.applyProp(refBase(ref), componentType, key, value)
               commitPrefab(
                 ref,
                 setPrefabProp(prefab, componentType, key, value),
-                false,
+                structural,
                 `prop:${componentType}:${key}`,
               )
             }}
@@ -1907,7 +1917,13 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
               if (scene) commit(ops.setCameraProp(scene, key, value), false, `camera:${key}`)
             }}
             onRenderProp={(key, value) => {
-              if (scene) commit(ops.setRenderProp(scene, key, value), false, `render:${key}`)
+              if (scene) {
+                commit(
+                  ops.setRenderProp(scene, key, value),
+                  key === 'projection',
+                  `render:${key}`,
+                )
+              }
             }}
             pixelsPerUnit={gameSettings?.pixelsPerUnit ?? DEFAULT_GAME_SETTINGS.pixelsPerUnit}
             resolution={gameSettings?.resolution ?? DEFAULT_GAME_SETTINGS.resolution}

@@ -109,6 +109,21 @@ afterEach(() => {
 })
 
 describe('Game glue characterization', () => {
+  it('keeps logical and render position as the same Vector3 in an unprojected scene', () => {
+    const game = makeGame()
+    loadScene(
+      game,
+      { waicaScene: 3, entities: [{ name: 'Pinned', position: [2, -3] }] },
+      { components: {} },
+    )
+    const entity = game.find('Pinned')!
+
+    expect(entity.position).toBe(entity.node.position)
+    expect(entity.position.toArray()).toEqual([2, -3, 0])
+
+    game.dispose()
+  })
+
   it('discovers camera velocity through the CameraVelocityProvider seam', () => {
     const game = makeGame()
     const target = game.spawn('Player')
@@ -454,6 +469,27 @@ describe('y-sort render mode', () => {
     // Entity Y decides: Lower (y -1) in front of Offset (y 0), however far
     // the offset visually drops the Offset quad.
     expect(meshZ(game, 'Lower')).toBeGreaterThan(meshZ(game, 'Offset'))
+    game.dispose()
+  })
+
+  it('does not shift the entity y-sort key for a bottom-anchored sprite', () => {
+    const game = makeGame()
+    loadScene(
+      game,
+      {
+        waicaScene: 3,
+        render: { sort: 'y' },
+        entities: [
+          spriteAt('Anchored', 0, 0, { height: 4, anchorY: 0 }),
+          spriteAt('Lower', -1, 0),
+        ],
+      },
+      registry,
+    )
+
+    step(game)
+
+    expect(meshZ(game, 'Lower')).toBeGreaterThan(meshZ(game, 'Anchored'))
     game.dispose()
   })
 
