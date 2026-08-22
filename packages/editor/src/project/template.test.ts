@@ -34,6 +34,33 @@ describe('projectFiles', () => {
     },
   )
 
+  it.each(['demo', 'blank'] as const)(
+    'matches the golden output for an isometric %s start',
+    (start) => {
+      expect(
+        withStableWaicaVersion(projectFiles('fixture-name', start, 'isometric')),
+      ).toMatchSnapshot()
+    },
+  )
+
+  it('generates an isometric main.ts importing its package and animation contract', () => {
+    const main = projectFiles('my-game', 'demo', 'isometric')['src/main.ts'] ?? ''
+
+    expect(main).toContain("import { ARCHETYPE } from '@waica/archetype-isometric'")
+    expect(main).toContain('installDirectionalAnimation(ARCHETYPE.animation ?? null)')
+  })
+
+  it('depends on the isometric package when that archetype is picked', () => {
+    const pkg = JSON.parse(projectFiles('diamond-quest', 'demo', 'isometric')['package.json'] ?? '') as {
+      dependencies: Record<string, string>
+    }
+    expect(pkg.dependencies).toEqual({
+      '@waica/engine': `^${enginePackage.version}`,
+      '@waica/behaviors': `^${enginePackage.version}`,
+      '@waica/archetype-isometric': `^${enginePackage.version}`,
+    })
+  })
+
   it('generates a topdown main.ts importing its package and the animation contract', () => {
     const main = projectFiles('my-game', 'demo', 'topdown')['src/main.ts'] ?? ''
 

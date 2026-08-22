@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { resolveDirectionalClip, type BrowserArchetypeManifest } from '@waica/engine'
 import { ARCHETYPE as PLATFORMER } from '../../archetype-platformer/src/index.js'
 import { ARCHETYPE as TOPDOWN } from '../../archetype-topdown/src/index.js'
+import { ARCHETYPE as ISOMETRIC } from '../../archetype-isometric/src/index.js'
 import { archetypePackageName } from '../../editor/src/project/archetype.js'
 import { knownArchetype } from './known-archetypes.js'
 
@@ -12,7 +13,7 @@ import { knownArchetype } from './known-archetypes.js'
  * must satisfy, run against each shipped manifest. A third archetype joins
  * by adding one entry here.
  */
-const MANIFESTS: BrowserArchetypeManifest[] = [PLATFORMER, TOPDOWN]
+const MANIFESTS: BrowserArchetypeManifest[] = [PLATFORMER, TOPDOWN, ISOMETRIC]
 
 interface StateMachineProps {
   role?: string

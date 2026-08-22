@@ -23,6 +23,14 @@ describe('known archetypes', () => {
     })
   })
 
+  it('lists isometric with its package and workspace directory', () => {
+    expect(knownArchetype('isometric')).toEqual({
+      id: 'isometric',
+      packageName: '@waica/archetype-isometric',
+      directory: 'archetype-isometric',
+    })
+  })
+
   it('returns undefined for an unknown id', () => {
     expect(knownArchetype('banana')).toBeUndefined()
     expect(knownArchetype('toString')).toBeUndefined()

@@ -14,6 +14,8 @@ describe('planWorkspaceRuntime', () => {
     const plan = await planWorkspaceRuntime(ROOT, existsExcept())
     expect(plan).toBeDefined()
     expect(Object.keys(plan!.mappings).sort()).toEqual([
+      '@waica/archetype-isometric',
+      '@waica/archetype-isometric/manifest',
       '@waica/archetype-platformer',
       '@waica/archetype-platformer/manifest',
       '@waica/archetype-topdown',
@@ -21,7 +23,7 @@ describe('planWorkspaceRuntime', () => {
       '@waica/behaviors',
       '@waica/engine',
     ])
-    expect(plan!.parentPrefixes).toHaveLength(4)
+    expect(plan!.parentPrefixes).toHaveLength(5)
     expect(plan!.warnings).toEqual([])
   })
 
@@ -29,12 +31,14 @@ describe('planWorkspaceRuntime', () => {
     const plan = await planWorkspaceRuntime(ROOT, existsExcept('archetype-topdown'))
     expect(plan).toBeDefined()
     expect(Object.keys(plan!.mappings).sort()).toEqual([
+      '@waica/archetype-isometric',
+      '@waica/archetype-isometric/manifest',
       '@waica/archetype-platformer',
       '@waica/archetype-platformer/manifest',
       '@waica/behaviors',
       '@waica/engine',
     ])
-    expect(plan!.parentPrefixes).toHaveLength(3)
+    expect(plan!.parentPrefixes).toHaveLength(4)
     expect(plan!.warnings).toHaveLength(1)
     expect(plan!.warnings[0]).toContain('@waica/archetype-topdown')
   })

@@ -106,6 +106,7 @@ describe('listComponents', () => {
     expect(result.provenance.map((row) => row.package)).toEqual([
       '@waica/engine',
       '@waica/behaviors',
+      '@waica/archetype-isometric',
       '@waica/archetype-platformer',
       '@waica/archetype-topdown',
     ])
@@ -232,6 +233,7 @@ describe('describeArchetype', () => {
       entityIcons: { PlatformerMotor: '🐕', Collectible: '🪙', Hazard: '👾' },
     })
     expect(result.installedArchetypes).toEqual([
+      { id: 'isometric', label: 'Isometric', status: 'installed, not active' },
       { id: 'topdown', label: 'Top-down', status: 'installed, not active' },
     ])
   })
@@ -260,6 +262,7 @@ module.exports.ARCHETYPE = {
     const active = await describeArchetype(project)
     expect(active.archetype).toMatchObject({ id: 'fixture', label: 'Fixture World', ui: ['panel'] })
     expect(active.installedArchetypes).toEqual([
+      { id: 'isometric', label: 'Isometric', status: 'installed, not active' },
       { id: 'platformer', label: 'Platformer', status: 'installed, not active' },
       { id: 'topdown', label: 'Top-down', status: 'installed, not active' },
     ])
@@ -352,19 +355,22 @@ module.exports.ARCHETYPE = {
     await expect(describeArchetype(project)).rejects.toThrow(/src\/game\.json.*parse|parse.*src\/game\.json/i)
   })
 
-  it('resolves topdown in any project: known archetypes ship with the server', async () => {
+  it.each([
+    ['topdown', 'Top-down'],
+    ['isometric', 'Isometric'],
+  ])('resolves bundled %s in any project', async (id, label) => {
     const project = await makeProject()
     roots.push(project)
-    const result = await describeArchetype(project, 'topdown')
-    expect(result.archetype).toMatchObject({ id: 'topdown', label: 'Top-down' })
+    const result = await describeArchetype(project, id)
+    expect(result.archetype).toMatchObject({ id, label })
     expect(result.activeArchetype).toBe('platformer')
   })
 
   it('rejects unknown ids and names every available id', async () => {
     const project = await makeProject()
     roots.push(project)
-    await expect(describeArchetype(project, 'isometric')).rejects.toThrow(
-      /isometric.*platformer.*topdown|isometric.*topdown.*platformer/i,
+    await expect(describeArchetype(project, 'flipscreen')).rejects.toThrow(
+      /flipscreen.*isometric.*platformer.*topdown/i,
     )
   })
 })

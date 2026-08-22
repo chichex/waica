@@ -135,6 +135,11 @@ export class PassiveTarget extends Component {
         { package: '@waica/engine', version: await workspaceVersion('engine'), source: 'bundled' },
         { package: '@waica/behaviors', version: await workspaceVersion('behaviors'), source: 'bundled' },
         {
+          package: '@waica/archetype-isometric',
+          version: await workspaceVersion('archetype-isometric'),
+          source: 'bundled',
+        },
+        {
           package: '@waica/archetype-platformer',
           version: await workspaceVersion('archetype-platformer'),
           source: 'bundled',

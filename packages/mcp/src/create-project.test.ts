@@ -48,6 +48,31 @@ async function expectedEditorFiles(
 }
 
 describe('createProject', () => {
+  it.each(['demo', 'blank'] as const)(
+    'creates an isometric %s project byte-for-byte like the editor',
+    async (start) => {
+      const parent = await tempDir()
+      roots.push(parent)
+      const target = path.join(parent, `isometric-${start}`)
+
+      await createProject(target, start, 'isometric')
+
+      expect(await textTree(target)).toEqual(
+        await expectedEditorFiles(`isometric-${start}`, start, 'isometric'),
+      )
+      const artPaths = (await filesBelow(target)).filter((file) => file.endsWith('.png'))
+      expect(artPaths).toEqual(Object.keys(projectArtFiles(start, 'isometric')).sort())
+      for (const relative of artPaths) {
+        const source = path.resolve(
+          import.meta.dirname,
+          '../../archetype-isometric/assets',
+          path.basename(relative),
+        )
+        expect(await readFile(path.join(target, relative))).toEqual(await readFile(source))
+      }
+    },
+  )
+
   it('creates a topdown demo byte-for-byte like the editor and copies its art', async () => {
     const parent = await tempDir()
     roots.push(parent)

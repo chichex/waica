@@ -122,6 +122,9 @@ importers:
       '@monaco-editor/react':
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.52.2)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@waica/archetype-isometric':
+        specifier: workspace:^
+        version: link:../archetype-isometric
       '@waica/archetype-platformer':
         specifier: workspace:^
         version: link:../archetype-platformer
@@ -175,6 +178,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.30.0
         version: 1.30.0(zod@4.4.3)
+      '@waica/archetype-isometric':
+        specifier: workspace:^
+        version: link:../archetype-isometric
       '@waica/archetype-platformer':
         specifier: workspace:^
         version: link:../archetype-platformer

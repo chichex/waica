@@ -27,6 +27,7 @@ describe('@waica/mcp package contract', () => {
         'playwright-core': expect.stringMatching(/^\^1\./),
         '@waica/engine': 'workspace:^',
         '@waica/behaviors': 'workspace:^',
+        '@waica/archetype-isometric': 'workspace:^',
         '@waica/archetype-platformer': 'workspace:^',
         '@waica/archetype-topdown': 'workspace:^',
       },
@@ -38,6 +39,7 @@ describe('@waica/mcp package contract', () => {
     expect(pkg).not.toHaveProperty('publishConfig')
     expect(Object.keys(pkg.dependencies as object).sort()).toEqual([
       '@modelcontextprotocol/sdk',
+      '@waica/archetype-isometric',
       '@waica/archetype-platformer',
       '@waica/archetype-topdown',
       '@waica/behaviors',
