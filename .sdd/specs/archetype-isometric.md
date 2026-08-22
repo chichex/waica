@@ -189,3 +189,27 @@ Conflicts between the handoffs and the current code, surfaced rather than silent
 | POL-tests-acompañan-src | verificado | `archetype-isometric`: 7 tests tocados; `behaviors`: 2 tests tocados |
 | POL-max-lineas-archivo | verificado | máximo tocado 713 líneas en `packages/mcp/src/validation.test.ts`, menor que 950 |
 | POL-naming-archivos | verificado | 0 nombres inválidos entre archivos nuevos bajo `src/` |
+
+## Resultado del seguimiento de review (2026-08-22 · HEAD 0527184)
+| Finding | Estado | Evidencia |
+|---|---|---|
+| R-1 role drivers | verificado | rojo inicial en conformance/registry; luego 49/49 focalizados y 1120/1120 globales con `Chaser` y `Lifetime` registrados |
+| R-2 movable camera | verificado | `scene-default.test.ts` ejecuta `stepSceneCamera` a 640×360 y observa ambos ejes moverse con `zoom: 12` |
+| R-3 camera aliasing | verificado | demo/blank conservan valores iguales pero `position` y `limits` tienen identidades distintas |
+| R-4 texel density | verificado | rojo 64/30 vs 32; crate/rock recompuestos a 32×32; gate final exige familia 16/32 |
+| R-5 package boundary | verificado | integration test vive en `packages/behaviors/src/iso-motor-projection.test.ts`; el path invertido de engine no existe |
+| R-6 motor duplication | verificado | `GridMotor` comparte tuning, providers, integración y colisión; suites TopDown/IsoMotor verdes |
+| R-7 player-role duplication | verificado | `createGridPlayerRole` genera ambos roles y conserva comentarios sobre dead clip, `'*'` y no-op; 50/50 behaviors focalizados |
+| R-8 shared npc UI | verificado | `INTERACTABLE_UI` es el único TS que declara `.npc-line`; ambos archetypes lo componen; `interactable.test.ts` cubre la pieza |
+| R-9 brittle wiring test | verificado | test textual redundante eliminado; build, package tests, ESM audit y `test:dist` validan los seams reales; receipt vs `main`: 0 test files borrados |
+| R-10 duplicated icons | verificado | `ISOMETRIC_ENTITY_ICONS` exportado desde `manifest.ts` e importado por su test |
+| R-11 input naming | verificado | el vector `screenInputToLogical(0, 1)` se llama `up`; `projection.test.ts` verde |
+| R-12 topdown ESM gap | verificado | audit ESM cubre cinco roots publicados, incluidos topdown e isometric; 0 imports relativos sin extensión |
+| R-13 dead PNG declaration | verificado | `packages/archetype-isometric/src/assets.d.ts` ausente; typecheck completo verde |
+| R-14 update schedules | verificado | nuevo gate isométrico: 2/2; todos los prefabs resuelven bajo cuatro permutaciones |
+| R-15 stale autonomy contract | verificado | `/sdd-init --update`: 12 workspaces, 6 paquetes, 5 libs vendored, 1120/129, tres examples/e2e; `runtime-docs.test.ts` 6/6 y cuatro smokes HTTP 200 |
+| LADDER | verificado | `pnpm typecheck`; `pnpm test` 1120/1120; `pnpm build`; `pnpm test:dist`; `pnpm test:e2e` con PNG isométrico de 18656 bytes |
+| POL-higiene-ts-diff | verificado | 0 escapes/enum/default-export; 0 directivas `@ts-*` con pathspec corregido |
+| POL-tests-acompañan-src | verificado | `archetype-isometric`: 8 tests tocados; `behaviors`: 4 |
+| POL-max-lineas-archivo | verificado | máximo 713 líneas, menor que 950 |
+| POL-naming-archivos | verificado | 0 nombres inválidos |
