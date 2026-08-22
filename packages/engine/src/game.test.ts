@@ -472,6 +472,27 @@ describe('y-sort render mode', () => {
     game.dispose()
   })
 
+  it('does not shift the entity y-sort key for a bottom-anchored sprite', () => {
+    const game = makeGame()
+    loadScene(
+      game,
+      {
+        waicaScene: 3,
+        render: { sort: 'y' },
+        entities: [
+          spriteAt('Anchored', 0, 0, { height: 4, anchorY: 0 }),
+          spriteAt('Lower', -1, 0),
+        ],
+      },
+      registry,
+    )
+
+    step(game)
+
+    expect(meshZ(game, 'Lower')).toBeGreaterThan(meshZ(game, 'Anchored'))
+    game.dispose()
+  })
+
   it('sorts any component that opts into the y-sort seam, not just stock sprites', () => {
     class DepthMarker extends Component {
       static override componentName = 'DepthMarker'
