@@ -5,6 +5,7 @@
 import chaser from '../../../behaviors/src/chaser.ts?raw'
 import collectible from '../../../behaviors/src/collectible.ts?raw'
 import hazard from '../../../behaviors/src/hazard.ts?raw'
+import gridMotor from '../../../behaviors/src/grid-motor.ts?raw'
 import health from '../../../behaviors/src/health.ts?raw'
 import isoMotor from '../../../behaviors/src/iso-motor.ts?raw'
 import lifetime from '../../../behaviors/src/lifetime.ts?raw'
@@ -20,19 +21,33 @@ export interface ScriptSource {
   source: string
 }
 
+function withGridMotor(file: string, subclass: string): string {
+  const inlineSubclass = subclass.replace("import { GridMotor } from './grid-motor.js'\n", '')
+  return [
+    `// Shared implementation: grid-motor.ts`,
+    gridMotor.trimEnd(),
+    `// Component implementation: ${file}`,
+    inlineSubclass,
+  ].join('\n\n')
+}
+
 export const SCRIPT_SOURCES: Record<string, ScriptSource> = {
   Chaser: { file: 'chaser.ts', source: chaser },
   Collectible: { file: 'collectible.ts', source: collectible },
+  GridMotor: { file: 'grid-motor.ts', source: gridMotor },
   Hazard: { file: 'hazard.ts', source: hazard },
   Health: { file: 'health.ts', source: health },
-  IsoMotor: { file: 'iso-motor.ts', source: isoMotor },
+  IsoMotor: { file: 'iso-motor.ts', source: withGridMotor('iso-motor.ts', isoMotor) },
   Lifetime: { file: 'lifetime.ts', source: lifetime },
   OutOfBounds: { file: 'out-of-bounds.ts', source: outOfBounds },
   Patrol: { file: 'patrol.ts', source: patrol },
   PlatformerMotor: { file: 'platformer-motor.ts', source: platformerMotor },
   Respawnable: { file: 'respawnable.ts', source: respawnable },
   StateMachine: { file: 'state-machine.ts', source: stateMachine },
-  TopDownMotor: { file: 'topdown-motor.ts', source: topdownMotor },
+  TopDownMotor: {
+    file: 'topdown-motor.ts',
+    source: withGridMotor('topdown-motor.ts', topdownMotor),
+  },
 }
 
 export function scriptSource(name: string): ScriptSource {
