@@ -20,6 +20,8 @@ export type {
 } from './animation/directional.js'
 export { isYSortParticipant, ySortZ } from './render-sort.js'
 export type { YSortEntry, YSortParticipant } from './render-sort.js'
+export { projectIsometric, unprojectIsometric } from './projection.js'
+export type { ProjectedPoint } from './projection.js'
 export { CAMERA_DEFAULTS, isCameraVelocityProvider, resolveSceneCamera, stepSceneCamera } from './camera.js'
 export type {
   SceneCameraJson,
