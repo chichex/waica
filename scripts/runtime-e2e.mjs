@@ -109,8 +109,13 @@ function quoteForPackageScript(value) {
   return JSON.stringify(value)
 }
 
-async function makeFixture({ parent, engineRoot, viteBin, negative = false }) {
-  const project = await mkdtemp(path.join(parent, negative ? 'waica-no-game-' : 'waica-runtime-'))
+async function makeFixture({ parent, engineRoot, viteBin, negative = false, projection = false }) {
+  const prefix = negative
+    ? 'waica-no-game-'
+    : projection
+      ? 'waica-projection-'
+      : 'waica-runtime-'
+  const project = await mkdtemp(path.join(parent, prefix))
   const engineManifest = JSON.parse(await readFile(path.join(engineRoot, 'package.json'), 'utf8'))
   const packageJson = {
     name: path.basename(project),
@@ -139,7 +144,71 @@ async function makeFixture({ parent, engineRoot, viteBin, negative = false }) {
 `
   const main = negative
     ? `throw new Error('fixture exploded before Game.start()')\n`
-    : `import { Component, Game } from '@waica/engine'
+    : projection
+      ? `import { Component, DynamicBody, Game, Tilemap, loadScene } from '@waica/engine'
+
+class ControlProbe extends Component {
+  static componentName = 'ControlProbe'
+
+  onUpdate() {
+    const body = this.entity.get(DynamicBody)
+    if (body) body.vx = this.game.input.held('right') ? 6 : 0
+  }
+
+  inspectState() {
+    return {
+      renderPosition: {
+        x: this.entity.node.position.x,
+        y: this.entity.node.position.y,
+      },
+    }
+  }
+}
+
+const canvas = document.querySelector('#game')
+if (!(canvas instanceof HTMLCanvasElement)) throw new Error('missing game canvas')
+const game = new Game({
+  canvas,
+  resolution: { width: 320, height: 180 },
+  bindings: { right: [] },
+})
+loadScene(
+  game,
+  {
+    waicaScene: 3,
+    render: { projection: 'isometric' },
+    entities: [
+      {
+        name: 'Map',
+        position: [2, 0],
+        components: [
+          {
+            type: 'Tilemap',
+            props: {
+              color: 0xff5533,
+              mapWidth: 1,
+              mapHeight: 1,
+              cells: [0],
+              solidTiles: [0],
+            },
+          },
+        ],
+      },
+      {
+        name: 'Player',
+        position: [0, 0.5],
+        components: [
+          { type: 'ControlProbe' },
+          { type: 'DynamicBody', props: { width: 1, height: 1 } },
+        ],
+      },
+    ],
+  },
+  { components: { ControlProbe, DynamicBody, Tilemap } },
+)
+game.start()
+`
+      : `import { Component, Game } from '@waica/engine'
 
 class Mover extends Component {
   static componentName = 'Mover'
@@ -414,6 +483,83 @@ async function runHappyPath({
   }
 }
 
+async function runProjectionLeg({ client, project, chrome }) {
+  const start = await call(client, 'start_project', {
+    project_path: project,
+    browser_executable_path: chrome.executablePath,
+    timeout_ms: 15_000,
+  })
+  assert.equal(start.isError, undefined, `projection start_project failed: ${JSON.stringify(start)}`)
+  assert.equal(start.structuredContent.mode, 'paused')
+  const initial = start.structuredContent.initialSnapshot.entities.find(
+    (entity) => entity.name === 'Player',
+  )
+  assert.ok(initial, 'projection initial snapshot must contain Player')
+  assert.deepEqual(
+    { x: initial.transform.position.x, y: initial.transform.position.y },
+    { x: 0, y: 0.5 },
+    'projection snapshot starts in logical coordinates',
+  )
+
+  await call(client, 'control_runtime', {
+    project_path: project,
+    operation: 'hold',
+    action: 'right',
+  })
+  await call(client, 'control_runtime', {
+    project_path: project,
+    operation: 'step',
+    dt: 1 / 60,
+    frames: 60,
+  })
+  await call(client, 'control_runtime', {
+    project_path: project,
+    operation: 'release',
+    action: 'right',
+  })
+  await call(client, 'control_runtime', {
+    project_path: project,
+    operation: 'step',
+    dt: 1 / 60,
+    frames: 1,
+  })
+
+  const inspected = await call(client, 'inspect_runtime', {
+    project_path: project,
+    entity_names: ['Player'],
+    component_types: ['ControlProbe'],
+  })
+  const player = inspected.structuredContent.snapshot.entities[0]
+  assert.ok(player, 'projection snapshot must contain Player after stepping')
+  assert.ok(
+    Math.abs(player.transform.position.x - 1.5) < 0.001,
+    `logical player must stop flush at tile face; got x=${player.transform.position.x}`,
+  )
+  assert.equal(player.transform.position.y, 0.5)
+  const renderPosition = player.components[0]?.state?.renderPosition
+  assert.ok(renderPosition, 'ControlProbe must expose node.position')
+  assert.ok(
+    Math.abs(renderPosition.x - (player.transform.position.x - player.transform.position.y)) < 1e-9,
+    'render x must equal projectIsometric(logical position).x',
+  )
+  assert.ok(
+    Math.abs(renderPosition.y + (player.transform.position.x + player.transform.position.y) / 2) < 1e-9,
+    'render y must equal projectIsometric(logical position).y',
+  )
+
+  const shot = assertScreenshot(
+    await call(client, 'capture_screenshot', { project_path: project }),
+    'paused',
+  )
+  const stopped = await call(client, 'stop_project', { project_path: project })
+  assert.equal(stopped.structuredContent.stopped, true)
+  await assertUrlClosed(start.structuredContent.url)
+  return {
+    projectionUrl: start.structuredContent.url,
+    projectionPngBytes: Buffer.from(shot.image, 'base64').byteLength,
+  }
+}
+
 /**
  * The topdown leg: a real generated Project (create_project archetype:
  * 'topdown') through the same Run Session — semantic move input must move
@@ -543,6 +689,7 @@ export async function runRuntimeE2e({
   includeReload = true,
   includeAlias = true,
   includeTopdown = true,
+  includeProjection = true,
 }) {
   if (process.platform === 'win32') {
     throw new Error('The browser e2e gate requires its supported macOS/Linux host, not Windows.')
@@ -558,6 +705,9 @@ export async function runRuntimeE2e({
   const viteBin = path.join(viteRoot, 'bin/vite.js')
   const temporaryParent = await mkdtemp(path.join(tmpdir(), `waica-${label}-e2e-`))
   const happy = await makeFixture({ parent: temporaryParent, engineRoot, viteBin })
+  const projection = includeProjection
+    ? await makeFixture({ parent: temporaryParent, engineRoot, viteBin, projection: true })
+    : undefined
   const negative = includeNegative
     ? await makeFixture({ parent: temporaryParent, engineRoot, viteBin, negative: true })
     : undefined
@@ -584,6 +734,9 @@ export async function runRuntimeE2e({
       includeReload,
       includeAlias,
     })
+    const projectionResult = projection
+      ? await runProjectionLeg({ client, project: projection.project, chrome })
+      : {}
     const topdownResult = includeTopdown
       ? await runTopdownLeg({
           client,
@@ -601,6 +754,7 @@ export async function runRuntimeE2e({
       chromeVersion: chrome.version,
       durationMs: Date.now() - startedAt,
       ...happyResult,
+      ...projectionResult,
       ...topdownResult,
     }
     console.log(`waica runtime e2e (${label}): ${JSON.stringify(result)}`)
@@ -609,7 +763,7 @@ export async function runRuntimeE2e({
     throw new Error(`${error.message}\nMCP stderr:\n${stderr}`, { cause: error })
   } finally {
     if (connected) {
-      for (const fixture of [happy, negative].filter(Boolean)) {
+      for (const fixture of [happy, projection, negative].filter(Boolean)) {
         await call(
           client,
           'stop_project',
