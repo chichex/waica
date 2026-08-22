@@ -50,6 +50,19 @@ importers:
         specifier: ^8.1.5
         version: 8.1.5(@types/node@24.13.3)
 
+  packages/archetype-isometric:
+    dependencies:
+      '@waica/behaviors':
+        specifier: workspace:^
+        version: link:../behaviors
+      '@waica/engine':
+        specifier: workspace:^
+        version: link:../engine
+    devDependencies:
+      '@types/node':
+        specifier: ^24.13.3
+        version: 24.13.3
+
   packages/archetype-platformer:
     dependencies:
       '@waica/behaviors':
