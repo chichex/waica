@@ -18,6 +18,31 @@ export class Interactable extends Component {
   radius = 1.5
 }
 
+export const INTERACTABLE_UI_PIECE = 'npc-line'
+
+/** The UI fragment every archetype using Interactable must register. */
+export const INTERACTABLE_UI: Readonly<Record<string, string>> = {
+  [INTERACTABLE_UI_PIECE]: `<style>
+  .npc-line {
+    position: absolute;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    max-width: 70%;
+    padding: 10px 18px;
+    border-radius: 8px;
+    background: #1a1a2ecc;
+    border: 1px solid #ffffff2e;
+    font: 500 18px system-ui, sans-serif;
+    color: #f5f5f5;
+    text-shadow: 0 1px 2px #000a;
+    user-select: none;
+  }
+</style>
+<div class="npc-line">{{npcLine}}</div>
+`,
+}
+
 /**
  * The player role's interact lookup, run by its '*' hook in every state:
  * pressing interact near an Interactable publishes its line through the
@@ -41,13 +66,13 @@ export function interactUpdate({ entity, game }: StateContext): void {
     }
   }
   if (!nearest) {
-    game.ui.hide('npc-line')
+    game.ui.hide(INTERACTABLE_UI_PIECE)
     return
   }
   if (game.input.justPressed('interact') && !game.input.consumed('interact')) {
     // The press is spent: an input:interact edge needs a NEW press.
     game.input.consume('interact')
     game.stats.set('npcLine', nearest.line)
-    game.ui.show('npc-line')
+    game.ui.show(INTERACTABLE_UI_PIECE)
   }
 }

@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
+    "@waica/archetype-isometric": "workspace:^",
     "@waica/archetype-platformer": "workspace:^",
     "@waica/archetype-topdown": "workspace:^",
     "@waica/behaviors": "workspace:^",

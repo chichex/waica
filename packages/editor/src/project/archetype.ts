@@ -1,5 +1,6 @@
 import { ARCHETYPE } from '@waica/archetype-platformer'
 import { ARCHETYPE as TOPDOWN_ARCHETYPE } from '@waica/archetype-topdown'
+import { ARCHETYPE as ISOMETRIC_ARCHETYPE } from '@waica/archetype-isometric'
 import type { BrowserArchetypeManifest } from '@waica/engine'
 import { createContext, useContext } from 'react'
 
@@ -15,6 +16,7 @@ export function archetypePackageName(id: string): string {
 const ARCHETYPES: Readonly<Record<string, ArchetypeManifest>> = {
   platformer: ARCHETYPE,
   topdown: TOPDOWN_ARCHETYPE,
+  isometric: ISOMETRIC_ARCHETYPE,
 }
 
 /**
@@ -70,7 +72,7 @@ export const ARCHETYPE_CATALOG: Record<'2d' | '3d', ArchetypeCard[]> = {
       icon: '💎',
       label: 'Isometric',
       blurb: '8-direction movement with automatic animation mirroring.',
-      status: 'soon',
+      status: 'ready',
     },
     {
       id: 'flipscreen',

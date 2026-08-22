@@ -1,5 +1,51 @@
 import { describe, expect, it } from 'vitest'
-import { projectIsometric, unprojectIsometric } from './projection'
+import { projectIsometric, screenInputToLogical, unprojectIsometric } from './projection'
+
+describe('screenInputToLogical', () => {
+  it('maps screen cardinal input to unit logical vectors on pure screen axes', () => {
+    const right = screenInputToLogical(1, 0)
+    const up = screenInputToLogical(0, 1)
+
+    expect(right.x).toBeCloseTo(Math.SQRT1_2, 12)
+    expect(right.y).toBeCloseTo(-Math.SQRT1_2, 12)
+    expect(projectIsometric(right.x, right.y).x).toBeGreaterThan(0)
+    expect(projectIsometric(right.x, right.y).y).toBeCloseTo(0, 12)
+
+    expect(up.x).toBeCloseTo(-Math.SQRT1_2, 12)
+    expect(up.y).toBeCloseTo(-Math.SQRT1_2, 12)
+    expect(projectIsometric(up.x, up.y).x).toBeCloseTo(0, 12)
+    expect(projectIsometric(up.x, up.y).y).toBeGreaterThan(0)
+  })
+
+  it('preserves lengths and right angles before clamping', () => {
+    const horizontal = screenInputToLogical(0.6, 0)
+    const vertical = screenInputToLogical(0, 0.8)
+
+    expect(Math.hypot(horizontal.x, horizontal.y)).toBeCloseTo(0.6, 12)
+    expect(Math.hypot(vertical.x, vertical.y)).toBeCloseTo(0.8, 12)
+    expect(horizontal.x * vertical.x + horizontal.y * vertical.y).toBeCloseTo(0, 12)
+  })
+
+  it('clamps fully pressed diagonals to one logical tile axis', () => {
+    const diagonal = screenInputToLogical(1, 1)
+
+    expect(diagonal.x).toBeCloseTo(0, 12)
+    expect(diagonal.y).toBeCloseTo(-1, 12)
+    expect(Math.hypot(diagonal.x, diagonal.y)).toBeCloseTo(1, 12)
+    expect(projectIsometric(diagonal.x, diagonal.y)).toEqual({ x: 1, y: 0.5 })
+  })
+
+  it('keeps zero and short vectors unchanged in magnitude, and normalizes long ones', () => {
+    expect(screenInputToLogical(0, 0)).toEqual({ x: 0, y: 0 })
+    expect(Math.hypot(...Object.values(screenInputToLogical(0.25, 0)))).toBeCloseTo(0.25, 12)
+    expect(screenInputToLogical(2, 0)).toEqual(screenInputToLogical(1, 0))
+  })
+
+  it('is deliberately different from point unprojection', () => {
+    expect(unprojectIsometric(1, 0)).toEqual({ x: 0.5, y: -0.5 })
+    expect(screenInputToLogical(1, 0)).not.toEqual(unprojectIsometric(1, 0))
+  })
+})
 
 describe('isometric projection', () => {
   it.each([

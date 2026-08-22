@@ -82,6 +82,7 @@ describe('@waica/cli package contract', () => {
       'behaviors',
       'archetype-platformer',
       'archetype-topdown',
+      'archetype-isometric',
       'editor',
       'mcp',
     ]

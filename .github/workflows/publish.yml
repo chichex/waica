@@ -35,7 +35,7 @@ jobs:
 
       # The tag is the release intent; refuse to publish a version that does
       # not match it (e.g. a tag pushed on the wrong commit). Checking the CLI
-      # alone covers all five packages: they release in lockstep, and the unit
+      # alone covers all six packages: they release in lockstep, and the unit
       # test below fails if any of them is left on a different version.
       - name: Check tag matches package version
         run: |

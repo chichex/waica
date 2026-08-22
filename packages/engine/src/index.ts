@@ -20,7 +20,7 @@ export type {
 } from './animation/directional.js'
 export { isYSortParticipant, ySortZ } from './render-sort.js'
 export type { YSortEntry, YSortParticipant } from './render-sort.js'
-export { projectIsometric, unprojectIsometric } from './projection.js'
+export { projectIsometric, screenInputToLogical, unprojectIsometric } from './projection.js'
 export type { ProjectedPoint } from './projection.js'
 export { spritePlacement } from './sprite-placement.js'
 export type { SpritePlacement, SpritePlacementInput } from './sprite-placement.js'

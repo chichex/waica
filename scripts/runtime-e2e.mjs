@@ -323,7 +323,11 @@ async function samplePixel(playwright, executablePath, base64, x, y) {
   }
 }
 
-function assertScreenshot(result, expectedMode) {
+function assertScreenshot(
+  result,
+  expectedMode,
+  expectedDimensions = { width: 320, height: 180 },
+) {
   assert.equal(result.isError, undefined, `capture_screenshot failed: ${JSON.stringify(result)}`)
   const text = result.content.find((item) => item.type === 'text')
   const image = result.content.find((item) => item.type === 'image')
@@ -336,7 +340,10 @@ function assertScreenshot(result, expectedMode) {
   assert.ok(!text.text.includes(image.data), 'metadata text must not duplicate PNG base64')
   assert.ok(!JSON.stringify(result.structuredContent).includes(image.data), 'structured metadata must not duplicate PNG base64')
   const dimensions = pngDimensions(image.data)
-  assert.deepEqual({ width: dimensions.width, height: dimensions.height }, { width: 320, height: 180 })
+  assert.deepEqual(
+    { width: dimensions.width, height: dimensions.height },
+    expectedDimensions,
+  )
   return { metadata: parsed, image: image.data }
 }
 
@@ -666,6 +673,175 @@ async function runTopdownLeg({ client, root, parent, chrome, viteBin, engineRoot
   return { topdownUrl: start.structuredContent.url }
 }
 
+/**
+ * The isometric leg uses a generated Project and a project-owned observation
+ * probe so the public Runtime Snapshot can report render position without
+ * adding debug state to IsoMotor. Input remains semantic and simulation stays
+ * paused with exact frame steps throughout.
+ */
+async function runIsometricLeg({ client, root, parent, chrome, viteBin, engineRoot }) {
+  const project = path.join(parent, 'waica-isometric')
+  const created = await call(client, 'create_project', {
+    project_path: project,
+    start: 'demo',
+    archetype: 'isometric',
+  })
+  assert.equal(
+    created.isError,
+    undefined,
+    `create_project(isometric) failed: ${JSON.stringify(created)}`,
+  )
+
+  const manifestPath = path.join(project, 'package.json')
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+  manifest.scripts.dev = `node ${quoteForPackageScript(viteBin)}`
+  delete manifest.devDependencies
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+  await rm(path.join(project, 'vite.config.ts'), { force: true })
+  await materializeRuntimeDependencies(project, engineRoot)
+  for (const directory of ['behaviors', 'archetype-isometric']) {
+    await copyPackage(
+      path.join(root, 'packages', directory),
+      path.join(project, 'node_modules/@waica', directory),
+    )
+  }
+
+  const probeDirectory = path.join(project, 'src/components')
+  await mkdir(probeDirectory, { recursive: true })
+  await writeFile(
+    path.join(probeDirectory, 'render-probe.ts'),
+    [
+      "import { Component } from '@waica/engine'",
+      'export class RenderProbe extends Component {',
+      "  static componentName = 'RenderProbe'",
+      '  inspectState() {',
+      '    return { renderPosition: { x: this.entity.node.position.x, y: this.entity.node.position.y } }',
+      '  }',
+      '}',
+    ].join('\n'),
+  )
+  const playerPrefabPath = path.join(project, 'src/characters/player.character.json')
+  const playerPrefab = JSON.parse(await readFile(playerPrefabPath, 'utf8'))
+  playerPrefab.components.push({ type: 'RenderProbe' })
+  await writeFile(playerPrefabPath, `${JSON.stringify(playerPrefab, null, 2)}\n`)
+
+  const start = await call(client, 'start_project', {
+    project_path: project,
+    browser_executable_path: chrome.executablePath,
+    timeout_ms: 15_000,
+  })
+  assert.equal(start.isError, undefined, `isometric start_project failed: ${JSON.stringify(start)}`)
+  assert.equal(start.structuredContent.mode, 'paused')
+
+  const inspectPlayer = async () => {
+    const inspected = await call(client, 'inspect_runtime', {
+      project_path: project,
+      entity_names: ['Player'],
+    })
+    const player = inspected.structuredContent.snapshot.entities[0]
+    assert.ok(player, 'isometric snapshot must contain Player')
+    const state = (type) => player.components.find((component) => component.type === type)?.state
+    return {
+      position: player.transform.position,
+      motor: state('IsoMotor'),
+      sprite: state('AnimatedSprite'),
+      render: state('RenderProbe')?.renderPosition,
+    }
+  }
+  const hold = (action) =>
+    call(client, 'control_runtime', { project_path: project, operation: 'hold', action })
+  const release = (action) =>
+    call(client, 'control_runtime', { project_path: project, operation: 'release', action })
+  const step = (frames = 1) =>
+    call(client, 'control_runtime', {
+      project_path: project,
+      operation: 'step',
+      dt: 1 / 60,
+      frames,
+    })
+
+  const baseline = await inspectPlayer()
+  assert.equal(baseline.sprite.current, 'idle-s', 'the isometric player starts facing the camera')
+  assert.ok(baseline.render, 'RenderProbe must expose the projected node position')
+
+  await hold('right')
+  await step(10)
+  const east = await inspectPlayer()
+  const logicalDx = east.position.x - baseline.position.x
+  const logicalDy = east.position.y - baseline.position.y
+  assert.ok(logicalDx > 0, `screen-right must increase logical x; delta=${logicalDx}`)
+  assert.ok(logicalDy < 0, `screen-right must decrease logical y; delta=${logicalDy}`)
+  assert.ok(
+    Math.abs(logicalDx + logicalDy) < 1e-9,
+    `screen-right logical deltas must be equal and opposite; dx=${logicalDx}, dy=${logicalDy}`,
+  )
+  assert.ok(
+    east.render.x > baseline.render.x && Math.abs(east.render.y - baseline.render.y) < 1e-9,
+    `screen-right must move purely right in render space: ${JSON.stringify(baseline.render)} -> ${JSON.stringify(east.render)}`,
+  )
+  assert.equal(east.motor.facing, 'e')
+  assert.equal(east.sprite.current, 'walk-e')
+  assert.equal(east.sprite.flipX, false)
+
+  let contact
+  for (let frame = 0; frame < 90; frame += 1) {
+    await step()
+    const current = await inspectPlayer()
+    if (current.motor.vx === 0 || current.motor.vy === 0) {
+      contact = current
+      break
+    }
+  }
+  assert.ok(contact, 'holding right must reach a Tilemap-derived Solid')
+  assert.ok(
+    Math.abs(contact.position.x - 10.55) < 0.002,
+    `the player must stop flush at the water cell left face; x=${contact.position.x}`,
+  )
+  await release('right')
+
+  await hold('left')
+  await step(30)
+  await release('left')
+  const west = await inspectPlayer()
+  assert.equal(west.motor.facing, 'w')
+  assert.equal(west.sprite.current, 'walk-e')
+  assert.equal(west.sprite.flipX, true)
+
+  await hold('up')
+  await hold('right')
+  await step(15)
+  await release('right')
+  const northEast = await inspectPlayer()
+  assert.equal(northEast.motor.facing, 'ne')
+  assert.equal(northEast.sprite.current, 'walk-ne')
+  assert.equal(northEast.sprite.flipX, false)
+
+  await hold('left')
+  await step(15)
+  await release('left')
+  await release('up')
+  const northWest = await inspectPlayer()
+  assert.equal(northWest.motor.facing, 'nw')
+  assert.equal(northWest.sprite.current, 'walk-ne')
+  assert.equal(northWest.sprite.flipX, true)
+
+  const shot = assertScreenshot(
+    await call(client, 'capture_screenshot', { project_path: project }),
+    'paused',
+    { width: 640, height: 360 },
+  )
+  const png = pngDimensions(shot.image)
+  assert.ok(png.png.byteLength > PNG_SIGNATURE.length, 'isometric screenshot must contain PNG data')
+
+  const stopped = await call(client, 'stop_project', { project_path: project })
+  assert.equal(stopped.structuredContent.stopped, true)
+  await assertUrlClosed(start.structuredContent.url)
+  return {
+    isometricUrl: start.structuredContent.url,
+    isometricPngBytes: png.png.byteLength,
+  }
+}
+
 async function runNegativeReadiness({ client, fixture, chrome }) {
   const result = await call(client, 'start_project', {
     project_path: fixture.project,
@@ -689,6 +865,7 @@ export async function runRuntimeE2e({
   includeReload = true,
   includeAlias = true,
   includeTopdown = true,
+  includeIsometric = true,
   includeProjection = true,
 }) {
   if (process.platform === 'win32') {
@@ -747,6 +924,16 @@ export async function runRuntimeE2e({
           engineRoot,
         })
       : {}
+    const isometricResult = includeIsometric
+      ? await runIsometricLeg({
+          client,
+          root,
+          parent: temporaryParent,
+          chrome,
+          viteBin,
+          engineRoot,
+        })
+      : {}
     if (negative) await runNegativeReadiness({ client, fixture: negative, chrome })
     const result = {
       label,
@@ -756,6 +943,7 @@ export async function runRuntimeE2e({
       ...happyResult,
       ...projectionResult,
       ...topdownResult,
+      ...isometricResult,
     }
     console.log(`waica runtime e2e (${label}): ${JSON.stringify(result)}`)
     return result

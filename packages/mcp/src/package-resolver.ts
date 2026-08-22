@@ -162,6 +162,10 @@ async function loadBundledModule(
       return import('@waica/archetype-topdown')
     case '@waica/archetype-topdown/manifest':
       return import('@waica/archetype-topdown/manifest')
+    case '@waica/archetype-isometric':
+      return import('@waica/archetype-isometric')
+    case '@waica/archetype-isometric/manifest':
+      return import('@waica/archetype-isometric/manifest')
     default:
       throw new PackageUnavailableError(specifier)
   }

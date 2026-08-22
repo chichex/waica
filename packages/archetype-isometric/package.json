@@ -1,0 +1,43 @@
+{
+  "name": "@waica/archetype-isometric",
+  "version": "0.7.0",
+  "description": "Waica isometric archetype — logical-grid action adventures with screen-relative movement",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chichex/waica",
+    "directory": "packages/archetype-isometric"
+  },
+  "files": [
+    "dist",
+    "assets"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./manifest": "./src/manifest.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./manifest": {
+        "types": "./dist/manifest.d.ts",
+        "default": "./dist/manifest.js"
+      }
+    }
+  },
+  "scripts": {
+    "build": "node ../../scripts/clean-dist.mjs && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@waica/behaviors": "workspace:^",
+    "@waica/engine": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3"
+  }
+}

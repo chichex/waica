@@ -10,6 +10,16 @@ describe('ARCHETYPE_CATALOG', () => {
     })
   })
 
+  it('ships the isometric card ready with its existing icon and blurb', () => {
+    const card = ARCHETYPE_CATALOG['2d'].find((candidate) => candidate.id === 'isometric')
+    expect(card).toMatchObject({
+      icon: '💎',
+      label: 'Isometric',
+      status: 'ready',
+      blurb: '8-direction movement with automatic animation mirroring.',
+    })
+  })
+
   it('backs every ready card with a resolvable manifest of the same id', () => {
     const ready = Object.values(ARCHETYPE_CATALOG)
       .flat()

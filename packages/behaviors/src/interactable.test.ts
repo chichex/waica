@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { THREE, type Entity, type Game, type StateContext } from '@waica/engine'
-import { Interactable, interactUpdate } from './interactable'
+import { INTERACTABLE_UI, Interactable, interactUpdate } from './interactable'
 
 interface WorldHarness {
   ctx: StateContext
@@ -55,6 +55,11 @@ function makeWorld(): WorldHarness {
 }
 
 describe('Interactable', () => {
+  it('ships the UI piece its behavior addresses', () => {
+    expect(Object.keys(INTERACTABLE_UI)).toEqual(['npc-line'])
+    expect(INTERACTABLE_UI['npc-line']).toContain('{{npcLine}}')
+  })
+
   it('shows the line when interact is pressed within the radius', () => {
     const world = makeWorld()
     world.addNpc(1, 0, { line: 'Nice day for fishing!', radius: 1.5 })

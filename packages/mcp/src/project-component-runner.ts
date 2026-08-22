@@ -14,6 +14,7 @@ const FALLBACK_PACKAGES = new Set([
   '@waica/behaviors',
   '@waica/archetype-platformer',
   '@waica/archetype-topdown',
+  '@waica/archetype-isometric',
 ])
 const FALLBACK_SPECIFIERS = new Set([...FALLBACK_PACKAGES, 'three'])
 const REF_KINDS = new Set(['prefab', 'clip', 'action', 'stat'])
