@@ -22,6 +22,8 @@ export { isYSortParticipant, ySortZ } from './render-sort.js'
 export type { YSortEntry, YSortParticipant } from './render-sort.js'
 export { projectIsometric, unprojectIsometric } from './projection.js'
 export type { ProjectedPoint } from './projection.js'
+export { spritePlacement } from './sprite-placement.js'
+export type { SpritePlacement, SpritePlacementInput } from './sprite-placement.js'
 export { CAMERA_DEFAULTS, isCameraVelocityProvider, resolveSceneCamera, stepSceneCamera } from './camera.js'
 export type {
   SceneCameraJson,

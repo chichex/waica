@@ -3,8 +3,10 @@ import { Component } from '../component.js'
 import { ClipPlayer, type ClipDef } from '../animation/clip-player.js'
 import { locateFrame, sheetCell, type SheetCell, type SheetDef } from '../animation/sheet.js'
 import type { YSortParticipant } from '../render-sort.js'
+import { spritePlacement } from '../sprite-placement.js'
 
 const loader = new THREE.TextureLoader()
+const clampAnchor = (value: number): number => Math.min(1, Math.max(0, value))
 
 /**
  * Sprite animated from one or more spritesheets. The main sheet is the
@@ -21,6 +23,8 @@ export class AnimatedSprite extends Component implements YSortParticipant {
   static override params = {
     offsetX: { label: 'x offset' },
     offsetY: { label: 'y offset' },
+    anchorX: { label: 'x anchor', min: 0, max: 1, step: 0.25 },
+    anchorY: { label: 'y anchor', min: 0, max: 1, step: 0.25 },
     layer: { label: 'layer', min: -5, max: 5, step: 1 },
   }
   static override transient = [
@@ -84,6 +88,23 @@ export class AnimatedSprite extends Component implements YSortParticipant {
   }
   set offsetY(value: number) {
     this._offsetY = value
+    this.syncQuad()
+  }
+
+  private _anchorX = 0.5
+  private _anchorY = 0.5
+  get anchorX(): number {
+    return this._anchorX
+  }
+  set anchorX(value: number) {
+    this._anchorX = clampAnchor(value)
+    this.syncQuad()
+  }
+  get anchorY(): number {
+    return this._anchorY
+  }
+  set anchorY(value: number) {
+    this._anchorY = clampAnchor(value)
     this.syncQuad()
   }
 
@@ -190,19 +211,23 @@ export class AnimatedSprite extends Component implements YSortParticipant {
     this.applyFrame()
   }
 
-  /** Repositions/rescales the quad from size, offsets and the frame scale. */
+  /** Repositions/rescales the displayed frame inside its anchored full-size box. */
   private syncQuad(): void {
     if (!this.mesh) return
-    this.mesh.scale.set(
-      this._width * this.frameScaleX * (this.flipX ? -1 : 1),
-      this._height * this.frameScaleY,
-      1,
-    )
-    // Bottom-center anchor: a shrunk frame keeps its feet on the quad's floor.
-    // The offset mirrors along with the art, or a flipped sprite with a
-    // nonzero offsetX would shift to the wrong side.
-    this.mesh.position.x = this.flipX ? -this._offsetX : this._offsetX
-    this.mesh.position.y = this._offsetY - (this._height * (1 - this.frameScaleY)) / 2
+    const placement = spritePlacement({
+      width: this.width,
+      height: this.height,
+      offsetX: this.offsetX,
+      offsetY: this.offsetY,
+      anchorX: this.anchorX,
+      anchorY: this.anchorY,
+      flipX: this.flipX,
+      frameScaleX: this.frameScaleX,
+      frameScaleY: this.frameScaleY,
+    })
+    this.mesh.position.x = placement.x
+    this.mesh.position.y = placement.y
+    this.mesh.scale.set(placement.scaleX, placement.scaleY, 1)
   }
 
   private applyFrame(): void {

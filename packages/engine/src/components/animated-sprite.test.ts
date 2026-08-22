@@ -46,6 +46,16 @@ describe('AnimatedSprite quad sync', () => {
     expect(mesh.scale.toArray()).toEqual([2, 1, 1])
   })
 
+  it('places the full-size box from a declared quarter-height anchor', () => {
+    const sprite = new AnimatedSprite()
+    sprite.height = 2
+    const mesh = mount(sprite)
+
+    sprite.anchorY = 0.25
+
+    expect(mesh.position.y).toBe(0.5)
+  })
+
   it('negates offsetX when flipped, mirroring the quad around its anchor', () => {
     const sprite = new AnimatedSprite()
     sprite.offsetX = 3

@@ -209,6 +209,8 @@ const SHARED_APPEARANCE_PROPS = [
   'height',
   'offsetX',
   'offsetY',
+  'anchorX',
+  'anchorY',
   'texture',
   'pixelArt',
   'layer',
