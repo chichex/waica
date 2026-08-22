@@ -4,17 +4,17 @@ import { projectIsometric, screenInputToLogical, unprojectIsometric } from './pr
 describe('screenInputToLogical', () => {
   it('maps screen cardinal input to unit logical vectors on pure screen axes', () => {
     const right = screenInputToLogical(1, 0)
-    const down = screenInputToLogical(0, 1)
+    const up = screenInputToLogical(0, 1)
 
     expect(right.x).toBeCloseTo(Math.SQRT1_2, 12)
     expect(right.y).toBeCloseTo(-Math.SQRT1_2, 12)
     expect(projectIsometric(right.x, right.y).x).toBeGreaterThan(0)
     expect(projectIsometric(right.x, right.y).y).toBeCloseTo(0, 12)
 
-    expect(down.x).toBeCloseTo(-Math.SQRT1_2, 12)
-    expect(down.y).toBeCloseTo(-Math.SQRT1_2, 12)
-    expect(projectIsometric(down.x, down.y).x).toBeCloseTo(0, 12)
-    expect(projectIsometric(down.x, down.y).y).toBeGreaterThan(0)
+    expect(up.x).toBeCloseTo(-Math.SQRT1_2, 12)
+    expect(up.y).toBeCloseTo(-Math.SQRT1_2, 12)
+    expect(projectIsometric(up.x, up.y).x).toBeCloseTo(0, 12)
+    expect(projectIsometric(up.x, up.y).y).toBeGreaterThan(0)
   })
 
   it('preserves lengths and right angles before clamping', () => {

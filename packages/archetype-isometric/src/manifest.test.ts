@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { resolveDirectionalClip } from '@waica/engine'
 import { ARCHETYPE } from './index'
-import { ARCHETYPE as NODE_ARCHETYPE } from './manifest'
+import {
+  ARCHETYPE as NODE_ARCHETYPE,
+  ISOMETRIC_ENTITY_ICONS,
+} from './manifest'
 import { ISOMETRIC_ANIMATION } from './animation'
 import { ISOMETRIC_ART } from './art'
 import { ISOMETRIC_BUNDLE } from './bundle'
@@ -14,14 +17,6 @@ import {
 } from './registry'
 import { ISOMETRIC_REGISTRY_DATA } from './registry-data'
 import { ISOMETRIC_BLANK_SCENE, ISOMETRIC_SCENE } from './scene-default'
-
-const ISOMETRIC_ENTITY_ICONS: Readonly<Record<string, string>> = {
-  IsoMotor: '🧭',
-  Tilemap: '💎',
-  Interactable: '💬',
-  Collectible: '📦',
-  Hazard: '👹',
-}
 
 describe('isometric archetype manifest', () => {
   it('folds every public isometric piece into ARCHETYPE', () => {

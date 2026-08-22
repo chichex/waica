@@ -12,7 +12,12 @@ export {
   ISO_PLAYER_STATE_GRAPH,
   isoPlayerUpdate,
 } from './iso-player-states.js'
-export { Interactable, interactUpdate } from './interactable.js'
+export {
+  INTERACTABLE_UI,
+  INTERACTABLE_UI_PIECE,
+  Interactable,
+  interactUpdate,
+} from './interactable.js'
 export { Collectible } from './collectible.js'
 export { Patrol, PATROLLER_ROLE, PATROLLER_STATE_GRAPH, type PatrolAxis } from './patrol.js'
 export { Chaser, CHASER_ROLE, CHASER_STATE_GRAPH, type ChaserMode } from './chaser.js'

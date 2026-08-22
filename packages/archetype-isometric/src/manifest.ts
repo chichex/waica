@@ -7,7 +7,7 @@ import { ISOMETRIC_PREFABS } from './prefabs.js'
 import { ISOMETRIC_PALETTE, ISOMETRIC_REGISTRY_DATA } from './registry-data.js'
 import { ISOMETRIC_BLANK_SCENE, ISOMETRIC_SCENE } from './scene-default.js'
 
-const ISOMETRIC_ENTITY_ICONS: Readonly<Record<string, string>> = {
+export const ISOMETRIC_ENTITY_ICONS: Readonly<Record<string, string>> = {
   IsoMotor: '🧭',
   Tilemap: '💎',
   Interactable: '💬',

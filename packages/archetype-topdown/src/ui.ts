@@ -1,3 +1,5 @@
+import { INTERACTABLE_UI } from '@waica/behaviors'
+
 /**
  * The archetype's default UI pieces: self-contained HTML fragments
  * (markup + <style>, {{stat}} bindings) keyed by piece name. Projects
@@ -21,23 +23,5 @@ export const TOPDOWN_UI: Record<string, string> = {
 </style>
 <div class="potion-counter">🧪 {{points}}</div>
 `,
-  'npc-line': `<style>
-  .npc-line {
-    position: absolute;
-    left: 50%;
-    bottom: 24px;
-    transform: translateX(-50%);
-    max-width: 70%;
-    padding: 10px 18px;
-    border-radius: 8px;
-    background: #1a1a2ecc;
-    border: 1px solid #ffffff2e;
-    font: 500 18px system-ui, sans-serif;
-    color: #f5f5f5;
-    text-shadow: 0 1px 2px #000a;
-    user-select: none;
-  }
-</style>
-<div class="npc-line">{{npcLine}}</div>
-`,
+  ...INTERACTABLE_UI,
 }
