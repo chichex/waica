@@ -1,6 +1,6 @@
 # Spec — Isometric foundations: projection seam, generic Tilemap, declared sprite anchor, iso editor (diamond grid, projected picking, tilemap brush)
-<!-- Generada por /sdd-spec el 2026-08-22. Fuente: grill .sdd/grills/2026-08-21-archetype-isometric.md (Spec 1 of the partition) as revised by .sdd/grills/2026-08-21-archetype-isometric-rev-1.md (projection fork closed: logical world coordinates). Estado: aprobada -->
-<!-- SDD-Tracking: version=1; type=spec; state=approved; issue=none; grill=2026-08-21-archetype-isometric; superseded-by=none -->
+<!-- Generada por /sdd-spec el 2026-08-22. Fuente: grill .sdd/grills/2026-08-21-archetype-isometric.md (Spec 1 of the partition) as revised by .sdd/grills/2026-08-21-archetype-isometric-rev-1.md (projection fork closed: logical world coordinates). Estado: implementada -->
+<!-- SDD-Tracking: version=1; type=spec; state=implemented; issue=none; grill=2026-08-21-archetype-isometric; superseded-by=none -->
 <!-- Corrida con --assume en un worktree desatendido; revisada por el humano el 2026-08-22: inferencia 12 cambiada (Tilemap también en TOPDOWN_REGISTRY), inferencia 8 / D2 confirmadas (diamante derivado de la proyección; ADR-0008 amendado), D1 reconocida (el editor tiene undo/redo), un solo PR. El resto de `## Inferencias` queda aceptado tal como está, marcado [ASSUMED] para trazabilidad. -->
 
 ## Contexto
@@ -123,3 +123,37 @@ Generation policies (contract `## Politicas de generacion`, all four active, eac
 - Broadphase O(n²) for Hitboxes stays unmeasured; derived tilemap Solids are collected linearly per axis move (same cost model as today's tile entities) — measure on the Spec 2 demo map if it feels slow (grill pending branch 6).
 - Pre-existing, not fixed here (per CLAUDE.md): DESIGN.md still lists undo/redo and "level/tilemap editing" as pending; `scripts/prepare-publish.mjs` comment says "three @waica libraries" (contract gap).
 - After the run: `/sdd-init --update` to refresh test counts and record the new e2e leg; CONTEXT.md's new term keeps `runtime-docs.test.ts` green by construction (it only adds).
+
+## Resultado de ejecucion (2026-08-22 · HEAD c25dc00)
+| CA | Estado | Evidencia |
+|---|---|---|
+| CA-1 | verificado | `pnpm exec vitest run packages/engine/src/projection-game.test.ts packages/engine/src/game.test.ts`: identity and optional scene projection green; final `pnpm test`: 1038/1038. |
+| CA-2 | verificado | `pnpm exec vitest run packages/engine/src/projection.test.ts`: 6/6 exact lattice, round-trip and linearity tests green. |
+| CA-3 | verificado | `projection-game.test.ts`: logical/render Vector3 separation, per-frame projection, z preservation and mode switching green. |
+| CA-4 | verificado | `projection-game.test.ts` projected y-sort flip green; untouched `render-sort.test.ts` green in final suite. |
+| CA-5 | verificado | `projection-game.test.ts` twin face/slide trajectories match exactly; final Solid/DynamicBody regression green. |
+| CA-6 | verificado | `projection-game.test.ts` projected target/velocity camera twin green; `camera.test.ts` golden tests green. |
+| CA-7 | verificado | `runtime-bridge.test.ts` projected Runtime Snapshot reports logical transform while node is projected; final suite green. |
+| CA-8 | verificado | `tilemap-grid.test.ts` and `tilemap.test.ts`: row-major helpers, tolerant cells and exact authoring defaults green. |
+| CA-9 | verificado | `tilemap.test.ts`: exact identity/isometric merged vertices, UVs, index buffer, z band and reactive rebuild green. |
+| CA-10 | verificado | `scene-solids.test.ts`, `solid-axis.test.ts`, `dynamic-body.test.ts`, `tilemap.test.ts`: shared stable collector, derived collision, slide and owner contact green. |
+| CA-11 | verificado | `tilemap.test.ts` inline load/asset resolution and topdown/platformer registry suites green; topdown is 15 components, platformer remains 15. |
+| CA-12 | verificado | `sprite-placement.test.ts`, `sprite.test.ts`, `animated-sprite.test.ts`: default goldens, anchors, shrunk frame and flip green. |
+| CA-13 | verificado | `chassis.test.ts` anchor round-trip green; y-sort offset/anchor-independent regressions green. |
+| CA-14 | verificado | `appearance-bounds.test.ts`: engine placement shared by anchored appearance bounds; editor typecheck/build green. |
+| CA-15 | verificado | `grid.test.ts` and `editor-settings.test.ts`: projected snap, diagonal families, stable cover and settings round-trip green. |
+| CA-16 | verificado | `effective-grid.test.ts`, `scene-render-inspector.test.ts`, `ops.test.ts`: forced grid, toggle and structural render mutation green. |
+| CA-17 | verificado | `viewport-space.test.ts`: projected drop/pick/vertices and identity twins green; editor typecheck/build green. |
+| CA-18 | verificado | `tilemap-inspector.test.ts`: dedicated fields, 6-cell picker and Paint toggle render; raw `cells` absent. |
+| CA-19 | verificado | `tilemap-brush.test.ts` and `ops.test.ts`: immutable paint/erase/stroke reducer and inline/prefab one-commit shape green. |
+| CA-20 | verificado | Characterization commit `9fa8307` precedes engine changes; Git receipt found 0 deleted assertions, 0 deleted test files and 0 added skip/only directives. |
+| CA-21 | verificado | Template/MCP generator tests 29/29; snapshot diff 0; `node scripts/sync-scene.mjs; git diff --exit-code` clean. |
+| CA-22 | verificado | Final `pnpm test:e2e` green through real MCP; projection leg stopped at logical x=1.5, matched node projection and produced a valid 320×180 PNG. |
+| CA-23 | verificado | Final ladder on `c25dc00`: `pnpm test` 1038/1038, `pnpm typecheck`, `pnpm build`, `pnpm test:dist`, `pnpm test:e2e` all exit 0. |
+| CA-24 | verificado | Four diff gates green: TS hygiene 0+0 hits; engine/editor new source accompanied by tests; max touched `.ts` 696 < 950; bad new names 0. |
+| CA-25 | verificado | `grep -n "Logical Coordinates" CONTEXT.md` found line 49; `runtime-docs.test.ts` 6/6 green. |
+| CA-26 | pendiente humano | Execute the 5-step, ~6 minute human protocol in this spec after opening the PR. |
+| POL-higiene-ts-diff | verificado | 0 escape/default-export/enum hits and 0 raw `@ts-*` directive hits in added production TS lines. |
+| POL-tests-acompañan-src | verificado | New source packages: engine (changed tests present) and editor (changed tests present). |
+| POL-max-lineas-archivo | verificado | Largest touched `.ts`: `packages/engine/src/runtime-bridge.test.ts`, 696 lines; threshold 950. |
+| POL-naming-archivos | verificado | 0 invalid new basenames under package `src/`. |
