@@ -1,11 +1,17 @@
 export { PlatformerMotor } from './platformer-motor.js'
 export { PLAYER_ROLE, PLAYER_STATE_GRAPH, playerUpdate } from './player-states.js'
 export { TopDownMotor, type TopDownFacing } from './topdown-motor.js'
+export { IsoMotor, type IsoFacing } from './iso-motor.js'
 export {
   TOPDOWN_PLAYER_ROLE,
   TOPDOWN_PLAYER_STATE_GRAPH,
   topdownPlayerUpdate,
 } from './topdown-player-states.js'
+export {
+  ISO_PLAYER_ROLE,
+  ISO_PLAYER_STATE_GRAPH,
+  isoPlayerUpdate,
+} from './iso-player-states.js'
 export { Interactable, interactUpdate } from './interactable.js'
 export { Collectible } from './collectible.js'
 export { Patrol, PATROLLER_ROLE, PATROLLER_STATE_GRAPH, type PatrolAxis } from './patrol.js'
