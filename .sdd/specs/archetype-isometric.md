@@ -1,6 +1,6 @@
 # Spec — Isometric archetype: @waica/archetype-isometric, IsoMotor, 8-direction art with runtime mirroring, Tilemap-backed demo, sixth-package release wiring
-<!-- Generada por /sdd-spec el 2026-08-22. Fuente: grill .sdd/grills/2026-08-21-archetype-isometric.md (Spec 2 of the partition, decision 10) as revised by -rev-1 (projection fork closed: logical world coordinates) and -rev-2 (art kit chosen: Puny Characters + hawkbirdtree). Estado: aprobada -->
-<!-- SDD-Tracking: version=1; type=spec; state=approved; issue=none; grill=2026-08-21-archetype-isometric; superseded-by=none -->
+<!-- Generada por /sdd-spec el 2026-08-22. Fuente: grill .sdd/grills/2026-08-21-archetype-isometric.md (Spec 2 of the partition, decision 10) as revised by -rev-1 (projection fork closed: logical world coordinates) and -rev-2 (art kit chosen: Puny Characters + hawkbirdtree). Estado: implementada -->
+<!-- SDD-Tracking: version=1; type=spec; state=implemented; issue=none; grill=2026-08-21-archetype-isometric; superseded-by=none -->
 <!-- Inferencias y mecanismo revisados por el humano el 2026-08-22: la tabla se acepta completa, con la inferencia 5 (escala del arte) resuelta a favor de sheets nativos 32×32 declarados a width/height 2. Mecanismo: TDD vitest + gemelos + pata e2e iso, sin contact sheet scripteado. -->
 
 ## Contexto
@@ -154,3 +154,35 @@ Conflicts between the handoffs and the current code, surfaced rather than silent
 - The demo map is the first real workload for the `Tilemap`-derived Solids (256 cells, a handful solid) and for the still-unmeasured O(n²) Hitbox broadphase. If it feels slow, measure there (grill pending branch 6) — it is not a criterion of this spec.
 - The directional contract is a module-global registry (a known review finding): fine while one `Game` runs at a time, and the editor recreates the game on a structural change. Unchanged by this spec, but iso is the first archetype whose contract has eight entries.
 - After the run: `/sdd-init --update` to refresh test counts, record the projection and isometric e2e legs, move the package count to six and correct the gate pathspec.
+
+## Resultado de ejecucion (2026-08-22 · HEAD 71b771b)
+| CA | Estado | Evidencia |
+|---|---|---|
+| CA-1 | verificado | `pnpm --filter @waica/archetype-isometric typecheck` y `build`: verdes; `pnpm test`: lockstep 0.7.0 verde |
+| CA-2 | verificado | `pnpm test`: manifest browser/Node dual-entry y resolución de assets verdes |
+| CA-3 | verificado | `pnpm test`: ocho direcciones y fallbacks `w/nw/sw` exactos verdes |
+| CA-4 | verificado | `pnpm test`: mapa y labels de controles exactos verdes |
+| CA-5 | verificado | `pnpm test`: registry/palette/prefabs y defaults exactos verdes |
+| CA-6 | verificado | `pnpm exec vitest run packages/engine/src/projection.test.ts`: 11/11 verdes; rojo previo por función ausente |
+| CA-7 | verificado | motor/proyección focalizados: 17/17 verdes; colisión, ocho velocidades, providers y render-right cubiertos |
+| CA-8 | verificado | `pnpm test`: grafo, death beat, always-hook y update con `IsoMotor` verdes |
+| CA-9 | verificado | composición Pillow offline; `art.test.ts` verde para PNGs, grids, índices y aspectos; visual queda en CA-23 |
+| CA-10 | verificado | composición offline: 36/36 comparaciones de celdas espejo exactas; ningún clip oeste; browser flip verde; orientación absoluta queda en CA-23 |
+| CA-11 | verificado | `scene-default.test.ts`: mapa 16×16, ring sólido, cámara derivada, cast y oclusores verdes |
+| CA-12 | verificado | `scene-default.test.ts`: blank iso, framing común, sin follow ni entidades verde |
+| CA-13 | verificado | tests editor/MCP focalizados: 66/66 verdes; snapshots demo/blank y byte-equality verdes |
+| CA-14 | verificado | `pnpm test`: known archetype, resolver, runner fallback, introspection y conformance de tres archetypes verdes |
+| CA-15 | verificado | structural grep de counts: 0 stale hits; lockstep y release wiring verdes |
+| CA-16 | verificado | `pnpm test:dist`: pack, dual entry, plain Node, asset vendored y packed runtime verdes |
+| CA-17 | verificado | `node scripts/sync-scene.mjs && git diff --exit-code`: byte-stable; example typecheck/build verdes |
+| CA-18 | verificado | `pnpm test`: ESM import audit incluye solo `archetype-isometric`; 0 imports relativos sin extensión |
+| CA-19 | verificado | receipt Git: 0 asserts protegidos borrados, 0 test files borrados, 0 `skip`/`only` agregados |
+| CA-20 | verificado | `pnpm test:e2e`: input/proyección, e/w/ne/nw flip, Tilemap flush y PNG 21032 bytes verdes en Chrome 151.0.7922.173 |
+| CA-21 | verificado | ladder final: typecheck verde; 1116/1116 tests; build verde; `test:dist` verde; `test:e2e` verde |
+| CA-22 | verificado | cuatro gates de política verdes; mediciones en filas `POL-*` |
+| CA-23 | pendiente humano | protocolo visual/de feel de ~6 min en esta spec; no ejecutado por decreto |
+| CA-24 | pendiente humano | bootstrap manual de topdown e isometric antes del próximo tag; no se tocó npm |
+| POL-higiene-ts-diff | verificado | corrected pathspec; escapes/enum/default-export 0 hits; directivas `@ts-*` 0 hits |
+| POL-tests-acompañan-src | verificado | `archetype-isometric`: 7 tests tocados; `behaviors`: 2 tests tocados |
+| POL-max-lineas-archivo | verificado | máximo tocado 713 líneas en `packages/mcp/src/validation.test.ts`, menor que 950 |
+| POL-naming-archivos | verificado | 0 nombres inválidos entre archivos nuevos bajo `src/` |
