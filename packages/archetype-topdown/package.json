@@ -1,6 +1,6 @@
 {
   "name": "@waica/archetype-topdown",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Waica top-down archetype — opinionated setup for Zelda-like overhead adventures",
   "license": "MIT",
   "type": "module",

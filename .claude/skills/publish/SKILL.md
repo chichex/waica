@@ -60,15 +60,32 @@ skipped mid-sequence publishes a dependent that points at nothing — that
 happened once with `@waica/behaviors`, and `@waica/archetype-platformer` sat
 on npm for minutes declaring a dependency that did not exist.
 
+**That check proves the version landed, not that the package works.** A
+bootstrap pins its siblings at the version on `main` — the ones already on
+npm, published before this cycle's work. If the new package imports anything
+added to a sibling in the same cycle, the bootstrap is dead on arrival: the
+dependency resolves, and its contents are older than the importer.
+`@waica/archetype-isometric@0.7.0` shipped that way on 2026-08-22 and threw
+`does not provide an export named 'ISO_PLAYER_ROLE'` on import, because the
+`@waica/behaviors@0.7.0` it resolved predated `IsoMotor`. Checking that the
+dependency exists is not enough; check that it exports what the new package
+imports.
+
+It is structural, not a mistake to avoid: the sibling only reaches npm at the
+next release. Bootstrap anyway — the package page is the whole point, and it
+is what the Trusted Publisher needs — then `npm deprecate <pkg>@<version>`
+pointing at the release that will fix it. Never unpublish to tidy it up: that
+deletes the page and the Trusted Publisher with it. The proof that the set
+actually works is §5's generated-project install, after the release.
+
 Then they configure the Trusted Publisher on each new package's npm settings
 page (repo `chichex/waica`, workflow `publish.yml`). From the next release on,
 every package goes out through CI and nobody touches a token again.
 
-Done as of 2026-08-05 for the four packages that existed then. **Pending:
-`@waica/archetype-topdown` and `@waica/archetype-isometric` have never been
-published — before the next `v*` tag both need this bootstrap (hand-publish
-at the version on `main`, then configure each Trusted Publisher), or the
-workflow fails on them.** The `@waica` org exists and owns the scope, so no other account can publish `@waica/*` —
+Done for all six published packages: the first four on 2026-08-05,
+`@waica/archetype-topdown` on 2026-08-21, `@waica/archetype-isometric` on
+2026-08-22. **Nothing is pending — skip §0 entirely unless the release set
+grows a package that has no npm page yet.** The `@waica` org exists and owns the scope, so no other account can publish `@waica/*` —
 names do not need to be squatted to be safe.
 
 ## 1. Preconditions
