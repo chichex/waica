@@ -109,6 +109,21 @@ afterEach(() => {
 })
 
 describe('Game glue characterization', () => {
+  it('keeps logical and render position as the same Vector3 in an unprojected scene', () => {
+    const game = makeGame()
+    loadScene(
+      game,
+      { waicaScene: 3, entities: [{ name: 'Pinned', position: [2, -3] }] },
+      { components: {} },
+    )
+    const entity = game.find('Pinned')!
+
+    expect(entity.position).toBe(entity.node.position)
+    expect(entity.position.toArray()).toEqual([2, -3, 0])
+
+    game.dispose()
+  })
+
   it('discovers camera velocity through the CameraVelocityProvider seam', () => {
     const game = makeGame()
     const target = game.spawn('Player')
