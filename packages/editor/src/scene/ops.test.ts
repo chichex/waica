@@ -9,6 +9,7 @@ import {
   dissolveFolder,
   migrateScene,
   removeEntities,
+  setComponentProp,
   setRenderProp,
   renameFolder,
   reorderEntities,
@@ -76,6 +77,37 @@ describe('setRenderProp', () => {
     const before = structuredClone(scene)
     setRenderProp(scene, 'sort', 'y')
     expect(scene).toEqual(before)
+  })
+
+  it('sets and clears isometric projection alongside the existing sort prop', () => {
+    const projected = setRenderProp(setRenderProp(scene, 'sort', 'y'), 'projection', 'isometric')
+    expect(projected.render).toEqual({ sort: 'y', projection: 'isometric' })
+    expect(setRenderProp(projected, 'projection', undefined).render).toEqual({ sort: 'y' })
+  })
+})
+
+describe('Tilemap cells commit shape', () => {
+  const prefabs = {
+    'objects/map': {
+      waicaPrefab: 1 as const,
+      type: 'object' as const,
+      components: [{ type: 'Tilemap', props: { cells: [-1] } }],
+    },
+  }
+  const scene: SceneJson = {
+    waicaScene: 3,
+    entities: [
+      { name: 'Inline', components: [{ type: 'Tilemap', props: { cells: [-1] } }] },
+      { name: 'Prefab map', prefab: 'objects/map' },
+    ],
+  }
+
+  it('writes one cells value inline or as a prefab instance override', () => {
+    const inline = setComponentProp(scene, 'Inline', 'Tilemap', 'cells', [0], prefabs)
+    expect(inline.entities[0]?.components?.[0]?.props?.cells).toEqual([0])
+
+    const overridden = setComponentProp(scene, 'Prefab map', 'Tilemap', 'cells', [1], prefabs)
+    expect(overridden.entities[1]?.overrides).toEqual({ Tilemap: { cells: [1] } })
   })
 })
 

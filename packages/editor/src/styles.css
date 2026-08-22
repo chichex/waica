@@ -2000,6 +2000,72 @@ button.ed-crumb:hover {
   flex: none;
 }
 
+.ed-tilemap-subhead {
+  margin-top: 12px;
+}
+
+.ed-tilemap-texture {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  margin: 6px 0;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-panel-2);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.ed-tilemap-texture img {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.ed-tilemap-texture span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ed-tilemap-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+  gap: 5px;
+  margin: 8px 0;
+}
+
+.ed-tilemap-picker button {
+  position: relative;
+  aspect-ratio: 1;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  cursor: pointer;
+}
+
+.ed-tilemap-picker button.is-selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.ed-tilemap-picker button span {
+  position: absolute;
+  right: 2px;
+  bottom: 1px;
+  padding: 0 2px;
+  border-radius: 3px;
+  background: #000a;
+  color: white;
+  font-size: 9px;
+}
+
 .ed-comp {
   margin: 12px 0;
   border: 1px solid var(--line);

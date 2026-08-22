@@ -14,8 +14,8 @@ describe('parseEditorSettings', () => {
     expect(parseEditorSettings('{oops')).toEqual(DEFAULT_EDITOR_SETTINGS)
   })
 
-  it('round-trips through serialize', () => {
-    const settings = { grid: { type: 'square' as const, show: false, snap: true, size: 1 } }
+  it.each(['square', 'isometric'] as const)('round-trips a %s grid through serialize', (type) => {
+    const settings = { grid: { type, show: false, snap: true, size: 1 } }
     expect(parseEditorSettings(serializeEditorSettings(settings))).toEqual(settings)
   })
 

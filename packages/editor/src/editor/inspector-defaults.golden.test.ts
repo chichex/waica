@@ -9,12 +9,13 @@ import { componentDefaults, componentKeys } from './Inspector'
  * with no props set, this is the exact row set componentKeys +
  * componentDefaults resolve to today. Must stay byte-identical afterwards —
  * see CA-5 of .sdd/specs/list-components-authoring-defaults (issue body).
- * Issue #22 added Health and OutOfBounds and emptied Respawnable; every
- * pre-existing row is untouched.
+ * Issue #22 added Health and OutOfBounds and emptied Respawnable. The
+ * isometric foundations spec intentionally adds anchorX/anchorY to both
+ * appearance components; every other pre-existing row remains untouched.
  */
 const GOLDEN: Record<string, Record<string, unknown>> = {
-  Sprite: { offsetX: 0, offsetY: 0, layer: 0 },
-  AnimatedSprite: { offsetX: 0, offsetY: 0, layer: 0 },
+  Sprite: { offsetX: 0, offsetY: 0, anchorX: 0.5, anchorY: 0.5, layer: 0 },
+  AnimatedSprite: { offsetX: 0, offsetY: 0, anchorX: 0.5, anchorY: 0.5, layer: 0 },
   Solid: { offsetX: 0, offsetY: 0 },
   Hitbox: { offsetX: 0, offsetY: 0 },
   DynamicBody: {
@@ -64,7 +65,7 @@ describe('Inspector component rows (golden, behavior preservation)', () => {
     )
   })
 
-  it.each(Object.keys(GOLDEN))('%s renders the same rows as before the refactor', (type) => {
+  it.each(Object.keys(GOLDEN))('%s renders its declared golden rows', (type) => {
     const comp: SceneComponentJson = { type, props: {} }
     const keys = componentKeys(comp, archetype)
     const defaults = componentDefaults(comp, archetype)
