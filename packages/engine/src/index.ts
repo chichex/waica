@@ -100,7 +100,7 @@ export { Tilemap } from './components/tilemap.js'
 export { aabbOverlap } from './aabb.js'
 export { resolveSolidAxis } from './solid-axis.js'
 export type { CollisionAxis, SolidAxisOptions } from './solid-axis.js'
-export { isSolidSource, sceneSolids } from './scene-solids.js'
+export { isSolidSource, sceneSolids, SOLID_SOURCE_SYMBOL } from './scene-solids.js'
 export type { SolidSource } from './scene-solids.js'
 export { cellAt, cellBounds, cellIndex } from './tilemap-grid.js'
 export type {

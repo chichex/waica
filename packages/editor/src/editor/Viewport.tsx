@@ -8,7 +8,7 @@ import { effectiveGrid } from './effective-grid'
 import { gridCoverKey, gridLineVertices, snapActive, snapPoint } from './grid'
 import { NumberField } from './NumberField'
 import { beginStroke, finishStroke, reduceStroke, type TilemapBrushSelection, type TilemapStroke } from './tilemap-brush'
-import { logicalPoint, logicalVertices, pickRenderBounds, renderPoint, type ViewportProjection } from './viewport-space'
+import { logicalPoint, pickRenderBounds, renderPoint, renderVertices, type ViewportProjection } from './viewport-space'
 import { uiFrameLayout } from './ui-preview'
 
 export interface ViewportHandle {
@@ -104,7 +104,7 @@ function entityBounds(entity: Entity, projection: ViewportProjection): EditorBox
     const bounds = componentBox(box, role)
     if (!bounds) return []
     if (role === 'appearance') return [bounds]
-    const corners = logicalVertices(projection, [
+    const corners = renderVertices(projection, [
       [bounds.centerX - bounds.width / 2, bounds.centerY - bounds.height / 2],
       [bounds.centerX + bounds.width / 2, bounds.centerY - bounds.height / 2],
       [bounds.centerX + bounds.width / 2, bounds.centerY + bounds.height / 2],
@@ -241,7 +241,7 @@ function boxRenderPoints(
   }
   const centerX = entity.position.x + (comp.offsetX ?? 0)
   const centerY = entity.position.y + (comp.offsetY ?? 0)
-  return logicalVertices(
+  return renderVertices(
     projection,
     points.map(([x, y]) => [
       centerX + x * comp.width,

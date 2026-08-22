@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   logicalPoint,
-  logicalVertices,
   pickRenderBounds,
   renderPoint,
+  renderVertices,
 } from './viewport-space'
 
 const ISO = 'isometric' as const
@@ -36,7 +36,7 @@ describe('viewport projection space', () => {
 
   it('projects logical collision vertices into a screen-space diamond', () => {
     expect(
-      logicalVertices(ISO, [
+      renderVertices(ISO, [
         [-0.5, -0.5],
         [0.5, -0.5],
         [0.5, 0.5],

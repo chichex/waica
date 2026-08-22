@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { sheetCell } from '../animation/sheet.js'
 import { Component } from '../component.js'
 import { projectIsometric } from '../projection.js'
-import type { SolidSource } from '../scene-solids.js'
+import { SOLID_SOURCE_SYMBOL, type SolidSource } from '../scene-solids.js'
 import {
   cellAt as gridCellAt,
   cellBounds as gridCellBounds,
@@ -28,6 +28,8 @@ export class Tilemap extends Component implements SolidSource {
     layer: { label: 'layer', min: -5, max: 5, step: 1 },
   }
   static override transient = ['mesh', 'loadedTexture', 'derivedSolids']
+
+  readonly [SOLID_SOURCE_SYMBOL] = true
 
   private _texture = ''
   get texture(): string {
@@ -191,6 +193,10 @@ export class Tilemap extends Component implements SolidSource {
     this.entity.node.add(this.mesh)
     this.rebuildMaterial()
     this.rebuildMap()
+  }
+
+  override onProjectionChange(): void {
+    this.rebuildGeometry()
   }
 
   override onDestroy(): void {

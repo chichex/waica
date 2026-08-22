@@ -174,7 +174,10 @@ export class Game {
     const projection = json?.projection === 'isometric' ? 'isometric' : null
     if (projection === this.sceneProjection) return
     this.sceneProjection = projection
-    for (const entity of this.entities) entity.setProjected(projection === 'isometric')
+    for (const entity of this.entities) {
+      entity.setProjected(projection === 'isometric')
+      for (const component of entity.components) component.onProjectionChange?.(projection)
+    }
   }
 
   /**

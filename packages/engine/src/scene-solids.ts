@@ -2,17 +2,19 @@ import { Solid } from './components/solid.js'
 import type { Entity } from './entity.js'
 import type { Game } from './game.js'
 
+/** Explicit opt-in brand for components that derive collision Solids. */
+export const SOLID_SOURCE_SYMBOL = Symbol('waica.solidSource')
+
 /** Component seam for geometry that derives one or more collision Solids. */
 export interface SolidSource {
+  readonly [SOLID_SOURCE_SYMBOL]: true
   solids(): readonly Solid[]
 }
 
 export function isSolidSource(value: unknown): value is SolidSource {
-  return (
-    value !== null &&
-    typeof value === 'object' &&
-    typeof (value as SolidSource).solids === 'function'
-  )
+  if (value === null || typeof value !== 'object') return false
+  const candidate = value as Partial<SolidSource>
+  return candidate[SOLID_SOURCE_SYMBOL] === true && typeof candidate.solids === 'function'
 }
 
 /**

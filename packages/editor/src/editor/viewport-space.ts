@@ -26,7 +26,7 @@ export function renderPoint(
   return [render.x, render.y]
 }
 
-export function logicalVertices(
+export function renderVertices(
   projection: ViewportProjection,
   points: readonly Point2[],
 ): Array<[number, number]> {

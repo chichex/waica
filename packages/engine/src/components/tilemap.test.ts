@@ -133,6 +133,21 @@ describe('Tilemap merged rendering', () => {
     game.dispose()
   })
 
+  it('rebuilds existing geometry when projection mode changes', () => {
+    const game = makeGame()
+    const entity = game.spawn('Map')
+    entity.add(Tilemap, { mapWidth: 1, mapHeight: 1, cells: [0] })
+
+    expect(geometryOf(entity).positions.slice(0, 2)).toEqual([0, 0])
+
+    game.setSceneRender({ projection: 'isometric' })
+    expect(geometryOf(entity).positions.slice(0, 2)).toEqual([-1, -1])
+
+    game.setSceneRender()
+    expect(geometryOf(entity).positions.slice(0, 2)).toEqual([0, 0])
+    game.dispose()
+  })
+
   it('empty-pads short cell arrays and ignores values past the map area', () => {
     const game = makeGame()
     const entity = game.spawn('Map')

@@ -157,3 +157,9 @@ Generation policies (contract `## Politicas de generacion`, all four active, eac
 | POL-tests-acompañan-src | verificado | New source packages: engine (changed tests present) and editor (changed tests present). |
 | POL-max-lineas-archivo | verificado | Largest touched `.ts`: `packages/engine/src/runtime-bridge.test.ts`, 696 lines; threshold 950. |
 | POL-naming-archivos | verificado | 0 invalid new basenames under package `src/`. |
+
+### Review follow-up (2026-08-22)
+- Replaced method-name duck typing with the exported `SOLID_SOURCE_SYMBOL` opt-in brand; a two-`DynamicBody` regression proves static solids remain singular and recursion-free.
+- Renamed the editor helper from `logicalVertices` to `renderVertices` and rebuilt mounted `Tilemap` geometry when projection mode changes.
+- Focused regressions failed before the fixes and pass 14/14 after them. The complete ladder passes: `pnpm test` 1040/1040, `pnpm typecheck`, `pnpm build`, `pnpm test:dist`, and `pnpm test:e2e`.
+- All four generation gates remain green; TS hygiene was remeasured over all 22 changed production `.ts` files using corrected direct-and-nested source coverage, with 0 hits.
