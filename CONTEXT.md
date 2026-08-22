@@ -45,3 +45,7 @@ The deterministic per-entity sequence in which Waica advances component behavior
 
 **Update Constraint**:
 A component-owned declaration that its per-frame update occurs after named sibling components when they are present. It expresses temporal ordering, not mandatory composition.
+
+**Tilemap**:
+An engine primitive that owns a map as one lattice of cells — square or diamond — on a single component, instead of one entity per tile. The isometric archetype introduces it; existing archetypes keep tiles-as-entities until they opt in.
+_Avoid_: tile layer, tile grid entities
