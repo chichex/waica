@@ -83,7 +83,9 @@ describe('Runtime harness documentation', () => {
     ])
     expect(oldSpec).toMatch(/run\/bridge\/screenshot.*superseded.*#24/is)
     expect(contract).toMatch(/`pnpm test:e2e`/)
-    expect(contract).toMatch(/Chrome 151\.0\.7922\.77/)
+    // A concrete observed version, not an exact build: Chrome auto-updates,
+    // and the contract re-records whatever version the last refresh saw.
+    expect(contract).toMatch(/Chrome \d+\.\d+\.\d+\.\d+/)
     expect(contract).toMatch(/scripted browser e2e/i)
     for (const term of ['Run Session', 'Runtime Bridge', 'Runtime Snapshot']) {
       expect(context).toContain(term)
