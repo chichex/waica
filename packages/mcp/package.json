@@ -1,6 +1,6 @@
 {
   "name": "@waica/mcp",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Waica MCP server for agentic game development",
   "private": true,
   "license": "MIT",
