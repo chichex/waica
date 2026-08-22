@@ -213,3 +213,13 @@ Conflicts between the handoffs and the current code, surfaced rather than silent
 | POL-tests-acompañan-src | verificado | `archetype-isometric`: 8 tests tocados; `behaviors`: 4 |
 | POL-max-lineas-archivo | verificado | máximo 713 líneas, menor que 950 |
 | POL-naming-archivos | verificado | 0 nombres inválidos |
+
+## Resultado de la segunda re-review (2026-08-22 · código HEAD 6489aaf)
+| Finding | Estado | Evidencia |
+|---|---|---|
+| R-1..R-15 | confirmado por reviewer | la re-review de `75f933b` verificó contra código que los 15 findings originales quedaron cerrados |
+| R-16 editor Scripts perdió la base compartida | verificado | TDD: 3 rojos iniciales; `SCRIPT_SOURCES` ahora incluye `GridMotor`, y `IsoMotor`/`TopDownMotor` componen base + subclass sin el import redundante |
+| R-16 regresión topdown | verificado | el mismo test parametrizado exige `GridMotor`, `resolveSolidAxis` y la subclass tanto para topdown como para isometric |
+| R-16 focalizado | verificado | `script-sources.test.ts` 3/3; editor 338/338; typecheck y build del editor verdes |
+| LADDER | verificado | `pnpm typecheck`; `pnpm test` 1122/1122 en 129 archivos; `pnpm build`; `pnpm test:dist`; `pnpm test:e2e` con PNG isométrico de 18656 bytes |
+| POLICIES | verificado | higiene 0/0; tests 8/4; máximo 713/950; naming 0; 0 `skip`/`only`; 0 tests borrados vs `main` |
