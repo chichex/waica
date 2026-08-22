@@ -1,4 +1,4 @@
-// Rewrites the three @waica libraries' package.json in place into the shape npm
+// Rewrites the five @waica libraries' package.json in place into the shape npm
 // should serve, then prints their directories to stdout in dependency order so
 // CI can publish them one by one.
 //
