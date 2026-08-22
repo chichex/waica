@@ -35,6 +35,7 @@ const packages = [
   { directory: 'behaviors', name: '@waica/behaviors', entry: 'index.js' },
   { directory: 'archetype-platformer', name: '@waica/archetype-platformer', entry: 'index.js' },
   { directory: 'archetype-topdown', name: '@waica/archetype-topdown', entry: 'index.js' },
+  { directory: 'archetype-isometric', name: '@waica/archetype-isometric', entry: 'index.js' },
   { directory: 'cli', name: '@waica/cli', entry: 'cli.js', bundled: ['editor', 'mcp'] },
 ]
 const vendoredLibraries = [
@@ -42,6 +43,7 @@ const vendoredLibraries = [
   '@waica/behaviors',
   '@waica/archetype-platformer',
   '@waica/archetype-topdown',
+  '@waica/archetype-isometric',
 ]
 
 function run(command, args, options = {}) {
@@ -317,6 +319,23 @@ try {
   await access(join(nodeModules, '@waica/archetype-topdown/dist/manifest.js'))
   await access(join(nodeModules, '@waica/archetype-topdown/dist/manifest.d.ts'))
 
+  const isometricSource = JSON.parse(
+    await readFile(join(root, 'packages/archetype-isometric/package.json'), 'utf8'),
+  )
+  const isometricPacked = packedManifests.get('@waica/archetype-isometric')
+  assert.deepEqual(
+    isometricSource.publishConfig?.exports?.['./manifest'],
+    expectedManifestExport,
+    'isometric publishConfig.exports must map ./manifest to the built manifest files',
+  )
+  assert.deepEqual(
+    isometricPacked.exports?.['./manifest'],
+    expectedManifestExport,
+    'the packed isometric package must expose the published ./manifest mapping',
+  )
+  await access(join(nodeModules, '@waica/archetype-isometric/dist/manifest.js'))
+  await access(join(nodeModules, '@waica/archetype-isometric/dist/manifest.d.ts'))
+
   // The server is never packed on its own, so its dist is verified where it is
   // built; the packed CLI below then runs that same dist, copied.
   const mcpRoot = join(root, 'packages/mcp')
@@ -394,6 +413,9 @@ try {
   await access(
     join(packedCliRoot, 'dist/mcp/node_modules/@waica/archetype-topdown/assets/waica-hero.png'),
   )
+  await access(
+    join(packedCliRoot, 'dist/mcp/node_modules/@waica/archetype-isometric/assets/waica-iso-hero.png'),
+  )
 
   for (const pkg of packages) {
     await materializeExternalDependencies(pkg, packedManifests.get(pkg.name))
@@ -433,6 +455,16 @@ try {
       "if ('artUrls' in topdownNode.ARCHETYPE) throw new Error('topdown Node-safe manifest contains browser art URLs')",
       "if (!topdownNode.ARCHETYPE.animation) throw new Error('topdown Node-safe manifest lost its animation contract')",
       "if (topdownNode.ARCHETYPE.registry.resolveAsset?.('waica:hero') !== 'assets/waica-hero.png') throw new Error('topdown Node-safe registry cannot resolve package assets')",
+      "const isometricRoot = await import('@waica/archetype-isometric')",
+      "const isometricNode = await import('@waica/archetype-isometric/manifest')",
+      "if (isometricRoot.ARCHETYPE?.id !== 'isometric') throw new Error('invalid isometric root manifest')",
+      "if (isometricNode.ARCHETYPE?.id !== 'isometric') throw new Error('invalid isometric Node-safe manifest')",
+      "if ('artUrls' in isometricNode.ARCHETYPE) throw new Error('isometric Node-safe manifest contains browser art URLs')",
+      "if (isometricNode.ARCHETYPE.animation?.directions.length !== 8) throw new Error('isometric manifest lost its eight directions')",
+      "if (isometricNode.ARCHETYPE.animation.fallbacks?.w?.dir !== 'e' || !isometricNode.ARCHETYPE.animation.fallbacks.w.flip) throw new Error('isometric w fallback is invalid')",
+      "if (isometricNode.ARCHETYPE.animation.fallbacks?.nw?.dir !== 'ne' || !isometricNode.ARCHETYPE.animation.fallbacks.nw.flip) throw new Error('isometric nw fallback is invalid')",
+      "if (isometricNode.ARCHETYPE.animation.fallbacks?.sw?.dir !== 'se' || !isometricNode.ARCHETYPE.animation.fallbacks.sw.flip) throw new Error('isometric sw fallback is invalid')",
+      "if (isometricNode.ARCHETYPE.registry.resolveAsset?.('waica:iso-hero') !== 'assets/waica-iso-hero.png') throw new Error('isometric Node-safe registry cannot resolve package assets')",
     ].join('\n'),
   )
   run(process.execPath, [probe], { cwd: sandbox })
@@ -472,7 +504,7 @@ try {
     )
 
     await mkdir(join(sourceTarget, 'node_modules/@waica'), { recursive: true })
-    for (const directory of ['engine', 'behaviors', 'archetype-platformer', 'archetype-topdown']) {
+    for (const directory of ['engine', 'behaviors', 'archetype-platformer', 'archetype-topdown', 'archetype-isometric']) {
       await symlink(
         join(root, 'packages', directory),
         join(sourceTarget, 'node_modules/@waica', directory),

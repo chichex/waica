@@ -6,6 +6,7 @@ const BUILT_PACKAGE_SOURCES = [
   'packages/engine/src',
   'packages/behaviors/src',
   'packages/archetype-platformer/src',
+  'packages/archetype-isometric/src',
 ]
 
 function productionTypeScriptFiles(directory: string): string[] {

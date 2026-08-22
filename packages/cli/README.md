@@ -66,4 +66,4 @@ The only positional argument is `mcp`.
 
 ## What's in the box
 
-The published CLI contains the pre-built editor (`dist/editor`), its static server, the built MCP server (`dist/mcp`) and vendored published-shape copies of `@waica/engine`, `@waica/behaviors`, `@waica/archetype-platformer` and `@waica/archetype-topdown`. Normal package installation supplies `@modelcontextprotocol/sdk`, `playwright-core`, `three` and their transitive dependencies. No browser binary is bundled and nothing phones home.
+The published CLI contains the pre-built editor (`dist/editor`), its static server, the built MCP server (`dist/mcp`) and vendored published-shape copies of `@waica/engine`, `@waica/behaviors`, `@waica/archetype-platformer`, `@waica/archetype-topdown` and `@waica/archetype-isometric`. Normal package installation supplies `@modelcontextprotocol/sdk`, `playwright-core`, `three` and their transitive dependencies. No browser binary is bundled and nothing phones home.

@@ -6,13 +6,14 @@
   "scripts": {
     "dev": "pnpm --filter @waica/example-platformer dev",
     "dev:topdown": "pnpm --filter @waica/example-topdown dev",
+    "dev:isometric": "pnpm --filter @waica/example-isometric dev",
     "editor": "pnpm --filter @waica/editor dev",
     "build": "pnpm -r build",
     "test": "vitest run",
     "test:e2e": "pnpm build && node scripts/test-runtime-e2e.mjs",
     "test:dist": "pnpm build && node scripts/test-dist.mjs",
     "typecheck": "pnpm -r typecheck",
-    "release": "node -e \"console.error('waica: releases are triggered by pushing a vX.Y.Z tag, which publishes all five packages in lockstep via OIDC. Publishing from here would skip the tag check and the trusted-publishing identity. See .claude/skills/publish/SKILL.md'); process.exit(1)\""
+    "release": "node -e \"console.error('waica: releases are triggered by pushing a vX.Y.Z tag, which publishes all six packages in lockstep via OIDC. Publishing from here would skip the tag check and the trusted-publishing identity. See .claude/skills/publish/SKILL.md'); process.exit(1)\""
   },
   "devDependencies": {
     "happy-dom": "^20.11.0",
