@@ -35,6 +35,7 @@ vi.mock('three', async (importOriginal) => {
 import {
   Component,
   Game,
+  loadScene,
   RUNTIME_BRIDGE_PROTOCOL_VERSION,
   RUNTIME_BRIDGE_SYMBOL,
   type RuntimeBridge,
@@ -420,6 +421,30 @@ describe('Runtime Bridge protocol', () => {
       ],
     })
     expect(second.entities[0]?.id).toBe(first.entities[0]?.id)
+    game.dispose()
+  })
+
+  it('reports logical transform positions for projected scenes', () => {
+    const { registered } = installActivation()
+    const game = makeGame()
+    loadScene(
+      game,
+      {
+        waicaScene: 3,
+        render: { projection: 'isometric' },
+        entities: [{ name: 'Logical', position: [2, 1] }],
+      },
+      { components: {} },
+    )
+
+    game.start()
+
+    expect(game.find('Logical')!.node.position.toArray()).toEqual([1, -1.5, 0])
+    expect(registered[0]!.inspect().entities[0]?.transform.position).toEqual({
+      x: 2,
+      y: 1,
+      z: 0,
+    })
     game.dispose()
   })
 

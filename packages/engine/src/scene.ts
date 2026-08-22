@@ -35,10 +35,12 @@ export interface PrefabJson {
 /** Scene-wide render options (v3). */
 export interface SceneRenderJson {
   /**
-   * 'y' orders same-layer sprites by their entity's world Y — lower Y renders
+   * 'y' orders same-layer sprites by their render-space Y — lower Y renders
    * in front (top-down depth). Absent: spawn order breaks same-layer ties.
    */
   sort?: 'y'
+  /** Logical positions are projected to the fixed 2:1 render lattice. */
+  projection?: 'isometric'
 }
 
 export interface SceneJson {
