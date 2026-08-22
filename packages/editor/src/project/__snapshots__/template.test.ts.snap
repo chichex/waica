@@ -1588,7 +1588,7 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
       0,
       -8
     ],
-    "zoom": 18,
+    "zoom": 12,
     "limits": {
       "minX": -16,
       "maxX": 16,
@@ -2347,7 +2347,7 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
         "texture": "src/art/waica-iso-rock.png",
         "pixelArt": true,
         "width": 1,
-        "height": 0.7333333333333333,
+        "height": 1,
         "anchorY": 0
       }
     },
@@ -2396,7 +2396,7 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
       0,
       -8
     ],
-    "zoom": 18,
+    "zoom": 12,
     "limits": {
       "minX": -16,
       "maxX": 16,

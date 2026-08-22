@@ -173,7 +173,7 @@ export const ISOMETRIC_PREFABS: Record<string, PrefabJson> = {
           texture: 'waica:iso-rock',
           pixelArt: true,
           width: 1,
-          height: 11 / 15,
+          height: 1,
           anchorY: 0,
         },
       },

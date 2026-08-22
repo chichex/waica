@@ -91,6 +91,12 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
   Interactable: { line: 'Hello, traveler!', radius: 1.5 },
   Collectible: { value: 1, stat: 'points' },
   Patrol: { axis: 'horizontal', distance: 3, speed: 2 },
+  Chaser: {
+    mode: 'walker',
+    range: 6,
+    speed: 3,
+    gravity: 42,
+  },
   Hazard: {
     stompable: true,
     bounce: 10,
@@ -99,6 +105,7 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
   },
   Health: { max: 3, invulnerability: 0 },
   Respawnable: {},
+  Lifetime: { seconds: 1 },
 }
 
 describe('ISOMETRIC_REGISTRY_DATA', () => {

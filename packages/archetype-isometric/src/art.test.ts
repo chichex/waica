@@ -24,6 +24,7 @@ interface AppearanceProps {
   spacingY?: number
   cellWidth?: number
   cellHeight?: number
+  cellSize?: number
   cells?: number[]
   solidTiles?: number[]
   width?: number
@@ -100,5 +101,40 @@ describe('isometric stock art', () => {
         8,
       )
     }
+  })
+
+  it('keeps every texture in one power-of-two texel-density family', () => {
+    const densities: Record<string, [number, number]> = {}
+    for (const ref of ['characters/player', 'characters/villager', 'characters/orc']) {
+      const sprite = ISOMETRIC_PREFABS[ref]!.components.find(
+        (candidate) => candidate.type === 'AnimatedSprite',
+      )!.props as AppearanceProps
+      densities[ref] = [32 / sprite.width!, 32 / sprite.height!]
+    }
+
+    const tilemap = ISOMETRIC_PREFABS['tiles/ground']!.components[0]!
+      .props as AppearanceProps
+    densities['tiles/ground'] = [
+      tilemap.cellWidth! / (2 * tilemap.cellSize!),
+      tilemap.cellHeight! / tilemap.cellSize!,
+    ]
+
+    for (const ref of ['objects/tree', 'objects/rock', 'objects/crate']) {
+      const sprite = ISOMETRIC_PREFABS[ref]!.components.find(
+        (candidate) => candidate.type === 'Sprite',
+      )!.props as AppearanceProps
+      const size = pngSize(artFileFor(sprite.texture!))
+      densities[ref] = [size.width / sprite.width!, size.height / sprite.height!]
+    }
+
+    expect(densities).toEqual({
+      'characters/player': [16, 16],
+      'characters/villager': [16, 16],
+      'characters/orc': [16, 16],
+      'tiles/ground': [32, 32],
+      'objects/tree': [32, 32],
+      'objects/rock': [32, 32],
+      'objects/crate': [32, 32],
+    })
   })
 })

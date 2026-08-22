@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { projectIsometric } from '@waica/engine'
+import {
+  projectIsometric,
+  resolveSceneCamera,
+  stepSceneCamera,
+} from '@waica/engine'
 import { ISOMETRIC_PREFABS } from './prefabs'
 import { ISOMETRIC_BLANK_SCENE, ISOMETRIC_SCENE } from './scene-default'
 
@@ -40,6 +44,20 @@ describe('ISOMETRIC_SCENE', () => {
     })
     expect(ISOMETRIC_SCENE.camera?.follow).toBe('Player')
     expect(ISOMETRIC_SCENE.camera?.lookaheadY).toBeGreaterThan(0)
+
+    const camera = resolveSceneCamera(ISOMETRIC_SCENE.camera)
+    const next = stepSceneCamera(camera, {
+      x: center.x,
+      y: center.y,
+      halfW: (camera.zoom / 2) * (640 / 360),
+      halfH: camera.zoom / 2,
+      target: projectIsometric(12, 8),
+      vx: 3,
+      vy: -3,
+      dt: 1 / 60,
+    })
+    expect(next.x).not.toBe(center.x)
+    expect(next.y).not.toBe(center.y)
   })
 
   it('contains one map-origin Tilemap with a closed solid border ring', () => {
@@ -98,6 +116,8 @@ describe('ISOMETRIC_BLANK_SCENE', () => {
     expect(ISOMETRIC_BLANK_SCENE.render).toEqual({ sort: 'y', projection: 'isometric' })
     expect(ISOMETRIC_BLANK_SCENE.camera?.position).toEqual(ISOMETRIC_SCENE.camera?.position)
     expect(ISOMETRIC_BLANK_SCENE.camera?.limits).toEqual(ISOMETRIC_SCENE.camera?.limits)
+    expect(ISOMETRIC_BLANK_SCENE.camera?.position).not.toBe(ISOMETRIC_SCENE.camera?.position)
+    expect(ISOMETRIC_BLANK_SCENE.camera?.limits).not.toBe(ISOMETRIC_SCENE.camera?.limits)
     expect(ISOMETRIC_BLANK_SCENE.camera?.follow).toBeUndefined()
     expect(ISOMETRIC_BLANK_SCENE.entities).toEqual([])
   })

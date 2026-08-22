@@ -66,12 +66,16 @@ describe('the isometric prefabs express the genre model', () => {
     }
   })
 
-  it('registers exactly every component the prefabs name', () => {
-    const named = new Set(
-      Object.values(ISOMETRIC_PREFABS).flatMap((prefab) =>
+  it('registers every prefab component plus the reusable character behaviors', () => {
+    const required = new Set([
+      ...Object.values(ISOMETRIC_PREFABS).flatMap((prefab) =>
         prefab.components.map((component) => component.type),
       ),
-    )
-    expect(Object.keys(ISOMETRIC_REGISTRY_DATA.components).sort()).toEqual([...named].sort())
+      'Chaser',
+      'Lifetime',
+    ])
+    for (const component of required) {
+      expect(ISOMETRIC_REGISTRY_DATA.components[component], component).toBeDefined()
+    }
   })
 })

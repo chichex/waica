@@ -59,10 +59,14 @@ one transparent pixel between columns. No raised/cube tile is included:
 | 3 | water | `(896,640,960,672)` |
 | 4 | border | `(960,640,1024,672)` |
 
-Tall art remains a Sprite prop:
+Tall art remains a Sprite prop. To keep nearest-neighbour sampling on one
+power-of-two texel-density family, the crate is reduced to 32×32 with nearest
+sampling and the 30×22 rock is bottom-centred at `(1,10)` on a transparent
+32×32 canvas. The tree remains native at 32 texels per render unit; characters
+remain at the human-approved 16 texels per render unit.
 
 | Output file | Source rectangle `(left, top, right, bottom)` | Output size |
 |---|---|---:|
 | `waica-iso-tree.png` | `(768,208,832,304)`, transparent bottom trimmed | 64×94 |
-| `waica-iso-rock.png` | `(784,868,814,890)` | 30×22 |
-| `waica-iso-crate.png` | `(896,832,960,896)` | 64×64 |
+| `waica-iso-rock.png` | `(784,868,814,890)`, padded at `(1,10)` | 32×32 |
+| `waica-iso-crate.png` | `(896,832,960,896)`, nearest-resized | 32×32 |

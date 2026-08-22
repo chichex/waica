@@ -1,9 +1,11 @@
-import type { SceneJson } from '@waica/engine'
+import type { SceneCameraJson, SceneJson } from '@waica/engine'
 
-const CAMERA = {
-  position: [0, -8] as [number, number],
-  zoom: 18,
-  limits: { minX: -16, maxX: 16, minY: -16, maxY: 0 },
+function isometricCamera(): SceneCameraJson {
+  return {
+    position: [0, -8],
+    zoom: 12,
+    limits: { minX: -16, maxX: 16, minY: -16, maxY: 0 },
+  }
 }
 
 /** A logical 16x16 meadow projected into a 2:1 diamond at render time. */
@@ -11,7 +13,7 @@ export const ISOMETRIC_SCENE: SceneJson = {
   waicaScene: 3,
   render: { sort: 'y', projection: 'isometric' },
   camera: {
-    ...CAMERA,
+    ...isometricCamera(),
     follow: 'Player',
     lookaheadY: 1,
   },
@@ -46,6 +48,6 @@ export const ISOMETRIC_SCENE: SceneJson = {
 export const ISOMETRIC_BLANK_SCENE: SceneJson = {
   waicaScene: 3,
   render: { sort: 'y', projection: 'isometric' },
-  camera: { ...CAMERA },
+  camera: isometricCamera(),
   entities: [],
 }

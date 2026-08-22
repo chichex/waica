@@ -115,6 +115,16 @@ describe.each(MANIFESTS.map((manifest) => [manifest.id, manifest] as const))(
       }
     })
 
+    it('registers every driver its bundled roles name', () => {
+      for (const [role, definition] of Object.entries(archetype.bundle.roles)) {
+        if (!definition.driver) continue
+        expect(
+          archetype.registry.components[definition.driver],
+          `${role} driver "${definition.driver}"`,
+        ).toBeDefined()
+      }
+    })
+
     it('ships a real asset file for every art row', async () => {
       const known = knownArchetype(id)
       expect(known, `${id} must have a KNOWN_ARCHETYPES row`).toBeDefined()

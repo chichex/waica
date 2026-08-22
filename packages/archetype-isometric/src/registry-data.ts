@@ -9,11 +9,13 @@ import {
   type SceneRegistry,
 } from '@waica/engine'
 import {
+  Chaser,
   Collectible,
   Hazard,
   Health,
   Interactable,
   IsoMotor,
+  Lifetime,
   Patrol,
   Respawnable,
 } from '@waica/behaviors'
@@ -37,9 +39,11 @@ export const ISOMETRIC_REGISTRY_DATA: SceneRegistry = {
     Interactable,
     Collectible,
     Patrol,
+    Chaser,
     Hazard,
     Health,
     Respawnable,
+    Lifetime,
   },
   resolveAsset: (uri) => PACKAGE_ASSETS[uri] ?? uri,
   prefabs: ISOMETRIC_PREFABS,
