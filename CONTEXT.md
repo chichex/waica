@@ -15,6 +15,10 @@ The standard object every archetype package exports as `ARCHETYPE`: id, label, d
 An archetype's declaration of which animation clips a role's states require and how a missing clip resolves through fallbacks. Direction-aware archetypes resolve clips per state × facing, with mirroring as a declarable fallback.
 _Avoid_: clip list, animation set
 
+**Facing**:
+The compass direction (`n`, `ne`, `e`, …) an entity reports so its current state resolves to a directional clip. It is read off motion as seen on screen — a motor's screen-relative input or a patrol's projected rail — never off logical axes.
+_Avoid_: orientation, heading, direction
+
 **Chassis**:
 The factory baseline something starts from and cannot shed: a prefab's core components (appearance, collision — configurable, never removable) and, by extension, the generic project skeleton every new project is created from.
 _Avoid_: boilerplate, skeleton
