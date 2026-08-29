@@ -1,6 +1,7 @@
 {
   "waicaStats": 1,
   "stats": {
-    "points": 0
+    "points": 0,
+    "health": 3
   }
 }

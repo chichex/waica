@@ -131,8 +131,11 @@ describe('IsoMotor logical-axis collision', () => {
 
     motor.step(0.1)
 
+    // The solid's bottom face sits at 0.75; the square isometric footprint
+    // (0.9 deep, unlike the short top-down body) stops half its height short.
+    expect(motor.hitboxHeight).toBe(0.9)
     expect(motor.entity.position.x).toBeCloseTo(-0.3, 3)
-    expect(motor.entity.position.y).toBeCloseTo(0.45, 3)
+    expect(motor.entity.position.y).toBeCloseTo(0.3, 3)
     expect(motor.vx).toBe(-3)
     expect(motor.vy).toBe(0)
   })

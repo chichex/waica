@@ -251,7 +251,8 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   "waicaStats": 1,
   "stats": {
     "points": 0,
-    "lives": 3
+    "lives": 3,
+    "health": 3
   }
 }
 ",
@@ -493,6 +494,10 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
           "idle": {
             "transitions": [
               {
+                "on": "input:attack",
+                "to": "attack"
+              },
+              {
                 "on": "signal:move",
                 "to": "walk"
               }
@@ -501,13 +506,33 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
           "walk": {
             "transitions": [
               {
+                "on": "input:attack",
+                "to": "attack"
+              },
+              {
                 "on": "signal:stop",
                 "to": "idle"
               }
             ]
           },
+          "attack": {
+            "transitions": [
+              {
+                "on": "timer:0.3",
+                "to": "idle"
+              }
+            ]
+          },
+          "hurt": {
+            "transitions": [
+              {
+                "on": "timer:0.3",
+                "to": "idle"
+              }
+            ]
+          },
           "dead": {
-            "clip": "idle",
+            "clip": "death",
             "transitions": [
               {
                 "on": "timer:0.8",
@@ -520,6 +545,10 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
               {
                 "on": "signal:death",
                 "to": "dead"
+              },
+              {
+                "on": "signal:hurt",
+                "to": "hurt"
               }
             ]
           }
@@ -1170,7 +1199,8 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   "waicaStats": 1,
   "stats": {
     "points": 0,
-    "lives": 3
+    "lives": 3,
+    "health": 3
   }
 }
 ",
@@ -1447,6 +1477,10 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
     "interact": [
       "KeyE",
       "Space"
+    ],
+    "attack": [
+      "KeyX",
+      "KeyJ"
     ]
   }
 }
@@ -1594,7 +1628,12 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
       "maxX": 16,
       "minY": -16,
       "maxY": 0
-    }
+    },
+    "deadzoneWidth": 0.5,
+    "deadzoneHeight": 0.5,
+    "lookahead": 0,
+    "lookaheadY": 0.5,
+    "smoothing": 4
   },
   "entities": []
 }
@@ -1603,7 +1642,8 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   "waicaStats": 1,
   "stats": {
     "points": 0,
-    "lives": 3
+    "lives": 3,
+    "health": 3
   }
 }
 ",
@@ -1718,7 +1758,7 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
       "type": "AnimatedSprite",
       "props": {
         "texture": "src/art/waica-iso-orc.png",
-        "cols": 4,
+        "cols": 11,
         "rows": 5,
         "spacingX": 1,
         "spacingY": 1,
@@ -1726,6 +1766,7 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
         "width": 2,
         "height": 2,
         "anchorY": 0,
+        "offsetY": -0.5625,
         "clips": {
           "idle-n": {
             "frames": [
@@ -1742,83 +1783,193 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
             ],
             "fps": 8
           },
+          "attack-n": {
+            "frames": [
+              4,
+              5,
+              6
+            ],
+            "fps": 12,
+            "loop": false
+          },
+          "hurt-n": {
+            "frames": [
+              7,
+              8
+            ],
+            "fps": 8,
+            "loop": false
+          },
+          "death-n": {
+            "frames": [
+              9,
+              10
+            ],
+            "fps": 4,
+            "loop": false
+          },
           "idle-ne": {
             "frames": [
-              4
+              11
             ],
             "fps": 2
           },
           "walk-ne": {
             "frames": [
-              5,
-              6,
-              7,
-              6
+              12,
+              13,
+              14,
+              13
             ],
             "fps": 8
           },
+          "attack-ne": {
+            "frames": [
+              15,
+              16,
+              17
+            ],
+            "fps": 12,
+            "loop": false
+          },
+          "hurt-ne": {
+            "frames": [
+              18,
+              19
+            ],
+            "fps": 8,
+            "loop": false
+          },
+          "death-ne": {
+            "frames": [
+              20,
+              21
+            ],
+            "fps": 4,
+            "loop": false
+          },
           "idle-e": {
             "frames": [
-              8
+              22
             ],
             "fps": 2
           },
           "walk-e": {
             "frames": [
-              9,
-              10,
-              11,
-              10
+              23,
+              24,
+              25,
+              24
             ],
             "fps": 8
           },
+          "attack-e": {
+            "frames": [
+              26,
+              27,
+              28
+            ],
+            "fps": 12,
+            "loop": false
+          },
+          "hurt-e": {
+            "frames": [
+              29,
+              30
+            ],
+            "fps": 8,
+            "loop": false
+          },
+          "death-e": {
+            "frames": [
+              31,
+              32
+            ],
+            "fps": 4,
+            "loop": false
+          },
           "idle-se": {
             "frames": [
-              12
+              33
             ],
             "fps": 2
           },
           "walk-se": {
             "frames": [
-              13,
-              14,
-              15,
-              14
+              34,
+              35,
+              36,
+              35
             ],
             "fps": 8
           },
+          "attack-se": {
+            "frames": [
+              37,
+              38,
+              39
+            ],
+            "fps": 12,
+            "loop": false
+          },
+          "hurt-se": {
+            "frames": [
+              40,
+              41
+            ],
+            "fps": 8,
+            "loop": false
+          },
+          "death-se": {
+            "frames": [
+              42,
+              43
+            ],
+            "fps": 4,
+            "loop": false
+          },
           "idle-s": {
             "frames": [
-              16
+              44
             ],
             "fps": 2
           },
           "walk-s": {
             "frames": [
-              17,
-              18,
-              19,
-              18
+              45,
+              46,
+              47,
+              46
             ],
             "fps": 8
           },
-          "idle": {
+          "attack-s": {
             "frames": [
-              16
+              48,
+              49,
+              50
             ],
-            "fps": 2
+            "fps": 12,
+            "loop": false
           },
-          "walk": {
+          "hurt-s": {
             "frames": [
-              17,
-              18,
-              19,
-              18
+              51,
+              52
             ],
-            "fps": 8
+            "fps": 8,
+            "loop": false
+          },
+          "death-s": {
+            "frames": [
+              53,
+              54
+            ],
+            "fps": 4,
+            "loop": false
           }
         },
-        "initialClip": "walk"
+        "initialClip": "walk-se"
       }
     },
     {
@@ -1835,7 +1986,30 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
         "role": "patroller",
         "initial": "walk",
         "states": {
-          "walk": {}
+          "walk": {},
+          "hurt": {
+            "transitions": [
+              {
+                "on": "timer:0.25",
+                "to": "walk"
+              }
+            ]
+          },
+          "dead": {
+            "clip": "death"
+          },
+          "*": {
+            "transitions": [
+              {
+                "on": "signal:death",
+                "to": "dead"
+              },
+              {
+                "on": "signal:hurt",
+                "to": "hurt"
+              }
+            ]
+          }
         }
       }
     },
@@ -1852,6 +2026,13 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
         "stompable": false,
         "contactDamage": 1
       }
+    },
+    {
+      "type": "Health",
+      "props": {
+        "max": 2,
+        "invulnerability": 0.3
+      }
     }
   ]
 }
@@ -1864,7 +2045,7 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
       "type": "AnimatedSprite",
       "props": {
         "texture": "src/art/waica-iso-hero.png",
-        "cols": 4,
+        "cols": 11,
         "rows": 5,
         "spacingX": 1,
         "spacingY": 1,
@@ -1872,6 +2053,7 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
         "width": 2,
         "height": 2,
         "anchorY": 0,
+        "offsetY": -0.5625,
         "clips": {
           "idle-n": {
             "frames": [
@@ -1888,65 +2070,190 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
             ],
             "fps": 8
           },
+          "attack-n": {
+            "frames": [
+              4,
+              5,
+              6
+            ],
+            "fps": 12,
+            "loop": false
+          },
+          "hurt-n": {
+            "frames": [
+              7,
+              8
+            ],
+            "fps": 8,
+            "loop": false
+          },
+          "death-n": {
+            "frames": [
+              9,
+              10
+            ],
+            "fps": 4,
+            "loop": false
+          },
           "idle-ne": {
             "frames": [
-              4
+              11
             ],
             "fps": 2
           },
           "walk-ne": {
             "frames": [
-              5,
-              6,
-              7,
-              6
+              12,
+              13,
+              14,
+              13
             ],
             "fps": 8
           },
+          "attack-ne": {
+            "frames": [
+              15,
+              16,
+              17
+            ],
+            "fps": 12,
+            "loop": false
+          },
+          "hurt-ne": {
+            "frames": [
+              18,
+              19
+            ],
+            "fps": 8,
+            "loop": false
+          },
+          "death-ne": {
+            "frames": [
+              20,
+              21
+            ],
+            "fps": 4,
+            "loop": false
+          },
           "idle-e": {
             "frames": [
-              8
+              22
             ],
             "fps": 2
           },
           "walk-e": {
             "frames": [
-              9,
-              10,
-              11,
-              10
+              23,
+              24,
+              25,
+              24
             ],
             "fps": 8
           },
+          "attack-e": {
+            "frames": [
+              26,
+              27,
+              28
+            ],
+            "fps": 12,
+            "loop": false
+          },
+          "hurt-e": {
+            "frames": [
+              29,
+              30
+            ],
+            "fps": 8,
+            "loop": false
+          },
+          "death-e": {
+            "frames": [
+              31,
+              32
+            ],
+            "fps": 4,
+            "loop": false
+          },
           "idle-se": {
             "frames": [
-              12
+              33
             ],
             "fps": 2
           },
           "walk-se": {
             "frames": [
-              13,
-              14,
-              15,
-              14
+              34,
+              35,
+              36,
+              35
             ],
             "fps": 8
           },
+          "attack-se": {
+            "frames": [
+              37,
+              38,
+              39
+            ],
+            "fps": 12,
+            "loop": false
+          },
+          "hurt-se": {
+            "frames": [
+              40,
+              41
+            ],
+            "fps": 8,
+            "loop": false
+          },
+          "death-se": {
+            "frames": [
+              42,
+              43
+            ],
+            "fps": 4,
+            "loop": false
+          },
           "idle-s": {
             "frames": [
-              16
+              44
             ],
             "fps": 2
           },
           "walk-s": {
             "frames": [
-              17,
-              18,
-              19,
-              18
+              45,
+              46,
+              47,
+              46
             ],
             "fps": 8
+          },
+          "attack-s": {
+            "frames": [
+              48,
+              49,
+              50
+            ],
+            "fps": 12,
+            "loop": false
+          },
+          "hurt-s": {
+            "frames": [
+              51,
+              52
+            ],
+            "fps": 8,
+            "loop": false
+          },
+          "death-s": {
+            "frames": [
+              53,
+              54
+            ],
+            "fps": 4,
+            "loop": false
           }
         },
         "initialClip": "idle-s"
@@ -1964,6 +2271,10 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
           "idle": {
             "transitions": [
               {
+                "on": "input:attack",
+                "to": "attack"
+              },
+              {
                 "on": "signal:move",
                 "to": "walk"
               }
@@ -1972,13 +2283,33 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
           "walk": {
             "transitions": [
               {
+                "on": "input:attack",
+                "to": "attack"
+              },
+              {
                 "on": "signal:stop",
                 "to": "idle"
               }
             ]
           },
+          "attack": {
+            "transitions": [
+              {
+                "on": "timer:0.3",
+                "to": "idle"
+              }
+            ]
+          },
+          "hurt": {
+            "transitions": [
+              {
+                "on": "timer:0.3",
+                "to": "idle"
+              }
+            ]
+          },
           "dead": {
-            "clip": "idle",
+            "clip": "death",
             "transitions": [
               {
                 "on": "timer:0.8",
@@ -1991,6 +2322,10 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
               {
                 "on": "signal:death",
                 "to": "dead"
+              },
+              {
+                "on": "signal:hurt",
+                "to": "hurt"
               }
             ]
           }
@@ -2005,13 +2340,17 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
       }
     },
     {
+      "type": "MeleeAttack"
+    },
+    {
       "type": "Respawnable"
     },
     {
       "type": "Health",
       "props": {
         "max": 3,
-        "invulnerability": 1
+        "invulnerability": 1,
+        "stat": "health"
       }
     }
   ]
@@ -2025,7 +2364,7 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
       "type": "AnimatedSprite",
       "props": {
         "texture": "src/art/waica-iso-villager.png",
-        "cols": 4,
+        "cols": 11,
         "rows": 5,
         "spacingX": 1,
         "spacingY": 1,
@@ -2033,6 +2372,7 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
         "width": 2,
         "height": 2,
         "anchorY": 0,
+        "offsetY": -0.5625,
         "clips": {
           "idle-n": {
             "frames": [
@@ -2049,78 +2389,158 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
             ],
             "fps": 8
           },
+          "hurt-n": {
+            "frames": [
+              7,
+              8
+            ],
+            "fps": 8,
+            "loop": false
+          },
+          "death-n": {
+            "frames": [
+              9,
+              10
+            ],
+            "fps": 4,
+            "loop": false
+          },
           "idle-ne": {
             "frames": [
-              4
+              11
             ],
             "fps": 2
           },
           "walk-ne": {
             "frames": [
-              5,
-              6,
-              7,
-              6
+              12,
+              13,
+              14,
+              13
             ],
             "fps": 8
           },
+          "hurt-ne": {
+            "frames": [
+              18,
+              19
+            ],
+            "fps": 8,
+            "loop": false
+          },
+          "death-ne": {
+            "frames": [
+              20,
+              21
+            ],
+            "fps": 4,
+            "loop": false
+          },
           "idle-e": {
             "frames": [
-              8
+              22
             ],
             "fps": 2
           },
           "walk-e": {
             "frames": [
-              9,
-              10,
-              11,
-              10
+              23,
+              24,
+              25,
+              24
             ],
             "fps": 8
           },
+          "hurt-e": {
+            "frames": [
+              29,
+              30
+            ],
+            "fps": 8,
+            "loop": false
+          },
+          "death-e": {
+            "frames": [
+              31,
+              32
+            ],
+            "fps": 4,
+            "loop": false
+          },
           "idle-se": {
             "frames": [
-              12
+              33
             ],
             "fps": 2
           },
           "walk-se": {
             "frames": [
-              13,
-              14,
-              15,
-              14
+              34,
+              35,
+              36,
+              35
             ],
             "fps": 8
           },
+          "hurt-se": {
+            "frames": [
+              40,
+              41
+            ],
+            "fps": 8,
+            "loop": false
+          },
+          "death-se": {
+            "frames": [
+              42,
+              43
+            ],
+            "fps": 4,
+            "loop": false
+          },
           "idle-s": {
             "frames": [
-              16
+              44
             ],
             "fps": 2
           },
           "walk-s": {
             "frames": [
-              17,
-              18,
-              19,
-              18
+              45,
+              46,
+              47,
+              46
             ],
             "fps": 8
           },
+          "hurt-s": {
+            "frames": [
+              51,
+              52
+            ],
+            "fps": 8,
+            "loop": false
+          },
+          "death-s": {
+            "frames": [
+              53,
+              54
+            ],
+            "fps": 4,
+            "loop": false
+          },
           "idle": {
             "frames": [
-              16
+              44
             ],
             "fps": 2
           },
           "walk": {
             "frames": [
-              17,
-              18,
-              19,
-              18
+              45,
+              46,
+              47,
+              46
             ],
             "fps": 8
           }
@@ -2177,6 +2597,10 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
     "interact": [
       "KeyE",
       "Space"
+    ],
+    "attack": [
+      "KeyX",
+      "KeyJ"
     ]
   }
 }
@@ -2403,8 +2827,12 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
       "minY": -16,
       "maxY": 0
     },
-    "follow": "Player",
-    "lookaheadY": 1
+    "deadzoneWidth": 0.5,
+    "deadzoneHeight": 0.5,
+    "lookahead": 0,
+    "lookaheadY": 0.5,
+    "smoothing": 4,
+    "follow": "Player"
   },
   "entities": [
     {
@@ -2517,7 +2945,8 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
     }
   ],
   "ui": [
-    "crate-counter"
+    "crate-counter",
+    "health"
   ]
 }
 ",
@@ -2525,7 +2954,8 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   "waicaStats": 1,
   "stats": {
     "points": 0,
-    "lives": 3
+    "lives": 3,
+    "health": 3
   }
 }
 ",
@@ -2828,6 +3258,19 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
 </style>
 <div class="crate-counter">📦 {{points}}</div>
 ",
+  "src/ui/health.html": "<style>
+  .health {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font: 600 20px system-ui, sans-serif;
+    color: #ef476f;
+    text-shadow: 0 1px 3px #000a;
+    user-select: none;
+  }
+</style>
+<div class="health">♥ {{health}}</div>
+",
   "src/ui/npc-line.html": "<style>
   .npc-line {
     position: absolute;
@@ -3111,7 +3554,8 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   "waicaStats": 1,
   "stats": {
     "points": 0,
-    "lives": 3
+    "lives": 3,
+    "health": 3
   }
 }
 ",
@@ -3862,7 +4306,8 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   "waicaStats": 1,
   "stats": {
     "points": 0,
-    "lives": 3
+    "lives": 3,
+    "health": 3
   }
 }
 ",

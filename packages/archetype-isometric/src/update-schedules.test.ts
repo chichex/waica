@@ -10,6 +10,7 @@ import {
   Interactable,
   IsoMotor,
   Lifetime,
+  MeleeAttack,
   Patrol,
 } from '@waica/behaviors'
 import { ISOMETRIC_PREFABS } from './prefabs'
@@ -36,13 +37,14 @@ describe('isometric component update schedules', () => {
     expect(Interactable.updateAfter).toBeUndefined()
     expect(Patrol.updateAfter).toBeUndefined()
     expect(Chaser.updateAfter).toBeUndefined()
+    expect(MeleeAttack.updateAfter).toBeUndefined()
   })
 
   it('resolves every stock prefab without issues and independently of component-array order', () => {
     const expected: Record<string, string[]> = {
       'characters/player': ['StateMachine', 'AnimatedSprite', 'Health'],
       'characters/villager': ['StateMachine', 'AnimatedSprite'],
-      'characters/orc': ['StateMachine', 'AnimatedSprite'],
+      'characters/orc': ['StateMachine', 'AnimatedSprite', 'Health'],
       'objects/crate': [],
       'objects/tree': [],
       'objects/rock': [],

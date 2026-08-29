@@ -44,6 +44,38 @@ describe('the isometric prefabs express the genre model', () => {
     expect(componentTypes('objects/crate')).toContain('Collectible')
   })
 
+  it('arms the player with a melee attack and a health that feeds the HUD', () => {
+    expect(componentTypes('characters/player')).toContain('MeleeAttack')
+    expect(props('characters/player', 'Health')).toEqual({ max: 3, invulnerability: 1, stat: 'health' })
+  })
+
+  it('makes the orc mortal: two hits, a short window, no HUD stat', () => {
+    expect(props('characters/orc', 'Health')).toEqual({ max: 2, invulnerability: 0.3 })
+    expect(props('characters/orc', 'StateMachine')).toMatchObject({
+      role: 'patroller',
+      states: expect.objectContaining({ hurt: expect.anything(), dead: expect.anything() }),
+    })
+  })
+
+  it('gives the orc directional clips only, walking south-east from the start', () => {
+    const sprite = props('characters/orc', 'AnimatedSprite') as {
+      clips: Record<string, unknown>
+      initialClip: string
+    }
+    expect(Object.keys(sprite.clips).filter((clip) => !clip.includes('-'))).toEqual([])
+    expect(sprite.initialClip).toBe('walk-se')
+    for (const state of ['walk', 'hurt', 'death']) {
+      expect(sprite.clips[`${state}-se`], state).toBeDefined()
+    }
+  })
+
+  it('leaves the villager peaceful: directional poses, but no attack clips', () => {
+    const sprite = props('characters/villager', 'AnimatedSprite') as { clips: Record<string, unknown> }
+    expect(Object.keys(sprite.clips).filter((clip) => clip.startsWith('attack'))).toEqual([])
+    expect(sprite.clips['hurt-s']).toBeDefined()
+    expect(sprite.clips['idle']).toBeDefined()
+  })
+
   it('uses one Tilemap for ground and anchors every tall prop at its footprint', () => {
     expect(componentTypes('tiles/ground')).toEqual(['Tilemap'])
     for (const ref of ['objects/tree', 'objects/rock', 'objects/crate']) {

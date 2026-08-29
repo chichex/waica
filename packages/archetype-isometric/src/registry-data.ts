@@ -16,6 +16,7 @@ import {
   Interactable,
   IsoMotor,
   Lifetime,
+  MeleeAttack,
   Patrol,
   Respawnable,
 } from '@waica/behaviors'
@@ -36,6 +37,7 @@ export const ISOMETRIC_REGISTRY_DATA: SceneRegistry = {
     Hitbox,
     StateMachine,
     IsoMotor,
+    MeleeAttack,
     Interactable,
     Collectible,
     Patrol,

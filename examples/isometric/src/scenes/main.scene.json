@@ -16,8 +16,12 @@
       "minY": -16,
       "maxY": 0
     },
-    "follow": "Player",
-    "lookaheadY": 1
+    "deadzoneWidth": 0.5,
+    "deadzoneHeight": 0.5,
+    "lookahead": 0,
+    "lookaheadY": 0.5,
+    "smoothing": 4,
+    "follow": "Player"
   },
   "entities": [
     {
@@ -130,6 +134,7 @@
     }
   ],
   "ui": [
-    "crate-counter"
+    "crate-counter",
+    "health"
   ]
 }

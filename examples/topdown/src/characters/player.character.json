@@ -74,6 +74,10 @@
           "idle": {
             "transitions": [
               {
+                "on": "input:attack",
+                "to": "attack"
+              },
+              {
                 "on": "signal:move",
                 "to": "walk"
               }
@@ -82,13 +86,33 @@
           "walk": {
             "transitions": [
               {
+                "on": "input:attack",
+                "to": "attack"
+              },
+              {
                 "on": "signal:stop",
                 "to": "idle"
               }
             ]
           },
+          "attack": {
+            "transitions": [
+              {
+                "on": "timer:0.3",
+                "to": "idle"
+              }
+            ]
+          },
+          "hurt": {
+            "transitions": [
+              {
+                "on": "timer:0.3",
+                "to": "idle"
+              }
+            ]
+          },
           "dead": {
-            "clip": "idle",
+            "clip": "death",
             "transitions": [
               {
                 "on": "timer:0.8",
@@ -101,6 +125,10 @@
               {
                 "on": "signal:death",
                 "to": "dead"
+              },
+              {
+                "on": "signal:hurt",
+                "to": "hurt"
               }
             ]
           }

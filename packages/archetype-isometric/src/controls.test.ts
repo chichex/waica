@@ -9,6 +9,7 @@ describe('isometric controls', () => {
       left: ['ArrowLeft', 'KeyA'],
       right: ['ArrowRight', 'KeyD'],
       interact: ['KeyE', 'Space'],
+      attack: ['KeyX', 'KeyJ'],
     })
   })
 
@@ -19,6 +20,7 @@ describe('isometric controls', () => {
       left: 'Move left',
       right: 'Move right',
       interact: 'Interact',
+      attack: 'Attack',
     })
     expect(Object.keys(ISOMETRIC_ACTION_LABELS).sort()).toEqual(
       Object.keys(ISOMETRIC_BINDINGS).sort(),

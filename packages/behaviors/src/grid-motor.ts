@@ -19,6 +19,7 @@ export abstract class GridMotor<Facing extends string>
     acceleration: { label: 'Acceleration', min: 5, max: 200, step: 5 },
     deceleration: { label: 'Deceleration', min: 5, max: 200, step: 5 },
     walkThreshold: { label: 'Walk threshold', min: 0, max: 5, step: 0.1 },
+    knockbackSpeed: { label: 'Knockback speed', min: 0, max: 30, step: 0.5 },
   }
   static override transient = ['vx', 'vy', 'facing']
 
@@ -27,6 +28,8 @@ export abstract class GridMotor<Facing extends string>
   deceleration = 80
   /** Speed above this reads as walking (the idle ↔ walk edge). */
   walkThreshold = 0.5
+  /** How hard a hit shoves the body away from its source (the hurt state). */
+  knockbackSpeed = 8
   /** The character's AABB hitbox — a footprint, shorter than the sprite. */
   hitboxWidth = 0.9
   hitboxHeight = 0.6

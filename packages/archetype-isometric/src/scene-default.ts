@@ -1,10 +1,21 @@
 import type { SceneCameraJson, SceneJson } from '@waica/engine'
 
+/**
+ * Full-map framing plus a follow feel tuned for the diamond: a tight dead
+ * zone and no horizontal lookahead (the engine's step kicks in every time
+ * the player crosses walking speed, which lurches on short runs), a little
+ * vertical lead, and softer smoothing than the platformer default.
+ */
 function isometricCamera(): SceneCameraJson {
   return {
     position: [0, -8],
     zoom: 12,
     limits: { minX: -16, maxX: 16, minY: -16, maxY: 0 },
+    deadzoneWidth: 0.5,
+    deadzoneHeight: 0.5,
+    lookahead: 0,
+    lookaheadY: 0.5,
+    smoothing: 4,
   }
 }
 
@@ -15,7 +26,6 @@ export const ISOMETRIC_SCENE: SceneJson = {
   camera: {
     ...isometricCamera(),
     follow: 'Player',
-    lookaheadY: 1,
   },
   entities: [
     { name: 'Ground', prefab: 'tiles/ground', position: [0, 0] },
@@ -41,7 +51,7 @@ export const ISOMETRIC_SCENE: SceneJson = {
     { name: 'Rock-1', prefab: 'objects/rock', position: [5, 11] },
     { name: 'Rock-2', prefab: 'objects/rock', position: [9, 4] },
   ],
-  ui: ['crate-counter'],
+  ui: ['crate-counter', 'health'],
 }
 
 /** Blank projects retain the diamond grid and full-map framing. */

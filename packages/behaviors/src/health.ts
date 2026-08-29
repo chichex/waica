@@ -9,6 +9,9 @@ import { Component, StateMachine, type Entity, type StateJson } from '@waica/eng
  */
 const DEATH_EPSILON = 1e-9
 
+/** Seconds each blink phase lasts while invulnerable: 10 Hz on/off. */
+const BLINK_PERIOD = 0.1
+
 /**
  * Where a 'signal:death' from `current` could land: the targets of every
  * death edge on the current state or on '*'. Mirrors the merge
@@ -51,23 +54,62 @@ export class Health extends Component {
   static override params = {
     max: { label: 'Max health', min: 1, max: 20, step: 1 },
     invulnerability: { label: 'Invulnerability', min: 0, max: 5, step: 0.1 },
+    stat: { label: 'Stat', ref: 'stat' as const },
   }
-  static override transient = ['current', 'invulnerable', 'deathPending', 'expectedStates']
+  static override transient = [
+    'current',
+    'invulnerable',
+    'deathPending',
+    'expectedStates',
+    'lastDamageSource',
+    'blinkClock',
+  ]
 
   max = 3
   /** Seconds of immunity granted by taking a hit. 0 disables i-frames. */
   invulnerability = 0
+  /**
+   * Stat that mirrors `current` (a HUD binds to it with `{{stat}}`). Empty
+   * publishes nothing: the stat is the project's to declare.
+   */
+  stat = ''
 
   /** Health left; 0 is dead. Filled in from max on ready. */
   current = 0
+  /** Whoever dealt the last accepted hit, for the state that reacts to it. */
+  lastDamageSource: Entity | undefined
 
   /** Seconds left in the invulnerability window. */
   private invulnerable = 0
+  /** Seconds into the current blink, for the 10 Hz toggle. */
+  private blinkClock = 0
+
+  /** Whether the node is being flashed: exactly while a window is open. */
+  get blinking(): boolean {
+    return this.invulnerable > 0
+  }
 
   /** Whether the signalled death must be checked on this component's next update. */
   private deathPending = false
   /** States the death signal was supposed to reach. */
   private expectedStates: string[] = []
+
+  /**
+   * What a Runtime Snapshot shows: the authored values, the live ones, and
+   * the last source by name — projecting the whole Entity would drag its
+   * scene node along and bury the numbers that matter.
+   */
+  inspectState(): Record<string, unknown> {
+    return {
+      max: this.max,
+      invulnerability: this.invulnerability,
+      stat: this.stat,
+      current: this.current,
+      invulnerable: this.invulnerable,
+      blinking: this.blinking,
+      lastDamageSource: this.lastDamageSource?.name ?? null,
+    }
+  }
 
   override onReady(): void {
     // The inspector has no min clamp on max, so an authored 0 (or a
@@ -76,11 +118,15 @@ export class Health extends Component {
     // so die() is never reached — permanently invulnerable instead of
     // already dead.
     this.current = Math.max(0, this.max)
+    this.publish()
     if (this.current === 0) this.die()
   }
 
   override onUpdate(dt: number): void {
-    if (this.invulnerable > 0) this.invulnerable = Math.max(0, this.invulnerable - dt)
+    if (this.invulnerable > 0) {
+      this.invulnerable = Math.max(0, this.invulnerable - dt)
+      this.blink(dt)
+    }
     if (this.deathPending) {
       this.deathPending = false
       this.settleDeath()
@@ -117,6 +163,8 @@ export class Health extends Component {
     if (!(amount > 0) || this.current <= 0 || this.invulnerable > 0) return
     this.current = Math.max(0, this.current - amount)
     if (this.current < DEATH_EPSILON) this.current = 0
+    this.lastDamageSource = source
+    this.publish()
     this.game.events.emit('damage', {
       entity: this.entity,
       amount,
@@ -124,13 +172,40 @@ export class Health extends Component {
       source,
     })
     this.invulnerable = this.invulnerability
-    if (this.current === 0) this.die()
+    this.blinkClock = 0
+    if (this.current === 0) {
+      this.die()
+      return
+    }
+    // Fire-and-forget, like death: a graph with no 'signal:hurt' edge simply
+    // ignores it, so a stunned/knocked-back reaction is the role's to add.
+    this.entity.get(StateMachine)?.signal('hurt')
   }
 
   /** Gives health back, capped at max. heal(Infinity) is a full restore. */
   heal(amount: number): void {
     if (amount <= 0) return
     this.current = Math.min(this.max, this.current + amount)
+    this.publish()
+  }
+
+  /** Mirrors current into the named stat, when one is named. */
+  private publish(): void {
+    if (this.stat) this.game.stats.set(this.stat, this.current)
+  }
+
+  /**
+   * Flashes the node at 10 Hz for as long as the window stays open, and
+   * leaves it visible the frame the window closes — the flash is feedback,
+   * never a state a hit can leave the entity stuck in.
+   */
+  private blink(dt: number): void {
+    if (this.invulnerable > 0) {
+      this.blinkClock += dt
+      this.entity.node.visible = Math.floor(this.blinkClock / BLINK_PERIOD) % 2 === 0
+      return
+    }
+    this.entity.node.visible = true
   }
 
   /**
@@ -139,6 +214,13 @@ export class Health extends Component {
    * destroying is the fallback rather than the exception.
    */
   private die(): void {
+    // The killing blow opened a window like any other hit; close it. The
+    // death pose must hold steady, and a revived entity starts without
+    // leftover immunity. The node is visible here by construction: blink()
+    // restores it the frame a window closes, and a lethal hit only lands
+    // while no window is open.
+    this.invulnerable = 0
+    this.blinkClock = 0
     this.game.events.emit('death', { entity: this.entity })
     const machine = this.entity.get(StateMachine)
     const targets = machine ? deathTargets(machine.states, machine.current) : []

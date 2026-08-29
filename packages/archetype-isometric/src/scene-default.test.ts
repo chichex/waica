@@ -44,6 +44,14 @@ describe('ISOMETRIC_SCENE', () => {
     })
     expect(ISOMETRIC_SCENE.camera?.follow).toBe('Player')
     expect(ISOMETRIC_SCENE.camera?.lookaheadY).toBeGreaterThan(0)
+    expect(ISOMETRIC_SCENE.camera).toMatchObject({
+      zoom: 12,
+      deadzoneWidth: 0.5,
+      deadzoneHeight: 0.5,
+      lookahead: 0,
+      lookaheadY: 0.5,
+      smoothing: 4,
+    })
 
     const camera = resolveSceneCamera(ISOMETRIC_SCENE.camera)
     const next = stepSceneCamera(camera, {
@@ -95,6 +103,10 @@ describe('ISOMETRIC_SCENE', () => {
     expect(byPrefab('objects/crate').length).toBeGreaterThanOrEqual(3)
     expect(byPrefab('objects/tree').length).toBeGreaterThanOrEqual(2)
     expect(byPrefab('objects/rock').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('mounts the crate counter and the health HUD', () => {
+    expect(ISOMETRIC_SCENE.ui).toEqual(['crate-counter', 'health'])
   })
 
   it('places occluders inside the playable map', () => {
