@@ -51,6 +51,7 @@ describe('isometric stock art', () => {
       const rows = sprite.rows!
       const size = pngSize(artFileFor(sprite.texture!))
       expect(rows, ref).toBe(5)
+      expect(cols, ref).toBe(11)
       expect(sprite.spacingX, ref).toBe(1)
       expect(sprite.spacingY, ref).toBe(1)
       expect(size.width, ref).toBe(cols * 32 + (cols - 1))
@@ -73,6 +74,21 @@ describe('isometric stock art', () => {
     for (const index of [...(tilemap.cells ?? []), ...(tilemap.solidTiles ?? [])]) {
       expect(index).toBeGreaterThanOrEqual(0)
       expect(index).toBeLessThan(cols * rows)
+    }
+  })
+
+  it('declares one column per pose: idle, three walk, three attack, two hurt, two death', () => {
+    const hero = ISOMETRIC_PREFABS['characters/player']!.components.find(
+      (candidate) => candidate.type === 'AnimatedSprite',
+    )!.props as AppearanceProps
+    const row = (direction: string) => ['n', 'ne', 'e', 'se', 's'].indexOf(direction) * 11
+    for (const direction of ['n', 'ne', 'e', 'se', 's']) {
+      const first = row(direction)
+      expect(hero.clips![`idle-${direction}`]!.frames).toEqual([first])
+      expect(hero.clips![`walk-${direction}`]!.frames).toEqual([first + 1, first + 2, first + 3, first + 2])
+      expect(hero.clips![`attack-${direction}`]!.frames).toEqual([first + 4, first + 5, first + 6])
+      expect(hero.clips![`hurt-${direction}`]!.frames).toEqual([first + 7, first + 8])
+      expect(hero.clips![`death-${direction}`]!.frames).toEqual([first + 9, first + 10])
     }
   })
 

@@ -15,30 +15,51 @@ offline from originals retained outside the repository at
   `Human-Worker-Red.png`, and `Orc-Grunt.png` (each 768×256, 24×8 cells
   of 32×32).
 
-Each output character sheet is 4 columns × 5 rows of native 32×32 cells with
-one transparent pixel between cells. Output columns are source columns 0, 1,
-2 and 3: idle followed by the three walk poses. Output rows and exact source
-cell rectangles are:
+Each output character sheet is 11 columns × 5 rows of native 32×32 cells with
+one transparent pixel between cells (362×164). Output rows are the five
+east-facing rows of the pack; the source row order, verified on the sheets
+themselves (2026-08-29), is `0 s · 1 se · 2 e · 3 ne · 4 n · 5 nw · 6 w · 7 sw`.
+An earlier composition took rows 5/6/7 as `ne/e/se`, which face west, and
+shipped the hero walking the wrong way; the row → facing table below is the
+corrected one.
 
-| Output facing | Source row | Cell rectangles `(left, top, right, bottom)` |
+| Output facing | Source row | Cell rectangle of output column `c` |
 |---|---:|---|
-| `n` | 4 | `(0,128,32,160)`, `(32,128,64,160)`, `(64,128,96,160)`, `(96,128,128,160)` |
-| `ne` | 5 | `(0,160,32,192)`, `(32,160,64,192)`, `(64,160,96,192)`, `(96,160,128,192)` |
-| `e` | 6 | `(0,192,32,224)`, `(32,192,64,224)`, `(64,192,96,224)`, `(96,192,128,224)` |
-| `se` | 7 | `(0,224,32,256)`, `(32,224,64,256)`, `(64,224,96,256)`, `(96,224,128,256)` |
-| `s` | 0 | `(0,0,32,32)`, `(32,0,64,32)`, `(64,0,96,32)`, `(96,0,128,32)` |
+| `n` | 4 | `(32·src[c], 128, 32·src[c]+32, 160)` |
+| `ne` | 3 | `(32·src[c], 96, 32·src[c]+32, 128)` |
+| `e` | 2 | `(32·src[c], 64, 32·src[c]+32, 96)` |
+| `se` | 1 | `(32·src[c], 32, 32·src[c]+32, 64)` |
+| `s` | 0 | `(32·src[c], 0, 32·src[c]+32, 32)` |
 
-The offline composition compared every one of those four poses against the
-source mirror pair. Source row 2 (`w`) is the pixel-exact horizontal mirror of
-row 6 (`e`), row 3 (`nw`) mirrors row 5 (`ne`), and row 1 (`sw`) mirrors row 7
-(`se`) in all three character files. The west rows are therefore intentionally
-absent from the committed sheets and resolve through runtime mirroring.
+Output columns are `0 idle · 1–3 walk · 4–6 attack · 7–8 hurt · 9–10 death`.
+`src[c]` is the source column each output column is cut from; the warrior's
+sword/hurt/death poses sit one column earlier than the other two sheets':
+
+| Output file | Character | `src[0..10]` |
+|---|---|---|
+| `waica-iso-hero.png` | `Warrior-Blue.png` | 0, 1, 2, 3, 5, 6, 7, 19, 20, 22, 23 |
+| `waica-iso-villager.png` | `Human-Worker-Red.png` | 0, 1, 2, 3, 6, 7, 8, 20, 21, 22, 23 |
+| `waica-iso-orc.png` | `Orc-Grunt.png` | 0, 1, 2, 3, 6, 7, 8, 20, 21, 22, 23 |
+
+The villager sheet carries the sword columns like the others but declares no
+`attack-*` clips.
+
+### Mirror check
+
+The west rows are absent from the committed sheets and resolve through
+runtime mirroring (`flipX`). The composition compared every used cell of
+source rows 1/2/3 against the horizontal mirror of rows 7/6/5. They are
+**not pixel-exact**: idle/walk poses differ by 1–5 pixels (a hand or a
+strap), and the sword poses by 30–60 pixels because the sword stays in the
+same hand on both sides. Mirroring the east art is therefore a stylistic
+approximation, not a lossless substitute — acceptable for the demo, and the
+reason the human protocol checks the mirrored directions by eye.
 
 | Output file | Character | Output size |
 |---|---|---:|
-| `waica-iso-hero.png` | `Warrior-Blue.png` | 131×164 |
-| `waica-iso-villager.png` | `Human-Worker-Red.png` | 131×164 |
-| `waica-iso-orc.png` | `Orc-Grunt.png` | 131×164 |
+| `waica-iso-hero.png` | `Warrior-Blue.png` | 362×164 |
+| `waica-iso-villager.png` | `Human-Worker-Red.png` | 362×164 |
+| `waica-iso-orc.png` | `Orc-Grunt.png` | 362×164 |
 
 ## hawkbirdtree isometric tileset
 

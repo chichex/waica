@@ -6,28 +6,45 @@ import {
 } from '@waica/behaviors'
 
 const SHIPPED_DIRECTIONS = ['n', 'ne', 'e', 'se', 's'] as const
+/** One row per shipped facing: idle · walk×3 · attack×3 · hurt×2 · death×2. */
+const SHEET_COLUMNS = 11
+const SOUTH_ROW = SHIPPED_DIRECTIONS.indexOf('s') * SHEET_COLUMNS
 
-function directionalClips(includePlain: boolean): Record<string, { frames: number[]; fps: number }> {
-  const clips: Record<string, { frames: number[]; fps: number }> = {}
+interface CharacterClips {
+  /** A plain, facing-less idle/walk pair for characters without a facing provider. */
+  plain?: boolean
+  /** Whether this character swings a weapon. */
+  attacks?: boolean
+}
+
+type ClipMap = Record<string, { frames: number[]; fps: number; loop?: boolean }>
+
+function directionalClips({ plain = false, attacks = false }: CharacterClips): ClipMap {
+  const clips: ClipMap = {}
   SHIPPED_DIRECTIONS.forEach((direction, row) => {
-    const first = row * 4
+    const first = row * SHEET_COLUMNS
     clips[`idle-${direction}`] = { frames: [first], fps: 2 }
     clips[`walk-${direction}`] = {
       frames: [first + 1, first + 2, first + 3, first + 2],
       fps: 8,
     }
+    if (attacks) {
+      clips[`attack-${direction}`] = { frames: [first + 4, first + 5, first + 6], fps: 12, loop: false }
+    }
+    clips[`hurt-${direction}`] = { frames: [first + 7, first + 8], fps: 8, loop: false }
+    clips[`death-${direction}`] = { frames: [first + 9, first + 10], fps: 4, loop: false }
   })
-  if (includePlain) {
-    clips['idle'] = { frames: [16], fps: 2 }
-    clips['walk'] = { frames: [17, 18, 19, 18], fps: 8 }
+  if (plain) {
+    clips['idle'] = { frames: [SOUTH_ROW], fps: 2 }
+    clips['walk'] = { frames: [SOUTH_ROW + 1, SOUTH_ROW + 2, SOUTH_ROW + 3, SOUTH_ROW + 2], fps: 8 }
   }
   return clips
 }
 
-function characterSprite(texture: string, includePlain = false) {
+function characterSprite(texture: string, options: CharacterClips = {}) {
   return {
     texture,
-    cols: 4,
+    cols: SHEET_COLUMNS,
     rows: 5,
     spacingX: 1,
     spacingY: 1,
@@ -35,12 +52,12 @@ function characterSprite(texture: string, includePlain = false) {
     width: 2,
     height: 2,
     anchorY: 0,
-    clips: directionalClips(includePlain),
-    initialClip: includePlain ? 'idle' : 'idle-s',
+    clips: directionalClips(options),
+    initialClip: options.plain ? 'idle' : 'idle-s',
   }
 }
 
-export const ISOMETRIC_HERO_SPRITE = characterSprite('waica:iso-hero')
+export const ISOMETRIC_HERO_SPRITE = characterSprite('waica:iso-hero', { attacks: true })
 
 const MAP_WIDTH = 16
 const MAP_HEIGHT = 16
@@ -80,8 +97,9 @@ export const ISOMETRIC_PREFABS: Record<string, PrefabJson> = {
         },
       },
       { type: 'Hitbox', props: { width: 0.8, height: 0.8 } },
+      { type: 'MeleeAttack' },
       { type: 'Respawnable' },
-      { type: 'Health', props: { max: 3, invulnerability: 1 } },
+      { type: 'Health', props: { max: 3, invulnerability: 1, stat: 'health' } },
     ],
   },
   'characters/villager': {
@@ -90,7 +108,7 @@ export const ISOMETRIC_PREFABS: Record<string, PrefabJson> = {
     components: [
       {
         type: 'AnimatedSprite',
-        props: characterSprite('waica:iso-villager', true),
+        props: characterSprite('waica:iso-villager', { plain: true }),
       },
       {
         type: 'StateMachine',
@@ -111,8 +129,10 @@ export const ISOMETRIC_PREFABS: Record<string, PrefabJson> = {
       {
         type: 'AnimatedSprite',
         props: {
-          ...characterSprite('waica:iso-orc', true),
-          initialClip: 'walk',
+          ...characterSprite('waica:iso-orc', { attacks: true }),
+          // Patrol reports facing, so the orc resolves directional clips
+          // from the first frame: it starts down its rail, screen south-east.
+          initialClip: 'walk-se',
         },
       },
       { type: 'Patrol', props: { axis: 'horizontal', distance: 2, speed: 2 } },
@@ -126,6 +146,7 @@ export const ISOMETRIC_PREFABS: Record<string, PrefabJson> = {
       },
       { type: 'Hitbox', props: { width: 0.8, height: 0.7 } },
       { type: 'Hazard', props: { stompable: false, contactDamage: 1 } },
+      { type: 'Health', props: { max: 2, invulnerability: 0.3 } },
     ],
   },
   'objects/crate': {

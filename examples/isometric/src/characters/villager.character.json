@@ -6,7 +6,7 @@
       "type": "AnimatedSprite",
       "props": {
         "texture": "src/art/waica-iso-villager.png",
-        "cols": 4,
+        "cols": 11,
         "rows": 5,
         "spacingX": 1,
         "spacingY": 1,
@@ -30,78 +30,158 @@
             ],
             "fps": 8
           },
+          "hurt-n": {
+            "frames": [
+              7,
+              8
+            ],
+            "fps": 8,
+            "loop": false
+          },
+          "death-n": {
+            "frames": [
+              9,
+              10
+            ],
+            "fps": 4,
+            "loop": false
+          },
           "idle-ne": {
             "frames": [
-              4
+              11
             ],
             "fps": 2
           },
           "walk-ne": {
             "frames": [
-              5,
-              6,
-              7,
-              6
+              12,
+              13,
+              14,
+              13
             ],
             "fps": 8
           },
+          "hurt-ne": {
+            "frames": [
+              18,
+              19
+            ],
+            "fps": 8,
+            "loop": false
+          },
+          "death-ne": {
+            "frames": [
+              20,
+              21
+            ],
+            "fps": 4,
+            "loop": false
+          },
           "idle-e": {
             "frames": [
-              8
+              22
             ],
             "fps": 2
           },
           "walk-e": {
             "frames": [
-              9,
-              10,
-              11,
-              10
+              23,
+              24,
+              25,
+              24
             ],
             "fps": 8
           },
+          "hurt-e": {
+            "frames": [
+              29,
+              30
+            ],
+            "fps": 8,
+            "loop": false
+          },
+          "death-e": {
+            "frames": [
+              31,
+              32
+            ],
+            "fps": 4,
+            "loop": false
+          },
           "idle-se": {
             "frames": [
-              12
+              33
             ],
             "fps": 2
           },
           "walk-se": {
             "frames": [
-              13,
-              14,
-              15,
-              14
+              34,
+              35,
+              36,
+              35
             ],
             "fps": 8
           },
+          "hurt-se": {
+            "frames": [
+              40,
+              41
+            ],
+            "fps": 8,
+            "loop": false
+          },
+          "death-se": {
+            "frames": [
+              42,
+              43
+            ],
+            "fps": 4,
+            "loop": false
+          },
           "idle-s": {
             "frames": [
-              16
+              44
             ],
             "fps": 2
           },
           "walk-s": {
             "frames": [
-              17,
-              18,
-              19,
-              18
+              45,
+              46,
+              47,
+              46
             ],
             "fps": 8
           },
+          "hurt-s": {
+            "frames": [
+              51,
+              52
+            ],
+            "fps": 8,
+            "loop": false
+          },
+          "death-s": {
+            "frames": [
+              53,
+              54
+            ],
+            "fps": 4,
+            "loop": false
+          },
           "idle": {
             "frames": [
-              16
+              44
             ],
             "fps": 2
           },
           "walk": {
             "frames": [
-              17,
-              18,
-              19,
-              18
+              45,
+              46,
+              47,
+              46
             ],
             "fps": 8
           }

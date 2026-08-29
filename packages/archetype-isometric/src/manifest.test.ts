@@ -55,7 +55,40 @@ describe('isometric archetype manifest', () => {
         nw: { dir: 'ne', flip: true },
         sw: { dir: 'se', flip: true },
       },
-      contract: { required: ['idle'], fallbacks: { walk: 'idle' } },
+      contract: {
+        required: ['idle'],
+        fallbacks: { walk: 'idle', attack: 'idle', hurt: 'idle', death: 'idle' },
+      },
+    })
+  })
+
+  it('resolves the hero attack, hurt and death poses per facing, mirrored for the west', () => {
+    const hero = ISOMETRIC_PREFABS['characters/player']!.components.find(
+      (component) => component.type === 'AnimatedSprite',
+    )!.props as { clips: Record<string, { loop?: boolean }> }
+    const clips = Object.keys(hero.clips)
+    for (const state of ['attack', 'hurt', 'death']) {
+      expect(resolveDirectionalClip(ISOMETRIC_ANIMATION, clips, state, 'e')).toEqual({
+        clip: `${state}-e`,
+        flip: false,
+      })
+      expect(resolveDirectionalClip(ISOMETRIC_ANIMATION, clips, state, 'w')).toEqual({
+        clip: `${state}-e`,
+        flip: true,
+      })
+      expect(hero.clips[`${state}-e`]!.loop, state).toBe(false)
+    }
+  })
+
+  it('lets a sheet without a pose fall back to idle, still facing the right way', () => {
+    const clips = ['idle-n', 'idle-ne', 'idle-e', 'idle-se', 'idle-s']
+    expect(resolveDirectionalClip(ISOMETRIC_ANIMATION, clips, 'attack', 'sw')).toEqual({
+      clip: 'idle-se',
+      flip: true,
+    })
+    expect(resolveDirectionalClip(ISOMETRIC_ANIMATION, clips, 'death', 'n')).toEqual({
+      clip: 'idle-n',
+      flip: false,
     })
   })
 
