@@ -166,6 +166,29 @@ describe('MeleeAttack.strike', () => {
     expect(orcHealth.current).toBe(2)
   })
 
+  it('still reaches the second target when the first one dies and leaves the scene mid-swing', () => {
+    // A Health with no state graph destroys its entity on the spot, and
+    // Game.removeEntity splices it out of the live array synchronously.
+    const { game, attack, orc, orcHealth } = arena(IN_FRONT.x, IN_FRONT.y)
+    const crate = makeEntity(game, 'Breakable', IN_FRONT.x - 0.2, IN_FRONT.y + 0.2)
+    withHitbox(crate, 0.6, 0.6)
+    const crateHealth = withHealth(crate, 1)
+    vi.mocked(crate.destroy).mockImplementation(() => {
+      ;(crate as { alive: boolean }).alive = false
+      game.entities.splice(game.entities.indexOf(crate), 1)
+    })
+    // The breakable sits before the orc in the scene order.
+    game.entities.splice(game.entities.indexOf(crate), 1)
+    game.entities.splice(game.entities.indexOf(orc), 0, crate)
+
+    const struck = attack.strike('e')
+
+    expect(crateHealth.current).toBe(0)
+    expect(crate.destroy).toHaveBeenCalledOnce()
+    expect(orcHealth.current).toBe(1)
+    expect(struck).toEqual([crate, orc])
+  })
+
   it('deals exactly one hit per call, whatever the overlap', () => {
     const { attack, orcHealth } = arena(0.2, -0.2)
 

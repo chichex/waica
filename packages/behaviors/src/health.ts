@@ -62,7 +62,6 @@ export class Health extends Component {
     'deathPending',
     'expectedStates',
     'lastDamageSource',
-    'blinking',
     'blinkClock',
   ]
 
@@ -79,13 +78,16 @@ export class Health extends Component {
   current = 0
   /** Whoever dealt the last accepted hit, for the state that reacts to it. */
   lastDamageSource: Entity | undefined
-  /** Whether the node is being flashed by an open invulnerability window. */
-  blinking = false
 
   /** Seconds left in the invulnerability window. */
   private invulnerable = 0
   /** Seconds into the current blink, for the 10 Hz toggle. */
   private blinkClock = 0
+
+  /** Whether the node is being flashed: exactly while a window is open. */
+  get blinking(): boolean {
+    return this.invulnerable > 0
+  }
 
   /** Whether the signalled death must be checked on this component's next update. */
   private deathPending = false
@@ -170,10 +172,7 @@ export class Health extends Component {
       source,
     })
     this.invulnerable = this.invulnerability
-    if (this.invulnerable > 0 && !this.blinking) {
-      this.blinking = true
-      this.blinkClock = 0
-    }
+    this.blinkClock = 0
     if (this.current === 0) {
       this.die()
       return
@@ -206,7 +205,6 @@ export class Health extends Component {
       this.entity.node.visible = Math.floor(this.blinkClock / BLINK_PERIOD) % 2 === 0
       return
     }
-    this.blinking = false
     this.entity.node.visible = true
   }
 
@@ -216,6 +214,13 @@ export class Health extends Component {
    * destroying is the fallback rather than the exception.
    */
   private die(): void {
+    // The killing blow opened a window like any other hit; close it. The
+    // death pose must hold steady, and a revived entity starts without
+    // leftover immunity. The node is visible here by construction: blink()
+    // restores it the frame a window closes, and a lethal hit only lands
+    // while no window is open.
+    this.invulnerable = 0
+    this.blinkClock = 0
     this.game.events.emit('death', { entity: this.entity })
     const machine = this.entity.get(StateMachine)
     const targets = machine ? deathTargets(machine.states, machine.current) : []

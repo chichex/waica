@@ -44,7 +44,9 @@ export class MeleeAttack extends Component {
     if (!direction) return []
     const area = this.strikeArea(direction.x, direction.y)
     const struck: Entity[] = []
-    for (const other of this.game.entities) {
+    // A copy: a target with no death-handling graph is destroyed on the spot,
+    // which splices it out of the live array mid-loop (Game does the same).
+    for (const other of [...this.game.entities]) {
       if (other === this.entity || !other.alive) continue
       const hitbox = other.get(Hitbox)
       const health = other.get(Health)

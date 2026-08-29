@@ -27,6 +27,30 @@ describe('scriptSource', () => {
     expect(script.source).toContain('strike(facing: string)')
   })
 
+  it.each([
+    ['MeleeAttack', 'export class MeleeAttack'],
+    ['Patrol', 'export class Patrol'],
+    ['IsoMotor', 'export class IsoMotor'],
+  ])('inlines the shared facing table ahead of %s, so its imports resolve on screen', (name, subject) => {
+    const script = scriptSource(name)
+
+    expect(script.source).toContain('export function facingForInput')
+    expect(script.source).toContain('export function logicalDirection')
+    expect(script.source).not.toContain("from './facing.js'")
+    expect(script.source.indexOf('export function facingForInput')).toBeLessThan(
+      script.source.indexOf(subject),
+    )
+  })
+
+  it('keeps the grid motor ahead of the facing table for IsoMotor', () => {
+    const script = scriptSource('IsoMotor')
+
+    expect(script.source).not.toContain("from './grid-motor.js'")
+    expect(script.source.indexOf('export abstract class GridMotor')).toBeLessThan(
+      script.source.indexOf('export function facingForInput'),
+    )
+  })
+
   it('exposes the shared motor source directly for catalog completeness', () => {
     const script = scriptSource('GridMotor')
 

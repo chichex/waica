@@ -625,6 +625,37 @@ describe('Health blink', () => {
     expect(entity.node.visible).toBe(true)
   })
 
+  it('stops blinking on the lethal hit: the death pose is steady and revival starts clean', () => {
+    // A graph that owns its death keeps the entity alive through a death
+    // beat; the window the killing blow opened must not flash that pose,
+    // nor leave leftover immunity once the entity is healed back.
+    const game = makeGame()
+    const entity = makeEntity(game, 'Character')
+    const machine = new StateMachine()
+    machine.states = { idle: {}, dead: {}, '*': { transitions: [{ on: 'signal:death', to: 'dead' }] } }
+    machine.current = 'idle'
+    vi.spyOn(machine, 'signal').mockImplementation(() => {})
+    entity.addStub(machine)
+    const health = new Health()
+    health.max = 1
+    health.invulnerability = 1
+    entity.addStub(health)
+    health.onReady()
+
+    health.damage(1)
+
+    expect(health.current).toBe(0)
+    expect(health.blinking).toBe(false)
+    expect(health.inspectState()).toMatchObject({ invulnerable: 0, blinking: false })
+    for (let i = 0; i < 10; i++) {
+      health.onUpdate(0.1)
+      expect(entity.node.visible).toBe(true)
+    }
+    health.heal(Infinity)
+    health.damage(1)
+    expect(health.current).toBe(0)
+  })
+
   it('reports the live values and the last source by name to Runtime Snapshots', () => {
     const { game, health } = makeHealth({ max: 3, invulnerability: 1, stat: 'health' })
     expect(health.inspectState()).toEqual({
@@ -649,7 +680,8 @@ describe('Health blink', () => {
 
   it('keeps the blink bookkeeping out of the authoring surface', () => {
     expect(Health.transient).toEqual(
-      expect.arrayContaining(['blinking', 'lastDamageSource']),
+      expect.arrayContaining(['blinkClock', 'lastDamageSource']),
     )
+    expect(authoringDefaults(Health)).not.toHaveProperty('blinking')
   })
 })
