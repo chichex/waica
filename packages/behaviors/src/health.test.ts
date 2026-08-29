@@ -625,6 +625,28 @@ describe('Health blink', () => {
     expect(entity.node.visible).toBe(true)
   })
 
+  it('reports the live values and the last source by name to Runtime Snapshots', () => {
+    const { game, health } = makeHealth({ max: 3, invulnerability: 1, stat: 'health' })
+    expect(health.inspectState()).toEqual({
+      max: 3,
+      invulnerability: 1,
+      stat: 'health',
+      current: 3,
+      invulnerable: 0,
+      blinking: false,
+      lastDamageSource: null,
+    })
+
+    health.damage(1, makeEntity(game, 'Orc'))
+
+    expect(health.inspectState()).toMatchObject({
+      current: 2,
+      invulnerable: 1,
+      blinking: true,
+      lastDamageSource: 'Orc',
+    })
+  })
+
   it('keeps the blink bookkeeping out of the authoring surface', () => {
     expect(Health.transient).toEqual(
       expect.arrayContaining(['blinking', 'lastDamageSource']),

@@ -242,7 +242,9 @@
               }
             ]
           },
-          "dead": {},
+          "dead": {
+            "clip": "death"
+          },
           "*": {
             "transitions": [
               {

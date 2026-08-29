@@ -1994,7 +1994,9 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
               }
             ]
           },
-          "dead": {},
+          "dead": {
+            "clip": "death"
+          },
           "*": {
             "transitions": [
               {

@@ -92,6 +92,23 @@ export class Health extends Component {
   /** States the death signal was supposed to reach. */
   private expectedStates: string[] = []
 
+  /**
+   * What a Runtime Snapshot shows: the authored values, the live ones, and
+   * the last source by name — projecting the whole Entity would drag its
+   * scene node along and bury the numbers that matter.
+   */
+  inspectState(): Record<string, unknown> {
+    return {
+      max: this.max,
+      invulnerability: this.invulnerability,
+      stat: this.stat,
+      current: this.current,
+      invulnerable: this.invulnerable,
+      blinking: this.blinking,
+      lastDamageSource: this.lastDamageSource?.name ?? null,
+    }
+  }
+
   override onReady(): void {
     // The inspector has no min clamp on max, so an authored 0 (or a
     // negative value) is reachable. Without this, current lands at <= 0
