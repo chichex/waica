@@ -89,6 +89,7 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     acceleration: 60,
     deceleration: 80,
     walkThreshold: 0.5,
+    knockbackSpeed: 8,
     hitboxWidth: 0.9,
     hitboxHeight: 0.6,
   },
@@ -120,6 +121,7 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
   Health: {
     max: 3,
     invulnerability: 0,
+    stat: '',
   },
   Respawnable: {},
   Lifetime: {

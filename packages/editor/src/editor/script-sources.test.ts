@@ -19,6 +19,14 @@ describe('scriptSource', () => {
     expect(script.source).toContain(seam)
   })
 
+  it('ships the melee attack source alongside the other behaviors', () => {
+    const script = scriptSource('MeleeAttack')
+
+    expect(script.file).toBe('melee-attack.ts')
+    expect(script.source).toContain('export class MeleeAttack')
+    expect(script.source).toContain('strike(facing: string)')
+  })
+
   it('exposes the shared motor source directly for catalog completeness', () => {
     const script = scriptSource('GridMotor')
 

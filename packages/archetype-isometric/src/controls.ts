@@ -6,6 +6,7 @@ export const ISOMETRIC_BINDINGS: Readonly<InputBindings> = {
   left: ['ArrowLeft', 'KeyA'],
   right: ['ArrowRight', 'KeyD'],
   interact: ['KeyE', 'Space'],
+  attack: ['KeyX', 'KeyJ'],
 }
 
 export const ISOMETRIC_ACTION_LABELS: Readonly<Record<string, string>> = {
@@ -14,4 +15,5 @@ export const ISOMETRIC_ACTION_LABELS: Readonly<Record<string, string>> = {
   left: 'Move left',
   right: 'Move right',
   interact: 'Interact',
+  attack: 'Attack',
 }

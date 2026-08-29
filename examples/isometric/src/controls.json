@@ -5,6 +5,7 @@
     "down": ["ArrowDown", "KeyS"],
     "left": ["ArrowLeft", "KeyA"],
     "right": ["ArrowRight", "KeyD"],
-    "interact": ["KeyE", "Space"]
+    "interact": ["KeyE", "Space"],
+    "attack": ["KeyX", "KeyJ"]
   }
 }

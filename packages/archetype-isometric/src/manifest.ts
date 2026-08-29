@@ -10,6 +10,7 @@ import { ISOMETRIC_BLANK_SCENE, ISOMETRIC_SCENE } from './scene-default.js'
 export const ISOMETRIC_ENTITY_ICONS: Readonly<Record<string, string>> = {
   IsoMotor: '🧭',
   Tilemap: '💎',
+  MeleeAttack: '⚔️',
   Interactable: '💬',
   Collectible: '📦',
   Hazard: '👹',

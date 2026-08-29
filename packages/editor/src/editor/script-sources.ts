@@ -9,6 +9,7 @@ import gridMotor from '../../../behaviors/src/grid-motor.ts?raw'
 import health from '../../../behaviors/src/health.ts?raw'
 import isoMotor from '../../../behaviors/src/iso-motor.ts?raw'
 import lifetime from '../../../behaviors/src/lifetime.ts?raw'
+import meleeAttack from '../../../behaviors/src/melee-attack.ts?raw'
 import outOfBounds from '../../../behaviors/src/out-of-bounds.ts?raw'
 import patrol from '../../../behaviors/src/patrol.ts?raw'
 import platformerMotor from '../../../behaviors/src/platformer-motor.ts?raw'
@@ -39,6 +40,7 @@ export const SCRIPT_SOURCES: Record<string, ScriptSource> = {
   Health: { file: 'health.ts', source: health },
   IsoMotor: { file: 'iso-motor.ts', source: withGridMotor('iso-motor.ts', isoMotor) },
   Lifetime: { file: 'lifetime.ts', source: lifetime },
+  MeleeAttack: { file: 'melee-attack.ts', source: meleeAttack },
   OutOfBounds: { file: 'out-of-bounds.ts', source: outOfBounds },
   Patrol: { file: 'patrol.ts', source: patrol },
   PlatformerMotor: { file: 'platformer-motor.ts', source: platformerMotor },

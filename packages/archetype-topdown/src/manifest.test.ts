@@ -49,7 +49,10 @@ describe('topdown archetype manifest', () => {
     expect(NODE_ARCHETYPE.animation).toEqual({
       directions: ['n', 's', 'e', 'w'],
       fallbacks: { w: { dir: 'e', flip: true } },
-      contract: { required: ['idle'], fallbacks: { walk: 'idle' } },
+      contract: {
+        required: ['idle'],
+        fallbacks: { walk: 'idle', attack: 'idle', hurt: 'idle', death: 'idle' },
+      },
     })
   })
 })

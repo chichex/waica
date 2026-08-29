@@ -88,7 +88,8 @@ export const PATROLLER_STATE_GRAPH: RoleGraph = {
   states: {
     walk: {},
     hurt: { transitions: [{ on: `timer:${HURT_SECONDS}`, to: 'walk' }] },
-    dead: {},
+    // The death pose, resolved directionally like every other clip.
+    dead: { clip: 'death' },
     // Death first: a lethal hit must never land in hurt. The death edge is
     // also what makes Health hand the death to this graph instead of
     // destroying the entity on the spot.

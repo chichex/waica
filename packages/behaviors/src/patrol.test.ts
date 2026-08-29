@@ -206,7 +206,7 @@ describe('the patroller role takes hits and dies', () => {
       states: {
         walk: {},
         hurt: { transitions: [{ on: 'timer:0.25', to: 'walk' }] },
-        dead: {},
+        dead: { clip: 'death' },
         '*': {
           transitions: [
             { on: 'signal:death', to: 'dead' },

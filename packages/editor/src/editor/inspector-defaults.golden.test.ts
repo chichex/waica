@@ -50,7 +50,7 @@ const GOLDEN: Record<string, Record<string, unknown>> = {
   Patrol: { axis: 'horizontal', distance: 3, speed: 2 },
   Chaser: { mode: 'walker', range: 6, speed: 3, gravity: 42 },
   Hazard: { stompable: true, bounce: 10, stompDamage: 1, contactDamage: 1 },
-  Health: { max: 3, invulnerability: 0 },
+  Health: { max: 3, invulnerability: 0, stat: '' },
   Respawnable: {},
   OutOfBounds: { minY: -12 },
   Lifetime: { seconds: 1 },
