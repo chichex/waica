@@ -13,6 +13,7 @@ import {
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { discoverArchetypes, pickArchetype } from './archetypes.js'
+import { isPlayableClip } from './clip-resolution.js'
 import { classDefaults, objectRecord } from './component-metadata.js'
 import {
   PackageResolver,
@@ -218,7 +219,7 @@ function validateParamReferences(
           }
           break
         case 'clip':
-          if (clips && !clips.has(value)) {
+          if (clips && !isPlayableClip(clips, value, context.manifest.animation)) {
             add(
               context,
               'error',
@@ -331,7 +332,7 @@ function validateStateMachines(
       // coalesce, so an explicit empty clip is looked up literally and must
       // be validated like any other explicit value (unlike Collectible.stat,
       // which the runtime genuinely treats as unset).
-      if (clips && !clips.has(clip)) {
+      if (clips && !isPlayableClip(clips, clip, context.manifest.animation)) {
         add(
           context,
           explicitClip === undefined ? 'warning' : 'error',
