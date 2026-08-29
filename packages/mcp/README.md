@@ -73,6 +73,14 @@ A ready Run Session starts **paused** at frame 0 and simulation time 0. The Game
 
 Full page reload reconnects to a fresh paused baseline. Runtime operations reject while reloading; a timeout, page/browser/dev-process failure or second simultaneous Game ends the session. `stop_project` and MCP transport close both clean every owned browser context and whole dev-process group; cleanup failure is reported rather than claimed as success.
 
+## Animation clip validation
+
+`validate_project` reports a `missing-clip` finding when a `StateMachine` state, or a component param declared `ref: 'clip'`, names an animation the sibling `AnimatedSprite` does not ship — a warning when the state falls back to its own name, an error when the clip is written out.
+
+The check follows the active archetype's animation contract. Archetypes whose characters face more than one way (top-down, isometric) declare a `DirectionalAnimation`: their sheets are named `<state>-<dir>` and the engine resolves the plain state name at runtime. Under such a contract a clip counts as present when it resolves for **every** declared direction — mirrored facings and the contract's state fallbacks included, the same rule the archetype conformance suite applies to the shipped manifests. An archetype that declares no contract keeps the literal check: the name must be a key of the sheet.
+
+One consequence is deliberate: a state that only resolves through a state fallback (`attack` degrading to `idle`) is accepted, so a character with no attack art is not reported here — it plays its idle instead.
+
 ## Project module execution during validation
 
 The `validate_project` parent owns validation and executes each direct `.ts` entry under `src/components`, then `src/roles`, then `src/states` in its own short-lived OS child. Entries are sorted within each directory and attempted sequentially, with a five-second deadline per direct entry and no aggregate timeout. The child returns only typed-reference and update-scheduling metadata; constructors, instances and methods do not cross IPC. Every validation starts fresh children, so module scope executes again and helpers imported by multiple direct entries may execute once per entry.
