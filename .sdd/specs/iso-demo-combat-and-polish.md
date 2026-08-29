@@ -150,6 +150,8 @@ Mechanism (confirmed by the user): **unit + integrated happy-dom scenario + exte
 - 2026-08-29 (`/sdd-run`, CA-11) — `ISOMETRIC_SCENE.camera` no longer carries its own `lookaheadY: 1`; every tuned field lives in `isometricCamera()` as CA-11 states, so `ISOMETRIC_BLANK_SCENE` gets the same feel.
 - 2026-08-29 (`/sdd-run`, CA-5/CA-12) — `sync-scene` also rewrote `examples/topdown/src/characters/player.character.json`: the shared graph's `attack`/`hurt` states and `dead.clip = 'death'` are prefab data, so the topdown player file follows (no new component, no binding — `attack` stays unreachable there, as CA-5 says).
 
+- 2026-08-29 (PR #55 review, applied with the user's approval in `97f61eb`) — **CA-6:** a killing blow opened an invulnerability window like any other hit, so the death pose blinked at 10 Hz and a revived entity kept ~0.2 s of leftover immunity; `die()` now closes the window and `blinking` is derived from `invulnerable > 0` (no longer a transient field). **CA-4:** `MeleeAttack.strike` iterates a copy of `game.entities` — a target with no death-handling graph is destroyed and spliced out mid-loop, which skipped the next target. **Editor:** the Scripts view inlines `facing.ts` ahead of `IsoMotor`/`Patrol`/`MeleeAttack` (as it already did `grid-motor.ts`). Refuted from the same review: "the topdown blob loses its (asymmetric) sprite flip" — `waica-blob.png` is pixel-symmetric (0/256 pixels differ from its mirror), so the flip change CA-19 step 7 already anticipated is invisible. Left as notes: `lastDamageSource` can be overwritten by a second source before the queued `hurt` runs when `invulnerability: 0`; the shared `Hitbox → CollisionBody` mapping (4 copies); efficiency micro-notes.
+
 ## Resultado de ejecucion (2026-08-29 · HEAD e2ec33b)
 
 Verification ran on branch `sdd/iso-demo-combat-and-polish` at `e2ec33b` (worktree `../waica-sdd-iso-demo-combat-and-polish`, base `main` = `8337692`). Every command below was executed in this run.
@@ -181,3 +183,7 @@ Verification ran on branch `sdd/iso-demo-combat-and-polish` at `e2ec33b` (worktr
 | POL-naming-archivos | cumplida | 7 new `src/` files, all kebab-case |
 
 Pre-existing findings, not fixed here: MCP `validate_project` `missing-clip` is not directional-contract aware (filed as an issue by this run — see PR); `Villager` logs `role "npc" has no registered state code`; the camera lookahead is a discrete `|vx| > 1` step for every archetype.
+
+### Re-verificación tras el review (2026-08-29 · HEAD 97f61eb)
+
+Same ladder, executed again on `97f61eb`: `pnpm typecheck` exit 0 · `pnpm test` 133 files / **1212** tests (6 new: lethal-hit blink, mid-swing destroy, Scripts inlining ×4) · `pnpm build` exit 0 · `node scripts/sync-scene.mjs && git diff --exit-code` exit 0 · `pnpm test:dist` green (packed leg) · `pnpm test:e2e` green (`durationMs: 14332`, Chrome 151.0.7922.175). Gates: higiene 0 hits over 487 added lines; behaviors 5 test files touched; largest touched `.ts` 687 lines (`health.test.ts`); 7 new `src/` files kebab-case. CA statuses unchanged; CA-19 remains pending human.
