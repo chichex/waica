@@ -825,6 +825,8 @@ async function runIsometricLeg({ client, root, parent, chrome, viteBin, engineRo
   assert.equal(northWest.sprite.current, 'walk-ne')
   assert.equal(northWest.sprite.flipX, true)
 
+  await runIsometricCombat({ client, project, inspectPlayer, hold, release, step })
+
   const shot = assertScreenshot(
     await call(client, 'capture_screenshot', { project_path: project }),
     'paused',
@@ -840,6 +842,136 @@ async function runIsometricLeg({ client, root, parent, chrome, viteBin, engineRo
     isometricUrl: start.structuredContent.url,
     isometricPngBytes: png.png.byteLength,
   }
+}
+
+/**
+ * The combat half of the isometric leg, on the demo's own cast: a sword
+ * swing plays the attack clip along the facing, a swing next to the orc
+ * takes one of its two hearts, and walking into the orc costs the player a
+ * heart on the HUD stat, a stun and a blink. The player is walked into
+ * place by reading the snapshot: logical x runs screen south-east
+ * (right+down) / north-west (left+up), logical y screen south-west
+ * (left+down) / north-east (right+up).
+ */
+async function runIsometricCombat({ client, project, inspectPlayer, hold, release, step }) {
+  const press = (action) =>
+    call(client, 'control_runtime', { project_path: project, operation: 'press', action })
+  const inspect = async (name, types) => {
+    const inspected = await call(client, 'inspect_runtime', {
+      project_path: project,
+      entity_names: [name],
+      ...(types ? { component_types: types } : {}),
+    })
+    const entity = inspected.structuredContent.snapshot.entities[0]
+    assert.ok(entity, `isometric snapshot must contain ${name}`)
+    const state = (type) => entity.components.find((component) => component.type === type)?.state
+    return { position: entity.transform.position, state, stats: inspected.structuredContent.snapshot.stats }
+  }
+  const inspectOrc = () => inspect('Orc', ['Health', 'StateMachine', 'Patrol'])
+  const playerState = async () => {
+    const player = await inspect('Player', ['Health', 'StateMachine', 'AnimatedSprite', 'IsoMotor'])
+    return {
+      position: player.position,
+      health: player.state('Health'),
+      machine: player.state('StateMachine'),
+      sprite: player.state('AnimatedSprite'),
+      motor: player.state('IsoMotor'),
+      stats: player.stats,
+    }
+  }
+
+  // (a) A swing plays the attack clip facing the way the player looks.
+  await hold('right')
+  await step(1)
+  await release('right')
+  await press('attack')
+  await step(1)
+  const swinging = await playerState()
+  assert.equal(swinging.machine.current, 'attack', 'the attack press must enter the attack state')
+  assert.equal(swinging.sprite.current, 'attack-e', 'swinging while facing east plays attack-e')
+  assert.equal(swinging.sprite.flipX, false, 'east art is not mirrored')
+  await step(20)
+  const swung = await playerState()
+  assert.equal(swung.machine.current, 'idle', 'the swing hands control back after 0.3 s')
+  assert.equal(swung.sprite.current, 'idle-e', 'the player idles facing east after the swing')
+
+  // Walk to logical (10, 8.85): on the orc's rail column, just north of the
+  // rail (contact starts past y ≈ 9.25), facing it (south-west, logical +y).
+  const AXIS_ACTIONS = {
+    x: { positive: ['right', 'down'], negative: ['left', 'up'] },
+    y: { positive: ['left', 'down'], negative: ['right', 'up'] },
+  }
+  const approach = async (axis, target) => {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      let { position } = await inspectPlayer()
+      const delta = target - position[axis]
+      if (Math.abs(delta) < 0.15) return position
+      const actions = AXIS_ACTIONS[axis][delta > 0 ? 'positive' : 'negative']
+      for (const action of actions) await hold(action)
+      for (let frame = 0; frame < 240; frame += 1) {
+        await step(1)
+        position = (await inspectPlayer()).position
+        const remaining = target - position[axis]
+        // The motor coasts about 0.45 units after release.
+        if (Math.abs(remaining) < 0.4 || Math.sign(remaining) !== Math.sign(delta)) break
+      }
+      for (const action of actions) await release(action)
+      await step(30)
+    }
+    throw new Error(`could not walk the player to logical ${axis} = ${target}`)
+  }
+  await approach('x', 10)
+  await approach('y', 8.85)
+  await hold('left')
+  await hold('down')
+  await step(1)
+  await release('left')
+  await release('down')
+  await step(30)
+  const posted = await playerState()
+  assert.equal(posted.motor.facing, 'sw', 'the player must face the rail (screen south-west)')
+  assert.equal(posted.health.current, 3, 'walking into position must not cost a heart')
+  assert.ok(posted.position.y < 9.2, `the player must stay north of the rail; y=${posted.position.y}`)
+
+  // (b) Swing when the orc walks past: one of its two hearts.
+  const orcBefore = await inspectOrc()
+  assert.equal(orcBefore.state('Health').current, 2, 'the orc starts with two hearts')
+  let aligned = false
+  for (let frame = 0; frame < 400 && !aligned; frame += 1) {
+    await step(1)
+    const orc = await inspectOrc()
+    aligned = Math.abs(orc.position.x - posted.position.x) < 0.12
+  }
+  assert.ok(aligned, 'the orc must walk past the player within 400 frames')
+  await press('attack')
+  await step(1)
+  const struckOrc = await inspectOrc()
+  assert.equal(struckOrc.state('Health').current, 1, 'a swing next to the orc takes one heart')
+  await step(1)
+  assert.equal((await inspectOrc()).state('StateMachine').current, 'hurt', 'the orc flinches')
+  await step(20)
+
+  // (c) Walk into the orc: a heart on the HUD stat, a stun and a blink.
+  await hold('left')
+  await hold('down')
+  let hit
+  for (let frame = 0; frame < 90 && !hit; frame += 1) {
+    await step(1)
+    const player = await playerState()
+    if (player.health.current < 3) hit = player
+  }
+  await release('left')
+  await release('down')
+  assert.ok(hit, 'walking into the orc must cost the player a heart')
+  assert.equal(hit.health.current, 2)
+  assert.equal(hit.stats.health, 2, 'the health stat mirrors the lost heart')
+  assert.equal(hit.health.blinking, true, 'the invulnerability window blinks the player')
+  await step(1)
+  const stunned = await playerState()
+  assert.equal(stunned.machine.current, 'hurt', 'the hit stuns the player')
+  assert.equal(stunned.health.lastDamageSource, 'Orc')
+  await step(30)
+  assert.equal((await playerState()).machine.current, 'idle', 'the stun ends on its own')
 }
 
 async function runNegativeReadiness({ client, fixture, chrome }) {
