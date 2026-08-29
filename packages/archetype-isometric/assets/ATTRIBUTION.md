@@ -33,7 +33,8 @@ corrected one.
 
 Output columns are `0 idle · 1–3 walk · 4–6 attack · 7–8 hurt · 9–10 death`.
 `src[c]` is the source column each output column is cut from; the warrior's
-sword/hurt/death poses sit one column earlier than the other two sheets':
+sword and hurt poses sit one column earlier than the other two sheets' (the
+death poses are columns 22 and 23 in all three):
 
 | Output file | Character | `src[0..10]` |
 |---|---|---|
