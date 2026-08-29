@@ -156,6 +156,8 @@ Mechanism (confirmed by the user): **unit + integrated happy-dom scenario + exte
 
 - 2026-08-29 (CA-19 step 6/1 finding, applied with the user's approval in `44d3720`) — **the hero looked like it stood in the water.** Pre-existing, not a collision bug: Playwright against the live demo shows the body stopping at every water face (`y = 7.3`, `x = 13.45`) and under knockback; 400 fuzz runs (hits, deaths, 0.1 s `dt` hitches) never penetrate. The picture was wrong: Puny bodies leave 9 transparent texels under the boots, so with `anchorY: 0` the feet drew 9/16 of a unit above the collision point, and the 0.9×0.6 top-down body let that point sit 0.15 screen units from the diamond edge. `IsoMotor.hitboxHeight` is now 0.9 (square footprint; `TopDownMotor` keeps 0.6 for fence tops) and `characterSprite` sets `offsetY: -9/16` for the three characters. Verified before/after at the south face in the browser; pinned in `art.test.ts`, `registry-data.test.ts`, `iso-motor.test.ts`.
 
+- 2026-08-29 (after merge, PR #55 → `d64b697`, released as `v0.9.0`) — **CA-19 closed by the user**: the human protocol ran on the live demo and passed (see the CA-19 row). Shipped in `@waica/*@0.9.0`.
+
 ## Resultado de ejecucion (2026-08-29 · HEAD e2ec33b)
 
 Verification ran on branch `sdd/iso-demo-combat-and-polish` at `e2ec33b` (worktree `../waica-sdd-iso-demo-combat-and-polish`, base `main` = `8337692`). Every command below was executed in this run.
@@ -180,7 +182,7 @@ Verification ran on branch `sdd/iso-demo-combat-and-polish` at `e2ec33b` (worktr
 | CA-16 | verificado | `pnpm typecheck` exit 0 · `pnpm test` 133 files / 1206 tests · `pnpm build` 3.3 s · `pnpm test:dist` 17.4 s · `pnpm test:e2e` 17.3 s; gates: higiene-ts-diff 0 hits (a and b), tests-acompañan-src (behaviors: `facing.ts`, `melee-attack.ts` + 5 test files), max-lineas 655 (`health.test.ts`) < 950, naming 7/7 kebab-case |
 | CA-17 | verificado | `packages/behaviors/src/index.ts` exports `MeleeAttack`; `pnpm test:dist` packed leg green (`durationMs: 4627`) |
 | CA-18 | verificado | PR body carries the composition receipt (row/column tables and mirror-check result from `ATTRIBUTION.md`) |
-| CA-19 | pendiente humano | protocol above, as a checklist in the PR |
+| CA-19 | verificado (humano, 2026-08-29) | the user ran the protocol on the PR branch (`pnpm dev:isometric`, worktree at `44d3720`): eight directions, attack, orc hurt/death, HUD/blink/knockback, orc facing, camera — "probé y funciona todo". Step 6 surfaced the footprint/boots mismatch, tuned in `44d3720` and re-checked before/after in the browser |
 | POL-higiene-ts-diff | cumplida | 0 hits over `git diff --unified=0 main...HEAD` (both greps) |
 | POL-tests-acompañan-src | cumplida | behaviors adds `facing.ts`, `melee-attack.ts`; 5 `*.test.ts` in the package diff |
 | POL-max-lineas-archivo | cumplida | largest touched `.ts`: 655 lines (`health.test.ts`); `validation.ts` untouched |
