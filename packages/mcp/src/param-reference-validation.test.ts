@@ -404,4 +404,44 @@ export class RefComponent extends Component {
       },
     ])
   })
+
+  it('resolves a clip ref through the archetype directional contract', async () => {
+    // Same rule as the StateMachine state loop: under a contract the plain
+    // name is what the runtime asks for, and `<state>-<dir>` art answers it.
+    const project = await refProject({
+      'src/game.json': JSON.stringify({ waicaGame: 1, archetype: 'topdown' }),
+      'src/components/ref.ts': refComponent('clip'),
+      'src/objects/a-directional.object.json': prefab([
+        {
+          type: 'AnimatedSprite',
+          props: {
+            clips: {
+              'idle-n': { frames: [0] },
+              'idle-s': { frames: [1] },
+              'idle-e': { frames: [2] },
+            },
+          },
+        },
+        { type: 'RefComponent', props: { target: 'idle' } },
+      ]),
+      'src/objects/b-unreachable.object.json': prefab([
+        {
+          type: 'AnimatedSprite',
+          props: { clips: { 'idle-n': { frames: [0] }, 'idle-s': { frames: [1] } } },
+        },
+        { type: 'RefComponent', props: { target: 'idle' } },
+      ]),
+    })
+
+    const result = await validateProject(project)
+
+    expect(paramFindings(result.findings)).toEqual([
+      {
+        severity: 'error',
+        code: 'missing-clip',
+        file: 'src/objects/b-unreachable.object.json',
+        ref: 'RefComponent.target',
+      },
+    ])
+  })
 })

@@ -38,6 +38,8 @@ claude mcp add waica -- npx -y @waica/cli mcp
 
 See the [MCP README](https://github.com/chichex/waica/blob/main/packages/mcp/README.md) for schemas, result contracts and projection limits.
 
+`validate_project` follows the active archetype's animation contract: under a `DirectionalAnimation` (top-down, isometric) a clip counts as present when it resolves for every declared direction, mirrors and state fallbacks included, instead of being matched literally against the sheet.
+
 ### Runtime prerequisites and security
 
 Runtime tools support macOS and Linux; `start_project` rejects Windows while the ten static/scaffold tools remain available. They require already installed Project dependencies, the Project's declared npm/pnpm/Yarn/Bun executable and a compatible system Google Chrome or Chromium. This package depends on `playwright-core`, which does not download or bundle a browser.

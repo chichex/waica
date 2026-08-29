@@ -711,3 +711,125 @@ module.exports.ARCHETYPE = {
     expect(result.ok).toBe(true)
   })
 })
+
+/**
+ * The directional archetypes name their art `<state>-<dir>` and let the
+ * engine resolve the plain state name at runtime through the manifest's
+ * DirectionalAnimation. Validation has to know that contract, or every
+ * character in a top-down or isometric project is reported as missing
+ * animations it actually ships.
+ */
+describe('validateProject against a directional animation contract', () => {
+  const TOPDOWN_GAME = JSON.stringify({ waicaGame: 1, archetype: 'topdown' })
+
+  function directionalSprite(clips: Record<string, unknown>): Record<string, unknown> {
+    return { type: 'AnimatedSprite', props: { texture: 'hero', clips } }
+  }
+
+  function frames(clips: readonly string[]): Record<string, unknown> {
+    return Object.fromEntries(clips.map((clip, index) => [clip, { frames: [index] }]))
+  }
+
+  function machine(states: Record<string, unknown>): Record<string, unknown> {
+    return { type: 'StateMachine', props: { role: 'player', initial: 'idle', states } }
+  }
+
+  function character(components: unknown[]): string {
+    return JSON.stringify({ waicaPrefab: 1, type: 'character', components })
+  }
+
+  function clipFindings(
+    findings: Array<{ code: string; severity: string; ref?: string }>,
+  ): Array<{ severity: string; ref?: string }> {
+    return findings
+      .filter((finding) => finding.code === 'missing-clip')
+      .map(({ severity, ref }) => ({ severity, ref }))
+  }
+
+  it('accepts implicit and explicit clips that resolve in every declared direction', async () => {
+    // The stock sheets only draw n/s/e; TOPDOWN_ANIMATION mirrors w from e.
+    const project = await makeProject({
+      'src/game.json': TOPDOWN_GAME,
+      'src/characters/hero.character.json': character([
+        directionalSprite(
+          frames([
+            'idle-n',
+            'idle-s',
+            'idle-e',
+            'walk-n',
+            'walk-s',
+            'walk-e',
+            'death-n',
+            'death-s',
+            'death-e',
+          ]),
+        ),
+        machine({ idle: {}, walk: {}, dead: { clip: 'death' } }),
+      ]),
+    })
+    roots.push(project)
+
+    const result = await validateProject(project)
+
+    expect(clipFindings(result.findings)).toEqual([])
+  })
+
+  it('still reports a clip that dead-ends in a declared direction, at the same severity', async () => {
+    // "ko" and "sprint" are outside the contract's state fallbacks, so nothing
+    // rescues them: ko-e (and w, mirrored from it) and every sprint-<dir> are
+    // absent.
+    const project = await makeProject({
+      'src/game.json': TOPDOWN_GAME,
+      'src/characters/hero.character.json': character([
+        directionalSprite(frames(['idle-n', 'idle-s', 'idle-e', 'ko-n', 'ko-s'])),
+        machine({ idle: {}, sprint: {}, dead: { clip: 'ko' } }),
+      ]),
+    })
+    roots.push(project)
+
+    const result = await validateProject(project)
+
+    expect(clipFindings(result.findings)).toEqual([
+      { severity: 'warning', ref: 'characters/hero' },
+      { severity: 'error', ref: 'StateMachine.states.dead.clip' },
+    ])
+  })
+
+  it('keeps the literal check for an archetype that declares no contract', async () => {
+    // The very same prefab under the platformer archetype: without a
+    // contract there is nothing to resolve, so the directional names stay
+    // unreachable and every state is reported.
+    const project = await makeProject({
+      'src/characters/hero.character.json': character([
+        directionalSprite(frames(['idle-n', 'idle-s', 'idle-e'])),
+        machine({ idle: {}, dead: { clip: 'death' } }),
+      ]),
+    })
+    roots.push(project)
+
+    const result = await validateProject(project)
+
+    expect(clipFindings(result.findings)).toEqual([
+      { severity: 'warning', ref: 'characters/hero' },
+      { severity: 'error', ref: 'StateMachine.states.dead.clip' },
+    ])
+  })
+
+  it('leaves the untouched generated demo of every directional archetype clip-clean', async () => {
+    // Scoped to missing-clip on purpose: these demos carry unrelated
+    // pre-existing findings (an unbound "attack" action, an undeclared
+    // npcLine stat), and fixing those is not this change's business. What
+    // must hold is that the explicit death clip no longer flips ok to false.
+    for (const archetype of ['topdown', 'isometric'] as const) {
+      const parent = await tempDir()
+      roots.push(parent)
+      const project = path.join(parent, `${archetype}-game`)
+      await createProject(project, 'demo', archetype)
+
+      const result = await validateProject(project)
+
+      expect(clipFindings(result.findings), archetype).toEqual([])
+      expect(result.ok, archetype).toBe(true)
+    }
+  })
+})
