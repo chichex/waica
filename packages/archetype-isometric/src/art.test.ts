@@ -77,6 +77,19 @@ describe('isometric stock art', () => {
     }
   })
 
+  it('lowers every character quad so the boots stand on the footprint', () => {
+    // The Puny bodies leave nine transparent texels under the boots; drawn
+    // at 16 texels per unit that is 9/16 of a unit the sprite would otherwise
+    // float above the position the motor collides from.
+    for (const ref of ['characters/player', 'characters/villager', 'characters/orc']) {
+      const sprite = ISOMETRIC_PREFABS[ref]!.components.find(
+        (candidate) => candidate.type === 'AnimatedSprite',
+      )!.props as AppearanceProps & { offsetY?: number; anchorY?: number }
+      expect(sprite.anchorY, ref).toBe(0)
+      expect(sprite.offsetY, ref).toBe(-9 / 16)
+    }
+  })
+
   it('declares one column per pose: idle, three walk, three attack, two hurt, two death', () => {
     const hero = ISOMETRIC_PREFABS['characters/player']!.components.find(
       (candidate) => candidate.type === 'AnimatedSprite',

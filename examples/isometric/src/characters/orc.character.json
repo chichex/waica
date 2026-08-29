@@ -14,6 +14,7 @@
         "width": 2,
         "height": 2,
         "anchorY": 0,
+        "offsetY": -0.5625,
         "clips": {
           "idle-n": {
             "frames": [

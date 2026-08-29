@@ -9,6 +9,8 @@ const SHIPPED_DIRECTIONS = ['n', 'ne', 'e', 'se', 's'] as const
 /** One row per shipped facing: idle · walk×3 · attack×3 · hurt×2 · death×2. */
 const SHEET_COLUMNS = 11
 const SOUTH_ROW = SHIPPED_DIRECTIONS.indexOf('s') * SHEET_COLUMNS
+/** Transparent texels under the boots in every Puny cell, in render units (9 / 16). */
+const BOOTS_OFFSET = -9 / 16
 
 interface CharacterClips {
   /** A plain, facing-less idle/walk pair for characters without a facing provider. */
@@ -52,6 +54,11 @@ function characterSprite(texture: string, options: CharacterClips = {}) {
     width: 2,
     height: 2,
     anchorY: 0,
+    // The Puny bodies stand 9 texels above their cell's bottom edge; shift the
+    // quad down so the boots sit on the entity's position (its footprint),
+    // instead of floating half a unit up the screen — over a water diamond
+    // the body is actually stopped short of.
+    offsetY: BOOTS_OFFSET,
     clips: directionalClips(options),
     initialClip: options.plain ? 'idle' : 'idle-s',
   }

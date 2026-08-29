@@ -87,7 +87,7 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     walkThreshold: 0.5,
     knockbackSpeed: 8,
     hitboxWidth: 0.9,
-    hitboxHeight: 0.6,
+    hitboxHeight: 0.9,
   },
   MeleeAttack: { damage: 1, range: 1, width: 1 },
   Interactable: { line: 'Hello, traveler!', radius: 1.5 },
