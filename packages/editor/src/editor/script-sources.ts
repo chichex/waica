@@ -23,7 +23,7 @@ export interface ScriptSource {
   source: string
 }
 
-interface SharedSource {
+export interface SharedSource {
   file: string
   source: string
 }
@@ -31,15 +31,20 @@ interface SharedSource {
 const GRID_MOTOR: SharedSource = { file: 'grid-motor.ts', source: gridMotor }
 const FACING: SharedSource = { file: 'facing.ts', source: facing }
 
+/** Escapes a literal for use inside a RegExp source. */
+function escapeRegExp(literal: string): string {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 /**
  * Inlines the shared modules a component imports relatively, so the view
  * shows what the code does instead of a dangling './x.js' import.
  */
-function withShared(file: string, source: string, shared: SharedSource[]): string {
+export function inlineShared(file: string, source: string, shared: SharedSource[]): string {
   let body = source
   const parts: string[] = []
   for (const module of shared) {
-    const specifier = module.file.replace(/\.ts$/, '.js')
+    const specifier = escapeRegExp(module.file.replace(/\.ts$/, '.js'))
     body = body.replace(new RegExp(`^import \\{[^}]*\\} from '\\./${specifier}'\\n`, 'm'), '')
     parts.push(`// Shared implementation: ${module.file}`, module.source.trimEnd())
   }
@@ -54,21 +59,21 @@ export const SCRIPT_SOURCES: Record<string, ScriptSource> = {
   Health: { file: 'health.ts', source: health },
   IsoMotor: {
     file: 'iso-motor.ts',
-    source: withShared('iso-motor.ts', isoMotor, [GRID_MOTOR, FACING]),
+    source: inlineShared('iso-motor.ts', isoMotor, [GRID_MOTOR, FACING]),
   },
   Lifetime: { file: 'lifetime.ts', source: lifetime },
   MeleeAttack: {
     file: 'melee-attack.ts',
-    source: withShared('melee-attack.ts', meleeAttack, [FACING]),
+    source: inlineShared('melee-attack.ts', meleeAttack, [FACING]),
   },
   OutOfBounds: { file: 'out-of-bounds.ts', source: outOfBounds },
-  Patrol: { file: 'patrol.ts', source: withShared('patrol.ts', patrol, [FACING]) },
+  Patrol: { file: 'patrol.ts', source: inlineShared('patrol.ts', patrol, [FACING]) },
   PlatformerMotor: { file: 'platformer-motor.ts', source: platformerMotor },
   Respawnable: { file: 'respawnable.ts', source: respawnable },
   StateMachine: { file: 'state-machine.ts', source: stateMachine },
   TopDownMotor: {
     file: 'topdown-motor.ts',
-    source: withShared('topdown-motor.ts', topdownMotor, [GRID_MOTOR]),
+    source: inlineShared('topdown-motor.ts', topdownMotor, [GRID_MOTOR]),
   },
 }
 

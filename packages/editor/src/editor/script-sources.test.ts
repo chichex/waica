@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { scriptSource } from './script-sources'
+import { inlineShared, scriptSource } from './script-sources'
 
 describe('scriptSource', () => {
   it.each([
@@ -40,6 +40,20 @@ describe('scriptSource', () => {
     expect(script.source.indexOf('export function facingForInput')).toBeLessThan(
       script.source.indexOf(subject),
     )
+  })
+
+  it('strips only the exact shared import: the dot in the specifier is literal', () => {
+    // A regex built from 'facing.js' with an unescaped dot would also swallow
+    // an import of './facingXjs' — the strip must match the file name exactly.
+    const script = scriptSource('Patrol')
+    const stripped = (script.source.match(/^import .* from '\.\/[^']+'$/gm) ?? []).filter(
+      (line) => /facing/.test(line),
+    )
+
+    expect(stripped).toEqual([])
+    expect(inlineShared('probe.ts', "import { x } from './facingXjs'\nexport const y = 1\n", [
+      { file: 'facing.ts', source: 'export const shared = 1' },
+    ])).toContain("import { x } from './facingXjs'")
   })
 
   it('keeps the grid motor ahead of the facing table for IsoMotor', () => {
