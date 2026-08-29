@@ -154,6 +154,8 @@ Mechanism (confirmed by the user): **unit + integrated happy-dom scenario + exte
 
 - 2026-08-29 (review round 2, applied with the user's approval in `3abc03a`) — **Editor:** the Scripts-view inlining regex escapes the shared specifier (`facing.js`'s dot was literal by luck); `inlineShared()` exported with a test. Declined with reasons: inlining `health.ts` into MeleeAttack's view (the view shows relative behavior imports as-is — `Hazard` on `main` shows four; only shared implementations are inlined) and dropping the villager's `hurt-/death-<dir>` clips (CA-2 asks every character for them; a project can add `Health` without recomposing). Surfaced from GitHub, not acted on: `strikeArea()` anchors at `entity.position` without the attacker's own `Hitbox` offset (every shipped prefab has offset 0); the orc declares `attack-*` clips it never plays (CA-2 wording); ATTRIBUTION says "sword/hurt/death" sit one column earlier for the hero while only sword/hurt do (death is 22/23 for all three).
 
+- 2026-08-29 (CA-19 step 6/1 finding, applied with the user's approval in `44d3720`) — **the hero looked like it stood in the water.** Pre-existing, not a collision bug: Playwright against the live demo shows the body stopping at every water face (`y = 7.3`, `x = 13.45`) and under knockback; 400 fuzz runs (hits, deaths, 0.1 s `dt` hitches) never penetrate. The picture was wrong: Puny bodies leave 9 transparent texels under the boots, so with `anchorY: 0` the feet drew 9/16 of a unit above the collision point, and the 0.9×0.6 top-down body let that point sit 0.15 screen units from the diamond edge. `IsoMotor.hitboxHeight` is now 0.9 (square footprint; `TopDownMotor` keeps 0.6 for fence tops) and `characterSprite` sets `offsetY: -9/16` for the three characters. Verified before/after at the south face in the browser; pinned in `art.test.ts`, `registry-data.test.ts`, `iso-motor.test.ts`.
+
 ## Resultado de ejecucion (2026-08-29 · HEAD e2ec33b)
 
 Verification ran on branch `sdd/iso-demo-combat-and-polish` at `e2ec33b` (worktree `../waica-sdd-iso-demo-combat-and-polish`, base `main` = `8337692`). Every command below was executed in this run.
@@ -193,3 +195,7 @@ Same ladder, executed again on `97f61eb`: `pnpm typecheck` exit 0 · `pnpm test`
 ### Re-verificación tras la ronda 2 (2026-08-29 · HEAD 3abc03a)
 
 `pnpm typecheck` exit 0 · `pnpm test` 133 files / **1213** tests · `pnpm build` exit 0 · `node scripts/sync-scene.mjs && git diff --exit-code` exit 0 · `pnpm test:dist` green · `pnpm test:e2e` green (`durationMs: 13465`, Chrome 151.0.7922.175) · gates: higiene 0/0 hits, behaviors 5 test files, largest touched `.ts` 687 lines, 0 badly named new files.
+
+### Re-verificación tras el tuning de CA-19 (2026-08-29 · HEAD 44d3720)
+
+`pnpm typecheck` exit 0 · `pnpm test` 133 files / **1214** tests · `pnpm build` exit 0 · `node scripts/sync-scene.mjs && git diff --exit-code` exit 0 on `44d3720` · `pnpm test:dist` green · `pnpm test:e2e` green (`durationMs: 13872`, Chrome 151.0.7922.175) · gates: higiene 0/0, behaviors 6 test files, largest `.ts` 687 lines, 0 badly named files.
