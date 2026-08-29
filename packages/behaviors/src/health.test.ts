@@ -18,7 +18,7 @@ interface StubEntity extends Entity {
 function makeGame(): Game {
   return {
     entities: [],
-    stats: { add: vi.fn() },
+    stats: { add: vi.fn(), set: vi.fn() },
     events: { emit: vi.fn() },
   } as unknown as Game
 }
@@ -29,6 +29,7 @@ function makeEntity(game: Game, name: string): StubEntity {
     name,
     game,
     alive: true,
+    node: { visible: true },
     position: new THREE.Vector3(),
     scale: new THREE.Vector3(1, 1, 1),
     destroy: vi.fn(),
@@ -49,7 +50,7 @@ function makeEntity(game: Game, name: string): StubEntity {
 }
 
 /** A ready Health on a bare entity — no machine, so death destroys. */
-function makeHealth(props: Partial<Pick<Health, 'max' | 'invulnerability'>> = {}) {
+function makeHealth(props: Partial<Pick<Health, 'max' | 'invulnerability' | 'stat'>> = {}) {
   const game = makeGame()
   const entity = makeEntity(game, 'Subject')
   const health = new Health()
@@ -232,7 +233,7 @@ describe('Health invulnerability window', () => {
 
   it('keeps runtime state out of the authoring surface', () => {
     expect(Health.transient).toContain('current')
-    expect(Object.keys(Health.params ?? {}).sort()).toEqual(['invulnerability', 'max'])
+    expect(Object.keys(Health.params ?? {}).sort()).toEqual(['invulnerability', 'max', 'stat'])
   })
 })
 
@@ -445,6 +446,188 @@ describe('Health deferred death fallback', () => {
   })
 
   it('keeps the deferred bookkeeping out of the authoring surface', () => {
-    expect(authoringDefaults(Health)).toEqual({ max: 3, invulnerability: 0 })
+    expect(authoringDefaults(Health)).toEqual({ max: 3, invulnerability: 0, stat: '' })
+  })
+})
+
+describe('Health as a published stat', () => {
+  it('publishes its current value under the named stat as soon as it is ready', () => {
+    const { game } = makeHealth({ max: 3, stat: 'health' })
+
+    expect(game.stats.set).toHaveBeenCalledExactlyOnceWith('health', 3)
+  })
+
+  it('republishes after every accepted hit and heal', () => {
+    const { game, health } = makeHealth({ max: 3, stat: 'health' })
+    vi.mocked(game.stats.set).mockClear()
+
+    health.damage(1)
+    health.heal(1)
+
+    expect(vi.mocked(game.stats.set).mock.calls).toEqual([
+      ['health', 2],
+      ['health', 3],
+    ])
+  })
+
+  it('stays quiet on hits the window or the arithmetic rejected', () => {
+    const { game, health } = makeHealth({ max: 3, invulnerability: 1, stat: 'health' })
+    vi.mocked(game.stats.set).mockClear()
+
+    health.damage(1)
+    health.damage(1)
+    health.damage(0)
+    health.heal(0)
+
+    expect(game.stats.set).toHaveBeenCalledExactlyOnceWith('health', 2)
+  })
+
+  it('touches no stat at all when none is named — the default', () => {
+    const { game, health } = makeHealth({ max: 3 })
+
+    health.damage(1)
+    health.heal(1)
+
+    expect(game.stats.set).not.toHaveBeenCalled()
+  })
+
+  it('exposes the stat name as a typed stat reference for the inspector', () => {
+    expect(Health.params?.['stat']).toMatchObject({ ref: 'stat' })
+  })
+})
+
+describe('Health hurt signal', () => {
+  function makeWithGraph(max: number) {
+    const game = makeGame()
+    const entity = makeEntity(game, 'Character')
+    const machine = new StateMachine()
+    machine.states = {
+      idle: {},
+      hurt: {},
+      dead: {},
+      '*': { transitions: [{ on: 'signal:death', to: 'dead' }, { on: 'signal:hurt', to: 'hurt' }] },
+    }
+    machine.current = 'idle'
+    const signal = vi.spyOn(machine, 'signal').mockImplementation(() => {})
+    entity.addStub(machine)
+    const health = new Health()
+    health.max = max
+    entity.addStub(health)
+    health.onReady()
+    return { game, entity, health, signal }
+  }
+
+  it('signals hurt to the sibling machine on a hit the entity survives', () => {
+    const { health, signal } = makeWithGraph(3)
+
+    health.damage(1)
+
+    expect(signal).toHaveBeenCalledExactlyOnceWith('hurt')
+  })
+
+  it('does not signal hurt on the lethal hit — death wins', () => {
+    const { health, signal } = makeWithGraph(1)
+
+    health.damage(1)
+
+    expect(signal).toHaveBeenCalledExactlyOnceWith('death')
+  })
+
+  it('does not signal hurt for a hit the invulnerability window swallowed', () => {
+    const { health, signal } = makeWithGraph(3)
+    health.invulnerability = 1
+    health.damage(1)
+    signal.mockClear()
+
+    health.damage(1)
+
+    expect(signal).not.toHaveBeenCalled()
+  })
+
+  it('remembers who dealt the last hit, for the state that reacts to it', () => {
+    const { game, health } = makeWithGraph(3)
+    const orc = makeEntity(game, 'Orc')
+
+    health.damage(1, orc)
+
+    expect(health.lastDamageSource).toBe(orc)
+  })
+
+  it('forgets the source when a hit has none', () => {
+    const { game, health } = makeWithGraph(3)
+    health.damage(1, makeEntity(game, 'Orc'))
+
+    health.damage(1)
+
+    expect(health.lastDamageSource).toBeUndefined()
+  })
+
+  it('is harmless on an entity with no machine at all', () => {
+    const { health } = makeHealth({ max: 3 })
+
+    expect(() => health.damage(1)).not.toThrow()
+    expect(health.current).toBe(2)
+  })
+})
+
+describe('Health blink', () => {
+  it('toggles the node every tenth of a second while the window is open', () => {
+    const { entity, health } = makeHealth({ max: 3, invulnerability: 0.5 })
+
+    health.damage(1)
+    expect(health.blinking).toBe(true)
+    expect(entity.node.visible).toBe(true)
+
+    health.onUpdate(0.1)
+    expect(entity.node.visible).toBe(false)
+    health.onUpdate(0.1)
+    expect(entity.node.visible).toBe(true)
+    health.onUpdate(0.1)
+    expect(entity.node.visible).toBe(false)
+  })
+
+  it('restores visibility the moment the window closes', () => {
+    const { entity, health } = makeHealth({ max: 3, invulnerability: 0.3 })
+    health.damage(1)
+    health.onUpdate(0.1)
+    expect(entity.node.visible).toBe(false)
+
+    health.onUpdate(0.2)
+
+    expect(entity.node.visible).toBe(true)
+    expect(health.blinking).toBe(false)
+    health.onUpdate(0.1)
+    expect(entity.node.visible).toBe(true)
+  })
+
+  it('restores visibility on a window cut short by a fresh hit landing later', () => {
+    // A second hit after the window re-opens it: the blink just continues.
+    const { entity, health } = makeHealth({ max: 3, invulnerability: 0.2 })
+    health.damage(1)
+    health.onUpdate(0.1)
+    health.onUpdate(0.1)
+    expect(health.blinking).toBe(false)
+
+    health.damage(1)
+    health.onUpdate(0.1)
+
+    expect(entity.node.visible).toBe(false)
+    expect(health.current).toBe(1)
+  })
+
+  it('never blinks without an invulnerability window', () => {
+    const { entity, health } = makeHealth({ max: 3 })
+
+    health.damage(1)
+    for (let i = 0; i < 20; i++) health.onUpdate(0.05)
+
+    expect(health.blinking).toBe(false)
+    expect(entity.node.visible).toBe(true)
+  })
+
+  it('keeps the blink bookkeeping out of the authoring surface', () => {
+    expect(Health.transient).toEqual(
+      expect.arrayContaining(['blinking', 'lastDamageSource']),
+    )
   })
 })

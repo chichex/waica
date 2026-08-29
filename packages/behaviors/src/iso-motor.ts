@@ -1,23 +1,9 @@
 import { screenInputToLogical } from '@waica/engine'
+import { facingForInput, type ScreenFacing } from './facing.js'
 import { GridMotor } from './grid-motor.js'
 
 /** The eight screen-relative facings declared by the isometric archetype. */
-export type IsoFacing = 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw'
-
-function facingForInput(inputX: number, inputY: number): IsoFacing | undefined {
-  if (inputX === 0 && inputY === 0) return undefined
-  if (inputY > 0) {
-    if (inputX > 0) return 'ne'
-    if (inputX < 0) return 'nw'
-    return 'n'
-  }
-  if (inputY < 0) {
-    if (inputX > 0) return 'se'
-    if (inputX < 0) return 'sw'
-    return 's'
-  }
-  return inputX > 0 ? 'e' : 'w'
-}
+export type IsoFacing = ScreenFacing
 
 /**
  * Passive isometric motor. Input and facing are screen-relative while the
