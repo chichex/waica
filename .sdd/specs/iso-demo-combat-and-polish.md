@@ -1,6 +1,6 @@
 # Spec — Isometric demo: correct art orientation, melee attack, visible damage, mortal orc with facing, smoother camera
-<!-- Generada por /sdd-spec el 2026-08-29. Fuente: grill 2026-08-29-iso-demo-combat-and-polish (.sdd/grills/2026-08-29-iso-demo-combat-and-polish.md). Estado: aprobada -->
-<!-- SDD-Tracking: version=1; type=spec; state=approved; issue=none; grill=2026-08-29-iso-demo-combat-and-polish; superseded-by=none -->
+<!-- Generada por /sdd-spec el 2026-08-29. Fuente: grill 2026-08-29-iso-demo-combat-and-polish (.sdd/grills/2026-08-29-iso-demo-combat-and-polish.md). Estado: implementada -->
+<!-- SDD-Tracking: version=1; type=spec; state=implemented; issue=none; grill=2026-08-29-iso-demo-combat-and-polish; superseded-by=none -->
 
 ## Contexto
 
@@ -139,3 +139,45 @@ Mechanism (confirmed by the user): **unit + integrated happy-dom scenario + exte
 - **Blast radius** (~40 files, 6 snapshots, 3 PNGs) in one PR by the user's decision — review effort is the cost.
 - `[NEEDS-INPUT]` none.
 - Pre-existing, filed not fixed: MCP `missing-clip` not directional-aware; `Villager` npc state-code warning; discrete camera lookahead step.
+
+## Changelog
+
+- 2026-08-29 (`/sdd-run`, plan gate) — **`TOPDOWN_ANIMATION.contract.fallbacks` also gains `attack/hurt/death → 'idle'`.** CA-5 assumed the topdown hero's `attack`/`hurt`/`dead` states "resolve to `idle` through the contract fallback", but that contract only had `walk → 'idle'`, so the conformance rule (CA-13) would have failed for topdown. Data-only change; `archetype-topdown/src/manifest.test.ts` pins it. Approved with the plan.
+- 2026-08-29 (`/sdd-run`, plan gate) — **`MeleeAttack` maps the facing to logical space with `logicalDirection(facing, game.projection)`** (identity without a projection, `screenInputToLogical` under the isometric one), the same rule `Patrol` and the `hurt` state use. Identical to CA-4's wording for isometric scenes; keeps a future non-projected user of the component from striking diagonally. Approved with the plan.
+- 2026-08-29 (`/sdd-run`, CA-13) — **`PATROLLER_STATE_GRAPH.dead` carries `clip: 'death'`.** CA-9 wrote `dead: {}`; the orc's sheet has `death-<dir>` clips, not `dead-<dir>`, so the conformance rule rejected the bare state. Same shape as the player graph's `dead`.
+- 2026-08-29 (`/sdd-run`, CA-1/CA-18, **fact correction**) — the Puny mirror pairs (source rows 1↔7, 2↔6, 3↔5) are **not pixel-exact**, contrary to `## Contexto` and CA-1: idle/walk cells differ by 1–5 pixels, sword poses by 30–60 (the sword stays in the same hand on both sides). Measured per used cell during composition and recorded in `ATTRIBUTION.md`. The decision (five east-facing rows + runtime `flipX`) stands; the mirrored directions are checked by eye in CA-19 step 1.
+- 2026-08-29 (`/sdd-run`, CA-6/CA-15) — **`Health` gains `inspectState()`** reporting `max`, `invulnerability`, `stat`, `current`, `invulnerable`, `blinking` and `lastDamageSource` (by name). Beyond CA-6's letter: without it a Runtime Snapshot projects the whole source `Entity` (scene node included) up to the 64 KB component cap, which is what CA-15 reads.
+- 2026-08-29 (`/sdd-run`, CA-11) — `ISOMETRIC_SCENE.camera` no longer carries its own `lookaheadY: 1`; every tuned field lives in `isometricCamera()` as CA-11 states, so `ISOMETRIC_BLANK_SCENE` gets the same feel.
+- 2026-08-29 (`/sdd-run`, CA-5/CA-12) — `sync-scene` also rewrote `examples/topdown/src/characters/player.character.json`: the shared graph's `attack`/`hurt` states and `dead.clip = 'death'` are prefab data, so the topdown player file follows (no new component, no binding — `attack` stays unreachable there, as CA-5 says).
+
+## Resultado de ejecucion (2026-08-29 · HEAD e2ec33b)
+
+Verification ran on branch `sdd/iso-demo-combat-and-polish` at `e2ec33b` (worktree `../waica-sdd-iso-demo-combat-and-polish`, base `main` = `8337692`). Every command below was executed in this run.
+
+| CA | Estado | Evidencia |
+|---|---|---|
+| CA-1 | verificado (geometry) · pendiente humano (orientation) | composition script (PIL) → 3 × 362×164; `art.test.ts` 7/7 (cols 11, rows 5, gutters 1, density `[16,16]`, per-pose columns); mirror check executed and recorded in `ATTRIBUTION.md` (**not** pixel-exact — see Changelog); orientation → CA-19 |
+| CA-2 | verificado | `manifest.test.ts` 6/6 (contract pinned; `attack/hurt/death-e` unflipped, `-w` flipped, `loop: false`); `prefabs.test.ts` 9/9 (no `-w/-nw/-sw`); MCP conformance ×3 green |
+| CA-3 | verificado | `controls.test.ts` 2/2; conformance parity; `template.test.ts` 23/23 (6 snapshots regenerated); `create-project.test.ts` byte-parity green |
+| CA-4 | verificado | `melee-attack.test.ts` 16/16 (front hit, behind/beyond miss, facing, no-projection axes, self and Health-less ignored, dead ignored, one hit per call, i-frames not reported, unknown facing, damage amount, passive, params/defaults); `registry-data.test.ts`, `script-sources.test.ts` |
+| CA-5 | verificado | `grid-player-role.test.ts` 11/11 with a real `StateMachine` + `IsoMotor` (attack from idle/walk, body halted, single `strike(facing)`, timer exit at 0.3 s, no restart, press consumed) — red first, then green |
+| CA-6 | verificado | `health.test.ts` 49/49 (stat on ready/hit/heal, silent when `''`, `hurt` on survivable hits only, not during the window, `lastDamageSource`, 10 Hz blink and restore, no blink without a window, `inspectState`) — red first (13 failures), then green |
+| CA-7 | verificado | `grid-player-role.test.ts`: knockback `−knockbackSpeed` away from a source at (+1, 0), input ignored while stunned, halt at exit, backwards-from-facing without source, death interrupts hurt; `knockbackSpeed: 8` pinned in iso/topdown registry tests |
+| CA-8 | verificado | `scene-default.test.ts` (`ui` = `['crate-counter','health']`); conformance (`health` piece); template snapshots; `stats.json` diff (template + iso example only); `demo-combat.test.ts` scenario 1 (`stats.health === 3`, piece visible) |
+| CA-9 | verificado | `patrol.test.ts` patroller block 4/4 (graph pinned, rail stops in hurt, 2 strikes → dead → destroyed at 0.5 s, same-instant strikes count once); `update-schedules.test.ts` (orc `['StateMachine','AnimatedSprite','Health']`, player unchanged — `MeleeAttack` is passive); `prefabs.test.ts` (orc `Health {2, 0.3}`) |
+| CA-10 | verificado | `patrol.test.ts` facing block 4/4 (e/w, n/s without projection; se/nw, sw/ne with it; no scale flip under a contract); `demo-combat.test.ts` scenario 4 (`walk-se` unflipped, `walk-ne` + `flipX` back, `scale.x === 1`) |
+| CA-11 | verificado (values) · pendiente humano (feel) | `scene-default.test.ts` pins `deadzone 0.5×0.5, lookahead 0, lookaheadY 0.5, smoothing 4`, `lookaheadY > 0`, derived position/limits, camera moves; feel → CA-19 step 6 |
+| CA-12 | verificado | `pnpm build && node scripts/sync-scene.mjs && git diff --exit-code` → exit 0 on `e2ec33b` |
+| CA-13 | verificado | `pnpm vitest run packages/mcp packages/editor/src/project` → 33 files, 400/400 (conformance ×3 incl. every state clip per direction, create-project parity + PNG equality, runtime-docs) |
+| CA-14 | verificado | `examples/isometric/src/demo-combat.test.ts` 4/4 in happy-dom over the shipped scene; three targeted mutations (attack never strikes; Health never signals hurt; Patrol ignores the projection) each turned ≥1 scenario red, then reverted |
+| CA-15 | verificado | `pnpm test:e2e` → green, `durationMs: 13514` (Chrome 151.0.7922.175): `attack-e` unflipped then `idle-e`; orc `Health 2 → 1` and `hurt` on a swing next to it; player `Health 2`, `stats.health 2`, `blinking`, `hurt` with `lastDamageSource 'Orc'`, `idle` after the stun; PNG 640×360 (19675 bytes); topdown/platformer/projection/negative legs unchanged and green |
+| CA-16 | verificado | `pnpm typecheck` exit 0 · `pnpm test` 133 files / 1206 tests · `pnpm build` 3.3 s · `pnpm test:dist` 17.4 s · `pnpm test:e2e` 17.3 s; gates: higiene-ts-diff 0 hits (a and b), tests-acompañan-src (behaviors: `facing.ts`, `melee-attack.ts` + 5 test files), max-lineas 655 (`health.test.ts`) < 950, naming 7/7 kebab-case |
+| CA-17 | verificado | `packages/behaviors/src/index.ts` exports `MeleeAttack`; `pnpm test:dist` packed leg green (`durationMs: 4627`) |
+| CA-18 | verificado | PR body carries the composition receipt (row/column tables and mirror-check result from `ATTRIBUTION.md`) |
+| CA-19 | pendiente humano | protocol above, as a checklist in the PR |
+| POL-higiene-ts-diff | cumplida | 0 hits over `git diff --unified=0 main...HEAD` (both greps) |
+| POL-tests-acompañan-src | cumplida | behaviors adds `facing.ts`, `melee-attack.ts`; 5 `*.test.ts` in the package diff |
+| POL-max-lineas-archivo | cumplida | largest touched `.ts`: 655 lines (`health.test.ts`); `validation.ts` untouched |
+| POL-naming-archivos | cumplida | 7 new `src/` files, all kebab-case |
+
+Pre-existing findings, not fixed here: MCP `validate_project` `missing-clip` is not directional-contract aware (filed as an issue by this run — see PR); `Villager` logs `role "npc" has no registered state code`; the camera lookahead is a discrete `|vx| > 1` step for every archetype.
