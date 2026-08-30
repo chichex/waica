@@ -18,6 +18,7 @@ export type RuntimeControlRequest =
   | { operation: 'press' | 'hold' | 'release'; action: string }
   | { operation: 'pause' | 'resume' }
   | { operation: 'step'; dt?: number; frames?: number }
+  | { operation: 'click'; x: number; y: number }
 
 export interface RuntimeControlResult extends RuntimeMetadata {
   heldActions: string[]
@@ -73,6 +74,7 @@ export interface RuntimeBridgeHost {
   availableActions(): string[]
   heldActions(): string[]
   inspect(metadata: RuntimeMetadata, filters?: RuntimeSnapshotFilters): RuntimeSnapshot
+  click(x: number, y: number): void
 }
 
 export class EngineRuntimeBridge implements RuntimeBridge {
@@ -151,6 +153,23 @@ export class EngineRuntimeBridge implements RuntimeBridge {
         }
         for (let index = 0; index < frames; index += 1) this.advance(dt)
         break
+      }
+      case 'click': {
+        if (!Number.isFinite(request.x) || !Number.isFinite(request.y)) {
+          throw new RuntimeBridgeOperationError(
+            'runtime-operation-failed',
+            'x and y must be finite numbers.',
+          )
+        }
+        this.host.click(request.x, request.y)
+        break
+      }
+      default: {
+        const unsupported: never = request
+        throw new RuntimeBridgeOperationError(
+          'runtime-operation-failed',
+          `Unsupported runtime control operation "${(unsupported as { operation: string }).operation}".`,
+        )
       }
     }
     return { ...this.metadata(), heldActions: this.host.heldActions() }

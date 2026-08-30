@@ -57,6 +57,8 @@ export type {
 } from './component-update-schedule.js'
 export { Input, DEFAULT_BINDINGS } from './input.js'
 export type { ActionName, InjectedActionOperation, InputBindings } from './input.js'
+export { Pointer } from './pointer.js'
+export type { PointerCamera, PointerDeps, PointerPick, PointerResolution } from './pointer.js'
 export {
   RUNTIME_BRIDGE_PROTOCOL_VERSION,
   RUNTIME_BRIDGE_SYMBOL,

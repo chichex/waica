@@ -377,6 +377,50 @@ describe('Runtime Bridge protocol', () => {
     game.dispose()
   })
 
+  it('resolves a click operation through the game pointer, in logical coordinates', () => {
+    const { registered } = installActivation()
+    const game = makeGame()
+    game.start()
+    const bridge = registered[0]!
+
+    const result = bridge.control({ operation: 'click', x: 2, y: -3 })
+
+    expect(result.heldActions).toEqual([])
+    const pending = game.pointer.takePending()
+    expect(pending).not.toBeNull()
+    expect(pending!.point.x).toBeCloseTo(2, 5)
+    expect(pending!.point.y).toBeCloseTo(-3, 5)
+    expect(pending!.entity).toBeNull()
+    game.dispose()
+  })
+
+  it('rejects a click with non-finite coordinates', () => {
+    const { registered } = installActivation()
+    const game = makeGame()
+    game.start()
+    const bridge = registered[0]!
+
+    expect(() =>
+      bridge.control({ operation: 'click', x: Number.NaN, y: 0 }),
+    ).toThrowError(expect.objectContaining({ code: 'runtime-operation-failed', stage: 'control' }))
+    expect(() =>
+      bridge.control({ operation: 'click', x: 0, y: Number.POSITIVE_INFINITY }),
+    ).toThrowError(expect.objectContaining({ code: 'runtime-operation-failed', stage: 'control' }))
+    game.dispose()
+  })
+
+  it('rejects an unsupported control operation instead of silently ignoring it', () => {
+    const { registered } = installActivation()
+    const game = makeGame()
+    game.start()
+    const bridge = registered[0]!
+
+    expect(() =>
+      bridge.control({ operation: 'teleport' } as unknown as Parameters<typeof bridge.control>[0]),
+    ).toThrowError(expect.objectContaining({ code: 'runtime-operation-failed', stage: 'control' }))
+    game.dispose()
+  })
+
   it('inspects stable entity identity, transforms, stats and public component state', () => {
     const { registered } = installActivation()
     const game = makeGame()

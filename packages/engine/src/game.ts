@@ -14,6 +14,7 @@ import { Hitbox } from './components/hitbox.js'
 import { Entity } from './entity.js'
 import { Emitter } from './events.js'
 import { Input, type InputBindings } from './input.js'
+import { Pointer } from './pointer.js'
 import {
   activeRuntimeBridgeHook,
   EngineRuntimeBridge,
@@ -64,6 +65,7 @@ export class Game {
   readonly scene = new THREE.Scene()
   readonly camera: THREE.OrthographicCamera
   readonly input: Input
+  readonly pointer: Pointer
   readonly entities: Entity[] = []
   readonly events = new Emitter()
   readonly stats: Stats
@@ -103,6 +105,12 @@ export class Game {
     this.scene.background = new THREE.Color(background)
     this.camera = new THREE.OrthographicCamera()
     this.camera.position.z = 10
+    this.pointer = new Pointer(canvas, {
+      camera: this.camera,
+      resolution: this.resolution,
+      projection: () => this.sceneProjection,
+      entities: this.entities,
+    })
     this.resize()
     this.resizeObserver = new ResizeObserver(() => this.resize())
     this.resizeObserver.observe(canvas)
@@ -215,6 +223,9 @@ export class Game {
           availableActions: () => this.input.availableActions(),
           heldActions: () => this.input.heldActions(),
           inspect: (metadata, filters) => inspector.snapshot(metadata, filters),
+          click: (x, y) => {
+            this.pointer.injectClick(x, y)
+          },
         })
         activation.register(this.runtimeBridge)
         window.addEventListener('pagehide', this.unregisterRuntimeBridge)
@@ -255,6 +266,7 @@ export class Game {
     this.stop()
     this.unregisterRuntimeBridge()
     this.input.dispose()
+    this.pointer.dispose()
     this.resizeObserver.disconnect()
     this.ui.dispose()
     for (const entity of [...this.entities]) entity.destroy()
