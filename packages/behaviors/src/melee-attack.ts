@@ -14,7 +14,7 @@ import { Health } from './health.js'
  * happens (the player's `attack` state) and calls strike(facing); this only
  * knows where the blow lands and who can be hurt by it. The hit area is a
  * `range` × `width` rectangle in logical space, laid along the facing from
- * the attacker's position — under the isometric projection that is the
+ * the attacker's hitbox — under the isometric projection that is the
  * diamond diagonal screen-east maps to, so "in front" matches the screen.
  */
 export class MeleeAttack extends Component {
@@ -67,8 +67,14 @@ export class MeleeAttack extends Component {
     return struck
   }
 
-  /** The oriented rectangle in front of the attacker, as a unit-scaled polygon. */
+  /**
+   * The oriented rectangle in front of the attacker, as a unit-scaled polygon.
+   * Anchored on the attacker's own Hitbox — the same offset every target is
+   * read through — so an offset body swings from where it stands, not from
+   * its transform. An attacker without one keeps swinging from its position.
+   */
   private strikeArea(dx: number, dy: number): CollisionBody {
+    const box = this.entity.get(Hitbox)
     const along = { x: (dx * this.range) / 2, y: (dy * this.range) / 2 }
     const across = { x: (-dy * this.width) / 2, y: (dx * this.width) / 2 }
     const points: CollisionPoint[] = [
@@ -78,8 +84,8 @@ export class MeleeAttack extends Component {
       [-along.x + across.x, -along.y + across.y],
     ]
     return {
-      x: this.entity.position.x + along.x,
-      y: this.entity.position.y + along.y,
+      x: this.entity.position.x + (box?.offsetX ?? 0) + along.x,
+      y: this.entity.position.y + (box?.offsetY ?? 0) + along.y,
       width: 1,
       height: 1,
       shape: 'polygon',
