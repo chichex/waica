@@ -43,10 +43,18 @@ function makeEntity(game: Game, name: string, x = 0, y = 0): StubEntity {
   return entity
 }
 
-function withHitbox(entity: StubEntity, width: number, height: number): void {
+function withHitbox(
+  entity: StubEntity,
+  width: number,
+  height: number,
+  offsetX = 0,
+  offsetY = 0,
+): void {
   const hitbox = new Hitbox()
   hitbox.width = width
   hitbox.height = height
+  hitbox.offsetX = offsetX
+  hitbox.offsetY = offsetY
   entity.addStub(hitbox)
 }
 
@@ -58,10 +66,15 @@ function withHealth(entity: StubEntity, max: number): Health {
 }
 
 /** The attacker at the origin plus one orc-shaped target (hitbox 0.8×0.7, 2 HP). */
-function arena(orcX: number, orcY: number, projection: 'isometric' | null = 'isometric') {
+function arena(
+  orcX: number,
+  orcY: number,
+  projection: 'isometric' | null = 'isometric',
+  attackerOffsetX = 0,
+) {
   const game = makeGame(projection)
   const player = makeEntity(game, 'Player')
-  withHitbox(player, 0.8, 0.8)
+  withHitbox(player, 0.8, 0.8, attackerOffsetX)
   const playerHealth = withHealth(player, 3)
   const attack = new MeleeAttack()
   player.addStub(attack)
@@ -220,6 +233,40 @@ describe('MeleeAttack.strike', () => {
     attack.strike('e')
 
     expect(orcHealth.current).toBe(0)
+  })
+
+  it('swings from the attacker hitbox, not from its transform', () => {
+    // The attacker's body sits one unit down the x axis from its transform,
+    // so the blow has to start there: the orc stands in front of the box.
+    const { attack, orc, orcHealth } = arena(1 + IN_FRONT.x, IN_FRONT.y, 'isometric', 1)
+
+    expect(attack.strike('e')).toEqual([orc])
+    expect(orcHealth.current).toBe(1)
+  })
+
+  it('no longer reaches what only stood in front of the offset attacker transform', () => {
+    // Plain axes: the strike is the 1x1 square in front of the anchor. The orc
+    // sits in front of the transform and well behind the hitbox, so the blow
+    // that used to land now misses.
+    const { attack, orcHealth } = arena(0.2, 0, null, 1)
+
+    expect(attack.strike('e')).toEqual([])
+    expect(orcHealth.current).toBe(2)
+  })
+
+  it('falls back to the transform when the attacker has no hitbox', () => {
+    // strike() never required the attacker to carry a Hitbox; an offset it
+    // does not have must not move the blow.
+    const game = makeGame(null)
+    const player = makeEntity(game, 'Player')
+    const attack = new MeleeAttack()
+    player.addStub(attack)
+    const orc = makeEntity(game, 'Orc', 0.9, 0)
+    withHitbox(orc, 0.8, 0.7)
+    const orcHealth = withHealth(orc, 2)
+
+    expect(attack.strike('e')).toEqual([orc])
+    expect(orcHealth.current).toBe(1)
   })
 })
 
