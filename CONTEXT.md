@@ -57,3 +57,11 @@ _Avoid_: screen coordinates, iso coordinates
 **Tilemap**:
 An engine primitive that owns a map as one square lattice of logical cells on a single component, instead of one entity per tile. Under isometric projection those same cells render as diamonds; existing archetypes keep tiles-as-entities until they opt in.
 _Avoid_: tile layer, tile grid entities
+
+**Move Order**:
+The pointer-issued objective a grid player is currently pursuing: a logical point to reach or a live entity to engage (interact or attack). Each click replaces it; keyboard movement, arrival, or the target vanishing cancels it.
+_Avoid_: destination, waypoint
+
+**Navigation Grid**:
+The transient lattice of walkable logical cells rasterized from a scene's Solids (Tilemap cells included) that pathfinding plans over. Derived from the live scene, never authored.
+_Avoid_: navmesh, pathfinding map
