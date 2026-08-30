@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { deleteProjectFolder } from '../fs/delete-project'
 import { MemFS, RealFS, SCENE_PATH, type ProjectFS } from '../fs/project-fs'
 import {
   ensurePermission,
@@ -46,11 +47,14 @@ export function Home({
   onOpen,
   resume,
   onResume,
+  onDeleted,
 }: {
   onOpen(fs: ProjectFS): void
   /** Last session needing a click to re-grant folder access (App.tsx). */
   resume?: StoredSession | null
   onResume?(): void
+  /** A project folder was deleted from disk: App.tsx drops any session on it. */
+  onDeleted?(name: string): void
 }) {
   const canFS = typeof window.showDirectoryPicker === 'function'
   const [recents, setRecents] = useState<RecentProject[]>([])
@@ -133,6 +137,38 @@ export function Home({
     setRecents(await listRecents())
   }
 
+  /** Deletes the folder itself. Permanent — no Trash, no undo. */
+  const deleteRecent = async (recent: RecentProject): Promise<void> => {
+    const confirmed = confirm(
+      `Delete “${recent.name}” and everything inside it?\n\n` +
+        'The folder is erased from your disk. It does not go to the Trash and this cannot be undone.',
+    )
+    if (!confirmed) return
+    if (!(await ensurePermission(recent.handle))) {
+      alert(`“${recent.name}” was not deleted: the browser needs permission on that folder.`)
+      return
+    }
+    setBusy(`deleting ${recent.name}…`)
+    try {
+      const outcome = await deleteProjectFolder(recent.handle)
+      if (outcome === 'emptied') {
+        alert(
+          `Everything inside “${recent.name}” is gone, but this browser cannot remove the ` +
+            'folder itself — delete the empty folder from your file manager.',
+        )
+      }
+      await forgetRecent(recent.name)
+      onDeleted?.(recent.name)
+    } catch (err) {
+      console.error(err)
+      alert(
+        `Could not delete “${recent.name}”: ${err instanceof Error ? err.message : String(err)}`,
+      )
+    } finally {
+      setBusy(null)
+    }
+  }
+
   const demo = async (): Promise<void> => {
     const fs = new MemFS('waica-demo', projectFiles('waica-demo', 'demo', 'platformer'))
     await writeArtFiles(fs, 'demo', 'platformer')
@@ -187,12 +223,27 @@ export function Home({
           <h2>Recent</h2>
           {recents.map((recent) => (
             <div key={recent.name} className="home-recent">
-              <button className="home-recent-open" onClick={() => void openRecent(recent)}>
+              <button
+                className="home-recent-open"
+                disabled={!!busy}
+                onClick={() => void openRecent(recent)}
+              >
                 📁 {recent.name}
+              </button>
+              <button
+                className="home-recent-delete"
+                title="Delete the project folder from your disk — permanent, no Trash"
+                aria-label={`Delete ${recent.name} from disk`}
+                disabled={!!busy}
+                onClick={() => void deleteRecent(recent)}
+              >
+                🗑️
               </button>
               <button
                 className="home-recent-remove"
                 title="Remove from recents (doesn't delete the folder)"
+                aria-label={`Remove ${recent.name} from recents`}
+                disabled={!!busy}
                 onClick={() => void forgetRecent(recent.name)}
               >
                 ✕
