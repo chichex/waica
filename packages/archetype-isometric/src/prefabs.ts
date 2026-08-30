@@ -107,6 +107,14 @@ export const ISOMETRIC_PREFABS: Record<string, PrefabJson> = {
       { type: 'MeleeAttack' },
       { type: 'Respawnable' },
       { type: 'Health', props: { max: 3, invulnerability: 1, stat: 'health' } },
+      {
+        type: 'ClickToMove',
+        props: {
+          markerTexture: 'waica:iso-click-marker',
+          markerWidth: 1,
+          markerHeight: 0.5,
+        },
+      },
     ],
   },
   'characters/villager': {

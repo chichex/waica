@@ -1,10 +1,12 @@
 import {
+  screenInputToLogical,
   type Component,
   type ComponentClass,
   type RoleDefinition,
   type RoleGraph,
   type StateContext,
 } from '@waica/engine'
+import { ClickToMove, driveClickToMove } from './click-to-move.js'
 import { logicalDirection } from './facing.js'
 import { Health } from './health.js'
 import { interactUpdate } from './interactable.js'
@@ -79,10 +81,29 @@ export function createGridPlayerRole<T extends PlayerMotor>(
     },
   }
 
-  const update = ({ entity, game, fsm }: StateContext, dt: number): void => {
+  const update = (ctx: StateContext, dt: number): void => {
+    const { entity, game, fsm } = ctx
     const motor = entity.get(Motor)
     if (!motor) return
-    motor.run(game.input.axis('left', 'right'), game.input.axis('down', 'up'), dt)
+    const keyboardX = game.input.axis('left', 'right')
+    const keyboardY = game.input.axis('down', 'up')
+    if (keyboardX !== 0 || keyboardY !== 0) {
+      // Keyboard movement always wins and cancels a live Move Order (CA-4).
+      entity.get(ClickToMove)?.cancel()
+      motor.run(keyboardX, keyboardY, dt)
+    } else {
+      const driven = driveClickToMove(ctx)
+      if (driven) {
+        // driveClickToMove answers in logical space; motor.run expects the
+        // same screen-relative input keyboard axes already are (IsoMotor
+        // converts internally, TopDownMotor's screen space is logical).
+        const screenInput =
+          game.projection === 'isometric' ? screenInputToLogical(driven.x, driven.y) : driven
+        motor.run(screenInput.x, screenInput.y, dt)
+      } else {
+        motor.run(0, 0, dt)
+      }
+    }
     motor.step(dt)
     fsm.signal(motor.speed() > motor.walkThreshold ? 'move' : 'stop')
   }
@@ -147,6 +168,11 @@ export function createGridPlayerRole<T extends PlayerMotor>(
       // Coming back is what leaving death means, so it hangs off onExit: any
       // other way out of this state (a project's own edge) revives too.
       dead: {
+        // Dying cancels any live Move Order outright (CA-7) — hurt only
+        // pauses one (nothing to do there: its onUpdate never runs update()).
+        onEnter({ entity }) {
+          entity.get(ClickToMove)?.cancel()
+        },
         // A state without its own onUpdate falls back to the role's default
         // body update, so this no-op keeps the player still for the death beat.
         onUpdate() {},

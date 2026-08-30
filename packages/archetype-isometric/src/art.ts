@@ -9,4 +9,5 @@ export const ISOMETRIC_ART: ArchetypeArt[] = [
   { file: 'waica-iso-tree.png', uri: 'waica:iso-tree' },
   { file: 'waica-iso-rock.png', uri: 'waica:iso-rock' },
   { file: 'waica-iso-crate.png', uri: 'waica:iso-crate' },
+  { file: 'waica-iso-click-marker.png', uri: 'waica:iso-click-marker' },
 ]

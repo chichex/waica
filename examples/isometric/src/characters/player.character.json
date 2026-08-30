@@ -313,6 +313,14 @@
         "invulnerability": 1,
         "stat": "health"
       }
+    },
+    {
+      "type": "ClickToMove",
+      "props": {
+        "markerTexture": "src/art/waica-iso-click-marker.png",
+        "markerWidth": 1,
+        "markerHeight": 0.5
+      }
     }
   ]
 }

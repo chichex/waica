@@ -12,6 +12,7 @@ export const ISOMETRIC_ART_URLS: Record<string, string> = {
   'waica-iso-tree.png': new URL('../assets/waica-iso-tree.png', import.meta.url).href,
   'waica-iso-rock.png': new URL('../assets/waica-iso-rock.png', import.meta.url).href,
   'waica-iso-crate.png': new URL('../assets/waica-iso-crate.png', import.meta.url).href,
+  'waica-iso-click-marker.png': new URL('../assets/waica-iso-click-marker.png', import.meta.url).href,
 }
 
 const BUILTIN_ASSETS: Record<string, string> = Object.fromEntries(
