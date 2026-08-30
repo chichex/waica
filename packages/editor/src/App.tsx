@@ -56,6 +56,14 @@ export function App() {
     void clearSession()
   }
 
+  // The folder is gone from disk: a session pointing at it would only offer a
+  // "Continue" button that fails on the next click.
+  const forgetDeleted = (name: string): void => {
+    if (resume?.name !== name) return
+    setResume(null)
+    void clearSession()
+  }
+
   const resumeLast = async (): Promise<void> => {
     if (!resume) return
     if (!(await ensurePermission(resume.handle))) return
@@ -74,6 +82,11 @@ export function App() {
   return project ? (
     <Editor fs={project} onClose={close} />
   ) : (
-    <Home onOpen={open} resume={resume} onResume={() => void resumeLast()} />
+    <Home
+      onOpen={open}
+      resume={resume}
+      onResume={() => void resumeLast()}
+      onDeleted={forgetDeleted}
+    />
   )
 }

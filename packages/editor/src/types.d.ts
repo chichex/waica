@@ -20,6 +20,8 @@ interface Window {
 interface FileSystemHandle {
   queryPermission?: (descriptor: { mode: 'read' | 'readwrite' }) => Promise<PermissionState>
   requestPermission?: (descriptor: { mode: 'read' | 'readwrite' }) => Promise<PermissionState>
+  /** Chromium 110+: deletes the entry this handle points at. Optional on purpose. */
+  remove?: (options?: { recursive?: boolean }) => Promise<void>
 }
 
 interface FileSystemDirectoryHandle {

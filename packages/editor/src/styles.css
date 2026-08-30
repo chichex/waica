@@ -165,17 +165,41 @@ select {
   cursor: pointer;
 }
 
+.home-recent-delete,
 .home-recent-remove {
   padding: 0 14px;
   border: none;
-  border-radius: 0 10px 10px 0;
   background: transparent;
   color: var(--text-dim);
   cursor: pointer;
 }
 
-.home-recent-remove:hover {
+.home-recent-delete {
+  border-radius: 0;
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.home-recent-remove {
+  border-radius: 0 10px 10px 0;
+}
+
+/* The 🗑 glyph ignores `color`, so its hover reads as the danger tint the
+   rest of the editor uses for destructive actions. */
+.home-recent-delete:hover:not(:disabled) {
+  background: #e6394611;
+  opacity: 1;
+}
+
+.home-recent-remove:hover:not(:disabled) {
   color: var(--danger);
+}
+
+.home-recent-open:disabled,
+.home-recent-delete:disabled,
+.home-recent-remove:disabled {
+  cursor: default;
+  opacity: 0.4;
 }
 
 /* ---------- Archetype picker ---------- */
