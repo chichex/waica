@@ -62,6 +62,8 @@ interface PageBridgeMetadata {
   mode: 'paused' | 'real-time'
   frame: number
   simulationTime: number
+  /** Absent on a pre-CA-10 engine build — never assume it's there. */
+  capabilities?: string[]
   [key: string]: unknown
 }
 
@@ -169,6 +171,9 @@ function bridgeReady(
     mode: metadata.mode,
     frame: metadata.frame,
     simulationTime: metadata.simulationTime,
+    // [] (not undefined) for a pre-CA-10 engine that never sent the field,
+    // so a capability check can do a plain .includes() either way.
+    capabilities: metadata.capabilities ?? [],
     initialSnapshot,
   }
 }

@@ -27,6 +27,7 @@ const ready = {
   mode: 'paused' as const,
   frame: 0,
   simulationTime: 0,
+  capabilities: ['click'],
   initialSnapshot: {
     bridgeVersion: 1,
     mode: 'paused',
@@ -292,6 +293,59 @@ describe('RuntimeSessionManager', () => {
     })
     expect(browserClosed).toBe(1)
     expect(processStopped).toBe(1)
+    await manager.close()
+  })
+
+  it('rejects a click on a pre-CA-10 engine build instead of silently no-opping it (review finding #4)', async () => {
+    // A mixed-version scenario: the MCP server knows about 'click', but this
+    // Project's own @waica/engine build predates it and never reports the
+    // capability — protocol stays 1 either way, so bridgeVersion alone can't
+    // tell the two apart.
+    const oldEngineReady = { ...ready, engineVersion: '0.9.0', capabilities: [] }
+    let controlCalls = 0
+    const browser: RuntimeBrowser = {
+      ready: async () => oldEngineReady,
+      inspect: async () => ({ ...oldEngineReady, snapshot: { entities: [] } }),
+      control: async (request) => {
+        controlCalls += 1
+        // What a pre-CA-10 bridge actually does with an operation it
+        // doesn't recognize: silently ignore it and report success anyway.
+        return { ...oldEngineReady, heldActions: request.operation === 'hold' ? ['right'] : [] }
+      },
+      captureScreenshot: async () => ({ ...oldEngineReady, data: 'png' }),
+      close: async () => {},
+      setLifecycleHandlers: () => {},
+    }
+    const adapters: RuntimeSessionAdapters = {
+      canonicalize: async () => '/old-engine',
+      preflight: async () => preflight('/old-engine'),
+      startDevServer: async () => ({
+        url: 'http://127.0.0.1:41004/',
+        stop: async () => {},
+        diagnostics: () => ({}),
+      }),
+      startBrowser: async () => browser,
+    }
+    const manager = new RuntimeSessionManager(adapters)
+    await manager.start({ projectPath: '/old-engine' })
+
+    await expect(
+      manager.control({ projectPath: '/old-engine', operation: 'click', x: 1, y: 2 }),
+    ).rejects.toMatchObject({
+      body: {
+        code: 'runtime-incompatible',
+        stage: 'control',
+        diagnostics: { engineVersion: '0.9.0' },
+      },
+    })
+    expect(controlCalls).toBe(0) // rejected before ever reaching the old bridge
+
+    // An operation the old engine does support still goes through normally.
+    await expect(
+      manager.control({ projectPath: '/old-engine', operation: 'hold', action: 'right' }),
+    ).resolves.toMatchObject({ heldActions: ['right'] })
+    expect(controlCalls).toBe(1)
+
     await manager.close()
   })
 })

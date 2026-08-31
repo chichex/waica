@@ -220,6 +220,7 @@ describe('Runtime Bridge protocol', () => {
       mode: 'paused',
       frame: 0,
       simulationTime: 0,
+      capabilities: ['click'],
     })
     expect(registered[0]?.surface).toBe(document.querySelector('canvas'))
     expect(renderer.loop).toBeNull()
