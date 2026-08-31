@@ -826,6 +826,7 @@ async function runIsometricLeg({ client, root, parent, chrome, viteBin, engineRo
   assert.equal(northWest.sprite.flipX, true)
 
   await runIsometricCombat({ client, project, inspectPlayer, hold, release, step })
+  await runIsometricPointAndClick({ client, project, inspectPlayer, step })
 
   const shot = assertScreenshot(
     await call(client, 'capture_screenshot', { project_path: project }),
@@ -972,6 +973,61 @@ async function runIsometricCombat({ client, project, inspectPlayer, hold, releas
   assert.equal(stunned.health.lastDamageSource, 'Orc')
   await step(30)
   assert.equal((await playerState()).machine.current, 'idle', 'the stun ends on its own')
+}
+
+/**
+ * CA-11: a click through the bridge resolves through the same picking a
+ * real click uses. A ground click walks the player to the clicked cell
+ * (queued while paused, taking effect only once stepped — ADR-0006);
+ * clicking the orc — already down to its last heart from the combat leg —
+ * walks it into range and lands the strike that kills it, leaving it out
+ * of the next snapshot.
+ */
+async function runIsometricPointAndClick({ client, project, inspectPlayer, step }) {
+  const click = (x, y) =>
+    call(client, 'control_runtime', { project_path: project, operation: 'click', x, y })
+  const inspectOrc = async () => {
+    const inspected = await call(client, 'inspect_runtime', {
+      project_path: project,
+      entity_names: ['Orc'],
+    })
+    return inspected.structuredContent.snapshot.entities[0] ?? null
+  }
+
+  // A click queues a Move Order but must not move the player before the
+  // Run Session is stepped — proving the paused-queue-then-step ordering.
+  const before = await inspectPlayer()
+  const groundClick = await click(13, 13)
+  assert.equal(groundClick.isError, undefined, `click failed: ${JSON.stringify(groundClick)}`)
+  const queued = await inspectPlayer()
+  assert.ok(
+    Math.abs(queued.position.x - before.position.x) < 1e-6 &&
+      Math.abs(queued.position.y - before.position.y) < 1e-6,
+    'a click must not move the player before the next step',
+  )
+
+  let arrived
+  for (let frame = 0; frame < 360; frame += 1) {
+    await step(1)
+    arrived = await inspectPlayer()
+    if (Math.hypot(arrived.position.x - 13.5, arrived.position.y - 13.5) < 0.6) break
+  }
+  assert.ok(
+    Math.hypot(arrived.position.x - 13.5, arrived.position.y - 13.5) < 0.6,
+    `a ground click must walk the player to the clicked cell; ended at ${JSON.stringify(arrived.position)}`,
+  )
+
+  const orcBefore = await inspectOrc()
+  assert.ok(orcBefore, 'the orc must still be alive before the click-to-attack leg')
+  const orcClick = await click(orcBefore.transform.position.x, orcBefore.transform.position.y)
+  assert.equal(orcClick.isError, undefined, `click failed: ${JSON.stringify(orcClick)}`)
+
+  let orcGone = false
+  for (let frame = 0; frame < 480 && !orcGone; frame += 1) {
+    await step(1)
+    orcGone = (await inspectOrc()) === null
+  }
+  assert.ok(orcGone, 'clicking the orc must walk into range, strike and kill it')
 }
 
 async function runNegativeReadiness({ client, fixture, chrome }) {

@@ -92,3 +92,16 @@ remain at the human-approved 16 texels per render unit.
 | `waica-iso-tree.png` | `(768,208,832,304)`, transparent bottom trimmed | 64×94 |
 | `waica-iso-rock.png` | `(784,868,814,890)`, padded at `(1,10)` | 32×32 |
 | `waica-iso-crate.png` | `(896,832,960,896)`, nearest-resized | 32×32 |
+
+## Click-to-move destination marker
+
+- **Original**, not sourced from Puny Characters or the hawkbirdtree tileset:
+  a flat gold rhombus (translucent fill, brighter outline), generated
+  programmatically at 2026-08-30 for the point-and-click feature (CA-8/CA-9
+  of `.sdd/specs/point-and-click-grid-role.md`) — CC0, same terms as the
+  rest of this archetype's own art.
+- `waica-iso-click-marker.png`: 32×16 (matches the 2:1 diamond aspect of the
+  ground tileset, halved), transparent background.
+- Placeholder-quality by design: exact visual polish is out of scope for
+  this run and is the human-verified part of CA-8/CA-12 — a human is free
+  to swap this file for a nicer diamond later without touching any code.

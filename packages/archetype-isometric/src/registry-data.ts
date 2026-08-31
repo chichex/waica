@@ -10,6 +10,7 @@ import {
 } from '@waica/engine'
 import {
   Chaser,
+  ClickToMove,
   Collectible,
   Hazard,
   Health,
@@ -46,6 +47,7 @@ export const ISOMETRIC_REGISTRY_DATA: SceneRegistry = {
     Health,
     Respawnable,
     Lifetime,
+    ClickToMove,
   },
   resolveAsset: (uri) => PACKAGE_ASSETS[uri] ?? uri,
   prefabs: ISOMETRIC_PREFABS,

@@ -10,6 +10,7 @@ import {
 } from '@waica/engine'
 import {
   Chaser,
+  ClickToMove,
   Collectible,
   Hazard,
   Health,
@@ -49,6 +50,9 @@ export const TOPDOWN_REGISTRY_DATA: SceneRegistry = {
     Health,
     Respawnable,
     Lifetime,
+    // Opt-in: not on the topdown player prefab by default (CA-9), but
+    // registered so the editor's component picker can add it.
+    ClickToMove,
   },
   resolveAsset: (uri) => PACKAGE_ASSETS[uri] ?? uri,
   prefabs: TOPDOWN_PREFABS,

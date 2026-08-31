@@ -6,18 +6,31 @@ export const RUNTIME_BRIDGE_SYMBOL = Symbol.for('@waica/runtime-bridge/v1')
 
 export type RuntimeMode = 'paused' | 'real-time'
 
+/**
+ * Operations this build's control() actually implements, beyond the
+ * baseline protocol 1 set (press/hold/release/pause/resume/step) every
+ * bridge has always supported. Additive metadata, not a protocol bump: a
+ * pre-CA-10 engine simply lacks this field, which is exactly what callers
+ * gating on capabilities check for (review finding #4) — protocol 1 alone
+ * doesn't distinguish an engine that silently no-ops an unknown operation
+ * from one that runs it.
+ */
+export const RUNTIME_BRIDGE_CAPABILITIES = ['click'] as const
+
 export interface RuntimeMetadata {
   bridgeVersion: typeof RUNTIME_BRIDGE_PROTOCOL_VERSION
   engineVersion: string
   mode: RuntimeMode
   frame: number
   simulationTime: number
+  capabilities: readonly string[]
 }
 
 export type RuntimeControlRequest =
   | { operation: 'press' | 'hold' | 'release'; action: string }
   | { operation: 'pause' | 'resume' }
   | { operation: 'step'; dt?: number; frames?: number }
+  | { operation: 'click'; x: number; y: number }
 
 export interface RuntimeControlResult extends RuntimeMetadata {
   heldActions: string[]
@@ -73,6 +86,7 @@ export interface RuntimeBridgeHost {
   availableActions(): string[]
   heldActions(): string[]
   inspect(metadata: RuntimeMetadata, filters?: RuntimeSnapshotFilters): RuntimeSnapshot
+  click(x: number, y: number): void
 }
 
 export class EngineRuntimeBridge implements RuntimeBridge {
@@ -95,6 +109,7 @@ export class EngineRuntimeBridge implements RuntimeBridge {
       mode: this.mode,
       frame: this.frame,
       simulationTime: this.simulationTime,
+      capabilities: RUNTIME_BRIDGE_CAPABILITIES,
     }
   }
 
@@ -151,6 +166,23 @@ export class EngineRuntimeBridge implements RuntimeBridge {
         }
         for (let index = 0; index < frames; index += 1) this.advance(dt)
         break
+      }
+      case 'click': {
+        if (!Number.isFinite(request.x) || !Number.isFinite(request.y)) {
+          throw new RuntimeBridgeOperationError(
+            'runtime-operation-failed',
+            'x and y must be finite numbers.',
+          )
+        }
+        this.host.click(request.x, request.y)
+        break
+      }
+      default: {
+        const unsupported: never = request
+        throw new RuntimeBridgeOperationError(
+          'runtime-operation-failed',
+          `Unsupported runtime control operation "${(unsupported as { operation: string }).operation}".`,
+        )
       }
     }
     return { ...this.metadata(), heldActions: this.host.heldActions() }

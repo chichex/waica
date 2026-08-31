@@ -206,18 +206,20 @@ export const TOOLS: Tool[] = [
   },
   {
     name: 'control_runtime',
-    description: 'Inject a semantic action or change deterministic frame control for a Run Session.',
+    description: 'Inject a semantic action or a canvas click, or change deterministic frame control for a Run Session.',
     inputSchema: {
       type: 'object',
       properties: {
         project_path: PROJECT_PATH,
         operation: {
           type: 'string',
-          enum: ['press', 'hold', 'release', 'pause', 'resume', 'step'],
+          enum: ['press', 'hold', 'release', 'pause', 'resume', 'step', 'click'],
         },
         action: { type: 'string', minLength: 1 },
         dt: { type: 'number', exclusiveMinimum: 0, maximum: 0.1 },
         frames: { type: 'integer', minimum: 1, maximum: 600 },
+        x: { type: 'number' },
+        y: { type: 'number' },
       },
       required: ['project_path', 'operation'],
       additionalProperties: false,
@@ -225,17 +227,28 @@ export const TOOLS: Tool[] = [
         {
           properties: { operation: { enum: ['press', 'hold', 'release'] } },
           required: ['action'],
-          not: { anyOf: [{ required: ['dt'] }, { required: ['frames'] }] },
+          not: { anyOf: [{ required: ['dt'] }, { required: ['frames'] }, { required: ['x'] }, { required: ['y'] }] },
         },
         {
           properties: { operation: { enum: ['pause', 'resume'] } },
           not: {
-            anyOf: [{ required: ['action'] }, { required: ['dt'] }, { required: ['frames'] }],
+            anyOf: [
+              { required: ['action'] },
+              { required: ['dt'] },
+              { required: ['frames'] },
+              { required: ['x'] },
+              { required: ['y'] },
+            ],
           },
         },
         {
           properties: { operation: { const: 'step' } },
-          not: { anyOf: [{ required: ['action'] }] },
+          not: { anyOf: [{ required: ['action'] }, { required: ['x'] }, { required: ['y'] }] },
+        },
+        {
+          properties: { operation: { const: 'click' } },
+          required: ['x', 'y'],
+          not: { anyOf: [{ required: ['action'] }, { required: ['dt'] }, { required: ['frames'] }] },
         },
       ],
     },
@@ -377,26 +390,45 @@ function validateRuntimeArguments(
       assertOnlyRuntimeFields(
         name,
         args,
-        ['project_path', 'operation', 'action', 'dt', 'frames'],
+        ['project_path', 'operation', 'action', 'dt', 'frames', 'x', 'y'],
         projectPath,
       )
       const operation = args.operation
-      if (!['press', 'hold', 'release', 'pause', 'resume', 'step'].includes(String(operation))) {
+      if (!['press', 'hold', 'release', 'pause', 'resume', 'step', 'click'].includes(String(operation))) {
         invalidRuntimeInput(name, projectPath, 'operation is not a supported runtime control operation.')
       }
       if (operation === 'press' || operation === 'hold' || operation === 'release') {
         if (typeof args.action !== 'string' || args.action.length === 0) {
           invalidRuntimeInput(name, projectPath, `${operation} requires a nonempty action.`)
         }
-        if (args.dt !== undefined || args.frames !== undefined) {
-          invalidRuntimeInput(name, projectPath, `${operation} does not accept dt or frames.`)
+        if (args.dt !== undefined || args.frames !== undefined || args.x !== undefined || args.y !== undefined) {
+          invalidRuntimeInput(name, projectPath, `${operation} does not accept dt, frames, x or y.`)
         }
       } else if (operation === 'pause' || operation === 'resume') {
-        if (args.action !== undefined || args.dt !== undefined || args.frames !== undefined) {
+        if (
+          args.action !== undefined ||
+          args.dt !== undefined ||
+          args.frames !== undefined ||
+          args.x !== undefined ||
+          args.y !== undefined
+        ) {
           invalidRuntimeInput(name, projectPath, `${operation} accepts no additional fields.`)
+        }
+      } else if (operation === 'click') {
+        if (args.action !== undefined || args.dt !== undefined || args.frames !== undefined) {
+          invalidRuntimeInput(name, projectPath, 'click does not accept action, dt or frames.')
+        }
+        if (typeof args.x !== 'number' || !Number.isFinite(args.x)) {
+          invalidRuntimeInput(name, projectPath, 'click requires a finite x.')
+        }
+        if (typeof args.y !== 'number' || !Number.isFinite(args.y)) {
+          invalidRuntimeInput(name, projectPath, 'click requires a finite y.')
         }
       } else {
         if (args.action !== undefined) invalidRuntimeInput(name, projectPath, 'step does not accept action.')
+        if (args.x !== undefined || args.y !== undefined) {
+          invalidRuntimeInput(name, projectPath, 'step does not accept x or y.')
+        }
         if (
           args.dt !== undefined &&
           (typeof args.dt !== 'number' || !Number.isFinite(args.dt) || args.dt <= 0 || args.dt > 0.1)
@@ -562,6 +594,8 @@ async function execute(
         ...(typeof args.action === 'string' ? { action: args.action } : {}),
         ...(typeof args.dt === 'number' ? { dt: args.dt } : {}),
         ...(typeof args.frames === 'number' ? { frames: args.frames } : {}),
+        ...(typeof args.x === 'number' ? { x: args.x } : {}),
+        ...(typeof args.y === 'number' ? { y: args.y } : {}),
       } as RuntimeControlInput)
     case 'capture_screenshot':
       return runtime.captureScreenshot(projectPath)

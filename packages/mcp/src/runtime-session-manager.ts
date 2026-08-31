@@ -21,6 +21,8 @@ export interface RuntimeBridgeReady {
   mode: 'paused' | 'real-time'
   frame: number
   simulationTime: number
+  /** [] for a pre-CA-10 engine build that never reports this field. */
+  capabilities: readonly string[]
   initialSnapshot: Record<string, unknown>
 }
 
@@ -164,6 +166,18 @@ export class RuntimeSessionManager implements RuntimeService {
 
   async control(input: RuntimeControlInput): Promise<Record<string, unknown>> {
     const session = await this.requireSession(input.projectPath)
+    if (input.operation === 'click' && !session.ready.capabilities.includes('click')) {
+      throw new RuntimeToolError({
+        code: 'runtime-incompatible',
+        stage: 'control',
+        message:
+          "This Project's @waica/engine build does not support pointer input " +
+          "(control_runtime operation:'click'); upgrade @waica/engine to a version " +
+          'that ships the click Runtime Bridge operation.',
+        projectPath: session.preflight.projectPath,
+        diagnostics: { engineVersion: session.ready.engineVersion },
+      })
+    }
     const { projectPath: _projectPath, ...request } = input
     const controlled = await session.browser.control(request)
     return { ...this.sharedMetadata(session, controlled), heldActions: controlled.heldActions ?? [] }
