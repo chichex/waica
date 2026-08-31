@@ -206,7 +206,7 @@ export const TOOLS: Tool[] = [
   },
   {
     name: 'control_runtime',
-    description: 'Inject a semantic action or change deterministic frame control for a Run Session.',
+    description: 'Inject a semantic action or a canvas click, or change deterministic frame control for a Run Session.',
     inputSchema: {
       type: 'object',
       properties: {

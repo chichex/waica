@@ -50,7 +50,7 @@ Every tool takes an absolute `project_path`. An MCP stdio process belongs to the
 | `start_project` | Start or reuse a browser-backed Run Session and return its paused initial Runtime Snapshot. |
 | `stop_project` | Stop a Run Session and prove its browser, process group and loopback port are gone. |
 | `inspect_runtime` | Read a filtered Runtime Snapshot without mutating the live Game. |
-| `control_runtime` | Press, hold or release a semantic action; pause, resume or step simulation frames. |
+| `control_runtime` | Press, hold or release a semantic action; click the game canvas; pause, resume or step simulation frames. |
 | `capture_screenshot` | Capture the composited Game surface, including Waica HTML UI, as one PNG block. |
 
 Scaffolds never overwrite existing files. `list_components` keeps project-owned TypeScript textual and does not execute it.
@@ -65,7 +65,7 @@ A ready Run Session starts **paused** at frame 0 and simulation time 0. The Game
 - `hold` stays down until `release`; repeated down operations do not create another edge.
 - `step` defaults to one frame at `dt = 1/60` and accepts 1–600 frames with `0 < dt <= 0.1`.
 - `resume` uses RAF-driven real time; `pause` returns to deterministic control without wall-clock catch-up.
-- Only action names installed in the live Game bindings are accepted. Physical key codes, pointers and arbitrary DOM events are not exposed.
+- Only action names installed in the live Game bindings are accepted for `press`/`hold`/`release`. Physical key codes and arbitrary DOM events stay unexposed, but a primary-button click is: `{ operation: 'click', x, y }` (`x`/`y` are logical-space coordinates, not screen pixels) resolves through the engine's own Pointer — the same camera/letterbox/projection conversion and entity picking a real click on the canvas uses — and is queued the same way a press is, taking effect on the next stepped frame. A Project whose `@waica/engine` build predates this (no `click` in the Runtime Bridge's reported capabilities) gets `runtime-incompatible` instead of a silently ignored click.
 
 `inspect_runtime` returns stats plus live entities, stable opaque ids, transforms and safely projected component state. Filters are OR within `entity_ids`, `entity_names` or `component_types`, and AND across those categories. Projection is read-only and bounded; `Date`, `BigInt`, `Map` and `Set` have typed JSON representations, cycles/errors/truncation have `$waica` markers, and a component may provide `inspectState()`. There is no arbitrary JavaScript evaluation or runtime mutation tool.
 
