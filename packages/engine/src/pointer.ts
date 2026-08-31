@@ -195,7 +195,10 @@ export class Pointer {
           renderY >= centerY - halfH &&
           renderY <= centerY + halfH
         ) {
-          hits.push({ entity, layer: box.layer, y: entity.position.y })
+          // Matches Game.applyYSort's key exactly: the entity's node
+          // position, which for an isometric scene is the projected Y (the
+          // same `anchor.y` just used to place this box), not the logical one.
+          hits.push({ entity, layer: box.layer, y: anchor.y })
           break
         }
       }

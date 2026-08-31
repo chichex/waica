@@ -191,4 +191,27 @@ describe('Pointer — entity picking', () => {
     expect(pick.entity).toBeNull()
     game.dispose()
   })
+
+  it('breaks a Y tie by the projected render position, not the logical one (isometric)', () => {
+    // Logical y alone would rank these backwards: A's logical y (0) is
+    // lower than B's (0.5), but under the isometric projection A's render
+    // y (0) is HIGHER than B's (-0.5) — B is the one actually drawn in
+    // front (Game.applyYSort keys off entity.node.position.y, the
+    // projected value), so a click in the overlap must resolve to B.
+    const game = makeGame()
+    game.setSceneRender({ projection: 'isometric' })
+    const back = game.spawn('LogicalOriginButBehind')
+    back.position.set(0, 0, 0)
+    back.add(Sprite, { width: 2, height: 2, anchorX: 0.5, anchorY: 0.5 })
+    const front = game.spawn('HigherLogicalYButInFront')
+    front.position.set(0.5, 0.5, 0)
+    front.add(Sprite, { width: 2, height: 2, anchorX: 0.5, anchorY: 0.5 })
+
+    // Logical midpoint (0.25, 0.25) projects to render (0, -0.25), inside
+    // both boxes.
+    const pick = game.pointer.injectClick(0.25, 0.25)
+
+    expect(pick.entity).toBe(front)
+    game.dispose()
+  })
 })
