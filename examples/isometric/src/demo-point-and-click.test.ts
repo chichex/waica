@@ -112,7 +112,10 @@ describe('point-and-click for the isometric demo player (CA-4..CA-8)', () => {
 
     demo.frames(3)
 
-    expect(Math.hypot(demo.player.position.x - 13.5, demo.player.position.y - 13.5)).toBeLessThan(0.6)
+    // The snap-on-arrival fix (CA-4) lands exactly on the cell center —
+    // no coasting overshoot — well inside the spec's ~0.2-cell tolerance.
+    expect(demo.player.position.x).toBeCloseTo(13.5, 5)
+    expect(demo.player.position.y).toBeCloseTo(13.5, 5)
     expect(clickToMove.order).toBeNull()
     expect(clickToMove.marker).toBeNull()
     expect(demo.game.entities.some((entity) => entity.name === markerName)).toBe(false)

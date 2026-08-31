@@ -1,4 +1,11 @@
-import { Component, Sprite, type Entity, type Game, type StateContext } from '@waica/engine'
+import {
+  Component,
+  Sprite,
+  screenInputToLogical,
+  type Entity,
+  type Game,
+  type StateContext,
+} from '@waica/engine'
 import { INTERACTABLE_UI_PIECE, Interactable } from './interactable.js'
 import { Health } from './health.js'
 import { MeleeAttack } from './melee-attack.js'
@@ -9,16 +16,21 @@ import { planPath } from './pathfinding.js'
 const DEFAULT_ARRIVAL_TOLERANCE = 0.2
 /** How far (logical units) a chased target has to move before its path re-plans. */
 const ATTACK_REPLAN_DISTANCE = 0.5
+/** Same threshold, for an NPC Move Order re-planning toward its target. */
+const NPC_REPLAN_DISTANCE = ATTACK_REPLAN_DISTANCE
 
 interface GroundOrder {
   kind: 'ground'
   waypoints: GridPoint[]
+  /** The resolved cell center, for an exact snap on arrival (CA-4). */
+  destination: GridPoint
 }
 
 interface NpcOrder {
   kind: 'npc'
   target: Entity
   waypoints: GridPoint[]
+  lastPlannedTarget: GridPoint | null
 }
 
 interface AttackOrder {
@@ -29,6 +41,13 @@ interface AttackOrder {
 }
 
 type MoveOrder = GroundOrder | NpcOrder | AttackOrder
+
+/** The minimal motor contract driveAttackOrder/driveGroundOrder need. */
+interface ClickToMoveMotor {
+  facing: string
+  run(inputX: number, inputY: number, dt: number): void
+  halt(): void
+}
 
 /**
  * Pointer-issued objective for a grid player role (CA-4/CA-5/CA-6): a click
@@ -153,6 +172,29 @@ function beelineToward(entity: Entity, target: Entity): GridPoint | null {
   return unitToward(pointOf(entity), pointOf(target))
 }
 
+/**
+ * Orients the motor's facing toward a point with zero velocity/position
+ * side effects: motor.run's own damped acceleration is a no-op at dt=0
+ * (THREE.MathUtils.damp returns its start value unchanged), so this reuses
+ * each motor's own facing algorithm (iso's eight-way, topdown's dominant
+ * axis) without duplicating it or nudging the mover even a fraction of a
+ * unit. Needed because an attack order that starts (or resumes) already
+ * inside range never otherwise calls motor.run before MeleeAttack.strike
+ * reads motor.facing — a target behind the player's stale facing would be
+ * missed forever (CA-6).
+ */
+function faceToward(
+  motor: ClickToMoveMotor,
+  projection: 'isometric' | null,
+  from: GridPoint,
+  to: GridPoint,
+): void {
+  const direction = unitToward(from, to)
+  if (!direction) return
+  const screenInput = projection === 'isometric' ? screenInputToLogical(direction.x, direction.y) : direction
+  motor.run(screenInput.x, screenInput.y, 0)
+}
+
 function startOrder(clickToMove: ClickToMove, entity: Entity, game: Game, pick: { point: GridPoint; entity: Entity | null }): void {
   clickToMove.cancel()
   const picked = pick.entity
@@ -167,20 +209,37 @@ function startOrder(clickToMove: ClickToMove, entity: Entity, game: Game, pick: 
       return
     }
     if (picked.get(Interactable)) {
-      clickToMove.order = { kind: 'npc', target: picked, waypoints: waypointsToward(game, entity, pointOf(picked)) }
+      clickToMove.order = {
+        kind: 'npc',
+        target: picked,
+        waypoints: waypointsToward(game, entity, pointOf(picked)),
+        lastPlannedTarget: pointOf(picked),
+      }
       return
     }
     // An entity without Health/Interactable: fall through to a ground order.
   }
   const waypoints = waypointsToward(game, entity, pick.point)
-  clickToMove.order = { kind: 'ground', waypoints }
   const destination = waypoints.length > 0 ? waypoints[waypoints.length - 1]! : pick.point
+  clickToMove.order = { kind: 'ground', waypoints, destination }
   spawnMarker(clickToMove, game, entity, destination)
 }
 
-function driveGroundOrder(clickToMove: ClickToMove, entity: Entity, order: GroundOrder): GridPoint | null {
+function driveGroundOrder(
+  clickToMove: ClickToMove,
+  entity: Entity,
+  order: GroundOrder,
+  motor: ClickToMoveMotor,
+): GridPoint | null {
   const direction = followWaypoints(clickToMove, entity, order.waypoints)
   if (direction) return direction
+  // Arrived: snap to the exact destination and kill residual velocity, so
+  // handing control back doesn't coast a few more frames past the tolerance
+  // this same check just confirmed (CA-4's ~0.2-cell arrival is the
+  // resting position, not just the moment the order let go).
+  entity.position.x = order.destination.x
+  entity.position.y = order.destination.y
+  motor.halt()
   clickToMove.cancel() // arrived (CA-4/CA-8)
   return null
 }
@@ -202,6 +261,16 @@ function driveNpcOrder(clickToMove: ClickToMove, entity: Entity, game: Game, ord
     clickToMove.cancel() // CA-5: one trigger per arrival, no key simulated
     return null
   }
+  // Follows the NPC and re-plans toward its current position while it
+  // moves, exactly like an attack order (grill decision 8, CA-5) — most
+  // Interactables are stationary so this rarely fires in practice, but a
+  // moving one (a wandering NPC role added later) must still be chased.
+  const targetNow = pointOf(target)
+  const moved = !order.lastPlannedTarget || distance(order.lastPlannedTarget, targetNow) >= NPC_REPLAN_DISTANCE
+  if (moved || order.waypoints.length === 0) {
+    order.waypoints = waypointsToward(game, entity, targetNow)
+    order.lastPlannedTarget = targetNow
+  }
   const direction = followWaypoints(clickToMove, entity, order.waypoints)
   if (direction) return direction
   // Path exhausted (reached the nearest reachable cell) but still outside the
@@ -209,14 +278,28 @@ function driveNpcOrder(clickToMove: ClickToMove, entity: Entity, game: Game, ord
   return beelineToward(entity, target)
 }
 
-function driveAttackOrder(clickToMove: ClickToMove, entity: Entity, game: Game, order: AttackOrder): GridPoint | null {
+function driveAttackOrder(
+  clickToMove: ClickToMove,
+  entity: Entity,
+  game: Game,
+  order: AttackOrder,
+  motor: ClickToMoveMotor,
+): GridPoint | null {
   const target = order.target
-  if (!target.alive) {
-    clickToMove.cancel() // CA-6: target died or disappeared
+  // alive alone isn't "not dead": a graph that handles signal:death (the
+  // orc's, the shared player's) keeps the entity alive — possibly
+  // respawning it — while current sits at 0. Health missing entirely is
+  // just as much a reason to stop as a lethal current.
+  const health = target.get(Health)
+  if (!target.alive || !health || health.current <= 0) {
+    clickToMove.cancel() // CA-6: target died (however its graph handles that) or disappeared
     return null
   }
   const range = entity.get(MeleeAttack)?.range ?? 1
   if (distance(pointOf(entity), pointOf(target)) <= range) {
+    // An order that starts (or resumes) already in range never otherwise
+    // calls motor.run before the swing lands — face the target first.
+    faceToward(motor, game.projection, pointOf(entity), pointOf(target))
     game.input.injectAction('attack', 'press') // re-engages via the existing input:attack edge
     return null
   }
@@ -239,7 +322,10 @@ function driveAttackOrder(clickToMove: ClickToMove, entity: Entity, game: Game, 
  * update runs (idle/walk) — never during attack/hurt/dead, which is exactly
  * how a hurt stun pauses the order and a swing can't be interrupted (CA-7).
  */
-export function driveClickToMove({ entity, game }: StateContext): GridPoint | null {
+export function driveClickToMove(
+  { entity, game }: StateContext,
+  motor: ClickToMoveMotor,
+): GridPoint | null {
   const clickToMove = entity.get(ClickToMove)
   if (!clickToMove) return null
 
@@ -248,7 +334,7 @@ export function driveClickToMove({ entity, game }: StateContext): GridPoint | nu
 
   const order = clickToMove.order
   if (!order) return null
-  if (order.kind === 'ground') return driveGroundOrder(clickToMove, entity, order)
+  if (order.kind === 'ground') return driveGroundOrder(clickToMove, entity, order, motor)
   if (order.kind === 'npc') return driveNpcOrder(clickToMove, entity, game, order)
-  return driveAttackOrder(clickToMove, entity, game, order)
+  return driveAttackOrder(clickToMove, entity, game, order, motor)
 }

@@ -92,7 +92,7 @@ export function createGridPlayerRole<T extends PlayerMotor>(
       entity.get(ClickToMove)?.cancel()
       motor.run(keyboardX, keyboardY, dt)
     } else {
-      const driven = driveClickToMove(ctx)
+      const driven = driveClickToMove(ctx, motor)
       if (driven) {
         // driveClickToMove answers in logical space; motor.run expects the
         // same screen-relative input keyboard axes already are (IsoMotor
