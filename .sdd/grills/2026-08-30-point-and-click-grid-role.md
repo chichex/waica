@@ -1,70 +1,70 @@
-# Grill — Point-and-click para el rol de grilla (iso de fábrica, topdown opt-in)
-<!-- Estado: finalized. Proyecto: /Users/ayrtonmarini/Sync/workspace/waica. Fuente: pedido libre del usuario (2026-08-30): "quiero al isometrico agregarle la posibilidad del point and click, aunque no se si para el topdown tambien aplique". -->
+# Grill — Point-and-click for the grid player role (isometric factory-default, topdown opt-in)
+<!-- State: finalized. Project: /Users/ayrtonmarini/Sync/workspace/waica. Source: free-form user request (2026-08-30): "I want to add point and click to the isometric, though I'm not sure if it applies to topdown too". -->
 <!-- SDD-Tracking: version=1; type=grill; state=finalized; issue=none; grill=2026-08-30-point-and-click-grid-role; project=%2FUsers%2Fayrtonmarini%2FSync%2Fworkspace%2Fwaica -->
 
-## Modo
+## Mode
 domain-modeling
 
-## Hechos comprobados
-- **H1 — Input es solo teclado.** `packages/engine/src/input.ts` escucha `keydown/keyup` por `KeyboardEvent.code`; `controls.json` mapea acción→códigos; el panel de controles del editor (`ProjectPane.tsx`) captura sólo teclas. `TODO(H1): gamepad and touch`. Dos specs excluyeron puntero explícitamente: `client-extensibility-toolkit.md` ("Input stays keyboard-only") e `issue-24-mcp-runtime-harness.md` (el bridge declara "pointer input unavailable").
-- **H2 — El movimiento ya está desacoplado de las teclas.** `GridMotor.run(inputX, inputY, dt)` (compartido por `IsoMotor`/`TopDownMotor`) recibe un vector de pantalla, acelera con damp, colisiona por eje contra Solids y deriva el facing (8 vías iso / eje dominante topdown). El rol (`grid-player-role.ts`) sólo alimenta ese vector desde `input.axis(...)`.
-- **H3 — Pantalla→lógico existe fuera del engine.** `unprojectIsometric` es la inversa exacta; el editor ya convierte cliente→render→lógico (`Viewport.tsx#toWorld`, `viewport-space.ts`). `Game` no lo expone, y con `resolution` fija hay letterbox (`setViewport/setScissor`) a descontar.
-- **H4 — Obstáculos.** Demo iso: `Tilemap` 16×16 con `WATER`/`BORDER` sólidos (deriva `Solid` por celda, tiene `cellAt`/`cellBounds`) + árboles/rocas/villager con `Solid`. Demo topdown: sin Tilemap, tiles-entidad (`Sprite`+`Solid`). `sceneSolids(game)` enumera todo.
-- **H5 — Los clicks llegan al canvas en modo play.** El `onPointerDown` del Viewport del editor retorna si `mode !== 'edit'`, y el shell de UI del engine es `pointer-events:none`: un listener del juego funciona en standalone y dentro del editor.
-- **H6 — El bridge no clickea hoy.** `control_runtime` sólo `press/hold/release/pause/resume/step`; los tests de escena en happy-dom y Playwright sobre `window.__waica.game` sí pueden despachar `PointerEvent`.
-- **H7 — Vecinos.** `Interactable` (radio + `interact`), `MeleeAttack.strike(facing)` (range 1, desde el estado `attack`), orco `Patrol`+`Hazard`+`Health`. No existe "ir hacia un punto" en behaviors (`Chaser` es de platformer: X + gravedad).
-- **H8 — Producto.** `DESIGN.md` sólo menciona point & click como archetype comunitario futuro; los controles son parte del archetype.
+## Verified facts
+- **H1 — Input is keyboard-only.** `packages/engine/src/input.ts` listens to `keydown/keyup` via `KeyboardEvent.code`; `controls.json` maps action→codes; the editor's controls panel (`ProjectPane.tsx`) only captures keys. `TODO(H1): gamepad and touch`. Two specs explicitly excluded pointer input: `client-extensibility-toolkit.md` ("Input stays keyboard-only") and `issue-24-mcp-runtime-harness.md` (the bridge declares "pointer input unavailable").
+- **H2 — Movement is already decoupled from keys.** `GridMotor.run(inputX, inputY, dt)` (shared by `IsoMotor`/`TopDownMotor`) takes a screen-space vector, accelerates with damping, collides per axis against Solids and derives facing (8-way iso / dominant axis topdown). The role (`grid-player-role.ts`) only feeds that vector from `input.axis(...)`.
+- **H3 — Screen→logical exists outside the engine.** `unprojectIsometric` is the exact inverse; the editor already converts client→render→logical (`Viewport.tsx#toWorld`, `viewport-space.ts`). `Game` doesn't expose it, and with a fixed `resolution` there's a letterbox (`setViewport/setScissor`) to discount.
+- **H4 — Obstacles.** Iso demo: 16×16 `Tilemap` with solid `WATER`/`BORDER` (derives a `Solid` per cell, has `cellAt`/`cellBounds`) + trees/rocks/villager with `Solid`. Topdown demo: no Tilemap, entity-tiles (`Sprite`+`Solid`). `sceneSolids(game)` enumerates all of it.
+- **H5 — Clicks reach the canvas in play mode.** The editor Viewport's `onPointerDown` returns early if `mode !== 'edit'`, and the engine's UI shell is `pointer-events:none`: a game-owned listener works both standalone and inside the editor.
+- **H6 — The bridge doesn't click today.** `control_runtime` only does `press/hold/release/pause/resume/step`; the happy-dom and Playwright scene tests against `window.__waica.game` can already dispatch `PointerEvent`.
+- **H7 — Neighbors.** `Interactable` (radius + `interact`), `MeleeAttack.strike(facing)` (range 1, from the `attack` state), the orc's `Patrol`+`Hazard`+`Health`. There is no "go to a point" in behaviors (`Chaser` is platformer-only: X + gravity).
+- **H8 — Product.** `DESIGN.md` only mentions point & click as a future community archetype; controls are part of the archetype.
 
-## Decisiones resueltas
-1. **Alcance: iso de fábrica, topdown opt-in.** Mecánica genérica sobre el rol de grilla compartido; el player iso la trae; la demo topdown no cambia.
-2. **Semántica completa: caminar + interactuar + atacar.** Click en piso = caminar; click en `Interactable` = acercarse al radio y disparar la línea; click en entidad con `Health` ajena = acercarse al alcance del `MeleeAttack` y golpear.
-3. **Entrada: click izquierdo; cada click reemplaza el Move Order.** Tap táctil equivale (PointerEvent). Sin botón configurable.
-4. **Feedback: marcador de destino** del archetype (rombo iso / círculo topdown) visible hasta llegar o cancelar.
-5. **Navegación: A\* sobre Navigation Grid** rasterizada de `sceneSolids()` (celdas de Tilemap + Solids de entidades); funciona también en topdown sin Tilemap.
-6. **El teclado cancela el Move Order** y retoma control directo; sin modos.
-7. **Arquitectura: el engine gana la primitiva de puntero** (PointerEvent en el canvas + conversión pantalla→lógico con cámara/letterbox/proyección); **un componente nuevo en `@waica/behaviors`** la consume para mover el rol.
-8. **Objetivo móvil: el Move Order sigue a la entidad** (re-planifica hacia su posición actual); muere/desaparece = se cancela.
-9. **Destino inalcanzable: se camina a la celda transitable más cercana** al punto clickeado; el marcador se dibuja donde realmente termina.
-10. **Picking por bounds del sprite proyectado** (lo que se ve es lo que se clickea), empates por orden y-sort; mismo criterio que el editor.
-11. **El bridge/MCP aprende a clickear:** operación de puntero en `RuntimeControlRequest` y `control_runtime`; supersede el "pointer unavailable" de `issue-24`. El e2e prueba click por el carril MCP real.
-12. **Opt-in topdown = componente registrado en ambos bundles:** en iso viene en el prefab del player; en topdown aparece en el picker del editor.
-13. **Entrega: una sola spec y un PR** con todo (precedente: combate iso).
-14. **Términos canónicos: Move Order y Navigation Grid**, escritos en `CONTEXT.md`.
+## Resolved decisions
+1. **Scope: isometric factory-default, topdown opt-in.** A generic mechanic on the shared grid player role; the iso player ships it; the topdown demo doesn't change.
+2. **Full semantics: walk + interact + attack.** Click on ground = walk; click on an `Interactable` = approach its radius and fire the line; click on an entity with foreign `Health` = approach `MeleeAttack` range and strike.
+3. **Input: left click; each click replaces the Move Order.** A touch tap is equivalent (PointerEvent). No configurable button.
+4. **Feedback: a destination marker** from the archetype (iso diamond / topdown circle) visible until arrival or cancellation.
+5. **Navigation: A\* over a Navigation Grid** rasterized from `sceneSolids()` (Tilemap cells + entity Solids); also works in topdown without a Tilemap.
+6. **The keyboard cancels the Move Order** and takes back direct control; no modes.
+7. **Architecture: the engine owns the pointer primitive** (PointerEvent on the canvas + screen→logical conversion with camera/letterbox/projection); **a new component in `@waica/behaviors`** consumes it to move the role.
+8. **Moving target: the Move Order follows the entity** (re-plans toward its current position); it dies/disappears = the order cancels.
+9. **Unreachable destination: walk to the nearest walkable cell** to the clicked point; the marker is drawn where it actually ends up.
+10. **Picking by projected sprite bounds** (what you see is what you click), ties broken by y-sort order; same criterion as the editor.
+11. **The bridge/MCP learns to click:** a pointer operation on `RuntimeControlRequest` and `control_runtime`; supersedes `issue-24`'s "pointer unavailable". The e2e test proves a click over the real MCP lane.
+12. **Topdown opt-in = the component registered in both bundles:** it ships in the iso player prefab; in topdown it appears in the editor's picker.
+13. **Delivery: one spec and one PR** with everything (precedent: the iso combat feature).
+14. **Canonical terms: Move Order and Navigation Grid**, recorded in `CONTEXT.md`.
 
-## Ramas pendientes
-Ninguna dentro del alcance. Diferidas para otra sesión: drag-to-move / botón configurable y bindings de mouse en el editor; point-and-click activado de fábrica en topdown; touch UI dedicada (joystick virtual); gamepad (`TODO(H1)`); `Chaser` de grilla usando la Navigation Grid.
+## Deferred branches
+None within scope. Deferred to another session: drag-to-move / configurable button and mouse bindings in the editor; point-and-click enabled by default in topdown; dedicated touch UI (virtual joystick); gamepad (`TODO(H1)`); a grid `Chaser` using the Navigation Grid.
 
 ## Handoff
 
-### Tema y alcance
-Darle al player de grilla la capacidad de jugarse con el mouse/touch: click sobre el mundo para caminar (con pathfinding), click sobre un NPC para acercarse e interactuar, click sobre un enemigo para acercarse y atacar. El archetype isométrico la trae activada de fábrica; topdown la registra como componente opt-in. Una sola spec y un solo PR.
+### Topic and scope
+Give the grid player the ability to be played with mouse/touch: click on the world to walk (with pathfinding), click on an NPC to approach and interact, click on an enemy to approach and attack. The isometric archetype ships it factory-default; topdown registers it as an opt-in component. One spec and one PR.
 
-### Hechos comprobados
-Ver `## Hechos comprobados` (H1–H8).
+### Verified facts
+See `## Verified facts` (H1–H8).
 
-### Decisiones resueltas
-Ver `## Decisiones resueltas` (1–14).
+### Resolved decisions
+See `## Resolved decisions` (1–14).
 
-### Restricciones y no-objetivos
-- Sin botón configurable ni bindings de mouse en `controls.json`/panel del editor; sin drag-to-move; sin gamepad.
-- Sin cambios a la demo/prefabs/template de topdown ni de platformer (sólo el registro del componente en el bundle topdown).
-- No cambiar el contrato direccional, los nombres de clip, ni el algoritmo de cámara.
-- Escalera local completa (typecheck + test + build + test:dist + test:e2e) antes del PR; publicar a npm queda humano.
-- Políticas de generación vigentes (higiene-ts-diff, tests-acompañan-src, max 950 líneas, naming kebab-case).
+### Constraints and non-goals
+- No configurable button or mouse bindings in `controls.json`/the editor panel; no drag-to-move; no gamepad.
+- No changes to the topdown or platformer demo/prefabs/template (only registering the component in the topdown bundle).
+- No changes to the directional contract, clip names, or the camera algorithm.
+- Full local ladder (typecheck + test + build + test:dist + test:e2e) before the PR; publishing to npm stays human.
+- Active generation policies (higiene-ts-diff, tests-accompany-src, max 950 lines, kebab-case naming).
 
-### Supuestos explícitos (ajustables al escribir la spec)
-- La Navigation Grid usa celda 1×1 lógica alineada al Tilemap cuando existe; los Solids de entidades se rasterizan a las celdas que cubren. Se recalcula por click/re-plan, no por frame de física (el costo en mapas 16×16 es trivial).
-- El componente click-to-move es pasivo como los motores: el rol de grilla lo consulta en su update y le entrega el vector al `GridMotor` — así aceleración, facing, colisión, `signal:move/stop` y estados `attack/hurt/dead` siguen intactos (hurt/dead interrumpen el Move Order o lo pausan; la spec lo fija).
-- Llegada con tolerancia corta (~0.2 celdas); atacar reutiliza la transición `input:attack`/estado `attack` existente al entrar en alcance.
-- La primitiva del engine expone el último click como punto lógico + entidad pickeada; la operación del bridge inyecta coordenadas lógicas (el picking de entidad se resuelve igual que un click real).
-- El marcador es un asset chico nuevo del archetype (CC0/propio), no un cambio de engine render.
+### Explicit assumptions (adjustable when the spec is written)
+- The Navigation Grid uses a 1×1 logical cell aligned to the Tilemap when one exists; entity Solids are rasterized to the cells they cover. Recomputed per click/re-plan, not per physics frame (the cost on 16×16 maps is trivial).
+- The click-to-move component is passive like the motors: the grid role queries it in its update and hands the vector to `GridMotor` — so acceleration, facing, collision, `signal:move/stop` and the `attack/hurt/dead` states stay intact (hurt/dead interrupt the Move Order or pause it; the spec pins this down).
+- Arrival with a short tolerance (~0.2 cells); attacking reuses the existing `input:attack` transition/`attack` state once in range.
+- The engine primitive exposes the last click as a logical point + picked entity; the bridge operation injects logical coordinates (entity picking resolves the same way a real click does).
+- The marker is a small new archetype asset (CC0/original), not an engine-render change.
 
-### Riesgos y preguntas diferidas
-- **Game feel** (velocidad de re-plan, tolerancia de llegada, sensación del rodeo del A\*) no es verificable sin humano — protocolo humano en la spec.
-- La operación de puntero del bridge toca protocolo v1 (aditivo, pero hay que decidir versionado en la spec) y el conformance del MCP.
-- Picking por sprite bounds requiere leer bounds de render desde behaviors o exponerlos por seam del engine — la spec define el seam.
-- El estado `attack` congela el cuerpo 0.3s; encadenar "caminar→golpear→seguir" puede necesitar un retoque del grafo (la spec decide si el Move Order sobrevive al swing).
-- Diferidos: ver `## Ramas pendientes`.
+### Risks and deferred questions
+- **Game feel** (re-plan speed, arrival tolerance, how the A\* detour feels) isn't verifiable without a human — a human protocol goes in the spec.
+- The bridge's pointer operation touches protocol v1 (additive, but versioning needs deciding in the spec) and MCP conformance.
+- Picking by sprite bounds requires reading render bounds from behaviors or exposing them through an engine seam — the spec defines the seam.
+- The `attack` state freezes the body for 0.3s; chaining "walk→strike→keep going" may need a graph tweak (the spec decides whether the Move Order survives the swing).
+- Deferred: see `## Deferred branches`.
 
-### Contexto recomendado para la spec
-`packages/engine/src/{input,game,projection,tilemap-grid,scene-solids,runtime-bridge}.ts`, `packages/behaviors/src/{grid-motor,grid-player-role,iso-motor,topdown-motor,facing,interactable,melee-attack}.ts`, `packages/archetype-isometric/src/{prefabs,scene-default,controls,bundle}.ts`, `packages/editor/src/editor/{Viewport.tsx,viewport-space.ts}` (precedente de conversión), `packages/mcp/src/{server,runtime-service,runtime-browser}.ts`, `scripts/runtime-e2e.mjs`, `.sdd/specs/issue-24-mcp-runtime-harness.md` (CA-3 a superseder), `docs/adr/0005` y `0006`, y los términos `Move Order` / `Navigation Grid` de `CONTEXT.md`.
+### Recommended context for the spec
+`packages/engine/src/{input,game,projection,tilemap-grid,scene-solids,runtime-bridge}.ts`, `packages/behaviors/src/{grid-motor,grid-player-role,iso-motor,topdown-motor,facing,interactable,melee-attack}.ts`, `packages/archetype-isometric/src/{prefabs,scene-default,controls,bundle}.ts`, `packages/editor/src/editor/{Viewport.tsx,viewport-space.ts}` (conversion precedent), `packages/mcp/src/{server,runtime-service,runtime-browser}.ts`, `scripts/runtime-e2e.mjs`, `.sdd/specs/issue-24-mcp-runtime-harness.md` (CA-3 to supersede), `docs/adr/0005` and `0006`, and the `Move Order` / `Navigation Grid` terms in `CONTEXT.md`.
