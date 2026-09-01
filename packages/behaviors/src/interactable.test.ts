@@ -45,6 +45,8 @@ function makeWorld(): WorldHarness {
         get(Class: unknown) {
           return Class === Interactable ? interactable : undefined
         },
+        // fireInteract walks every sibling component (e.g. SceneTransition).
+        components: [interactable],
       } as unknown as Entity
       interactable.entity = npc
       interactable.game = game

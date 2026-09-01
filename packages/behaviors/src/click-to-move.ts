@@ -6,7 +6,7 @@ import {
   type Game,
   type StateContext,
 } from '@waica/engine'
-import { INTERACTABLE_UI_PIECE, Interactable } from './interactable.js'
+import { fireInteract, INTERACTABLE_UI_PIECE, Interactable } from './interactable.js'
 import { Health } from './health.js'
 import { MeleeAttack } from './melee-attack.js'
 import { buildNavigationGrid, type GridPoint } from './navigation-grid.js'
@@ -258,6 +258,7 @@ function driveNpcOrder(clickToMove: ClickToMove, entity: Entity, game: Game, ord
   if (distance(pointOf(entity), pointOf(target)) <= interactable.radius) {
     game.stats.set('npcLine', interactable.line)
     game.ui.show(INTERACTABLE_UI_PIECE)
+    fireInteract(target, entity)
     clickToMove.cancel() // CA-5: one trigger per arrival, no key simulated
     return null
   }
