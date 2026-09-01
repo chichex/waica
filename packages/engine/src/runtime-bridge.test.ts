@@ -220,7 +220,7 @@ describe('Runtime Bridge protocol', () => {
       mode: 'paused',
       frame: 0,
       simulationTime: 0,
-      capabilities: ['click'],
+      capabilities: ['click', 'scene'],
     })
     expect(registered[0]?.surface).toBe(document.querySelector('canvas'))
     expect(renderer.loop).toBeNull()
@@ -407,6 +407,49 @@ describe('Runtime Bridge protocol', () => {
     expect(() =>
       bridge.control({ operation: 'click', x: 0, y: Number.POSITIVE_INFINITY }),
     ).toThrowError(expect.objectContaining({ code: 'runtime-operation-failed', stage: 'control' }))
+    game.dispose()
+  })
+
+  it('loads a registered scene by name through the scene operation (CA-15)', () => {
+    const { registered } = installActivation()
+    const game = makeGame()
+    game.registerSceneCatalog({
+      scenes: {
+        main: { waicaScene: 3, entities: [{ name: 'Player' }] },
+        cave: { waicaScene: 3, entities: [{ name: 'Torch' }] },
+      },
+      registry: { components: {} },
+    })
+    loadScene(game, { waicaScene: 3, entities: [{ name: 'Player' }] }, { components: {} })
+    game.start()
+    const bridge = registered[0]!
+
+    const result = bridge.control({ operation: 'scene', scene: 'cave' })
+
+    expect(result.heldActions).toEqual([])
+    expect(game.sceneName).toBe('cave')
+    expect(game.find('Torch')).toBeDefined()
+    expect(game.find('Player')).toBeUndefined()
+    game.dispose()
+  })
+
+  it('rejects an unknown scene name naming the available scenes (CA-15)', () => {
+    const { registered } = installActivation()
+    const game = makeGame()
+    game.registerSceneCatalog({
+      scenes: { main: { waicaScene: 3, entities: [] }, cave: { waicaScene: 3, entities: [] } },
+      registry: { components: {} },
+    })
+    game.start()
+    const bridge = registered[0]!
+
+    expect(() => bridge.control({ operation: 'scene', scene: 'nope' })).toThrowError(
+      expect.objectContaining({
+        code: 'runtime-operation-failed',
+        stage: 'control',
+        availableScenes: ['main', 'cave'],
+      }),
+    )
     game.dispose()
   })
 
