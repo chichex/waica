@@ -340,6 +340,18 @@ describe('RuntimeSessionManager', () => {
     })
     expect(controlCalls).toBe(0) // rejected before ever reaching the old bridge
 
+    // Same story for 'scene' (CA-15): pre-CA-10 engines never report it either.
+    await expect(
+      manager.control({ projectPath: '/old-engine', operation: 'scene', scene: 'cave' }),
+    ).rejects.toMatchObject({
+      body: {
+        code: 'runtime-incompatible',
+        stage: 'control',
+        diagnostics: { engineVersion: '0.9.0' },
+      },
+    })
+    expect(controlCalls).toBe(0)
+
     // An operation the old engine does support still goes through normally.
     await expect(
       manager.control({ projectPath: '/old-engine', operation: 'hold', action: 'right' }),

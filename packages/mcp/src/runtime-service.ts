@@ -54,6 +54,7 @@ export type RuntimeControlInput =
   | { projectPath: string; operation: 'pause' | 'resume' }
   | { projectPath: string; operation: 'step'; dt?: number; frames?: number }
   | { projectPath: string; operation: 'click'; x: number; y: number }
+  | { projectPath: string; operation: 'scene'; scene: string }
 
 export interface RuntimeScreenshotResult {
   metadata: Record<string, unknown>

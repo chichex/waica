@@ -250,6 +250,18 @@ describe('MCP server', () => {
           name: 'control_runtime',
           arguments: { project_path: '/game', operation: 'click', x: 1, y: 2, action: 'jump' },
         },
+        {
+          name: 'control_runtime',
+          arguments: { project_path: '/game', operation: 'scene' },
+        },
+        {
+          name: 'control_runtime',
+          arguments: { project_path: '/game', operation: 'scene', scene: '' },
+        },
+        {
+          name: 'control_runtime',
+          arguments: { project_path: '/game', operation: 'scene', scene: 'cave', x: 1 },
+        },
         { name: 'capture_screenshot', arguments: { project_path: '/game', extra: true } },
       ]
       for (const request of cases) {
@@ -304,6 +316,32 @@ describe('MCP server', () => {
       })
       expect(response.isError).not.toBe(true)
       expect(seen).toEqual([{ projectPath: '/game', operation: 'click', x: 4.5, y: -2.25 }])
+    } finally {
+      await pair.close()
+    }
+  })
+
+  it('forwards a valid scene operation to the Run Session service (CA-15)', async () => {
+    const seen: unknown[] = []
+    const runtime: RuntimeService = {
+      start: async () => ({}),
+      stop: async () => ({}),
+      inspect: async () => ({}),
+      control: async (input) => {
+        seen.push(input)
+        return { bridgeVersion: 1, mode: 'paused', frame: 0, simulationTime: 0, heldActions: [] }
+      },
+      captureScreenshot: async () => ({ metadata: {}, data: 'png' }),
+      close: async () => {},
+    }
+    const pair = await connectedPair(runtime)
+    try {
+      const response = await pair.client.callTool({
+        name: 'control_runtime',
+        arguments: { project_path: '/game', operation: 'scene', scene: 'cave' },
+      })
+      expect(response.isError).not.toBe(true)
+      expect(seen).toEqual([{ projectPath: '/game', operation: 'scene', scene: 'cave' }])
     } finally {
       await pair.close()
     }

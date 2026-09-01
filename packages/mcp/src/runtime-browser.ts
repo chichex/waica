@@ -404,6 +404,7 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
             stage?: unknown
             message?: unknown
             availableActions?: unknown
+            availableScenes?: unknown
           }
           return {
             ok: false,
@@ -413,6 +414,9 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
               message: typeof detail.message === 'string' ? detail.message : String(error),
               ...(Array.isArray(detail.availableActions)
                 ? { availableActions: detail.availableActions }
+                : {}),
+              ...(Array.isArray(detail.availableScenes)
+                ? { availableScenes: detail.availableScenes }
                 : {}),
             },
           }
@@ -427,6 +431,7 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
         stage: string
         message: string
         availableActions?: string[]
+        availableScenes?: string[]
       }
     }
     if (response.ok && response.value) return response.value
@@ -439,7 +444,11 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
       this.preflight,
       error.stage === 'game' ? 'game' : 'control',
       error.message,
-      error.availableActions ? { availableActions: error.availableActions } : undefined,
+      error.availableActions
+        ? { availableActions: error.availableActions }
+        : error.availableScenes
+          ? { availableScenes: error.availableScenes }
+          : undefined,
       error.code === 'runtime-invalid-state'
         ? 'runtime-invalid-state'
         : 'runtime-operation-failed',
