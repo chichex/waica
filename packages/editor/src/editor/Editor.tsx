@@ -1281,7 +1281,6 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       }
       return (
         <Viewport
-          key={`scene:${view.path}`}
           ref={viewport}
           scene={scene}
           registry={registryWithPrefabs}

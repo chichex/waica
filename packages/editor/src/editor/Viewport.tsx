@@ -15,6 +15,8 @@ export interface ViewportHandle {
   /** Applies a prop change to the live instance (without recreating the game). */
   applyProp(entity: string, componentType: string, key: string, value: unknown): void
   applyMove(entity: string, x: number, y: number): void
+  /** The live Game instance, or null before the first mount effect runs. */
+  game(): Game | null
 }
 
 export interface ViewportComponentVisibility {
@@ -333,6 +335,14 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
   const cam = useRef({ x: 0, y: 0, view: viewHeight })
   /** The edit camera starts framed like the scene camera, once per mount. */
   const camSeeded = useRef(false)
+  /**
+   * The scene last loaded into the live Game — set by the [epoch, mode]
+   * effect on (re)creation, and by the [scene] effect below on a same-Game
+   * reload. Lets the [scene] effect tell "the epoch/mode effect just loaded
+   * this" from "the scene prop actually changed", without double-loading
+   * on mount or reacting to its own write.
+   */
+  const lastLoadedScene = useRef<SceneJson | null>(null)
   /** Entity drag: the grabbed anchor plus every group member's pointer offset. */
   const drag = useRef<{
     anchor: { name: string; ox: number; oy: number }
@@ -382,6 +392,7 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
     })
     gameRef.current = game
     loadScene(game, sceneRef.current, registryRef.current)
+    lastLoadedScene.current = sceneRef.current
     game.simulate = mode === 'play'
     if (mode === 'edit') {
       if (!camSeeded.current) {
@@ -693,6 +704,33 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [epoch, mode])
 
+  // Opening a different scene file: load it over the SAME Game (ADR 0011)
+  // instead of remounting — the [epoch, mode] effect above still owns
+  // structural (epoch) and edit/play (mode) rebuilds. Skipped when this is
+  // the scene the [epoch, mode] effect just loaded (mount, or an epoch/mode
+  // change that leaves `scene` itself unchanged), so the same scene never
+  // loads twice back to back.
+  useEffect(() => {
+    const game = gameRef.current
+    if (!game || scene === lastLoadedScene.current) return
+    lastLoadedScene.current = scene
+    loadScene(game, scene, registryRef.current)
+    onSelect(null)
+    // The grid overlay, selection/multi-selection gizmos, camera gizmo and
+    // edit-mode UI preview all read live state through refs already kept
+    // current above and are attached directly to game.scene — untouched by
+    // Entity-level unload — so they pick up the new scene on the next frame
+    // with no extra wiring here.
+    if (modeRef.current === 'edit') {
+      // loadScene reframed the camera per the incoming scene's own block (or
+      // the constructor's viewHeight with none): restore the editor's pan/zoom.
+      game.camera.position.x = cam.current.x
+      game.camera.position.y = cam.current.y
+      game.setViewHeight(cam.current.view)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scene])
+
   const applyLiveProp = (
     entityName: string,
     componentType: string,
@@ -713,6 +751,9 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
     },
     applyMove(entityName, x, y) {
       gameRef.current?.find(entityName)?.position.set(x, y, 0)
+    },
+    game() {
+      return gameRef.current
     },
   }))
 
