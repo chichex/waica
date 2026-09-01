@@ -3,15 +3,27 @@ import {
   Game,
   installArchetype,
   installDirectionalAnimation,
-  loadScene,
   mergeRegistryComponents,
   type PrefabJson,
+  type SceneJson,
 } from '@waica/engine'
 import { ARCHETYPE } from '__ARCHETYPE_PACKAGE__'
-import scene from './scenes/main.scene.json'
 import controls from './controls.json'
 import stats from './stats.json'
 import settings from './game.json'
+
+// Your project's scenes (src/scenes/*.scene.json). One live scene at a
+// time (ADR 0011): the catalog lets a SceneTransition or a role ask for
+// another by name — game.loadSceneByName('cave').
+const sceneFiles = import.meta.glob<SceneJson>('./scenes/*.scene.json', {
+  eager: true,
+  import: 'default',
+})
+const scenes: Record<string, SceneJson> = {}
+for (const [path, scene] of Object.entries(sceneFiles)) {
+  // './scenes/cave.scene.json' -> 'cave'
+  scenes[path.slice('./scenes/'.length, -'.scene.json'.length)] = scene
+}
 
 // Your components, roles and state code extend the installed archetype
 // baseline when main() imports them.
@@ -106,9 +118,11 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   // Persisted parameter overrides (public/waica.params.json) beat the defaults.
   await game.loadParams('/waica.params.json')
 
-  // Your scene: edit it with the Waica editor or by hand — it's just JSON.
-  // Its "ui" list mounts the UI pieces it starts with (the coin counter).
-  loadScene(game, scene as never, registry)
+  // Your scenes: edit them with the Waica editor or by hand — they're just
+  // JSON. Boots on "main"; its "ui" list mounts the UI pieces it starts
+  // with (the coin counter).
+  game.registerSceneCatalog({ scenes, registry })
+  game.loadSceneByName('main')
 
   game.start()
 }
