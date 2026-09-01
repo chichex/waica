@@ -1,0 +1,29 @@
+{
+  "waicaPrefab": 1,
+  "type": "object",
+  "components": [
+    {
+      "type": "Sprite",
+      "props": {
+        "texture": "src/art/waica-iso-rock.png",
+        "pixelArt": true,
+        "width": 1,
+        "height": 1,
+        "anchorY": 0
+      }
+    },
+    {
+      "type": "Hitbox",
+      "props": {
+        "width": 0.8,
+        "height": 0.8
+      }
+    },
+    {
+      "type": "SceneTransition",
+      "props": {
+        "scene": "cave"
+      }
+    }
+  ]
+}

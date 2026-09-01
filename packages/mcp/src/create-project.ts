@@ -91,7 +91,7 @@ async function chassisFiles(
     archetype: archetype.id,
   }
   const scene = start === 'demo' ? archetype.scene : archetype.blankScene
-  return {
+  const files: Record<string, string | Uint8Array> = {
     'package.json': pkgTpl
       .replaceAll('__PROJECT_NAME__', name)
       .replaceAll('__WAICA_VERSION__', version)
@@ -108,6 +108,13 @@ async function chassisFiles(
     'src/scenes/main.scene.json': projectJson(scene, archetype),
     'public/waica.params.json': params,
   }
+  // start:blank never emits the archetype's extra demo scenes (CA-13).
+  if (start === 'demo') {
+    for (const [sceneName, extra] of Object.entries(archetype.extraScenes ?? {})) {
+      files[`src/scenes/${sceneName}.scene.json`] = projectJson(extra, archetype)
+    }
+  }
+  return files
 }
 
 async function validateTarget(target: string): Promise<{ exists: boolean; name: string }> {

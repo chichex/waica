@@ -105,6 +105,11 @@ for (const srcDir of TARGETS) {
 
   // String values are written verbatim (the UI pieces' HTML); the rest as JSON.
   const files = { 'scenes/main.scene.json': archetype.scene }
+  // Additional demo scenes beyond "main" (only the isometric archetype has
+  // any today — CA-13/CA-14): one file per entry, same as create_project.
+  for (const [sceneName, extra] of Object.entries(archetype.extraScenes ?? {})) {
+    files[`scenes/${sceneName}.scene.json`] = extra
+  }
   const prefabFiles = new Set()
   for (const [key, prefab] of Object.entries(archetype.prefabs)) {
     const rel = `${key}.${prefab.type}.json`

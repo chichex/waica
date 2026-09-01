@@ -94,6 +94,11 @@ export function projectFiles(
   // its scene is empty. It starts with nothing because it HAS nothing —
   // no archetype default resolves behind the editor's back.
   if (start === 'blank') return files
+  // Additional demo scenes beyond "main" (CA-13): one file per entry, the
+  // same as packages/mcp/src/create-project.ts's chassisFiles().
+  for (const [sceneName, extra] of Object.entries(archetype.extraScenes ?? {})) {
+    files[`src/scenes/${sceneName}.scene.json`] = projectJson(extra, archetype)
+  }
   // One file per prefab, mirroring its ref: 'characters/slime' (type
   // 'character') → src/characters/slime.character.json. scripts/sync-scene.mjs
   // materializes the same layout into the wizard template and the repo example.

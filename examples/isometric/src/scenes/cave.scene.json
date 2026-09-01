@@ -1,0 +1,184 @@
+{
+  "waicaScene": 3,
+  "render": {
+    "sort": "y",
+    "projection": "isometric"
+  },
+  "camera": {
+    "position": [
+      0,
+      -5
+    ],
+    "zoom": 12,
+    "limits": {
+      "minX": -10,
+      "maxX": 10,
+      "minY": -10,
+      "maxY": 0
+    },
+    "deadzoneWidth": 0.5,
+    "deadzoneHeight": 0.5,
+    "lookahead": 0,
+    "lookaheadY": 0.5,
+    "smoothing": 4,
+    "follow": "Player"
+  },
+  "entities": [
+    {
+      "name": "Ground",
+      "prefab": "tiles/ground",
+      "position": [
+        0,
+        0
+      ],
+      "overrides": {
+        "Tilemap": {
+          "mapWidth": 10,
+          "mapHeight": 10,
+          "cells": [
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            4,
+            4,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            4,
+            4,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            4,
+            4,
+            1,
+            1,
+            1,
+            3,
+            3,
+            1,
+            1,
+            1,
+            4,
+            4,
+            1,
+            1,
+            1,
+            3,
+            3,
+            1,
+            1,
+            1,
+            4,
+            4,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            4,
+            4,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            4,
+            4,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4
+          ]
+        }
+      }
+    },
+    {
+      "name": "Player",
+      "prefab": "characters/player",
+      "position": [
+        2,
+        7
+      ]
+    },
+    {
+      "name": "Rock-1",
+      "prefab": "objects/rock",
+      "position": [
+        7,
+        3
+      ]
+    },
+    {
+      "name": "Rock-2",
+      "prefab": "objects/rock",
+      "position": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "Door",
+      "prefab": "objects/door",
+      "position": [
+        8,
+        2
+      ],
+      "overrides": {
+        "SceneTransition": {
+          "scene": "main"
+        }
+      }
+    }
+  ],
+  "ui": [
+    "health"
+  ]
+}

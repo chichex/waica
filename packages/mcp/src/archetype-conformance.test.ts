@@ -39,10 +39,14 @@ describe.each(MANIFESTS.map((manifest) => [manifest.id, manifest] as const))(
     })
 
     it('resolves every scene prefab ref and ui piece', () => {
-      for (const [label, scene] of [
+      const scenes: ReadonlyArray<readonly [string, typeof archetype.scene]> = [
         ['scene', archetype.scene],
         ['blankScene', archetype.blankScene],
-      ] as const) {
+        ...Object.entries(archetype.extraScenes ?? {}).map(
+          ([name, scene]) => [`extraScenes.${name}`, scene] as const,
+        ),
+      ]
+      for (const [label, scene] of scenes) {
         for (const entity of scene.entities) {
           if (!entity.prefab) continue
           expect(archetype.prefabs[entity.prefab], `${label}: ${entity.name}`).toBeDefined()
