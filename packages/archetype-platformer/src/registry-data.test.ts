@@ -125,10 +125,11 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
   Lifetime: {
     seconds: 1,
   },
+  SceneTransition: { scene: '', trigger: 'overlap' },
 }
 
 describe('PLATFORMER_REGISTRY_DATA authoring defaults', () => {
-  it('covers exactly the 15 registered components', () => {
+  it('covers exactly the 16 registered components', () => {
     expect(Object.keys(PLATFORMER_REGISTRY_DATA.components).sort()).toEqual(
       Object.keys(EXPECTED_DEFAULTS).sort(),
     )

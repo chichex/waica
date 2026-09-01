@@ -16,7 +16,7 @@ import {
   ISOMETRIC_REGISTRY,
 } from './registry'
 import { ISOMETRIC_REGISTRY_DATA } from './registry-data'
-import { ISOMETRIC_BLANK_SCENE, ISOMETRIC_SCENE } from './scene-default'
+import { ISOMETRIC_BLANK_SCENE, ISOMETRIC_CAVE_SCENE, ISOMETRIC_SCENE } from './scene-default'
 
 describe('isometric archetype manifest', () => {
   it('folds every public isometric piece into ARCHETYPE', () => {
@@ -24,6 +24,7 @@ describe('isometric archetype manifest', () => {
       id: 'isometric',
       label: 'Isometric',
       scene: ISOMETRIC_SCENE,
+      extraScenes: { cave: ISOMETRIC_CAVE_SCENE },
       blankScene: ISOMETRIC_BLANK_SCENE,
       registry: ISOMETRIC_REGISTRY,
       palette: ISOMETRIC_PALETTE,

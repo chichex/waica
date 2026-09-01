@@ -18,6 +18,7 @@ import {
   Lifetime,
   Patrol,
   Respawnable,
+  SceneTransition,
   TopDownMotor,
 } from '@waica/behaviors'
 import { TOPDOWN_ART } from './art.js'
@@ -53,6 +54,7 @@ export const TOPDOWN_REGISTRY_DATA: SceneRegistry = {
     // Opt-in: not on the topdown player prefab by default (CA-9), but
     // registered so the editor's component picker can add it.
     ClickToMove,
+    SceneTransition,
   },
   resolveAsset: (uri) => PACKAGE_ASSETS[uri] ?? uri,
   prefabs: TOPDOWN_PREFABS,

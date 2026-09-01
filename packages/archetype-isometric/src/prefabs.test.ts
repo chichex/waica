@@ -18,6 +18,7 @@ describe('the isometric prefabs express the genre model', () => {
       'characters/player',
       'characters/villager',
       'objects/crate',
+      'objects/door',
       'objects/rock',
       'objects/tree',
       'tiles/ground',

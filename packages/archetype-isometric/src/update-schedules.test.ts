@@ -46,6 +46,7 @@ describe('isometric component update schedules', () => {
       'characters/villager': ['StateMachine', 'AnimatedSprite'],
       'characters/orc': ['StateMachine', 'AnimatedSprite', 'Health'],
       'objects/crate': [],
+      'objects/door': [],
       'objects/tree': [],
       'objects/rock': [],
       'tiles/ground': [],

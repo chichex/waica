@@ -20,6 +20,7 @@ import {
   MeleeAttack,
   Patrol,
   Respawnable,
+  SceneTransition,
 } from '@waica/behaviors'
 import { ISOMETRIC_ART } from './art.js'
 import { ISOMETRIC_PREFABS } from './prefabs.js'
@@ -48,6 +49,7 @@ export const ISOMETRIC_REGISTRY_DATA: SceneRegistry = {
     Respawnable,
     Lifetime,
     ClickToMove,
+    SceneTransition,
   },
   resolveAsset: (uri) => PACKAGE_ASSETS[uri] ?? uri,
   prefabs: ISOMETRIC_PREFABS,

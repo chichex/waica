@@ -12,7 +12,7 @@ export {
   ISOMETRIC_PALETTE,
   ISOMETRIC_REGISTRY,
 } from './registry.js'
-export { ISOMETRIC_BLANK_SCENE, ISOMETRIC_SCENE } from './scene-default.js'
+export { ISOMETRIC_BLANK_SCENE, ISOMETRIC_CAVE_SCENE, ISOMETRIC_SCENE } from './scene-default.js'
 export { ISOMETRIC_UI } from './ui.js'
 
 export const ARCHETYPE = {

@@ -5,7 +5,7 @@ import { ISOMETRIC_BUNDLE } from './bundle.js'
 import { ISOMETRIC_ACTION_LABELS, ISOMETRIC_BINDINGS } from './controls.js'
 import { ISOMETRIC_PREFABS } from './prefabs.js'
 import { ISOMETRIC_PALETTE, ISOMETRIC_REGISTRY_DATA } from './registry-data.js'
-import { ISOMETRIC_BLANK_SCENE, ISOMETRIC_SCENE } from './scene-default.js'
+import { ISOMETRIC_BLANK_SCENE, ISOMETRIC_CAVE_SCENE, ISOMETRIC_SCENE } from './scene-default.js'
 
 export const ISOMETRIC_ENTITY_ICONS: Readonly<Record<string, string>> = {
   IsoMotor: '🧭',
@@ -14,12 +14,14 @@ export const ISOMETRIC_ENTITY_ICONS: Readonly<Record<string, string>> = {
   Interactable: '💬',
   Collectible: '📦',
   Hazard: '👹',
+  SceneTransition: '🚪',
 }
 
 export const ARCHETYPE = {
   id: 'isometric',
   label: 'Isometric',
   scene: ISOMETRIC_SCENE,
+  extraScenes: { cave: ISOMETRIC_CAVE_SCENE },
   blankScene: ISOMETRIC_BLANK_SCENE,
   registry: ISOMETRIC_REGISTRY_DATA,
   palette: ISOMETRIC_PALETTE,
