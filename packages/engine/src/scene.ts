@@ -159,13 +159,19 @@ export function spawnFromJson(game: Game, json: SceneEntityJson, registry: Scene
   return entity
 }
 
-/** Loads a full scene into the game. */
+/**
+ * Loads a full scene into the game, replacing whatever scene is already
+ * live (Game.unloadScene() first) — see ADR 0011. A Game shows one scene
+ * at a time.
+ */
 export function loadScene(game: Game, scene: SceneJson, registry: SceneRegistry): void {
+  if (game.registry) game.unloadScene()
   game.registry = registry
   game.setSceneRender(scene.render)
   for (const entityJson of scene.entities) spawnFromJson(game, entityJson, registry)
   // After the spawns: with a follow target, the camera starts centered on it.
   game.setSceneCamera(scene.camera)
   if (registry.ui) game.ui.defineAll(registry.ui)
-  for (const name of scene.ui ?? []) game.ui.show(name)
+  // Scene-scoped: Game.unloadScene() unmounts these along with the entities.
+  for (const name of scene.ui ?? []) game.ui.show(name, { scope: 'scene' })
 }

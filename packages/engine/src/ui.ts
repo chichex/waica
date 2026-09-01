@@ -38,9 +38,12 @@ export class GameUi {
     return [...this.sources.keys()]
   }
 
-  show(name: string): void {
+  show(name: string, options: ShowOptions = {}): void {
     const piece = this.mount(name)
-    if (piece) piece.visible = true
+    if (piece) {
+      piece.visible = true
+      if (options.scope) piece.scope = options.scope
+    }
     this.sync()
   }
 
@@ -85,6 +88,22 @@ export class GameUi {
     this.overlay = undefined
   }
 
+  /**
+   * Unmounts every scene-scoped piece: the ones `loadScene` showed from the
+   * outgoing scene's `ui` list, plus any shown with `{ scope: 'scene' }`.
+   * A piece the host showed with no scope is untouched. The definition
+   * catalog (sources) always survives — Game.unloadScene.
+   */
+  unloadScene(): void {
+    for (const [name, piece] of this.pieces) {
+      if (piece.scope !== 'scene') continue
+      for (const off of piece.unsubs) off()
+      piece.shell.remove()
+      this.pieces.delete(name)
+    }
+    this.sync()
+  }
+
   private mount(name: string): Piece | null {
     const existing = this.pieces.get(name)
     if (existing) return existing
@@ -103,7 +122,13 @@ export class GameUi {
     root.style.display = 'contents'
     root.innerHTML = html
     shadow.append(root)
-    const piece: Piece = { shell, root, visible: false, unsubs: bindStats(root, this.stats) }
+    const piece: Piece = {
+      shell,
+      root,
+      visible: false,
+      scope: undefined,
+      unsubs: bindStats(root, this.stats),
+    }
     this.mountOverlay().append(shell)
     this.pieces.set(name, piece)
     return piece
@@ -135,7 +160,14 @@ interface Piece {
   /** The piece's content root inside the shadow (what element() returns). */
   root: HTMLElement
   visible: boolean
+  /** 'scene': dies on Game.unloadScene(). Undefined: outlives the scene. */
+  scope: 'scene' | undefined
   unsubs: Array<() => void>
+}
+
+export interface ShowOptions {
+  /** 'scene': unmounted by Game.unloadScene() along with the rest of the scene. */
+  scope?: 'scene'
 }
 
 const BINDING = /\{\{\s*([\w-]+)\s*\}\}/g

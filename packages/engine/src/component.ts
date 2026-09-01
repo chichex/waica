@@ -77,6 +77,11 @@ export abstract class Component {
   onCollide?(other: Entity): void
   /** Runs when this entity's DynamicBody physically contacts a Solid. */
   onContact?(contact: SolidContact): void
+  /**
+   * Runs when this entity wins the nearest-Interactable scan and the
+   * initiator interacts with it (a keypress or a click-to-move NPC order).
+   */
+  onInteract?(initiator: Entity): void
   /** Runs when the entity is destroyed or the component removed. */
   onDestroy?(): void
 }
