@@ -1030,6 +1030,175 @@ async function runIsometricPointAndClick({ client, project, inspectPlayer, step 
   assert.ok(orcGone, 'clicking the orc must walk into range, strike and kill it')
 }
 
+/**
+ * CA-17/CA-18: a new leg beside runIsometricLeg, not folded into it, so a
+ * scene-swap failure is diagnosable on its own — its own generated Project,
+ * its own Run Session. Walks the player onto a crate (setting the "points"
+ * stat through real gameplay, not a synthetic poke) then to the Door,
+ * crossing into "cave": the scene name changes, the outgoing map's own
+ * entities are gone, and the stat set before crossing survives. A second
+ * pass reaches "main" directly through control_runtime operation:'scene'
+ * (CA-15), and a third confirms an unknown scene name fails structurally,
+ * naming the available scenes, leaving the live scene untouched.
+ */
+async function runSceneSwapLeg({ client, root, parent, chrome, viteBin, engineRoot }) {
+  const project = path.join(parent, 'waica-scene-swap')
+  const created = await call(client, 'create_project', {
+    project_path: project,
+    start: 'demo',
+    archetype: 'isometric',
+  })
+  assert.equal(
+    created.isError,
+    undefined,
+    `create_project(scene-swap) failed: ${JSON.stringify(created)}`,
+  )
+
+  const manifestPath = path.join(project, 'package.json')
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+  manifest.scripts.dev = `node ${quoteForPackageScript(viteBin)}`
+  delete manifest.devDependencies
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+  await rm(path.join(project, 'vite.config.ts'), { force: true })
+  await materializeRuntimeDependencies(project, engineRoot)
+  for (const directory of ['behaviors', 'archetype-isometric']) {
+    await copyPackage(
+      path.join(root, 'packages', directory),
+      path.join(project, 'node_modules/@waica', directory),
+    )
+  }
+
+  const start = await call(client, 'start_project', {
+    project_path: project,
+    browser_executable_path: chrome.executablePath,
+    timeout_ms: 15_000,
+  })
+  assert.equal(start.isError, undefined, `scene-swap start_project failed: ${JSON.stringify(start)}`)
+  assert.equal(start.structuredContent.mode, 'paused')
+
+  const inspectPlayer = async () => {
+    const inspected = await call(client, 'inspect_runtime', {
+      project_path: project,
+      entity_names: ['Player'],
+    })
+    const player = inspected.structuredContent.snapshot.entities[0]
+    assert.ok(player, 'scene-swap snapshot must contain Player')
+    return { position: player.transform.position }
+  }
+  const inspectScene = async () => {
+    const inspected = await call(client, 'inspect_runtime', { project_path: project })
+    return inspected.structuredContent.snapshot
+  }
+  const hold = (action) =>
+    call(client, 'control_runtime', { project_path: project, operation: 'hold', action })
+  const release = (action) =>
+    call(client, 'control_runtime', { project_path: project, operation: 'release', action })
+  const step = (frames = 1) =>
+    call(client, 'control_runtime', { project_path: project, operation: 'step', dt: 1 / 60, frames })
+
+  // Same "walk one axis at a time until close, retrying" recipe as
+  // runIsometricCombat's approach(): logical x runs screen south-east
+  // (right+down) / north-west (left+up), logical y screen south-west
+  // (left+down) / north-east (right+up).
+  const AXIS_ACTIONS = {
+    x: { positive: ['right', 'down'], negative: ['left', 'up'] },
+    y: { positive: ['left', 'down'], negative: ['right', 'up'] },
+  }
+  const approach = async (axis, target) => {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      let { position } = await inspectPlayer()
+      const delta = target - position[axis]
+      if (Math.abs(delta) < 0.15) return position
+      const actions = AXIS_ACTIONS[axis][delta > 0 ? 'positive' : 'negative']
+      for (const action of actions) await hold(action)
+      for (let frame = 0; frame < 240; frame += 1) {
+        await step(1)
+        position = (await inspectPlayer()).position
+        const remaining = target - position[axis]
+        // The motor coasts about 0.45 units after release.
+        if (Math.abs(remaining) < 0.4 || Math.sign(remaining) !== Math.sign(delta)) break
+      }
+      for (const action of actions) await release(action)
+      await step(30)
+    }
+    throw new Error(`could not walk the player to logical ${axis} = ${target}`)
+  }
+
+  const baseline = await inspectScene()
+  assert.equal(baseline.scene, 'main', 'the demo must boot on "main"')
+  assert.equal(baseline.stats.points, 0, 'points must start at 0')
+
+  // Walk onto Crate-1 (5, 6): collecting it sets "points" through real
+  // gameplay — the value this leg later confirms survives the swap.
+  await approach('x', 5)
+  await approach('y', 6)
+  await step(5)
+  const withPoints = await inspectScene()
+  assert.equal(withPoints.stats.points, 1, 'walking onto the crate must collect it')
+
+  // Walk to the Door (2, 2) and cross it. Only the x approach can safely
+  // run to full convergence: once x is close, walking y the rest of the
+  // way toward 2 overlaps the Door itself, and the crossing (deferred to
+  // the next frame — CA-7) replaces the live Player mid-walk, so the last
+  // leg watches for the scene to change instead of expecting an
+  // uninterrupted numeric convergence.
+  await approach('x', 2)
+  await hold('right')
+  await hold('up')
+  let crossed = false
+  for (let frame = 0; frame < 240 && !crossed; frame += 1) {
+    await step(1)
+    crossed = (await inspectScene()).scene !== 'main'
+  }
+  await release('right')
+  await release('up')
+  assert.ok(crossed, 'walking toward the Door must cross into another scene within 240 frames')
+  const inCave = await inspectScene()
+  assert.equal(inCave.scene, 'cave', 'crossing the Door must load "cave"')
+  const caveNames = inCave.entities.map((entity) => entity.name)
+  assert.ok(!caveNames.includes('Orc'), 'the outgoing map\'s own entities (Orc) must be gone')
+  assert.ok(!caveNames.includes('Villager'), 'the outgoing map\'s own entities (Villager) must be gone')
+  assert.ok(caveNames.includes('Player'), 'the incoming scene must author its own Player')
+  assert.equal(inCave.stats.points, 1, 'a stat set before crossing must survive the swap')
+
+  // A second pass: control_runtime operation:'scene' reaches "main" directly.
+  const jumped = await call(client, 'control_runtime', {
+    project_path: project,
+    operation: 'scene',
+    scene: 'main',
+  })
+  assert.equal(jumped.isError, undefined, `scene operation failed: ${JSON.stringify(jumped)}`)
+  const backOnMain = await inspectScene()
+  assert.equal(backOnMain.scene, 'main', 'operation:"scene" must reach "main" directly')
+  assert.ok(
+    backOnMain.entities.some((entity) => entity.name === 'Orc'),
+    'reloading "main" must bring its own cast back',
+  )
+
+  // The negative case: an unknown scene name fails structurally, naming the
+  // available scenes, and leaves the live scene untouched.
+  const unknown = await call(client, 'control_runtime', {
+    project_path: project,
+    operation: 'scene',
+    scene: 'dungeon',
+  })
+  assert.equal(unknown.isError, true, 'an unknown scene name must fail')
+  const unknownError = unknown.structuredContent.error
+  assert.equal(unknownError.code, 'runtime-operation-failed')
+  assert.deepEqual(
+    [...(unknownError.diagnostics?.availableScenes ?? [])].sort(),
+    ['cave', 'main'],
+    'the error must name the available scenes',
+  )
+  const stillOnMain = await inspectScene()
+  assert.equal(stillOnMain.scene, 'main', 'an unknown scene name must leave the live scene untouched')
+
+  const stopped = await call(client, 'stop_project', { project_path: project })
+  assert.equal(stopped.structuredContent.stopped, true)
+  await assertUrlClosed(start.structuredContent.url)
+  return { sceneSwapUrl: start.structuredContent.url }
+}
+
 async function runNegativeReadiness({ client, fixture, chrome }) {
   const result = await call(client, 'start_project', {
     project_path: fixture.project,
@@ -1055,6 +1224,7 @@ export async function runRuntimeE2e({
   includeTopdown = true,
   includeIsometric = true,
   includeProjection = true,
+  includeSceneSwap = true,
 }) {
   if (process.platform === 'win32') {
     throw new Error('The browser e2e gate requires its supported macOS/Linux host, not Windows.')
@@ -1122,6 +1292,16 @@ export async function runRuntimeE2e({
           engineRoot,
         })
       : {}
+    const sceneSwapResult = includeSceneSwap
+      ? await runSceneSwapLeg({
+          client,
+          root,
+          parent: temporaryParent,
+          chrome,
+          viteBin,
+          engineRoot,
+        })
+      : {}
     if (negative) await runNegativeReadiness({ client, fixture: negative, chrome })
     const result = {
       label,
@@ -1132,6 +1312,7 @@ export async function runRuntimeE2e({
       ...projectionResult,
       ...topdownResult,
       ...isometricResult,
+      ...sceneSwapResult,
     }
     console.log(`waica runtime e2e (${label}): ${JSON.stringify(result)}`)
     return result
