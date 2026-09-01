@@ -26,6 +26,7 @@ import {
   type ProjectComponentLoader,
 } from './project-component-loader.js'
 import { directFiles, requireWaicaProject } from './project-path.js'
+import { validateEntitySceneTransition, validatePrefabSceneTransition } from './scene-transition-validation.js'
 
 export type FindingSeverity = 'error' | 'warning' | 'info'
 
@@ -41,6 +42,7 @@ export type FindingCode =
   | 'undeclared-stat'
   | 'unknown-ui-piece'
   | 'camera-follow-unknown-entity'
+  | 'unknown-scene-transition-target'
   | 'unparseable-json'
   | 'component-load-failed'
   | 'component-load-unsupported'
@@ -515,6 +517,7 @@ function validateScene(
   file: string,
   prefabs: ReadonlyMap<string, PrefabJson>,
   uiNames: ReadonlySet<string>,
+  knownScenes: ReadonlySet<string>,
   context: ValidationContext,
 ): void {
   const rawEntities: unknown[] = Array.isArray(scene.entities) ? scene.entities : []
@@ -550,6 +553,9 @@ function validateScene(
       typeof entity.name === 'string' && entity.name ? entity.name : `entity[${index}]`
     const inline = componentList(entity.components)
     for (const component of inline) checkComponent(component, file, entityRef, context)
+    context.findings.push(
+      ...validateEntitySceneTransition(entity, entityRef, file, knownScenes),
+    )
     const prefabRef = typeof entity.prefab === 'string' ? entity.prefab : undefined
     const overrides = objectRecord(entity.overrides)
     let prefab: PrefabJson | undefined
@@ -811,6 +817,12 @@ export async function validateProject(
     projectComponents.add(name)
   }
 
+  // Every scene name the Project declares (a file's stem), so a
+  // SceneTransition's target can be checked before any prefab or scene is
+  // itself validated — CA-16.
+  const sceneFiles = await directFiles(path.join(projectPath, 'src/scenes'), '.scene.json')
+  const knownScenes = new Set(sceneFiles.map((file) => file.slice(0, -'.scene.json'.length)))
+
   // Reconstruct the complete ref set before validating any prefab, so a
   // lexically earlier file can refer to one discovered later in the tree.
   const prefabs = new Map<string, PrefabJson>()
@@ -848,6 +860,7 @@ export async function validateProject(
   validateComponentClassUpdateContracts(context)
   for (const { prefab, relative, ref } of prefabFiles) {
     validatePrefab(prefab, relative, ref, context)
+    findings.push(...validatePrefabSceneTransition(prefab, relative, ref, knownScenes))
   }
 
   const uiFiles = await directFiles(path.join(projectPath, 'src/ui'), '.html')
@@ -869,12 +882,11 @@ export async function validateProject(
     }
   }
 
-  const sceneFiles = await directFiles(path.join(projectPath, 'src/scenes'), '.scene.json')
   for (const file of sceneFiles) {
     const relative = `src/scenes/${file}`
     const parsed = await parseJson(projectPath, relative, findings)
     if (!parsed || typeof parsed !== 'object') continue
-    validateScene(parsed as SceneJson, relative, prefabs, uiNames, context)
+    validateScene(parsed as SceneJson, relative, prefabs, uiNames, knownScenes, context)
   }
 
   const params = objectRecord(fixed.get('public/waica.params.json'))
@@ -896,7 +908,7 @@ export async function validateProject(
     ok: summary.errors === 0,
     notes: [
       ...check.notes,
-      'The shipped runtime loads src/scenes/main.scene.json; other scenes are validated but are not loaded automatically.',
+      'The shipped runtime boots on src/scenes/main.scene.json and registers every scene under src/scenes/ in a catalog; a SceneTransition or control_runtime operation:"scene" can load any of them by name.',
     ],
     provenance,
     warnings: [...discoveryWarnings, ...mixedSourceWarnings(provenance)],
