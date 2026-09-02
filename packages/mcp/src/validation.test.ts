@@ -724,6 +724,12 @@ module.exports.ARCHETYPE = {
     expect(
       result.findings.filter((finding) => finding.code === 'unknown-scene-transition-target'),
     ).toEqual([])
+    // Both Doors keep the default trigger:'overlap' (they fire off the
+    // shipped Hitbox, not an Interactable), so the sibling-Interactable
+    // rule stays silent on the demo too.
+    expect(
+      result.findings.filter((finding) => finding.code === 'scene-transition-missing-interactable'),
+    ).toEqual([])
     expect(result.summary.errors).toBe(0)
     expect(result.ok).toBe(true)
   })
@@ -789,6 +795,7 @@ module.exports.ARCHETYPE = {
     ).toHaveLength(1)
     expect(result.ok).toBe(true)
   })
+
 })
 
 /**

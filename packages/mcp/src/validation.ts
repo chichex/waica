@@ -43,6 +43,7 @@ export type FindingCode =
   | 'unknown-ui-piece'
   | 'camera-follow-unknown-entity'
   | 'unknown-scene-transition-target'
+  | 'scene-transition-missing-interactable'
   | 'unparseable-json'
   | 'component-load-failed'
   | 'component-load-unsupported'
@@ -554,7 +555,7 @@ function validateScene(
     const inline = componentList(entity.components)
     for (const component of inline) checkComponent(component, file, entityRef, context)
     context.findings.push(
-      ...validateEntitySceneTransition(entity, entityRef, file, knownScenes),
+      ...validateEntitySceneTransition(entity, entityRef, file, prefabs, knownScenes),
     )
     const prefabRef = typeof entity.prefab === 'string' ? entity.prefab : undefined
     const overrides = objectRecord(entity.overrides)
