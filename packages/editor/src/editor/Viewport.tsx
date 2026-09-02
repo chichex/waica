@@ -31,6 +31,14 @@ const DEFAULT_COMPONENT_VISIBILITY: ViewportComponentVisibility = {
 
 interface Props {
   scene: SceneJson
+  /**
+   * The file `scene` came from. A change means another scene was opened, and
+   * only that reloads the live Game; edits keep the same path. Absent on the
+   * prefab stage, which has no scene file and remounts by React key instead.
+   */
+  scenePath?: string
+  /** Every project scene by catalog name, so Play can resolve a SceneTransition. */
+  sceneCatalog?: Record<string, SceneJson>
   /** Components + project-owned prefabs used to load the scene. */
   registry: SceneRegistry
   /** Structural changes (create/delete) bump the epoch and recreate the game. */
@@ -314,7 +322,7 @@ type HandleHit =
   | { kind: 'polygon'; name: string; compType: string; role: BoxRole; point: number }
 
 export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
-  { scene, registry, epoch, mode, bindings, stats, viewHeight = 12, background = 0x1a1a2e, resolution, showCamera = false, grid = DEFAULT_EDITOR_SETTINGS.grid, onGridChange, componentVisibility = DEFAULT_COMPONENT_VISIBILITY, tilemapBrush, onTilemapStroke, selected, multiSelected, onSelect, onToggleSelect, onRangeSelect, onSelectCamera, onMoved, onMovedMany, onCameraMoved, onBoxResized, onBoxMoved, onPolygonChanged, onDropPrefab },
+  { scene, scenePath, sceneCatalog, registry, epoch, mode, bindings, stats, viewHeight = 12, background = 0x1a1a2e, resolution, showCamera = false, grid = DEFAULT_EDITOR_SETTINGS.grid, onGridChange, componentVisibility = DEFAULT_COMPONENT_VISIBILITY, tilemapBrush, onTilemapStroke, selected, multiSelected, onSelect, onToggleSelect, onRangeSelect, onSelectCamera, onMoved, onMovedMany, onCameraMoved, onBoxResized, onBoxMoved, onPolygonChanged, onDropPrefab },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -336,13 +344,16 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
   /** The edit camera starts framed like the scene camera, once per mount. */
   const camSeeded = useRef(false)
   /**
-   * The scene last loaded into the live Game — set by the [epoch, mode]
-   * effect on (re)creation, and by the [scene] effect below on a same-Game
-   * reload. Lets the [scene] effect tell "the epoch/mode effect just loaded
-   * this" from "the scene prop actually changed", without double-loading
-   * on mount or reacting to its own write.
+   * The scene FILE last loaded into the live Game — set by the [epoch, mode]
+   * effect on (re)creation and by the [scenePath] effect below on a same-Game
+   * reload. Keyed on the path, never on the scene object: every edit commits a
+   * fresh SceneJson (ops.* are pure), so an identity check would treat each
+   * drag and each prop tweak as "a different scene was opened" and reload the
+   * whole thing, clearing the selection mid-drag.
    */
-  const lastLoadedScene = useRef<SceneJson | null>(null)
+  const lastLoadedScenePath = useRef<string | null>(null)
+  const scenePathRef = useRef(scenePath)
+  const sceneCatalogRef = useRef(sceneCatalog)
   /** Entity drag: the grabbed anchor plus every group member's pointer offset. */
   const drag = useRef<{
     anchor: { name: string; ox: number; oy: number }
@@ -366,6 +377,8 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
   const uiScaleRef = useRef<HTMLDivElement>(null)
 
   sceneRef.current = scene
+  scenePathRef.current = scenePath
+  sceneCatalogRef.current = sceneCatalog
   registryRef.current = registry
   bindingsRef.current = bindings
   statsRef.current = stats
@@ -391,8 +404,14 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
       stats: statsRef.current,
     })
     gameRef.current = game
+    // Registered before the load so a scene's own code can already resolve
+    // its siblings. Without it a SceneTransition crossed in Play would only
+    // log `unknown scene` — the editor would host the feature it cannot run.
+    if (sceneCatalogRef.current) {
+      game.registerSceneCatalog({ scenes: sceneCatalogRef.current, registry: registryRef.current })
+    }
     loadScene(game, sceneRef.current, registryRef.current)
-    lastLoadedScene.current = sceneRef.current
+    lastLoadedScenePath.current = scenePathRef.current ?? null
     game.simulate = mode === 'play'
     if (mode === 'edit') {
       if (!camSeeded.current) {
@@ -704,17 +723,18 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [epoch, mode])
 
-  // Opening a different scene file: load it over the SAME Game (ADR 0011)
+  // Opening a different scene FILE: load it over the SAME Game (ADR 0011)
   // instead of remounting — the [epoch, mode] effect above still owns
-  // structural (epoch) and edit/play (mode) rebuilds. Skipped when this is
-  // the scene the [epoch, mode] effect just loaded (mount, or an epoch/mode
-  // change that leaves `scene` itself unchanged), so the same scene never
-  // loads twice back to back.
+  // structural (epoch) and edit/play (mode) rebuilds. Keyed on the path, so
+  // an ordinary edit (which always produces a new SceneJson) is not mistaken
+  // for opening another scene, and so the load the [epoch, mode] effect just
+  // did is not repeated on mount.
   useEffect(() => {
     const game = gameRef.current
-    if (!game || scene === lastLoadedScene.current) return
-    lastLoadedScene.current = scene
-    loadScene(game, scene, registryRef.current)
+    const path = scenePath ?? null
+    if (!game || path === null || path === lastLoadedScenePath.current) return
+    lastLoadedScenePath.current = path
+    loadScene(game, sceneRef.current, registryRef.current)
     onSelect(null)
     // The grid overlay, selection/multi-selection gizmos, camera gizmo and
     // edit-mode UI preview all read live state through refs already kept
@@ -729,7 +749,7 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
       game.setViewHeight(cam.current.view)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scene])
+  }, [scenePath])
 
   const applyLiveProp = (
     entityName: string,

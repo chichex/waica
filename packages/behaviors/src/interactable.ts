@@ -86,7 +86,10 @@ export function interactUpdate({ entity, game }: StateContext): void {
     // The press is spent: an input:interact edge needs a NEW press.
     game.input.consume('interact')
     game.stats.set('npcLine', nearest.line)
-    game.ui.show(INTERACTABLE_UI_PIECE)
+    // Scene-scoped: the scan that hides this prompt dies with the scene, so
+    // without a scope the prompt would survive a swap into a map where
+    // nothing knows to hide it — stale line and all (grill decision 8).
+    game.ui.show(INTERACTABLE_UI_PIECE, { scope: 'scene' })
     fireInteract(nearestEntity, entity)
   }
 }

@@ -48,6 +48,8 @@ class ResizeObserverStub {
 }
 
 const REGISTRY: SceneRegistry = { components: {} }
+const PATH_A = 'src/scenes/a.scene.json'
+const PATH_B = 'src/scenes/b.scene.json'
 const SCENE_A: SceneJson = { waicaScene: 3, entities: [{ name: 'A' }] }
 const SCENE_B: SceneJson = { waicaScene: 3, entities: [{ name: 'B' }] }
 
@@ -55,13 +57,24 @@ interface HandleBox {
   current: ViewportHandle | null
 }
 
-function render(
-  root: Root,
-  box: HandleBox,
-  scene: SceneJson,
-  options: { epoch?: number; mode?: 'edit' | 'play'; selected?: string | null; onSelect?(name: string | null): void } = {},
-): void {
-  const { epoch = 1, mode = 'edit', selected = null, onSelect = () => {} } = options
+interface RenderOptions {
+  scenePath?: string
+  sceneCatalog?: Record<string, SceneJson>
+  epoch?: number
+  mode?: 'edit' | 'play'
+  selected?: string | null
+  onSelect?(name: string | null): void
+}
+
+function render(root: Root, box: HandleBox, scene: SceneJson, options: RenderOptions = {}): void {
+  const {
+    scenePath = PATH_A,
+    sceneCatalog,
+    epoch = 1,
+    mode = 'edit',
+    selected = null,
+    onSelect = () => {},
+  } = options
   act(() => {
     root.render(
       <Viewport
@@ -69,6 +82,8 @@ function render(
           box.current = instance
         }}
         scene={scene}
+        scenePath={scenePath}
+        sceneCatalog={sceneCatalog}
         registry={REGISTRY}
         epoch={epoch}
         mode={mode}
@@ -105,7 +120,7 @@ describe('Viewport scene swap (CA-19)', () => {
     expect(game.find('A')).toBeDefined()
     expect(game.find('B')).toBeUndefined()
 
-    render(root, box, SCENE_B)
+    render(root, box, SCENE_B, { scenePath: PATH_B })
 
     const sameGame = box.current!.game()
     expect(sameGame).toBe(game)
@@ -118,9 +133,37 @@ describe('Viewport scene swap (CA-19)', () => {
     const onSelect = vi.fn()
     render(root, box, SCENE_A, { selected: 'A', onSelect })
 
-    render(root, box, SCENE_B, { selected: 'A', onSelect })
+    render(root, box, SCENE_B, { scenePath: PATH_B, selected: 'A', onSelect })
 
     expect(onSelect).toHaveBeenCalledWith(null)
+  })
+
+  it('leaves the live entities alone when an edit rewrites the scene of the SAME file', () => {
+    const box: HandleBox = { current: null }
+    const onSelect = vi.fn()
+    render(root, box, SCENE_A, { selected: 'A', onSelect })
+    const game = box.current!.game()!
+    const entity = game.find('A')
+
+    // What every edit looks like: ops.* are pure, so a drag or a prop tweak
+    // commits a brand-new SceneJson for the very same file. Reloading here
+    // would destroy and respawn the entity mid-drag and drop the selection.
+    const edited: SceneJson = { waicaScene: 3, entities: [{ name: 'A', position: [5, 0] }] }
+    render(root, box, edited, { selected: 'A', onSelect })
+
+    expect(box.current!.game()).toBe(game)
+    expect(game.find('A')).toBe(entity)
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('registers the scene catalog so Play can resolve a SceneTransition', () => {
+    const box: HandleBox = { current: null }
+    render(root, box, SCENE_A, { sceneCatalog: { a: SCENE_A, b: SCENE_B } })
+
+    const game = box.current!.game()!
+    expect(game.availableScenes).toEqual(['a', 'b'])
+    expect(game.loadSceneByName('b')).toBe(true)
+    expect(game.find('B')).toBeDefined()
   })
 
   it('preserves the editor pan across a scene swap', () => {
@@ -133,7 +176,7 @@ describe('Viewport scene swap (CA-19)', () => {
     game.camera.position.y = -7
     act(() => rendererHooks.loop?.(16))
 
-    render(root, box, SCENE_B)
+    render(root, box, SCENE_B, { scenePath: PATH_B })
 
     // loadScene's own camera framing is overridden back to the panned position.
     expect(game.camera.position.x).toBe(42)

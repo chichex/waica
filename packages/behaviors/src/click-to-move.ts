@@ -257,7 +257,8 @@ function driveNpcOrder(clickToMove: ClickToMove, entity: Entity, game: Game, ord
   }
   if (distance(pointOf(entity), pointOf(target)) <= interactable.radius) {
     game.stats.set('npcLine', interactable.line)
-    game.ui.show(INTERACTABLE_UI_PIECE)
+    // Scene-scoped, same reason as interactUpdate's prompt (grill decision 8).
+    game.ui.show(INTERACTABLE_UI_PIECE, { scope: 'scene' })
     fireInteract(target, entity)
     clickToMove.cancel() // CA-5: one trigger per arrival, no key simulated
     return null

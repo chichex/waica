@@ -709,4 +709,131 @@ describe('Scene unload and swap', () => {
     warn.mockRestore()
     game.dispose()
   })
+
+  it('lets the first mid-frame swap of a frame win, and says so', () => {
+    const game = makeGame()
+    const swaps: string[] = []
+    class SwapOnCollide extends Component {
+      static override componentName = 'SwapOnCollide'
+      scene = ''
+      override onCollide(): void {
+        swaps.push(this.scene)
+        game.loadSceneByName(this.scene)
+      }
+    }
+    const components = { Hitbox, SwapOnCollide }
+    game.registerSceneCatalog({
+      scenes: {
+        first: { waicaScene: 3, entities: [{ name: 'First' }] },
+        second: { waicaScene: 3, entities: [{ name: 'Second' }] },
+      },
+      registry: { components },
+    })
+    // Two doors the player is touching at once: both resolve in the same
+    // dispatchCollisions, so both ask for a swap before either can apply.
+    loadScene(
+      game,
+      {
+        waicaScene: 3,
+        entities: [
+          { name: 'Player', components: [{ type: 'Hitbox' }] },
+          {
+            name: 'DoorA',
+            components: [{ type: 'Hitbox' }, { type: 'SwapOnCollide', props: { scene: 'first' } }],
+          },
+          {
+            name: 'DoorB',
+            components: [{ type: 'Hitbox' }, { type: 'SwapOnCollide', props: { scene: 'second' } }],
+          },
+        ],
+      },
+      { components },
+    )
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    step(game)
+    expect(swaps.length).toBeGreaterThan(1)
+    expect(warn.mock.calls.some((call) => String(call[0]).includes('already queued'))).toBe(true)
+    step(game)
+
+    // The first request wins; the loser never silently overrode it.
+    expect(game.sceneName).toBe(swaps[0])
+    warn.mockRestore()
+    game.dispose()
+  })
+
+  it('lets an out-of-frame load override a swap queued earlier that frame', () => {
+    const game = makeGame()
+    class SwapOnCollide extends Component {
+      static override componentName = 'SwapOnCollide'
+      override onCollide(): void {
+        game.loadSceneByName('cave')
+      }
+    }
+    const components = { Hitbox, SwapOnCollide }
+    game.registerSceneCatalog({
+      scenes: {
+        cave: { waicaScene: 3, entities: [{ name: 'Torch' }] },
+        town: { waicaScene: 3, entities: [{ name: 'Well' }] },
+      },
+      registry: { components },
+    })
+    loadScene(
+      game,
+      {
+        waicaScene: 3,
+        entities: [
+          { name: 'A', components: [{ type: 'Hitbox' }, { type: 'SwapOnCollide' }] },
+          { name: 'B', components: [{ type: 'Hitbox' }] },
+        ],
+      },
+      { components },
+    )
+
+    step(game) // a transition queues "cave"
+    // Between frames — this is the Runtime Bridge's `scene` operation. It
+    // applies now and must not be undone by the queued swap next frame.
+    expect(game.loadSceneByName('town')).toBe(true)
+    expect(game.sceneName).toBe('town')
+
+    step(game)
+    expect(game.sceneName).toBe('town')
+    expect(game.find('Well')).toBeDefined()
+    expect(game.find('Torch')).toBeUndefined()
+    game.dispose()
+  })
+
+  it('drops a queued swap when the scene is explicitly unloaded', () => {
+    const game = makeGame()
+    class SwapOnCollide extends Component {
+      static override componentName = 'SwapOnCollide'
+      override onCollide(): void {
+        game.loadSceneByName('cave')
+        game.unloadScene()
+      }
+    }
+    const components = { Hitbox, SwapOnCollide }
+    game.registerSceneCatalog({
+      scenes: { cave: { waicaScene: 3, entities: [{ name: 'Torch' }] } },
+      registry: { components },
+    })
+    loadScene(
+      game,
+      {
+        waicaScene: 3,
+        entities: [
+          { name: 'A', components: [{ type: 'Hitbox' }, { type: 'SwapOnCollide' }] },
+          { name: 'B', components: [{ type: 'Hitbox' }] },
+        ],
+      },
+      { components },
+    )
+
+    step(game)
+    step(game)
+    // "No scene" means no scene: the queued swap must not resurrect one.
+    expect(game.entities).toHaveLength(0)
+    expect(game.sceneName).toBeNull()
+    game.dispose()
+  })
 })

@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import { THREE, type Entity, type Game, type StateContext } from '@waica/engine'
-import { INTERACTABLE_UI, Interactable, interactUpdate } from './interactable'
+import {
+  INTERACTABLE_UI,
+  INTERACTABLE_UI_PIECE,
+  Interactable,
+  interactUpdate,
+} from './interactable'
 
 interface WorldHarness {
   ctx: StateContext
@@ -70,7 +75,7 @@ describe('Interactable', () => {
     interactUpdate(world.ctx)
 
     expect(world.stats.set).toHaveBeenCalledWith('npcLine', 'Nice day for fishing!')
-    expect(world.ui.show).toHaveBeenCalledWith('npc-line')
+    expect(world.ui.show).toHaveBeenCalledWith('npc-line', { scope: 'scene' })
     expect(world.ui.hide).not.toHaveBeenCalled()
   })
 
@@ -119,6 +124,19 @@ describe('Interactable', () => {
     interactUpdate(world.ctx)
 
     expect(world.stats.set).toHaveBeenCalledWith('npcLine', 'near')
+  })
+
+  it('shows the prompt scene-scoped so a swap takes it down', () => {
+    const world = makeWorld()
+    world.addNpc(1, 0)
+    world.press()
+
+    interactUpdate(world.ctx)
+
+    // The scan that hides this prompt dies with the scene. Unscoped, the
+    // prompt would outlive the swap in a map where nothing hides it, still
+    // showing the previous map's line (grill decision 8).
+    expect(world.ui.show).toHaveBeenCalledWith(INTERACTABLE_UI_PIECE, { scope: 'scene' })
   })
 
   it('declares authorable defaults for the inspector', () => {

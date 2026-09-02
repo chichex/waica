@@ -136,7 +136,19 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   })
   const [scenePaths, setScenePaths] = useState<string[]>([])
   const [openScenePath, setOpenScenePath] = useState<string | null>(null)
-  const [scene, setScene] = useState<SceneJson | null>(null)
+  /**
+   * The scene in the viewport, paired with the file it came from. The two
+   * travel together for two reasons: an edit is never written to a path the
+   * displayed scene did not come from, and opening another scene keeps the
+   * Viewport mounted. Blanking the scene while the next file reads would
+   * swap the Viewport for a hint <div>, which unmounts it and rebuilds the
+   * Game — exactly what loading over the same Game (ADR 0011) exists to avoid.
+   */
+  const [openScene, setOpenScene] = useState<{ path: string; scene: SceneJson } | null>(null)
+  const scene = openScene?.scene ?? null
+  const loadedScenePath = openScene?.path ?? null
+  /** Every scene of the project, by catalog name — built for Play. */
+  const [sceneLibrary, setSceneLibrary] = useState<Record<string, SceneJson>>({})
   const [sceneFailed, setSceneFailed] = useState(false)
   const [archetypeFailed, setArchetypeFailed] = useState<string | null>(null)
   const [view, setView] = useState<ExplorerView | null>(null)
@@ -408,20 +420,23 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
 
   useEffect(() => {
     if (!openScenePath) return
-    const pending = pendingScenes.current.get(openScenePath)
+    const path = openScenePath
+    const pending = pendingScenes.current.get(path)
     if (pending) {
-      setScene(pending)
+      setOpenScene({ path, scene: pending })
       setSceneFailed(false)
       return
     }
     let stale = false
-    setScene(null)
+    // Deliberately NOT blanking the scene here: the previous one stays on
+    // screen (and stays editable, against its own path) until the next file
+    // lands, so the Viewport is never unmounted mid-switch.
     setSceneFailed(false)
-    void fs.readText(openScenePath).then((text) => {
+    void fs.readText(path).then((text) => {
       if (stale) return
       try {
         if (text == null) throw new Error('missing')
-        setScene(ops.migrateScene(JSON.parse(text) as SceneJson))
+        setOpenScene({ path, scene: ops.migrateScene(JSON.parse(text) as SceneJson) })
       } catch {
         setSceneFailed(true)
       }
@@ -446,14 +461,18 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   }
 
   const commit = (next: SceneJson, structural = false, coalesce?: string): void => {
-    if (!openScenePath || !scene) return
+    // The displayed scene's own path, not openScenePath: while another scene
+    // file is being read those two differ, and the edit belongs to what the
+    // user is actually looking at.
+    const path = loadedScenePath
+    if (!path || !scene) return
     record(
-      { kind: 'scene', path: openScenePath, before: scene, after: next },
-      coalesce ? `scene:${openScenePath}:${coalesce}` : undefined,
+      { kind: 'scene', path, before: scene, after: next },
+      coalesce ? `scene:${path}:${coalesce}` : undefined,
     )
-    setScene(next)
+    setOpenScene({ path, scene: next })
     if (structural) setEpoch((e) => e + 1)
-    scheduleSave(openScenePath, next)
+    scheduleSave(path, next)
   }
 
   const commitPrefab = (ref: string, next: PrefabJson, structural = false, coalesce?: string): void => {
@@ -624,7 +643,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     setScenePaths(await listScenes(fs))
     if (openScenePath === path) {
       setOpenScenePath(null)
-      setScene(null)
+      setOpenScene(null)
       setSelected(null)
       setMulti([])
     }
@@ -808,7 +827,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     try {
       for (const path of scenePaths) {
         let before =
-          path === openScenePath && scene ? scene : pendingScenes.current.get(path) ?? null
+          path === loadedScenePath && scene ? scene : pendingScenes.current.get(path) ?? null
         if (!before) {
           const text = await fs.readText(path)
           if (text == null) throw new Error(`missing scene: ${path}`)
@@ -857,9 +876,13 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       delete next[ref]
       return next
     })
-    const openAffected = affectedScenes.find(({ path }) => path === openScenePath)
+    const openAffected = affectedScenes.find(({ path }) => path === loadedScenePath)
     if (openAffected) {
-      setScene((current) => (current === openAffected.before ? openAffected.after : current))
+      setOpenScene((current) =>
+        current && current.scene === openAffected.before
+          ? { ...current, scene: openAffected.after }
+          : current,
+      )
     }
     setView((current) =>
       current?.kind === 'prefab' && current.ref === ref
@@ -960,6 +983,32 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     setComponentFiles(await listComponentFiles(fs))
     setProjectComponents(projectCode.components)
     setComponentPaths(projectCode.componentPaths)
+    // The catalog a SceneTransition resolves against. Without it, crossing a
+    // door in Play only logs `unknown scene`. Built here rather than kept in
+    // sync all session: it only matters while playing, and Play rebuilds the
+    // Game anyway. Freshest wins — the displayed scene, then a debounced
+    // save still in flight, then the file on disk.
+    const library: Record<string, SceneJson> = {}
+    for (const path of scenePaths) {
+      const name = sceneLabel(path)
+      if (path === loadedScenePath && scene) {
+        library[name] = scene
+        continue
+      }
+      const unsaved = pendingScenes.current.get(path)
+      if (unsaved) {
+        library[name] = unsaved
+        continue
+      }
+      const text = await fs.readText(path)
+      if (text == null) continue
+      try {
+        library[name] = ops.migrateScene(JSON.parse(text) as SceneJson)
+      } catch {
+        console.error(`[waica] Play could not read scene ${path}`)
+      }
+    }
+    setSceneLibrary(library)
     setEpoch((value) => value + 1)
     // Play may be pressed from any view (prefab, ui…): the run happens in the
     // scene viewport, so bring the open scene to the center first.
@@ -971,8 +1020,8 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   /** Puts a recorded scene value back (undo/redo), through the normal save path. */
   const applySceneState = (path: string, value: SceneJson): void => {
     scheduleSave(path, value)
-    if (openScenePath === path) {
-      setScene(value)
+    if (loadedScenePath === path) {
+      setOpenScene({ path, scene: value })
       // The viewport patches props imperatively on live entities, so a plain
       // setScene isn't enough: rebuild the stage from the restored JSON.
       setEpoch((e) => e + 1)
@@ -995,10 +1044,10 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
         await fs.deleteFile(path).catch(() => {})
         if (openScenePath === path) {
           setOpenScenePath(null)
-          setScene(null)
           setSelected(null)
           setMulti([])
         }
+        if (loadedScenePath === path) setOpenScene(null)
         if (view?.kind === 'scene' && view.path === path) setView(null)
       } else {
         await fs.writeText(path, content)
@@ -1272,17 +1321,17 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const center = (() => {
     if (!view) return <div className="ed-vp-hint">select something on the left to open it</div>
     if (view.kind === 'scene') {
-      if (!scene) {
-        return (
-          <div className="ed-vp-hint">
-            {sceneFailed ? 'could not read this scene file' : 'loading…'}
-          </div>
-        )
-      }
+      // A failed read wins over the scene still on screen: the previous one
+      // is deliberately kept mounted across a switch, and showing it under
+      // another file's name would be a lie.
+      if (sceneFailed) return <div className="ed-vp-hint">could not read this scene file</div>
+      if (!openScene || !scene) return <div className="ed-vp-hint">loading…</div>
       return (
         <Viewport
           ref={viewport}
           scene={scene}
+          scenePath={openScene.path}
+          sceneCatalog={sceneLibrary}
           registry={registryWithPrefabs}
           epoch={epoch}
           mode={mode}

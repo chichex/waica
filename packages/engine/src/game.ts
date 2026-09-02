@@ -185,6 +185,9 @@ export class Game {
    */
   unloadScene(): void {
     this.ui.unloadScene()
+    // An explicit unload means "no scene": a swap queued earlier this frame
+    // would otherwise flush next frame and resurrect one.
+    this.pendingSceneLoad = null
     // Entity.destroy() splices itself out of `this.entities` in place — the
     // Pointer holds that array by reference, so it must never be reassigned.
     for (const entity of [...this.entities]) entity.destroy()
@@ -219,8 +222,9 @@ export class Game {
    * next runFrame — dispatchCollisions finishes its double loop over the
    * outgoing scene, and the incoming scene's entities are present only
    * from the next frame. Called from outside a frame (boot, or the Runtime
-   * Bridge's `scene` control operation) it applies synchronously. Returns
-   * whether `name` resolved.
+   * Bridge's `scene` control operation) it applies synchronously and wins
+   * over anything queued earlier this frame. A second mid-frame request
+   * loses to the first and says so. Returns whether the load took effect.
    */
   loadSceneByName(name: string): boolean {
     const catalog = this.sceneCatalog
@@ -233,8 +237,22 @@ export class Game {
       loadScene(this, json, catalog.registry)
       this.liveSceneName = name
     }
-    if (this.insideFrame) this.pendingSceneLoad = apply
-    else apply()
+    if (!this.insideFrame) {
+      // Authoritative: dropping the queue is the point. A swap a transition
+      // enqueued earlier would otherwise flush on the next frame and silently
+      // undo this load, reporting success for a scene the caller never got.
+      this.pendingSceneLoad = null
+      apply()
+      return true
+    }
+    if (this.pendingSceneLoad) {
+      // Two transitions resolving in the same collision dispatch: the one the
+      // simulation reached first wins, and the loser is told. Last-write-wins
+      // would drop the player in the other door's destination with no signal.
+      console.warn(`[waica] a scene swap is already queued this frame; ignoring "${name}"`)
+      return false
+    }
+    this.pendingSceneLoad = apply
     return true
   }
 

@@ -146,33 +146,49 @@ A new leg beside `runIsometricLeg` (`scripts/runtime-e2e.mjs:682`), not folded i
 - **Accidental transitions are game feel** and only CA-20 covers them. If the human protocol fails, the fix is tuning the transition's `Hitbox` in the demo, not changing the trigger semantics.
 - **Contract drift, informational**: `.sdd/project.md` records 1214 tests in 133 files (refreshed 2026-08-29); the most recent spec's execution log reports 1285 tests in 140 files after the point-and-click merge. Commands and gates are unchanged, so the verdict is unaffected.
 
-## Resultado de ejecucion (2026-09-01 · HEAD a738af5)
+## Execution result (2026-09-01)
 
-| CA | Estado | Evidencia |
+| CA | Status | Evidence |
 |---|---|---|
-| CA-1 | verificado | `packages/engine/src/game.test.ts` "destroys every entity through Entity.destroy(), splicing entities in place (CA-1)" |
-| CA-2 | verificado | `game.test.ts` "leaves the Game as newly constructed, keeping session-scoped state (CA-2)" |
-| CA-3 | verificado | `packages/engine/src/scene.test.ts` "loadScene replacing an already-loaded scene (CA-3)" |
-| CA-4 | verificado | `game.test.ts` "keeps event and onUpdate subscriptions across a swap, firing exactly once (CA-4)" |
-| CA-5 | verificado | `packages/engine/src/ui.test.ts` — outgoing scene's `ui` list unmounted, `{ scope: 'scene' }` pieces unmounted, unscoped pieces stay mounted; definition catalog survives |
-| CA-6 | verificado | `game.test.ts` "restores the constructor viewHeight with no camera block, and frames a later block (CA-6)" |
-| CA-7 | verificado | `game.test.ts` "defers a mid-frame scene swap to the next frame (CA-7)" |
-| CA-8 | verificado | `game.test.ts` "resolves loadSceneByName through the registered catalog (CA-8, CA-9)" — unknown name warns naming it, live scene untouched |
-| CA-9 | verificado | `packages/engine/src/runtime-inspection.test.ts` (`scene` field, null/populated) + the CA-8 test above + `runtime-bridge.test.ts` |
-| CA-10 | verificado | `packages/behaviors/src/scene-transition.test.ts` "fires on overlap with the player by default (CA-10)" |
-| CA-11 | verificado | `scene-transition.test.ts` interact-mode tests + `interactable.test.ts`/`click-to-move.ts`'s `fireInteract` wiring |
-| CA-12 | verificado | `packages/mcp/src/archetype-conformance.test.ts` (all 3 archetypes) + `introspection.test.ts` "describes all 16 platformer classes..." (SceneTransition params/defaults) |
-| CA-13 | verificado | `packages/archetype-isometric/src/scene-default.test.ts` (`ISOMETRIC_CAVE_SCENE`) + `packages/mcp/src/create-project.test.ts` (isometric demo/blank byte-for-byte, extraScenes included) |
-| CA-14 | verificado | `pnpm build && node scripts/sync-scene.mjs` run this session — materialized `examples/isometric/src/scenes/cave.scene.json` + `src/objects/door.object.json`; `packages/editor/src/project/template.test.ts` golden snapshot updated and green; dist byte-equality stays green in `pnpm test:dist` (see below) |
-| CA-15 | verificado | `runtime-bridge.test.ts` (capability, dispatch, unknown-scene error) + `server.test.ts`/`runtime-session-manager.test.ts` (MCP wiring, pre-CA-10-engine rejection) + `pnpm test:e2e`'s `runSceneSwapLeg` (real `control_runtime operation:'scene'` over stdio, success and negative cases) |
-| CA-16 | verificado | `packages/mcp/src/scene-transition-validation.test.ts` (8 tests) + `validation.test.ts` (entity override warns, prefab warns, generated isometric demo clean) |
-| CA-17 | verificado | `pnpm test:e2e` — the four `main.ts` files' new catalog-registration boot path; all legs (checkout, projection, topdown, isometric, scene-swap) started and ran their apps successfully |
-| CA-18 | verificado | `pnpm test:e2e`'s `runSceneSwapLeg` (real generated isometric Project, real Chrome, real MCP stdio): crossing the Door swaps `main`→`cave`, the outgoing map's entities are gone, a stat set before crossing (via a real crate pickup) survives; a second pass reaches `cave`→`main` directly through `operation:'scene'`; an unknown scene name fails naming the available scenes |
-| CA-19 | verificado | `packages/editor/src/editor/viewport-scene-swap.test.tsx` (6 tests, React 19 `createRoot`+`act`): same `Game` identity across a scene swap, outgoing entities gone/incoming present, selection cleared, pan preserved, an unrelated re-render is a no-op, `epoch`/`mode` changes still recreate the `Game` |
-| CA-20 | pendiente humano | Protocol in `## Verification plan`; not run — requires a human at `pnpm dev:isometric` |
-| POL-higiene-ts-diff | cumplida | `git diff --unified=0 origin/main...HEAD` over `packages/*/src/*.ts examples/*/src/*.ts` (test/`.d.ts` excluded): 0 new-line hits for `: any`/`as any`/`@ts-ignore`/`@ts-expect-error`/`export default`/a real `enum` declaration (one `enum:` JSON-Schema property key false-positived a naive grep; confirmed not a TS `enum` construct) |
-| POL-tests-acompañan-src | cumplida | Every package with new non-test `.ts`/`.tsx` under `src/` (`behaviors`, `engine`, `mcp`, `editor`) also has a `.test.ts`/`.test.tsx` in the diff |
-| POL-max-lineas-archivo | cumplida | Largest touched `.ts` in the diff: `packages/mcp/src/validation.ts` at 916 lines (< 950); `.tsx` confirmed out of scope (see the resolved risk note above) |
-| POL-naming-archivos | cumplida (tras 1 correccion) | All new files under `src/` match the gate regex; see the 2026-09-01 deviation note above for the one rename (`Viewport.scene-swap.test.tsx` → `viewport-scene-swap.test.tsx`) |
+| CA-1 | verified | `packages/engine/src/game.test.ts` "destroys every entity through Entity.destroy(), splicing entities in place (CA-1)" |
+| CA-2 | verified | `game.test.ts` "leaves the Game as newly constructed, keeping session-scoped state (CA-2)" |
+| CA-3 | verified | `packages/engine/src/scene.test.ts` "loadScene replacing an already-loaded scene (CA-3)" |
+| CA-4 | verified | `game.test.ts` "keeps event and onUpdate subscriptions across a swap, firing exactly once (CA-4)" |
+| CA-5 | verified | `packages/engine/src/ui.test.ts` — outgoing scene's `ui` list unmounted, `{ scope: 'scene' }` pieces unmounted, unscoped pieces stay mounted; definition catalog survives. `interactable.test.ts` proves the prompt is shown scene-scoped |
+| CA-6 | verified | `game.test.ts` "restores the constructor viewHeight with no camera block, and frames a later block (CA-6)" |
+| CA-7 | verified | `game.test.ts` "defers a mid-frame scene swap to the next frame (CA-7)", plus the three reentrancy tests added by the review round: first-of-frame wins and warns, an out-of-frame load overrides a queued swap, and an explicit unload drops it |
+| CA-8 | verified | `game.test.ts` "resolves loadSceneByName through the registered catalog (CA-8, CA-9)" — unknown name warns naming it, live scene untouched |
+| CA-9 | verified | `packages/engine/src/runtime-inspection.test.ts` (`scene` field, null/populated) + the CA-8 test above + `runtime-bridge.test.ts` |
+| CA-10 | verified | `packages/behaviors/src/scene-transition.test.ts` "fires on overlap with the player by default (CA-10)" |
+| CA-11 | verified | `scene-transition.test.ts` interact-mode tests + `interactable.test.ts`/`click-to-move.ts`'s `fireInteract` wiring |
+| CA-12 | verified | `packages/mcp/src/archetype-conformance.test.ts` (all 3 archetypes) + `introspection.test.ts` "describes all 16 platformer classes..." (SceneTransition params/defaults) |
+| CA-13 | verified | `packages/archetype-isometric/src/scene-default.test.ts` (`ISOMETRIC_CAVE_SCENE`) + `packages/mcp/src/create-project.test.ts` (isometric demo/blank byte-for-byte, extraScenes included) |
+| CA-14 | verified | `pnpm build && node scripts/sync-scene.mjs` — materialized `examples/isometric/src/scenes/cave.scene.json` + `src/objects/door.object.json`; `packages/editor/src/project/template.test.ts` golden snapshot updated and green; dist byte-equality green in `pnpm test:dist` |
+| CA-15 | verified | `runtime-bridge.test.ts` (capability, dispatch, unknown-scene error) + `server.test.ts`/`runtime-session-manager.test.ts` (MCP wiring, pre-capability-engine rejection) + `pnpm test:e2e`'s `runSceneSwapLeg` (real `control_runtime operation:'scene'` over stdio, success and negative cases) |
+| CA-16 | verified | `packages/mcp/src/scene-transition-validation.test.ts` (8 tests) + `validation.test.ts` (entity override warns, prefab warns, generated isometric demo clean) |
+| CA-17 | verified | `pnpm test:e2e` — the four `main.ts` files' new catalog-registration boot path; all legs (checkout, projection, topdown, isometric, scene-swap) started and ran their apps successfully |
+| CA-18 | verified | `pnpm test:e2e`'s `runSceneSwapLeg` (real generated isometric Project, real Chrome, real MCP stdio): crossing the Door swaps `main`→`cave`, the outgoing map's entities are gone, a stat set before crossing (via a real crate pickup) survives; a second pass reaches `cave`→`main` directly through `operation:'scene'`; an unknown scene name fails naming the available scenes |
+| CA-19 | verified | `packages/editor/src/editor/viewport-scene-swap.test.tsx` (8 tests, React 19 `createRoot`+`act`): same `Game` identity across a scene swap, outgoing entities gone/incoming present, selection cleared, pan preserved, an edit of the same file leaves the live entities and the selection alone, an unrelated re-render is a no-op, `epoch`/`mode` changes still recreate the `Game`, and the scene catalog is registered so Play resolves a `SceneTransition` |
+| CA-20 | pending human | Protocol in `## Verification plan`; not run — requires a human at `pnpm dev:isometric` |
+| POL-higiene-ts-diff | passed | `git diff --unified=0 origin/main...HEAD` over `packages/*/src/*.ts examples/*/src/*.ts` (test/`.d.ts` excluded): 0 new-line hits for `: any`/`as any`/`@ts-ignore`/`@ts-expect-error`/`export default`/a real `enum` declaration (one `enum:` JSON-Schema property key false-positived a naive grep; confirmed not a TS `enum` construct) |
+| POL-tests-acompañan-src | passed | Every package with new non-test `.ts`/`.tsx` under `src/` (`behaviors`, `engine`, `mcp`, `editor`) also has a `.test.ts`/`.test.tsx` in the diff |
+| POL-max-lineas-archivo | passed | Largest touched `.ts` in the diff: `packages/mcp/src/validation.ts` at 916 lines (< 950); `.tsx` confirmed out of scope (see the resolved risk note above) |
+| POL-naming-archivos | passed (after 1 correction) | All new files under `src/` match the gate regex; see the 2026-09-01 deviation note above for the one rename (`Viewport.scene-swap.test.tsx` → `viewport-scene-swap.test.tsx`) |
 
-Full ladder, this session, at this HEAD: `pnpm typecheck` (~1.85s, 11 projects) → `pnpm test` (1331 tests / 145 files, 5.89s) → `pnpm build` (~3.35s) → `pnpm test:dist` (green, packed browser leg 5.0s) → `pnpm test:e2e` (green, browser leg 15.7s, all five sub-legs including the new scene-swap one).
+### Code-review round (2026-09-01)
+
+A `/code-review` pass over the PR found three defects, all fixed on the same branch with tests that fail without the fix:
+
+1. **The editor reloaded the whole scene on every edit.** The scene-file effect compared the `scene` prop by object identity, but `ops.*` are pure, so every drag and every prop tweak commits a fresh `SceneJson` — each one read as "another scene was opened", destroying and respawning the entities and clearing the selection mid-drag. The effect is now keyed on the scene's **file path**.
+2. **…and it never fired for a real scene switch.** Removing the React key was not enough: `Editor.tsx` still blanked `scene` to `null` while the next file was read, which swapped the `Viewport` for a hint `<div>` and unmounted it, rebuilding the `Game` exactly as before. The loaded scene and its path now travel together in one state, so the previous scene stays mounted (and editable, against its own path) until the next one lands. Without this, CA-19 held only in the isolated component test.
+3. **The queued mid-frame swap could be silently overridden.** `loadSceneByName` overwrote an existing `pendingSceneLoad` without a guard, and the out-of-frame branch never cleared one — so two transitions in a frame sent the player to the second door's destination with no signal, and a `control_runtime operation:'scene'` call between frames reported success while the next frame's flush undid it. First-of-frame now wins and warns, an out-of-frame load is authoritative and drops the queue, and `unloadScene()` drops it too.
+
+Also closed in this round: grill decision 8, which the original run left unimplemented because no CA required it — `Interactable` and `click-to-move` now show the prompt with `{ scope: 'scene' }`, so it dies with its scene instead of surviving into a map where nothing hides it. And the editor now registers the scene catalog before loading, so crossing a `SceneTransition` in Play resolves instead of logging `unknown scene`.
+
+**Pre-existing, noted and not touched** (per the standing rule that this change only fixes what it introduced): `packages/mcp/src/runtime-dev-server.ts:62-66` tolerates only `ESRCH` when signalling a process group, so under parallel test load an already-reaped group leader surfaces as `kill EPERM` and fails `runtime-dev-server.test.ts`. Observed once in a full-suite run, green on the immediate re-run and green in isolation. Worth its own issue.
+
+### Full ladder after the review round
+
+`pnpm typecheck` 1.98s, 11 projects clean → `pnpm test` 1337 tests / 145 files, 7.47s → `pnpm build` green → `pnpm test:dist` green (packed browser leg 5.18s) → `pnpm test:e2e` green (checkout leg 16.24s, all five sub-legs: platformer, projection, topdown, isometric, scene-swap). Generation policies re-run against `origin/main...HEAD`: `higiene-ts-diff` 0 hits, `max-lineas-archivo` largest touched `.ts` still `validation.ts` at 916, `tests-acompañan-src` and `naming-archivos` satisfied.
+
+Contract drift worth folding into the next `/sdd-init --update`: this machine now runs Google Chrome 152.0.7977.66, while `.sdd/project.md` records 151.0.7922.175. The browser gates are green on both.
