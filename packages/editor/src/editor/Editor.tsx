@@ -147,6 +147,14 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const [openScene, setOpenScene] = useState<{ path: string; scene: SceneJson } | null>(null)
   const scene = openScene?.scene ?? null
   const loadedScenePath = openScene?.path ?? null
+  /**
+   * Another scene file was picked and is still being read, so what is on
+   * screen is not what the chrome (breadcrumb, title, scene picker) names.
+   * Mutating during that window would write an edit into the file the user
+   * just navigated away from, and starting Play would run the outgoing scene
+   * under the incoming one's name.
+   */
+  const sceneSwitching = openScenePath !== null && loadedScenePath !== openScenePath
   /** Every scene of the project, by catalog name — built for Play. */
   const [sceneLibrary, setSceneLibrary] = useState<Record<string, SceneJson>>({})
   const [sceneFailed, setSceneFailed] = useState(false)
@@ -465,7 +473,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     // file is being read those two differ, and the edit belongs to what the
     // user is actually looking at.
     const path = loadedScenePath
-    if (!path || !scene) return
+    if (!path || !scene || sceneSwitching) return
     record(
       { kind: 'scene', path, before: scene, after: next },
       coalesce ? `scene:${path}:${coalesce}` : undefined,
@@ -971,7 +979,10 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   }
 
   const play = async (): Promise<void> => {
-    if (!openScenePath || !scene) return
+    // Starting mid-switch would build the run from the outgoing scene and
+    // label it with the incoming one — and when the read lands, the
+    // [scenePath] effect would hot-swap the scene under the live session.
+    if (!openScenePath || !scene || sceneSwitching) return
     setSelected(null)
     setMulti([])
     // Project components, states and roles register before the Play game is

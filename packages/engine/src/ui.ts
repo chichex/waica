@@ -39,10 +39,16 @@ export class GameUi {
   }
 
   show(name: string, options: ShowOptions = {}): void {
+    const mounted = this.pieces.has(name)
     const piece = this.mount(name)
     if (piece) {
       piece.visible = true
-      if (options.scope) piece.scope = options.scope
+      // Scope belongs to whoever mounts the piece, and a later show never
+      // changes it. Otherwise a scene whose `ui` list happens to name a piece
+      // the host already mounted would quietly take ownership of it and
+      // destroy it on the next unload — a session-scoped HUD dying with a
+      // map it merely shares a name with.
+      if (!mounted) piece.scope = options.scope
     }
     this.sync()
   }

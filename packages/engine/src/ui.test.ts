@@ -166,6 +166,32 @@ describe('GameUi', () => {
     expect(ui.isVisible('hud')).toBe(true)
   })
 
+  it('never lets a later show change a mounted piece\'s scope (CA-5)', () => {
+    const { ui } = makeUi()
+    ui.define('hud', '<div>hud</div>')
+    // The host mounts its HUD for the session…
+    ui.show('hud')
+    // …and a scene's own `ui` list happens to name the same piece, which is
+    // how loadScene shows it. That must not hand the scene ownership of a
+    // piece the host means to keep across maps.
+    ui.show('hud', { scope: 'scene' })
+
+    ui.unloadScene()
+
+    expect(ui.isVisible('hud')).toBe(true)
+  })
+
+  it('keeps a scene-scoped piece scene-scoped when shown again unscoped (CA-5)', () => {
+    const { ui } = makeUi()
+    ui.define('prompt', '<div>press E</div>')
+    ui.show('prompt', { scope: 'scene' })
+    ui.show('prompt')
+
+    ui.unloadScene()
+
+    expect(ui.isVisible('prompt')).toBe(false)
+  })
+
   it('dispose removes the overlay and detaches stat subscriptions', () => {
     const { ui, stats, host } = makeUi({ points: 0 })
     ui.define('coin-counter', COUNTER)
