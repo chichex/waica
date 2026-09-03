@@ -18,6 +18,7 @@ import {
   Patrol,
   PlatformerMotor,
   Respawnable,
+  SceneTransition,
 } from '@waica/behaviors'
 import { PLATFORMER_ART } from './art.js'
 import { PLATFORMER_PREFABS } from './prefabs.js'
@@ -45,6 +46,7 @@ export const PLATFORMER_REGISTRY_DATA: SceneRegistry = {
     Respawnable,
     OutOfBounds,
     Lifetime,
+    SceneTransition,
   },
   resolveAsset: (uri) => PACKAGE_ASSETS[uri] ?? uri,
   prefabs: PLATFORMER_PREFABS,

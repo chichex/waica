@@ -15,7 +15,7 @@ export type RuntimeMode = 'paused' | 'real-time'
  * doesn't distinguish an engine that silently no-ops an unknown operation
  * from one that runs it.
  */
-export const RUNTIME_BRIDGE_CAPABILITIES = ['click'] as const
+export const RUNTIME_BRIDGE_CAPABILITIES = ['click', 'scene'] as const
 
 export interface RuntimeMetadata {
   bridgeVersion: typeof RUNTIME_BRIDGE_PROTOCOL_VERSION
@@ -31,6 +31,7 @@ export type RuntimeControlRequest =
   | { operation: 'pause' | 'resume' }
   | { operation: 'step'; dt?: number; frames?: number }
   | { operation: 'click'; x: number; y: number }
+  | { operation: 'scene'; scene: string }
 
 export interface RuntimeControlResult extends RuntimeMetadata {
   heldActions: string[]
@@ -43,6 +44,7 @@ export class RuntimeBridgeOperationError extends Error {
     readonly code: 'runtime-invalid-state' | 'runtime-operation-failed',
     message: string,
     readonly availableActions?: string[],
+    readonly availableScenes?: string[],
   ) {
     super(message)
     this.name = 'RuntimeBridgeOperationError'
@@ -87,6 +89,9 @@ export interface RuntimeBridgeHost {
   heldActions(): string[]
   inspect(metadata: RuntimeMetadata, filters?: RuntimeSnapshotFilters): RuntimeSnapshot
   click(x: number, y: number): void
+  /** Resolves `name` through the registered catalog and loads it. */
+  loadScene(name: string): boolean
+  availableScenes(): string[]
 }
 
 export class EngineRuntimeBridge implements RuntimeBridge {
@@ -175,6 +180,18 @@ export class EngineRuntimeBridge implements RuntimeBridge {
           )
         }
         this.host.click(request.x, request.y)
+        break
+      }
+      case 'scene': {
+        if (!this.host.loadScene(request.scene)) {
+          const available = this.host.availableScenes()
+          throw new RuntimeBridgeOperationError(
+            'runtime-operation-failed',
+            `Unknown scene "${request.scene}". Available scenes: ${available.join(', ') || '(none)'}.`,
+            undefined,
+            available,
+          )
+        }
         break
       }
       default: {

@@ -178,6 +178,18 @@ export class RuntimeSessionManager implements RuntimeService {
         diagnostics: { engineVersion: session.ready.engineVersion },
       })
     }
+    if (input.operation === 'scene' && !session.ready.capabilities.includes('scene')) {
+      throw new RuntimeToolError({
+        code: 'runtime-incompatible',
+        stage: 'control',
+        message:
+          "This Project's @waica/engine build does not support scene loading " +
+          "(control_runtime operation:'scene'); upgrade @waica/engine to a version " +
+          'that ships the scene Runtime Bridge operation.',
+        projectPath: session.preflight.projectPath,
+        diagnostics: { engineVersion: session.ready.engineVersion },
+      })
+    }
     const { projectPath: _projectPath, ...request } = input
     const controlled = await session.browser.control(request)
     return { ...this.sharedMetadata(session, controlled), heldActions: controlled.heldActions ?? [] }

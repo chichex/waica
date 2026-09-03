@@ -88,6 +88,23 @@ const GROUND_CELLS = Array.from({ length: MAP_WIDTH * MAP_HEIGHT }, (_, index) =
   tileAt(index % MAP_WIDTH, Math.floor(index / MAP_WIDTH)),
 )
 
+/** The second demo scene's ground: smaller and enclosed, so it reads as a distinct map. */
+export const ISOMETRIC_CAVE_MAP_WIDTH = 10
+export const ISOMETRIC_CAVE_MAP_HEIGHT = 10
+
+function caveTileAt(column: number, row: number): number {
+  const width = ISOMETRIC_CAVE_MAP_WIDTH
+  const height = ISOMETRIC_CAVE_MAP_HEIGHT
+  if (column === 0 || row === 0 || column === width - 1 || row === height - 1) return BORDER
+  if (column >= 4 && column <= 5 && row >= 4 && row <= 5) return WATER
+  return DIRT
+}
+
+export const ISOMETRIC_CAVE_GROUND_CELLS = Array.from(
+  { length: ISOMETRIC_CAVE_MAP_WIDTH * ISOMETRIC_CAVE_MAP_HEIGHT },
+  (_, index) => caveTileAt(index % ISOMETRIC_CAVE_MAP_WIDTH, Math.floor(index / ISOMETRIC_CAVE_MAP_WIDTH)),
+)
+
 export const ISOMETRIC_PREFABS: Record<string, PrefabJson> = {
   'characters/player': {
     waicaPrefab: 1,
@@ -214,6 +231,24 @@ export const ISOMETRIC_PREFABS: Record<string, PrefabJson> = {
         },
       },
       { type: 'Solid', props: { width: 0.8, height: 0.6 } },
+    ],
+  },
+  'objects/door': {
+    waicaPrefab: 1,
+    type: 'object',
+    components: [
+      {
+        type: 'Sprite',
+        props: {
+          texture: 'waica:iso-rock',
+          pixelArt: true,
+          width: 1,
+          height: 1,
+          anchorY: 0,
+        },
+      },
+      { type: 'Hitbox', props: { width: 0.8, height: 0.8 } },
+      { type: 'SceneTransition', props: { scene: 'cave' } },
     ],
   },
   'tiles/ground': {

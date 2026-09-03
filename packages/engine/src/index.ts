@@ -2,6 +2,7 @@ export { Game } from './game.js'
 export type {
   GameOptions,
   GameResolution,
+  SceneCatalog,
   SpawnPrefabOptions,
   UpdateFn,
   ParamOverrides,

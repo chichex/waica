@@ -13,12 +13,14 @@ export {
   isoPlayerUpdate,
 } from './iso-player-states.js'
 export {
+  fireInteract,
   INTERACTABLE_UI,
   INTERACTABLE_UI_PIECE,
   Interactable,
   interactUpdate,
 } from './interactable.js'
 export { Collectible } from './collectible.js'
+export { SceneTransition } from './scene-transition.js'
 export { Patrol, PATROLLER_ROLE, PATROLLER_STATE_GRAPH, type PatrolAxis } from './patrol.js'
 export { Chaser, CHASER_ROLE, CHASER_STATE_GRAPH, type ChaserMode } from './chaser.js'
 export { NPC_ROLE, NPC_STATE_GRAPH } from './npc.js'

@@ -1,10 +1,61 @@
-import { describe, expect, it, vi } from 'vitest'
+// @vitest-environment happy-dom
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('three', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('three')>()
+  class WebGLRenderer {
+    readonly domElement: HTMLCanvasElement
+    constructor({ canvas }: { canvas: HTMLCanvasElement }) {
+      this.domElement = canvas
+    }
+    setPixelRatio(): void {}
+    setSize(): void {}
+    setViewport(): void {}
+    setScissor(): void {}
+    setScissorTest(): void {}
+    setClearColor(): void {}
+    clear(): void {}
+    render(): void {}
+    setAnimationLoop(): void {}
+    dispose(): void {}
+  }
+  return { ...actual, WebGLRenderer }
+})
+
+import { Tilemap } from './components/tilemap'
+import { Game } from './game'
 import {
+  loadScene,
   resolveEntityComponents,
   resolveProps,
   type PrefabJson,
   type SceneEntityJson,
+  type SceneJson,
 } from './scene'
+
+class ResizeObserverStub {
+  observe(): void {}
+  disconnect(): void {}
+}
+
+function makeGame(): Game {
+  const canvas = document.createElement('canvas')
+  Object.defineProperties(canvas, {
+    clientWidth: { value: 640 },
+    clientHeight: { value: 360 },
+  })
+  document.body.append(canvas)
+  return new Game({ canvas })
+}
+
+beforeEach(() => {
+  document.body.innerHTML = ''
+  vi.stubGlobal('ResizeObserver', ResizeObserverStub)
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 const SLIME: PrefabJson = {
   waicaPrefab: 1,
@@ -151,5 +202,34 @@ describe('resolveProps', () => {
     })
     // Inputs are never mutated by the deep walk.
     expect(props.extraSheets[0]!.texture).toBe('waica:dog')
+  })
+})
+
+describe('loadScene replacing an already-loaded scene (CA-3)', () => {
+  it('leaves exactly one Player and one Tilemap, dropping the outgoing scene', () => {
+    const game = makeGame()
+    const outgoing: SceneJson = {
+      waicaScene: 3,
+      entities: [
+        { name: 'Player', components: [{ type: 'Tilemap' }] },
+        { name: 'Rock' },
+      ],
+    }
+    const incoming: SceneJson = {
+      waicaScene: 3,
+      entities: [
+        { name: 'Player', components: [{ type: 'Tilemap' }] },
+        { name: 'Torch' },
+      ],
+    }
+    loadScene(game, outgoing, { components: { Tilemap } })
+
+    loadScene(game, incoming, { components: { Tilemap } })
+
+    expect(game.entities.filter((e) => e.name === 'Player')).toHaveLength(1)
+    expect(game.entities.filter((e) => e.has(Tilemap))).toHaveLength(1)
+    expect(game.find('Rock')).toBeUndefined()
+    expect(game.find('Torch')).toBeDefined()
+    game.dispose()
   })
 })

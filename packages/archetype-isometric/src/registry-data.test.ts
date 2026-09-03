@@ -108,6 +108,7 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
   Health: { max: 3, invulnerability: 0, stat: '' },
   Respawnable: {},
   Lifetime: { seconds: 1 },
+  SceneTransition: { scene: '', trigger: 'overlap' },
   ClickToMove: {
     arrivalTolerance: 0.2,
     markerWidth: 0.5,

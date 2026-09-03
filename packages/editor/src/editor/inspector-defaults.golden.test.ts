@@ -54,12 +54,13 @@ const GOLDEN: Record<string, Record<string, unknown>> = {
   Respawnable: {},
   OutOfBounds: { minY: -12 },
   Lifetime: { seconds: 1 },
+  SceneTransition: { scene: '', trigger: 'overlap' },
 }
 
 describe('Inspector component rows (golden, behavior preservation)', () => {
   const archetype = resolveArchetype('platformer')
 
-  it('lists exactly the 15 platformer registry components in the golden', () => {
+  it('lists exactly the 16 platformer registry components in the golden', () => {
     expect(Object.keys(archetype.registry.components).sort()).toEqual(
       Object.keys(GOLDEN).sort(),
     )

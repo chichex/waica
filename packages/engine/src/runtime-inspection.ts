@@ -53,6 +53,8 @@ export interface RuntimeEntitySnapshot {
 
 export interface RuntimeSnapshot extends RuntimeMetadata {
   stats: Record<string, StatValue>
+  /** The live scene's name (its catalog key), or null with no scene loaded. */
+  scene: string | null
   entities: RuntimeEntitySnapshot[]
   projectionIssues: ProjectionIssue[]
 }
@@ -322,6 +324,7 @@ export class RuntimeInspector {
       stats: Object.fromEntries(
         [...this.game.stats.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
       ),
+      scene: this.game.sceneName,
       entities,
       projectionIssues,
     })

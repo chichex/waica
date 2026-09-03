@@ -25,6 +25,13 @@ export interface ArchetypeManifest {
   id: string
   label: string
   scene: SceneJson
+  /**
+   * Additional demo scenes beyond `scene` (its name is always "main"),
+   * keyed by name — the isometric archetype's second demo scene (CA-13).
+   * `start:blank` never emits these; `start:demo` emits one file per entry
+   * alongside `scene`.
+   */
+  extraScenes?: Readonly<Record<string, SceneJson>>
   blankScene: SceneJson
   registry: SceneRegistry
   palette: EntityTemplate[]

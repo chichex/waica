@@ -134,10 +134,11 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     markerColor: 0xffffff,
     markerTexture: '',
   },
+  SceneTransition: { scene: '', trigger: 'overlap' },
 }
 
 describe('TOPDOWN_REGISTRY_DATA authoring defaults', () => {
-  it('covers exactly the 16 registered components', () => {
+  it('covers exactly the 17 registered components', () => {
     expect(Object.keys(TOPDOWN_REGISTRY_DATA.components).sort()).toEqual(
       Object.keys(EXPECTED_DEFAULTS).sort(),
     )

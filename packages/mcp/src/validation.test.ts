@@ -129,7 +129,7 @@ export class PassiveTarget extends Component {
       ok: false,
       notes: [
         'Project marker src/scenes/main.scene.json is missing; src/game.json was accepted.',
-        'The shipped runtime loads src/scenes/main.scene.json; other scenes are validated but are not loaded automatically.',
+        'The shipped runtime boots on src/scenes/main.scene.json and registers every scene under src/scenes/ in a catalog; a SceneTransition or control_runtime operation:"scene" can load any of them by name.',
       ],
       provenance: [
         { package: '@waica/engine', version: await workspaceVersion('engine'), source: 'bundled' },
@@ -273,7 +273,7 @@ export class CycleRight extends Component {
       ]),
     )
     expect(result.notes).toContain(
-      'The shipped runtime loads src/scenes/main.scene.json; other scenes are validated but are not loaded automatically.',
+      'The shipped runtime boots on src/scenes/main.scene.json and registers every scene under src/scenes/ in a catalog; a SceneTransition or control_runtime operation:"scene" can load any of them by name.',
     )
     for (const finding of result.findings) {
       expect(finding).toMatchObject({
@@ -710,6 +710,92 @@ module.exports.ARCHETYPE = {
     expect(result.summary).toEqual({ errors: 0, warnings: 0, infos: 0 })
     expect(result.ok).toBe(true)
   })
+
+  it('reports no unknown-scene-transition-target for the generated isometric demo (CA-13, CA-16)', async () => {
+    const parent = await tempDir()
+    roots.push(parent)
+    const project = path.join(parent, 'valid-iso-game')
+    await createProject(project, 'demo', 'isometric')
+
+    const result = await validateProject(project)
+
+    // Both Doors (main -> cave, cave -> main) resolve real scenes: neither
+    // Door contributes a finding, whatever else the isometric demo reports.
+    expect(
+      result.findings.filter((finding) => finding.code === 'unknown-scene-transition-target'),
+    ).toEqual([])
+    // Both Doors keep the default trigger:'overlap' (they fire off the
+    // shipped Hitbox, not an Interactable), so the sibling-Interactable
+    // rule stays silent on the demo too.
+    expect(
+      result.findings.filter((finding) => finding.code === 'scene-transition-missing-interactable'),
+    ).toEqual([])
+    expect(result.summary.errors).toBe(0)
+    expect(result.ok).toBe(true)
+  })
+
+  it('warns naming the entity when a SceneTransition targets a scene the Project does not have (CA-16)', async () => {
+    const project = await makeProject({
+      'src/scenes/main.scene.json': JSON.stringify({
+        waicaScene: 3,
+        entities: [
+          {
+            name: 'Door',
+            components: [
+              { type: 'Hitbox' },
+              { type: 'SceneTransition', props: { scene: 'dungeon' } },
+            ],
+          },
+        ],
+      }),
+    })
+    roots.push(project)
+
+    const result = await validateProject(project)
+
+    expect(result.findings).toContainEqual({
+      severity: 'warning',
+      code: 'unknown-scene-transition-target',
+      message: 'SceneTransition on "Door" names unknown scene "dungeon".',
+      file: 'src/scenes/main.scene.json',
+      ref: 'dungeon',
+    })
+    expect(result.ok).toBe(true)
+  })
+
+  it('warns naming the prefab when its own SceneTransition targets a scene the Project does not have (CA-16)', async () => {
+    const project = await makeProject({
+      'src/objects/door.object.json': JSON.stringify({
+        waicaPrefab: 1,
+        type: 'object',
+        components: [
+          { type: 'Hitbox' },
+          { type: 'SceneTransition', props: { scene: 'dungeon' } },
+        ],
+      }),
+      'src/scenes/main.scene.json': JSON.stringify({
+        waicaScene: 3,
+        entities: [{ name: 'Door', prefab: 'objects/door' }],
+      }),
+    })
+    roots.push(project)
+
+    const result = await validateProject(project)
+
+    expect(result.findings).toContainEqual({
+      severity: 'warning',
+      code: 'unknown-scene-transition-target',
+      message: 'SceneTransition on "objects/door" names unknown scene "dungeon".',
+      file: 'src/objects/door.object.json',
+      ref: 'dungeon',
+    })
+    // A plain prefab instance with no scene override: reported once, on the prefab.
+    expect(
+      result.findings.filter((finding) => finding.code === 'unknown-scene-transition-target'),
+    ).toHaveLength(1)
+    expect(result.ok).toBe(true)
+  })
+
 })
 
 /**

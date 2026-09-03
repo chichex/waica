@@ -523,3 +523,317 @@ describe('y-sort render mode', () => {
     game.dispose()
   })
 })
+
+describe('Scene unload and swap', () => {
+  const step = (game: Game): void => {
+    ;(game as unknown as { runFrame(dt: number): void }).runFrame(1 / 60)
+  }
+
+  it('destroys every entity through Entity.destroy(), splicing entities in place (CA-1)', () => {
+    class TrackDestroy extends Component {
+      static override componentName = 'TrackDestroy'
+      override onDestroy(): void {
+        destroyed.push(this.entity.name)
+      }
+    }
+    const destroyed: string[] = []
+    const game = makeGame()
+    loadScene(
+      game,
+      {
+        waicaScene: 3,
+        entities: [
+          { name: 'A', components: [{ type: 'TrackDestroy' }] },
+          { name: 'B', components: [{ type: 'TrackDestroy' }] },
+        ],
+      },
+      { components: { TrackDestroy } },
+    )
+    const entitiesRef = game.entities
+
+    game.unloadScene()
+
+    expect(destroyed.sort()).toEqual(['A', 'B'])
+    expect(game.entities).toEqual([])
+    // Spliced in place: the Pointer holds this exact array by reference.
+    expect(game.entities).toBe(entitiesRef)
+    game.dispose()
+  })
+
+  it('leaves the Game as newly constructed, keeping session-scoped state (CA-2)', () => {
+    const game = makeGame()
+    game.paramOverrides = { Foo: { Bar: { x: 1 } } }
+    game.stats.set('score', 5)
+    loadScene(
+      game,
+      {
+        waicaScene: 3,
+        render: { sort: 'y', projection: 'isometric' },
+        camera: { position: [0, 0], zoom: 6 },
+        entities: [{ name: 'P' }],
+      },
+      { components: {} },
+    )
+    expect(game.registry).not.toBeNull()
+    expect(game.projection).toBe('isometric')
+    expect(game.view).toBe(6)
+
+    game.unloadScene()
+
+    expect(game.registry).toBeNull()
+    expect(game.projection).toBeNull()
+    expect(game.view).toBe(10)
+    // Session-scoped: unaffected by the unload.
+    expect(game.paramOverrides).toEqual({ Foo: { Bar: { x: 1 } } })
+    expect(game.stats.get('score')).toBe(5)
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    expect(game.spawnPrefab('anything')).toBeNull()
+    expect(warn.mock.calls[0]?.[0]).toContain('before loadScene')
+    warn.mockRestore()
+
+    // y-sort is off: a reload without render.sort renders flat (layer-only z).
+    loadScene(
+      game,
+      {
+        waicaScene: 3,
+        entities: [
+          { name: 'X', position: [0, 5], components: [{ type: 'Sprite', props: { layer: 1 } }] },
+          { name: 'Y', position: [0, -5], components: [{ type: 'Sprite', props: { layer: 1 } }] },
+        ],
+      },
+      { components: { Sprite } },
+    )
+    step(game)
+    const meshZ = (name: string): number =>
+      (game.find(name)!.node.children[0] as { position: { z: number } }).position.z
+    expect(meshZ('X')).toBe(0.01)
+    expect(meshZ('Y')).toBe(0.01)
+
+    game.dispose()
+  })
+
+  it('keeps event and onUpdate subscriptions across a swap, firing exactly once (CA-4)', () => {
+    const game = makeGame()
+    loadScene(game, { waicaScene: 3, entities: [] }, { components: {} })
+    const events: number[] = []
+    const updates: number[] = []
+    game.events.on('ping', () => events.push(1))
+    game.onUpdate(() => updates.push(1))
+
+    loadScene(game, { waicaScene: 3, entities: [] }, { components: {} })
+    game.events.emit('ping')
+    step(game)
+
+    expect(events).toEqual([1])
+    expect(updates).toEqual([1])
+    game.dispose()
+  })
+
+  it('restores the constructor viewHeight with no camera block, and frames a later block (CA-6)', () => {
+    const game = makeGame()
+    loadScene(
+      game,
+      { waicaScene: 3, camera: { position: [0, 0], zoom: 6 }, entities: [] },
+      { components: {} },
+    )
+    expect(game.view).toBe(6)
+
+    loadScene(game, { waicaScene: 3, entities: [] }, { components: {} })
+    expect(game.view).toBe(10)
+
+    loadScene(
+      game,
+      { waicaScene: 3, camera: { position: [0, 0], zoom: 4 }, entities: [] },
+      { components: {} },
+    )
+    expect(game.view).toBe(4)
+    game.dispose()
+  })
+
+  it('defers a mid-frame scene swap to the next frame (CA-7)', () => {
+    const game = makeGame()
+    class SwapOnCollide extends Component {
+      static override componentName = 'SwapOnCollide'
+      override onCollide(): void {
+        game.loadSceneByName('next')
+      }
+    }
+    game.registerSceneCatalog({
+      scenes: { next: { waicaScene: 3, entities: [{ name: 'Room2' }] } },
+      registry: { components: { Hitbox, SwapOnCollide } },
+    })
+    loadScene(
+      game,
+      {
+        waicaScene: 3,
+        entities: [
+          { name: 'A', components: [{ type: 'Hitbox' }, { type: 'SwapOnCollide' }] },
+          { name: 'B', components: [{ type: 'Hitbox' }] },
+        ],
+      },
+      { components: { Hitbox, SwapOnCollide } },
+    )
+
+    step(game) // dispatches the collision: onCollide enqueues the swap
+    expect(game.find('A')).toBeDefined()
+    expect(game.find('Room2')).toBeUndefined()
+
+    step(game) // flushes the enqueued swap at this frame's start
+    expect(game.find('A')).toBeUndefined()
+    expect(game.find('Room2')).toBeDefined()
+    expect(game.sceneName).toBe('next')
+    game.dispose()
+  })
+
+  it('resolves loadSceneByName through the registered catalog (CA-8, CA-9)', () => {
+    const game = makeGame()
+    expect(game.sceneName).toBeNull()
+    game.registerSceneCatalog({
+      scenes: { cave: { waicaScene: 3, entities: [{ name: 'Torch' }] } },
+      registry: { components: {} },
+    })
+    loadScene(game, { waicaScene: 3, entities: [{ name: 'Player' }] }, { components: {} })
+
+    expect(game.loadSceneByName('cave')).toBe(true)
+    expect(game.find('Torch')).toBeDefined()
+    expect(game.sceneName).toBe('cave')
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    expect(game.loadSceneByName('nope')).toBe(false)
+    expect(warn).toHaveBeenCalledOnce()
+    expect(warn.mock.calls[0]?.[0]).toContain('nope')
+    // Unknown name: no unload, no partial state — the live scene is untouched.
+    expect(game.sceneName).toBe('cave')
+    expect(game.find('Torch')).toBeDefined()
+    warn.mockRestore()
+    game.dispose()
+  })
+
+  it('lets the first mid-frame swap of a frame win, and says so', () => {
+    const game = makeGame()
+    const swaps: string[] = []
+    class SwapOnCollide extends Component {
+      static override componentName = 'SwapOnCollide'
+      scene = ''
+      override onCollide(): void {
+        swaps.push(this.scene)
+        game.loadSceneByName(this.scene)
+      }
+    }
+    const components = { Hitbox, SwapOnCollide }
+    game.registerSceneCatalog({
+      scenes: {
+        first: { waicaScene: 3, entities: [{ name: 'First' }] },
+        second: { waicaScene: 3, entities: [{ name: 'Second' }] },
+      },
+      registry: { components },
+    })
+    // Two doors the player is touching at once: both resolve in the same
+    // dispatchCollisions, so both ask for a swap before either can apply.
+    loadScene(
+      game,
+      {
+        waicaScene: 3,
+        entities: [
+          { name: 'Player', components: [{ type: 'Hitbox' }] },
+          {
+            name: 'DoorA',
+            components: [{ type: 'Hitbox' }, { type: 'SwapOnCollide', props: { scene: 'first' } }],
+          },
+          {
+            name: 'DoorB',
+            components: [{ type: 'Hitbox' }, { type: 'SwapOnCollide', props: { scene: 'second' } }],
+          },
+        ],
+      },
+      { components },
+    )
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    step(game)
+    expect(swaps.length).toBeGreaterThan(1)
+    expect(warn.mock.calls.some((call) => String(call[0]).includes('already queued'))).toBe(true)
+    step(game)
+
+    // The first request wins; the loser never silently overrode it.
+    expect(game.sceneName).toBe(swaps[0])
+    warn.mockRestore()
+    game.dispose()
+  })
+
+  it('lets an out-of-frame load override a swap queued earlier that frame', () => {
+    const game = makeGame()
+    class SwapOnCollide extends Component {
+      static override componentName = 'SwapOnCollide'
+      override onCollide(): void {
+        game.loadSceneByName('cave')
+      }
+    }
+    const components = { Hitbox, SwapOnCollide }
+    game.registerSceneCatalog({
+      scenes: {
+        cave: { waicaScene: 3, entities: [{ name: 'Torch' }] },
+        town: { waicaScene: 3, entities: [{ name: 'Well' }] },
+      },
+      registry: { components },
+    })
+    loadScene(
+      game,
+      {
+        waicaScene: 3,
+        entities: [
+          { name: 'A', components: [{ type: 'Hitbox' }, { type: 'SwapOnCollide' }] },
+          { name: 'B', components: [{ type: 'Hitbox' }] },
+        ],
+      },
+      { components },
+    )
+
+    step(game) // a transition queues "cave"
+    // Between frames — this is the Runtime Bridge's `scene` operation. It
+    // applies now and must not be undone by the queued swap next frame.
+    expect(game.loadSceneByName('town')).toBe(true)
+    expect(game.sceneName).toBe('town')
+
+    step(game)
+    expect(game.sceneName).toBe('town')
+    expect(game.find('Well')).toBeDefined()
+    expect(game.find('Torch')).toBeUndefined()
+    game.dispose()
+  })
+
+  it('drops a queued swap when the scene is explicitly unloaded', () => {
+    const game = makeGame()
+    class SwapOnCollide extends Component {
+      static override componentName = 'SwapOnCollide'
+      override onCollide(): void {
+        game.loadSceneByName('cave')
+        game.unloadScene()
+      }
+    }
+    const components = { Hitbox, SwapOnCollide }
+    game.registerSceneCatalog({
+      scenes: { cave: { waicaScene: 3, entities: [{ name: 'Torch' }] } },
+      registry: { components },
+    })
+    loadScene(
+      game,
+      {
+        waicaScene: 3,
+        entities: [
+          { name: 'A', components: [{ type: 'Hitbox' }, { type: 'SwapOnCollide' }] },
+          { name: 'B', components: [{ type: 'Hitbox' }] },
+        ],
+      },
+      { components },
+    )
+
+    step(game)
+    step(game)
+    // "No scene" means no scene: the queued swap must not resurrect one.
+    expect(game.entities).toHaveLength(0)
+    expect(game.sceneName).toBeNull()
+    game.dispose()
+  })
+})

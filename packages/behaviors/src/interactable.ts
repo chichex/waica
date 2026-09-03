@@ -1,4 +1,4 @@
-import { Component, type StateContext } from '@waica/engine'
+import { Component, type Entity, type StateContext } from '@waica/engine'
 
 /**
  * Something the player can talk to or examine: a dialogue line and the
@@ -44,6 +44,17 @@ export const INTERACTABLE_UI: Readonly<Record<string, string>> = {
 }
 
 /**
+ * Runs onInteract on every component of `target` — the winner of the
+ * nearest-Interactable scan. The two paths that win it (the interact key,
+ * via interactUpdate, and a click-to-move NPC order arrival) both call this,
+ * so a sibling component (e.g. SceneTransition with trigger:'interact')
+ * fires the same way from either input scheme.
+ */
+export function fireInteract(target: Entity, initiator: Entity): void {
+  for (const component of [...target.components]) component.onInteract?.(initiator)
+}
+
+/**
  * The player role's interact lookup, run by its '*' hook in every state:
  * pressing interact near an Interactable publishes its line through the
  * npcLine stat and shows the npc-line UI piece; walking out of every
@@ -51,6 +62,7 @@ export const INTERACTABLE_UI: Readonly<Record<string, string>> = {
  */
 export function interactUpdate({ entity, game }: StateContext): void {
   let nearest: Interactable | null = null
+  let nearestEntity: Entity | null = null
   let nearestDistance = Infinity
   for (const other of game.entities) {
     if (other === entity) continue
@@ -62,10 +74,11 @@ export function interactUpdate({ entity, game }: StateContext): void {
     )
     if (distance <= interactable.radius && distance < nearestDistance) {
       nearest = interactable
+      nearestEntity = other
       nearestDistance = distance
     }
   }
-  if (!nearest) {
+  if (!nearest || !nearestEntity) {
     game.ui.hide(INTERACTABLE_UI_PIECE)
     return
   }
@@ -73,6 +86,10 @@ export function interactUpdate({ entity, game }: StateContext): void {
     // The press is spent: an input:interact edge needs a NEW press.
     game.input.consume('interact')
     game.stats.set('npcLine', nearest.line)
-    game.ui.show(INTERACTABLE_UI_PIECE)
+    // Scene-scoped: the scan that hides this prompt dies with the scene, so
+    // without a scope the prompt would survive a swap into a map where
+    // nothing knows to hide it — stale line and all (grill decision 8).
+    game.ui.show(INTERACTABLE_UI_PIECE, { scope: 'scene' })
+    fireInteract(nearestEntity, entity)
   }
 }

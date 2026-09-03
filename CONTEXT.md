@@ -65,3 +65,11 @@ _Avoid_: destination, waypoint
 **Navigation Grid**:
 The transient lattice of walkable logical cells rasterized from a scene's Solids (Tilemap cells included) that pathfinding plans over. Derived from the live scene, never authored.
 _Avoid_: navmesh, pathfinding map
+
+**Session-scoped**:
+What belongs to a running Game rather than to the scene it is currently showing: stats, parameter overrides, input, pointer, renderer, and every subscription its host created. It survives a scene change. Its complement is **scene-scoped** — the entities a scene spawned and the UI pieces it declared or showed as its own — which is exactly what unloading a scene destroys. A Game shows one scene at a time; loading another replaces it.
+_Avoid_: global, persistent, permanent
+
+**Scene Transition**:
+An authored trigger that replaces the live scene with another of the Project's scenes, fired by walking into it or by interacting with it. It names only its destination: the incoming scene places its own player wherever that scene authored it.
+_Avoid_: door, portal, warp, level change

@@ -131,6 +131,14 @@
         9,
         4
       ]
+    },
+    {
+      "name": "Door",
+      "prefab": "objects/door",
+      "position": [
+        2,
+        2
+      ]
     }
   ],
   "ui": [

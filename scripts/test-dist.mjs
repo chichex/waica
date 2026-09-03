@@ -743,6 +743,7 @@ try {
     includeTopdown: false,
     includeIsometric: false,
     includeProjection: false,
+    includeSceneSwap: false,
   })
 
   console.log(

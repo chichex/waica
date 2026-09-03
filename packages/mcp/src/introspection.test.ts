@@ -12,7 +12,7 @@ const roots: string[] = []
 afterEach(async () => cleanup(...roots.splice(0)))
 
 describe('listComponents', () => {
-  it('describes all 15 platformer classes and only the four declared display names', async () => {
+  it('describes all 16 platformer classes and only the four declared display names', async () => {
     const project = await makeProject({
       'src/components/dash.ts': `export class Dash { static componentName = 'Dash' }\n`,
       'src/roles/guard.ts': `// project role\n`,
@@ -23,7 +23,7 @@ describe('listComponents', () => {
 
     const result = await listComponents(project)
 
-    expect(result.components).toHaveLength(15)
+    expect(result.components).toHaveLength(16)
     expect(result.components.map((component) => component.componentName)).toEqual(
       expect.arrayContaining([
         'Sprite',
@@ -41,6 +41,7 @@ describe('listComponents', () => {
         'Respawnable',
         'OutOfBounds',
         'Lifetime',
+        'SceneTransition',
       ]),
     )
     expect(
@@ -65,6 +66,16 @@ describe('listComponents', () => {
       params: {
         stat: { label: 'Adds to stat', ref: 'stat' },
       },
+    })
+    expect(
+      result.components.find((component) => component.componentName === 'SceneTransition'),
+    ).toMatchObject({
+      params: {
+        scene: { label: 'Scene' },
+        trigger: { label: 'Trigger', options: ['overlap', 'interact'] },
+      },
+      defaults: { scene: '', trigger: 'overlap' },
+      sourcePackage: '@waica/behaviors',
     })
     expect(result.components.find((component) => component.componentName === 'Sprite')).toMatchObject({
       sourcePackage: '@waica/engine',
@@ -124,7 +135,7 @@ describe('listComponents', () => {
       path: 'src/components/explodes.ts',
       validated: false,
     })
-    expect(result.components).toHaveLength(15)
+    expect(result.components).toHaveLength(16)
   })
 
   it('attributes mixed-source components by their stable package contract', async () => {
@@ -148,7 +159,7 @@ describe('listComponents', () => {
 
     const result = await listComponents(project)
 
-    expect(result.components).toHaveLength(15)
+    expect(result.components).toHaveLength(16)
     expect(result.warnings.join('\n')).toMatch(/package\.json.*parse|parse.*package\.json/i)
   })
 

@@ -22,7 +22,14 @@ import {
 import { RuntimeInspector } from './runtime-inspection.js'
 import { projectIsometric } from './projection.js'
 import { isYSortParticipant, ySortZ, type YSortEntry, type YSortParticipant } from './render-sort.js'
-import { registryEntry, spawnFromJson, type SceneRegistry, type SceneRenderJson } from './scene.js'
+import {
+  loadScene,
+  registryEntry,
+  spawnFromJson,
+  type SceneJson,
+  type SceneRegistry,
+  type SceneRenderJson,
+} from './scene.js'
 import { Stats, type StatValue } from './stats.js'
 import { GameUi } from './ui.js'
 
@@ -52,6 +59,12 @@ export type UpdateFn = (dt: number) => void
 export interface SpawnPrefabOptions {
   name?: string
   position?: [number, number]
+}
+
+/** The Project's scenes by name (a file's stem), plus the registry shared by all of them. */
+export interface SceneCatalog {
+  scenes: Record<string, SceneJson>
+  registry: SceneRegistry
 }
 
 /** Persisted overrides: entity → componentName → prop → value. */
@@ -86,15 +99,26 @@ export class Game {
   private readonly updateFns = new Set<UpdateFn>()
   private readonly invalidUpdateCompositions = new WeakMap<Entity, string>()
   private readonly resolution: GameResolution | null
+  /** The constructor's viewHeight — unloadScene() restores it. */
+  private readonly baseViewHeight: number
   private viewHeight: number
   private sceneCamera: ResolvedSceneCamera | null = null
   private renderSort: 'y' | null = null
   private sceneProjection: 'isometric' | null = null
   private lastTime = 0
   private runtimeBridge: EngineRuntimeBridge | null = null
+  /** Host-registered scenes by name, resolved by loadSceneByName. Session-scoped. */
+  private sceneCatalog: SceneCatalog | null = null
+  /** The live scene's name (its catalog key), or null with no scene loaded. */
+  private liveSceneName: string | null = null
+  /** True for the whole extent of a runFrame() call, incl. its tail. */
+  private insideFrame = false
+  /** A loadSceneByName() enqueued while insideFrame; applied at the next runFrame's start. */
+  private pendingSceneLoad: (() => void) | null = null
 
   constructor(options: GameOptions) {
     const { canvas, background = 0x1a1a2e, viewHeight = 10 } = options
+    this.baseViewHeight = viewHeight
     this.viewHeight = viewHeight
     this.resolution = options.resolution ?? null
     this.input = new Input(options.bindings)
@@ -148,6 +172,88 @@ export class Game {
   /** Finds an entity by name. */
   find(name: string): Entity | undefined {
     return this.entities.find((e) => e.name === name)
+  }
+
+  /**
+   * Destroys the live scene — every entity (Entity.destroy(), so onDestroy
+   * cascades and GPU resources release) and its scene-scoped UI — and
+   * leaves the Game as newly constructed: no registry, no scene camera, no
+   * render sort or projection, viewHeight back to the constructor's.
+   * Session-scoped state (stats, paramOverrides, subscriptions, the scene
+   * catalog) is untouched. See ADR 0011. Public: the seam `loadScene` calls
+   * to replace a scene, and how a host leaves the Game with none loaded.
+   */
+  unloadScene(): void {
+    this.ui.unloadScene()
+    // An explicit unload means "no scene": a swap queued earlier this frame
+    // would otherwise flush next frame and resurrect one.
+    this.pendingSceneLoad = null
+    // Entity.destroy() splices itself out of `this.entities` in place — the
+    // Pointer holds that array by reference, so it must never be reassigned.
+    for (const entity of [...this.entities]) entity.destroy()
+    this.registry = null
+    this.renderSort = null
+    this.sceneProjection = null
+    this.sceneCamera = null
+    this.liveSceneName = null
+    this.setViewHeight(this.baseViewHeight)
+  }
+
+  /** Registers the Project's scenes by name, resolved by loadSceneByName. */
+  registerSceneCatalog(catalog: SceneCatalog): void {
+    this.sceneCatalog = catalog
+  }
+
+  /** The live scene's name (its catalog key), or null with no scene loaded. */
+  get sceneName(): string | null {
+    return this.liveSceneName
+  }
+
+  /** Names registered via registerSceneCatalog, in registration order. */
+  get availableScenes(): string[] {
+    return this.sceneCatalog ? Object.keys(this.sceneCatalog.scenes) : []
+  }
+
+  /**
+   * Resolves `name` through the registered catalog and loads it, replacing
+   * the live scene. An unknown name warns and leaves the live scene
+   * untouched. Triggered mid-frame (e.g. from a SceneTransition's
+   * onCollide/onInteract) the swap is deferred to the very start of the
+   * next runFrame — dispatchCollisions finishes its double loop over the
+   * outgoing scene, and the incoming scene's entities are present only
+   * from the next frame. Called from outside a frame (boot, or the Runtime
+   * Bridge's `scene` control operation) it applies synchronously and wins
+   * over anything queued earlier this frame. A second mid-frame request
+   * loses to the first and says so. Returns whether the load took effect.
+   */
+  loadSceneByName(name: string): boolean {
+    const catalog = this.sceneCatalog
+    const json = catalog ? registryEntry(catalog.scenes, name) : undefined
+    if (!catalog || !json) {
+      console.warn(`[waica] unknown scene: "${name}"`)
+      return false
+    }
+    const apply = (): void => {
+      loadScene(this, json, catalog.registry)
+      this.liveSceneName = name
+    }
+    if (!this.insideFrame) {
+      // Authoritative: dropping the queue is the point. A swap a transition
+      // enqueued earlier would otherwise flush on the next frame and silently
+      // undo this load, reporting success for a scene the caller never got.
+      this.pendingSceneLoad = null
+      apply()
+      return true
+    }
+    if (this.pendingSceneLoad) {
+      // Two transitions resolving in the same collision dispatch: the one the
+      // simulation reached first wins, and the loser is told. Last-write-wins
+      // would drop the player in the other door's destination with no signal.
+      console.warn(`[waica] a scene swap is already queued this frame; ignoring "${name}"`)
+      return false
+    }
+    this.pendingSceneLoad = apply
+    return true
   }
 
   /** Loads persisted parameter overrides (waica.params.json). */
@@ -226,6 +332,8 @@ export class Game {
           click: (x, y) => {
             this.pointer.injectClick(x, y)
           },
+          loadScene: (name) => this.loadSceneByName(name),
+          availableScenes: () => this.availableScenes,
         })
         activation.register(this.runtimeBridge)
         window.addEventListener('pagehide', this.unregisterRuntimeBridge)
@@ -290,20 +398,36 @@ export class Game {
   }
 
   private runFrame(dt: number): void {
-    if (this.simulate) {
-      for (const entity of [...this.entities]) {
-        const schedule = this.componentUpdateSchedule(entity)
-        if (!schedule) continue
-        for (const component of schedule) component.onUpdate?.(dt)
+    this.insideFrame = true
+    try {
+      // Flushes a scene swap enqueued mid-frame last time (CA-7): applied
+      // before this frame's own simulation, so the incoming scene's
+      // entities are present only from this next frame onward.
+      this.flushPendingSceneLoad()
+      if (this.simulate) {
+        for (const entity of [...this.entities]) {
+          const schedule = this.componentUpdateSchedule(entity)
+          if (!schedule) continue
+          for (const component of schedule) component.onUpdate?.(dt)
+        }
+        this.dispatchCollisions()
+        this.updateSceneCamera(dt)
       }
-      this.dispatchCollisions()
-      this.updateSceneCamera(dt)
+      // The UI must react to the pause itself (hide until resumed).
+      this.ui.setActive(this.simulate)
+      for (const fn of this.updateFns) fn(dt)
+      this.input.endFrame()
+      this.renderSurface()
+    } finally {
+      this.insideFrame = false
     }
-    // The UI must react to the pause itself (hide until resumed).
-    this.ui.setActive(this.simulate)
-    for (const fn of this.updateFns) fn(dt)
-    this.input.endFrame()
-    this.renderSurface()
+  }
+
+  private flushPendingSceneLoad(): void {
+    const pending = this.pendingSceneLoad
+    if (!pending) return
+    this.pendingSceneLoad = null
+    pending()
   }
 
   private unregisterRuntimeBridge = (): void => {
