@@ -73,3 +73,11 @@ _Avoid_: global, persistent, permanent
 **Scene Transition**:
 An authored trigger that replaces the live scene with another of the Project's scenes, fired by walking into it or by interacting with it. It names only its destination: the incoming scene places its own player wherever that scene authored it.
 _Avoid_: door, portal, warp, level change
+
+**Art**:
+Any asset file an archetype ships for its demo — sprite sheets, tiles and sounds alike — declared as a file, the `waica:*` URI that resolves to it, and which kind of asset it is. One catalog and one emission path into a project's `src/art/`; the kind travels as data, so a picker, a validator or an agent tells a sound from a sprite without parsing file names.
+_Avoid_: images, textures, sprites, graphics
+
+**Audio Channel**:
+The named mixing group a sound plays on, with its own volume and mute, scaled by a single master. `music` and `sfx` exist from the start; naming any other one while playing creates it. A channel carries mixing and nothing else — how long a sound outlives its scene is declared per sound, not by the channel it sits on.
+_Avoid_: bus, track, group, layer
