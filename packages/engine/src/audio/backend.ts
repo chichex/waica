@@ -23,6 +23,12 @@ export interface BackendPlayHandle {
   /** Changes the sound's own gain while it plays. */
   setVolume(volume: number): void
   /**
+   * Sets the stereo pan in [-1, 1] (-1 fully left, 0 centered, 1 fully
+   * right). Only ever called for a sound started with `at` (CA-8); a flat
+   * sound never receives a call.
+   */
+  setPan(pan: number): void
+  /**
    * Stops the sound. With no fadeMs, releases immediately (onEnded still
    * fires, but the caller doesn't wait for it). With fadeMs, ramps gain to
    * zero over that many milliseconds before releasing — onEnded fires once

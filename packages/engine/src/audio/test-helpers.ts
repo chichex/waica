@@ -21,8 +21,11 @@ export interface FakePlayback {
   readonly channel: string
   readonly loop: boolean
   volume: number
+  pan: number
   readonly stops: FakeStopCall[]
   readonly setVolumeCalls: number[]
+  /** CA-8: every pan the subsystem sent this playback, in order. Empty for a flat sound. */
+  readonly setPanCalls: number[]
   /** Simulates the sound truly finishing (natural end, or a fade's ramp completing). */
   finish(): void
 }
@@ -64,8 +67,10 @@ export class FakeAudioBackend implements AudioBackend {
       channel: options.channel,
       loop: options.loop,
       volume: options.volume,
+      pan: 0,
       stops: [],
       setVolumeCalls: [],
+      setPanCalls: [],
       finish: () => {
         if (ended) return
         ended = true
@@ -77,6 +82,10 @@ export class FakeAudioBackend implements AudioBackend {
       setVolume: (volume: number) => {
         playback.volume = volume
         playback.setVolumeCalls.push(volume)
+      },
+      setPan: (pan: number) => {
+        playback.pan = pan
+        playback.setPanCalls.push(pan)
       },
       stop: (fadeMs?: number) => {
         playback.stops.push({ fadeMs })

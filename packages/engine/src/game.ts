@@ -22,7 +22,7 @@ import {
   EngineRuntimeBridge,
 } from './runtime-bridge.js'
 import { RuntimeInspector } from './runtime-inspection.js'
-import { projectIsometric } from './projection.js'
+import { projectIsometric, unprojectIsometric } from './projection.js'
 import { isYSortParticipant, ySortZ, type YSortEntry, type YSortParticipant } from './render-sort.js'
 import {
   loadScene,
@@ -198,6 +198,7 @@ export class Game {
    */
   unloadScene(): void {
     this.ui.unloadScene()
+    this.audio.unloadScene()
     // An explicit unload means "no scene": a swap queued earlier this frame
     // would otherwise flush next frame and resurrect one.
     this.pendingSceneLoad = null
@@ -431,6 +432,10 @@ export class Game {
       // The UI must react to the pause itself (hide until resumed).
       this.ui.setActive(this.simulate)
       this.audio.setActive(this.simulate)
+      // Positional audio (CA-8): recomputed every frame, on this same pass —
+      // never a second walk of `this.entities`, since `this.audio` already
+      // holds direct references to whichever entities are tracked.
+      this.audio.updatePlacements(this.audioListenerPosition(), (x, y) => this.renderPoint(x, y))
       for (const fn of this.updateFns) fn(dt)
       this.input.endFrame()
       this.renderSurface()
@@ -554,6 +559,18 @@ export class Game {
 
   private renderPoint(x: number, y: number): { x: number; y: number } {
     return this.sceneProjection === 'isometric' ? projectIsometric(x, y) : { x, y }
+  }
+
+  /**
+   * The audio listener's position (CA-8) in logical coordinates. The camera
+   * itself only ever holds render-space coordinates (see `updateSceneCamera`,
+   * `setSceneCamera`), so under `projection: 'isometric'` this is the exact
+   * inverse of `renderPoint` — without it, distance-based attenuation would
+   * measure render-space distance instead of real game distance.
+   */
+  private audioListenerPosition(): { x: number; y: number } {
+    const { x, y } = this.camera.position
+    return this.sceneProjection === 'isometric' ? unprojectIsometric(x, y) : { x, y }
   }
 
   private dispatchCollisions(): void {

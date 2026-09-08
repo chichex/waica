@@ -1,4 +1,6 @@
 import type { AudioBackend, AudioResource, BackendPlayHandle } from './backend.js'
+import { Entity } from '../entity.js'
+import { attenuationForDistance, panForOffset } from './spatial.js'
 import { WebAudioBackend } from './web-audio-backend.js'
 import type { AudioChannelState, AudioPlayOptions, LiveSoundInfo, SoundHandle } from './types.js'
 
@@ -11,14 +13,30 @@ export interface AudioSubsystemOptions {
 
 type ResourceState = { status: 'pending' } | { status: 'ready'; resource: AudioResource } | { status: 'failed' }
 
+/** Where a positional sound's placement comes from (CA-8): a tracked entity, or a fixed point. */
+type SoundPlacement = { kind: 'entity'; entity: Entity } | { kind: 'point'; x: number; y: number }
+
 interface LiveSound {
   uri: string
   channel: string
   scope: 'scene' | 'session'
   loop: boolean
+  /** The sound's own gain, set by the caller/handle — independent of positional attenuation. */
   volume: number
+  /** Last computed distance attenuation (CA-8): 1 for a flat sound, always. */
+  attenuation: number
+  /** Last computed stereo pan (CA-8): 0 (centered) for a flat sound, always. */
+  pan: number
+  /** Null for a flat sound (no `at`): never touched by updatePlacements. */
+  placement: SoundPlacement | null
   ended: boolean
   backendHandle: BackendPlayHandle | null
+}
+
+function resolvePlacement(at: AudioPlayOptions['at']): SoundPlacement | null {
+  if (!at) return null
+  if (at instanceof Entity) return { kind: 'entity', entity: at }
+  return { kind: 'point', x: at.x, y: at.y }
 }
 
 const FACTORY_CHANNELS = ['music', 'sfx'] as const
@@ -28,7 +46,8 @@ const FACTORY_CHANNELS = ['music', 'sfx'] as const
  * the AudioBackend seam (ADR 0013), so the whole contract is assertable in
  * `happy-dom` against an injected fake. A sound dies with its scene unless
  * it says `{ scope: 'session' }` — the opposite default from GameUi, on
- * purpose (ADR 0012); scene-scoped teardown itself is CA-7, wired in later.
+ * purpose (ADR 0012); `unloadScene()` is Game's hook for that (CA-7).
+ * `updatePlacements()` is Game's per-frame hook for positional audio (CA-8).
  */
 export class AudioSubsystem {
   private readonly backend: AudioBackend
@@ -55,19 +74,32 @@ export class AudioSubsystem {
   /**
    * Starts a sound. Before the first unlock (CA-6) this registers nothing
    * and touches no backend at all — the returned handle just reports
-   * `playing: false` forever. `opts.at` (CA-8, positional audio) is
-   * accepted here and currently ignored: the sound plays flat.
+   * `playing: false` forever. `opts.at` (CA-8, positional audio) sets up
+   * placement tracking; Game calls updatePlacements() once per frame to
+   * actually compute pan/attenuation and forward them to the backend.
    */
   play(uri: string, opts: AudioPlayOptions = {}): SoundHandle {
     const channel = opts.channel ?? 'sfx'
     const volume = opts.volume ?? 1
     const loop = opts.loop ?? false
     const scope: 'scene' | 'session' = opts.scope === 'session' ? 'session' : 'scene'
+    const placement = resolvePlacement(opts.at)
     this.ensureChannel(channel)
 
     if (!this.unlocked) return inertHandle(volume)
 
-    const sound: LiveSound = { uri, channel, scope, loop, volume, ended: false, backendHandle: null }
+    const sound: LiveSound = {
+      uri,
+      channel,
+      scope,
+      loop,
+      volume,
+      attenuation: 1,
+      pan: 0,
+      placement,
+      ended: false,
+      backendHandle: null,
+    }
     this.live.add(sound)
     this.attach(uri, sound)
     return this.handleFor(sound)
@@ -143,6 +175,48 @@ export class AudioSubsystem {
     this.syncOutput()
   }
 
+  /**
+   * Stops every scene-scoped sound; a sound started with `{ scope: 'session'
+   * }` keeps playing, untouched (CA-7, ADR 0012). Called by Game.unloadScene().
+   */
+  unloadScene(): void {
+    for (const sound of [...this.live]) {
+      if (sound.scope === 'session') continue
+      this.stopSound(sound, undefined)
+    }
+  }
+
+  /**
+   * Recomputes pan and distance attenuation for every live sound started
+   * with `at` (CA-8) — called by Game once per frame. `listener` and every
+   * placement's source position are logical coordinates, so attenuation
+   * reflects real game distance; `toRenderSpace` (`game.renderPoint`)
+   * converts both to render space for panning, so an isometric source that
+   * reads to the right on screen pans right regardless of its logical
+   * distance. A sound with no placement (a flat sound) is never touched.
+   */
+  updatePlacements(
+    listener: { x: number; y: number },
+    toRenderSpace: (x: number, y: number) => { x: number; y: number },
+  ): void {
+    if (this.live.size === 0) return
+    let listenerRender: { x: number; y: number } | null = null
+    for (const sound of this.live) {
+      const placement = sound.placement
+      if (!placement) continue
+      const source =
+        placement.kind === 'entity'
+          ? { x: placement.entity.position.x, y: placement.entity.position.y }
+          : placement
+      sound.attenuation = attenuationForDistance(Math.hypot(source.x - listener.x, source.y - listener.y))
+      listenerRender ??= toRenderSpace(listener.x, listener.y)
+      const sourceRender = toRenderSpace(source.x, source.y)
+      sound.pan = panForOffset(sourceRender.x - listenerRender.x)
+      sound.backendHandle?.setVolume(sound.volume * sound.attenuation)
+      sound.backendHandle?.setPan(sound.pan)
+    }
+  }
+
   /** Stops every live sound — including session-scoped ones — and closes the backend (CA-10). */
   dispose(): void {
     window.removeEventListener('keydown', this.handleUnlockEvent)
@@ -190,7 +264,7 @@ export class AudioSubsystem {
   private startPlayback(sound: LiveSound, resource: AudioResource): void {
     sound.backendHandle = this.backend.play(resource, {
       channel: sound.channel,
-      volume: sound.volume,
+      volume: sound.volume * sound.attenuation,
       loop: sound.loop,
       onEnded: () => {
         if (sound.ended) return
@@ -198,6 +272,9 @@ export class AudioSubsystem {
         this.live.delete(sound)
       },
     })
+    // A placement update may have already run while this sound was still
+    // loading (CA-8) — carry its pan over now that a backend handle exists.
+    if (sound.placement) sound.backendHandle.setPan(sound.pan)
   }
 
   private drop(sound: LiveSound): void {
@@ -251,7 +328,7 @@ export class AudioSubsystem {
       },
       set volume(value: number) {
         sound.volume = value
-        sound.backendHandle?.setVolume(value)
+        sound.backendHandle?.setVolume(value * sound.attenuation)
       },
       stop(opts: { fadeMs?: number } = {}): void {
         subsystem.stopSound(sound, opts.fadeMs)
