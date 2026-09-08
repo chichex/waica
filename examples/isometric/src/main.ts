@@ -123,6 +123,18 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   // starts with (the counter).
   game.registerSceneCatalog({ scenes, registry })
   game.loadSceneByName('main')
+  // CA-19: a looping music bed, session-scoped (ADR 0012) so a Scene
+  // Transition never stops or restarts it — every combat one-shot stays
+  // scene-scoped by default. A raw "waica:" uri isn't itself fetchable, so
+  // it goes through the same resolveAsset the scene loader runs every
+  // prefab's sound prop through. CA-9's preload keeps the four shipped
+  // sounds decoded ahead of time, so the first swing doesn't pay for the
+  // fetch.
+  const resolveSound = (uri: string) => registry.resolveAsset?.(uri) ?? uri
+  void game.audio.preload(
+    ['waica:iso-sword-swing', 'waica:iso-hit', 'waica:iso-hurt', 'waica:iso-town-theme'].map(resolveSound),
+  )
+  game.audio.play(resolveSound('waica:iso-town-theme'), { channel: 'music', loop: true, scope: 'session' })
 
   if (import.meta.env.DEV) {
     ;(window as unknown as Record<string, unknown>).__waica = { game }
