@@ -1,4 +1,6 @@
 import * as THREE from 'three'
+import type { AudioBackend } from './audio/backend.js'
+import { AudioSubsystem } from './audio/audio-subsystem.js'
 import { collisionOverlap } from './collision-shape.js'
 import {
   isCameraVelocityProvider,
@@ -52,6 +54,14 @@ export interface GameOptions {
   bindings?: InputBindings
   /** Initial stat values (points, lives…) from the project's stats.json. */
   stats?: Record<string, StatValue>
+  /**
+   * Replaces the real WebAudio implementation (ADR 0013) — mainly for a
+   * project's own tests, since `happy-dom` has no AudioContext, AudioBuffer
+   * or GainNode at all. Defaults to the real backend either way; `game.audio`
+   * always exists, and the real AudioContext is constructed lazily, at the
+   * first unlock (CA-6), never eagerly here.
+   */
+  audio?: AudioBackend
 }
 
 export type UpdateFn = (dt: number) => void
@@ -84,6 +94,8 @@ export class Game {
   readonly stats: Stats
   /** The HTML UI layer: presentation-only pieces toggled from code. */
   readonly ui: GameUi
+  /** The audio mixer: channels, master, playback. See ADR 0012, ADR 0013. */
+  readonly audio: AudioSubsystem
   /** Registry retained by loadScene for runtime prefab spawning. */
   registry: SceneRegistry | null = null
   paramOverrides: ParamOverrides = {}
@@ -124,6 +136,7 @@ export class Game {
     this.input = new Input(options.bindings)
     this.stats = new Stats(options.stats)
     this.ui = new GameUi(this.stats, () => canvas.parentElement ?? document.body)
+    this.audio = new AudioSubsystem({ canvas, backend: options.audio })
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this.scene.background = new THREE.Color(background)
@@ -336,6 +349,7 @@ export class Game {
           availableScenes: () => this.availableScenes,
         })
         activation.register(this.runtimeBridge)
+        this.audio.setSilenced(true)
         window.addEventListener('pagehide', this.unregisterRuntimeBridge)
       }
       this.renderSurface()
@@ -377,6 +391,7 @@ export class Game {
     this.pointer.dispose()
     this.resizeObserver.disconnect()
     this.ui.dispose()
+    this.audio.dispose()
     for (const entity of [...this.entities]) entity.destroy()
     this.renderer.dispose()
   }
@@ -415,6 +430,7 @@ export class Game {
       }
       // The UI must react to the pause itself (hide until resumed).
       this.ui.setActive(this.simulate)
+      this.audio.setActive(this.simulate)
       for (const fn of this.updateFns) fn(dt)
       this.input.endFrame()
       this.renderSurface()
@@ -434,6 +450,7 @@ export class Game {
     window.removeEventListener('pagehide', this.unregisterRuntimeBridge)
     this.runtimeBridge?.unregister()
     this.runtimeBridge = null
+    this.audio.setSilenced(false)
   }
 
   /** Under y-sort, re-derives every participant's z from layer band + entity Y. */
