@@ -1,3 +1,4 @@
+import type { AudioChannelState, LiveSoundInfo } from './audio/types.js'
 import type { Component, ComponentClass } from './component.js'
 import type { Entity } from './entity.js'
 import type { Game } from './game.js'
@@ -51,12 +52,27 @@ export interface RuntimeEntitySnapshot {
   components: RuntimeComponentSnapshot[]
 }
 
+/**
+ * The mixer's state (CA-15): `master` and every channel's volume/mute,
+ * sorted by name, plus every currently-playing sound as `game.audio.liveSounds()`
+ * already sorts them (by uri then channel). Emitted unconditionally, like
+ * every other snapshot section — `[DEVIATION 2026-09-08]` in the spec: no
+ * section of RuntimeSnapshot is filterable today, so audio does not invent
+ * the first one.
+ */
+export interface RuntimeSnapshotAudio {
+  master: number
+  channels: Record<string, AudioChannelState>
+  playing: LiveSoundInfo[]
+}
+
 export interface RuntimeSnapshot extends RuntimeMetadata {
   stats: Record<string, StatValue>
   /** The live scene's name (its catalog key), or null with no scene loaded. */
   scene: string | null
   entities: RuntimeEntitySnapshot[]
   projectionIssues: ProjectionIssue[]
+  audio: RuntimeSnapshotAudio
 }
 
 export const RUNTIME_PROJECTION_LIMITS = {
@@ -327,7 +343,20 @@ export class RuntimeInspector {
       scene: this.game.sceneName,
       entities,
       projectionIssues,
+      audio: this.audioSnapshot(),
     })
+  }
+
+  private audioSnapshot(): RuntimeSnapshotAudio {
+    const channels: Record<string, AudioChannelState> = {}
+    for (const name of [...this.game.audio.channels()].sort()) {
+      channels[name] = this.game.audio.channelState(name)
+    }
+    return {
+      master: this.game.audio.master,
+      channels,
+      playing: this.game.audio.liveSounds(),
+    }
   }
 
   private capSnapshot(snapshot: RuntimeSnapshot): RuntimeSnapshot {

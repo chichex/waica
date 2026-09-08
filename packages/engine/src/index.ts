@@ -87,6 +87,7 @@ export type {
   RuntimeComponentSnapshot,
   RuntimeEntitySnapshot,
   RuntimeSnapshot,
+  RuntimeSnapshotAudio,
   RuntimeSnapshotFilters,
   RuntimeTransformSnapshot,
 } from './runtime-inspection.js'
