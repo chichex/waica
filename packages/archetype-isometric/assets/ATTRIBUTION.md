@@ -105,3 +105,32 @@ remain at the human-approved 16 texels per render unit.
 - Placeholder-quality by design: exact visual polish is out of scope for
   this run and is the human-verified part of CA-8/CA-12 — a human is free
   to swap this file for a nicer diamond later without touching any code.
+
+## Audio
+
+All four sound files are Creative Commons Zero (CC0). The three effects ship
+byte-for-byte as distributed; only the music was re-encoded (see below).
+
+### Sound effects
+
+- **RPG Audio** and **Impact Sounds** by Kenney Vleugels (Kenney.nl)
+- Sources: https://kenney.nl/assets/rpg-audio and
+  https://kenney.nl/assets/impact-sounds
+- Licence shown by each pack's `License.txt`: **Creative Commons Zero, CC0**.
+  Kenney states: "Credit (Kenney or www.kenney.nl) would be nice but is not
+  mandatory."
+- `waica-iso-sword-swing.ogg` is `knifeSlice.ogg` from RPG Audio.
+- `waica-iso-hit.ogg` is `chop.ogg` from RPG Audio.
+- `waica-iso-hurt.ogg` is `impactPunch_medium_000.ogg` from Impact Sounds.
+
+### Music
+
+- **Town Theme RPG** by cynicmusic
+- Source: https://opengameart.org/content/town-theme-rpg
+- Licence shown by the submission page: **CC0**. The author asks for
+  `cynicmusic.com pixelsphere.org` as credit, which CC0 does not require and
+  this file gives anyway.
+- `waica-iso-town-theme.ogg` is the pack's `TownTheme.mp3` re-encoded to Ogg
+  Vorbis (`ffmpeg -c:a vorbis -q:a 3 -ar 44100`), 97.5 s, no edits to the
+  audio itself. Vorbis rather than Opus so the file plays on the Safari 16.4+
+  baseline the spec commits to; Opus in Ogg needs Safari 17.
