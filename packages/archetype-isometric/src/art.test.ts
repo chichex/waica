@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import type { ArchetypeArt } from '@waica/engine'
 import { ISOMETRIC_ART } from './art'
 import { ISOMETRIC_PREFABS } from './prefabs'
 
@@ -8,6 +9,23 @@ function pngSize(file: string): { width: number; height: number } {
   const bytes = readFileSync(fileURLToPath(new URL(`../assets/${file}`, import.meta.url)))
   expect(bytes.subarray(1, 4).toString('ascii')).toBe('PNG')
   return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) }
+}
+
+/** Confirms a committed file is a real Ogg container: the four-byte "OggS" capture pattern. */
+function assertRealOgg(file: string): void {
+  const bytes = readFileSync(fileURLToPath(new URL(`../assets/${file}`, import.meta.url)))
+  expect(bytes.subarray(0, 4).toString('ascii'), file).toBe('OggS')
+}
+
+/**
+ * The exact one-line mapping create-project.ts:47 and template.ts:29 both
+ * use to emit project art: `archetype.art.map((art) => [art.uri, ...])`.
+ * Reproduced here (rather than imported, since those packages are out of
+ * this change's scope) to prove it needs no kind-specific branch — a sound
+ * entry flows through identically to an image one (CA-11).
+ */
+function projectUriMap(art: ArchetypeArt[]): Record<string, string> {
+  return Object.fromEntries(art.map((entry) => [entry.uri, `src/art/${entry.file}`]))
 }
 
 function artFileFor(uri: string): string {
@@ -33,8 +51,8 @@ interface AppearanceProps {
 }
 
 describe('isometric stock art', () => {
-  it('ships a real PNG for every art row', () => {
-    for (const art of ISOMETRIC_ART) {
+  it('ships a real PNG for every image art row', () => {
+    for (const art of ISOMETRIC_ART.filter((entry) => entry.kind === 'image')) {
       const size = pngSize(art.file)
       expect(size.width, art.file).toBeGreaterThan(0)
       expect(size.height, art.file).toBeGreaterThan(0)
@@ -165,5 +183,67 @@ describe('isometric stock art', () => {
       'objects/rock': [32, 32],
       'objects/crate': [32, 32],
     })
+  })
+})
+
+describe('CA-11 — sounds are art with a declared kind', () => {
+  it('tags every image row image and every sound row sound', () => {
+    const imageFiles = [
+      'waica-iso-hero.png',
+      'waica-iso-villager.png',
+      'waica-iso-orc.png',
+      'waica-iso-ground.png',
+      'waica-iso-tree.png',
+      'waica-iso-rock.png',
+      'waica-iso-crate.png',
+      'waica-iso-click-marker.png',
+    ]
+    const soundFiles = [
+      'waica-iso-sword-swing.ogg',
+      'waica-iso-hit.ogg',
+      'waica-iso-hurt.ogg',
+      'waica-iso-town-theme.ogg',
+    ]
+    expect(ISOMETRIC_ART.map((art) => art.file).sort()).toEqual(
+      [...imageFiles, ...soundFiles].sort(),
+    )
+    for (const file of imageFiles) {
+      expect(ISOMETRIC_ART.find((art) => art.file === file), file).toMatchObject({ kind: 'image' })
+    }
+    for (const file of soundFiles) {
+      expect(ISOMETRIC_ART.find((art) => art.file === file), file).toMatchObject({ kind: 'sound' })
+    }
+  })
+
+  it('declares the four sound files with waica:iso-<name> uris, following the image convention', () => {
+    const expected: Record<string, string> = {
+      'waica-iso-sword-swing.ogg': 'waica:iso-sword-swing',
+      'waica-iso-hit.ogg': 'waica:iso-hit',
+      'waica-iso-hurt.ogg': 'waica:iso-hurt',
+      'waica-iso-town-theme.ogg': 'waica:iso-town-theme',
+    }
+    for (const [file, uri] of Object.entries(expected)) {
+      expect(ISOMETRIC_ART.find((art) => art.file === file), file).toEqual({
+        file,
+        uri,
+        kind: 'sound',
+      })
+    }
+  })
+
+  it('ships a real Ogg container for every sound row, already committed', () => {
+    for (const art of ISOMETRIC_ART.filter((entry) => entry.kind === 'sound')) {
+      assertRealOgg(art.file)
+    }
+  })
+
+  it('emits sounds into a demo project exactly like images: the generic uri-to-project-path mapping needs no kind branch', () => {
+    const projected = projectUriMap(ISOMETRIC_ART)
+    expect(projected['waica:iso-sword-swing']).toBe('src/art/waica-iso-sword-swing.ogg')
+    expect(projected['waica:iso-hit']).toBe('src/art/waica-iso-hit.ogg')
+    expect(projected['waica:iso-hurt']).toBe('src/art/waica-iso-hurt.ogg')
+    expect(projected['waica:iso-town-theme']).toBe('src/art/waica-iso-town-theme.ogg')
+    // Every art row round-trips through the mapping, sound and image alike.
+    expect(Object.keys(projected)).toHaveLength(ISOMETRIC_ART.length)
   })
 })

@@ -9,13 +9,13 @@ import type { ArchetypeArt } from '@waica/engine'
  * prefab defaults use.
  */
 export const TOPDOWN_ART: ArchetypeArt[] = [
-  { file: 'waica-hero.png', uri: 'waica:hero' },
-  { file: 'waica-npc.png', uri: 'waica:npc' },
-  { file: 'waica-blob.png', uri: 'waica:blob' },
-  { file: 'waica-potion.png', uri: 'waica:potion' },
-  { file: 'waica-grass.png', uri: 'waica:grass' },
-  { file: 'waica-path.png', uri: 'waica:path' },
-  { file: 'waica-water.png', uri: 'waica:water' },
-  { file: 'waica-fence.png', uri: 'waica:fence' },
-  { file: 'waica-tree.png', uri: 'waica:tree' },
+  { file: 'waica-hero.png', uri: 'waica:hero', kind: 'image' },
+  { file: 'waica-npc.png', uri: 'waica:npc', kind: 'image' },
+  { file: 'waica-blob.png', uri: 'waica:blob', kind: 'image' },
+  { file: 'waica-potion.png', uri: 'waica:potion', kind: 'image' },
+  { file: 'waica-grass.png', uri: 'waica:grass', kind: 'image' },
+  { file: 'waica-path.png', uri: 'waica:path', kind: 'image' },
+  { file: 'waica-water.png', uri: 'waica:water', kind: 'image' },
+  { file: 'waica-fence.png', uri: 'waica:fence', kind: 'image' },
+  { file: 'waica-tree.png', uri: 'waica:tree', kind: 'image' },
 ]

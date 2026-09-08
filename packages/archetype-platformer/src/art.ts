@@ -9,7 +9,7 @@ import type { ArchetypeArt } from '@waica/engine'
  * prefab defaults (and old projects) still use.
  */
 export const PLATFORMER_ART: ArchetypeArt[] = [
-  { file: 'waica-dog.png', uri: 'waica:dog' },
-  { file: 'waica-coin.png', uri: 'waica:coin' },
-  { file: 'waica-slime.png', uri: 'waica:slime' },
+  { file: 'waica-dog.png', uri: 'waica:dog', kind: 'image' },
+  { file: 'waica-coin.png', uri: 'waica:coin', kind: 'image' },
+  { file: 'waica-slime.png', uri: 'waica:slime', kind: 'image' },
 ]

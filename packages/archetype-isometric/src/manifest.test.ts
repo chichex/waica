@@ -48,6 +48,27 @@ describe('isometric archetype manifest', () => {
     )
   })
 
+  it('resolves the four sound uris through the same package-relative and browser-bundled paths as images (CA-11)', () => {
+    expect(NODE_ARCHETYPE.registry.resolveAsset?.('waica:iso-sword-swing')).toBe(
+      'assets/waica-iso-sword-swing.ogg',
+    )
+    expect(NODE_ARCHETYPE.registry.resolveAsset?.('waica:iso-hit')).toBe('assets/waica-iso-hit.ogg')
+    expect(NODE_ARCHETYPE.registry.resolveAsset?.('waica:iso-hurt')).toBe(
+      'assets/waica-iso-hurt.ogg',
+    )
+    expect(NODE_ARCHETYPE.registry.resolveAsset?.('waica:iso-town-theme')).toBe(
+      'assets/waica-iso-town-theme.ogg',
+    )
+    // The browser registry resolves through ISOMETRIC_ART_URLS (bundler URLs), not raw uris.
+    expect(ISOMETRIC_ART_URLS['waica-iso-sword-swing.ogg']).toEqual(expect.any(String))
+    expect(ARCHETYPE.registry.resolveAsset?.('waica:iso-sword-swing')).toBe(
+      ISOMETRIC_ART_URLS['waica-iso-sword-swing.ogg'],
+    )
+    expect(ARCHETYPE.registry.resolveAsset?.('waica:iso-sword-swing')).not.toBe(
+      'waica:iso-sword-swing',
+    )
+  })
+
   it('pins all eight directions and the three mirrored fallbacks', () => {
     expect(NODE_ARCHETYPE.animation).toEqual({
       directions: ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'],
