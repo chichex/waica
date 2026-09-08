@@ -198,6 +198,7 @@ export class Game {
    */
   unloadScene(): void {
     this.ui.unloadScene()
+    this.audio.unloadScene()
     // An explicit unload means "no scene": a swap queued earlier this frame
     // would otherwise flush next frame and resurrect one.
     this.pendingSceneLoad = null

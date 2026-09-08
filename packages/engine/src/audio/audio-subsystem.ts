@@ -28,7 +28,7 @@ const FACTORY_CHANNELS = ['music', 'sfx'] as const
  * the AudioBackend seam (ADR 0013), so the whole contract is assertable in
  * `happy-dom` against an injected fake. A sound dies with its scene unless
  * it says `{ scope: 'session' }` — the opposite default from GameUi, on
- * purpose (ADR 0012); scene-scoped teardown itself is CA-7, wired in later.
+ * purpose (ADR 0012); `unloadScene()` is Game's hook for that (CA-7).
  */
 export class AudioSubsystem {
   private readonly backend: AudioBackend
@@ -141,6 +141,17 @@ export class AudioSubsystem {
     if (this.silenced === silenced) return
     this.silenced = silenced
     this.syncOutput()
+  }
+
+  /**
+   * Stops every scene-scoped sound; a sound started with `{ scope: 'session'
+   * }` keeps playing, untouched (CA-7, ADR 0012). Called by Game.unloadScene().
+   */
+  unloadScene(): void {
+    for (const sound of [...this.live]) {
+      if (sound.scope === 'session') continue
+      this.stopSound(sound, undefined)
+    }
   }
 
   /** Stops every live sound — including session-scoped ones — and closes the backend (CA-10). */

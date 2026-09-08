@@ -41,6 +41,10 @@ function makeGame(backend?: FakeAudioBackend): { game: Game; canvas: HTMLCanvasE
   return { game, canvas }
 }
 
+function unlock(): void {
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space' }))
+}
+
 function installActivation(): {
   activation: RuntimeBridgeActivation
   registered: RuntimeBridge[]
@@ -186,5 +190,67 @@ describe('CA-10 — teardown', () => {
     expect(sessionScoped.playing).toBe(false)
     expect(game.audio.liveSounds()).toEqual([])
     expect(backend.closeCalls).toBe(1)
+  })
+})
+
+describe('CA-7 — scene scope (ADR 0012)', () => {
+  it('unloadScene stops a sound started without a scope', async () => {
+    const backend = new FakeAudioBackend()
+    const { game } = makeGame(backend)
+    unlock()
+    const handle = game.audio.play('hit.ogg')
+    await flush()
+
+    game.unloadScene()
+
+    expect(handle.playing).toBe(false)
+    expect(backend.playbacks[0]?.stops).toEqual([{ fadeMs: undefined }])
+    expect(game.audio.liveSounds()).toEqual([])
+    game.dispose()
+  })
+
+  it('unloadScene leaves a { scope: "session" } sound playing, its handle still reporting playing', async () => {
+    const backend = new FakeAudioBackend()
+    const { game } = makeGame(backend)
+    unlock()
+    const handle = game.audio.play('bed.ogg', { channel: 'music', scope: 'session' })
+    await flush()
+
+    game.unloadScene()
+
+    expect(handle.playing).toBe(true)
+    expect(backend.playbacks[0]?.stops).toEqual([])
+    expect(game.audio.liveSounds()).toEqual([{ uri: 'bed.ogg', channel: 'music', scope: 'session' }])
+    game.dispose()
+  })
+
+  it('one unloadScene stops the scene-scoped sound and leaves the session-scoped one, together', async () => {
+    const backend = new FakeAudioBackend()
+    const { game } = makeGame(backend)
+    unlock()
+    const music = game.audio.play('bed.ogg', { channel: 'music', scope: 'session' })
+    const swing = game.audio.play('swing.ogg', { channel: 'sfx' })
+    await flush()
+
+    game.unloadScene()
+
+    expect(music.playing).toBe(true)
+    expect(swing.playing).toBe(false)
+    expect(game.audio.liveSounds()).toEqual([{ uri: 'bed.ogg', channel: 'music', scope: 'session' }])
+    game.dispose()
+  })
+
+  it('drops a scene-scoped sound still loading when unloadScene runs, before it ever reaches the backend', async () => {
+    const backend = new FakeAudioBackend()
+    const { game } = makeGame(backend)
+    unlock()
+    const handle = game.audio.play('hit.ogg') // no flush yet: load() is still pending
+
+    game.unloadScene()
+    await flush()
+
+    expect(handle.playing).toBe(false)
+    expect(backend.playCalls).toEqual([])
+    game.dispose()
   })
 })
