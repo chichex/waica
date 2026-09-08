@@ -20,6 +20,7 @@ function makeGame(): Game {
     entities: [],
     stats: { add: vi.fn(), set: vi.fn() },
     events: { emit: vi.fn() },
+    audio: { play: vi.fn() },
   } as unknown as Game
 }
 
@@ -50,7 +51,9 @@ function makeEntity(game: Game, name: string): StubEntity {
 }
 
 /** A ready Health on a bare entity — no machine, so death destroys. */
-function makeHealth(props: Partial<Pick<Health, 'max' | 'invulnerability' | 'stat'>> = {}) {
+function makeHealth(
+  props: Partial<Pick<Health, 'max' | 'invulnerability' | 'stat' | 'hurtSound'>> = {},
+) {
   const game = makeGame()
   const entity = makeEntity(game, 'Subject')
   const health = new Health()
@@ -233,7 +236,12 @@ describe('Health invulnerability window', () => {
 
   it('keeps runtime state out of the authoring surface', () => {
     expect(Health.transient).toContain('current')
-    expect(Object.keys(Health.params ?? {}).sort()).toEqual(['invulnerability', 'max', 'stat'])
+    expect(Object.keys(Health.params ?? {}).sort()).toEqual([
+      'hurtSound',
+      'invulnerability',
+      'max',
+      'stat',
+    ])
   })
 })
 
@@ -446,7 +454,7 @@ describe('Health deferred death fallback', () => {
   })
 
   it('keeps the deferred bookkeeping out of the authoring surface', () => {
-    expect(authoringDefaults(Health)).toEqual({ max: 3, invulnerability: 0, stat: '' })
+    expect(authoringDefaults(Health)).toEqual({ max: 3, invulnerability: 0, stat: '', hurtSound: '' })
   })
 })
 
@@ -567,6 +575,58 @@ describe('Health hurt signal', () => {
 
     expect(() => health.damage(1)).not.toThrow()
     expect(health.current).toBe(2)
+  })
+})
+
+describe('Health hurt sound (CA-12)', () => {
+  it('plays the configured sound at the damaged entity position on an accepted hit', () => {
+    const { game, entity, health } = makeHealth({ max: 3, hurtSound: 'waica:iso-hurt' })
+
+    health.damage(1)
+
+    expect(game.audio.play).toHaveBeenCalledExactlyOnceWith('waica:iso-hurt', { at: entity })
+  })
+
+  it('plays the configured sound on the lethal hit too', () => {
+    const { game, entity, health } = makeHealth({ max: 1, hurtSound: 'waica:iso-hurt' })
+
+    health.damage(1)
+
+    expect(game.audio.play).toHaveBeenCalledExactlyOnceWith('waica:iso-hurt', { at: entity })
+  })
+
+  it('plays nothing and logs nothing when hurtSound is left unset', () => {
+    const { game, health } = makeHealth({ max: 3 })
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    health.damage(1)
+
+    expect(game.audio.play).not.toHaveBeenCalled()
+    expect(warn).not.toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
+  it('stays quiet on damage the arithmetic or the invulnerability window rejected', () => {
+    const { game, health } = makeHealth({ max: 3, invulnerability: 1, hurtSound: 'waica:iso-hurt' })
+
+    health.damage(1)
+    vi.mocked(game.audio.play).mockClear()
+
+    health.damage(1)
+    health.damage(0)
+    health.damage(-1)
+
+    expect(game.audio.play).not.toHaveBeenCalled()
+  })
+
+  it('stays quiet once already dead', () => {
+    const { game, health } = makeHealth({ max: 1, hurtSound: 'waica:iso-hurt' })
+    health.damage(1)
+    vi.mocked(game.audio.play).mockClear()
+
+    health.damage(1)
+
+    expect(game.audio.play).not.toHaveBeenCalled()
   })
 })
 

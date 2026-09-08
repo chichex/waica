@@ -11,7 +11,7 @@ export interface ParamSpec {
   /** Allowed values for a string param; rendered as a dropdown. Takes precedence over ref. */
   options?: string[]
   /** Project value this string param names; rendered and validated as a typed reference. */
-  ref?: 'prefab' | 'stat' | 'action' | 'clip'
+  ref?: 'prefab' | 'stat' | 'action' | 'clip' | 'sound'
 }
 
 export interface ComponentClass<T extends Component = Component> {

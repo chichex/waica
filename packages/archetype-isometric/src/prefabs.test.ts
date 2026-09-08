@@ -47,15 +47,36 @@ describe('the isometric prefabs express the genre model', () => {
 
   it('arms the player with a melee attack and a health that feeds the HUD', () => {
     expect(componentTypes('characters/player')).toContain('MeleeAttack')
-    expect(props('characters/player', 'Health')).toEqual({ max: 3, invulnerability: 1, stat: 'health' })
+    expect(props('characters/player', 'Health')).toEqual({
+      max: 3,
+      invulnerability: 1,
+      stat: 'health',
+      hurtSound: 'waica:iso-hurt',
+    })
   })
 
   it('makes the orc mortal: two hits, a short window, no HUD stat', () => {
-    expect(props('characters/orc', 'Health')).toEqual({ max: 2, invulnerability: 0.3 })
+    expect(props('characters/orc', 'Health')).toEqual({
+      max: 2,
+      invulnerability: 0.3,
+      hurtSound: 'waica:iso-hit',
+    })
     expect(props('characters/orc', 'StateMachine')).toMatchObject({
       role: 'patroller',
       states: expect.objectContaining({ hurt: expect.anything(), dead: expect.anything() }),
     })
+  })
+
+  it('gives the player and the orc their own configured swing/hurt sounds (CA-12)', () => {
+    expect(props('characters/player', 'MeleeAttack')).toEqual({
+      swingSound: 'waica:iso-sword-swing',
+    })
+    const playerHurtSound = props('characters/player', 'Health')['hurtSound']
+    const orcHurtSound = props('characters/orc', 'Health')['hurtSound']
+    expect(playerHurtSound).toBeTruthy()
+    expect(orcHurtSound).toBeTruthy()
+    // The spec requires these to be audibly distinct (CA-12).
+    expect(playerHurtSound).not.toBe(orcHurtSound)
   })
 
   it('gives the orc directional clips only, walking south-east from the start', () => {
