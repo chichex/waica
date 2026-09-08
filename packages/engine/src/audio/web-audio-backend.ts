@@ -2,10 +2,11 @@ import type { AudioBackend, AudioResource, BackendPlayHandle, BackendPlayOptions
 
 /**
  * The real WebAudio implementation (ADR 0013's default). Builds a small
- * mixing graph — one GainNode per sound, feeding a per-channel GainNode,
- * feeding a single master GainNode — so muting/volume/master changes are
- * plain WebAudio gain assignments, not something this class recomputes by
- * hand for every live sound.
+ * mixing graph — one GainNode per sound feeding a StereoPannerNode, feeding
+ * a per-channel GainNode, feeding a single master GainNode — so
+ * muting/volume/master changes are plain WebAudio gain assignments, and
+ * positional panning (CA-8) is a plain WebAudio pan assignment, neither
+ * something this class recomputes by hand for every live sound.
  *
  * The AudioContext itself is never created eagerly: `happy-dom` (this
  * repo's test environment) has no AudioContext/AudioBuffer/GainNode at all,
@@ -42,8 +43,10 @@ export class WebAudioBackend implements AudioBackend {
     source.loop = options.loop
     const soundGain = context.createGain()
     soundGain.gain.value = options.volume
+    const panner = context.createStereoPanner()
     source.connect(soundGain)
-    soundGain.connect(this.ensureChannelGain(options.channel))
+    soundGain.connect(panner)
+    panner.connect(this.ensureChannelGain(options.channel))
     let ended = false
     const finish = (): void => {
       if (ended) return
@@ -55,6 +58,9 @@ export class WebAudioBackend implements AudioBackend {
     return {
       setVolume: (volume: number) => {
         soundGain.gain.value = volume
+      },
+      setPan: (pan: number) => {
+        panner.pan.value = pan
       },
       stop: (fadeMs?: number) => {
         if (ended) return
@@ -139,6 +145,7 @@ export class WebAudioBackend implements AudioBackend {
 function noopHandle(): BackendPlayHandle {
   return {
     setVolume: () => {},
+    setPan: () => {},
     stop: () => {},
   }
 }

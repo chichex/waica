@@ -41,6 +41,11 @@ function makeGame(backend?: FakeAudioBackend): { game: Game; canvas: HTMLCanvasE
   return { game, canvas }
 }
 
+/** Reaches the private per-frame loop directly, the same seam CA-4's test uses. */
+function runFrameOf(game: Game): (dt: number) => void {
+  return (game as unknown as { runFrame(dt: number): void }).runFrame.bind(game)
+}
+
 function unlock(): void {
   window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space' }))
 }
@@ -251,6 +256,156 @@ describe('CA-7 — scene scope (ADR 0012)', () => {
 
     expect(handle.playing).toBe(false)
     expect(backend.playCalls).toEqual([])
+    game.dispose()
+  })
+})
+
+describe('CA-8 — positional audio', () => {
+  it('a flat sound (no `at`) never receives a pan or an attenuation-driven volume update', async () => {
+    const backend = new FakeAudioBackend()
+    const { game } = makeGame(backend)
+    const runFrame = runFrameOf(game)
+    unlock()
+    game.audio.play('ambience.ogg', { volume: 0.7 })
+    await flush()
+
+    // Move the "listener" far away — a positional sound would react; a flat one must not.
+    game.camera.position.x = 1000
+    runFrame(0.016)
+    runFrame(0.016)
+
+    expect(backend.playbacks[0]?.setVolumeCalls).toEqual([])
+    expect(backend.playbacks[0]?.setPanCalls).toEqual([])
+    game.dispose()
+  })
+
+  it('is at full volume at or inside the reference distance, and silent beyond the max distance', async () => {
+    const backend = new FakeAudioBackend()
+    const { game } = makeGame(backend)
+    const runFrame = runFrameOf(game)
+    unlock()
+    const near = game.audio.play('near.ogg', { at: { x: 1, y: 0 } })
+    const far = game.audio.play('far.ogg', { at: { x: 20, y: 0 } })
+    await flush()
+
+    runFrame(0.016)
+
+    expect(near.playing).toBe(true)
+    expect(far.playing).toBe(true) // silenced by distance, not stopped
+    expect(backend.playbacks[0]?.setVolumeCalls.at(-1)).toBe(1)
+    expect(backend.playbacks[1]?.setVolumeCalls.at(-1)).toBe(0)
+    game.dispose()
+  })
+
+  it('attenuates a mid-range source to a fraction strictly between full volume and silence', async () => {
+    const backend = new FakeAudioBackend()
+    const { game } = makeGame(backend)
+    const runFrame = runFrameOf(game)
+    unlock()
+    game.audio.play('mid.ogg', { at: { x: 8, y: 0 } })
+    await flush()
+
+    runFrame(0.016)
+
+    const volume = backend.playbacks[0]?.setVolumeCalls.at(-1)
+    expect(volume).toBeCloseTo(8 / 13, 5)
+    game.dispose()
+  })
+
+  it('pans right for a source to the screen-right of the listener, left for one to the left', async () => {
+    const backend = new FakeAudioBackend()
+    const { game } = makeGame(backend)
+    const runFrame = runFrameOf(game)
+    unlock()
+    game.audio.play('right.ogg', { at: { x: 4, y: 0 } })
+    game.audio.play('left.ogg', { at: { x: -4, y: 0 } })
+    await flush()
+
+    runFrame(0.016)
+
+    const panRight = backend.playbacks[0]?.setPanCalls.at(-1)
+    const panLeft = backend.playbacks[1]?.setPanCalls.at(-1)
+    expect(panRight).toBeGreaterThan(0)
+    expect(panLeft).toBeLessThan(0)
+    expect(panRight).toBeCloseTo(-panLeft!, 5)
+    game.dispose()
+  })
+
+  it('play(uri, { at: entity }) recomputes placement every frame as the entity moves', async () => {
+    const backend = new FakeAudioBackend()
+    const { game } = makeGame(backend)
+    const runFrame = runFrameOf(game)
+    unlock()
+    const source = game.spawn('Source')
+    const handle = game.audio.play('follow.ogg', { at: source })
+    await flush()
+
+    source.position.x = 1
+    runFrame(0.016)
+    const closeVolume = backend.playbacks[0]?.setVolumeCalls.at(-1)
+
+    source.position.x = 20
+    runFrame(0.016)
+    const farVolume = backend.playbacks[0]?.setVolumeCalls.at(-1)
+
+    expect(closeVolume).toBe(1)
+    expect(farVolume).toBe(0)
+    expect(handle.playing).toBe(true)
+    game.dispose()
+  })
+
+  it('play(uri, { at: {x, y} }) fixes the placement: it does not track anything and stays constant', async () => {
+    const backend = new FakeAudioBackend()
+    const { game } = makeGame(backend)
+    const runFrame = runFrameOf(game)
+    unlock()
+    game.audio.play('fixed.ogg', { at: { x: 1, y: 0 } })
+    await flush()
+
+    runFrame(0.016)
+    const first = backend.playbacks[0]?.setVolumeCalls.at(-1)
+    runFrame(0.016)
+    const second = backend.playbacks[0]?.setVolumeCalls.at(-1)
+
+    expect(first).toBe(1)
+    expect(second).toBe(1)
+    game.dispose()
+  })
+
+  it('under projection "isometric", two sources at equal LOGICAL distance in different compass directions get equal attenuation despite unequal render-space distances', async () => {
+    const backend = new FakeAudioBackend()
+    const { game } = makeGame(backend)
+    const runFrame = runFrameOf(game)
+    game.setSceneRender({ projection: 'isometric' })
+    unlock()
+
+    // Both 8 logical units from the origin (the listener, since the camera
+    // is untouched at its default (0,0)): one purely along the logical X
+    // axis, one along the logical diagonal. Isometric projection is NOT a
+    // similarity transform, so these land at very different render-space
+    // distances from the listener — a buggy implementation that measured
+    // distance in render space instead of logical space would tell them
+    // apart. See ADR 0012 / CA-8 and the "Riesgos" note in the spec.
+    const axisAligned = game.audio.play('axis.ogg', { at: { x: 8, y: 0 } })
+    const diagonal = game.audio.play('diagonal.ogg', { at: { x: 8 / Math.SQRT2, y: 8 / Math.SQRT2 } })
+    await flush()
+
+    runFrame(0.016)
+
+    const axisVolume = backend.playbacks[0]?.setVolumeCalls.at(-1)
+    const diagonalVolume = backend.playbacks[1]?.setVolumeCalls.at(-1)
+    expect(axisVolume).toBeCloseTo(8 / 13, 5)
+    expect(diagonalVolume).toBeCloseTo(8 / 13, 5)
+
+    // The two directions really are different on screen: the axis-aligned
+    // source reads to the right, the diagonal one reads dead center.
+    const axisPan = backend.playbacks[0]?.setPanCalls.at(-1)
+    const diagonalPan = backend.playbacks[1]?.setPanCalls.at(-1)
+    expect(axisPan).toBeGreaterThan(0)
+    expect(diagonalPan).toBeCloseTo(0, 5)
+
+    expect(axisAligned.playing).toBe(true)
+    expect(diagonal.playing).toBe(true)
     game.dispose()
   })
 })

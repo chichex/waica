@@ -12,8 +12,13 @@ export interface AudioPlayOptions {
    */
   scope?: 'session'
   /**
-   * Positional playback (CA-8, not implemented yet): accepted so call sites
-   * can pass it, and currently ignored — the sound plays flat.
+   * Positional playback (CA-8). An `Entity` tracks its current position
+   * every frame; a plain `{ x, y }` fixes the placement. Omitted, the sound
+   * is flat: no panning, no distance attenuation. Attenuation is computed
+   * from the distance to the listener (the camera) in logical coordinates;
+   * panning is computed from both positions after `game.renderPoint()`, so
+   * an isometric source that reads to the right on screen pans right even
+   * though its volume reflects real (logical) game distance.
    */
   at?: Entity | { x: number; y: number }
 }
