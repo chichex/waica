@@ -869,6 +869,29 @@ async function runIsometricCombat({ client, project, inspectPlayer, hold, releas
     return { position: entity.transform.position, state, stats: inspected.structuredContent.snapshot.stats }
   }
   const inspectOrc = () => inspect('Orc', ['Health', 'StateMachine', 'Patrol'])
+  // CA-16: the audio section is emitted unconditionally, so any inspect call
+  // carries it — including the entity-filtered ones above.
+  const inspectAudio = async () => {
+    const inspected = await call(client, 'inspect_runtime', { project_path: project })
+    const audio = inspected.structuredContent.snapshot.audio
+    assert.ok(audio, 'the isometric snapshot must carry an audio section')
+    return audio
+  }
+  const playingUris = (audio) => audio.playing.map((sound) => sound.uri)
+
+  // (0) CA-16: the mixer is inspectable and the music bed is already live.
+  // Nothing is audible — registering the Runtime Bridge suspends the
+  // AudioContext — but the model still records, which is the only reason this
+  // leg can assert anything about audio at all. The bed reaching `playing` at
+  // all also proves the retained-pre-unlock-loop path end to end: main.ts asks
+  // for it at boot, before any gesture, and the bridge registration is what
+  // releases it.
+  const bootAudio = await inspectAudio()
+  assert.equal(typeof bootAudio.master, 'number', 'the mixer reports a master volume')
+  for (const channel of ['music', 'sfx']) {
+    assert.ok(bootAudio.channels[channel], `the mixer reports the ${channel} channel`)
+  }
+  console.log(`  [audio] boot playing: ${playingUris(bootAudio).join(', ') || '(none)'}`)
   const playerState = async () => {
     const player = await inspect('Player', ['Health', 'StateMachine', 'AnimatedSprite', 'IsoMotor'])
     return {
@@ -891,6 +914,17 @@ async function runIsometricCombat({ client, project, inspectPlayer, hold, releas
   assert.equal(swinging.machine.current, 'attack', 'the attack press must enter the attack state')
   assert.equal(swinging.sprite.current, 'attack-e', 'swinging while facing east plays attack-e')
   assert.equal(swinging.sprite.flipX, false, 'east art is not mirrored')
+  // CA-16: the swing's sound reaches the snapshot over real MCP stdio. The uri
+  // is the resolved one the backend actually fetches, so match on the file name
+  // rather than the `waica:` key the prefab authored.
+  const swingAudio = await inspectAudio()
+  const swingSound = swingAudio.playing.find((sound) => sound.uri.includes('waica-iso-sword-swing'))
+  assert.ok(
+    swingSound,
+    `the swing must appear in the audio snapshot; playing: ${playingUris(swingAudio).join(', ') || '(none)'}`,
+  )
+  assert.equal(swingSound.channel, 'sfx', 'the swing plays on the sfx channel')
+  assert.equal(swingSound.scope, 'scene', 'a combat one-shot is scene-scoped and dies with its map')
   await step(20)
   const swung = await playerState()
   assert.equal(swung.machine.current, 'idle', 'the swing hands control back after 0.3 s')
