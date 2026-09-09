@@ -83,6 +83,8 @@ export function Explorer({
   onImportArt,
   importProgress,
   onRefreshArt,
+  mode,
+  onPreviewSound,
   onOpenScene,
   onSelectEntity,
   onToggleEntity,
@@ -152,6 +154,10 @@ export function Explorer({
   /** Live progress while an import is writing files; null when idle. */
   importProgress: { done: number; total: number } | null
   onRefreshArt(): void
+  /** Whether the project is running (CA-18): disables the sound preview control. */
+  mode: 'edit' | 'play'
+  /** Plays a sound row's preview, through the editor's own audio path — never game.audio. */
+  onPreviewSound(url: string): void
   onOpenScene(path: string): void
   onSelectEntity(name: string): void
   /** Cmd/Ctrl-click: toggles the entity in the multi-selection. */
@@ -388,7 +394,7 @@ export function Explorer({
     }
   }
 
-  const pickImages = (): void => filePicker.current?.click()
+  const pickArt = (): void => filePicker.current?.click()
 
   const deleteArt = async (item: ArtItem): Promise<void> => {
     if (!window.confirm(`Delete ${item.label}? This cannot be undone.`)) return
@@ -397,7 +403,57 @@ export function Explorer({
     onRefreshArt()
   }
 
-  const renderArtItem = (item: ArtItem): React.ReactNode => (
+  // A sound row has no image-stage equivalent to open (CA-17/CA-18): its
+  // interactive element is the preview control, not a click-to-view row.
+  const renderSoundItem = (item: ArtItem): React.ReactNode => (
+    <div
+      key={item.path}
+      className="ed-x-item ed-x-sound"
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData('waica/art', item.uri)
+        e.dataTransfer.effectAllowed = 'copy'
+      }}
+      onContextMenu={(e) =>
+        openMenu(e, [
+          {
+            label: 'Preview',
+            icon: '▶',
+            disabled: mode === 'play',
+            title: mode === 'play' ? 'Stop the game to preview sounds' : undefined,
+            onClick: () => onPreviewSound(item.url),
+          },
+          { label: 'Import art…', icon: '＋', onClick: pickArt },
+          'sep',
+          {
+            label: 'Delete',
+            icon: '🗑',
+            danger: true,
+            onClick: () => void deleteArt(item),
+          },
+        ])
+      }
+    >
+      <button
+        type="button"
+        className="ed-sound-play"
+        title={mode === 'play' ? 'Stop the game to preview sounds' : 'Preview'}
+        disabled={mode === 'play'}
+        onClick={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          if (mode === 'play') return
+          onPreviewSound(item.url)
+        }}
+      >
+        ▶
+      </button>
+      <span className="ed-x-ico">🔊</span>
+      {item.label}
+    </div>
+  )
+
+  const renderImageItem = (item: ArtItem): React.ReactNode => (
     <button
       key={item.path}
       className={`ed-x-item ${
@@ -412,7 +468,7 @@ export function Explorer({
       onContextMenu={(e) =>
         openMenu(e, [
           { label: 'Open', icon: '🖼️', onClick: () => onOpenArt(item) },
-          { label: 'Import images…', icon: '＋', onClick: pickImages },
+          { label: 'Import art…', icon: '＋', onClick: pickArt },
           'sep',
           {
             label: 'Delete',
@@ -427,6 +483,9 @@ export function Explorer({
       {item.label}
     </button>
   )
+
+  const renderArtItem = (item: ArtItem): React.ReactNode =>
+    item.kind === 'sound' ? renderSoundItem(item) : renderImageItem(item)
 
   const renderArtFolder = (folder: ArtFolder): React.ReactNode => (
     <>
@@ -1022,7 +1081,7 @@ export function Explorer({
       <section
         className={`ed-panel ${dropping ? 'is-dropping' : ''}`}
         onContextMenu={(e) =>
-          openMenu(e, [{ label: 'Import images…', icon: '🖼️', onClick: pickImages }])
+          openMenu(e, [{ label: 'Import art…', icon: '🖼️', onClick: pickArt }])
         }
         onDragOver={(e) => {
           if (!e.dataTransfer.types.includes('Files')) return
@@ -1046,14 +1105,14 @@ export function Explorer({
       >
         <header className="ed-panel-head">
           <span>Art</span>
-          <button className="ed-mini" title="Import images" onClick={pickImages}>
+          <button className="ed-mini" title="Import art" onClick={pickArt}>
             ＋
           </button>
         </header>
         <input
           ref={filePicker}
           type="file"
-          accept=".png,.jpg,.jpeg"
+          accept=".png,.jpg,.jpeg,.ogg"
           multiple
           hidden
           onChange={(e) => {
@@ -1086,7 +1145,7 @@ export function Explorer({
           {artFiltering && artTree.folders.length === 0 && artTree.items.length === 0 ? (
             <div className="ed-x-empty">no art matches “{artQuery.trim()}”</div>
           ) : (
-            <div className="ed-x-empty">Drop images here or press ＋</div>
+            <div className="ed-x-empty">Drop art here or press ＋</div>
           )}
         </div>
       </section>

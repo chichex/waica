@@ -72,6 +72,7 @@ import { ControlsEditor, GameSettingsEditor, ProjectPane, StatsEditor } from './
 import { UiPane } from './UiPane'
 import { scriptSource } from './script-sources'
 import { useProjectArt, type ArtItem } from './use-project-art'
+import { browserSoundPreview } from './sound-preview'
 import { loadWorkspace, saveWorkspace, type WorkspaceView } from './workspace'
 import { WriteScheduler } from './write-scheduler'
 import type { TilemapBrushSelection } from './tilemap-brush'
@@ -1710,6 +1711,8 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             onImportArt={projectArt.importArt}
             importProgress={projectArt.importProgress}
             onRefreshArt={projectArt.refresh}
+            mode={mode}
+            onPreviewSound={(url) => browserSoundPreview.play(url)}
             onOpenScene={(path) => openView({ kind: 'scene', path })}
             onSelectEntity={(name) => {
               if (!openScenePath) return
