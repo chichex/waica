@@ -1,6 +1,6 @@
 # Spec — Engine audio subsystem: channels, positional sound, scene-aware lifetime and an inspectable mixer
-<!-- Generada por /sdd-spec el 2026-09-08. Fuente: issue #67 (via grill 2026-09-04-engine-audio-subsystem). Estado: aprobada -->
-<!-- SDD-Tracking: version=1; type=spec; state=approved; issue=#67; grill=2026-09-04-engine-audio-subsystem; superseded-by=none -->
+<!-- Generada por /sdd-spec el 2026-09-08. Fuente: issue #67 (via grill 2026-09-04-engine-audio-subsystem). Estado: implementada -->
+<!-- SDD-Tracking: version=1; type=spec; state=implemented; issue=#67; grill=2026-09-04-engine-audio-subsystem; superseded-by=none -->
 
 ## Contexto
 
@@ -136,3 +136,35 @@ The reason in one line: decision 11 of the grill (an audio backend injectable th
 - **`sync-scene.mjs:3` says "the stock art PNGs"** — a comment that goes stale under CA-11. The run should confirm the copy step is genuinely generic and update the comment.
 - **The contract itself is stale in its counts.** `.sdd/project.md` was refreshed at 0.9.0 and records 1214 tests in 133 files; this checkout is at 0.12.0 with 1345 in 145. Commands, environments and the ladder are unchanged, so the verdict above stands, but a `/sdd-init --update` is due.
 - **[NEEDS-INPUT] The concrete CC0 sound files are not chosen.** Inference 13 fixed the policy (a CC0 pack, four files, documented in `ATTRIBUTION.md`) but not the source. The run has to pick actual files and record their provenance; if none is acceptable, CA-19 and CA-21 stall while CA-1…CA-18 and CA-20 remain deliverable.
+
+## Resultado de ejecucion (2026-09-08 · HEAD c5dd8d2)
+
+Ladder run to its ceiling on this HEAD: `pnpm typecheck` clean across all 11 workspace projects · `pnpm test` **1456 tests in 154 files, all passing** (baseline on `main` was 1345 in 145) · `pnpm build` clean · `pnpm test:dist` green including its packed browser leg · `pnpm test:e2e` green on Google Chrome 152.0.7977.83.
+
+| CA | Estado | Evidencia |
+|---|---|---|
+| CA-1 · CA-2 · CA-3 | verificado | `pnpm test packages/engine` — channels/master/handle/no-persistence asserted against the injected backend |
+| CA-4 · CA-5 | verificado | `pnpm test` — `setActive` suspends and resumes; a registered bridge silences output while `liveSounds()` keeps recording. A deliberate mutation reintroducing the spurious resume→suspend was caught red |
+| CA-6 | verificado | `pnpm test` — pre-unlock one-shots discarded, never queued; loops retained (see the deviation) |
+| CA-7 | verificado | `pnpm test` — `unloadScene()` stops scene-scoped sounds and leaves `{ scope: 'session' }` playing |
+| CA-8 | verificado | `pnpm test packages/engine` — the decisive case: two sources at equal *logical* distance but different compass directions get identical attenuation, proving logical and not projected distance drives volume |
+| CA-9 · CA-10 | verificado | `pnpm test` — one fetch per uri, `preload` resolves through a failure, warn-once, `dispose()` closes the context |
+| CA-11 · CA-12 | verificado | `pnpm test` — `ArchetypeArt.kind`, four sound entries, both project-creation paths emit them; `swingSound`/`hurtSound` fire on strike and on damage. The `.ogg` files are verified to start with the `OggS` magic bytes |
+| CA-13 | verificado | `pnpm test packages/mcp` — `missing-sound` at error severity for a broken ref, silent for a valid one and for an unset prop |
+| CA-14 · CA-15 | verificado | `pnpm test` — `describe_archetype` carries `kind`; `RuntimeSnapshot.audio` carries master, channels and live sounds, deterministically ordered |
+| CA-16 | verificado | `pnpm test:e2e` — Chrome 152, generated Project over real MCP stdio: the mixer is inspectable, the bed is live at boot on `music`/`session`, the swing reaches `playing` on `sfx`/`scene` |
+| CA-17 · CA-18 | verificado | `pnpm test packages/editor` — library and import accept `.ogg`, `ref: 'sound'` renders a picker, sound rows carry a play control disabled in play mode |
+| CA-19 | verificado | `pnpm test examples/isometric` — the three combat triggers, and the bed proven **not restarted** across a Scene Transition by exactly one backend `play()` call for its uri and an empty `stops` list. Confirmed again in a real browser by CA-16 |
+| CA-20 | verificado | `pnpm test packages/mcp` — `runtime-docs.test.ts` green with both READMEs documenting the audio section; `ATTRIBUTION.md` records all four files with their CC0 provenance |
+| CA-21 | **pendiente de prueba humana** | Not automatable by design. The 7-step protocol above is the checklist; it is in the PR body |
+| POL-higiene-ts-diff | cumplida | Both greps over the diff: 0 hits |
+| POL-tests-acompañan-src | cumplida | `engine`, `mcp` and `editor` each gained new `src/*.ts` and each gained `*.test.ts` in the same change |
+| POL-max-lineas-archivo | cumplida | Largest touched `.ts` is `packages/mcp/src/validation.ts` at **882** (was 917; CA-13's extraction to `param-reference-resolution.ts` bought the headroom the spec demanded). Cap 950 |
+| POL-naming-archivos | cumplida | All 17 new files under `src/` match the contract's pattern |
+
+### Notes a reviewer should read
+
+- **Three defects were found by integration, not by unit tests, and all three were real.** (1) The demo's music bed was discarded forever because `play()` ran at boot, before any gesture — combat sounds worked, so the symptom was "audio but no music" with no error. (2) `play()` resolved no `waica:` uri at all, so any direct call died on an unregistered URL scheme; component props only worked because the scene loader resolves them at spawn. (3) A generated project got no music because its `main.ts` comes from the generic editor template, not from `examples/isometric` — found by the browser gate, closed by giving the manifest an optional `music` field.
+- **A green test was found to be green over a real bug.** `demo-audio.test.ts` originally called `unlock()` before the boot music `play()`, inverting the real world's order and hiding defect (1). The ordering was corrected and the corrected test was verified meaningful by reverting only the fix and watching it fail.
+- **Three editor `.tsx` files exceed 950 lines** — `Inspector.tsx` (2284), `Editor.tsx` (2134), `Explorer.tsx` (1185). All three were already over on `main` (2272 / 2128 / 1126); this change added +12 / +6 / +59. The contract's `max-lineas-archivo` gate is written against `.ts` and its script measures `.ts`, so the gate passes as declared. Reported here rather than silently, and left alone per the repo's rule that pre-existing findings are not fixed inside an unrelated change.
+- **One anomalous test run was observed and could not be reproduced.** During a period of concurrent worktree creation and `pnpm install`, a full-suite run reported one extra failure. Seven subsequent full-suite runs — 3 on `main` (1345/1345) and 4 on this branch (1456/1456) — were clean, as were 5 isolated runs of the two process-spawning tests involved (`runtime-dev-server`, `project-component-process`). Not attributable to this change, and not proven pre-existing either.
