@@ -47,12 +47,11 @@ class ResizeObserverStub {
 const DT = 1 / 60
 
 /**
- * Resolves a "waica:" art uri to its actual loadable URL — the same
- * resolver `resolveProps` runs every scene/prefab string prop through, and
- * the one main.ts's own `registry.resolveAsset` delegates to. A raw
- * "waica:xxx" string is never itself fetchable: `game.audio.play()`, unlike
- * a component prop, does not resolve anything on its own, so a host calling
- * it directly (as CA-19's music line does) must resolve first.
+ * Resolves a "waica:" art uri the same way `game.audio` resolves it
+ * internally, through the registered scene catalog's registry — used here
+ * only to compute the expected value the backend should see, since
+ * `makeDemo` below calls `game.audio.play()`/`preload()` with the raw
+ * "waica:" uris directly, exactly like main.ts does.
  */
 const resolveAsset = (uri: string): string => ARCHETYPE.registry.resolveAsset?.(uri) ?? uri
 
@@ -83,21 +82,21 @@ function makeDemo(backend: FakeAudioBackend) {
   installArchetype(ARCHETYPE.bundle)
   installDirectionalAnimation(ARCHETYPE.animation ?? null)
   const game = new Game({ canvas, bindings: controls.bindings, stats: stats.stats, audio: backend })
-  // The real demo's first unlock comes from whatever key the player presses
-  // first (movement, attack, ...) — always after boot, never before. Here it
-  // stands in for that same gesture so the mirror of main.ts's own play()
-  // call below (also issued at boot) actually registers, exactly like every
-  // other audio-gated assertion in packages/engine/src/audio/game-audio.test.ts.
-  unlock()
+  // No unlock() here: main.ts's music line below runs at boot, synchronously,
+  // before any real gesture — exactly like the shipped demo. A retained loop
+  // (the fix for "a music bed requested at boot is discarded forever") means
+  // this is safe; triggerCombatSounds() below fires the real first unlock,
+  // the same as the player's first keypress in the actual demo.
   game.registerSceneCatalog({
     scenes: { main: ISOMETRIC_SCENE, cave: ISOMETRIC_CAVE_SCENE },
     registry: ARCHETYPE.registry,
   })
   game.loadSceneByName('main')
-  // Mirrors the lines CA-19 adds to examples/isometric/src/main.ts, resolved
-  // through the same registry `resolveProps` uses for every other asset uri.
-  void game.audio.preload([SWING_URI, ORC_HURT_URI, PLAYER_HURT_URI, MUSIC_URI])
-  const musicHandle = game.audio.play(MUSIC_URI, { channel: 'music', loop: true, scope: 'session' })
+  // Mirrors the lines CA-19 adds to examples/isometric/src/main.ts exactly:
+  // raw "waica:" uris, resolved internally by game.audio through the
+  // registered scene catalog above — no manual resolveAsset step needed.
+  void game.audio.preload(['waica:iso-sword-swing', 'waica:iso-hit', 'waica:iso-hurt', 'waica:iso-town-theme'])
+  const musicHandle = game.audio.play('waica:iso-town-theme', { channel: 'music', loop: true, scope: 'session' })
 
   return {
     game,
@@ -130,6 +129,12 @@ async function triggerCombatSounds(demo: ReturnType<typeof makeDemo>): Promise<v
   const orc = demo.find('Orc')
   const motor = player.get(IsoMotor)!
   const orcHealth = orc.get(Health)!
+
+  // The real demo's first unlock comes from whatever key the player presses
+  // first (movement, attack, ...) — always after boot, never before (CA-6).
+  // demo.press() below only injects action state (no DOM event, see
+  // input.ts), so the real gesture standing in for it is fired here.
+  unlock()
 
   // Stand screen-west of the orc — logical (-x, +y) — out of contact range, facing it.
   player.position.set(orc.position.x - 0.85, orc.position.y + 0.85, 0)
@@ -172,24 +177,38 @@ describe('CA-19 — the isometric demo sounds', () => {
     expect(byUri(PLAYER_HURT_URI)).toEqual([{ resource: PLAYER_HURT_URI, channel: 'sfx', volume: 1, loop: false }])
   })
 
-  it('starts a looping, session-scoped music bed on the "music" channel at boot', async () => {
-    const backend = new FakeAudioBackend()
-    const demo = makeDemo(backend)
-    await flush()
+  it(
+    'retains the music bed requested at boot (before any input) and starts it on the ' +
+      '"music" channel at the player\'s first real gesture',
+    async () => {
+      const backend = new FakeAudioBackend()
+      const demo = makeDemo(backend)
+      await flush()
 
-    expect(backend.playCalls).toEqual(
-      expect.arrayContaining([{ resource: MUSIC_URI, channel: 'music', volume: 1, loop: true }]),
-    )
-    expect(demo.game.audio.liveSounds()).toEqual(
-      expect.arrayContaining([{ uri: MUSIC_URI, channel: 'music', scope: 'session' }]),
-    )
-    expect(demo.musicHandle.playing).toBe(true)
-    // CA-9's preload (the pattern the demo is meant to show) fetched all four
-    // shipped sounds up front, so the first swing never pays for the load.
-    expect(backend.loadCalls.map((call) => call.uri).sort()).toEqual(
-      [SWING_URI, ORC_HURT_URI, PLAYER_HURT_URI, MUSIC_URI].sort(),
-    )
-  })
+      // main.ts's music line runs synchronously at boot, before any real
+      // gesture — this used to be silently discarded forever (the defect).
+      // The handle is already real, but nothing has reached the backend yet.
+      expect(backend.playCalls).toEqual([])
+      expect(demo.musicHandle.playing).toBe(true)
+
+      unlock()
+      await flush()
+
+      expect(backend.playCalls).toEqual(
+        expect.arrayContaining([{ resource: MUSIC_URI, channel: 'music', volume: 1, loop: true }]),
+      )
+      expect(demo.game.audio.liveSounds()).toEqual(
+        expect.arrayContaining([{ uri: MUSIC_URI, channel: 'music', scope: 'session' }]),
+      )
+      expect(demo.musicHandle.playing).toBe(true)
+      // CA-9's preload (the pattern the demo is meant to show) fetched all
+      // four shipped sounds up front, so the first swing never pays for the
+      // load — preload() itself is never gated on the unlock.
+      expect(backend.loadCalls.map((call) => call.uri).sort()).toEqual(
+        [SWING_URI, ORC_HURT_URI, PLAYER_HURT_URI, MUSIC_URI].sort(),
+      )
+    },
+  )
 
   it(
     'crossing the Scene Transition leaves the music bed exactly as it was — the same live ' +
