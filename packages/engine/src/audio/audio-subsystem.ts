@@ -9,6 +9,17 @@ export interface AudioSubsystemOptions {
   canvas: HTMLCanvasElement
   /** Replaces the real WebAudio implementation (ADR 0013); defaults to it. */
   backend?: AudioBackend
+  /**
+   * Resolves a uri the same way the scene loader resolves every prefab's
+   * string prop (`resolveProps` in scene.ts), but for direct `play()`/
+   * `preload()` calls — a project role or the host, not a spawned prefab.
+   * Looked up on every call rather than captured once, since `Game` wires
+   * this to its registered scene catalog, which can be (re)registered at
+   * any time and — unlike `Game.registry` — survives `unloadScene()`.
+   * Defaults to identity, so an unresolvable or already-resolved uri (a
+   * pre-resolving caller) passes through unchanged either way.
+   */
+  resolveAsset?: (uri: string) => string
 }
 
 type ResourceState = { status: 'pending' } | { status: 'ready'; resource: AudioResource } | { status: 'failed' }
@@ -52,6 +63,7 @@ const FACTORY_CHANNELS = ['music', 'sfx'] as const
 export class AudioSubsystem {
   private readonly backend: AudioBackend
   private readonly canvas: HTMLCanvasElement
+  private readonly resolveAsset: (uri: string) => string
   private readonly channelsMap = new Map<string, AudioChannelState>()
   private readonly live = new Set<LiveSound>()
   private readonly resourceStates = new Map<string, ResourceState>()
@@ -66,6 +78,7 @@ export class AudioSubsystem {
   constructor(options: AudioSubsystemOptions) {
     this.backend = options.backend ?? new WebAudioBackend()
     this.canvas = options.canvas
+    this.resolveAsset = options.resolveAsset ?? ((uri) => uri)
     for (const name of FACTORY_CHANNELS) this.channelsMap.set(name, { volume: 1, muted: false })
     window.addEventListener('keydown', this.handleUnlockEvent)
     this.canvas.addEventListener('pointerdown', this.handleUnlockEvent)
@@ -79,6 +92,7 @@ export class AudioSubsystem {
    * actually compute pan/attenuation and forward them to the backend.
    */
   play(uri: string, opts: AudioPlayOptions = {}): SoundHandle {
+    const resolvedUri = this.resolveAsset(uri)
     const channel = opts.channel ?? 'sfx'
     const volume = opts.volume ?? 1
     const loop = opts.loop ?? false
@@ -89,7 +103,7 @@ export class AudioSubsystem {
     if (!this.unlocked) return inertHandle(volume)
 
     const sound: LiveSound = {
-      uri,
+      uri: resolvedUri,
       channel,
       scope,
       loop,
@@ -101,7 +115,7 @@ export class AudioSubsystem {
       backendHandle: null,
     }
     this.live.add(sound)
-    this.attach(uri, sound)
+    this.attach(resolvedUri, sound)
     return this.handleFor(sound)
   }
 
@@ -143,7 +157,7 @@ export class AudioSubsystem {
    * same as a failing play() (CA-9).
    */
   async preload(uris: string[]): Promise<void> {
-    await Promise.all(uris.map((uri) => this.ensureLoading(uri)))
+    await Promise.all(uris.map((uri) => this.ensureLoading(this.resolveAsset(uri))))
   }
 
   /** Every currently-playing sound, sorted by uri then channel. */

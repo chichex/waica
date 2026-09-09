@@ -136,7 +136,15 @@ export class Game {
     this.input = new Input(options.bindings)
     this.stats = new Stats(options.stats)
     this.ui = new GameUi(this.stats, () => canvas.parentElement ?? document.body)
-    this.audio = new AudioSubsystem({ canvas, backend: options.audio })
+    this.audio = new AudioSubsystem({
+      canvas,
+      backend: options.audio,
+      // The catalog registered via registerSceneCatalog, never game.registry:
+      // unloadScene() nulls the latter but leaves the catalog (and its
+      // resolver) untouched, which is exactly what a { scope: 'session' }
+      // music bed needs across a scene swap.
+      resolveAsset: (uri) => this.sceneCatalog?.registry.resolveAsset?.(uri) ?? uri,
+    })
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this.scene.background = new THREE.Color(background)

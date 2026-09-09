@@ -101,6 +101,77 @@ describe('game.audio wiring', () => {
   })
 })
 
+describe('CA-1 — resolves uris through the session-scoped scene catalog registry', () => {
+  it('resolves play() and preload() through registerSceneCatalog\'s registry', async () => {
+    const backend = new FakeAudioBackend()
+    const { game } = makeGame(backend)
+    unlock()
+    game.registerSceneCatalog({
+      scenes: {},
+      registry: { components: {}, resolveAsset: (uri) => (uri === 'waica:theme' ? '/resolved/theme.ogg' : uri) },
+    })
+
+    await game.audio.preload(['waica:theme'])
+    game.audio.play('waica:theme', { channel: 'music' })
+    await flush()
+
+    expect(backend.loadCalls).toEqual([{ uri: '/resolved/theme.ogg' }])
+    expect(backend.playCalls).toEqual([{ resource: '/resolved/theme.ogg', channel: 'music', volume: 1, loop: false }])
+    game.dispose()
+  })
+
+  it('ignores game.registry entirely, and keeps resolving through the catalog after unloadScene() clears it', async () => {
+    const backend = new FakeAudioBackend()
+    const { game } = makeGame(backend)
+    unlock()
+    game.registerSceneCatalog({
+      scenes: {},
+      registry: { components: {}, resolveAsset: (uri) => (uri === 'waica:theme' ? '/resolved/theme.ogg' : uri) },
+    })
+    // A live scene's own registry can differ from the catalog's (or lack a
+    // resolver entirely) — resolution must ignore it, using only the
+    // catalog registered via registerSceneCatalog.
+    game.registry = { components: {} }
+
+    game.audio.play('waica:theme', { channel: 'music' })
+    await flush()
+    expect(backend.playCalls[0]).toEqual({
+      resource: '/resolved/theme.ogg',
+      channel: 'music',
+      volume: 1,
+      loop: false,
+    })
+
+    // unloadScene() nulls game.registry but must never touch sceneCatalog —
+    // a { scope: 'session' } music bed needs its resolver to survive the
+    // scene it started next to.
+    game.unloadScene()
+    expect(game.registry).toBeNull()
+
+    game.audio.play('waica:theme', { channel: 'music', scope: 'session' })
+    await flush()
+    expect(backend.playCalls[1]).toEqual({
+      resource: '/resolved/theme.ogg',
+      channel: 'music',
+      volume: 1,
+      loop: false,
+    })
+    game.dispose()
+  })
+
+  it('passes uris through unchanged when no catalog is registered', async () => {
+    const backend = new FakeAudioBackend()
+    const { game } = makeGame(backend)
+    unlock()
+
+    game.audio.play('waica:theme', { channel: 'music' })
+    await flush()
+
+    expect(backend.playCalls).toEqual([{ resource: 'waica:theme', channel: 'music', volume: 1, loop: false }])
+    game.dispose()
+  })
+})
+
 describe('CA-3 — the mixer does not persist', () => {
   it('a fresh Game reports master and every factory channel at defaults, regardless of a previous Game', () => {
     // Nothing in AudioSubsystem/WebAudioBackend ever touches localStorage,

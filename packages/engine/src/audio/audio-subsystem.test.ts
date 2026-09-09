@@ -3,11 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AudioSubsystem } from './audio-subsystem.js'
 import { FakeAudioBackend, flush } from './test-helpers.js'
 
-function makeSubsystem(): { audio: AudioSubsystem; backend: FakeAudioBackend; canvas: HTMLCanvasElement } {
+function makeSubsystem(
+  resolveAsset?: (uri: string) => string,
+): { audio: AudioSubsystem; backend: FakeAudioBackend; canvas: HTMLCanvasElement } {
   const canvas = document.createElement('canvas')
   document.body.append(canvas)
   const backend = new FakeAudioBackend()
-  const audio = new AudioSubsystem({ canvas, backend })
+  const audio = new AudioSubsystem({ canvas, backend, resolveAsset })
   return { audio, backend, canvas }
 }
 
@@ -101,6 +103,61 @@ describe('CA-1 — playback, channels and master', () => {
     expect(backend.channelMutedCalls).toEqual([{ channel: 'sfx', muted: true }])
     expect(handle.playing).toBe(true)
     expect(backend.playbacks[0]?.stops).toEqual([])
+  })
+})
+
+describe('CA-1 — uri resolution', () => {
+  it('resolves play()\'s uri through the injected resolver before it reaches the backend', async () => {
+    const resolveAsset = (uri: string) => (uri === 'waica:theme' ? '/real/theme.ogg' : uri)
+    const { audio, backend } = makeSubsystem(resolveAsset)
+    unlock()
+
+    audio.play('waica:theme', { channel: 'music' })
+    await flush()
+
+    expect(backend.loadCalls).toEqual([{ uri: '/real/theme.ogg' }])
+    expect(backend.playCalls).toEqual([{ resource: '/real/theme.ogg', channel: 'music', volume: 1, loop: false }])
+  })
+
+  it('is idempotent: resolving an already-resolved uri (a pre-resolving caller) returns it unchanged', async () => {
+    const resolveAsset = (uri: string) => (uri === 'waica:theme' ? '/real/theme.ogg' : uri)
+    const { audio, backend } = makeSubsystem(resolveAsset)
+    unlock()
+
+    audio.play('/real/theme.ogg') // already resolved by the caller, same as a pre-fix workaround would pass
+    await flush()
+
+    expect(backend.playCalls).toEqual([{ resource: '/real/theme.ogg', channel: 'sfx', volume: 1, loop: false }])
+  })
+
+  it('passes the uri through unchanged with no resolver configured', async () => {
+    const { audio, backend } = makeSubsystem()
+    unlock()
+
+    audio.play('waica:theme')
+    await flush()
+
+    expect(backend.playCalls).toEqual([{ resource: 'waica:theme', channel: 'sfx', volume: 1, loop: false }])
+  })
+
+  it('preload() resolves every uri too', async () => {
+    const resolveAsset = (uri: string) => (uri === 'waica:theme' ? '/real/theme.ogg' : uri)
+    const { audio, backend } = makeSubsystem(resolveAsset)
+
+    await audio.preload(['waica:theme', 'plain.ogg'])
+
+    expect(backend.loadCalls.map((c) => c.uri).sort()).toEqual(['/real/theme.ogg', 'plain.ogg'])
+  })
+
+  it('liveSounds() reports the resolved uri, not the raw one passed to play()', async () => {
+    const resolveAsset = (uri: string) => (uri === 'waica:theme' ? '/real/theme.ogg' : uri)
+    const { audio } = makeSubsystem(resolveAsset)
+    unlock()
+
+    audio.play('waica:theme', { channel: 'music' })
+    await flush()
+
+    expect(audio.liveSounds()).toEqual([{ uri: '/real/theme.ogg', channel: 'music', scope: 'scene' }])
   })
 })
 

@@ -139,6 +139,24 @@ describe('RuntimeSnapshot.audio (CA-15)', () => {
     game.dispose()
   })
 
+  it('reports the resolved uri in `playing`, not the raw one passed to play() (CA-1)', async () => {
+    const { registered } = installActivation()
+    const game = makeGame(new FakeAudioBackend())
+    game.registerSceneCatalog({
+      scenes: {},
+      registry: { components: {}, resolveAsset: (uri) => (uri === 'waica:theme' ? '/resolved/theme.ogg' : uri) },
+    })
+    game.start()
+
+    game.audio.play('waica:theme', { channel: 'music' })
+    await flush()
+
+    const snapshot = registered[0]!.inspect()
+
+    expect(snapshot.audio.playing).toEqual([{ uri: '/resolved/theme.ogg', channel: 'music', scope: 'scene' }])
+    game.dispose()
+  })
+
   it('sorts channel names alphabetically regardless of creation order', async () => {
     const { registered } = installActivation()
     const game = makeGame(new FakeAudioBackend())

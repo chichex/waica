@@ -47,12 +47,11 @@ class ResizeObserverStub {
 const DT = 1 / 60
 
 /**
- * Resolves a "waica:" art uri to its actual loadable URL — the same
- * resolver `resolveProps` runs every scene/prefab string prop through, and
- * the one main.ts's own `registry.resolveAsset` delegates to. A raw
- * "waica:xxx" string is never itself fetchable: `game.audio.play()`, unlike
- * a component prop, does not resolve anything on its own, so a host calling
- * it directly (as CA-19's music line does) must resolve first.
+ * Resolves a "waica:" art uri the same way `game.audio` resolves it
+ * internally, through the registered scene catalog's registry — used here
+ * only to compute the expected value the backend should see, since
+ * `makeDemo` below calls `game.audio.play()`/`preload()` with the raw
+ * "waica:" uris directly, exactly like main.ts does.
  */
 const resolveAsset = (uri: string): string => ARCHETYPE.registry.resolveAsset?.(uri) ?? uri
 
@@ -94,10 +93,11 @@ function makeDemo(backend: FakeAudioBackend) {
     registry: ARCHETYPE.registry,
   })
   game.loadSceneByName('main')
-  // Mirrors the lines CA-19 adds to examples/isometric/src/main.ts, resolved
-  // through the same registry `resolveProps` uses for every other asset uri.
-  void game.audio.preload([SWING_URI, ORC_HURT_URI, PLAYER_HURT_URI, MUSIC_URI])
-  const musicHandle = game.audio.play(MUSIC_URI, { channel: 'music', loop: true, scope: 'session' })
+  // Mirrors the lines CA-19 adds to examples/isometric/src/main.ts exactly:
+  // raw "waica:" uris, resolved internally by game.audio through the
+  // registered scene catalog above — no manual resolveAsset step needed.
+  void game.audio.preload(['waica:iso-sword-swing', 'waica:iso-hit', 'waica:iso-hurt', 'waica:iso-town-theme'])
+  const musicHandle = game.audio.play('waica:iso-town-theme', { channel: 'music', loop: true, scope: 'session' })
 
   return {
     game,
