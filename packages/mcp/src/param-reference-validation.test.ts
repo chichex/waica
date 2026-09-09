@@ -10,6 +10,7 @@ const PARAM_CODES = new Set([
   'missing-clip',
   'input-action-unbound',
   'undeclared-stat',
+  'missing-sound',
 ])
 
 function prefab(components: unknown[]): string {
@@ -17,7 +18,7 @@ function prefab(components: unknown[]): string {
 }
 
 function refComponent(
-  ref: 'prefab' | 'stat' | 'action' | 'clip',
+  ref: 'prefab' | 'stat' | 'action' | 'clip' | 'sound',
   defaultValue = '',
   options?: string[],
 ): string {
@@ -331,6 +332,57 @@ export class RefComponent extends Component {
         severity: 'error',
         code: 'missing-clip',
         file: 'src/scenes/main.scene.json',
+        ref: 'RefComponent.target',
+      },
+    ])
+  })
+
+  it('CA-13: resolves sound refs against files actually present under the project src/art/', async () => {
+    const project = await refProject({
+      'src/components/ref.ts': refComponent('sound'),
+      'src/art/hit.ogg': new Uint8Array([0, 1, 2]),
+      'src/objects/a-valid.object.json': prefab([
+        { type: 'RefComponent', props: { target: 'src/art/hit.ogg' } },
+      ]),
+      'src/objects/b-broken.object.json': prefab([
+        { type: 'RefComponent', props: { target: 'src/art/missing.ogg' } },
+      ]),
+      'src/objects/c-empty.object.json': prefab([
+        { type: 'RefComponent', props: { target: '' } },
+      ]),
+    })
+
+    const result = await validateProject(project)
+
+    expect(paramFindings(result.findings)).toEqual([
+      {
+        severity: 'error',
+        code: 'missing-sound',
+        file: 'src/objects/b-broken.object.json',
+        ref: 'RefComponent.target',
+      },
+    ])
+  })
+
+  it('CA-13: resolves sound refs against the active archetype\'s own declared sound art', async () => {
+    const project = await refProject({
+      'src/game.json': JSON.stringify({ waicaGame: 1, archetype: 'isometric' }),
+      'src/components/ref.ts': refComponent('sound'),
+      'src/objects/a-valid.object.json': prefab([
+        { type: 'RefComponent', props: { target: 'waica:iso-hit' } },
+      ]),
+      'src/objects/b-broken.object.json': prefab([
+        { type: 'RefComponent', props: { target: 'waica:not-a-sound' } },
+      ]),
+    })
+
+    const result = await validateProject(project)
+
+    expect(paramFindings(result.findings)).toEqual([
+      {
+        severity: 'error',
+        code: 'missing-sound',
+        file: 'src/objects/b-broken.object.json',
         ref: 'RefComponent.target',
       },
     ])
