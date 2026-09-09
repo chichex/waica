@@ -2073,7 +2073,8 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
       "type": "Health",
       "props": {
         "max": 2,
-        "invulnerability": 0.3
+        "invulnerability": 0.3,
+        "hurtSound": "src/art/waica-iso-hit.ogg"
       }
     }
   ]
@@ -2382,7 +2383,10 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
       }
     },
     {
-      "type": "MeleeAttack"
+      "type": "MeleeAttack",
+      "props": {
+        "swingSound": "src/art/waica-iso-sword-swing.ogg"
+      }
     },
     {
       "type": "Respawnable"
@@ -2392,7 +2396,8 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
       "props": {
         "max": 3,
         "invulnerability": 1,
-        "stat": "health"
+        "stat": "health",
+        "hurtSound": "src/art/waica-iso-hurt.ogg"
       }
     },
     {
