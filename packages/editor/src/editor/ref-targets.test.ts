@@ -9,6 +9,10 @@ const project: RefProjectState = {
   },
   stats: { points: 0, lives: 3 },
   actions: { shoot: ['KeyF'], jump: [], left: ['ArrowLeft'] },
+  sounds: [
+    { value: 'src/art/swing.ogg', label: 'swing.ogg' },
+    { value: 'src/art/hurt.ogg', label: 'hurt.ogg' },
+  ],
 }
 
 const entityComponents: SceneComponentJson[] = [
@@ -45,6 +49,15 @@ describe('availableRefTargets', () => {
     ])
   })
 
+  it('returns sound targets sorted by label, ignoring the caller-supplied order', () => {
+    // The Inspector's project.sounds comes pre-filtered to kind 'sound' by
+    // the caller (Inspector.tsx) — this module only sorts and shapes it.
+    expect(availableRefTargets(project, 'sound')).toEqual([
+      { value: 'src/art/hurt.ogg', label: 'hurt.ogg' },
+      { value: 'src/art/swing.ogg', label: 'swing.ogg' },
+    ])
+  })
+
   it('returns clip names from the sibling AnimatedSprite', () => {
     expect(availableRefTargets(project, 'clip', { components: entityComponents })).toEqual([
       { value: 'idle', label: 'idle' },
@@ -67,11 +80,12 @@ describe('availableRefTargets', () => {
   })
 
   it('returns no targets for an empty project and absent entity context', () => {
-    const empty: RefProjectState = { prefabs: {}, stats: {}, actions: {} }
+    const empty: RefProjectState = { prefabs: {}, stats: {}, actions: {}, sounds: [] }
 
     expect(availableRefTargets(empty, 'prefab')).toEqual([])
     expect(availableRefTargets(empty, 'stat')).toEqual([])
     expect(availableRefTargets(empty, 'action')).toEqual([])
+    expect(availableRefTargets(empty, 'sound')).toEqual([])
     expect(availableRefTargets(empty, 'clip')).toBeUndefined()
   })
 })

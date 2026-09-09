@@ -1749,7 +1749,9 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             stateFiles={stateFiles}
             roleFiles={roleFiles}
             onOpenStateFile={(path) => openView({ kind: 'stateFile', path })}
-            onOpenArt={(item: ArtItem) => openView({ kind: 'art', ...item })}
+            onOpenArt={(item: ArtItem) =>
+              openView({ kind: 'art', label: item.label, url: item.url, path: item.path })
+            }
             onOpenControls={() => openView({ kind: 'controls' })}
             onOpenStats={() => openView({ kind: 'stats' })}
             onOpenGame={() => openView({ kind: 'game' })}
@@ -2054,7 +2056,8 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
               contract={
                 requiredClips.length ? { required: requiredClips, fallbacks: {} } : undefined
               }
-              art={projectArt.art}
+              // The frame/sheet picker chooses a texture, never a sound.
+              art={projectArt.art.filter((item) => item.kind === 'image')}
               urlFor={projectArt.urlFor}
               onImportArt={projectArt.importArt}
               onSave={(next) => {

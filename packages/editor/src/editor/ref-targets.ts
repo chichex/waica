@@ -13,6 +13,12 @@ export interface RefProjectState {
   stats: Readonly<ProjectStats>
   /** Already merged over the active archetype's defaults by parseControls. */
   actions: Readonly<InputBindings>
+  /**
+   * The project's sound art (src/art/*.ogg), already filtered to kind
+   * 'sound' by the caller — this module stays unaware of ArtItem/kind and
+   * just sorts and shapes whatever it's given.
+   */
+  sounds: readonly RefTarget[]
 }
 
 export interface RefEntityContext {
@@ -53,6 +59,8 @@ export function availableRefTargets(
       return plainTargets(Object.keys(project.prefabs))
     case 'stat':
       return plainTargets(Object.keys(project.stats))
+    case 'sound':
+      return [...project.sounds].sort((a, b) => a.label.localeCompare(b.label))
     case 'action':
       // Kept selectable even with zero key bindings — the runtime installs
       // exactly controls.json's bindings, so this action genuinely exists,

@@ -182,7 +182,12 @@ interface Props {
   /** Project stats and merged actions available to typed-reference pickers. */
   stats: ProjectStats
   actions: InputBindings
-  /** The project's image library, for the appearance picker. */
+  /**
+   * The project's whole art library (images and sounds). Consumers that
+   * pick a texture (Appearance, Tilemap, Animation) filter this to kind
+   * 'image' themselves; a ref: 'sound' prop's picker reads from it via
+   * RefTargetsContext instead.
+   */
   art: ArtItem[]
   urlFor(uri: string): string
   onImportArt(files: DroppedFile[]): Promise<void>
@@ -261,7 +266,7 @@ interface RefTargetContext {
 }
 
 const RefTargetsContext = createContext<RefTargetContext>({
-  project: { prefabs: {}, stats: {}, actions: {} },
+  project: { prefabs: {}, stats: {}, actions: {}, sounds: [] },
 })
 
 export function componentKeys(comp: SceneComponentJson, archetype: ArchetypeManifest): string[] {
@@ -1573,6 +1578,8 @@ function EntityInspector({
   entity: SceneEntityJson
 }) {
   const archetype = useArchetype()
+  // Appearance/Tilemap pick a texture, never a sound.
+  const imageArt = art.filter((item) => item.kind === 'image')
   const [x, y] = entity.position ?? [0, 0]
   const components = resolveComponents(entity, prefabs)
   const prefab = entity.prefab ? prefabs[entity.prefab] : undefined
@@ -1647,7 +1654,7 @@ function EntityInspector({
               ? characterClipsWarning(appearance, components)
               : undefined
           }
-          art={art}
+          art={imageArt}
           urlFor={urlFor}
           onImportArt={onImportArt}
           onSetTexture={(uri) => onSetTexture(entity.name, appearance.type, uri)}
@@ -1708,7 +1715,7 @@ function EntityInspector({
         <TilemapCard
           id={entity.name}
           props={tilemap.props ?? {}}
-          art={art}
+          art={imageArt}
           urlFor={urlFor}
           selectedTile={activeBrush?.tile ?? 0}
           paint={activeBrush?.paint ?? false}
@@ -1811,6 +1818,8 @@ function PrefabInspector({
   onSetSize(componentType: string, size: { width: number; height: number }): void
 }) {
   const archetype = useArchetype()
+  // Appearance/Tilemap pick a texture, never a sound.
+  const imageArt = art.filter((item) => item.kind === 'image')
   const rule = CHASSIS[prefab.type]
   const split = splitComponents(prefab.components)
   const appearance = split.appearance
@@ -1839,7 +1848,7 @@ function PrefabInspector({
               ? characterClipsWarning(appearance, prefab.components)
               : undefined
           }
-          art={art}
+          art={imageArt}
           urlFor={urlFor}
           onImportArt={onImportArt}
           onSetTexture={onSetTexture}
@@ -1867,7 +1876,7 @@ function PrefabInspector({
         <TilemapCard
           id={refName}
           props={tilemap.props ?? {}}
-          art={art}
+          art={imageArt}
           urlFor={urlFor}
           selectedTile={0}
           paint={false}
@@ -2148,8 +2157,11 @@ export function Inspector(props: Props) {
         : selection?.kind === 'multi'
           ? intersectedClipComponents(selection.entities, props.prefabs)
           : undefined
+  const sounds: RefTarget[] = props.art
+    .filter((item) => item.kind === 'sound')
+    .map((item) => ({ value: item.uri, label: item.label }))
   const referenceContext: RefTargetContext = {
-    project: { prefabs: props.prefabs, stats: props.stats, actions: props.actions },
+    project: { prefabs: props.prefabs, stats: props.stats, actions: props.actions, sounds },
     ...(referenceComponents ? { entity: { components: referenceComponents } } : {}),
   }
   return (
