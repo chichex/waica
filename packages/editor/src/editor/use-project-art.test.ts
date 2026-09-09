@@ -1,5 +1,33 @@
+// @vitest-environment happy-dom
+import { act, createElement } from 'react'
+import { createRoot } from 'react-dom/client'
 import { describe, expect, it } from 'vitest'
-import { buildArtTree, collectDroppedFiles, type ArtItem } from './use-project-art'
+import { MemFS } from '../fs/project-fs'
+import {
+  buildArtTree,
+  collectDroppedFiles,
+  useProjectArt,
+  type ArtItem,
+  type ProjectArt,
+} from './use-project-art'
+
+/** Mounts useProjectArt over a real MemFS and hands back its live return value. */
+async function mountProjectArt(fs: MemFS): Promise<{ art(): ProjectArt; unmount(): void }> {
+  let latest: ProjectArt | null = null
+  function Harness(): null {
+    latest = useProjectArt(fs)
+    return null
+  }
+  const host = document.createElement('div')
+  const root = createRoot(host)
+  await act(async () => {
+    root.render(createElement(Harness))
+  })
+  return {
+    art: () => latest!,
+    unmount: () => root.unmount(),
+  }
+}
 
 function pngFile(name: string): File {
   return new File([new Uint8Array([1, 2, 3])], name, { type: 'image/png' })
@@ -93,7 +121,13 @@ describe('collectDroppedFiles', () => {
 })
 
 function artItem(path: string): ArtItem {
-  return { label: path.split('/').pop() ?? path, url: `blob:${path}`, uri: path, path }
+  return {
+    label: path.split('/').pop() ?? path,
+    url: `blob:${path}`,
+    uri: path,
+    path,
+    kind: /\.ogg$/i.test(path) ? 'sound' : 'image',
+  }
 }
 
 describe('buildArtTree', () => {
@@ -135,5 +169,50 @@ describe('buildArtTree', () => {
     const tree = buildArtTree([icon])
     expect(tree.folders.map((f) => f.name)).toEqual(['ui'])
     expect(tree.folders.find((f) => f.name === 'ui')?.items).toEqual([icon])
+  })
+})
+
+describe('useProjectArt (CA-17)', () => {
+  it('scans .ogg files from src/art alongside images, tagging each item by kind', async () => {
+    const fs = new MemFS('proj', {})
+    await fs.writeFile('src/art/hero.png', new Uint8Array([1, 2, 3]))
+    await fs.writeFile('src/art/swing.ogg', new Uint8Array([4, 5, 6]))
+    const mounted = await mountProjectArt(fs)
+
+    const items = [...mounted.art().art].sort((a, b) => a.uri.localeCompare(b.uri))
+    expect(items.map((i) => ({ uri: i.uri, kind: i.kind }))).toEqual([
+      { uri: 'src/art/hero.png', kind: 'image' },
+      { uri: 'src/art/swing.ogg', kind: 'sound' },
+    ])
+
+    mounted.unmount()
+  })
+
+  it('ignores files that are neither images nor .ogg sounds', async () => {
+    const fs = new MemFS('proj', {})
+    await fs.writeFile('src/art/notes.txt', new Uint8Array([1]))
+    await fs.writeFile('src/art/theme.mp3', new Uint8Array([2]))
+    const mounted = await mountProjectArt(fs)
+
+    expect(mounted.art().art).toEqual([])
+
+    mounted.unmount()
+  })
+
+  it('imports .ogg files into src/art, same as images', async () => {
+    const fs = new MemFS('proj', {})
+    const mounted = await mountProjectArt(fs)
+    const file = new File([new Uint8Array([1, 2, 3])], 'swing.ogg', { type: 'audio/ogg' })
+
+    await act(async () => {
+      await mounted.art().importArt([{ file, relativePath: 'swing.ogg' }])
+    })
+
+    const bytes = await fs.readFile('src/art/swing.ogg')
+    expect(bytes).not.toBeNull()
+    expect(mounted.art().art.map((i) => i.uri)).toEqual(['src/art/swing.ogg'])
+    expect(mounted.art().art[0]?.kind).toBe('sound')
+
+    mounted.unmount()
   })
 })

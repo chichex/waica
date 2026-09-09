@@ -72,6 +72,7 @@ import { ControlsEditor, GameSettingsEditor, ProjectPane, StatsEditor } from './
 import { UiPane } from './UiPane'
 import { scriptSource } from './script-sources'
 import { useProjectArt, type ArtItem } from './use-project-art'
+import { browserSoundPreview } from './sound-preview'
 import { loadWorkspace, saveWorkspace, type WorkspaceView } from './workspace'
 import { WriteScheduler } from './write-scheduler'
 import type { TilemapBrushSelection } from './tilemap-brush'
@@ -1710,6 +1711,8 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             onImportArt={projectArt.importArt}
             importProgress={projectArt.importProgress}
             onRefreshArt={projectArt.refresh}
+            mode={mode}
+            onPreviewSound={(url) => browserSoundPreview.play(url)}
             onOpenScene={(path) => openView({ kind: 'scene', path })}
             onSelectEntity={(name) => {
               if (!openScenePath) return
@@ -1749,7 +1752,9 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             stateFiles={stateFiles}
             roleFiles={roleFiles}
             onOpenStateFile={(path) => openView({ kind: 'stateFile', path })}
-            onOpenArt={(item: ArtItem) => openView({ kind: 'art', ...item })}
+            onOpenArt={(item: ArtItem) =>
+              openView({ kind: 'art', label: item.label, url: item.url, path: item.path })
+            }
             onOpenControls={() => openView({ kind: 'controls' })}
             onOpenStats={() => openView({ kind: 'stats' })}
             onOpenGame={() => openView({ kind: 'game' })}
@@ -2054,7 +2059,8 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
               contract={
                 requiredClips.length ? { required: requiredClips, fallbacks: {} } : undefined
               }
-              art={projectArt.art}
+              // The frame/sheet picker chooses a texture, never a sound.
+              art={projectArt.art.filter((item) => item.kind === 'image')}
               urlFor={projectArt.urlFor}
               onImportArt={projectArt.importArt}
               onSave={(next) => {

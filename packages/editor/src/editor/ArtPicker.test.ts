@@ -4,7 +4,7 @@ import type { ArtItem } from './use-project-art'
 
 function item(path: string): ArtItem {
   const label = path.split('/').pop()!
-  return { label, url: `blob:${label}`, uri: path, path }
+  return { label, url: `blob:${label}`, uri: path, path, kind: 'image' }
 }
 
 describe('artDirOf', () => {
