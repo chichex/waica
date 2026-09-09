@@ -125,16 +125,22 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   game.loadSceneByName('main')
   // CA-19: a looping music bed, session-scoped (ADR 0012) so a Scene
   // Transition never stops or restarts it — every combat one-shot stays
-  // scene-scoped by default. game.audio resolves "waica:" uris itself
-  // through the registered scene catalog's registry, the same one
-  // resolveProps runs every prefab's sound prop through — a direct call
-  // like this one needs no manual resolveAsset step. CA-9's preload keeps
-  // the four shipped sounds decoded ahead of time, so the first swing
-  // doesn't pay for the fetch. This call runs before any input, so the
-  // engine retains the loop and starts it at the autoplay unlock instead
-  // of discarding it.
+  // scene-scoped by default. The isometric archetype declares its own
+  // music uri in the manifest (G8: ArchetypeManifest.music); this file
+  // just asks for it, the same way the generic project template does for
+  // any archetype that has one — one mechanism, not a hardcoded uri here
+  // plus a declarative one for generated projects. game.audio resolves
+  // "waica:" uris itself through the registered scene catalog's registry,
+  // the same one resolveProps runs every prefab's sound prop through — a
+  // direct call like this one needs no manual resolveAsset step. CA-9's
+  // preload keeps the four shipped sounds decoded ahead of time, so the
+  // first swing doesn't pay for the fetch. This call runs before any
+  // input, so the engine retains the loop and starts it at the autoplay
+  // unlock instead of discarding it.
   void game.audio.preload(['waica:iso-sword-swing', 'waica:iso-hit', 'waica:iso-hurt', 'waica:iso-town-theme'])
-  game.audio.play('waica:iso-town-theme', { channel: 'music', loop: true, scope: 'session' })
+  if (ARCHETYPE.music) {
+    game.audio.play(ARCHETYPE.music, { channel: 'music', loop: true, scope: 'session' })
+  }
 
   if (import.meta.env.DEV) {
     ;(window as unknown as Record<string, unknown>).__waica = { game }

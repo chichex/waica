@@ -92,11 +92,14 @@ function makeDemo(backend: FakeAudioBackend) {
     registry: ARCHETYPE.registry,
   })
   game.loadSceneByName('main')
-  // Mirrors the lines CA-19 adds to examples/isometric/src/main.ts exactly:
-  // raw "waica:" uris, resolved internally by game.audio through the
+  // Mirrors the lines CA-19 / G8 add to examples/isometric/src/main.ts
+  // exactly: the music uri comes from the manifest field, not a hardcoded
+  // literal, and is resolved internally by game.audio through the
   // registered scene catalog above — no manual resolveAsset step needed.
   void game.audio.preload(['waica:iso-sword-swing', 'waica:iso-hit', 'waica:iso-hurt', 'waica:iso-town-theme'])
-  const musicHandle = game.audio.play('waica:iso-town-theme', { channel: 'music', loop: true, scope: 'session' })
+  const musicUri = ARCHETYPE.music
+  if (!musicUri) throw new Error('expected the isometric archetype to declare music (G8)')
+  const musicHandle = game.audio.play(musicUri, { channel: 'music', loop: true, scope: 'session' })
 
   return {
     game,

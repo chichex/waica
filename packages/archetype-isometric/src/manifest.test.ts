@@ -36,7 +36,17 @@ describe('isometric archetype manifest', () => {
       bundle: ISOMETRIC_BUNDLE,
       animation: ISOMETRIC_ANIMATION,
       artUrls: ISOMETRIC_ART_URLS,
+      music: 'waica:iso-town-theme',
     })
+  })
+
+  // G8: closes the gap where a generated project (unlike the repo's own
+  // examples/isometric demo) never started the town theme, because nothing
+  // told the generic host template which uri to ask for. The manifest is
+  // now that one source of truth for both hosts.
+  it('declares its looping town theme as the manifest music uri (G8)', () => {
+    expect(ARCHETYPE.music).toBe('waica:iso-town-theme')
+    expect(NODE_ARCHETYPE.music).toBe('waica:iso-town-theme')
   })
 
   it('exports the asset-free manifest directly from the Node-safe entry', () => {

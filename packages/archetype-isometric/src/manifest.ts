@@ -32,4 +32,7 @@ export const ARCHETYPE = {
   actionLabels: ISOMETRIC_ACTION_LABELS,
   bundle: ISOMETRIC_BUNDLE,
   animation: ISOMETRIC_ANIMATION,
+  // G8: the archetype's own looping music bed. The generic project
+  // template (and examples/isometric/src/main.ts) start it if present.
+  music: 'waica:iso-town-theme',
 } satisfies ArchetypeManifest

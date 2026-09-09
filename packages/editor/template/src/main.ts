@@ -124,5 +124,15 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   game.registerSceneCatalog({ scenes, registry })
   game.loadSceneByName('main')
 
+  // Some archetypes ship a looping music bed (see ARCHETYPE.music); this is
+  // where the host asks for it, if it has one — session-scoped so a Scene
+  // Transition never stops or restarts it. game.audio resolves "waica:"
+  // uris itself through the registered scene catalog above, so no manual
+  // resolveAsset step is needed here. An archetype with no music leaves
+  // this field unset, so nothing plays: no warning, no fetch.
+  if (ARCHETYPE.music) {
+    game.audio.play(ARCHETYPE.music, { channel: 'music', loop: true, scope: 'session' })
+  }
+
   game.start()
 }
