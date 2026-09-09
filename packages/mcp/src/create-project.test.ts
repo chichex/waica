@@ -8,6 +8,10 @@ import { cleanup, readJson, tempDir, writeTree } from './test-helpers.js'
 const roots: string[] = []
 afterEach(async () => cleanup(...roots.splice(0)))
 
+// Binary art the archetypes ship (images and, since CA-11, sounds): never
+// safe to read as utf8 text, and always compared byte-for-byte instead.
+const BINARY_ART_RE = /\.(?:png|ogg)$/i
+
 async function filesBelow(root: string, at = root): Promise<string[]> {
   const entries = await readdir(at, { withFileTypes: true })
   const nested = await Promise.all(
@@ -22,7 +26,7 @@ async function filesBelow(root: string, at = root): Promise<string[]> {
 async function textTree(root: string): Promise<Record<string, string>> {
   const out: Record<string, string> = {}
   for (const relative of await filesBelow(root)) {
-    if (relative.endsWith('.png')) continue
+    if (BINARY_ART_RE.test(relative)) continue
     out[relative] = await readFile(path.join(root, relative), 'utf8')
   }
   return out
@@ -60,7 +64,7 @@ describe('createProject', () => {
       expect(await textTree(target)).toEqual(
         await expectedEditorFiles(`isometric-${start}`, start, 'isometric'),
       )
-      const artPaths = (await filesBelow(target)).filter((file) => file.endsWith('.png'))
+      const artPaths = (await filesBelow(target)).filter((file) => BINARY_ART_RE.test(file))
       expect(artPaths).toEqual(Object.keys(projectArtFiles(start, 'isometric')).sort())
       for (const relative of artPaths) {
         const source = path.resolve(
@@ -81,7 +85,7 @@ describe('createProject', () => {
     await createProject(target, 'demo', 'topdown')
 
     expect(await textTree(target)).toEqual(await expectedEditorFiles('agent-game', 'demo', 'topdown'))
-    const artPaths = (await filesBelow(target)).filter((file) => file.endsWith('.png'))
+    const artPaths = (await filesBelow(target)).filter((file) => BINARY_ART_RE.test(file))
     expect(artPaths).toEqual(Object.keys(projectArtFiles('demo', 'topdown')).sort())
     for (const relative of artPaths) {
       const source = path.resolve(
@@ -104,7 +108,7 @@ describe('createProject', () => {
     )
 
     expect(await textTree(target)).toEqual(await expectedEditorFiles('agent-game', 'demo'))
-    const artPaths = (await filesBelow(target)).filter((file) => file.endsWith('.png'))
+    const artPaths = (await filesBelow(target)).filter((file) => BINARY_ART_RE.test(file))
     expect(artPaths).toEqual(Object.keys(projectArtFiles()).sort())
     for (const relative of artPaths) {
       const source = path.resolve(
