@@ -69,6 +69,8 @@ A ready Run Session starts **paused** at frame 0 and simulation time 0. The Game
 
 `inspect_runtime` returns stats plus live entities, stable opaque ids, transforms and safely projected component state. Filters are OR within `entity_ids`, `entity_names` or `component_types`, and AND across those categories. Projection is read-only and bounded; `Date`, `BigInt`, `Map` and `Set` have typed JSON representations, cycles/errors/truncation have `$waica` markers, and a component may provide `inspectState()`. There is no arbitrary JavaScript evaluation or runtime mutation tool.
 
+The snapshot also carries an `audio` section: `{ master, channels: { <name>: { volume, muted } }, playing: [{ uri, channel, scope }] }`, reporting the mixer's master volume, every channel's volume/mute (factory `music`/`sfx` plus any runtime-created channel, sorted by name), and every currently playing sound with its channel and `'scene' | 'session'` scope, sorted by uri then channel. Unlike the entity filters above, `audio` is emitted unconditionally — no section of the Runtime Snapshot is filterable except entities.
+
 `capture_screenshot` captures the canvas rectangle after browser compositing, so visible Waica HTML UI is included while unrelated full-page content and browser chrome are excluded. PNG bytes appear only in the MCP image block, never duplicated in text or structured metadata.
 
 Full page reload reconnects to a fresh paused baseline. Runtime operations reject while reloading; a timeout, page/browser/dev-process failure or second simultaneous Game ends the session. `stop_project` and MCP transport close both clean every owned browser context and whole dev-process group; cleanup failure is reported rather than claimed as success.
@@ -80,6 +82,10 @@ Full page reload reconnects to a fresh paused baseline. Runtime operations rejec
 The check follows the active archetype's animation contract. Archetypes whose characters face more than one way (top-down, isometric) declare a `DirectionalAnimation`: their sheets are named `<state>-<dir>` and the engine resolves the plain state name at runtime. Under such a contract a clip counts as present when it resolves for **every** declared direction — mirrored facings and the contract's state fallbacks included, the same rule the archetype conformance suite applies to the shipped manifests. An archetype that declares no contract keeps the literal check: the name must be a key of the sheet.
 
 One consequence is deliberate: a state that only resolves through a state fallback (`attack` degrading to `idle`) is accepted, so a character with no attack art is not reported here — it plays its idle instead.
+
+## Sound reference validation
+
+`validate_project` reports an error-severity `missing-sound` finding — symmetric with `broken-prefab-ref` — when a component param declared `ref: 'sound'` (e.g. `MeleeAttack.swingSound`, `Health.hurtSound`) names a uri that resolves to neither the active archetype's own declared sound art nor an actual file under the project's `src/art/`. An unset prop reports nothing. `describe_archetype`'s `art` entries each carry a `kind: 'image' | 'sound'`, so a caller can tell which of an archetype's stock-art uris are valid sound refs without inspecting file extensions.
 
 ## Project module execution during validation
 

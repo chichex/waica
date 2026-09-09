@@ -16,6 +16,11 @@ import { discoverArchetypes, pickArchetype } from './archetypes.js'
 import { isPlayableClip } from './clip-resolution.js'
 import { classDefaults, objectRecord } from './component-metadata.js'
 import {
+  isBoundAction,
+  projectSoundRefs,
+  resolveParamReference,
+} from './param-reference-resolution.js'
+import {
   PackageResolver,
   mixedSourceWarnings,
   provenanceRows,
@@ -35,6 +40,7 @@ export type FindingCode =
   | 'broken-prefab-ref'
   | 'override-key-not-in-prefab'
   | 'missing-clip'
+  | 'missing-sound'
   | 'dangling-transition-target'
   | 'unreachable-state'
   | 'no-state-code'
@@ -79,6 +85,7 @@ interface ValidationContext {
   stateFiles: Set<string>
   roleStateSources: Map<string, string[]>
   bindings: Record<string, string[]>
+  soundRefs: ReadonlySet<string>
 }
 
 function add(
@@ -173,11 +180,6 @@ function siblingClips(siblings: SceneComponentJson[]): Set<string> | undefined {
   return animated ? new Set(Object.keys(objectRecord(animated.props?.clips))) : undefined
 }
 
-/** Whether `action` has at least one real binding — an own key, since bindings is keyed by an untrusted string. */
-function isBoundAction(bindings: Record<string, string[]>, action: string): boolean {
-  return Object.hasOwn(bindings, action) && (bindings[action]?.length ?? 0) > 0
-}
-
 interface ParamReferenceEntry {
   component: SceneComponentJson
   /**
@@ -208,59 +210,17 @@ function validateParamReferences(
       const value = Object.hasOwn(props, param) ? props[param] : metadata.defaults[param]
       if (typeof value !== 'string' || value === '') continue
       const field = `${component.type}.${param}`
-      switch (spec.ref) {
-        case 'prefab':
-          if (!context.prefabRefs.has(value)) {
-            add(
-              context,
-              'error',
-              'broken-prefab-ref',
-              `Component "${component.type}" param "${param}" references missing prefab "${value}".`,
-              file,
-              field,
-            )
-          }
-          break
-        case 'clip':
-          if (clips && !isPlayableClip(clips, value, context.manifest.animation)) {
-            add(
-              context,
-              'error',
-              'missing-clip',
-              `Component "${component.type}" param "${param}" references missing animation clip "${value}".`,
-              file,
-              field,
-            )
-          }
-          break
-        case 'action':
-          if (!isBoundAction(context.bindings, value)) {
-            add(
-              context,
-              // Consistent with the pre-existing state-transition check for the
-              // same condition (below): an unbound action is a real gap the
-              // agent should look at, but not one that flips ok:false.
-              'warning',
-              'input-action-unbound',
-              `Component "${component.type}" param "${param}" references unbound input action "${value}".`,
-              file,
-              field,
-            )
-          }
-          break
-        case 'stat':
-          if (!context.declaredStats.has(value)) {
-            add(
-              context,
-              'warning',
-              'undeclared-stat',
-              `Component "${component.type}" param "${param}" references undeclared stat "${value}"; runtime writes may still create it.`,
-              file,
-              field,
-            )
-          }
-          break
-      }
+      const finding = resolveParamReference(
+        { componentType: component.type, param, ref: spec.ref, value, clips, file, field },
+        {
+          prefabRefs: context.prefabRefs,
+          animation: context.manifest.animation,
+          bindings: context.bindings,
+          declaredStats: context.declaredStats,
+          soundRefs: context.soundRefs,
+        },
+      )
+      if (finding) context.findings.push(finding)
     }
   }
 }
@@ -798,6 +758,10 @@ export async function validateProject(
   const declaredStats = new Set(
     Object.keys(objectRecord(objectRecord(fixed.get('src/stats.json')).stats)),
   )
+  // CA-13: every uri a `ref: 'sound'` param may validly name — the
+  // archetype's own declared sound art plus whatever actually lives under
+  // the project's src/art/ (see param-reference-resolution.ts).
+  const soundRefs = await projectSoundRefs(projectPath, manifest.art)
   const componentRegistry: Record<string, ComponentClass> = {
     ...manifest.registry.components,
   }
@@ -857,6 +821,7 @@ export async function validateProject(
     stateFiles,
     roleStateSources,
     bindings,
+    soundRefs,
   }
   validateComponentClassUpdateContracts(context)
   for (const { prefab, relative, ref } of prefabFiles) {
