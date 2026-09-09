@@ -250,6 +250,49 @@ describe('CA-5 — a registered Runtime Bridge silences output but not the model
   })
 })
 
+describe('retained looping sounds requested before boot\'s autoplay unlock', () => {
+  it('a music bed started synchronously in main(), before any real gesture, plays once the player presses a key', async () => {
+    const backend = new FakeAudioBackend()
+    const { game } = makeGame(backend)
+
+    // Mirrors examples/isometric/src/main.ts: the music line runs at boot,
+    // synchronously, before any input — this is the defect: it used to be
+    // discarded and never returned.
+    const musicHandle = game.audio.play('bed.ogg', { channel: 'music', loop: true, scope: 'session' })
+    await flush()
+
+    expect(backend.playCalls).toEqual([])
+    expect(musicHandle.playing).toBe(true)
+
+    // The player's first keypress — the game's actual first real gesture.
+    unlock()
+    await flush()
+
+    expect(backend.playCalls).toEqual([{ resource: 'bed.ogg', channel: 'music', volume: 1, loop: true }])
+    expect(game.audio.liveSounds()).toEqual([{ uri: 'bed.ogg', channel: 'music', scope: 'session' }])
+    expect(musicHandle.playing).toBe(true)
+    game.dispose()
+  })
+
+  it('a registered Runtime Bridge also releases a retained pre-unlock loop (silenced, per CA-5/the deviation)', async () => {
+    const backend = new FakeAudioBackend()
+    const { game } = makeGame(backend)
+    installActivation()
+
+    const musicHandle = game.audio.play('bed.ogg', { channel: 'music', loop: true, scope: 'session' })
+    expect(backend.playCalls).toEqual([])
+
+    game.start() // registers the bridge — the deviation's silent unlock, no real gesture involved
+    await flush()
+
+    expect(backend.playCalls).toEqual([{ resource: 'bed.ogg', channel: 'music', volume: 1, loop: true }])
+    expect(backend.resumeCalls).toBe(0)
+    expect(backend.suspendCalls).toBe(0)
+    expect(musicHandle.playing).toBe(true)
+    game.dispose()
+  })
+})
+
 describe('CA-10 — teardown', () => {
   it('stops every live sound, including session-scoped ones, and closes the backend', async () => {
     const backend = new FakeAudioBackend()

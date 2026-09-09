@@ -82,12 +82,11 @@ function makeDemo(backend: FakeAudioBackend) {
   installArchetype(ARCHETYPE.bundle)
   installDirectionalAnimation(ARCHETYPE.animation ?? null)
   const game = new Game({ canvas, bindings: controls.bindings, stats: stats.stats, audio: backend })
-  // The real demo's first unlock comes from whatever key the player presses
-  // first (movement, attack, ...) — always after boot, never before. Here it
-  // stands in for that same gesture so the mirror of main.ts's own play()
-  // call below (also issued at boot) actually registers, exactly like every
-  // other audio-gated assertion in packages/engine/src/audio/game-audio.test.ts.
-  unlock()
+  // No unlock() here: main.ts's music line below runs at boot, synchronously,
+  // before any real gesture — exactly like the shipped demo. A retained loop
+  // (the fix for "a music bed requested at boot is discarded forever") means
+  // this is safe; triggerCombatSounds() below fires the real first unlock,
+  // the same as the player's first keypress in the actual demo.
   game.registerSceneCatalog({
     scenes: { main: ISOMETRIC_SCENE, cave: ISOMETRIC_CAVE_SCENE },
     registry: ARCHETYPE.registry,
@@ -131,6 +130,12 @@ async function triggerCombatSounds(demo: ReturnType<typeof makeDemo>): Promise<v
   const motor = player.get(IsoMotor)!
   const orcHealth = orc.get(Health)!
 
+  // The real demo's first unlock comes from whatever key the player presses
+  // first (movement, attack, ...) — always after boot, never before (CA-6).
+  // demo.press() below only injects action state (no DOM event, see
+  // input.ts), so the real gesture standing in for it is fired here.
+  unlock()
+
   // Stand screen-west of the orc — logical (-x, +y) — out of contact range, facing it.
   player.position.set(orc.position.x - 0.85, orc.position.y + 0.85, 0)
   motor.facing = 'e'
@@ -172,24 +177,38 @@ describe('CA-19 — the isometric demo sounds', () => {
     expect(byUri(PLAYER_HURT_URI)).toEqual([{ resource: PLAYER_HURT_URI, channel: 'sfx', volume: 1, loop: false }])
   })
 
-  it('starts a looping, session-scoped music bed on the "music" channel at boot', async () => {
-    const backend = new FakeAudioBackend()
-    const demo = makeDemo(backend)
-    await flush()
+  it(
+    'retains the music bed requested at boot (before any input) and starts it on the ' +
+      '"music" channel at the player\'s first real gesture',
+    async () => {
+      const backend = new FakeAudioBackend()
+      const demo = makeDemo(backend)
+      await flush()
 
-    expect(backend.playCalls).toEqual(
-      expect.arrayContaining([{ resource: MUSIC_URI, channel: 'music', volume: 1, loop: true }]),
-    )
-    expect(demo.game.audio.liveSounds()).toEqual(
-      expect.arrayContaining([{ uri: MUSIC_URI, channel: 'music', scope: 'session' }]),
-    )
-    expect(demo.musicHandle.playing).toBe(true)
-    // CA-9's preload (the pattern the demo is meant to show) fetched all four
-    // shipped sounds up front, so the first swing never pays for the load.
-    expect(backend.loadCalls.map((call) => call.uri).sort()).toEqual(
-      [SWING_URI, ORC_HURT_URI, PLAYER_HURT_URI, MUSIC_URI].sort(),
-    )
-  })
+      // main.ts's music line runs synchronously at boot, before any real
+      // gesture — this used to be silently discarded forever (the defect).
+      // The handle is already real, but nothing has reached the backend yet.
+      expect(backend.playCalls).toEqual([])
+      expect(demo.musicHandle.playing).toBe(true)
+
+      unlock()
+      await flush()
+
+      expect(backend.playCalls).toEqual(
+        expect.arrayContaining([{ resource: MUSIC_URI, channel: 'music', volume: 1, loop: true }]),
+      )
+      expect(demo.game.audio.liveSounds()).toEqual(
+        expect.arrayContaining([{ uri: MUSIC_URI, channel: 'music', scope: 'session' }]),
+      )
+      expect(demo.musicHandle.playing).toBe(true)
+      // CA-9's preload (the pattern the demo is meant to show) fetched all
+      // four shipped sounds up front, so the first swing never pays for the
+      // load — preload() itself is never gated on the unlock.
+      expect(backend.loadCalls.map((call) => call.uri).sort()).toEqual(
+        [SWING_URI, ORC_HURT_URI, PLAYER_HURT_URI, MUSIC_URI].sort(),
+      )
+    },
+  )
 
   it(
     'crossing the Scene Transition leaves the music bed exactly as it was — the same live ' +

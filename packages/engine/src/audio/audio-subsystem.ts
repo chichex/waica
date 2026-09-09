@@ -66,6 +66,14 @@ export class AudioSubsystem {
   private readonly resolveAsset: (uri: string) => string
   private readonly channelsMap = new Map<string, AudioChannelState>()
   private readonly live = new Set<LiveSound>()
+  /**
+   * Loops requested before unlock (defect: a music bed started at boot,
+   * before any gesture, used to be discarded forever). Each is already in
+   * `live` and already has a real handle; only its attach() to the backend
+   * is deferred until the unlock latch flips. A non-looping call before
+   * unlock is still discarded exactly as before — see `play()`.
+   */
+  private readonly pendingUnlock = new Set<LiveSound>()
   private readonly resourceStates = new Map<string, ResourceState>()
   private readonly resourcePromises = new Map<string, Promise<void>>()
   private masterVolume = 1
@@ -85,9 +93,13 @@ export class AudioSubsystem {
   }
 
   /**
-   * Starts a sound. Before the first unlock (CA-6) this registers nothing
-   * and touches no backend at all — the returned handle just reports
-   * `playing: false` forever. `opts.at` (CA-8, positional audio) sets up
+   * Starts a sound. Before the first unlock (CA-6), a one-shot registers
+   * nothing and touches no backend at all — the returned handle just
+   * reports `playing: false` forever. A *looping* call is different: it is
+   * remembered (a deliberate, singular bed, unlike a burst of one-shots
+   * that would all fire at once and sound broken) and started once the
+   * unlock happens, on this same handle — nothing reaches the backend
+   * until then either way. `opts.at` (CA-8, positional audio) sets up
    * placement tracking; Game calls updatePlacements() once per frame to
    * actually compute pan/attenuation and forward them to the backend.
    */
@@ -100,7 +112,7 @@ export class AudioSubsystem {
     const placement = resolvePlacement(opts.at)
     this.ensureChannel(channel)
 
-    if (!this.unlocked) return inertHandle(volume)
+    if (!this.unlocked && !loop) return inertHandle(volume)
 
     const sound: LiveSound = {
       uri: resolvedUri,
@@ -115,7 +127,8 @@ export class AudioSubsystem {
       backendHandle: null,
     }
     this.live.add(sound)
-    this.attach(resolvedUri, sound)
+    if (this.unlocked) this.attach(resolvedUri, sound)
+    else this.pendingUnlock.add(sound)
     return this.handleFor(sound)
   }
 
@@ -240,6 +253,7 @@ export class AudioSubsystem {
       sound.backendHandle?.stop()
     }
     this.live.clear()
+    this.pendingUnlock.clear()
     this.backend.close()
   }
 
@@ -356,9 +370,10 @@ export class AudioSubsystem {
   }
 
   /**
-   * Flips the one-way unlock latch and detaches the DOM listeners, without
-   * syncing output — callers decide when to sync so a silencing change
-   * arriving in the same call (setSilenced) composes into a single,
+   * Flips the one-way unlock latch, detaches the DOM listeners, and releases
+   * every loop that was retained while locked (the boot-music-bed fix) —
+   * without syncing output. Callers decide when to sync so a silencing
+   * change arriving in the same call (setSilenced) composes into a single,
    * correct resume/suspend decision instead of a spurious resume-then-
    * suspend pair.
    */
@@ -367,6 +382,14 @@ export class AudioSubsystem {
     this.unlocked = true
     window.removeEventListener('keydown', this.handleUnlockEvent)
     this.canvas.removeEventListener('pointerdown', this.handleUnlockEvent)
+    const pending = [...this.pendingUnlock]
+    this.pendingUnlock.clear()
+    for (const sound of pending) {
+      // stop() while still pending drops the sound outright (no backend
+      // handle to fade) and marks it ended — it must never start.
+      if (sound.ended) continue
+      this.attach(sound.uri, sound)
+    }
   }
 
   private syncOutput(): void {

@@ -269,6 +269,110 @@ describe('CA-6 — autoplay unlock', () => {
     await flush()
     expect(backend.playCalls).toHaveLength(1)
   })
+
+  describe('retained looping sounds (a music bed requested before unlock)', () => {
+    it(
+      'retains a loop requested with zero prior gestures: nothing reaches the backend until unlock, ' +
+        'then it plays exactly once, on the same handle the caller has held since boot',
+      async () => {
+        const { audio, backend } = makeSubsystem()
+
+        const handle = audio.play('bed.ogg', { channel: 'music', loop: true })
+        await flush()
+
+        // Nothing reached the backend yet, but the handle is already real.
+        expect(backend.loadCalls).toEqual([])
+        expect(backend.playCalls).toEqual([])
+        expect(backend.resumeCalls).toBe(0)
+        expect(handle.playing).toBe(true)
+
+        unlock()
+        await flush()
+
+        expect(backend.playCalls).toEqual([{ resource: 'bed.ogg', channel: 'music', volume: 1, loop: true }])
+        expect(handle.playing).toBe(true)
+      },
+    )
+
+    it('a retained pre-unlock loop already appears in liveSounds(), before it ever reaches the backend', () => {
+      const { audio } = makeSubsystem()
+
+      audio.play('bed.ogg', { channel: 'music', loop: true, scope: 'session' })
+
+      expect(audio.liveSounds()).toEqual([{ uri: 'bed.ogg', channel: 'music', scope: 'session' }])
+    })
+
+    it('stop() on a retained pre-unlock loop cancels the pending start: it never reaches the backend', async () => {
+      const { audio, backend } = makeSubsystem()
+
+      const handle = audio.play('bed.ogg', { channel: 'music', loop: true })
+      handle.stop()
+      expect(handle.playing).toBe(false)
+
+      unlock()
+      await flush()
+
+      expect(backend.loadCalls).toEqual([])
+      expect(backend.playCalls).toEqual([])
+    })
+
+    it('volume set on a retained pre-unlock loop is honored once it starts', async () => {
+      const { audio, backend } = makeSubsystem()
+
+      const handle = audio.play('bed.ogg', { channel: 'music', loop: true, volume: 1 })
+      handle.volume = 0.3
+      expect(handle.volume).toBe(0.3)
+
+      unlock()
+      await flush()
+
+      expect(backend.playCalls).toEqual([{ resource: 'bed.ogg', channel: 'music', volume: 0.3, loop: true }])
+    })
+
+    it('positional placement (`at`) set before unlock survives the wait and is honored once it starts', async () => {
+      const { audio, backend } = makeSubsystem()
+
+      const handle = audio.play('bed.ogg', { channel: 'music', loop: true, at: { x: 1, y: 0 } })
+      audio.updatePlacements({ x: 0, y: 0 }, (x, y) => ({ x, y }))
+
+      unlock()
+      await flush()
+
+      expect(backend.playbacks[0]?.setPanCalls.at(-1)).toBeGreaterThan(0)
+      expect(handle.playing).toBe(true)
+    })
+
+    it('{ scope: "session" } set before unlock survives: unloadScene() after unlock still leaves it playing', async () => {
+      const { audio } = makeSubsystem()
+
+      const music = audio.play('bed.ogg', { channel: 'music', loop: true, scope: 'session' })
+
+      unlock()
+      await flush()
+      audio.unloadScene()
+
+      expect(music.playing).toBe(true)
+      expect(audio.liveSounds()).toEqual([{ uri: 'bed.ogg', channel: 'music', scope: 'session' }])
+    })
+
+    it(
+      'registering silence (a Runtime Bridge, CA-5) also releases a retained pre-unlock loop, ' +
+        'without ever resuming or suspending output',
+      async () => {
+        const { audio, backend } = makeSubsystem()
+
+        const handle = audio.play('bed.ogg', { channel: 'music', loop: true })
+
+        audio.setSilenced(true)
+        await flush()
+
+        expect(backend.playCalls).toEqual([{ resource: 'bed.ogg', channel: 'music', volume: 1, loop: true }])
+        expect(backend.resumeCalls).toBe(0)
+        expect(backend.suspendCalls).toBe(0)
+        expect(handle.playing).toBe(true)
+      },
+    )
+  })
 })
 
 describe('CA-9 — loading, caching and failure', () => {
