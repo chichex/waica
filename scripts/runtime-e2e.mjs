@@ -891,7 +891,10 @@ async function runIsometricCombat({ client, project, inspectPlayer, hold, releas
   for (const channel of ['music', 'sfx']) {
     assert.ok(bootAudio.channels[channel], `the mixer reports the ${channel} channel`)
   }
-  console.log(`  [audio] boot playing: ${playingUris(bootAudio).join(', ') || '(none)'}`)
+  const bed = bootAudio.playing.find((sound) => sound.uri.includes('waica-iso-town-theme'))
+  assert.ok(bed, `the music bed must be live at boot; playing: ${playingUris(bootAudio).join(', ') || '(none)'}`)
+  assert.equal(bed.channel, 'music', 'the bed plays on the music channel')
+  assert.equal(bed.scope, 'session', 'the bed is session-scoped so a scene swap never stops it')
   const playerState = async () => {
     const player = await inspect('Player', ['Health', 'StateMachine', 'AnimatedSprite', 'IsoMotor'])
     return {
