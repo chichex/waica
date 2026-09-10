@@ -142,6 +142,11 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   // music entry stays a "waica:" uri, matching ARCHETYPE.music itself.
   // This call runs before any input, so the engine retains the loop and
   // starts it at the autoplay unlock instead of discarding it.
+  // Decoding here does construct the AudioContext ahead of the first
+  // gesture, on purpose: CA-6 is written about play(), a context is born
+  // suspended so decoding emits nothing, and CA-9 has no other way to
+  // decode early. Chrome logs its autoplay-policy notice for it; that is
+  // cosmetic. Read this as deliberate, not as a CA-6 violation.
   void game.audio.preload([
     'src/art/waica-iso-sword-swing.ogg',
     'src/art/waica-iso-hit.ogg',
