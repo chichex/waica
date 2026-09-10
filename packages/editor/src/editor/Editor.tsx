@@ -1365,6 +1365,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
           mode={mode}
           bindings={controls ?? undefined}
           stats={stats ?? undefined}
+          music={archetype.music}
           resolution={
             gameSettings?.resolution.mode === 'fixed' ? gameSettings.resolution : undefined
           }
