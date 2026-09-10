@@ -77,6 +77,33 @@ describe('createProject', () => {
     },
   )
 
+  // ARCHETYPE.music ('waica:iso-town-theme') never goes through the
+  // projectJson uri rewrite scene/prefab sound props already get, even
+  // though a demo start copies the music file into src/art/ too — leaving
+  // that local copy inert and a replacement of it silently ignored.
+  it("demo start rewrites the isometric music uri to the project's own src/art/ copy", async () => {
+    const parent = await tempDir()
+    roots.push(parent)
+    const target = path.join(parent, 'isometric-demo-music')
+
+    await createProject(target, 'demo', 'isometric')
+
+    const main = await readFile(path.join(target, 'src/main.ts'), 'utf8')
+    expect(main).toContain("'src/art/waica-iso-town-theme.ogg'")
+    expect(main).not.toContain("'waica:iso-town-theme'")
+  })
+
+  it('blank start leaves the isometric music uri alone (no art is copied)', async () => {
+    const parent = await tempDir()
+    roots.push(parent)
+    const target = path.join(parent, 'isometric-blank-music')
+
+    await createProject(target, 'blank', 'isometric')
+
+    const main = await readFile(path.join(target, 'src/main.ts'), 'utf8')
+    expect(main).not.toContain('src/art/waica-iso-town-theme.ogg')
+  })
+
   it('creates a topdown demo byte-for-byte like the editor and copies its art', async () => {
     const parent = await tempDir()
     roots.push(parent)
