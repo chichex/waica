@@ -1477,6 +1477,48 @@ button.ed-crumb:hover {
   margin-left: 14px;
 }
 
+/* Sound row in the Art library (CA-17/CA-18). Unlike an image row it isn't
+   itself clickable or draggable (review finding A) — the preview button
+   below is the only interactive element — so it drops the pointer cursor
+   .ed-x-item otherwise implies. */
+.ed-x-sound {
+  cursor: default;
+}
+
+/* Play/stop toggle on a sound row (review finding B: at most one preview
+   plays at a time). Sized and colored like the panel's other small icon
+   buttons (.ed-mini, .ed-reset) rather than the browser default. */
+.ed-sound-play {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--bg-panel-2);
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ed-sound-play:hover:not(:disabled) {
+  border-color: var(--accent-2);
+  color: var(--text);
+}
+
+.ed-sound-play.is-playing {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.ed-sound-play:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .ed-panel.is-dropping {
   outline: 2px dashed var(--accent);
   outline-offset: -4px;
