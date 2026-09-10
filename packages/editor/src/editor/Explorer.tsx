@@ -404,16 +404,15 @@ export function Explorer({
   }
 
   // A sound row has no image-stage equivalent to open (CA-17/CA-18): its
-  // interactive element is the preview control, not a click-to-view row.
+  // interactive element is the preview control, not a click-to-view row. It
+  // also isn't draggable: nothing consumes a sound over the 'waica/art'
+  // payload today (ref: 'sound' props render as a picker, not a drop
+  // target — see ref-targets.ts), and offering that payload let a sound get
+  // dropped onto a sprite's texture (review finding A).
   const renderSoundItem = (item: ArtItem): React.ReactNode => (
     <div
       key={item.path}
       className="ed-x-item ed-x-sound"
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData('waica/art', item.uri)
-        e.dataTransfer.effectAllowed = 'copy'
-      }}
       onContextMenu={(e) =>
         openMenu(e, [
           {
