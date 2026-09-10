@@ -349,7 +349,7 @@ export class RuntimeInspector {
 
   private audioSnapshot(): RuntimeSnapshotAudio {
     const channels: Record<string, AudioChannelState> = {}
-    for (const name of [...this.game.audio.channels()].sort()) {
+    for (const name of this.game.audio.channels().sort()) {
       channels[name] = this.game.audio.channelState(name)
     }
     return {
