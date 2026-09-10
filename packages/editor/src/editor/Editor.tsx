@@ -163,6 +163,8 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const [view, setView] = useState<ExplorerView | null>(null)
   const [epoch, setEpoch] = useState(0)
   const [mode, setMode] = useState<'edit' | 'play'>('edit')
+  /** The url a library sound preview is currently playing, or null — review finding B. */
+  const [previewingUrl, setPreviewingUrl] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
   const [viewportVisibility, setViewportVisibility] = useState<ViewportComponentVisibility>({
     appearance: true,
@@ -979,11 +981,21 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     selectEntity(name)
   }
 
+  /** Stops the library sound preview, if one is running (review finding B). */
+  const stopPreview = (): void => {
+    browserSoundPreview.stop()
+    setPreviewingUrl(null)
+  }
+
   const play = async (): Promise<void> => {
     // Starting mid-switch would build the run from the outgoing scene and
     // label it with the incoming one — and when the read lands, the
     // [scenePath] effect would hot-swap the scene under the live session.
     if (!openScenePath || !scene || sceneSwitching) return
+    // The preview control is disabled in play mode (CA-18) and couldn't be
+    // reached to stop it otherwise, so a run in progress must not be left
+    // playing over the game's own audio.
+    stopPreview()
     setSelected(null)
     setMulti([])
     // Project components, states and roles register before the Play game is
@@ -1712,7 +1724,14 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             importProgress={projectArt.importProgress}
             onRefreshArt={projectArt.refresh}
             mode={mode}
-            onPreviewSound={(url) => browserSoundPreview.play(url)}
+            previewingUrl={previewingUrl}
+            onPreviewSound={(url) => {
+              setPreviewingUrl(url)
+              browserSoundPreview.play(url, () =>
+                setPreviewingUrl((current) => (current === url ? null : current)),
+              )
+            }}
+            onStopPreview={stopPreview}
             onOpenScene={(path) => openView({ kind: 'scene', path })}
             onSelectEntity={(name) => {
               if (!openScenePath) return

@@ -1042,8 +1042,13 @@ function AppearanceSection({
       e.preventDefault()
       setDropping(false)
       const uri = e.dataTransfer.getData('waica/art')
-      if (uri) choose(uri)
-      else {
+      if (uri) {
+        // `art` here is already filtered to kind 'image' (see the callers
+        // below) — a sound row shares the same 'waica/art' payload, so a
+        // dropped uri that isn't one of these images is silently rejected
+        // instead of being written into a texture prop.
+        if (art.some((item) => item.uri === uri)) choose(uri)
+      } else {
         const dataTransfer = e.dataTransfer
         void collectDroppedFiles(dataTransfer).then(importImage)
       }
