@@ -163,8 +163,12 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const [view, setView] = useState<ExplorerView | null>(null)
   const [epoch, setEpoch] = useState(0)
   const [mode, setMode] = useState<'edit' | 'play'>('edit')
-  /** The url a library sound preview is currently playing, or null — review finding B. */
-  const [previewingUrl, setPreviewingUrl] = useState<string | null>(null)
+  /**
+   * The project path of the library sound preview currently playing, or
+   * null — review finding B, keyed on path rather than url per review
+   * finding 1 (useProjectArt's object URLs don't survive a re-scan).
+   */
+  const [previewingPath, setPreviewingPath] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
   const [viewportVisibility, setViewportVisibility] = useState<ViewportComponentVisibility>({
     appearance: true,
@@ -984,7 +988,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   /** Stops the library sound preview, if one is running (review finding B). */
   const stopPreview = (): void => {
     browserSoundPreview.stop()
-    setPreviewingUrl(null)
+    setPreviewingPath(null)
   }
 
   const play = async (): Promise<void> => {
@@ -1724,11 +1728,11 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             importProgress={projectArt.importProgress}
             onRefreshArt={projectArt.refresh}
             mode={mode}
-            previewingUrl={previewingUrl}
-            onPreviewSound={(url) => {
-              setPreviewingUrl(url)
-              browserSoundPreview.play(url, () =>
-                setPreviewingUrl((current) => (current === url ? null : current)),
+            previewingPath={previewingPath}
+            onPreviewSound={(item) => {
+              setPreviewingPath(item.path)
+              browserSoundPreview.play(item.url, () =>
+                setPreviewingPath((current) => (current === item.path ? null : current)),
               )
             }}
             onStopPreview={stopPreview}

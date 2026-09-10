@@ -95,7 +95,7 @@ function baseProps(
     onToggleUiInScene: vi.fn(),
     onArtDeleted: vi.fn(),
     mode: 'edit',
-    previewingUrl: null,
+    previewingPath: null,
     onPreviewSound: vi.fn(),
     onStopPreview: vi.fn(),
     ...overrides,
@@ -148,7 +148,7 @@ describe('Explorer sound library (CA-17, CA-18)', () => {
 
     act(() => button!.click())
 
-    expect(onPreviewSound).toHaveBeenCalledExactlyOnceWith(SOUND.url)
+    expect(onPreviewSound).toHaveBeenCalledExactlyOnceWith(SOUND)
   })
 
   it('disables the preview control while the project is in play mode, and never invokes preview', () => {
@@ -168,7 +168,7 @@ describe('Explorer sound library (CA-17, CA-18)', () => {
     const onPreviewSound = vi.fn()
     const onStopPreview = vi.fn()
     render(
-      baseProps({ art: [SOUND], previewingUrl: SOUND.url, onPreviewSound, onStopPreview }),
+      baseProps({ art: [SOUND], previewingPath: SOUND.path, onPreviewSound, onStopPreview }),
     )
 
     const button = container.querySelector<HTMLButtonElement>('.ed-sound-play')
@@ -186,7 +186,7 @@ describe('Explorer sound library (CA-17, CA-18)', () => {
     const onPreviewSound = vi.fn()
     const onStopPreview = vi.fn()
     render(
-      baseProps({ art: [SOUND, other], previewingUrl: SOUND.url, onPreviewSound, onStopPreview }),
+      baseProps({ art: [SOUND, other], previewingPath: SOUND.path, onPreviewSound, onStopPreview }),
     )
 
     const buttons = container.querySelectorAll<HTMLButtonElement>('.ed-sound-play')
@@ -196,7 +196,82 @@ describe('Explorer sound library (CA-17, CA-18)', () => {
 
     act(() => otherButton!.click())
 
-    expect(onPreviewSound).toHaveBeenCalledExactlyOnceWith(other.url)
+    expect(onPreviewSound).toHaveBeenCalledExactlyOnceWith(other)
     expect(onStopPreview).not.toHaveBeenCalled()
+  })
+
+  it(
+    'keeps the stop control on the previewing row after a re-scan changes every item\'s url ' +
+      '(regression, finding 1): useProjectArt revokes and recreates every object URL on each ' +
+      're-scan (use-project-art.ts ~179-192), so a url-keyed toggle loses the playing row',
+    () => {
+      const onStopPreview = vi.fn()
+      const rescanned: ArtItem = { ...SOUND, url: 'blob:swing-after-rescan' }
+      render(baseProps({ art: [rescanned], previewingPath: SOUND.path, onStopPreview }))
+
+      const button = container.querySelector<HTMLButtonElement>('.ed-sound-play')
+      expect(button).not.toBeNull()
+      expect(button!.textContent).toBe('⏹')
+
+      act(() => button!.click())
+
+      expect(onStopPreview).toHaveBeenCalledOnce()
+    },
+  )
+
+  it('stops the preview when the file being deleted is the one currently previewing (regression, finding 1)', () => {
+    const onStopPreview = vi.fn()
+    const fs = new MemFS('proj', {})
+    // happy-dom's window.confirm is undefined (not merely a stub), so
+    // vi.spyOn (which requires an existing function) can't target it.
+    const originalConfirm = window.confirm
+    window.confirm = vi.fn(() => true)
+    try {
+      render(baseProps({ fs, art: [SOUND], previewingPath: SOUND.path, onStopPreview }))
+
+      const row = container.querySelector('.ed-x-sound')
+      expect(row).not.toBeNull()
+      act(() => {
+        row!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
+      })
+      const deleteButton = [...container.querySelectorAll<HTMLButtonElement>('.ed-ctx-item')].find(
+        (b) => b.textContent?.includes('Delete'),
+      )
+      expect(deleteButton).not.toBeUndefined()
+
+      act(() => deleteButton!.click())
+
+      expect(onStopPreview).toHaveBeenCalledOnce()
+    } finally {
+      window.confirm = originalConfirm
+    }
+  })
+
+  it('does not stop the preview when the file being deleted is a different one', () => {
+    const onStopPreview = vi.fn()
+    const other: ArtItem = { ...SOUND, label: 'hit.ogg', url: 'blob:hit', uri: 'src/art/hit.ogg', path: 'src/art/hit.ogg' }
+    const fs = new MemFS('proj', {})
+    const originalConfirm = window.confirm
+    window.confirm = vi.fn(() => true)
+    try {
+      render(baseProps({ fs, art: [SOUND, other], previewingPath: SOUND.path, onStopPreview }))
+
+      const rows = container.querySelectorAll('.ed-x-sound')
+      const otherRow = [...rows].find((r) => r.textContent?.includes('hit.ogg'))
+      expect(otherRow).not.toBeUndefined()
+      act(() => {
+        otherRow!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
+      })
+      const deleteButton = [...container.querySelectorAll<HTMLButtonElement>('.ed-ctx-item')].find(
+        (b) => b.textContent?.includes('Delete'),
+      )
+      expect(deleteButton).not.toBeUndefined()
+
+      act(() => deleteButton!.click())
+
+      expect(onStopPreview).not.toHaveBeenCalled()
+    } finally {
+      window.confirm = originalConfirm
+    }
   })
 })
