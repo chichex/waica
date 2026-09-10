@@ -45,7 +45,10 @@ export class MeleeAttack extends Component {
   strike(facing: string): Entity[] {
     const direction = logicalDirection(facing, this.game.projection)
     if (!direction) return []
-    if (this.swingSound) this.game.audio.play(this.swingSound)
+    // Positional like Health's hurtSound (CA-8): an off-camera NPC's swing
+    // should attenuate and pan like the hit it causes, not play flat and
+    // dead-centre while the damage it lands sounds correctly placed.
+    if (this.swingSound) this.game.audio.play(this.swingSound, { at: this.entity })
     const area = this.strikeArea(direction.x, direction.y)
     const struck: Entity[] = []
     // A copy: a target with no death-handling graph is destroyed on the spot,

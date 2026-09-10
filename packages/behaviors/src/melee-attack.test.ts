@@ -294,21 +294,25 @@ describe('MeleeAttack authoring surface', () => {
 
 describe('MeleeAttack.strike swing sound (CA-12)', () => {
   it('plays the configured swing sound when a strike connects', () => {
-    const { game, attack } = arena(IN_FRONT.x, IN_FRONT.y)
+    const { game, attack, player } = arena(IN_FRONT.x, IN_FRONT.y)
     attack.swingSound = 'waica:iso-sword-swing'
 
     attack.strike('e')
 
-    expect(game.audio.play).toHaveBeenCalledExactlyOnceWith('waica:iso-sword-swing')
+    expect(game.audio.play).toHaveBeenCalledExactlyOnceWith('waica:iso-sword-swing', {
+      at: player,
+    })
   })
 
   it('plays the configured swing sound on a swing that connects with nothing', () => {
-    const { game, attack } = arena(-IN_FRONT.x, -IN_FRONT.y)
+    const { game, attack, player } = arena(-IN_FRONT.x, -IN_FRONT.y)
     attack.swingSound = 'waica:iso-sword-swing'
 
     attack.strike('e')
 
-    expect(game.audio.play).toHaveBeenCalledExactlyOnceWith('waica:iso-sword-swing')
+    expect(game.audio.play).toHaveBeenCalledExactlyOnceWith('waica:iso-sword-swing', {
+      at: player,
+    })
   })
 
   it('plays nothing and logs nothing when swingSound is left unset', () => {
@@ -320,6 +324,17 @@ describe('MeleeAttack.strike swing sound (CA-12)', () => {
     expect(game.audio.play).not.toHaveBeenCalled()
     expect(warn).not.toHaveBeenCalled()
     warn.mockRestore()
+  })
+
+  it('plays the swing sound positioned at the attacker, like Health positions hurtSound at the damaged entity (CA-8)', () => {
+    const { game, attack, player } = arena(IN_FRONT.x, IN_FRONT.y)
+    attack.swingSound = 'waica:iso-sword-swing'
+
+    attack.strike('e')
+
+    expect(game.audio.play).toHaveBeenCalledExactlyOnceWith('waica:iso-sword-swing', {
+      at: player,
+    })
   })
 
   it('plays nothing for a facing the eight-way table does not know, even with a sound configured', () => {

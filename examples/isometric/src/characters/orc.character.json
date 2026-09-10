@@ -279,7 +279,8 @@
       "type": "Health",
       "props": {
         "max": 2,
-        "invulnerability": 0.3
+        "invulnerability": 0.3,
+        "hurtSound": "src/art/waica-iso-hit.ogg"
       }
     }
   ]
