@@ -156,7 +156,13 @@ describe('projectSoundRefs', () => {
     expect(refs).toEqual(new Set(['waica:hit', 'waica:bed']))
   })
 
-  it('adds every file actually present under the project src/art/, as its src/art/ path, recursively', async () => {
+  it('adds every .ogg file directly under the project src/art/, as its src/art/ path — not recursively, and not other extensions', async () => {
+    // Matches what the shipped runtime can actually resolve:
+    // `import.meta.glob('./art/*')` (examples/isometric/src/main.ts and
+    // packages/editor/template/src/main.ts) never crosses a `/`, so a
+    // sound nested under src/art/Sounds/ 404s exactly like a non-.ogg
+    // file would never decode as one — this validator must not bless
+    // either.
     const project = await tempDir()
     roots.push(project)
     await writeTree(project, {
@@ -167,7 +173,7 @@ describe('projectSoundRefs', () => {
 
     const refs = await projectSoundRefs(project, [])
 
-    expect(refs).toEqual(new Set(['src/art/swing.ogg', 'src/art/Sounds/boom.ogg', 'src/art/sprite.png']))
+    expect(refs).toEqual(new Set(['src/art/swing.ogg']))
   })
 
   it('tolerates a missing src/art/ directory and returns just the archetype refs', async () => {

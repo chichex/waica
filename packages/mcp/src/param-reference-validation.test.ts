@@ -388,6 +388,53 @@ export class RefComponent extends Component {
     ])
   })
 
+  it('flags a sound ref that names a file nested under a src/art/ subfolder, since the shipped runtime glob is not recursive', async () => {
+    // Runtime evidence: examples/isometric/src/main.ts and
+    // packages/editor/template/src/main.ts both build resolveAsset from
+    // `import.meta.glob('./art/*')`, and Vite's `*` never crosses `/` — a
+    // sound one folder deeper than src/art/ never resolves at runtime, so
+    // this validator must not bless the uri either.
+    const project = await refProject({
+      'src/components/ref.ts': refComponent('sound'),
+      'src/art/sfx/hit.ogg': new Uint8Array([0, 1, 2]),
+      'src/objects/a-nested.object.json': prefab([
+        { type: 'RefComponent', props: { target: 'src/art/sfx/hit.ogg' } },
+      ]),
+    })
+
+    const result = await validateProject(project)
+
+    expect(paramFindings(result.findings)).toEqual([
+      {
+        severity: 'error',
+        code: 'missing-sound',
+        file: 'src/objects/a-nested.object.json',
+        ref: 'RefComponent.target',
+      },
+    ])
+  })
+
+  it('flags a sound ref that names a non-.ogg file under src/art/', async () => {
+    const project = await refProject({
+      'src/components/ref.ts': refComponent('sound'),
+      'src/art/waica-hero.png': new Uint8Array([0, 1, 2]),
+      'src/objects/a-wrong-kind.object.json': prefab([
+        { type: 'RefComponent', props: { target: 'src/art/waica-hero.png' } },
+      ]),
+    })
+
+    const result = await validateProject(project)
+
+    expect(paramFindings(result.findings)).toEqual([
+      {
+        severity: 'error',
+        code: 'missing-sound',
+        file: 'src/objects/a-wrong-kind.object.json',
+        ref: 'RefComponent.target',
+      },
+    ])
+  })
+
   it('ignores ref metadata when a param also declares options', async () => {
     const project = await refProject({
       'src/components/ref.ts': refComponent('prefab', 'literal', ['literal']),

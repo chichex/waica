@@ -103,7 +103,8 @@ export function resolveParamReference(
   }
 }
 
-async function filesBelow(directory: string, prefix = ''): Promise<string[]> {
+/** Files directly inside `directory` — not recursive, and never a directory entry. */
+async function filesDirectlyIn(directory: string): Promise<string[]> {
   let entries
   try {
     entries = await readdir(directory, { withFileTypes: true })
@@ -111,35 +112,47 @@ async function filesBelow(directory: string, prefix = ''): Promise<string[]> {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
     throw error
   }
-  const files: string[] = []
-  for (const entry of entries) {
-    const relative = prefix ? `${prefix}/${entry.name}` : entry.name
-    if (entry.isDirectory()) {
-      files.push(...(await filesBelow(path.join(directory, entry.name), relative)))
-    } else if (entry.isFile()) {
-      files.push(relative)
-    }
-  }
-  return files
+  return entries.filter((entry) => entry.isFile()).map((entry) => entry.name)
 }
+
+/** The one shipped audio format (matches AUDIO_RE in the editor's use-project-art.ts). */
+const SOUND_FILE_RE = /\.ogg$/i
 
 /**
  * Every uri a `ref: 'sound'` param may validly name (CA-13): the
  * archetype's own declared sound art, by its registry uri (e.g.
  * "waica:iso-hurt" — resolvable even when a project component references it
  * directly, without going through create_project's uri-to-path rewrite),
- * plus every file actually present under the project's src/art/ (recursive,
- * so a project-authored sound in a subfolder resolves too), matched by its
- * "src/art/<relative>" project path — the form create_project and the
+ * plus every `.ogg` file directly under the project's src/art/, matched by
+ * its "src/art/<file>" project path — the form create_project and the
  * editor rewrite a demo project's own JSON to (CA-11).
+ *
+ * Deliberately NOT recursive and NOT extension-agnostic: the generated
+ * project's main.ts (create_project reuses packages/editor/template/src
+ * verbatim) resolves art through `import.meta.glob('./art/*')`, and Vite's
+ * `*` never crosses `/` — a sound one folder deeper than src/art/ 404s at
+ * runtime exactly like a non-.ogg file would never decode as one, so this
+ * validator must not bless either.
+ *
+ * Deliberately excludes `public/` too, even though the editor's own asset
+ * scan lists `public/*.ogg` in the `ref: 'sound'` picker (useProjectArt
+ * scans [src/art, public], inherited from the pre-audio image scan) and its
+ * live Play-mode preview resolves it through a browser blob URL. The
+ * *shipped* project's resolveAsset — the one create_project and every
+ * example's main.ts actually run — only maps `src/art/*`; a `public/*` uri
+ * falls through unresolved and 404s once the project is exported or built,
+ * so flagging it here is correct. This is a pre-existing gap one level up
+ * (the same picker already offers unreachable `public/*` images for
+ * texture props, entirely unvalidated — there is no `ref: 'texture'`
+ * check), not something this validator should paper over.
  */
 export async function projectSoundRefs(
   projectPath: string,
   art: readonly ArchetypeArt[],
 ): Promise<ReadonlySet<string>> {
   const refs = new Set(art.filter((entry) => entry.kind === 'sound').map((entry) => entry.uri))
-  for (const relative of await filesBelow(path.join(projectPath, 'src/art'))) {
-    refs.add(`src/art/${relative}`)
+  for (const file of await filesDirectlyIn(path.join(projectPath, 'src/art'))) {
+    if (SOUND_FILE_RE.test(file)) refs.add(`src/art/${file}`)
   }
   return refs
 }
