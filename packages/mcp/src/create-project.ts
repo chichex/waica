@@ -59,6 +59,32 @@ function projectJson(value: unknown, archetype: ArchetypeManifest): string {
   )
 }
 
+/**
+ * The archetype's music uri, rewritten to this project's own src/art/ copy —
+ * the same rewrite scene and prefab sound props already get, applied to the
+ * one manifest field that lives outside any JSON file. Empty for a blank
+ * start (no art copied) or an archetype with no music, so main.ts's
+ * `musicOverride ?? ARCHETYPE.music` falls back to the archetype's own
+ * "waica:" uri exactly as before. Mirrors packages/editor/src/project/template.ts's
+ * musicOverride() — create-project.test.ts compares both paths byte-for-byte.
+ */
+function musicOverride(start: ProjectStart, archetype: ArchetypeManifest): string {
+  if (start !== 'demo' || !archetype.music) return ''
+  return projectUriMap(archetype)[archetype.music] ?? ''
+}
+
+/**
+ * Source text for main.ts's `const musicOverride: string | undefined = ...`
+ * — the bare word `undefined`, or a quoted path, never a plain '' literal:
+ * an empty-string constant on one side of `??` trips TypeScript's "always
+ * truthy/falsy" checks (TS2872/TS2873) once substituted in, which `undefined`
+ * against a `string | undefined` annotation does not.
+ */
+function musicOverrideLiteral(start: ProjectStart, archetype: ArchetypeManifest): string {
+  const path = musicOverride(start, archetype)
+  return path ? `'${path}'` : 'undefined'
+}
+
 async function chassisFiles(
   root: string,
   name: string,
@@ -101,7 +127,9 @@ async function chassisFiles(
     'vite.config.ts': vite,
     'README.md': readme,
     '.gitignore': gitignore,
-    'src/main.ts': mainTs.replaceAll('__ARCHETYPE_PACKAGE__', archetypePackage),
+    'src/main.ts': mainTs
+      .replaceAll('__ARCHETYPE_PACKAGE__', archetypePackage)
+      .replaceAll('__MUSIC_URI__', musicOverrideLiteral(start, archetype)),
     'src/controls.json': JSON.stringify(controls, null, 2) + '\n',
     'src/stats.json': statsJson,
     'src/game.json': JSON.stringify(game, null, 2) + '\n',
