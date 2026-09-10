@@ -346,11 +346,19 @@ export class AudioSubsystem {
       this.drop(sound)
       return
     }
-    if (fadeMs) {
+    if (fadeMs && this.outputLive) {
       sound.fading = true
       sound.backendHandle.stop(fadeMs)
       // playing stays true until the backend's onEnded fires, once the ramp completes.
     } else {
+      // Either no fade was requested, or output is currently suspended
+      // (setActive(false) / setSilenced(true)): the real backend schedules
+      // the ramp and the source's stop() against context.currentTime, which
+      // does not advance while suspended, so neither would ever come due —
+      // onEnded would never fire and the sound would stay `playing: true`
+      // forever. Falling back to an immediate stop sidesteps that: this
+      // branch never waits for the backend's onEnded anyway, it finishes
+      // the sound in the model synchronously right here.
       sound.ended = true
       this.live.delete(sound)
       sound.backendHandle.stop()

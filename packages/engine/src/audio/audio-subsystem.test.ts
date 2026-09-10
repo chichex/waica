@@ -444,3 +444,59 @@ describe('CA-9 — loading, caching and failure', () => {
     expect(warn).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('stop({ fadeMs }) while output is suspended', () => {
+  // A real WebAudio ramp and the source's stop() are scheduled against
+  // context.currentTime, which does not advance while the context is
+  // suspended (setActive(false) or a whole MCP Run Session under
+  // setSilenced(true)). Neither would ever come due, so onEnded would never
+  // fire and the sound would stay `playing: true`/in liveSounds() forever.
+  // The fix treats a fade as an immediate stop while output is suspended —
+  // this is exercised at the AudioSubsystem level (backend-agnostic), since
+  // stopSound() already finishes an unfaded stop synchronously without
+  // waiting for the backend's onEnded (see the `else` branch below it).
+
+  it('under the editor pause (setActive(false)) completes immediately instead of leaking playing:true', async () => {
+    const { audio, backend } = makeSubsystem()
+    unlock()
+    const handle = audio.play('hit.ogg')
+    await flush()
+
+    audio.setActive(false)
+    handle.stop({ fadeMs: 500 })
+
+    expect(backend.playbacks[0]?.stops).toEqual([{ fadeMs: undefined }])
+    expect(handle.playing).toBe(false)
+    expect(audio.liveSounds()).toEqual([])
+  })
+
+  it('under a silenced Runtime Bridge session (setSilenced(true)) completes immediately too', async () => {
+    const { audio, backend } = makeSubsystem()
+    unlock()
+    const handle = audio.play('hit.ogg')
+    await flush()
+
+    audio.setSilenced(true)
+    handle.stop({ fadeMs: 500 })
+
+    expect(backend.playbacks[0]?.stops).toEqual([{ fadeMs: undefined }])
+    expect(handle.playing).toBe(false)
+    expect(audio.liveSounds()).toEqual([])
+  })
+
+  it('still fades normally once output is live again', async () => {
+    const { audio, backend } = makeSubsystem()
+    unlock()
+    const handle = audio.play('hit.ogg')
+    await flush()
+    audio.setActive(false)
+    audio.setActive(true)
+
+    handle.stop({ fadeMs: 500 })
+
+    expect(backend.playbacks[0]?.stops).toEqual([{ fadeMs: 500 }])
+    expect(handle.playing).toBe(true)
+    backend.playbacks[0]?.finish()
+    expect(handle.playing).toBe(false)
+  })
+})
