@@ -7,20 +7,35 @@
 // other than remembering to run the sync script — this test is that
 // enforcement, general enough to catch the next drift (a new stock art
 // file, or a new sound prop on any prefab), not just today's regression.
-import { existsSync, readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+//
+// Loads the shipped files through import.meta.glob, the same mechanism
+// main.ts itself uses, instead of node:fs — this package's tsconfig only
+// declares "vite/client" types (no @types/node), matching every other
+// example test file's convention of staying browser-only.
 import { describe, expect, it } from 'vitest'
 import { ARCHETYPE } from '@waica/archetype-isometric'
 import type { PrefabJson } from '@waica/engine'
 
-const exampleSrc = dirname(fileURLToPath(import.meta.url))
+const artFiles = import.meta.glob<string>('./art/*', {
+  eager: true,
+  query: '?url',
+  import: 'default',
+})
+const shippedArtFiles = new Set(Object.keys(artFiles).map((path) => path.slice('./art/'.length)))
+
+const prefabFiles = import.meta.glob<PrefabJson>(
+  ['./characters/*.character.json', './objects/*.object.json', './tiles/*.tile.json'],
+  { eager: true, import: 'default' },
+)
+const shippedPrefabs: Record<string, PrefabJson> = {}
+for (const [path, prefab] of Object.entries(prefabFiles)) {
+  // './characters/orc.character.json' -> 'characters/orc'
+  shippedPrefabs[path.slice(2, path.indexOf('.', 2))] = prefab
+}
 
 describe('examples/isometric stays in sync with @waica/archetype-isometric', () => {
   it('ships every ARCHETYPE.art file under src/art/', () => {
-    const missing = ARCHETYPE.art
-      .map((art) => art.file)
-      .filter((file) => !existsSync(join(exampleSrc, 'art', file)))
+    const missing = ARCHETYPE.art.map((art) => art.file).filter((file) => !shippedArtFiles.has(file))
 
     expect(missing).toEqual([])
   })
@@ -34,12 +49,11 @@ describe('examples/isometric stays in sync with @waica/archetype-isometric', () 
     const mismatches: string[] = []
 
     for (const [key, prefab] of Object.entries(ARCHETYPE.prefabs)) {
-      const shippedPath = join(exampleSrc, `${key}.${prefab.type}.json`)
-      if (!existsSync(shippedPath)) {
-        mismatches.push(`${key}: no shipped file at ${shippedPath}`)
+      const shipped = shippedPrefabs[key]
+      if (!shipped) {
+        mismatches.push(`${key}: no shipped ${prefab.type} file under examples/isometric/src`)
         continue
       }
-      const shipped = JSON.parse(readFileSync(shippedPath, 'utf8')) as PrefabJson
 
       prefab.components.forEach((component, index) => {
         const props = component.props
