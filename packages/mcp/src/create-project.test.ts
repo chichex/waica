@@ -8,6 +8,10 @@ import { cleanup, readJson, tempDir, writeTree } from './test-helpers.js'
 const roots: string[] = []
 afterEach(async () => cleanup(...roots.splice(0)))
 
+// Binary art the archetypes ship (images and, since CA-11, sounds): never
+// safe to read as utf8 text, and always compared byte-for-byte instead.
+const BINARY_ART_RE = /\.(?:png|ogg)$/i
+
 async function filesBelow(root: string, at = root): Promise<string[]> {
   const entries = await readdir(at, { withFileTypes: true })
   const nested = await Promise.all(
@@ -22,7 +26,7 @@ async function filesBelow(root: string, at = root): Promise<string[]> {
 async function textTree(root: string): Promise<Record<string, string>> {
   const out: Record<string, string> = {}
   for (const relative of await filesBelow(root)) {
-    if (relative.endsWith('.png')) continue
+    if (BINARY_ART_RE.test(relative)) continue
     out[relative] = await readFile(path.join(root, relative), 'utf8')
   }
   return out
@@ -60,7 +64,7 @@ describe('createProject', () => {
       expect(await textTree(target)).toEqual(
         await expectedEditorFiles(`isometric-${start}`, start, 'isometric'),
       )
-      const artPaths = (await filesBelow(target)).filter((file) => file.endsWith('.png'))
+      const artPaths = (await filesBelow(target)).filter((file) => BINARY_ART_RE.test(file))
       expect(artPaths).toEqual(Object.keys(projectArtFiles(start, 'isometric')).sort())
       for (const relative of artPaths) {
         const source = path.resolve(
@@ -73,6 +77,33 @@ describe('createProject', () => {
     },
   )
 
+  // ARCHETYPE.music ('waica:iso-town-theme') never goes through the
+  // projectJson uri rewrite scene/prefab sound props already get, even
+  // though a demo start copies the music file into src/art/ too — leaving
+  // that local copy inert and a replacement of it silently ignored.
+  it("demo start rewrites the isometric music uri to the project's own src/art/ copy", async () => {
+    const parent = await tempDir()
+    roots.push(parent)
+    const target = path.join(parent, 'isometric-demo-music')
+
+    await createProject(target, 'demo', 'isometric')
+
+    const main = await readFile(path.join(target, 'src/main.ts'), 'utf8')
+    expect(main).toContain("'src/art/waica-iso-town-theme.ogg'")
+    expect(main).not.toContain("'waica:iso-town-theme'")
+  })
+
+  it('blank start leaves the isometric music uri alone (no art is copied)', async () => {
+    const parent = await tempDir()
+    roots.push(parent)
+    const target = path.join(parent, 'isometric-blank-music')
+
+    await createProject(target, 'blank', 'isometric')
+
+    const main = await readFile(path.join(target, 'src/main.ts'), 'utf8')
+    expect(main).not.toContain('src/art/waica-iso-town-theme.ogg')
+  })
+
   it('creates a topdown demo byte-for-byte like the editor and copies its art', async () => {
     const parent = await tempDir()
     roots.push(parent)
@@ -81,7 +112,7 @@ describe('createProject', () => {
     await createProject(target, 'demo', 'topdown')
 
     expect(await textTree(target)).toEqual(await expectedEditorFiles('agent-game', 'demo', 'topdown'))
-    const artPaths = (await filesBelow(target)).filter((file) => file.endsWith('.png'))
+    const artPaths = (await filesBelow(target)).filter((file) => BINARY_ART_RE.test(file))
     expect(artPaths).toEqual(Object.keys(projectArtFiles('demo', 'topdown')).sort())
     for (const relative of artPaths) {
       const source = path.resolve(
@@ -104,7 +135,7 @@ describe('createProject', () => {
     )
 
     expect(await textTree(target)).toEqual(await expectedEditorFiles('agent-game', 'demo'))
-    const artPaths = (await filesBelow(target)).filter((file) => file.endsWith('.png'))
+    const artPaths = (await filesBelow(target)).filter((file) => BINARY_ART_RE.test(file))
     expect(artPaths).toEqual(Object.keys(projectArtFiles()).sort())
     for (const relative of artPaths) {
       const source = path.resolve(

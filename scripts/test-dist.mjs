@@ -101,7 +101,10 @@ async function assertDistMatchesSource(packageRoot, packageName, bundled = []) {
         path.endsWith('.ts') &&
         !path.endsWith('.test.ts') &&
         !path.endsWith('.d.ts') &&
-        !relative(sourceRoot, path).startsWith('test-'),
+        // Mirrors the builds' own `src/**/test-*.ts` exclusion: match the file
+        // name, not the path, so a helper nested in a subdirectory
+        // (src/audio/test-helpers.ts) is recognised as unpublished too.
+        !relative(sourceRoot, path).split(sep).at(-1).startsWith('test-'),
     )
     .map((path) => relative(sourceRoot, path).replace(/\.ts$/, '.js'))
     .sort()

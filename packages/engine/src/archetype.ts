@@ -18,6 +18,8 @@ export interface ArchetypeArt {
   file: string
   /** Registry URI resolved by the archetype at runtime. */
   uri: string
+  /** What kind of asset this is — a sprite sheet or texture, or a sound file. */
+  kind: 'image' | 'sound'
 }
 
 /** The conventional contract exported by every archetype package. */
@@ -43,6 +45,15 @@ export interface ArchetypeManifest {
   bundle: ArchetypeBundle
   /** Directional animation contract, for genres where characters face around. */
   animation?: DirectionalAnimation
+  /**
+   * The archetype's own looping music bed, as a "waica:" registry uri —
+   * absent for archetypes that ship no music (G8). A host starts it itself
+   * (`game.audio.play(manifest.music, { channel: 'music', loop: true, scope:
+   * 'session' })`) when present; `installArchetype(bundle)` runs before
+   * `new Game(...)` exists, so the bundle has no `game` to call, and this
+   * field is what tells the host what to ask for instead.
+   */
+  music?: string
 }
 
 /** Browser manifest enriched with URLs produced by an asset-aware bundler. */

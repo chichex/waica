@@ -124,5 +124,23 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   game.registerSceneCatalog({ scenes, registry })
   game.loadSceneByName('main')
 
+  // Some archetypes ship a looping music bed (see ARCHETYPE.music); this is
+  // where the host asks for it, if it has one — session-scoped so a Scene
+  // Transition never stops or restarts it. A demo start sets the override
+  // below to this project's own src/art/ copy of that file, the same way
+  // scene and prefab sound props are already rewritten (create-project.ts
+  // / template.ts) — replacing that file is what actually changes the
+  // music then. A blank start copies no art at all, so it leaves the
+  // override unset and falls back to the archetype's own "waica:" uri,
+  // same as an archetype with no music at all (nothing plays: no warning,
+  // no fetch). game.audio resolves either kind of uri itself through the
+  // registered scene catalog above, so no manual resolveAsset step is
+  // needed here.
+  const musicOverride: string | undefined = __MUSIC_URI__
+  const musicUri = musicOverride ?? ARCHETYPE.music
+  if (musicUri) {
+    game.audio.play(musicUri, { channel: 'music', loop: true, scope: 'session' })
+  }
+
   game.start()
 }

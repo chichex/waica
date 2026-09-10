@@ -122,6 +122,7 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     max: 3,
     invulnerability: 0,
     stat: '',
+    hurtSound: '',
   },
   Respawnable: {},
   Lifetime: {

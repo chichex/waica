@@ -5,10 +5,12 @@ export interface ArtItem {
   label: string
   /** Displayable URL: an object URL over the project file's bytes. */
   url: string
-  /** What texture props store: the project path, e.g. 'src/art/foo.png'. */
+  /** What texture/sound props store: the project path, e.g. 'src/art/foo.png'. */
   uri: string
   /** Project file path. */
   path: string
+  /** Image pickers (Appearance, Tilemap, Animation) show only 'image'; a ref: 'sound' prop shows only 'sound'. */
+  kind: 'image' | 'sound'
 }
 
 /** A folder of art, grouped by the path the source files were dropped under. */
@@ -41,6 +43,8 @@ export interface ProjectArt {
 }
 
 export const IMAGE_RE = /\.(png|jpe?g)$/i
+/** The one shipped audio format (inference 3 of the audio subsystem spec). */
+export const AUDIO_RE = /\.ogg$/i
 
 async function readDirectoryEntries(
   reader: FileSystemDirectoryReader,
@@ -157,22 +161,24 @@ export function useProjectArt(
       const created: string[] = []
       const tree = await fs.tree()
       const roots = [findDir(findDir(tree, 'src')?.children, 'art'), findDir(tree, 'public')]
-      const files: TreeNode[] = []
+      const files: Array<{ node: TreeNode; kind: ArtItem['kind'] }> = []
       const walk = (nodes?: TreeNode[]): void => {
         for (const node of nodes ?? []) {
           if (node.kind === 'dir') walk(node.children)
-          else if (IMAGE_RE.test(node.name)) files.push(node)
+          else if (IMAGE_RE.test(node.name)) files.push({ node, kind: 'image' })
+          else if (AUDIO_RE.test(node.name)) files.push({ node, kind: 'sound' })
         }
       }
       for (const root of roots) walk(root?.children)
       const items: ArtItem[] = []
-      for (const file of files) {
+      for (const { node: file, kind } of files) {
         const bytes = await fs.readFile(file.path)
         if (!bytes) continue
-        const type = /\.png$/i.test(file.name) ? 'image/png' : 'image/jpeg'
+        const type =
+          kind === 'sound' ? 'audio/ogg' : /\.png$/i.test(file.name) ? 'image/png' : 'image/jpeg'
         const url = URL.createObjectURL(new Blob([bytes], { type }))
         created.push(url)
-        items.push({ label: file.name, url, uri: file.path, path: file.path })
+        items.push({ label: file.name, url, uri: file.path, path: file.path, kind })
       }
       return { items, created }
     }
@@ -201,14 +207,16 @@ export function useProjectArt(
 
   const importArt = useCallback(
     async (files: DroppedFile[]): Promise<void> => {
-      const images = files.filter((f) => IMAGE_RE.test(f.file.name))
-      if (!images.length) return
-      setImportProgress({ done: 0, total: images.length })
+      const importable = files.filter(
+        (f) => IMAGE_RE.test(f.file.name) || AUDIO_RE.test(f.file.name),
+      )
+      if (!importable.length) return
+      setImportProgress({ done: 0, total: importable.length })
       let done = 0
-      for (const { file, relativePath } of images) {
+      for (const { file, relativePath } of importable) {
         await fs.writeFile(`src/art/${relativePath}`, new Uint8Array(await file.arrayBuffer()))
         done += 1
-        setImportProgress({ done, total: images.length })
+        setImportProgress({ done, total: importable.length })
       }
       setArtEpoch((e) => e + 1)
       setImportProgress(null)

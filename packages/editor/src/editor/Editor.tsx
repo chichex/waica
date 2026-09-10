@@ -72,6 +72,7 @@ import { ControlsEditor, GameSettingsEditor, ProjectPane, StatsEditor } from './
 import { UiPane } from './UiPane'
 import { scriptSource } from './script-sources'
 import { useProjectArt, type ArtItem } from './use-project-art'
+import { browserSoundPreview } from './sound-preview'
 import { loadWorkspace, saveWorkspace, type WorkspaceView } from './workspace'
 import { WriteScheduler } from './write-scheduler'
 import type { TilemapBrushSelection } from './tilemap-brush'
@@ -162,6 +163,12 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const [view, setView] = useState<ExplorerView | null>(null)
   const [epoch, setEpoch] = useState(0)
   const [mode, setMode] = useState<'edit' | 'play'>('edit')
+  /**
+   * The project path of the library sound preview currently playing, or
+   * null — review finding B, keyed on path rather than url per review
+   * finding 1 (useProjectArt's object URLs don't survive a re-scan).
+   */
+  const [previewingPath, setPreviewingPath] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
   const [viewportVisibility, setViewportVisibility] = useState<ViewportComponentVisibility>({
     appearance: true,
@@ -978,11 +985,21 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     selectEntity(name)
   }
 
+  /** Stops the library sound preview, if one is running (review finding B). */
+  const stopPreview = (): void => {
+    browserSoundPreview.stop()
+    setPreviewingPath(null)
+  }
+
   const play = async (): Promise<void> => {
     // Starting mid-switch would build the run from the outgoing scene and
     // label it with the incoming one — and when the read lands, the
     // [scenePath] effect would hot-swap the scene under the live session.
     if (!openScenePath || !scene || sceneSwitching) return
+    // The preview control is disabled in play mode (CA-18) and couldn't be
+    // reached to stop it otherwise, so a run in progress must not be left
+    // playing over the game's own audio.
+    stopPreview()
     setSelected(null)
     setMulti([])
     // Project components, states and roles register before the Play game is
@@ -1348,6 +1365,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
           mode={mode}
           bindings={controls ?? undefined}
           stats={stats ?? undefined}
+          music={archetype.music}
           resolution={
             gameSettings?.resolution.mode === 'fixed' ? gameSettings.resolution : undefined
           }
@@ -1710,6 +1728,15 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             onImportArt={projectArt.importArt}
             importProgress={projectArt.importProgress}
             onRefreshArt={projectArt.refresh}
+            mode={mode}
+            previewingPath={previewingPath}
+            onPreviewSound={(item) => {
+              setPreviewingPath(item.path)
+              browserSoundPreview.play(item.url, () =>
+                setPreviewingPath((current) => (current === item.path ? null : current)),
+              )
+            }}
+            onStopPreview={stopPreview}
             onOpenScene={(path) => openView({ kind: 'scene', path })}
             onSelectEntity={(name) => {
               if (!openScenePath) return
@@ -1749,7 +1776,9 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             stateFiles={stateFiles}
             roleFiles={roleFiles}
             onOpenStateFile={(path) => openView({ kind: 'stateFile', path })}
-            onOpenArt={(item: ArtItem) => openView({ kind: 'art', ...item })}
+            onOpenArt={(item: ArtItem) =>
+              openView({ kind: 'art', label: item.label, url: item.url, path: item.path })
+            }
             onOpenControls={() => openView({ kind: 'controls' })}
             onOpenStats={() => openView({ kind: 'stats' })}
             onOpenGame={() => openView({ kind: 'game' })}
@@ -2054,7 +2083,8 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
               contract={
                 requiredClips.length ? { required: requiredClips, fallbacks: {} } : undefined
               }
-              art={projectArt.art}
+              // The frame/sheet picker chooses a texture, never a sound.
+              art={projectArt.art.filter((item) => item.kind === 'image')}
               urlFor={projectArt.urlFor}
               onImportArt={projectArt.importArt}
               onSave={(next) => {

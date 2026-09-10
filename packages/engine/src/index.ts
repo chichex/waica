@@ -7,6 +7,10 @@ export type {
   UpdateFn,
   ParamOverrides,
 } from './game.js'
+export { AudioSubsystem } from './audio/audio-subsystem.js'
+export type { AudioSubsystemOptions } from './audio/audio-subsystem.js'
+export type { AudioBackend, AudioResource, BackendPlayHandle, BackendPlayOptions } from './audio/backend.js'
+export type { AudioChannelState, AudioPlayOptions, LiveSoundInfo, SoundHandle } from './audio/types.js'
 export {
   installDirectionalAnimation,
   installedDirectionalAnimation,
@@ -83,6 +87,7 @@ export type {
   RuntimeComponentSnapshot,
   RuntimeEntitySnapshot,
   RuntimeSnapshot,
+  RuntimeSnapshotAudio,
   RuntimeSnapshotFilters,
   RuntimeTransformSnapshot,
 } from './runtime-inspection.js'

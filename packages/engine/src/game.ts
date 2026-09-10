@@ -1,4 +1,6 @@
 import * as THREE from 'three'
+import type { AudioBackend } from './audio/backend.js'
+import { AudioSubsystem } from './audio/audio-subsystem.js'
 import { collisionOverlap } from './collision-shape.js'
 import {
   isCameraVelocityProvider,
@@ -20,7 +22,7 @@ import {
   EngineRuntimeBridge,
 } from './runtime-bridge.js'
 import { RuntimeInspector } from './runtime-inspection.js'
-import { projectIsometric } from './projection.js'
+import { projectIsometric, unprojectIsometric } from './projection.js'
 import { isYSortParticipant, ySortZ, type YSortEntry, type YSortParticipant } from './render-sort.js'
 import {
   loadScene,
@@ -52,6 +54,14 @@ export interface GameOptions {
   bindings?: InputBindings
   /** Initial stat values (points, lives…) from the project's stats.json. */
   stats?: Record<string, StatValue>
+  /**
+   * Replaces the real WebAudio implementation (ADR 0013) — mainly for a
+   * project's own tests, since `happy-dom` has no AudioContext, AudioBuffer
+   * or GainNode at all. Defaults to the real backend either way; `game.audio`
+   * always exists, and the real AudioContext is constructed lazily, at the
+   * first unlock (CA-6), never eagerly here.
+   */
+  audio?: AudioBackend
 }
 
 export type UpdateFn = (dt: number) => void
@@ -84,6 +94,8 @@ export class Game {
   readonly stats: Stats
   /** The HTML UI layer: presentation-only pieces toggled from code. */
   readonly ui: GameUi
+  /** The audio mixer: channels, master, playback. See ADR 0012, ADR 0013. */
+  readonly audio: AudioSubsystem
   /** Registry retained by loadScene for runtime prefab spawning. */
   registry: SceneRegistry | null = null
   paramOverrides: ParamOverrides = {}
@@ -124,6 +136,15 @@ export class Game {
     this.input = new Input(options.bindings)
     this.stats = new Stats(options.stats)
     this.ui = new GameUi(this.stats, () => canvas.parentElement ?? document.body)
+    this.audio = new AudioSubsystem({
+      canvas,
+      backend: options.audio,
+      // The catalog registered via registerSceneCatalog, never game.registry:
+      // unloadScene() nulls the latter but leaves the catalog (and its
+      // resolver) untouched, which is exactly what a { scope: 'session' }
+      // music bed needs across a scene swap.
+      resolveAsset: (uri) => this.sceneCatalog?.registry.resolveAsset?.(uri) ?? uri,
+    })
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this.scene.background = new THREE.Color(background)
@@ -185,6 +206,7 @@ export class Game {
    */
   unloadScene(): void {
     this.ui.unloadScene()
+    this.audio.unloadScene()
     // An explicit unload means "no scene": a swap queued earlier this frame
     // would otherwise flush next frame and resurrect one.
     this.pendingSceneLoad = null
@@ -336,6 +358,7 @@ export class Game {
           availableScenes: () => this.availableScenes,
         })
         activation.register(this.runtimeBridge)
+        this.audio.setSilenced(true)
         window.addEventListener('pagehide', this.unregisterRuntimeBridge)
       }
       this.renderSurface()
@@ -377,6 +400,7 @@ export class Game {
     this.pointer.dispose()
     this.resizeObserver.disconnect()
     this.ui.dispose()
+    this.audio.dispose()
     for (const entity of [...this.entities]) entity.destroy()
     this.renderer.dispose()
   }
@@ -415,6 +439,11 @@ export class Game {
       }
       // The UI must react to the pause itself (hide until resumed).
       this.ui.setActive(this.simulate)
+      this.audio.setActive(this.simulate)
+      // Positional audio (CA-8): recomputed every frame, on this same pass —
+      // never a second walk of `this.entities`, since `this.audio` already
+      // holds direct references to whichever entities are tracked.
+      this.audio.updatePlacements(this.audioListenerPosition(), (x, y) => this.renderPoint(x, y))
       for (const fn of this.updateFns) fn(dt)
       this.input.endFrame()
       this.renderSurface()
@@ -434,6 +463,7 @@ export class Game {
     window.removeEventListener('pagehide', this.unregisterRuntimeBridge)
     this.runtimeBridge?.unregister()
     this.runtimeBridge = null
+    this.audio.setSilenced(false)
   }
 
   /** Under y-sort, re-derives every participant's z from layer band + entity Y. */
@@ -537,6 +567,18 @@ export class Game {
 
   private renderPoint(x: number, y: number): { x: number; y: number } {
     return this.sceneProjection === 'isometric' ? projectIsometric(x, y) : { x, y }
+  }
+
+  /**
+   * The audio listener's position (CA-8) in logical coordinates. The camera
+   * itself only ever holds render-space coordinates (see `updateSceneCamera`,
+   * `setSceneCamera`), so under `projection: 'isometric'` this is the exact
+   * inverse of `renderPoint` — without it, distance-based attenuation would
+   * measure render-space distance instead of real game distance.
+   */
+  private audioListenerPosition(): { x: number; y: number } {
+    const { x, y } = this.camera.position
+    return this.sceneProjection === 'isometric' ? unprojectIsometric(x, y) : { x, y }
   }
 
   private dispatchCollisions(): void {

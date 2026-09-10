@@ -249,6 +249,24 @@ describe('describeArchetype', () => {
     ])
   })
 
+  it('CA-14: every art entry carries its kind, so a caller can tell a sound from a sprite', async () => {
+    const project = await makeProject()
+    roots.push(project)
+
+    const result = await describeArchetype(project, 'isometric')
+
+    const art = result.archetype.art as Array<{ file: string; uri: string; kind: string }>
+    expect(art.length).toBeGreaterThan(0)
+    for (const entry of art) expect(['image', 'sound']).toContain(entry.kind)
+    expect(art.filter((entry) => entry.kind === 'sound')).toHaveLength(4)
+    expect(art).toContainEqual({
+      file: 'waica-iso-sword-swing.ogg',
+      uri: 'waica:iso-sword-swing',
+      kind: 'sound',
+    })
+    expect(art).toContainEqual({ file: 'waica-iso-hero.png', uri: 'waica:iso-hero', kind: 'image' })
+  })
+
   it('discovers project dependency archetypes, honors the active id and lists the rest', async () => {
     const project = await makeProject()
     roots.push(project)

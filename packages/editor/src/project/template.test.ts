@@ -1,4 +1,5 @@
 import { ARCHETYPE } from '@waica/archetype-platformer'
+import { ARCHETYPE as ISO_ARCHETYPE } from '@waica/archetype-isometric'
 import { describe, expect, it } from 'vitest'
 import enginePackage from '../../../engine/package.json'
 import exampleMain from '../../../../examples/platformer/src/main.ts?raw'
@@ -48,6 +49,35 @@ describe('projectFiles', () => {
 
     expect(main).toContain("import { ARCHETYPE } from '@waica/archetype-isometric'")
     expect(main).toContain('installDirectionalAnimation(ARCHETYPE.animation ?? null)')
+  })
+
+  // ARCHETYPE.music is a "waica:" uri that always resolves to the
+  // installed package's own copy — never src/art/, since it never goes
+  // through the projectJson uri rewrite scene/prefab props already get.
+  // A demo start also copies every ARCHETYPE.art file into src/art/,
+  // including the music, so replacing that local file should be what
+  // actually changes what plays (this is what the generated main.ts must
+  // rewrite to, the same way prefab sound props are already rewritten).
+  it("demo start rewrites the archetype music uri to the project's own src/art/ copy", () => {
+    const musicArt = ISO_ARCHETYPE.art.find((art) => art.uri === ISO_ARCHETYPE.music)
+    if (!musicArt) throw new Error('expected the isometric archetype to declare music art (G8)')
+
+    const main = projectFiles('my-game', 'demo', 'isometric')['src/main.ts'] ?? ''
+
+    expect(main).toContain(`'src/art/${musicArt.file}'`)
+    expect(main).not.toContain(`'${ISO_ARCHETYPE.music}'`)
+  })
+
+  // A blank start copies no art at all (projectArtFiles('blank') is empty),
+  // so there is no local copy to rewrite the music uri to — it must keep
+  // resolving through the archetype's own "waica:" uri, exactly as before.
+  it('blank start leaves the archetype music uri alone (no art is copied)', () => {
+    const musicArt = ISO_ARCHETYPE.art.find((art) => art.uri === ISO_ARCHETYPE.music)
+    if (!musicArt) throw new Error('expected the isometric archetype to declare music art (G8)')
+
+    const main = projectFiles('my-game', 'blank', 'isometric')['src/main.ts'] ?? ''
+
+    expect(main).not.toContain(`src/art/${musicArt.file}`)
   })
 
   it('depends on the isometric package when that archetype is picked', () => {

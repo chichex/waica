@@ -48,6 +48,14 @@ interface Props {
   bindings?: InputBindings
   /** Project stats (initial values) for play mode. */
   stats?: Record<string, StatValue>
+  /**
+   * The archetype's own looping music bed (`ArchetypeManifest.music`, a
+   * "waica:" registry uri), started only in Play mode — mirroring what the
+   * shipped template's `main.ts` does on boot (review finding 2: Play mode
+   * is meant to be the game, and it built its own Game without ever doing
+   * this). Absent for archetypes that ship no music.
+   */
+  music?: string
   /** Initial camera height in world units (zoom still applies). */
   viewHeight?: number
   /** Clear color; the prefab stage tints it so the context reads at a glance. */
@@ -322,7 +330,7 @@ type HandleHit =
   | { kind: 'polygon'; name: string; compType: string; role: BoxRole; point: number }
 
 export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
-  { scene, scenePath, sceneCatalog, registry, epoch, mode, bindings, stats, viewHeight = 12, background = 0x1a1a2e, resolution, showCamera = false, grid = DEFAULT_EDITOR_SETTINGS.grid, onGridChange, componentVisibility = DEFAULT_COMPONENT_VISIBILITY, tilemapBrush, onTilemapStroke, selected, multiSelected, onSelect, onToggleSelect, onRangeSelect, onSelectCamera, onMoved, onMovedMany, onCameraMoved, onBoxResized, onBoxMoved, onPolygonChanged, onDropPrefab },
+  { scene, scenePath, sceneCatalog, registry, epoch, mode, bindings, stats, music, viewHeight = 12, background = 0x1a1a2e, resolution, showCamera = false, grid = DEFAULT_EDITOR_SETTINGS.grid, onGridChange, componentVisibility = DEFAULT_COMPONENT_VISIBILITY, tilemapBrush, onTilemapStroke, selected, multiSelected, onSelect, onToggleSelect, onRangeSelect, onSelectCamera, onMoved, onMovedMany, onCameraMoved, onBoxResized, onBoxMoved, onPolygonChanged, onDropPrefab },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -331,6 +339,7 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
   const registryRef = useRef(registry)
   const bindingsRef = useRef(bindings)
   const statsRef = useRef(stats)
+  const musicRef = useRef(music)
   const resolutionRef = useRef(resolution)
   const selectedRef = useRef(selected)
   const multiRef = useRef(multiSelected)
@@ -382,6 +391,7 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
   registryRef.current = registry
   bindingsRef.current = bindings
   statsRef.current = stats
+  musicRef.current = music
   resolutionRef.current = resolution
   selectedRef.current = selected
   multiRef.current = multiSelected
@@ -413,6 +423,19 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
     loadScene(game, sceneRef.current, registryRef.current)
     lastLoadedScenePath.current = scenePathRef.current ?? null
     game.simulate = mode === 'play'
+    // Play mode is meant to be the game (review finding 2): start the
+    // archetype's music bed the same way the shipped template's main.ts
+    // does on boot, mirrored here because Play builds its own Game instead
+    // of running that file. game.audio resolves the "waica:" uri itself
+    // through the scene catalog registered just above — no manual
+    // resolveAsset step, matching the template. Gated on mode rather than
+    // "a Game was built", so it never starts in edit mode; the effect's
+    // [epoch, mode] cleanup below disposes this Game (and with it every
+    // live sound, CA-10) when Play ends, so the bed never survives into
+    // edit mode.
+    if (mode === 'play' && musicRef.current) {
+      game.audio.play(musicRef.current, { channel: 'music', loop: true, scope: 'session' })
+    }
     if (mode === 'edit') {
       if (!camSeeded.current) {
         camSeeded.current = true

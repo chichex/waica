@@ -55,6 +55,7 @@ export class Health extends Component {
     max: { label: 'Max health', min: 1, max: 20, step: 1 },
     invulnerability: { label: 'Invulnerability', min: 0, max: 5, step: 0.1 },
     stat: { label: 'Stat', ref: 'stat' as const },
+    hurtSound: { label: 'Hurt sound', ref: 'sound' as const },
   }
   static override transient = [
     'current',
@@ -73,6 +74,8 @@ export class Health extends Component {
    * publishes nothing: the stat is the project's to declare.
    */
   stat = ''
+  /** Sound played at this entity's position on every accepted hit. Empty plays nothing (CA-12). */
+  hurtSound = ''
 
   /** Health left; 0 is dead. Filled in from max on ready. */
   current = 0
@@ -171,6 +174,7 @@ export class Health extends Component {
       current: this.current,
       source,
     })
+    if (this.hurtSound) this.game.audio.play(this.hurtSound, { at: this.entity })
     this.invulnerable = this.invulnerability
     this.blinkClock = 0
     if (this.current === 0) {

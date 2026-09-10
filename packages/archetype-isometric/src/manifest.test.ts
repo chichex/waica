@@ -36,7 +36,17 @@ describe('isometric archetype manifest', () => {
       bundle: ISOMETRIC_BUNDLE,
       animation: ISOMETRIC_ANIMATION,
       artUrls: ISOMETRIC_ART_URLS,
+      music: 'waica:iso-town-theme',
     })
+  })
+
+  // G8: closes the gap where a generated project (unlike the repo's own
+  // examples/isometric demo) never started the town theme, because nothing
+  // told the generic host template which uri to ask for. The manifest is
+  // now that one source of truth for both hosts.
+  it('declares its looping town theme as the manifest music uri (G8)', () => {
+    expect(ARCHETYPE.music).toBe('waica:iso-town-theme')
+    expect(NODE_ARCHETYPE.music).toBe('waica:iso-town-theme')
   })
 
   it('exports the asset-free manifest directly from the Node-safe entry', () => {
@@ -45,6 +55,27 @@ describe('isometric archetype manifest', () => {
     expect(NODE_ARCHETYPE).not.toHaveProperty('artUrls')
     expect(NODE_ARCHETYPE.registry.resolveAsset?.('waica:iso-hero')).toBe(
       'assets/waica-iso-hero.png',
+    )
+  })
+
+  it('resolves the four sound uris through the same package-relative and browser-bundled paths as images (CA-11)', () => {
+    expect(NODE_ARCHETYPE.registry.resolveAsset?.('waica:iso-sword-swing')).toBe(
+      'assets/waica-iso-sword-swing.ogg',
+    )
+    expect(NODE_ARCHETYPE.registry.resolveAsset?.('waica:iso-hit')).toBe('assets/waica-iso-hit.ogg')
+    expect(NODE_ARCHETYPE.registry.resolveAsset?.('waica:iso-hurt')).toBe(
+      'assets/waica-iso-hurt.ogg',
+    )
+    expect(NODE_ARCHETYPE.registry.resolveAsset?.('waica:iso-town-theme')).toBe(
+      'assets/waica-iso-town-theme.ogg',
+    )
+    // The browser registry resolves through ISOMETRIC_ART_URLS (bundler URLs), not raw uris.
+    expect(ISOMETRIC_ART_URLS['waica-iso-sword-swing.ogg']).toEqual(expect.any(String))
+    expect(ARCHETYPE.registry.resolveAsset?.('waica:iso-sword-swing')).toBe(
+      ISOMETRIC_ART_URLS['waica-iso-sword-swing.ogg'],
+    )
+    expect(ARCHETYPE.registry.resolveAsset?.('waica:iso-sword-swing')).not.toBe(
+      'waica:iso-sword-swing',
     )
   })
 

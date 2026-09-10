@@ -121,9 +121,12 @@ export const ISOMETRIC_PREFABS: Record<string, PrefabJson> = {
         },
       },
       { type: 'Hitbox', props: { width: 0.8, height: 0.8 } },
-      { type: 'MeleeAttack' },
+      { type: 'MeleeAttack', props: { swingSound: 'waica:iso-sword-swing' } },
       { type: 'Respawnable' },
-      { type: 'Health', props: { max: 3, invulnerability: 1, stat: 'health' } },
+      {
+        type: 'Health',
+        props: { max: 3, invulnerability: 1, stat: 'health', hurtSound: 'waica:iso-hurt' },
+      },
       {
         type: 'ClickToMove',
         props: {
@@ -178,7 +181,7 @@ export const ISOMETRIC_PREFABS: Record<string, PrefabJson> = {
       },
       { type: 'Hitbox', props: { width: 0.8, height: 0.7 } },
       { type: 'Hazard', props: { stompable: false, contactDamage: 1 } },
-      { type: 'Health', props: { max: 2, invulnerability: 0.3 } },
+      { type: 'Health', props: { max: 2, invulnerability: 0.3, hurtSound: 'waica:iso-hit' } },
     ],
   },
   'objects/crate': {

@@ -13,6 +13,10 @@ export const ISOMETRIC_ART_URLS: Record<string, string> = {
   'waica-iso-rock.png': new URL('../assets/waica-iso-rock.png', import.meta.url).href,
   'waica-iso-crate.png': new URL('../assets/waica-iso-crate.png', import.meta.url).href,
   'waica-iso-click-marker.png': new URL('../assets/waica-iso-click-marker.png', import.meta.url).href,
+  'waica-iso-sword-swing.ogg': new URL('../assets/waica-iso-sword-swing.ogg', import.meta.url).href,
+  'waica-iso-hit.ogg': new URL('../assets/waica-iso-hit.ogg', import.meta.url).href,
+  'waica-iso-hurt.ogg': new URL('../assets/waica-iso-hurt.ogg', import.meta.url).href,
+  'waica-iso-town-theme.ogg': new URL('../assets/waica-iso-town-theme.ogg', import.meta.url).href,
 }
 
 const BUILTIN_ASSETS: Record<string, string> = Object.fromEntries(

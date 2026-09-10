@@ -13,6 +13,7 @@ function makeGame(projection: 'isometric' | null = 'isometric'): Game {
     projection,
     stats: { add: vi.fn(), set: vi.fn() },
     events: { emit: vi.fn() },
+    audio: { play: vi.fn() },
   } as unknown as Game
 }
 
@@ -276,8 +277,72 @@ describe('MeleeAttack authoring surface', () => {
     expect(MeleeAttack.updateAfter).toBeUndefined()
   })
 
-  it('exposes damage, range and width with the documented defaults', () => {
-    expect(Object.keys(MeleeAttack.params ?? {}).sort()).toEqual(['damage', 'range', 'width'])
-    expect(authoringDefaults(MeleeAttack)).toEqual({ damage: 1, range: 1, width: 1 })
+  it('exposes damage, range, width and swingSound with the documented defaults', () => {
+    expect(Object.keys(MeleeAttack.params ?? {}).sort()).toEqual([
+      'damage',
+      'range',
+      'swingSound',
+      'width',
+    ])
+    expect(authoringDefaults(MeleeAttack)).toEqual({ damage: 1, range: 1, width: 1, swingSound: '' })
+  })
+
+  it('exposes the swing sound as a typed sound reference for the inspector', () => {
+    expect(MeleeAttack.params?.['swingSound']).toMatchObject({ ref: 'sound' })
+  })
+})
+
+describe('MeleeAttack.strike swing sound (CA-12)', () => {
+  it('plays the configured swing sound when a strike connects', () => {
+    const { game, attack, player } = arena(IN_FRONT.x, IN_FRONT.y)
+    attack.swingSound = 'waica:iso-sword-swing'
+
+    attack.strike('e')
+
+    expect(game.audio.play).toHaveBeenCalledExactlyOnceWith('waica:iso-sword-swing', {
+      at: player,
+    })
+  })
+
+  it('plays the configured swing sound on a swing that connects with nothing', () => {
+    const { game, attack, player } = arena(-IN_FRONT.x, -IN_FRONT.y)
+    attack.swingSound = 'waica:iso-sword-swing'
+
+    attack.strike('e')
+
+    expect(game.audio.play).toHaveBeenCalledExactlyOnceWith('waica:iso-sword-swing', {
+      at: player,
+    })
+  })
+
+  it('plays nothing and logs nothing when swingSound is left unset', () => {
+    const { game, attack } = arena(IN_FRONT.x, IN_FRONT.y)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    attack.strike('e')
+
+    expect(game.audio.play).not.toHaveBeenCalled()
+    expect(warn).not.toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
+  it('plays the swing sound positioned at the attacker, like Health positions hurtSound at the damaged entity (CA-8)', () => {
+    const { game, attack, player } = arena(IN_FRONT.x, IN_FRONT.y)
+    attack.swingSound = 'waica:iso-sword-swing'
+
+    attack.strike('e')
+
+    expect(game.audio.play).toHaveBeenCalledExactlyOnceWith('waica:iso-sword-swing', {
+      at: player,
+    })
+  })
+
+  it('plays nothing for a facing the eight-way table does not know, even with a sound configured', () => {
+    const { game, attack } = arena(IN_FRONT.x, IN_FRONT.y)
+    attack.swingSound = 'waica:iso-sword-swing'
+
+    attack.strike('sideways')
+
+    expect(game.audio.play).not.toHaveBeenCalled()
   })
 })

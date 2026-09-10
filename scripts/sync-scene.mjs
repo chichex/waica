@@ -1,7 +1,8 @@
 // Syncs the archetype's defaults (source of truth in TS) to the project
 // JSONs — the scene plus one file per prefab (src/<key>.<type>.json, the
-// same layout the editor's projectFiles() emits) plus the stock art PNGs
-// (src/art/<file>) — into the repo example and the editor's project template.
+// same layout the editor's projectFiles() emits) plus the stock art files
+// (src/art/<file>, images and sounds alike) — into the repo example and
+// the editor's project template.
 // Each target declares its archetype in src/game.json; the matching
 // packages/archetype-<id> manifest drives the sync.
 // Requires built dists: pnpm -r build (archetype, behaviors, engine)

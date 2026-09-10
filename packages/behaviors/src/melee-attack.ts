@@ -24,6 +24,7 @@ export class MeleeAttack extends Component {
     damage: { label: 'Damage', min: 0, max: 20, step: 1 },
     range: { label: 'Range', min: 0.5, max: 5, step: 0.5 },
     width: { label: 'Width', min: 0.5, max: 5, step: 0.5 },
+    swingSound: { label: 'Swing sound', ref: 'sound' as const },
   }
 
   damage = 1
@@ -31,6 +32,8 @@ export class MeleeAttack extends Component {
   range = 1
   /** How wide the blow is, across the facing. */
   width = 1
+  /** Sound played on every swing. Empty plays nothing (CA-12). */
+  swingSound = ''
 
   /**
    * Lands one blow along `facing`: every other living entity with a Hitbox
@@ -42,6 +45,10 @@ export class MeleeAttack extends Component {
   strike(facing: string): Entity[] {
     const direction = logicalDirection(facing, this.game.projection)
     if (!direction) return []
+    // Positional like Health's hurtSound (CA-8): an off-camera NPC's swing
+    // should attenuate and pan like the hit it causes, not play flat and
+    // dead-centre while the damage it lands sounds correctly placed.
+    if (this.swingSound) this.game.audio.play(this.swingSound, { at: this.entity })
     const area = this.strikeArea(direction.x, direction.y)
     const struck: Entity[] = []
     // A copy: a target with no death-handling graph is destroyed on the spot,

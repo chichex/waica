@@ -38,7 +38,7 @@ claude mcp add waica -- npx -y @waica/cli mcp
 
 See the [MCP README](https://github.com/chichex/waica/blob/main/packages/mcp/README.md) for schemas, result contracts and projection limits.
 
-`validate_project` follows the active archetype's animation contract: under a `DirectionalAnimation` (top-down, isometric) a clip counts as present when it resolves for every declared direction, mirrors and state fallbacks included, instead of being matched literally against the sheet.
+`validate_project` follows the active archetype's animation contract: under a `DirectionalAnimation` (top-down, isometric) a clip counts as present when it resolves for every declared direction, mirrors and state fallbacks included, instead of being matched literally against the sheet. It also reports an error-severity `missing-sound` finding, symmetric with `broken-prefab-ref`, when a `ref: 'sound'` param (`MeleeAttack.swingSound`, `Health.hurtSound`) names a uri that is neither the active archetype's own declared sound art nor a `.ogg` file directly in the project's `src/art/` — not recursive, and not other extensions, because the hosts glob `./art/*` and a sound in a subfolder would 404 at runtime; `describe_archetype`'s `art` entries each carry `kind: 'image' | 'sound'` so a caller can tell them apart.
 
 ### Runtime prerequisites and security
 
@@ -46,7 +46,7 @@ Runtime tools support macOS and Linux; `start_project` rejects Windows while the
 
 `start_project` executes trusted Project code and its declared `scripts.dev` with normal local user permissions. It is **not a sandbox**. It never installs dependencies, mutates lockfiles or accepts an arbitrary shell command.
 
-A Run Session starts paused at frame 0. `control_runtime` can queue action names and step exact frames, or resume RAF-driven real time and pause again without catch-up. `inspect_runtime` is read-only and returns bounded stats/entity/component state; `capture_screenshot` includes visible HTML UI without duplicating base64 into metadata.
+A Run Session starts paused at frame 0. `control_runtime` can queue action names and step exact frames, or resume RAF-driven real time and pause again without catch-up. `inspect_runtime` is read-only and returns bounded stats/entity/component state plus an unconditional `audio` section (`{ master, channels: { <name>: { volume, muted } }, playing: [{ uri, channel, scope }] }`, sorted deterministically — `playing` means "the mixer accepted these calls", not "these were audible": a Run Session keeps the output suspended throughout, and the list also carries loops retained before the autoplay unlock and sounds still loading); `capture_screenshot` includes visible HTML UI without duplicating base64 into metadata.
 
 `stop_project` and MCP transport close both clean all browser and dev-process resources owned by the server. A reload reconnects to a fresh paused Game; failures terminate and clean the session.
 
