@@ -368,7 +368,14 @@ export class AudioSubsystem {
       },
       set volume(value: number) {
         sound.volume = value
-        sound.backendHandle?.setVolume(value * sound.attenuation)
+        // While a fade-out ramp is running (fading), skip the backend write:
+        // a plain gain assignment is equivalent to a setValueAtTime inserted
+        // before the ramp's end (Web Audio spec), which jumps the gain back
+        // up and only then resumes descending — cutting the fade short,
+        // same mechanism updatePlacements() already guards against. The
+        // stored value above is updated regardless, so the sound reads back
+        // correctly however long it stays `fading` before it truly ends.
+        if (!sound.fading) sound.backendHandle?.setVolume(value * sound.attenuation)
       },
       stop(opts: { fadeMs?: number } = {}): void {
         subsystem.stopSound(sound, opts.fadeMs)

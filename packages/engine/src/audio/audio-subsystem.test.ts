@@ -225,6 +225,34 @@ describe('CA-2 — the handle', () => {
 
     expect(backend.playCalls).toEqual([{ resource: 'hit.ogg', channel: 'sfx', volume: 0.2, loop: false }])
   })
+
+  it('setting volume during an active fade does not restart it: the stored value updates but the backend write is skipped', async () => {
+    const { audio, backend } = makeSubsystem()
+    unlock()
+    const handle = audio.play('hit.ogg', { volume: 1 })
+    await flush()
+
+    handle.stop({ fadeMs: 500 })
+    const setVolumeCallsWhenFadeStarted = backend.playbacks[0]?.setVolumeCalls.length
+
+    handle.volume = 0.5
+
+    // The stored value must still be readable back correctly...
+    expect(handle.volume).toBe(0.5)
+    // ...but writing it to the backend gain here would insert a
+    // setValueAtTime before the ramp's end, per the Web Audio spec — which
+    // jumps the gain back up to 0.5 and only then resumes descending to
+    // zero, cutting the fade short. No new backend write must happen.
+    expect(backend.playbacks[0]?.setVolumeCalls).toHaveLength(setVolumeCallsWhenFadeStarted!)
+    expect(backend.playbacks[0]?.stops).toEqual([{ fadeMs: 500 }])
+    expect(handle.playing).toBe(true)
+
+    // The ramp finishing (the sound does not "outlive" the fade) still
+    // ends it normally; the stored value was never lost in the meantime.
+    backend.playbacks[0]?.finish()
+    expect(handle.playing).toBe(false)
+    expect(handle.volume).toBe(0.5)
+  })
 })
 
 describe('CA-6 — autoplay unlock', () => {
