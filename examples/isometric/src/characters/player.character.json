@@ -301,7 +301,10 @@
       }
     },
     {
-      "type": "MeleeAttack"
+      "type": "MeleeAttack",
+      "props": {
+        "swingSound": "src/art/waica-iso-sword-swing.ogg"
+      }
     },
     {
       "type": "Respawnable"
@@ -311,7 +314,8 @@
       "props": {
         "max": 3,
         "invulnerability": 1,
-        "stat": "health"
+        "stat": "health",
+        "hurtSound": "src/art/waica-iso-hurt.ogg"
       }
     },
     {
