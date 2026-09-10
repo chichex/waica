@@ -183,7 +183,15 @@ export class AudioSubsystem {
     await Promise.all(uris.map((uri) => this.ensureLoading(this.resolveAsset(uri))))
   }
 
-  /** Every currently-playing sound, sorted by uri then channel. */
+  /**
+   * Every sound currently registered with the subsystem — not "every sound
+   * currently audible". A sound enters this set in play() and leaves only
+   * when the backend reports onEnded or drop() removes it, so it also
+   * reports: a loop retained before the autoplay unlock (no backend touched
+   * yet, CA-6); a sound whose load() has not resolved yet; and even one
+   * whose fetch/decode is about to fail, which drops out a tick later once
+   * attach() catches up and calls drop(). Sorted by uri then channel.
+   */
   liveSounds(): LiveSoundInfo[] {
     return [...this.live]
       .map(({ uri, channel, scope }) => ({ uri, channel, scope }))

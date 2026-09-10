@@ -54,11 +54,14 @@ export interface RuntimeEntitySnapshot {
 
 /**
  * The mixer's state (CA-15): `master` and every channel's volume/mute,
- * sorted by name, plus every currently-playing sound as `game.audio.liveSounds()`
- * already sorts them (by uri then channel). Emitted unconditionally, like
- * every other snapshot section — `[DEVIATION 2026-09-08]` in the spec: no
- * section of RuntimeSnapshot is filterable today, so audio does not invent
- * the first one.
+ * sorted by name, plus `playing` — `game.audio.liveSounds()` verbatim,
+ * already sorted (by uri then channel). Despite the name, `playing` is not
+ * "every currently-audible sound": per `liveSounds()`'s own docstring it
+ * also carries a loop retained before the autoplay unlock, a sound still
+ * loading, and even one about to fail to load (gone a tick later). Emitted
+ * unconditionally, like every other snapshot section —
+ * `[DEVIATION 2026-09-08]` in the spec: no section of RuntimeSnapshot is
+ * filterable today, so audio does not invent the first one.
  */
 export interface RuntimeSnapshotAudio {
   master: number
