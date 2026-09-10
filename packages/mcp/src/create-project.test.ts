@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { createHash } from 'node:crypto'
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { projectArtFiles, projectFiles } from '../../editor/src/project/template.js'
@@ -30,6 +31,14 @@ async function textTree(root: string): Promise<Record<string, string>> {
     out[relative] = await readFile(path.join(root, relative), 'utf8')
   }
   return out
+}
+
+// Byte-for-byte, but through a digest. `toEqual` on a Buffer deep-compares it
+// element by element, so the isometric demo's ~1 MB music bed turned this into
+// seconds of structural comparison and timed the whole test out on CI while
+// passing locally. A sha256 keeps the same guarantee at memcmp speed.
+async function artDigest(file: string): Promise<string> {
+  return createHash('sha256').update(await readFile(file)).digest('hex')
 }
 
 // The editor and the server derive the @waica range from the same file, so the
@@ -72,7 +81,9 @@ describe('createProject', () => {
           '../../archetype-isometric/assets',
           path.basename(relative),
         )
-        expect(await readFile(path.join(target, relative))).toEqual(await readFile(source))
+        expect(await artDigest(path.join(target, relative)), relative).toEqual(
+          await artDigest(source),
+        )
       }
     },
   )
@@ -120,7 +131,9 @@ describe('createProject', () => {
         '../../archetype-topdown/assets',
         path.basename(relative),
       )
-      expect(await readFile(path.join(target, relative))).toEqual(await readFile(source))
+      expect(await artDigest(path.join(target, relative)), relative).toEqual(
+        await artDigest(source),
+      )
     }
   })
 
@@ -143,7 +156,9 @@ describe('createProject', () => {
         '../../archetype-platformer/assets',
         path.basename(relative),
       )
-      expect(await readFile(path.join(target, relative))).toEqual(await readFile(source))
+      expect(await artDigest(path.join(target, relative)), relative).toEqual(
+        await artDigest(source),
+      )
     }
 
     for (const relative of (await filesBelow(target)).filter((file) => file.endsWith('.json'))) {
