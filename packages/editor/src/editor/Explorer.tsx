@@ -84,7 +84,9 @@ export function Explorer({
   importProgress,
   onRefreshArt,
   mode,
+  previewingUrl,
   onPreviewSound,
+  onStopPreview,
   onOpenScene,
   onSelectEntity,
   onToggleEntity,
@@ -156,8 +158,12 @@ export function Explorer({
   onRefreshArt(): void
   /** Whether the project is running (CA-18): disables the sound preview control. */
   mode: 'edit' | 'play'
-  /** Plays a sound row's preview, through the editor's own audio path — never game.audio. */
+  /** The url a sound row's preview is currently playing, or null (review finding B: at most one at a time). */
+  previewingUrl: string | null
+  /** Starts a sound row's preview, through the editor's own audio path — never game.audio. */
   onPreviewSound(url: string): void
+  /** Stops the sound row preview currently playing. */
+  onStopPreview(): void
   onOpenScene(path: string): void
   onSelectEntity(name: string): void
   /** Cmd/Ctrl-click: toggles the entity in the multi-selection. */
@@ -409,48 +415,55 @@ export function Explorer({
   // payload today (ref: 'sound' props render as a picker, not a drop
   // target — see ref-targets.ts), and offering that payload let a sound get
   // dropped onto a sprite's texture (review finding A).
-  const renderSoundItem = (item: ArtItem): React.ReactNode => (
-    <div
-      key={item.path}
-      className="ed-x-item ed-x-sound"
-      onContextMenu={(e) =>
-        openMenu(e, [
-          {
-            label: 'Preview',
-            icon: '▶',
-            disabled: mode === 'play',
-            title: mode === 'play' ? 'Stop the game to preview sounds' : undefined,
-            onClick: () => onPreviewSound(item.url),
-          },
-          { label: 'Import art…', icon: '＋', onClick: pickArt },
-          'sep',
-          {
-            label: 'Delete',
-            icon: '🗑',
-            danger: true,
-            onClick: () => void deleteArt(item),
-          },
-        ])
-      }
-    >
-      <button
-        type="button"
-        className="ed-sound-play"
-        title={mode === 'play' ? 'Stop the game to preview sounds' : 'Preview'}
-        disabled={mode === 'play'}
-        onClick={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          if (mode === 'play') return
-          onPreviewSound(item.url)
-        }}
+  const renderSoundItem = (item: ArtItem): React.ReactNode => {
+    // At most one preview plays at a time (review finding B), so the row
+    // whose url is the one currently playing gets the stop affordance;
+    // every other row (including this one when idle) offers to play.
+    const isPlaying = previewingUrl === item.url
+    const toggle = (): void => (isPlaying ? onStopPreview() : onPreviewSound(item.url))
+    return (
+      <div
+        key={item.path}
+        className="ed-x-item ed-x-sound"
+        onContextMenu={(e) =>
+          openMenu(e, [
+            {
+              label: isPlaying ? 'Stop' : 'Preview',
+              icon: isPlaying ? '⏹' : '▶',
+              disabled: mode === 'play',
+              title: mode === 'play' ? 'Stop the game to preview sounds' : undefined,
+              onClick: toggle,
+            },
+            { label: 'Import art…', icon: '＋', onClick: pickArt },
+            'sep',
+            {
+              label: 'Delete',
+              icon: '🗑',
+              danger: true,
+              onClick: () => void deleteArt(item),
+            },
+          ])
+        }
       >
-        ▶
-      </button>
-      <span className="ed-x-ico">🔊</span>
-      {item.label}
-    </div>
-  )
+        <button
+          type="button"
+          className={`ed-sound-play${isPlaying ? ' is-playing' : ''}`}
+          title={mode === 'play' ? 'Stop the game to preview sounds' : isPlaying ? 'Stop' : 'Preview'}
+          disabled={mode === 'play'}
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            if (mode === 'play') return
+            toggle()
+          }}
+        >
+          {isPlaying ? '⏹' : '▶'}
+        </button>
+        <span className="ed-x-ico">🔊</span>
+        {item.label}
+      </div>
+    )
+  }
 
   const renderImageItem = (item: ArtItem): React.ReactNode => (
     <button

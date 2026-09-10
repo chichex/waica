@@ -95,7 +95,9 @@ function baseProps(
     onToggleUiInScene: vi.fn(),
     onArtDeleted: vi.fn(),
     mode: 'edit',
+    previewingUrl: null,
     onPreviewSound: vi.fn(),
+    onStopPreview: vi.fn(),
     ...overrides,
   }
 }
@@ -160,5 +162,41 @@ describe('Explorer sound library (CA-17, CA-18)', () => {
     act(() => button!.click())
 
     expect(onPreviewSound).not.toHaveBeenCalled()
+  })
+
+  it('shows a stop control for the row currently previewing, and calls onStopPreview when clicked (review finding B)', () => {
+    const onPreviewSound = vi.fn()
+    const onStopPreview = vi.fn()
+    render(
+      baseProps({ art: [SOUND], previewingUrl: SOUND.url, onPreviewSound, onStopPreview }),
+    )
+
+    const button = container.querySelector<HTMLButtonElement>('.ed-sound-play')
+    expect(button).not.toBeNull()
+    expect(button!.textContent).toBe('⏹')
+
+    act(() => button!.click())
+
+    expect(onStopPreview).toHaveBeenCalledOnce()
+    expect(onPreviewSound).not.toHaveBeenCalled()
+  })
+
+  it('offers to play (not stop) a row that is not the one currently previewing', () => {
+    const other: ArtItem = { ...SOUND, label: 'hit.ogg', url: 'blob:hit', uri: 'src/art/hit.ogg', path: 'src/art/hit.ogg' }
+    const onPreviewSound = vi.fn()
+    const onStopPreview = vi.fn()
+    render(
+      baseProps({ art: [SOUND, other], previewingUrl: SOUND.url, onPreviewSound, onStopPreview }),
+    )
+
+    const buttons = container.querySelectorAll<HTMLButtonElement>('.ed-sound-play')
+    expect(buttons).toHaveLength(2)
+    const otherButton = [...buttons].find((b) => b.textContent === '▶')
+    expect(otherButton).not.toBeUndefined()
+
+    act(() => otherButton!.click())
+
+    expect(onPreviewSound).toHaveBeenCalledExactlyOnceWith(other.url)
+    expect(onStopPreview).not.toHaveBeenCalled()
   })
 })
