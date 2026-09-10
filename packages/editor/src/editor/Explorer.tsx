@@ -84,7 +84,7 @@ export function Explorer({
   importProgress,
   onRefreshArt,
   mode,
-  previewingUrl,
+  previewingPath,
   onPreviewSound,
   onStopPreview,
   onOpenScene,
@@ -158,10 +158,19 @@ export function Explorer({
   onRefreshArt(): void
   /** Whether the project is running (CA-18): disables the sound preview control. */
   mode: 'edit' | 'play'
-  /** The url a sound row's preview is currently playing, or null (review finding B: at most one at a time). */
-  previewingUrl: string | null
+  /**
+   * The project path of the sound row currently previewing, or null (review
+   * finding B: at most one at a time). Keyed on `item.path`, never on
+   * `item.url`: `useProjectArt` revokes and recreates every object URL on
+   * each re-scan, so a url-keyed toggle loses track of the playing row the
+   * moment art is imported or deleted — the row shows ▶ again while the
+   * `<audio>` keeps playing, with no control left to stop it (review
+   * finding 1, a regression of the same unstoppable-preview bug finding B
+   * fixed). `path` is stable across re-scans, so it stays matched.
+   */
+  previewingPath: string | null
   /** Starts a sound row's preview, through the editor's own audio path — never game.audio. */
-  onPreviewSound(url: string): void
+  onPreviewSound(item: ArtItem): void
   /** Stops the sound row preview currently playing. */
   onStopPreview(): void
   onOpenScene(path: string): void
@@ -404,6 +413,11 @@ export function Explorer({
 
   const deleteArt = async (item: ArtItem): Promise<void> => {
     if (!window.confirm(`Delete ${item.label}? This cannot be undone.`)) return
+    // Deleting the file currently previewing (review finding 1) removes its
+    // row entirely on the next scan, so keying the toggle by path (above)
+    // has nothing left to match against — the preview must be stopped here
+    // explicitly, or it plays on with no control left to reach it.
+    if (previewingPath === item.path) onStopPreview()
     await fs.deleteFile(item.path)
     onArtDeleted(item.path)
     onRefreshArt()
@@ -417,10 +431,13 @@ export function Explorer({
   // dropped onto a sprite's texture (review finding A).
   const renderSoundItem = (item: ArtItem): React.ReactNode => {
     // At most one preview plays at a time (review finding B), so the row
-    // whose url is the one currently playing gets the stop affordance;
-    // every other row (including this one when idle) offers to play.
-    const isPlaying = previewingUrl === item.url
-    const toggle = (): void => (isPlaying ? onStopPreview() : onPreviewSound(item.url))
+    // whose path is the one currently playing gets the stop affordance;
+    // every other row (including this one when idle) offers to play. Keyed
+    // on path, not url (review finding 1): url is a volatile object URL
+    // that useProjectArt revokes and recreates on every re-scan, while path
+    // is the stable project path.
+    const isPlaying = previewingPath === item.path
+    const toggle = (): void => (isPlaying ? onStopPreview() : onPreviewSound(item))
     return (
       <div
         key={item.path}
