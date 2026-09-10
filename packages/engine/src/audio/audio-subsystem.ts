@@ -413,7 +413,13 @@ export class AudioSubsystem {
   }
 }
 
-/** Returned by play() before the first unlock, or once a uri is known to have failed: registers nothing. */
+/**
+ * Returned by play() for a non-looping call made before the first unlock:
+ * registers nothing in `live`, touches no backend, and reports `playing`
+ * false forever. A uri already known to have failed takes a different path
+ * — it still registers a real sound (attach() -> drop()), so play() returns
+ * a handleFor() handle whose `sound.ended` is already true instead of this one.
+ */
 function inertHandle(initialVolume: number): SoundHandle {
   let volume = initialVolume
   return {
