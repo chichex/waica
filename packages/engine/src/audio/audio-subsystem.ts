@@ -42,6 +42,15 @@ interface LiveSound {
   placement: SoundPlacement | null
   ended: boolean
   backendHandle: BackendPlayHandle | null
+  /**
+   * True once stop({ fadeMs }) has started the backend's gain ramp toward
+   * zero. `playing` stays true for the length of that ramp (CA-2), so the
+   * sound is still in `live` and would otherwise keep receiving per-frame
+   * placement updates (CA-8) — a plain `setVolume` write competing with the
+   * backend's own ramp, cutting it short instead of fading. updatePlacements
+   * skips a fading sound entirely once this is set.
+   */
+  fading: boolean
 }
 
 function resolvePlacement(at: AudioPlayOptions['at']): SoundPlacement | null {
@@ -125,6 +134,7 @@ export class AudioSubsystem {
       placement,
       ended: false,
       backendHandle: null,
+      fading: false,
     }
     this.live.add(sound)
     if (this.unlocked) this.attach(resolvedUri, sound)
@@ -229,6 +239,7 @@ export class AudioSubsystem {
     if (this.live.size === 0) return
     let listenerRender: { x: number; y: number } | null = null
     for (const sound of this.live) {
+      if (sound.fading) continue
       const placement = sound.placement
       if (!placement) continue
       const source =
@@ -336,6 +347,7 @@ export class AudioSubsystem {
       return
     }
     if (fadeMs) {
+      sound.fading = true
       sound.backendHandle.stop(fadeMs)
       // playing stays true until the backend's onEnded fires, once the ramp completes.
     } else {

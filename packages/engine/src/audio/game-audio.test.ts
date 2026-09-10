@@ -522,4 +522,29 @@ describe('CA-8 — positional audio', () => {
     expect(diagonal.playing).toBe(true)
     game.dispose()
   })
+
+  it('a fading positional sound is left alone by the per-frame placement update, so its ramp is not overwritten', async () => {
+    const backend = new FakeAudioBackend()
+    const { game } = makeGame(backend)
+    const runFrame = runFrameOf(game)
+    unlock()
+    const handle = game.audio.play('bed.ogg', { at: { x: 1, y: 0 } })
+    await flush()
+    runFrame(0.016) // establishes the initial attenuation-driven volume
+
+    handle.stop({ fadeMs: 500 })
+    const setVolumeCallsWhenFadeStarted = backend.playbacks[0]?.setVolumeCalls.length
+
+    // Placement updates keep running every frame while the ramp is in
+    // flight (the sound is still in `live`, playing === true) — none of
+    // them may push a fresh setVolume, or the ramp the backend is running
+    // toward zero gets stomped by a plain gain assignment.
+    runFrame(0.016)
+    runFrame(0.016)
+
+    expect(backend.playbacks[0]?.setVolumeCalls).toHaveLength(setVolumeCallsWhenFadeStarted!)
+    expect(backend.playbacks[0]?.stops).toEqual([{ fadeMs: 500 }])
+    expect(handle.playing).toBe(true)
+    game.dispose()
+  })
 })
