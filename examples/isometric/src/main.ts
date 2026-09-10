@@ -134,10 +134,20 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   // the same one resolveProps runs every prefab's sound prop through — a
   // direct call like this one needs no manual resolveAsset step. CA-9's
   // preload keeps the four shipped sounds decoded ahead of time, so the
-  // first swing doesn't pay for the fetch. This call runs before any
-  // input, so the engine retains the loop and starts it at the autoplay
-  // unlock instead of discarding it.
-  void game.audio.preload(['waica:iso-sword-swing', 'waica:iso-hit', 'waica:iso-hurt', 'waica:iso-town-theme'])
+  // first swing doesn't pay for the fetch. The three combat entries below
+  // are the exact project paths the shipped prefabs declare (resolved
+  // through artUrls, this example's own src/art/ copies) — not the
+  // "waica:" registry uris, which resolveAsset would instead fall through
+  // to the archetype package's copies, warming files nobody plays. The
+  // music entry stays a "waica:" uri, matching ARCHETYPE.music itself.
+  // This call runs before any input, so the engine retains the loop and
+  // starts it at the autoplay unlock instead of discarding it.
+  void game.audio.preload([
+    'src/art/waica-iso-sword-swing.ogg',
+    'src/art/waica-iso-hit.ogg',
+    'src/art/waica-iso-hurt.ogg',
+    'waica:iso-town-theme',
+  ])
   if (ARCHETYPE.music) {
     game.audio.play(ARCHETYPE.music, { channel: 'music', loop: true, scope: 'session' })
   }
