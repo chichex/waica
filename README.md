@@ -4,7 +4,7 @@
 
 Pick what you're making — a platformer, a top-down adventure, an isometric game — and Waica sets up the movement, the camera, the physics and the exact animations you'll need. Opinionated rails for the common 90%, a real TypeScript engine underneath for everything else. 2D and 3D, one core.
 
-**Status: the editor is the center of the product** (milestone 2, pulled forward; milestone 1's 3D/WebGPU leftovers still pending). The platformer archetype runs end to end with factory game feel — coyote time, jump buffering, jump cut, squash & stretch — and characters are data-first: states and transitions live in the prefab JSON, behavior code lives in **roles** (`player`, `patroller`, `chaser`, or your own scaffolded into `src/roles/`). A project is plain files — scenes, prefabs, controls, stats and UI pieces are JSON/HTML you can read, hand-edit and commit.
+**Status: the editor is the center of the product** (milestone 2, pulled forward; milestone 1's 3D/WebGPU leftovers still pending). The platformer archetype runs end to end with factory game feel — coyote time, jump buffering, jump cut, squash & stretch — and characters are data-first: states and transitions live in the prefab JSON, behavior code lives in **roles** (`player`, `patroller`, `chaser`, or your own scaffolded into `src/roles/`). A project is plain files — scenes, prefabs, controls, stats and UI pieces are JSON/HTML you can read, hand-edit and commit. Waica is pre-1.0: a minor release may break projects created with the previous one, and individual breaks are not announced until 1.0.
 
 - Design doc: [DESIGN.md](./DESIGN.md)
 - Stack: TypeScript · three.js (WebGPU → WebGL2 planned) · Vite

@@ -149,6 +149,14 @@ describe('MCP server', () => {
       for (const name of RUNTIME_TOOL_NAMES) {
         expect(byName.get(name)?.inputSchema.additionalProperties).toBe(false)
       }
+      // CA-8: `step` advances whole 1/60 s Simulation Steps — no `dt` anywhere
+      // in the schema (not as a property, not in any branch's guard), only
+      // the optional `frames`, and the description says so.
+      const control = byName.get('control_runtime')!
+      expect(control.inputSchema.properties).not.toHaveProperty('dt')
+      expect(control.inputSchema.properties).toHaveProperty('frames')
+      expect(JSON.stringify(control.inputSchema)).not.toContain('"dt"')
+      expect(control.description).toMatch(/1\/60/)
     } finally {
       await pair.close()
     }
@@ -240,6 +248,10 @@ describe('MCP server', () => {
         },
         {
           name: 'control_runtime',
+          arguments: { project_path: '/game', operation: 'step', dt: 1 / 60 },
+        },
+        {
+          name: 'control_runtime',
           arguments: { project_path: '/game', operation: 'click' },
         },
         {
@@ -290,6 +302,47 @@ describe('MCP server', () => {
         },
       })
       expect(calls).toBe(0)
+    } finally {
+      await pair.close()
+    }
+  })
+
+  it('rejects a step that carries dt by name, before the Run Session service sees it (CA-8)', async () => {
+    const seen: unknown[] = []
+    const runtime: RuntimeService = {
+      start: async () => ({}),
+      stop: async () => ({}),
+      inspect: async () => ({}),
+      control: async (input) => {
+        seen.push(input)
+        return { bridgeVersion: 1, mode: 'paused', frame: 0, simulationTime: 0, heldActions: [] }
+      },
+      captureScreenshot: async () => ({ metadata: {}, data: 'png' }),
+      close: async () => {},
+    }
+    const pair = await connectedPair(runtime)
+    try {
+      const response = await pair.client.callTool({
+        name: 'control_runtime',
+        arguments: { project_path: '/game', operation: 'step', dt: 1 / 60, frames: 2 },
+      })
+      expect(response.isError).toBe(true)
+      expect(jsonResult(response)).toMatchObject({
+        error: {
+          code: 'runtime-operation-failed',
+          stage: 'control',
+          message: expect.stringMatching(/frames/),
+          projectPath: '/game',
+        },
+      })
+      expect(seen).toEqual([])
+
+      const stepped = await pair.client.callTool({
+        name: 'control_runtime',
+        arguments: { project_path: '/game', operation: 'step', frames: 2 },
+      })
+      expect(stepped.isError).not.toBe(true)
+      expect(seen).toEqual([{ projectPath: '/game', operation: 'step', frames: 2 }])
     } finally {
       await pair.close()
     }

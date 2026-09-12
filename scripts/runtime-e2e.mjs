@@ -412,7 +412,6 @@ async function runHappyPath({
   const stepped = await call(client, 'control_runtime', {
     project_path: project,
     operation: 'step',
-    dt: 1 / 60,
     frames: 3,
   })
   assert.equal(stepped.structuredContent.frame, 3)
@@ -516,7 +515,6 @@ async function runProjectionLeg({ client, project, chrome }) {
   await call(client, 'control_runtime', {
     project_path: project,
     operation: 'step',
-    dt: 1 / 60,
     frames: 60,
   })
   await call(client, 'control_runtime', {
@@ -527,7 +525,6 @@ async function runProjectionLeg({ client, project, chrome }) {
   await call(client, 'control_runtime', {
     project_path: project,
     operation: 'step',
-    dt: 1 / 60,
     frames: 1,
   })
 
@@ -636,7 +633,6 @@ async function runTopdownLeg({ client, root, parent, chrome, viteBin, engineRoot
     call(client, 'control_runtime', {
       project_path: project,
       operation: 'step',
-      dt: 1 / 60,
       frames: 30,
     })
 
@@ -756,7 +752,6 @@ async function runIsometricLeg({ client, root, parent, chrome, viteBin, engineRo
     call(client, 'control_runtime', {
       project_path: project,
       operation: 'step',
-      dt: 1 / 60,
       frames,
     })
 
@@ -1131,7 +1126,7 @@ async function runSceneSwapLeg({ client, root, parent, chrome, viteBin, engineRo
   const release = (action) =>
     call(client, 'control_runtime', { project_path: project, operation: 'release', action })
   const step = (frames = 1) =>
-    call(client, 'control_runtime', { project_path: project, operation: 'step', dt: 1 / 60, frames })
+    call(client, 'control_runtime', { project_path: project, operation: 'step', frames })
 
   // Same "walk one axis at a time until close, retrying" recipe as
   // runIsometricCombat's approach(): logical x runs screen south-east

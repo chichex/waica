@@ -8,6 +8,8 @@ npx @waica/cli
 
 The package is scoped because the bare npm name is unavailable; its installed binary is still `waica`. The command serves the editor at `http://localhost:5178` and opens a browser. Projects are plain files saved directly to a selected folder.
 
+Waica is pre-1.0: a minor release may break projects created with the previous one, and individual breaks are not announced until 1.0.
+
 ## MCP server
 
 The same package includes the Waica MCP server:

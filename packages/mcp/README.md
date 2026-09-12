@@ -63,7 +63,7 @@ A ready Run Session starts **paused** at frame 0 and simulation time 0. The Game
 
 - `press` is held for one simulation frame and releases automatically.
 - `hold` stays down until `release`; repeated down operations do not create another edge.
-- `step` defaults to one frame at `dt = 1/60` and accepts 1–600 frames with `0 < dt <= 0.1`.
+- `step` advances whole Simulation Steps of 1/60 s each: `frames` (1–600, default 1) says how many. There is no `dt` — the step size is an engine constant, so a request reproduces the same simulation everywhere — and a call that sends one is rejected by input validation naming `frames`. `simulationTime` is `frame × 1/60`, never a running sum.
 - `resume` uses RAF-driven real time; `pause` returns to deterministic control without wall-clock catch-up.
 - Only action names installed in the live Game bindings are accepted for `press`/`hold`/`release`. Physical key codes and arbitrary DOM events stay unexposed, but a primary-button click is: `{ operation: 'click', x, y }` (`x`/`y` are logical-space coordinates, not screen pixels) resolves through the engine's own Pointer — the same camera/letterbox/projection conversion and entity picking a real click on the canvas uses — and is queued the same way a press is, taking effect on the next stepped frame. A Project whose `@waica/engine` build predates this (no `click` in the Runtime Bridge's reported capabilities) gets `runtime-incompatible` instead of a silently ignored click.
 

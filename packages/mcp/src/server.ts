@@ -206,7 +206,9 @@ export const TOOLS: Tool[] = [
   },
   {
     name: 'control_runtime',
-    description: 'Inject a semantic action or a canvas click, or change deterministic frame control for a Run Session.',
+    description:
+      'Inject a semantic action or a canvas click, or change deterministic frame control for a Run Session. ' +
+      '`step` advances whole Simulation Steps of 1/60 s each (`frames`, 1-600, default 1); it does not accept a `dt`.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -216,7 +218,6 @@ export const TOOLS: Tool[] = [
           enum: ['press', 'hold', 'release', 'pause', 'resume', 'step', 'click', 'scene'],
         },
         action: { type: 'string', minLength: 1 },
-        dt: { type: 'number', exclusiveMinimum: 0, maximum: 0.1 },
         frames: { type: 'integer', minimum: 1, maximum: 600 },
         x: { type: 'number' },
         y: { type: 'number' },
@@ -228,14 +229,13 @@ export const TOOLS: Tool[] = [
         {
           properties: { operation: { enum: ['press', 'hold', 'release'] } },
           required: ['action'],
-          not: { anyOf: [{ required: ['dt'] }, { required: ['frames'] }, { required: ['x'] }, { required: ['y'] }, { required: ['scene'] }] },
+          not: { anyOf: [{ required: ['frames'] }, { required: ['x'] }, { required: ['y'] }, { required: ['scene'] }] },
         },
         {
           properties: { operation: { enum: ['pause', 'resume'] } },
           not: {
             anyOf: [
               { required: ['action'] },
-              { required: ['dt'] },
               { required: ['frames'] },
               { required: ['x'] },
               { required: ['y'] },
@@ -250,12 +250,12 @@ export const TOOLS: Tool[] = [
         {
           properties: { operation: { const: 'click' } },
           required: ['x', 'y'],
-          not: { anyOf: [{ required: ['action'] }, { required: ['dt'] }, { required: ['frames'] }, { required: ['scene'] }] },
+          not: { anyOf: [{ required: ['action'] }, { required: ['frames'] }, { required: ['scene'] }] },
         },
         {
           properties: { operation: { const: 'scene' } },
           required: ['scene'],
-          not: { anyOf: [{ required: ['action'] }, { required: ['dt'] }, { required: ['frames'] }, { required: ['x'] }, { required: ['y'] }] },
+          not: { anyOf: [{ required: ['action'] }, { required: ['frames'] }, { required: ['x'] }, { required: ['y'] }] },
         },
       ],
     },
@@ -394,10 +394,19 @@ function validateRuntimeArguments(
       assertStringArray(name, args, 'component_types', projectPath)
       return
     case 'control_runtime': {
+      // Named before the generic extras check: a pre-ADR-0014 caller sending
+      // a dt is told what replaced it, not just that the key is unexpected.
+      if (args.dt !== undefined) {
+        invalidRuntimeInput(
+          name,
+          projectPath,
+          'dt is not accepted: step advances whole Simulation Steps of 1/60 s each; pass frames (1 through 600) instead.',
+        )
+      }
       assertOnlyRuntimeFields(
         name,
         args,
-        ['project_path', 'operation', 'action', 'dt', 'frames', 'x', 'y', 'scene'],
+        ['project_path', 'operation', 'action', 'frames', 'x', 'y', 'scene'],
         projectPath,
       )
       const operation = args.operation
@@ -413,18 +422,16 @@ function validateRuntimeArguments(
           invalidRuntimeInput(name, projectPath, `${operation} requires a nonempty action.`)
         }
         if (
-          args.dt !== undefined ||
           args.frames !== undefined ||
           args.x !== undefined ||
           args.y !== undefined ||
           args.scene !== undefined
         ) {
-          invalidRuntimeInput(name, projectPath, `${operation} does not accept dt, frames, x, y or scene.`)
+          invalidRuntimeInput(name, projectPath, `${operation} does not accept frames, x, y or scene.`)
         }
       } else if (operation === 'pause' || operation === 'resume') {
         if (
           args.action !== undefined ||
-          args.dt !== undefined ||
           args.frames !== undefined ||
           args.x !== undefined ||
           args.y !== undefined ||
@@ -433,13 +440,8 @@ function validateRuntimeArguments(
           invalidRuntimeInput(name, projectPath, `${operation} accepts no additional fields.`)
         }
       } else if (operation === 'click') {
-        if (
-          args.action !== undefined ||
-          args.dt !== undefined ||
-          args.frames !== undefined ||
-          args.scene !== undefined
-        ) {
-          invalidRuntimeInput(name, projectPath, 'click does not accept action, dt, frames or scene.')
+        if (args.action !== undefined || args.frames !== undefined || args.scene !== undefined) {
+          invalidRuntimeInput(name, projectPath, 'click does not accept action, frames or scene.')
         }
         if (typeof args.x !== 'number' || !Number.isFinite(args.x)) {
           invalidRuntimeInput(name, projectPath, 'click requires a finite x.')
@@ -450,12 +452,11 @@ function validateRuntimeArguments(
       } else if (operation === 'scene') {
         if (
           args.action !== undefined ||
-          args.dt !== undefined ||
           args.frames !== undefined ||
           args.x !== undefined ||
           args.y !== undefined
         ) {
-          invalidRuntimeInput(name, projectPath, 'scene does not accept action, dt, frames, x or y.')
+          invalidRuntimeInput(name, projectPath, 'scene does not accept action, frames, x or y.')
         }
         if (typeof args.scene !== 'string' || args.scene.length === 0) {
           invalidRuntimeInput(name, projectPath, 'scene requires a nonempty scene name.')
@@ -464,12 +465,6 @@ function validateRuntimeArguments(
         if (args.action !== undefined) invalidRuntimeInput(name, projectPath, 'step does not accept action.')
         if (args.x !== undefined || args.y !== undefined || args.scene !== undefined) {
           invalidRuntimeInput(name, projectPath, 'step does not accept x, y or scene.')
-        }
-        if (
-          args.dt !== undefined &&
-          (typeof args.dt !== 'number' || !Number.isFinite(args.dt) || args.dt <= 0 || args.dt > 0.1)
-        ) {
-          invalidRuntimeInput(name, projectPath, 'dt must be finite and greater than 0 and at most 0.1.')
         }
         if (
           args.frames !== undefined &&
@@ -628,7 +623,6 @@ async function execute(
         projectPath,
         operation: requiredString(args, 'operation', projectPath),
         ...(typeof args.action === 'string' ? { action: args.action } : {}),
-        ...(typeof args.dt === 'number' ? { dt: args.dt } : {}),
         ...(typeof args.frames === 'number' ? { frames: args.frames } : {}),
         ...(typeof args.x === 'number' ? { x: args.x } : {}),
         ...(typeof args.y === 'number' ? { y: args.y } : {}),
