@@ -7,6 +7,7 @@ import {
 import { Component } from '../component.js'
 import { AnimatedSprite } from '../components/animated-sprite.js'
 import type { Entity } from '../entity.js'
+import { SIMULATION_STEP } from '../fixed-step.js'
 import {
   closestLogicSet,
   logicSet,
@@ -49,7 +50,11 @@ export function evaluateTrigger(on: string, env: TriggerEnv): boolean {
   const kind = on.slice(0, sep)
   const arg = on.slice(sep + 1)
   if (kind === 'input') return env.justPressed(arg)
-  if (kind === 'timer') return env.elapsed >= Number(arg)
+  // Half a Simulation Step of tolerance: `elapsed` is a sum of many
+  // SIMULATION_STEP-sized dts, and float error can leave it a hair under an
+  // exact multiple (15 additions of 1/60 give 0.24999999999999997, not
+  // 0.25), which a bare `>=` would fire one whole step late.
+  if (kind === 'timer') return env.elapsed + SIMULATION_STEP / 2 >= Number(arg)
   if (kind === 'signal') return env.signals.has(arg)
   return false
 }

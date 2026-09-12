@@ -230,4 +230,27 @@ describe('StateMachine timers at the Simulation Step (CA-9)', () => {
     machine.onUpdate(SIMULATION_STEP)
     expect(machine.current).toBe('idle')
   })
+
+  it('fires a timer:0.25 transition on the 15th step and not on the 14th (regression: summed float error)', () => {
+    // Summing 1/60 fifteen times gives 0.24999999999999997 < 0.25, so a bare
+    // `>=` against the accumulated float fires one step late (the 16th);
+    // 0.25 s is exactly 15 whole steps and must keep that length too.
+    const machine = new StateMachine()
+    machine.entity = { name: 'Subject', components: [], get: () => undefined } as unknown as Entity
+    machine.game = {
+      input: { justPressed: () => false, consumed: () => false, consume: () => {} },
+    } as unknown as Game
+    machine.initial = 'swing'
+    machine.states = {
+      swing: { transitions: [{ on: 'timer:0.25', to: 'idle' }] },
+      idle: {},
+    }
+    machine.onReady()
+
+    for (let step = 1; step <= 14; step += 1) machine.onUpdate(SIMULATION_STEP)
+    expect(machine.current).toBe('swing')
+
+    machine.onUpdate(SIMULATION_STEP)
+    expect(machine.current).toBe('idle')
+  })
 })
