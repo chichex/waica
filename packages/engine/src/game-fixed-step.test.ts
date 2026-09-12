@@ -258,6 +258,68 @@ describe('Fixed Simulation Step loop', () => {
     game.dispose()
   })
 
+  it('drains a scene-load chain queued for the top-of-frame flush, whether that frame runs zero steps or one (regression: same-frame chaining)', () => {
+    class Redirect extends Component {
+      static override componentName = 'Redirect'
+      to = ''
+      override onReady(): void {
+        if (this.to) this.game.loadSceneByName(this.to)
+      }
+    }
+    class Queuer extends Component {
+      static override componentName = 'Queuer'
+      to = ''
+      override onUpdate(): void {
+        this.game.loadSceneByName(this.to)
+      }
+    }
+    const components = { Redirect, Queuer }
+    const catalog = {
+      scenes: {
+        mid: {
+          waicaScene: 3 as const,
+          entities: [{ name: 'Mid', components: [{ type: 'Redirect', props: { to: 'final' } }] }],
+        },
+        final: { waicaScene: 3 as const, entities: [{ name: 'Final', components: [] }] },
+      },
+      registry: { components },
+    }
+
+    // Zero-step path: the frame that flushes the chain runs no step at all.
+    {
+      const { game } = makeStartedGame()
+      game.registerSceneCatalog(catalog)
+      tick(0) // seeds the clock before any scene exists
+      loadScene(
+        game,
+        { waicaScene: 3, entities: [{ name: 'Q', components: [{ type: 'Queuer', props: { to: 'mid' } }] }] },
+        { components },
+      )
+      const queued = frameMs(60)
+      tick(queued) // one step: Queuer.onUpdate queues 'mid' mid-frame
+      tick(queued) // zero more elapsed: the flushing frame runs zero steps
+      expect(game.sceneName).toBe('final')
+      game.dispose()
+    }
+
+    // One-step path: the frame that flushes the chain also runs a step.
+    {
+      const { game } = makeStartedGame()
+      game.registerSceneCatalog(catalog)
+      tick(0)
+      loadScene(
+        game,
+        { waicaScene: 3, entities: [{ name: 'Q', components: [{ type: 'Queuer', props: { to: 'mid' } }] }] },
+        { components },
+      )
+      const queued = frameMs(60)
+      tick(queued) // one step: Queuer.onUpdate queues 'mid' mid-frame
+      tick(queued + frameMs(60)) // one more whole step: the flushing frame runs one step
+      expect(game.sceneName).toBe('final')
+      game.dispose()
+    }
+  })
+
   it('renders and refreshes UI and audio exactly once per tick, after the last step, for 0, 1 and 6 steps (CA-5)', () => {
     const events: string[] = []
     class StepProbe extends Component {

@@ -526,10 +526,17 @@ export class Game {
   }
 
   private flushPendingSceneLoad(): void {
-    const pending = this.pendingSceneLoad
-    if (!pending) return
-    this.pendingSceneLoad = null
-    pending()
+    // Drains the whole chain, not just one level: a loadSceneByName called
+    // from the incoming scene's onReady (still insideFrame) re-queues
+    // pendingSceneLoad, and a frame that runs zero steps never reaches the
+    // per-step flush that would otherwise pick it up next. Capped like the
+    // state machine's chained-transition loop, so a degenerate scene cycle
+    // can't hang here either.
+    for (let hops = 0; hops < 8 && this.pendingSceneLoad; hops += 1) {
+      const pending = this.pendingSceneLoad
+      this.pendingSceneLoad = null
+      pending()
+    }
   }
 
   private unregisterRuntimeBridge = (): void => {
