@@ -122,6 +122,8 @@ export class Game {
   private lastTime: number | null = null
   /** Seconds of elapsed time not yet worth a whole Simulation Step (ADR 0014). */
   private stepRemainder = 0
+  /** Seconds discarded by frame-rate snapping, not yet repaid (ronda 3 correctness). */
+  private snapResidual = 0
   private runtimeBridge: EngineRuntimeBridge | null = null
   /** Host-registered scenes by name, resolved by loadSceneByName. Session-scoped. */
   private sceneCatalog: SceneCatalog | null = null
@@ -431,6 +433,7 @@ export class Game {
   private resetClock(): void {
     this.lastTime = null
     this.stepRemainder = 0
+    this.snapResidual = 0
   }
 
   /**
@@ -447,10 +450,12 @@ export class Game {
     this.lastTime = time
     if (!this.simulate) {
       this.stepRemainder = 0
+      this.snapResidual = 0
       this.runFrame(0)
       return
     }
-    const elapsed = snapElapsedToStep(measured)
+    const { elapsed, residual } = snapElapsedToStep(measured, this.snapResidual)
+    this.snapResidual = residual
     const { steps, remainder } = consumeSimulationSteps(this.stepRemainder, elapsed)
     this.stepRemainder = remainder
     this.runFrame(steps, onStep)

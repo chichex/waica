@@ -57,6 +57,13 @@ export const STEP_SNAP_TOLERANCE = 0.00025 // seconds (0.25 ms)
  */
 const SNAPPABLE_STEPS = 4
 
+export interface SnapResult {
+  /** The elapsed time to feed the accumulator: snapped, and possibly resynced. */
+  elapsed: number
+  /** Time discarded by snapping so far, still owed to (or by) the wall clock. */
+  residual: number
+}
+
 /**
  * Frame-rate snapping (ADR 0014, ronda 2 correctness): a measured frame
  * duration that lands within STEP_SNAP_TOLERANCE of an exact multiple of
@@ -68,11 +75,27 @@ const SNAPPABLE_STEPS = 4
  * per-frame measurement before it ever reaches the accumulator, so
  * `consumeSimulationSteps` itself — and CA-2's 0.034 s / 0.0999 s / 0.005 s
  * examples, each well outside the tolerance — are untouched.
+ *
+ * Every snap discards `elapsed - target`, which is carried forward in
+ * `residual` (ronda 3 correctness) instead of vanishing: a display a hair
+ * off 60.00 Hz — 59.94 Hz, the common NTSC-derived panel rate, discards
+ * ~0.017 ms every frame — would otherwise drift from the wall clock
+ * without bound (measured: -3.6 s/h at 59.94 Hz). Once the accumulated
+ * residual reaches a whole Simulation Step, one step is repaid into
+ * `elapsed` right away and subtracted back out of the residual, so the
+ * simulation is never more than about one step away from the wall clock.
  */
-export function snapElapsedToStep(elapsed: number): number {
+export function snapElapsedToStep(elapsed: number, residual: number): SnapResult {
   for (let steps = 1; steps <= SNAPPABLE_STEPS; steps += 1) {
     const target = steps * SIMULATION_STEP
-    if (Math.abs(elapsed - target) < STEP_SNAP_TOLERANCE) return target
+    if (Math.abs(elapsed - target) < STEP_SNAP_TOLERANCE) {
+      const pending = residual + (elapsed - target)
+      if (Math.abs(pending) >= SIMULATION_STEP) {
+        const repaid = Math.sign(pending) * SIMULATION_STEP
+        return { elapsed: target + repaid, residual: pending - repaid }
+      }
+      return { elapsed: target, residual: pending }
+    }
   }
-  return elapsed
+  return { elapsed, residual }
 }

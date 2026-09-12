@@ -150,6 +150,28 @@ describe('Fixed Simulation Step loop', () => {
     game.dispose()
   })
 
+  it('carries the time discarded by snapping so a near-60 Hz display does not drift from the wall clock (regression: bounded resync)', () => {
+    const { game, dts } = makeStartedGame()
+    const period = 1000 / 59.94 // ~16.683 ms, a common NTSC-derived panel rate
+
+    tick(0) // seeds the clock
+
+    let time = 0
+    for (let i = 1; i <= 3600; i += 1) {
+      time += period
+      tick(time)
+    }
+
+    // 3600 frames of ~16.683 ms is ~60.06 s of wall clock, which holds
+    // about 3603 Simulation Steps of 1/60 s. Discarding the snapped
+    // residual outright (instead of carrying it) undercounts by dozens of
+    // steps in this exact scenario (3600, flat); a bounded resync keeps the
+    // simulation within about one step of the wall clock instead.
+    const expectedSteps = ((3600 * period) / 1000) / SIMULATION_STEP
+    expect(Math.abs(dts.length - expectedSteps)).toBeLessThanOrEqual(1)
+    game.dispose()
+  })
+
   it('runs zero steps on the first tick after start(), and again after stop()/start() — never a burst (CA-3)', () => {
     const { game, dts } = makeStartedGame()
 
