@@ -459,13 +459,17 @@ export class Game {
   /**
    * Runs `steps` Simulation Steps back to back, then the once-per-frame
    * tail: audio activity and placements, the UI overlay and the render
-   * (CA-5). Each step flushes a queued scene swap first and closes the
-   * input frame last (CA-4), so two steps in one frame never see the same
-   * press twice or the outgoing scene once too often.
+   * (CA-5). A queued scene swap flushes at the very start of the frame —
+   * loadSceneByName's contract — and again before every step after the
+   * first (CA-4), so two steps in one frame never see the same press
+   * twice or the outgoing scene once too often; a frame that runs zero
+   * steps (ronda 2 correctness) still flushes, so it never renders/
+   * audio-places the outgoing scene one frame longer than it should.
    */
   private runFrame(steps: number, onStep?: () => void): void {
     this.insideFrame = true
     try {
+      this.flushPendingSceneLoad()
       if (this.simulate) {
         for (let index = 0; index < steps; index += 1) {
           this.flushPendingSceneLoad()

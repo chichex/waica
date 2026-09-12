@@ -686,6 +686,45 @@ describe('Scene unload and swap', () => {
     game.dispose()
   })
 
+  it('flushes a mid-frame scene swap even when the next frame runs zero Simulation Steps (ronda 2 correctness)', () => {
+    const game = makeGame()
+    class SwapOnCollide extends Component {
+      static override componentName = 'SwapOnCollide'
+      override onCollide(): void {
+        game.loadSceneByName('next')
+      }
+    }
+    game.registerSceneCatalog({
+      scenes: { next: { waicaScene: 3, entities: [{ name: 'Room2' }] } },
+      registry: { components: { Hitbox, SwapOnCollide } },
+    })
+    loadScene(
+      game,
+      {
+        waicaScene: 3,
+        entities: [
+          { name: 'A', components: [{ type: 'Hitbox' }, { type: 'SwapOnCollide' }] },
+          { name: 'B', components: [{ type: 'Hitbox' }] },
+        ],
+      },
+      { components: { Hitbox, SwapOnCollide } },
+    )
+
+    step(game) // dispatches the collision: onCollide enqueues the swap
+    expect(game.find('Room2')).toBeUndefined()
+
+    // The very next runFrame(), even though it runs zero Simulation Steps
+    // (e.g. a display frame arriving before a whole step has accumulated),
+    // must still flush the pending swap at its start: loadSceneByName's
+    // docstring promises "the very start of the next runFrame", not "the
+    // next runFrame that happens to run a step".
+    ;(game as unknown as { runFrame(steps: number): void }).runFrame(0)
+    expect(game.find('A')).toBeUndefined()
+    expect(game.find('Room2')).toBeDefined()
+    expect(game.sceneName).toBe('next')
+    game.dispose()
+  })
+
   it('resolves loadSceneByName through the registered catalog (CA-8, CA-9)', () => {
     const game = makeGame()
     expect(game.sceneName).toBeNull()
