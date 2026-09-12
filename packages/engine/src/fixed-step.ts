@@ -25,10 +25,14 @@ export interface SimulationSteps {
 /**
  * Pure accumulator: from the time retained after the last frame and the
  * seconds elapsed since it, how many whole steps to run now and what to
- * keep. Hitting the cap discards the whole remainder (CA-2).
+ * keep. Hitting the cap discards the whole remainder (CA-2). A non-finite
+ * or negative `elapsed` (a NaN timestamp delta, a backwards clock) is
+ * treated as zero rather than poisoning the remainder or yielding negative
+ * steps — hardening against inputs a real rAF timestamp never produces.
  */
 export function consumeSimulationSteps(remainder: number, elapsed: number): SimulationSteps {
-  const available = remainder + elapsed
+  const safeElapsed = Number.isFinite(elapsed) && elapsed > 0 ? elapsed : 0
+  const available = remainder + safeElapsed
   const whole = Math.floor(available / SIMULATION_STEP)
   if (whole >= MAX_STEPS_PER_FRAME) return { steps: MAX_STEPS_PER_FRAME, remainder: 0 }
   return { steps: whole, remainder: available - whole * SIMULATION_STEP }

@@ -33,4 +33,17 @@ describe('Simulation Step accumulator (CA-2)', () => {
     // The 0.1 s clamp is gone: a huge gap still yields the cap, not 6 steps of clamped time.
     expect(consumeSimulationSteps(0.5, 5)).toEqual({ steps: 6, remainder: 0 })
   })
+
+  it('treats a non-finite elapsed as zero instead of poisoning the remainder with NaN', () => {
+    expect(consumeSimulationSteps(0, NaN)).toEqual({ steps: 0, remainder: 0 })
+    expect(consumeSimulationSteps(0, Infinity)).toEqual({ steps: 0, remainder: 0 })
+    // A retained remainder from a healthy previous frame is not discarded.
+    expect(consumeSimulationSteps(0.01, NaN)).toEqual({ steps: 0, remainder: 0.01 })
+  })
+
+  it('clamps a negative elapsed to zero instead of yielding negative steps', () => {
+    expect(consumeSimulationSteps(0, -0.05)).toEqual({ steps: 0, remainder: 0 })
+    // A backwards clock must not eat time already retained from before.
+    expect(consumeSimulationSteps(0.01, -0.005)).toEqual({ steps: 0, remainder: 0.01 })
+  })
 })
