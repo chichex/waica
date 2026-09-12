@@ -476,7 +476,10 @@ export class Game {
     try {
       this.flushPendingSceneLoad()
       if (this.simulate) {
-        for (let index = 0; index < steps; index += 1) {
+        // Re-read every iteration, not just once before the loop: a
+        // component or host callback can set `simulate = false` mid-step,
+        // and the remaining steps of this catch-up frame must not run.
+        for (let index = 0; index < steps && this.simulate; index += 1) {
           this.flushPendingSceneLoad()
           this.simulateStep()
           onStep?.()

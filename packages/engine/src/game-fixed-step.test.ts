@@ -295,6 +295,25 @@ describe('Fixed Simulation Step loop', () => {
     game.dispose()
   })
 
+  it('stops running the remaining steps of a catch-up frame once a component sets simulate = false mid-step (regression: read once)', () => {
+    class SimulateOffOnFirstStep extends Component {
+      static override componentName = 'SimulateOffOnFirstStep'
+      override onUpdate(): void {
+        this.game.simulate = false
+      }
+    }
+    const { game, dts } = makeStartedGame()
+    game.spawn('Toggler').add(SimulateOffOnFirstStep)
+    tick(0) // seeds the clock
+
+    // Three whole steps' worth of catch-up: without re-reading `simulate`
+    // every iteration, all three would run even though the first flipped it.
+    tick(3 * frameMs(60))
+
+    expect(dts).toHaveLength(1)
+    game.dispose()
+  })
+
   it('keeps host callbacks and the input frame boundary alive once per frame while not simulating (the editor edit mode)', () => {
     // [DEVIATION 2026-09-12] — see the spec: the editor draws its edit-mode
     // gizmos from game.onUpdate with simulate = false, exactly as before this
