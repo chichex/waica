@@ -394,9 +394,12 @@ function validateRuntimeArguments(
       assertStringArray(name, args, 'component_types', projectPath)
       return
     case 'control_runtime': {
-      // Named before the generic extras check: a pre-ADR-0014 caller sending
-      // a dt is told what replaced it, not just that the key is unexpected.
-      if (args.dt !== undefined) {
+      // Named before the generic extras check, but only for `step`: a
+      // pre-ADR-0014 caller stepping by dt is told what replaced it, not just
+      // that the key is unexpected. Every other operation never accepted dt
+      // either, so it falls through to the generic "unexpected properties"
+      // message below instead of this step-specific one.
+      if (args.dt !== undefined && args.operation === 'step') {
         invalidRuntimeInput(
           name,
           projectPath,

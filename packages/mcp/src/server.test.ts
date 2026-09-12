@@ -348,6 +348,40 @@ describe('MCP server', () => {
     }
   })
 
+  it('rejects dt on a non-step operation with a generic message, not the step-specific one', async () => {
+    const seen: unknown[] = []
+    const runtime: RuntimeService = {
+      start: async () => ({}),
+      stop: async () => ({}),
+      inspect: async () => ({}),
+      control: async (input) => {
+        seen.push(input)
+        return { bridgeVersion: 1, mode: 'paused', frame: 0, simulationTime: 0, heldActions: [] }
+      },
+      captureScreenshot: async () => ({ metadata: {}, data: 'png' }),
+      close: async () => {},
+    }
+    const pair = await connectedPair(runtime)
+    try {
+      const response = await pair.client.callTool({
+        name: 'control_runtime',
+        arguments: { project_path: '/game', operation: 'press', action: 'jump', dt: 5 },
+      })
+      expect(response.isError).toBe(true)
+      expect(jsonResult(response)).toMatchObject({
+        error: {
+          code: 'runtime-operation-failed',
+          stage: 'control',
+          message: 'Unexpected properties: dt.',
+          projectPath: '/game',
+        },
+      })
+      expect(seen).toEqual([])
+    } finally {
+      await pair.close()
+    }
+  })
+
   it('forwards a valid click operation to the Run Session service in logical coordinates', async () => {
     const seen: unknown[] = []
     const runtime: RuntimeService = {
