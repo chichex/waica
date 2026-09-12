@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { isCameraVelocityProvider, Solid, THREE, type Entity, type Game } from '@waica/engine'
+import {
+  isCameraVelocityProvider,
+  SIMULATION_STEP,
+  Solid,
+  THREE,
+  type Entity,
+  type Game,
+} from '@waica/engine'
 import { PlatformerMotor } from './platformer-motor'
 
 interface MotorHarness {
@@ -132,5 +139,34 @@ describe('PlatformerMotor camera velocity provider', () => {
 
     expect(isCameraVelocityProvider(motor)).toBe(true)
     expect(motor.getCameraVelocity()).toEqual({ vx: 3, vy: -7 })
+  })
+})
+
+describe('PlatformerMotor feel parity at the Simulation Step (CA-9)', () => {
+  it('reaches the tuned 2.217 u apex and is back at take-off height on the 40th step with jump held', () => {
+    // The 60 Hz reference feel the archetype was tuned against: default
+    // params, grounded, jump triggered, `jump` held for the whole ascent so
+    // the jump cut never engages. Stepping the body exactly as the player
+    // role does (tick → applyGravity → step) at the fixed step must land on
+    // the same numbers a variable 1/60 dt produced before ADR 0014.
+    const { motor } = makeMotor()
+    ;(motor.game.input as unknown as { held(): boolean }).held = () => true
+    motor.grounded = true
+    motor.jump()
+    const takeoff = motor.entity.position.y
+
+    let apex = takeoff
+    let landing: number | null = null
+    for (let step = 1; step <= 60 && landing === null; step += 1) {
+      motor.tick(SIMULATION_STEP)
+      motor.applyGravity(SIMULATION_STEP)
+      motor.step(SIMULATION_STEP)
+      apex = Math.max(apex, motor.entity.position.y)
+      if (motor.entity.position.y <= takeoff) landing = step
+    }
+
+    expect(Math.abs(apex - takeoff - 2.217)).toBeLessThanOrEqual(0.001)
+    expect(landing).toBe(40)
+    expect(40 * SIMULATION_STEP).toBeCloseTo(0.667, 3)
   })
 })

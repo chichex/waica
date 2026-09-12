@@ -67,8 +67,8 @@ function makeDemo() {
       if (!entity) throw new Error(`no entity "${name}"`)
       return entity
     },
-    frame(dt = DT) {
-      ;(game as unknown as { runFrame(value: number): void }).runFrame(dt)
+    frame() {
+      ;(game as unknown as { runFrame(steps: number): void }).runFrame(1)
     },
   }
 }

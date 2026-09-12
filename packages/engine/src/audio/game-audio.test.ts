@@ -42,8 +42,8 @@ function makeGame(backend?: FakeAudioBackend): { game: Game; canvas: HTMLCanvasE
 }
 
 /** Reaches the private per-frame loop directly, the same seam CA-4's test uses. */
-function runFrameOf(game: Game): (dt: number) => void {
-  return (game as unknown as { runFrame(dt: number): void }).runFrame.bind(game)
+function runFrameOf(game: Game): (steps: number) => void {
+  return (game as unknown as { runFrame(steps: number): void }).runFrame.bind(game)
 }
 
 function unlock(): void {
@@ -196,7 +196,7 @@ describe('CA-4 — the editor pause suspends audio', () => {
   it('suspends on simulate=false and resumes on simulate=true, without stopping or restarting in-flight sounds', async () => {
     const backend = new FakeAudioBackend()
     const { game } = makeGame(backend)
-    const runFrame = (game as unknown as { runFrame(dt: number): void }).runFrame.bind(game)
+    const runFrame = (game as unknown as { runFrame(steps: number): void }).runFrame.bind(game)
     window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space' }))
     expect(backend.resumeCalls).toBe(1)
 
@@ -204,12 +204,12 @@ describe('CA-4 — the editor pause suspends audio', () => {
     await flush()
 
     game.simulate = false
-    runFrame(0.016)
+    runFrame(1)
     expect(backend.suspendCalls).toBe(1)
     expect(backend.resumeCalls).toBe(1)
 
     game.simulate = true
-    runFrame(0.016)
+    runFrame(1)
     expect(backend.resumeCalls).toBe(2)
     expect(backend.suspendCalls).toBe(1)
 
@@ -385,8 +385,8 @@ describe('CA-8 — positional audio', () => {
 
     // Move the "listener" far away — a positional sound would react; a flat one must not.
     game.camera.position.x = 1000
-    runFrame(0.016)
-    runFrame(0.016)
+    runFrame(1)
+    runFrame(1)
 
     expect(backend.playbacks[0]?.setVolumeCalls).toEqual([])
     expect(backend.playbacks[0]?.setPanCalls).toEqual([])
@@ -402,7 +402,7 @@ describe('CA-8 — positional audio', () => {
     const far = game.audio.play('far.ogg', { at: { x: 20, y: 0 } })
     await flush()
 
-    runFrame(0.016)
+    runFrame(1)
 
     expect(near.playing).toBe(true)
     expect(far.playing).toBe(true) // silenced by distance, not stopped
@@ -419,7 +419,7 @@ describe('CA-8 — positional audio', () => {
     game.audio.play('mid.ogg', { at: { x: 8, y: 0 } })
     await flush()
 
-    runFrame(0.016)
+    runFrame(1)
 
     const volume = backend.playbacks[0]?.setVolumeCalls.at(-1)
     expect(volume).toBeCloseTo(8 / 13, 5)
@@ -435,7 +435,7 @@ describe('CA-8 — positional audio', () => {
     game.audio.play('left.ogg', { at: { x: -4, y: 0 } })
     await flush()
 
-    runFrame(0.016)
+    runFrame(1)
 
     const panRight = backend.playbacks[0]?.setPanCalls.at(-1)
     const panLeft = backend.playbacks[1]?.setPanCalls.at(-1)
@@ -455,11 +455,11 @@ describe('CA-8 — positional audio', () => {
     await flush()
 
     source.position.x = 1
-    runFrame(0.016)
+    runFrame(1)
     const closeVolume = backend.playbacks[0]?.setVolumeCalls.at(-1)
 
     source.position.x = 20
-    runFrame(0.016)
+    runFrame(1)
     const farVolume = backend.playbacks[0]?.setVolumeCalls.at(-1)
 
     expect(closeVolume).toBe(1)
@@ -476,9 +476,9 @@ describe('CA-8 — positional audio', () => {
     game.audio.play('fixed.ogg', { at: { x: 1, y: 0 } })
     await flush()
 
-    runFrame(0.016)
+    runFrame(1)
     const first = backend.playbacks[0]?.setVolumeCalls.at(-1)
-    runFrame(0.016)
+    runFrame(1)
     const second = backend.playbacks[0]?.setVolumeCalls.at(-1)
 
     expect(first).toBe(1)
@@ -504,7 +504,7 @@ describe('CA-8 — positional audio', () => {
     const diagonal = game.audio.play('diagonal.ogg', { at: { x: 8 / Math.SQRT2, y: 8 / Math.SQRT2 } })
     await flush()
 
-    runFrame(0.016)
+    runFrame(1)
 
     const axisVolume = backend.playbacks[0]?.setVolumeCalls.at(-1)
     const diagonalVolume = backend.playbacks[1]?.setVolumeCalls.at(-1)
@@ -530,7 +530,7 @@ describe('CA-8 — positional audio', () => {
     unlock()
     const handle = game.audio.play('bed.ogg', { at: { x: 1, y: 0 } })
     await flush()
-    runFrame(0.016) // establishes the initial attenuation-driven volume
+    runFrame(1) // establishes the initial attenuation-driven volume
 
     handle.stop({ fadeMs: 500 })
     const setVolumeCallsWhenFadeStarted = backend.playbacks[0]?.setVolumeCalls.length
@@ -539,8 +539,8 @@ describe('CA-8 — positional audio', () => {
     // flight (the sound is still in `live`, playing === true) — none of
     // them may push a fresh setVolume, or the ramp the backend is running
     // toward zero gets stomped by a plain gain assignment.
-    runFrame(0.016)
-    runFrame(0.016)
+    runFrame(1)
+    runFrame(1)
 
     expect(backend.playbacks[0]?.setVolumeCalls).toHaveLength(setVolumeCallsWhenFadeStarted!)
     expect(backend.playbacks[0]?.stops).toEqual([{ fadeMs: 500 }])

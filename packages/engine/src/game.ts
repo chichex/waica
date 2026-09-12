@@ -15,6 +15,7 @@ import { resolveComponentUpdateSchedule } from './component-update-schedule.js'
 import { Hitbox } from './components/hitbox.js'
 import { Entity } from './entity.js'
 import { Emitter } from './events.js'
+import { consumeSimulationSteps, SIMULATION_STEP } from './fixed-step.js'
 import { Input, type InputBindings } from './input.js'
 import { Pointer } from './pointer.js'
 import {
@@ -117,7 +118,10 @@ export class Game {
   private sceneCamera: ResolvedSceneCamera | null = null
   private renderSort: 'y' | null = null
   private sceneProjection: 'isometric' | null = null
-  private lastTime = 0
+  /** Timestamp of the last animation frame; null until the loop's first frame seeds it. */
+  private lastTime: number | null = null
+  /** Seconds of elapsed time not yet worth a whole Simulation Step (ADR 0014). */
+  private stepRemainder = 0
   private runtimeBridge: EngineRuntimeBridge | null = null
   /** Host-registered scenes by name, resolved by loadSceneByName. Session-scoped. */
   private sceneCatalog: SceneCatalog | null = null
@@ -295,7 +299,12 @@ export class Game {
     if (override) Object.assign(component, override)
   }
 
-  /** Registers a function that runs once per frame. Returns the unsubscribe. */
+  /**
+   * Registers a function that runs once per Simulation Step, with the step
+   * as its dt (ADR 0014). While the Game is not simulating (the editor's edit
+   * mode) it runs once per render frame instead, so a host can keep drawing
+   * its overlays. Returns the unsubscribe.
+   */
   onUpdate(fn: UpdateFn): () => void {
     this.updateFns.add(fn)
     return () => this.updateFns.delete(fn)
@@ -344,8 +353,8 @@ export class Game {
       if (!this.runtimeBridge) {
         const inspector = new RuntimeInspector(this)
         this.runtimeBridge = new EngineRuntimeBridge(this.renderer.domElement, activation, {
-          step: (dt) => this.runFrame(dt),
-          resume: (frame) => this.resumeRuntime(frame),
+          step: () => this.runFrame(1),
+          resume: (onStep) => this.resumeRuntime(onStep),
           pause: () => this.stop(),
           injectAction: (action, operation) => this.input.injectAction(action, operation),
           availableActions: () => this.input.availableActions(),
@@ -364,6 +373,7 @@ export class Game {
       this.renderSurface()
       return
     }
+    this.resetClock()
     this.renderer.setAnimationLoop((time) => this.tick(time))
   }
 
@@ -405,51 +415,98 @@ export class Game {
     this.renderer.dispose()
   }
 
-  private resumeRuntime(frame: (dt: number) => void): void {
-    let previousTime: number | null = null
-    this.renderer.setAnimationLoop((time) => {
-      const dt = previousTime === null ? 0 : Math.min((time - previousTime) / 1000, 0.1)
-      previousTime = time
-      frame(dt)
-    })
+  /**
+   * Real-time playback for the Runtime Bridge: the same clock-driven loop
+   * as start(), sharing the accumulator, with `onStep` told after every
+   * Simulation Step so the bridge counts frames exactly as paused stepping
+   * does (CA-7). No wall-clock catch-up: the first frame only seeds the
+   * clock (CA-3).
+   */
+  private resumeRuntime(onStep: () => void): void {
+    this.resetClock()
+    this.renderer.setAnimationLoop((time) => this.tick(time, onStep))
   }
 
-  private tick(time: number): void {
-    // Clamp dt: switching tabs or pausing doesn't fast-forward the simulation.
-    const dt = Math.min((time - this.lastTime) / 1000, 0.1)
+  /** Forgets the clock and any partial step, so the next frame runs no burst. */
+  private resetClock(): void {
+    this.lastTime = null
+    this.stepRemainder = 0
+  }
+
+  /**
+   * One animation frame (ADR 0014): the elapsed wall-clock time joins the
+   * retained remainder, and as many whole Simulation Steps as it holds run
+   * — capped, with the excess dropped, so a hitch can neither spiral nor
+   * play in slow motion. Not simulating: no time accrues at all.
+   */
+  private tick(time: number, onStep?: () => void): void {
+    const elapsed = this.lastTime === null ? 0 : (time - this.lastTime) / 1000
     this.lastTime = time
-    this.runFrame(dt)
+    if (!this.simulate) {
+      this.stepRemainder = 0
+      this.runFrame(0)
+      return
+    }
+    const { steps, remainder } = consumeSimulationSteps(this.stepRemainder, elapsed)
+    this.stepRemainder = remainder
+    this.runFrame(steps, onStep)
   }
 
-  private runFrame(dt: number): void {
+  /**
+   * Runs `steps` Simulation Steps back to back, then the once-per-frame
+   * tail: audio activity and placements, the UI overlay and the render
+   * (CA-5). Each step flushes a queued scene swap first and closes the
+   * input frame last (CA-4), so two steps in one frame never see the same
+   * press twice or the outgoing scene once too often.
+   */
+  private runFrame(steps: number, onStep?: () => void): void {
     this.insideFrame = true
     try {
-      // Flushes a scene swap enqueued mid-frame last time (CA-7): applied
-      // before this frame's own simulation, so the incoming scene's
-      // entities are present only from this next frame onward.
-      this.flushPendingSceneLoad()
       if (this.simulate) {
-        for (const entity of [...this.entities]) {
-          const schedule = this.componentUpdateSchedule(entity)
-          if (!schedule) continue
-          for (const component of schedule) component.onUpdate?.(dt)
+        for (let index = 0; index < steps; index += 1) {
+          this.flushPendingSceneLoad()
+          this.simulateStep()
+          onStep?.()
         }
-        this.dispatchCollisions()
-        this.updateSceneCamera(dt)
+      } else {
+        // [DEVIATION 2026-09-12] The editor draws its edit-mode overlays from
+        // game.onUpdate with simulate = false (Viewport.tsx), exactly as it
+        // did before the fixed step: a non-simulating frame runs no step but
+        // still hands the host one callback and closes the input frame.
+        this.flushPendingSceneLoad()
+        this.runHostUpdates()
+        this.input.endFrame()
       }
-      // The UI must react to the pause itself (hide until resumed).
-      this.ui.setActive(this.simulate)
       this.audio.setActive(this.simulate)
       // Positional audio (CA-8): recomputed every frame, on this same pass —
       // never a second walk of `this.entities`, since `this.audio` already
       // holds direct references to whichever entities are tracked.
       this.audio.updatePlacements(this.audioListenerPosition(), (x, y) => this.renderPoint(x, y))
-      for (const fn of this.updateFns) fn(dt)
-      this.input.endFrame()
       this.renderSurface()
     } finally {
       this.insideFrame = false
     }
+  }
+
+  /**
+   * One Simulation Step: the Component Update Schedule (ADR 0004) in full,
+   * collisions, the scene camera and the host's callbacks, every one of
+   * them handed exactly SIMULATION_STEP (CA-1); then the input frame ends.
+   */
+  private simulateStep(): void {
+    for (const entity of [...this.entities]) {
+      const schedule = this.componentUpdateSchedule(entity)
+      if (!schedule) continue
+      for (const component of schedule) component.onUpdate?.(SIMULATION_STEP)
+    }
+    this.dispatchCollisions()
+    this.updateSceneCamera(SIMULATION_STEP)
+    this.runHostUpdates()
+    this.input.endFrame()
+  }
+
+  private runHostUpdates(): void {
+    for (const fn of this.updateFns) fn(SIMULATION_STEP)
   }
 
   private flushPendingSceneLoad(): void {

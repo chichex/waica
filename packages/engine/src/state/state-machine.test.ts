@@ -12,10 +12,14 @@ import {
 } from './hooks'
 
 beforeEach(() => resetRegistries())
+import type { Entity } from '../entity'
+import { SIMULATION_STEP } from '../fixed-step'
+import type { Game } from '../game'
 import {
   evaluateTrigger,
   nextTransition,
   phaseHooks,
+  StateMachine,
   type StateJson,
   type TriggerEnv,
 } from './state-machine'
@@ -201,5 +205,29 @@ describe('closestLogicSet', () => {
 
   it('stays quiet when nothing is close', () => {
     expect(closestLogicSet('zzzzzzzzzzzz')).toBeUndefined()
+  })
+})
+
+describe('StateMachine timers at the Simulation Step (CA-9)', () => {
+  it('fires a timer:0.3 transition on the 18th step and not on the 17th', () => {
+    // ATTACK_SECONDS / HURT_SECONDS are 0.3 s: at the fixed step that is
+    // exactly 18 whole steps, so the swing and the stun keep their length.
+    const machine = new StateMachine()
+    machine.entity = { name: 'Subject', components: [], get: () => undefined } as unknown as Entity
+    machine.game = {
+      input: { justPressed: () => false, consumed: () => false, consume: () => {} },
+    } as unknown as Game
+    machine.initial = 'swing'
+    machine.states = {
+      swing: { transitions: [{ on: 'timer:0.3', to: 'idle' }] },
+      idle: {},
+    }
+    machine.onReady()
+
+    for (let step = 1; step <= 17; step += 1) machine.onUpdate(SIMULATION_STEP)
+    expect(machine.current).toBe('swing')
+
+    machine.onUpdate(SIMULATION_STEP)
+    expect(machine.current).toBe('idle')
   })
 })

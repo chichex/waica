@@ -1,4 +1,5 @@
 import enginePackage from '../package.json' with { type: 'json' }
+import { SIMULATION_STEP } from './fixed-step.js'
 import type { RuntimeSnapshot, RuntimeSnapshotFilters } from './runtime-inspection.js'
 
 export const RUNTIME_BRIDGE_PROTOCOL_VERSION = 1 as const
@@ -13,9 +14,10 @@ export type RuntimeMode = 'paused' | 'real-time'
  * pre-CA-10 engine simply lacks this field, which is exactly what callers
  * gating on capabilities check for (review finding #4) — protocol 1 alone
  * doesn't distinguish an engine that silently no-ops an unknown operation
- * from one that runs it.
+ * from one that runs it. `fixed-step` (ADR 0014) announces that `step`
+ * advances whole 1/60 s Simulation Steps and takes no `dt`.
  */
-export const RUNTIME_BRIDGE_CAPABILITIES = ['click', 'scene'] as const
+export const RUNTIME_BRIDGE_CAPABILITIES = ['click', 'scene', 'fixed-step'] as const
 
 export interface RuntimeMetadata {
   bridgeVersion: typeof RUNTIME_BRIDGE_PROTOCOL_VERSION
@@ -29,7 +31,8 @@ export interface RuntimeMetadata {
 export type RuntimeControlRequest =
   | { operation: 'press' | 'hold' | 'release'; action: string }
   | { operation: 'pause' | 'resume' }
-  | { operation: 'step'; dt?: number; frames?: number }
+  /** Advances `frames` whole Simulation Steps (1/60 s each, ADR 0014); default 1. */
+  | { operation: 'step'; frames?: number }
   | { operation: 'click'; x: number; y: number }
   | { operation: 'scene'; scene: string }
 
@@ -81,8 +84,10 @@ export function activeRuntimeBridgeHook(): RuntimeBridgeActivation | null {
 }
 
 export interface RuntimeBridgeHost {
-  step(dt: number): void
-  resume(frame: (dt: number) => void): void
+  /** Runs exactly one Simulation Step and renders. */
+  step(): void
+  /** Starts clock-driven playback; `onStep` is told after every Simulation Step. */
+  resume(onStep: () => void): void
   pause(): void
   injectAction(action: string, operation: 'press' | 'hold' | 'release'): boolean
   availableActions(): string[]
@@ -98,8 +103,8 @@ export class EngineRuntimeBridge implements RuntimeBridge {
   readonly engineVersion = enginePackage.version
   private registered = true
   private mode: RuntimeMode = 'paused'
+  /** Simulation Steps advanced since registration, paused or real-time alike. */
   private frame = 0
-  private simulationTime = 0
 
   constructor(
     readonly surface: HTMLCanvasElement,
@@ -113,7 +118,8 @@ export class EngineRuntimeBridge implements RuntimeBridge {
       engineVersion: this.engineVersion,
       mode: this.mode,
       frame: this.frame,
-      simulationTime: this.simulationTime,
+      // Derived, never summed: 60 steps are exactly 1 s, with no float drift.
+      simulationTime: this.frame * SIMULATION_STEP,
       capabilities: RUNTIME_BRIDGE_CAPABILITIES,
     }
   }
@@ -133,7 +139,7 @@ export class EngineRuntimeBridge implements RuntimeBridge {
       case 'resume':
         if (this.mode === 'paused') {
           this.mode = 'real-time'
-          this.host.resume((dt) => this.advance(dt))
+          this.host.resume(() => this.advance())
         }
         break
       case 'press':
@@ -155,21 +161,25 @@ export class EngineRuntimeBridge implements RuntimeBridge {
             'step is only available while the Runtime Bridge is paused.',
           )
         }
-        const dt = request.dt ?? 1 / 60
-        const frames = request.frames ?? 1
-        if (!Number.isFinite(dt) || dt <= 0 || dt > 0.1) {
+        // A caller-chosen dt is rejected outright, never ignored: a pre-ADR-0014
+        // client that still sends one would otherwise believe it stepped by it.
+        if ('dt' in request) {
           throw new RuntimeBridgeOperationError(
             'runtime-operation-failed',
-            'dt must be finite and greater than 0 and at most 0.1.',
+            'step takes no dt: it advances whole Simulation Steps of 1/60 s each; pass frames (1 through 600) instead.',
           )
         }
+        const frames = request.frames ?? 1
         if (!Number.isInteger(frames) || frames < 1 || frames > 600) {
           throw new RuntimeBridgeOperationError(
             'runtime-operation-failed',
             'frames must be an integer from 1 through 600.',
           )
         }
-        for (let index = 0; index < frames; index += 1) this.advance(dt)
+        for (let index = 0; index < frames; index += 1) {
+          this.host.step()
+          this.advance()
+        }
         break
       }
       case 'click': {
@@ -205,10 +215,9 @@ export class EngineRuntimeBridge implements RuntimeBridge {
     return { ...this.metadata(), heldActions: this.host.heldActions() }
   }
 
-  private advance(dt: number): void {
-    this.host.step(dt)
+  /** Counts one Simulation Step, whoever ran it (paused stepping or real-time playback). */
+  private advance(): void {
     this.frame += 1
-    this.simulationTime += dt
   }
 
   unregister(): void {

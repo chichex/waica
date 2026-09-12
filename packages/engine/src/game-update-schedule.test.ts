@@ -181,13 +181,24 @@ function makeGame(): Game {
   return new Game({ canvas })
 }
 
-function frame(time = 16): void {
+/** Milliseconds per 60 Hz display frame, plus 1 µs so float noise never starves a step. */
+const FRAME_MS = 1000 / 60 + 0.001
+let clock: number | null = null
+
+/** Drives the real animation loop one display frame forward: exactly one Simulation Step. */
+function frame(): void {
   if (!renderer.loop) throw new Error('Game.start() did not install a frame callback')
-  renderer.loop(time)
+  if (clock === null) {
+    clock = 0
+    renderer.loop(clock) // the first frame after start() only seeds the clock (CA-3)
+  }
+  clock += FRAME_MS
+  renderer.loop(clock)
 }
 
 beforeEach(() => {
   calls.length = 0
+  clock = null
   renderer.loop = null
   document.body.innerHTML = ''
   vi.stubGlobal('ResizeObserver', ResizeObserverStub)
@@ -229,7 +240,7 @@ describe('Game component update scheduling', () => {
     expect(calls).toEqual(['AddsToLaterEntity', 'AddsDuringTurn', 'AddedBeforeLaterTurn', 'LaterAnchor'])
 
     calls.length = 0
-    frame(32)
+    frame()
     expect(calls).toEqual([
       'AddsToLaterEntity',
       'AddedDuringTurn',
@@ -305,14 +316,14 @@ describe('Game component update scheduling', () => {
 
     game.start()
     frame()
-    frame(32)
+    frame()
 
     expect(calls).toEqual(['Before', 'After', 'Before', 'After'])
     expect(error).toHaveBeenCalledOnce()
     expect(error.mock.calls[0]?.[0]).toMatch(/Broken entity.*BrokenConstraint.*MissingComponent/)
 
     broken.add(PassiveMarker)
-    frame(48)
+    frame()
 
     expect(calls.slice(-2)).toEqual(['Before', 'After'])
     expect(error).toHaveBeenCalledTimes(2)
