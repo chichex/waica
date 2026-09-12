@@ -123,6 +123,33 @@ describe('Fixed Simulation Step loop', () => {
     },
   )
 
+  it('absorbs sub-millisecond 60 Hz jitter without a 0/2-step judder (CA-1, ronda 2 correctness)', () => {
+    const { game, dts } = makeStartedGame()
+    const period = 1000 / 60 // 16.666... ms, no rounding pad
+
+    tick(0) // seeds the clock
+
+    let time = 0
+    const stepsPerFrame: number[] = []
+    for (let i = 1; i <= 120; i += 1) {
+      // Deterministic +-0.2 ms jitter around the nominal period: within the
+      // ~0.1-0.3 ms range a real 60 Hz rAF actually shows (timestamp
+      // coarsening / float noise), and worse than the fixtures elsewhere in
+      // this file that pad every timestamp by +0.001 ms to dodge exactly
+      // this boundary.
+      time += period + (i % 2 === 0 ? 0.2 : -0.2)
+      const before = dts.length
+      tick(time)
+      stepsPerFrame.push(dts.length - before)
+    }
+
+    // Every one of the 120 frames (2 s at 60 Hz) runs exactly one step —
+    // never the 0-then-2 judder a naive floor() produces right on the
+    // boundary.
+    expect(stepsPerFrame).toEqual(new Array(120).fill(1))
+    game.dispose()
+  })
+
   it('runs zero steps on the first tick after start(), and again after stop()/start() — never a burst (CA-3)', () => {
     const { game, dts } = makeStartedGame()
 

@@ -15,7 +15,7 @@ import { resolveComponentUpdateSchedule } from './component-update-schedule.js'
 import { Hitbox } from './components/hitbox.js'
 import { Entity } from './entity.js'
 import { Emitter } from './events.js'
-import { consumeSimulationSteps, SIMULATION_STEP } from './fixed-step.js'
+import { consumeSimulationSteps, SIMULATION_STEP, snapElapsedToStep } from './fixed-step.js'
 import { Input, type InputBindings } from './input.js'
 import { Pointer } from './pointer.js'
 import {
@@ -437,16 +437,20 @@ export class Game {
    * One animation frame (ADR 0014): the elapsed wall-clock time joins the
    * retained remainder, and as many whole Simulation Steps as it holds run
    * — capped, with the excess dropped, so a hitch can neither spiral nor
-   * play in slow motion. Not simulating: no time accrues at all.
+   * play in slow motion. Not simulating: no time accrues at all. The
+   * measured duration is frame-rate-snapped first (ronda 2 correctness) so
+   * sub-millisecond timestamp jitter at an exact cadence like 60 Hz can't
+   * flip the whole-steps floor and judder 0/2/0/2.
    */
   private tick(time: number, onStep?: () => void): void {
-    const elapsed = this.lastTime === null ? 0 : (time - this.lastTime) / 1000
+    const measured = this.lastTime === null ? 0 : (time - this.lastTime) / 1000
     this.lastTime = time
     if (!this.simulate) {
       this.stepRemainder = 0
       this.runFrame(0)
       return
     }
+    const elapsed = snapElapsedToStep(measured)
     const { steps, remainder } = consumeSimulationSteps(this.stepRemainder, elapsed)
     this.stepRemainder = remainder
     this.runFrame(steps, onStep)
