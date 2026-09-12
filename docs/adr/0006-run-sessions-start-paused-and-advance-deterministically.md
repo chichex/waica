@@ -1,5 +1,7 @@
 # Run Sessions start paused and advance deterministically
 
+> Partially superseded by [ADR-0014](./0014-simulation-advances-in-fixed-steps-and-drops-lost-time.md): a Run Session advances by whole Simulation Steps, not by an explicit `dt`. Everything else here stands.
+
 An MCP Run Session reaches readiness after the scene is loaded but before simulation advances from its deterministic baseline. The caller queues semantic Waica actions and advances frames with explicit `dt`; queued input takes effect on the next stepped frame. Real-time playback remains an explicit mode that can be resumed and paused again.
 
 ## Considered Options

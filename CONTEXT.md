@@ -44,6 +44,10 @@ The TS a user writes inside their project (`src/components`, `src/roles`, `src/s
 **Role**:
 A named behavior definition (`defineRole`) a character references from its prefab JSON — `player`, `patroller`, `chaser`, or project-owned ones in `src/roles/`.
 
+**Simulation Step**:
+The fixed slice of game time — 1/60 s — by which the engine advances every component update, however often the display refreshes. A frame runs as many whole steps as its elapsed time contains, never a fraction of one.
+_Avoid_: tick, delta, variable timestep
+
 **Component Update Schedule**:
 The deterministic per-entity sequence in which Waica advances component behavior each frame. It is derived from update constraints and canonical component identity, never from prefab authoring order.
 
