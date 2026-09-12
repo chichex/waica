@@ -299,6 +299,27 @@ describe('Runtime Bridge protocol', () => {
     game.dispose()
   })
 
+  it('does not advance frame/simulationTime for a step while the Game is not simulating', () => {
+    const { registered } = installActivation()
+    const game = makeGame()
+    const calls: string[] = []
+    game.spawn('Subject').add(UpdateProbe, { calls })
+
+    game.start()
+    // Latent coupling flagged in review: nothing currently toggles `simulate`
+    // on a Game whose Runtime Bridge is active (only the editor's Viewport
+    // does, and it never registers a bridge), but the bridge's own contract
+    // ("Counts one Simulation Step, whoever ran it") must hold regardless.
+    game.simulate = false
+
+    const result = registered[0]?.control({ operation: 'step', frames: 3 })
+
+    expect(calls).toEqual([])
+    expect(result).toMatchObject({ frame: 0, simulationTime: 0 })
+    expect(registered[0]?.metadata()).toMatchObject({ frame: 0, simulationTime: 0 })
+    game.dispose()
+  })
+
   it('resumes and pauses idempotently without wall-clock catch-up', () => {
     const { registered } = installActivation()
     const game = makeGame()

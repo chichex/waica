@@ -353,7 +353,7 @@ export class Game {
       if (!this.runtimeBridge) {
         const inspector = new RuntimeInspector(this)
         this.runtimeBridge = new EngineRuntimeBridge(this.renderer.domElement, activation, {
-          step: () => this.runFrame(1),
+          step: (onStep) => this.runFrame(1, onStep),
           resume: (onStep) => this.resumeRuntime(onStep),
           pause: () => this.stop(),
           injectAction: (action, operation) => this.input.injectAction(action, operation),

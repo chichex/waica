@@ -84,8 +84,12 @@ export function activeRuntimeBridgeHook(): RuntimeBridgeActivation | null {
 }
 
 export interface RuntimeBridgeHost {
-  /** Runs exactly one Simulation Step and renders. */
-  step(): void
+  /**
+   * Runs exactly one Simulation Step and renders; `onStep` is told only if a
+   * step actually ran (the Game may be non-simulating, in which case this
+   * renders a frame but advances nothing).
+   */
+  step(onStep: () => void): void
   /** Starts clock-driven playback; `onStep` is told after every Simulation Step. */
   resume(onStep: () => void): void
   pause(): void
@@ -177,8 +181,7 @@ export class EngineRuntimeBridge implements RuntimeBridge {
           )
         }
         for (let index = 0; index < frames; index += 1) {
-          this.host.step()
-          this.advance()
+          this.host.step(() => this.advance())
         }
         break
       }
