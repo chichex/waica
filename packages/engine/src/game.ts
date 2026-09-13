@@ -116,6 +116,17 @@ export class Game {
   private readonly resizeObserver: ResizeObserver
   private readonly updateFns = new Set<UpdateFn>()
   private readonly invalidUpdateCompositions = new WeakMap<Entity, string>()
+  /**
+   * componentUpdateSchedule's result for the last composition signature seen
+   * per entity: the resolve (Tarjan SCC + Kahn sort) it's built from is pure
+   * for a fixed composition, so a signature match skips it entirely. Only
+   * ever holds a successful resolution — an invalid composition is never
+   * cached, since invalidUpdateCompositions already dedupes its console.error.
+   */
+  private readonly updateScheduleCache = new WeakMap<
+    Entity,
+    { signature: string; order: readonly string[] }
+  >()
   private readonly resolution: GameResolution | null
   /** The constructor's viewHeight — unloadScene() restores it. */
   private readonly baseViewHeight: number
@@ -593,16 +604,12 @@ export class Game {
 
   private componentUpdateSchedule(entity: Entity): Component[] | null {
     const components = [...entity.components]
-    const registry: Record<string, ComponentClass> = {
-      ...(this.registry?.components ?? {}),
-    }
     const byName = new Map<string, Component>()
     const names: string[] = []
     const signatureParts: string[] = []
     for (const component of components) {
       const Class = component.constructor as unknown as ComponentClass
       const name = Class.componentName
-      registry[name] = Class
       names.push(name)
       byName.set(name, component)
       signatureParts.push(
@@ -610,9 +617,27 @@ export class Game {
           [...new Set(Class.updateAfter ?? [])].sort().join(','),
       )
     }
+    const signature = signatureParts.sort().join('|')
+
+    // The resolve below (duplicate check + Tarjan SCC + Kahn sort) is pure
+    // for a fixed composition, and this method now runs once per entity per
+    // Simulation Step rather than once per rendered frame: skip it entirely
+    // when nothing about this entity's components changed since last time.
+    const cached = this.updateScheduleCache.get(entity)
+    if (cached && cached.signature === signature) {
+      return cached.order.map((name) => byName.get(name)!)
+    }
+
+    const registry: Record<string, ComponentClass> = {
+      ...(this.registry?.components ?? {}),
+    }
+    for (const component of components) {
+      const Class = component.constructor as unknown as ComponentClass
+      registry[Class.componentName] = Class
+    }
     const result = resolveComponentUpdateSchedule(names, registry)
     if (!result.ok) {
-      const signature = signatureParts.sort().join('|')
+      this.updateScheduleCache.delete(entity)
       if (this.invalidUpdateCompositions.get(entity) !== signature) {
         this.invalidUpdateCompositions.set(entity, signature)
         console.error(
@@ -623,6 +648,7 @@ export class Game {
       return null
     }
     this.invalidUpdateCompositions.delete(entity)
+    this.updateScheduleCache.set(entity, { signature, order: result.order })
     return result.order.map((name) => byName.get(name)!)
   }
 

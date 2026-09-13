@@ -5,6 +5,20 @@ const renderer = vi.hoisted(() => ({
   loop: null as ((time: number) => void) | null,
 }))
 
+/** Counts real calls to resolveComponentUpdateSchedule, past Game's own memo. */
+const scheduleCalls = vi.hoisted(() => ({ count: 0 }))
+
+vi.mock('./component-update-schedule', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./component-update-schedule')>()
+  const resolveComponentUpdateSchedule: typeof actual.resolveComponentUpdateSchedule = (
+    ...args
+  ) => {
+    scheduleCalls.count += 1
+    return actual.resolveComponentUpdateSchedule(...args)
+  }
+  return { ...actual, resolveComponentUpdateSchedule }
+})
+
 vi.mock('three', async (importOriginal) => {
   const actual = await importOriginal<typeof import('three')>()
   class WebGLRenderer {
@@ -185,14 +199,14 @@ function makeGame(): Game {
 const FRAME_MS = 1000 / 60 + 0.001
 let clock: number | null = null
 
-/** Drives the real animation loop one display frame forward: exactly one Simulation Step. */
-function frame(): void {
+/** Drives the real animation loop one display frame forward: `steps` Simulation Steps. */
+function frame(steps = 1): void {
   if (!renderer.loop) throw new Error('Game.start() did not install a frame callback')
   if (clock === null) {
     clock = 0
     renderer.loop(clock) // the first frame after start() only seeds the clock (CA-3)
   }
-  clock += FRAME_MS
+  clock += FRAME_MS * steps
   renderer.loop(clock)
 }
 
@@ -200,6 +214,7 @@ beforeEach(() => {
   calls.length = 0
   clock = null
   renderer.loop = null
+  scheduleCalls.count = 0
   document.body.innerHTML = ''
   vi.stubGlobal('ResizeObserver', ResizeObserverStub)
 })
@@ -219,6 +234,37 @@ describe('Game component update scheduling', () => {
     frame()
 
     expect(calls).toEqual(['Producer', 'Consumer'])
+    game.dispose()
+  })
+
+  it('memoizes the component update schedule per entity, recomputing only when the composition changes (regression)', () => {
+    const game = makeGame()
+    const entity = game.spawn('Subject')
+    entity.add(Consumer)
+    entity.add(Producer)
+
+    game.start()
+
+    // Three Simulation Steps in a single rendered frame, same composition
+    // throughout: the resolve is pure for it, so it runs at most once —
+    // here, exactly once, since this is also this entity's first schedule.
+    frame(3)
+    expect(calls.filter((name) => name === 'Producer')).toHaveLength(3)
+    expect(scheduleCalls.count).toBe(1)
+
+    // Adding a component changes the composition signature: the memo must
+    // miss and recompute exactly once, not stay stale.
+    entity.add(PassiveMarker)
+    scheduleCalls.count = 0
+    frame()
+    expect(scheduleCalls.count).toBe(1)
+
+    // The following frame's composition is unchanged again: back to a
+    // memo hit, no further resolve.
+    scheduleCalls.count = 0
+    frame()
+    expect(scheduleCalls.count).toBe(0)
+
     game.dispose()
   })
 
