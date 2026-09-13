@@ -7,7 +7,7 @@ import {
 import { Component } from '../component.js'
 import { AnimatedSprite } from '../components/animated-sprite.js'
 import type { Entity } from '../entity.js'
-import { SIMULATION_TIME_EPSILON } from '../fixed-step.js'
+import { MAX_CHAINED_HOPS, SIMULATION_TIME_EPSILON } from '../fixed-step.js'
 import {
   closestLogicSet,
   logicSet,
@@ -166,7 +166,7 @@ export class StateMachine extends Component {
     this.elapsed += dt
     // Chained transitions settle within the frame (e.g. land → idle → run),
     // capped so a degenerate cyclic graph can't hang the loop.
-    for (let hops = 0; hops < 8; hops++) {
+    for (let hops = 0; hops < MAX_CHAINED_HOPS; hops++) {
       const edge = nextTransition(this.states, this.current, this.env())
       // A '*' edge is re-merged against whatever state the loop just
       // entered, so a still-queued signal (signals.clear() only runs after

@@ -27,6 +27,17 @@ export const MAX_STEPS_PER_FRAME = 6
  */
 export const SIMULATION_TIME_EPSILON = 1e-9
 
+/**
+ * Cap on same-tick, chained processing that could otherwise spin forever
+ * on a degenerate cycle: StateMachine settling a chain of transitions
+ * within one `onUpdate` (land → idle → run…) and Game draining a chain of
+ * `loadSceneByName` calls queued from a scene's own `onReady` within one
+ * frame. Shared so the two call sites' caps stay in lockstep instead of
+ * matching only by coincidence; eight is comfortably more hops than any
+ * real content chains in a single update.
+ */
+export const MAX_CHAINED_HOPS = 8
+
 export interface SimulationSteps {
   /** Whole steps this frame runs, 0 through MAX_STEPS_PER_FRAME. */
   steps: number

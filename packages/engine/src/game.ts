@@ -15,7 +15,12 @@ import { resolveComponentUpdateSchedule } from './component-update-schedule.js'
 import { Hitbox } from './components/hitbox.js'
 import { Entity } from './entity.js'
 import { Emitter } from './events.js'
-import { consumeSimulationSteps, SIMULATION_STEP, snapElapsedToStep } from './fixed-step.js'
+import {
+  consumeSimulationSteps,
+  MAX_CHAINED_HOPS,
+  SIMULATION_STEP,
+  snapElapsedToStep,
+} from './fixed-step.js'
 import { Input, type InputBindings } from './input.js'
 import { Pointer } from './pointer.js'
 import {
@@ -468,7 +473,7 @@ export class Game {
    * loadSceneByName's contract — and again before every step after the
    * first (CA-4), so two steps in one frame never see the same press
    * twice or the outgoing scene once too often; a frame that runs zero
-   * steps (ronda 2 correctness) still flushes, so it never renders/
+   * steps (round 2 correctness) still flushes, so it never renders/
    * audio-places the outgoing scene one frame longer than it should.
    */
   private runFrame(steps: number, onStep?: () => void): void {
@@ -480,7 +485,8 @@ export class Game {
         // component or host callback can set `simulate = false` mid-step,
         // and the remaining steps of this catch-up frame must not run.
         for (let index = 0; index < steps && this.simulate; index += 1) {
-          this.flushPendingSceneLoad()
+          // Step 0 was just flushed above; only later steps need it again.
+          if (index > 0) this.flushPendingSceneLoad()
           this.simulateStep()
           onStep?.()
         }
@@ -489,9 +495,7 @@ export class Game {
         // game.onUpdate with simulate = false (Viewport.tsx), exactly as it
         // did before the fixed step: a non-simulating frame runs no step but
         // still hands the host one callback and closes the input frame.
-        this.flushPendingSceneLoad()
-        this.runHostUpdates()
-        this.input.endFrame()
+        this.finishStep()
       }
       this.audio.setActive(this.simulate)
       // Positional audio (CA-8): recomputed every frame, on this same pass —
@@ -517,6 +521,11 @@ export class Game {
     }
     this.dispatchCollisions()
     this.updateSceneCamera(SIMULATION_STEP)
+    this.finishStep()
+  }
+
+  /** Closes a step (real or the non-simulating stand-in): host callbacks, then the input frame. */
+  private finishStep(): void {
     this.runHostUpdates()
     this.input.endFrame()
   }
@@ -530,9 +539,9 @@ export class Game {
     // from the incoming scene's onReady (still insideFrame) re-queues
     // pendingSceneLoad, and a frame that runs zero steps never reaches the
     // per-step flush that would otherwise pick it up next. Capped like the
-    // state machine's chained-transition loop, so a degenerate scene cycle
-    // can't hang here either.
-    for (let hops = 0; hops < 8 && this.pendingSceneLoad; hops += 1) {
+    // state machine's chained-transition loop (MAX_CHAINED_HOPS), so a
+    // degenerate scene cycle can't hang here either.
+    for (let hops = 0; hops < MAX_CHAINED_HOPS && this.pendingSceneLoad; hops += 1) {
       const pending = this.pendingSceneLoad
       this.pendingSceneLoad = null
       pending()

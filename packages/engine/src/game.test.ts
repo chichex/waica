@@ -725,6 +725,24 @@ describe('Scene unload and swap', () => {
     game.dispose()
   })
 
+  it('flushes a pending scene load once per step, not twice before the first step of a frame (regression)', () => {
+    // The top of runFrame already flushes once; re-flushing before step
+    // index 0 was a harmless-looking but redundant second call that halved
+    // the hop budget available to a scene-load chain within one frame.
+    const game = makeGame()
+    const flush = vi.spyOn(
+      game as unknown as { flushPendingSceneLoad(): void },
+      'flushPendingSceneLoad',
+    )
+
+    ;(game as unknown as { runFrame(steps: number): void }).runFrame(3)
+
+    // Once at the top of the frame, then once more before each step after
+    // the first: 3 steps means 3 total flushes, never 4.
+    expect(flush).toHaveBeenCalledTimes(3)
+    game.dispose()
+  })
+
   it('resolves loadSceneByName through the registered catalog (CA-8, CA-9)', () => {
     const game = makeGame()
     expect(game.sceneName).toBeNull()
