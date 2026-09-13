@@ -52,13 +52,15 @@ export function consumeSimulationSteps(remainder: number, elapsed: number): Simu
 
 /**
  * How far a measured frame duration may sit from a whole number of
- * Simulation Steps and still count as exactly that many (ronda 2
- * correctness fix). Sized to absorb the sub-millisecond jitter a real 60 Hz
- * `requestAnimationFrame` actually shows — timestamp coarsening and float
- * noise put it at roughly 0.1-0.3 ms — without ever mistaking a genuine
- * partial step for one of these snaps.
+ * Simulation Steps and still count as exactly that many (round 2
+ * correctness fix). Sized to absorb not just the sub-millisecond jitter a
+ * real 60 Hz `requestAnimationFrame` shows on Chromium — timestamp
+ * coarsening and float noise there put it at roughly 0.1-0.3 ms — but also
+ * the coarser 1-2 ms `requestAnimationFrame` timestamp rounding Firefox
+ * and Safari apply (their privacy/fingerprinting mitigation), without ever
+ * mistaking a genuine partial step for one of these snaps.
  */
-export const STEP_SNAP_TOLERANCE = 0.00025 // seconds (0.25 ms)
+export const STEP_SNAP_TOLERANCE = 0.0025 // seconds (2.5 ms)
 
 /**
  * Snapping considers only these small step counts: a display sitting
@@ -77,19 +79,22 @@ export interface SnapResult {
 }
 
 /**
- * Frame-rate snapping (ADR 0014, ronda 2 correctness): a measured frame
+ * Frame-rate snapping (ADR 0014, round 2 correctness): a measured frame
  * duration that lands within STEP_SNAP_TOLERANCE of an exact multiple of
  * SIMULATION_STEP is treated as exactly that multiple. Without this, a
  * display refreshing at exactly 60.00 Hz can measure e.g. 16.6666 ms
  * instead of the true 16.6667 ms — `consumeSimulationSteps` then floors the
  * whole-steps count to 0 that frame and 2 the next, a routine 0/2-step
- * judder at the one refresh rate ADR 0014 calls exact. Applied to the raw
- * per-frame measurement before it ever reaches the accumulator, so
- * `consumeSimulationSteps` itself — and CA-2's 0.034 s / 0.0999 s / 0.005 s
- * examples, each well outside the tolerance — are untouched.
+ * judder at the one refresh rate ADR 0014 calls exact; on Firefox and
+ * Safari the same judder shows up permanently, every frame, because their
+ * coarser timestamp rounding never lands as close to the exact multiple as
+ * a 0.25 ms tolerance required. Applied to the raw per-frame measurement
+ * before it ever reaches the accumulator, so `consumeSimulationSteps`
+ * itself — and CA-2's 0.034 s / 0.0999 s / 0.005 s examples, each well
+ * outside the tolerance — are untouched.
  *
  * Every snap discards `elapsed - target`, which is carried forward in
- * `residual` (ronda 3 correctness) instead of vanishing: a display a hair
+ * `residual` (round 3 correctness) instead of vanishing: a display a hair
  * off 60.00 Hz — 59.94 Hz, the common NTSC-derived panel rate, discards
  * ~0.017 ms every frame — would otherwise drift from the wall clock
  * without bound (measured: -3.6 s/h at 59.94 Hz). Once the accumulated

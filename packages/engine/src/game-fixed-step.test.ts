@@ -150,6 +150,55 @@ describe('Fixed Simulation Step loop', () => {
     game.dispose()
   })
 
+  it.each([1, 2])(
+    'absorbs %d ms Firefox/Safari-style rAF timestamp coarsening at 60 Hz without judder (regression)',
+    (coarseningMs) => {
+      const { game, dts } = makeStartedGame()
+      const period = 1000 / 60
+      // Firefox and Safari round every rAF timestamp to a coarser grid (a
+      // privacy/fingerprinting mitigation) instead of reporting the raw
+      // high-resolution clock; a display genuinely at 60 Hz still measures
+      // a duration this far from the exact 16.6667 ms multiple every frame.
+      const coarsen = (t: number): number => Math.round(t / coarseningMs) * coarseningMs
+
+      tick(coarsen(0)) // seeds the clock
+
+      let time = 0
+      const stepsPerFrame: number[] = []
+      for (let i = 1; i <= 120; i += 1) {
+        time += period
+        const before = dts.length
+        tick(coarsen(time))
+        stepsPerFrame.push(dts.length - before)
+      }
+
+      // Never the 0-then-2 judder a tolerance narrower than the coarsening
+      // would produce every single frame.
+      expect(stepsPerFrame).toEqual(new Array(120).fill(1))
+      game.dispose()
+    },
+  )
+
+  it('keeps 60 Simulation Steps per second at 144 Hz even under 2 ms rAF timestamp coarsening', () => {
+    const { game, dts } = makeStartedGame()
+    const period = 1000 / 144
+    const coarsen = (t: number): number => Math.round(t / 2) * 2
+
+    tick(coarsen(0)) // seeds the clock
+
+    let time = 0
+    for (let i = 1; i <= 144; i += 1) {
+      time += period
+      tick(coarsen(time))
+    }
+
+    // 144 frames of ~6.944 ms is 1.0 s of wall clock and 60 Simulation
+    // Steps: 6.944 ms sits nowhere near a Simulation Step multiple, so
+    // snapping never applies here regardless of coarsening.
+    expect(dts).toHaveLength(60)
+    game.dispose()
+  })
+
   it('carries the time discarded by snapping so a near-60 Hz display does not drift from the wall clock (regression: bounded resync)', () => {
     const { game, dts } = makeStartedGame()
     const period = 1000 / 59.94 // ~16.683 ms, a common NTSC-derived panel rate
