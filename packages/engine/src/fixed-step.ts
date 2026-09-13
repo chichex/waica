@@ -15,6 +15,18 @@ export const SIMULATION_STEP = 1 / 60
  */
 export const MAX_STEPS_PER_FRAME = 6
 
+/**
+ * Floating-point slack for comparing a value built by summing many
+ * SIMULATION_STEP-sized deltas (a state's `elapsed`, a countdown, a clip's
+ * playback clock) against a target duration. Each addition can leave the
+ * sum a hair under the mathematically exact value — 15 additions of 1/60
+ * give 0.24999999999999997, not 0.25 — by an error on the order of 1e-15,
+ * many orders of magnitude below this. Large enough to call a step-multiple
+ * duration exact, far too small to ever mistake a genuinely later step for
+ * an earlier one.
+ */
+export const SIMULATION_TIME_EPSILON = 1e-9
+
 export interface SimulationSteps {
   /** Whole steps this frame runs, 0 through MAX_STEPS_PER_FRAME. */
   steps: number

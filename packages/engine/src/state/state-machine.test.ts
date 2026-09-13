@@ -40,6 +40,21 @@ describe('evaluateTrigger', () => {
     expect(evaluateTrigger('timer:0.25', env({ elapsed: 0.25 }))).toBe(true)
   })
 
+  it('does not fire a non-step-multiple duration one Simulation Step early (regression)', () => {
+    // A tolerance as wide as half a Simulation Step (the previous
+    // implementation) fires early whenever the target sits in the upper
+    // half of a step interval: 0.29 s falls between steps 17 and 18
+    // (17/60 = 0.28333.., 18/60 = 0.3) but closer to 18/60, so a half-step
+    // tolerance wrongly fires it on step 17.
+    let elapsed = 0
+    for (let step = 1; step <= 17; step += 1) {
+      elapsed += SIMULATION_STEP
+      expect(evaluateTrigger('timer:0.29', env({ elapsed }))).toBe(false)
+    }
+    elapsed += SIMULATION_STEP
+    expect(evaluateTrigger('timer:0.29', env({ elapsed }))).toBe(true)
+  })
+
   it('signal:<name> fires while the signal is queued', () => {
     expect(evaluateTrigger('signal:hurt', env({ signals: new Set(['hurt']) }))).toBe(true)
     expect(evaluateTrigger('signal:hurt', env())).toBe(false)

@@ -1,4 +1,4 @@
-import { Component } from '@waica/engine'
+import { Component, SIMULATION_TIME_EPSILON } from '@waica/engine'
 
 /** Destroys its entity after a configurable amount of simulated time. */
 export class Lifetime extends Component {
@@ -16,6 +16,9 @@ export class Lifetime extends Component {
     // components: stop counting instead of destroying twice.
     if (!this.entity.alive) return
     this.elapsed += dt
-    if (this.elapsed >= this.seconds) this.entity.destroy()
+    // this.elapsed is a sum of SIMULATION_STEP-sized dts, which float error
+    // can leave a hair under an exact multiple; the epsilon keeps a bare
+    // `>=` from waiting one whole step too long to destroy.
+    if (this.elapsed + SIMULATION_TIME_EPSILON >= this.seconds) this.entity.destroy()
   }
 }

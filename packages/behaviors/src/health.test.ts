@@ -675,6 +675,22 @@ describe('Health blink', () => {
     expect(health.current).toBe(1)
   })
 
+  it('closes the window on the Simulation Step that reaches invulnerability, not one step late (regression)', () => {
+    // this.invulnerable counts down by SIMULATION_STEP-sized dts: float
+    // error can leave a tiny positive residual instead of exactly 0 on the
+    // step that should close the window, keeping `blinking` true one whole
+    // step longer than it should.
+    const { health } = makeHealth({ max: 3, invulnerability: 0.5 })
+    const DT = 1 / 60
+    health.damage(1)
+
+    for (let step = 1; step < 30; step += 1) health.onUpdate(DT)
+    expect(health.blinking).toBe(true)
+
+    health.onUpdate(DT)
+    expect(health.blinking).toBe(false)
+  })
+
   it('never blinks without an invulnerability window', () => {
     const { entity, health } = makeHealth({ max: 3 })
 

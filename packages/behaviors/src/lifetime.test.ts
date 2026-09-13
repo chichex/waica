@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { Entity } from '@waica/engine'
+import { SIMULATION_STEP, type Entity } from '@waica/engine'
 import { Lifetime } from './lifetime'
 
 /** Stands in for a real Entity: destroy() is idempotent and flips `alive`. */
@@ -43,6 +43,22 @@ describe('Lifetime', () => {
     lifetime.onUpdate(0.2)
     lifetime.onUpdate(0.2)
 
+    expect(destroy).toHaveBeenCalledOnce()
+  })
+
+  it('destroys on the Simulation Step that reaches seconds, not one step late (regression)', () => {
+    // this.elapsed is a sum of SIMULATION_STEP-sized dts: float error can
+    // leave it a hair under an exact multiple (e.g. 0.24999999999999997
+    // instead of 0.25), which a bare `>=` fires one whole step late.
+    const { entity, destroy } = makeEntity()
+    const lifetime = new Lifetime()
+    lifetime.entity = entity
+    lifetime.seconds = 0.25
+
+    for (let step = 1; step < 15; step += 1) lifetime.onUpdate(SIMULATION_STEP)
+    expect(destroy).not.toHaveBeenCalled()
+
+    lifetime.onUpdate(SIMULATION_STEP)
     expect(destroy).toHaveBeenCalledOnce()
   })
 

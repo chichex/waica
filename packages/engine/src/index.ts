@@ -30,7 +30,7 @@ export type { ProjectedPoint } from './projection.js'
 export { spritePlacement } from './sprite-placement.js'
 export type { SpritePlacement, SpritePlacementInput } from './sprite-placement.js'
 export { CAMERA_DEFAULTS, isCameraVelocityProvider, resolveSceneCamera, stepSceneCamera } from './camera.js'
-export { SIMULATION_STEP } from './fixed-step.js'
+export { SIMULATION_STEP, SIMULATION_TIME_EPSILON } from './fixed-step.js'
 export type {
   SceneCameraJson,
   CameraLimitsJson,

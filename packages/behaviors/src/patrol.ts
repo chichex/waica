@@ -2,6 +2,7 @@ import {
   Component,
   installedDirectionalAnimation,
   projectIsometric,
+  SIMULATION_TIME_EPSILON,
   type AnimationFacingProvider,
   type RoleDefinition,
   type RoleGraph,
@@ -122,7 +123,10 @@ export const PATROLLER_ROLE: RoleDefinition = {
     // Holds the death pose for a beat, then the body goes away for good.
     dead: {
       onUpdate({ entity, fsm }) {
-        if (fsm.elapsed >= DEATH_SECONDS) entity.destroy()
+        // fsm.elapsed is a sum of SIMULATION_STEP-sized dts, which float
+        // error can leave a hair under an exact multiple; the epsilon keeps
+        // a bare `>=` from waiting one whole step too long to destroy.
+        if (fsm.elapsed + SIMULATION_TIME_EPSILON >= DEATH_SECONDS) entity.destroy()
       },
     },
   },
