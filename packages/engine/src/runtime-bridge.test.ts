@@ -44,9 +44,7 @@ import {
   type RuntimeBridgeActivation,
   type RuntimeControlRequest,
 } from './index'
-
-/** Milliseconds per 60 Hz display frame, plus 1 µs so float noise never starves a step. */
-const FRAME_MS = 1000 / 60 + 0.001
+import { frameMs } from './fixed-step-test-support'
 
 class UpdateProbe extends Component {
   static override componentName = 'UpdateProbe'
@@ -341,7 +339,7 @@ describe('Runtime Bridge protocol', () => {
 
     // CA-7: one second of 60 Hz timestamps feeds the shared accumulator —
     // advance() fires once per Simulation Step, so frame rises by exactly 60.
-    for (let i = 1; i <= 60; i += 1) firstLoop?.(1_000 + i * FRAME_MS)
+    for (let i = 1; i <= 60; i += 1) firstLoop?.(1_000 + i * frameMs(60))
     expect(calls).toHaveLength(60)
     expect(new Set(calls)).toEqual(new Set([SIMULATION_STEP]))
     expect(bridge.metadata()).toMatchObject({ frame: 60, simulationTime: 1 })

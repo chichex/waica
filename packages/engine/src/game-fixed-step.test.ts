@@ -47,6 +47,7 @@ vi.mock('./camera', async (importOriginal) => {
 
 import { Component } from './component'
 import { MAX_STEPS_PER_FRAME, SIMULATION_STEP } from './fixed-step'
+import { frameMs } from './fixed-step-test-support'
 import { Game } from './game'
 import { loadScene } from './scene'
 
@@ -69,9 +70,6 @@ afterEach(() => {
 })
 
 describe('Fixed Simulation Step loop', () => {
-  /** Milliseconds per display frame, plus 1 µs so float noise never starves a step. */
-  const frameMs = (hz: number): number => 1000 / hz + 0.001
-
   class UpdateProbe extends Component {
     static override componentName = 'UpdateProbe'
     dts!: number[]
@@ -123,7 +121,7 @@ describe('Fixed Simulation Step loop', () => {
     },
   )
 
-  it('absorbs sub-millisecond 60 Hz jitter without a 0/2-step judder (CA-1, ronda 2 correctness)', () => {
+  it('absorbs sub-millisecond 60 Hz jitter without a 0/2-step judder (CA-1, round 2 correctness)', () => {
     const { game, dts } = makeStartedGame()
     const period = 1000 / 60 // 16.666... ms, no rounding pad
 

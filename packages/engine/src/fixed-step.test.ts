@@ -6,6 +6,7 @@ import {
   snapElapsedToStep,
   STEP_SNAP_TOLERANCE,
 } from './fixed-step'
+import { frameMs } from './fixed-step-test-support'
 
 describe('Simulation Step accumulator (CA-2)', () => {
   it('fixes the step at 1/60 s and the per-frame cap at 6 steps', () => {
@@ -92,5 +93,12 @@ describe('Frame-rate snapping (ADR 0014)', () => {
   it('passes a duration far from any step multiple through unchanged', () => {
     const measured = 1.5 * SIMULATION_STEP
     expect(snapElapsedToStep(measured, 0.001)).toEqual({ elapsed: measured, residual: 0.001 })
+  })
+})
+
+describe('frameMs test support', () => {
+  it('matches a whole number of Simulation Steps bit-for-bit, no epsilon pad needed', () => {
+    expect(frameMs(60)).toBe(1000 / 60)
+    expect(frameMs(60) / 1000).toBe(SIMULATION_STEP)
   })
 })

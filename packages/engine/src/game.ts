@@ -138,7 +138,7 @@ export class Game {
   private lastTime: number | null = null
   /** Seconds of elapsed time not yet worth a whole Simulation Step (ADR 0014). */
   private stepRemainder = 0
-  /** Seconds discarded by frame-rate snapping, not yet repaid (ronda 3 correctness). */
+  /** Seconds discarded by frame-rate snapping, not yet repaid (round 3 correctness). */
   private snapResidual = 0
   private runtimeBridge: EngineRuntimeBridge | null = null
   /** Host-registered scenes by name, resolved by loadSceneByName. Session-scoped. */
@@ -457,7 +457,7 @@ export class Game {
    * retained remainder, and as many whole Simulation Steps as it holds run
    * — capped, with the excess dropped, so a hitch can neither spiral nor
    * play in slow motion. Not simulating: no time accrues at all. The
-   * measured duration is frame-rate-snapped first (ronda 2 correctness) so
+   * measured duration is frame-rate-snapped first (round 2 correctness) so
    * sub-millisecond timestamp jitter at an exact cadence like 60 Hz can't
    * flip the whole-steps floor and judder 0/2/0/2.
    */

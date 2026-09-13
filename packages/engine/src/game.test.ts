@@ -686,7 +686,7 @@ describe('Scene unload and swap', () => {
     game.dispose()
   })
 
-  it('flushes a mid-frame scene swap even when the next frame runs zero Simulation Steps (ronda 2 correctness)', () => {
+  it('flushes a mid-frame scene swap even when the next frame runs zero Simulation Steps (round 2 correctness)', () => {
     const game = makeGame()
     class SwapOnCollide extends Component {
       static override componentName = 'SwapOnCollide'

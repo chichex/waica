@@ -47,6 +47,7 @@ import { DynamicBody } from './components/dynamic-body'
 import { Hitbox } from './components/hitbox'
 import { Solid } from './components/solid'
 import type { Entity } from './entity'
+import { frameMs } from './fixed-step-test-support'
 import { Game } from './game'
 
 class ResizeObserverStub {
@@ -195,8 +196,6 @@ function makeGame(): Game {
   return new Game({ canvas })
 }
 
-/** Milliseconds per 60 Hz display frame, plus 1 µs so float noise never starves a step. */
-const FRAME_MS = 1000 / 60 + 0.001
 let clock: number | null = null
 
 /** Drives the real animation loop one display frame forward: `steps` Simulation Steps. */
@@ -206,7 +205,7 @@ function frame(steps = 1): void {
     clock = 0
     renderer.loop(clock) // the first frame after start() only seeds the clock (CA-3)
   }
-  clock += FRAME_MS * steps
+  clock += frameMs(60) * steps
   renderer.loop(clock)
 }
 
