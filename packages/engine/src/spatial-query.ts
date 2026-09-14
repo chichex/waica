@@ -8,6 +8,8 @@ import type { Game } from './game.js'
 import { sceneSolids } from './scene-solids.js'
 import {
   collisionBodyContainsPoint,
+  collisionBodyRay,
+  SPATIAL_QUERY_EPSILON,
   usableCollisionBody,
 } from './spatial-query-geometry.js'
 
@@ -264,14 +266,50 @@ class LinearSpatialQuery {
   }
 
   ray(
-    _x: number,
-    _y: number,
-    _dx: number,
-    _dy: number,
-    _maxDistance: number,
-    _filter?: SpatialQueryFilter<ComponentClasses>,
+    x: number,
+    y: number,
+    dx: number,
+    dy: number,
+    maxDistance: number,
+    filter?: SpatialQueryFilter<ComponentClasses>,
   ): RayHit | null {
-    return null
+    const directionLength = Math.hypot(dx, dy)
+    if (
+      !Number.isFinite(x) ||
+      !Number.isFinite(y) ||
+      !Number.isFinite(dx) ||
+      !Number.isFinite(dy) ||
+      !Number.isFinite(maxDistance) ||
+      directionLength === 0 ||
+      maxDistance < 0
+    ) {
+      return null
+    }
+    const unitX = dx / directionLength
+    const unitY = dy / directionLength
+    const candidates = [...this.candidates.solids()].filter(({ entity }) => entity.alive)
+    let result: RayHit | null = null
+    for (const { entity, solid } of candidates) {
+      if (!matchesFilter(entity, filter)) continue
+      const hit = collisionBodyRay(
+        collisionBody(solid),
+        x,
+        y,
+        unitX,
+        unitY,
+        maxDistance,
+      )
+      if (!hit) continue
+      if (result && hit.distance >= result.distance - SPATIAL_QUERY_EPSILON) continue
+      result = {
+        entity,
+        solid,
+        distance: hit.distance,
+        point: { x: hit.point.x, y: hit.point.y },
+        normal: { x: hit.normal.x, y: hit.normal.y },
+      }
+    }
+    return result
   }
 }
 
