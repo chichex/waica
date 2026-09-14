@@ -89,6 +89,37 @@ function proveQueryTypes(query: SpatialQuery): void {
   expectTypeOf(guarded[0]!.get(RequiredA)).toEqualTypeOf<RequiredA>()
   expectTypeOf(guarded[0]!.tag).toEqualTypeOf<'tagged'>()
 
+  const guardedPoint = query.point(0, 0, {
+    with: [RequiredA] as const,
+    where: (entity): entity is EntityWith<readonly [typeof RequiredA]> & TaggedEntity =>
+      entity instanceof TaggedEntity,
+  })
+  const guardedNearest = query.nearest(0, 0, {
+    with: [RequiredA] as const,
+    where: (
+      entity,
+      _context,
+    ): entity is EntityWith<readonly [typeof RequiredA]> & TaggedEntity =>
+      entity instanceof TaggedEntity,
+  })
+  const guardedRay = query.ray(0, 0, 1, 0, 10, {
+    with: [RequiredA] as const,
+    where: (entity): entity is EntityWith<readonly [typeof RequiredA]> & TaggedEntity =>
+      entity instanceof TaggedEntity,
+  })
+  expectTypeOf(guardedPoint).toEqualTypeOf<
+    Array<EntityWith<readonly [typeof RequiredA]> & TaggedEntity>
+  >()
+  expectTypeOf(guardedNearest).toEqualTypeOf<
+    (EntityWith<readonly [typeof RequiredA]> & TaggedEntity) | null
+  >()
+  expectTypeOf(guardedRay).toEqualTypeOf<
+    RayHit<EntityWith<readonly [typeof RequiredA]> & TaggedEntity> | null
+  >()
+  expectTypeOf(guardedPoint[0]!.get(RequiredA)).toEqualTypeOf<RequiredA>()
+  expectTypeOf(guardedNearest!.tag).toEqualTypeOf<'tagged'>()
+  expectTypeOf(guardedRay!.entity.tag).toEqualTypeOf<'tagged'>()
+
   const booleanWhere = query.point(0, 0, {
     with: [RequiredA] as const,
     where: (entity) => entity.name.length > 0,
