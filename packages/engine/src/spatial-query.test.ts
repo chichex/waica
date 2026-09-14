@@ -47,6 +47,8 @@ describe('SpatialQuery.area', () => {
     world.spawn('No hitbox', 0, 0).add(Marker)
     const edgeOnly = world.spawn('Edge only', 1.5, 0)
     edgeOnly.add(Hitbox, { width: 1, height: 1 })
+    const vertexOnly = world.spawn('Vertex only', 1.5, 1.5)
+    vertexOnly.add(Hitbox, { width: 1, height: 1 })
     const second = world.spawn('Second', -0.75, 0)
     second.add(Hitbox, { width: 1, height: 1 })
 
@@ -161,21 +163,33 @@ describe('SpatialQuery.area', () => {
     const last = world.spawn('Last')
     last.add(Hitbox)
     last.add(Required)
+    const predicateRejected = world.spawn('Predicate rejected')
+    predicateRejected.add(Hitbox)
+    predicateRejected.add(Required)
     const body = { x: 0, y: 0, width: 10, height: 10 }
 
     expect(
       world.game.query.area(body, {
         with: [Required] as const,
         without: [Forbidden],
-        where: (entity) => entity.name !== 'Last',
+        exclude: last,
+        where: (entity) => entity.name !== 'Predicate rejected',
       }),
     ).toEqual([first])
     expect(world.game.query.area(body, { with: [Required], without: [Required] })).toEqual([])
-    expect(world.game.query.area(body, { exclude: first })).toEqual([forbidden, last])
+    expect(world.game.query.area(body, { exclude: first })).toEqual([
+      forbidden,
+      last,
+      predicateRejected,
+    ])
     expect(world.game.query.area(body, { exclude: Object.freeze([first, forbidden]) })).toEqual([
       last,
+      predicateRejected,
     ])
-    expect(world.game.query.area(body, { exclude: new Set([forbidden, last]) })).toEqual([first])
+    expect(world.game.query.area(body, { exclude: new Set([forbidden, last]) })).toEqual([
+      first,
+      predicateRejected,
+    ])
   })
 
   it('returns eager arrays containing live references after later spawn, movement, and destruction', () => {
