@@ -61,27 +61,16 @@ export function fireInteract(target: Entity, initiator: Entity): void {
  * radius hides it again. Nearest one wins when several are in range.
  */
 export function interactUpdate({ entity, game }: StateContext): void {
-  let nearest: Interactable | null = null
-  let nearestEntity: Entity | null = null
-  let nearestDistance = Infinity
-  for (const other of game.entities) {
-    if (other === entity) continue
-    const interactable = other.get(Interactable)
-    if (!interactable) continue
-    const distance = Math.hypot(
-      other.position.x - entity.position.x,
-      other.position.y - entity.position.y,
-    )
-    if (distance <= interactable.radius && distance < nearestDistance) {
-      nearest = interactable
-      nearestEntity = other
-      nearestDistance = distance
-    }
-  }
-  if (!nearest || !nearestEntity) {
+  const nearestEntity = game.query.nearest(entity.position.x, entity.position.y, {
+    with: [Interactable] as const,
+    exclude: entity,
+    where: (candidate, { distance }) => distance <= candidate.get(Interactable).radius,
+  })
+  if (!nearestEntity) {
     game.ui.hide(INTERACTABLE_UI_PIECE)
     return
   }
+  const nearest = nearestEntity.get(Interactable)
   if (game.input.justPressed('interact') && !game.input.consumed('interact')) {
     // The press is spent: an input:interact edge needs a NEW press.
     game.input.consume('interact')
