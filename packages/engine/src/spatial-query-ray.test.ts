@@ -86,6 +86,24 @@ describe('SpatialQuery.ray input, sources, and ordering', () => {
     expect(world.game.query.ray(0, 0, 1, 0, 4 - 2e-9)).toBeNull()
   })
 
+  it('normalizes finite direction components without overflow or underflow', () => {
+    const diagonalWorld = makeWorld()
+    diagonalWorld.spawn('Diagonal wall', 5, 5).add(Solid, { width: 2, height: 2 })
+    const diagonal = diagonalWorld.game.query.ray(
+      0,
+      0,
+      Number.MAX_VALUE,
+      Number.MAX_VALUE,
+      10,
+    )
+    expect(diagonal?.distance).toBeCloseTo(Math.hypot(4, 4), 10)
+    expectVector(diagonal!.point, { x: 4, y: 4 })
+
+    const tinyWorld = makeWorld()
+    tinyWorld.spawn('Tiny direction wall', 2, 0).add(Solid)
+    expect(tinyWorld.game.query.ray(0, 0, Number.MIN_VALUE, 0, 10)?.distance).toBe(1.5)
+  })
+
   it('returns null without throwing for every invalid input form', () => {
     const world = makeWorld()
     world.spawn('Wall').add(Solid)

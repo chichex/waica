@@ -287,20 +287,23 @@ class LinearSpatialQuery {
     maxDistance: number,
     filter?: SpatialQueryFilter<ComponentClasses>,
   ): RayHit | null {
-    const directionLength = Math.hypot(dx, dy)
+    const directionScale = Math.max(Math.abs(dx), Math.abs(dy))
     if (
       !Number.isFinite(x) ||
       !Number.isFinite(y) ||
       !Number.isFinite(dx) ||
       !Number.isFinite(dy) ||
       !Number.isFinite(maxDistance) ||
-      directionLength === 0 ||
+      directionScale === 0 ||
       maxDistance < 0
     ) {
       return null
     }
-    const unitX = dx / directionLength
-    const unitY = dy / directionLength
+    const scaledX = dx / directionScale
+    const scaledY = dy / directionScale
+    const scaledLength = Math.hypot(scaledX, scaledY)
+    const unitX = scaledX / scaledLength
+    const unitY = scaledY / scaledLength
     const candidates = [...this.candidates.solids()].filter(({ entity }) => entity.alive)
     let result: RayHit | null = null
     for (const { entity, solid } of candidates) {
