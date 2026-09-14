@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { AudioBackend } from './audio/backend.js'
 import { AudioSubsystem } from './audio/audio-subsystem.js'
+import { collisionBody } from './collision-body.js'
 import { collisionOverlap } from './collision-shape.js'
 import {
   isCameraVelocityProvider,
@@ -709,24 +710,7 @@ export class Game {
         const ha = a.get(Hitbox)
         const hb = b.get(Hitbox)
         if (!ha || !hb) continue
-        const hit = collisionOverlap(
-          {
-            x: a.position.x + ha.offsetX,
-            y: a.position.y + ha.offsetY,
-            width: ha.width,
-            height: ha.height,
-            shape: ha.shape,
-            points: ha.points,
-          },
-          {
-            x: b.position.x + hb.offsetX,
-            y: b.position.y + hb.offsetY,
-            width: hb.width,
-            height: hb.height,
-            shape: hb.shape,
-            points: hb.points,
-          },
-        )
+        const hit = collisionOverlap(collisionBody(ha), collisionBody(hb))
         if (!hit) continue
         for (const c of [...a.components]) c.onCollide?.(b)
         if (!a.alive || !b.alive) continue
