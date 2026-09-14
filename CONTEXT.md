@@ -58,6 +58,22 @@ A component-owned declaration that its per-frame update occurs after named sibli
 The square-grid world in which an isometric scene is authored and simulated; presentation projects it onto the screen while persisted positions remain logical.
 _Avoid_: screen coordinates, iso coordinates
 
+**Spatial Query**:
+A read-only question about live scene locations or collision geometry, always evaluated in Logical Coordinates. Area and point targeting use Hitboxes, proximity uses entity transforms, and physical rays use Solids; visual picking remains separate.
+_Avoid_: entity scan, render-space picking
+
+**Hitbox**:
+An entity's trigger shape in Logical Coordinates, used for overlap, area, and point targeting. It is distinct from the static physical geometry that blocks movement.
+_Avoid_: Solid, sprite bounds
+
+**Solid**:
+Static physical geometry in Logical Coordinates that blocks movement and physical rays. A Solid can belong directly to an entity or be derived by a Tilemap.
+_Avoid_: Hitbox, sprite bounds
+
+**Ray Hit**:
+The first contact between a physical ray and a Solid, recording its Logical Coordinates, traveled distance, outward normal, owning entity, and exact shape. A Tilemap-derived Solid is a point-in-time shape reference, not a durable cell identity.
+_Avoid_: entity hit, visual pick
+
 **Tilemap**:
 An engine primitive that owns a map as one square lattice of logical cells on a single component, instead of one entity per tile. Under isometric projection those same cells render as diamonds; existing archetypes keep tiles-as-entities until they opt in.
 _Avoid_: tile layer, tile grid entities
