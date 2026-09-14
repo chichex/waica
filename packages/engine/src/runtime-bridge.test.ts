@@ -36,11 +36,15 @@ import {
   Component,
   Game,
   loadScene,
+  RUNTIME_BRIDGE_CAPABILITIES,
   RUNTIME_BRIDGE_PROTOCOL_VERSION,
   RUNTIME_BRIDGE_SYMBOL,
+  SIMULATION_STEP,
   type RuntimeBridge,
   type RuntimeBridgeActivation,
+  type RuntimeControlRequest,
 } from './index'
+import { frameMs } from './fixed-step-test-support'
 
 class UpdateProbe extends Component {
   static override componentName = 'UpdateProbe'
@@ -220,8 +224,9 @@ describe('Runtime Bridge protocol', () => {
       mode: 'paused',
       frame: 0,
       simulationTime: 0,
-      capabilities: ['click', 'scene'],
+      capabilities: ['click', 'scene', 'fixed-step'],
     })
+    expect(RUNTIME_BRIDGE_CAPABILITIES).toEqual(['click', 'scene', 'fixed-step'])
     expect(registered[0]?.surface).toBe(document.querySelector('canvas'))
     expect(renderer.loop).toBeNull()
     expect(renderer.renders).toBe(1)
@@ -267,22 +272,49 @@ describe('Runtime Bridge protocol', () => {
     game.start()
     expect(calls).toEqual([])
 
-    const result = registered[0]?.control({ operation: 'step', dt: 0.05, frames: 2 })
+    const result = registered[0]?.control({ operation: 'step', frames: 2 })
 
+    // CA-6: every frame is one whole Simulation Step, never a caller-chosen dt.
     expect(calls).toEqual([
-      'component:0.05',
-      'game:0.05',
-      'component:0.05',
-      'game:0.05',
+      `component:${SIMULATION_STEP}`,
+      `game:${SIMULATION_STEP}`,
+      `component:${SIMULATION_STEP}`,
+      `game:${SIMULATION_STEP}`,
     ])
     expect(result).toMatchObject({
       bridgeVersion: 1,
       mode: 'paused',
       frame: 2,
-      simulationTime: 0.1,
+      simulationTime: 2 * SIMULATION_STEP,
     })
     expect(renderer.renders).toBe(3)
     expect(renderer.loop).toBeNull()
+
+    // Derived, not summed: 60 whole steps are exactly one second.
+    const second = registered[0]?.control({ operation: 'step', frames: 58 })
+    expect(second).toMatchObject({ frame: 60, simulationTime: 1 })
+    expect(calls).toHaveLength(120)
+    game.dispose()
+  })
+
+  it('does not advance frame/simulationTime for a step while the Game is not simulating', () => {
+    const { registered } = installActivation()
+    const game = makeGame()
+    const calls: string[] = []
+    game.spawn('Subject').add(UpdateProbe, { calls })
+
+    game.start()
+    // Latent coupling flagged in review: nothing currently toggles `simulate`
+    // on a Game whose Runtime Bridge is active (only the editor's Viewport
+    // does, and it never registers a bridge), but the bridge's own contract
+    // ("Counts one Simulation Step, whoever ran it") must hold regardless.
+    game.simulate = false
+
+    const result = registered[0]?.control({ operation: 'step', frames: 3 })
+
+    expect(calls).toEqual([])
+    expect(result).toMatchObject({ frame: 0, simulationTime: 0 })
+    expect(registered[0]?.metadata()).toMatchObject({ frame: 0, simulationTime: 0 })
     game.dispose()
   })
 
@@ -300,23 +332,38 @@ describe('Runtime Bridge protocol', () => {
     expect(bridge.control({ operation: 'resume' }).mode).toBe('real-time')
     expect(renderer.loop).toBe(firstLoop)
 
+    // CA-3: the first animation frame after resume seeds the clock and runs no step.
     firstLoop?.(1_000)
-    firstLoop?.(1_016)
-    expect(calls).toEqual([0, 0.016])
-    expect(bridge.metadata()).toMatchObject({ frame: 2, simulationTime: 0.016 })
+    expect(calls).toEqual([])
+    expect(bridge.metadata()).toMatchObject({ frame: 0, simulationTime: 0 })
+
+    // CA-7: one second of 60 Hz timestamps feeds the shared accumulator —
+    // advance() fires once per Simulation Step, so frame rises by exactly 60.
+    for (let i = 1; i <= 60; i += 1) firstLoop?.(1_000 + i * frameMs(60))
+    expect(calls).toHaveLength(60)
+    expect(new Set(calls)).toEqual(new Set([SIMULATION_STEP]))
+    expect(bridge.metadata()).toMatchObject({ frame: 60, simulationTime: 1 })
 
     expect(bridge.control({ operation: 'pause' }).mode).toBe('paused')
     expect(renderer.loop).toBeNull()
     bridge.control({ operation: 'pause' })
     expect(renderer.loop).toBeNull()
 
+    // Paused stepping continues the same counter: exactly one higher.
+    expect(bridge.control({ operation: 'step', frames: 1 })).toMatchObject({
+      frame: 61,
+      simulationTime: 61 * SIMULATION_STEP,
+    })
+    expect(calls).toHaveLength(61)
+
+    // Resuming much later never catches up on the wall clock.
     bridge.control({ operation: 'resume' })
     renderer.loop?.(50_000)
-    expect(calls).toEqual([0, 0.016, 0])
+    expect(calls).toHaveLength(61)
     expect(bridge.metadata()).toMatchObject({
       mode: 'real-time',
-      frame: 3,
-      simulationTime: 0.016,
+      frame: 61,
+      simulationTime: 61 * SIMULATION_STEP,
     })
     game.dispose()
   })
@@ -328,9 +375,6 @@ describe('Runtime Bridge protocol', () => {
     const bridge = registered[0]!
 
     for (const request of [
-      { operation: 'step' as const, dt: 0 },
-      { operation: 'step' as const, dt: Number.POSITIVE_INFINITY },
-      { operation: 'step' as const, dt: 0.100_001 },
       { operation: 'step' as const, frames: 0 },
       { operation: 'step' as const, frames: 601 },
       { operation: 'step' as const, frames: 1.5 },
@@ -339,6 +383,21 @@ describe('Runtime Bridge protocol', () => {
         expect.objectContaining({ code: 'runtime-operation-failed', stage: 'control' }),
       )
     }
+
+    // CA-6: a dt of any value — even the step itself — is rejected by name, never ignored.
+    for (const request of [
+      { operation: 'step', dt: 1 / 60 },
+      { operation: 'step', dt: 0.05, frames: 2 },
+    ] as unknown[]) {
+      expect(() => bridge.control(request as RuntimeControlRequest)).toThrowError(
+        expect.objectContaining({
+          code: 'runtime-operation-failed',
+          stage: 'control',
+          message: expect.stringMatching(/frames.*1\/60|1\/60.*frames/s),
+        }),
+      )
+    }
+    expect(bridge.metadata().frame).toBe(0)
 
     bridge.control({ operation: 'resume' })
     expect(() => bridge.control({ operation: 'step' })).toThrowError(

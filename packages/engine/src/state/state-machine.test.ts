@@ -12,10 +12,14 @@ import {
 } from './hooks'
 
 beforeEach(() => resetRegistries())
+import type { Entity } from '../entity'
+import { SIMULATION_STEP } from '../fixed-step'
+import type { Game } from '../game'
 import {
   evaluateTrigger,
   nextTransition,
   phaseHooks,
+  StateMachine,
   type StateJson,
   type TriggerEnv,
 } from './state-machine'
@@ -34,6 +38,21 @@ describe('evaluateTrigger', () => {
   it('timer:<seconds> fires once the state is old enough', () => {
     expect(evaluateTrigger('timer:0.25', env({ elapsed: 0.1 }))).toBe(false)
     expect(evaluateTrigger('timer:0.25', env({ elapsed: 0.25 }))).toBe(true)
+  })
+
+  it('does not fire a non-step-multiple duration one Simulation Step early (regression)', () => {
+    // A tolerance as wide as half a Simulation Step (the previous
+    // implementation) fires early whenever the target sits in the upper
+    // half of a step interval: 0.29 s falls between steps 17 and 18
+    // (17/60 = 0.28333.., 18/60 = 0.3) but closer to 18/60, so a half-step
+    // tolerance wrongly fires it on step 17.
+    let elapsed = 0
+    for (let step = 1; step <= 17; step += 1) {
+      elapsed += SIMULATION_STEP
+      expect(evaluateTrigger('timer:0.29', env({ elapsed }))).toBe(false)
+    }
+    elapsed += SIMULATION_STEP
+    expect(evaluateTrigger('timer:0.29', env({ elapsed }))).toBe(true)
   })
 
   it('signal:<name> fires while the signal is queued', () => {
@@ -201,5 +220,52 @@ describe('closestLogicSet', () => {
 
   it('stays quiet when nothing is close', () => {
     expect(closestLogicSet('zzzzzzzzzzzz')).toBeUndefined()
+  })
+})
+
+describe('StateMachine timers at the Simulation Step (CA-9)', () => {
+  it('fires a timer:0.3 transition on the 18th step and not on the 17th', () => {
+    // ATTACK_SECONDS / HURT_SECONDS are 0.3 s: at the fixed step that is
+    // exactly 18 whole steps, so the swing and the stun keep their length.
+    const machine = new StateMachine()
+    machine.entity = { name: 'Subject', components: [], get: () => undefined } as unknown as Entity
+    machine.game = {
+      input: { justPressed: () => false, consumed: () => false, consume: () => {} },
+    } as unknown as Game
+    machine.initial = 'swing'
+    machine.states = {
+      swing: { transitions: [{ on: 'timer:0.3', to: 'idle' }] },
+      idle: {},
+    }
+    machine.onReady()
+
+    for (let step = 1; step <= 17; step += 1) machine.onUpdate(SIMULATION_STEP)
+    expect(machine.current).toBe('swing')
+
+    machine.onUpdate(SIMULATION_STEP)
+    expect(machine.current).toBe('idle')
+  })
+
+  it('fires a timer:0.25 transition on the 15th step and not on the 14th (regression: summed float error)', () => {
+    // Summing 1/60 fifteen times gives 0.24999999999999997 < 0.25, so a bare
+    // `>=` against the accumulated float fires one step late (the 16th);
+    // 0.25 s is exactly 15 whole steps and must keep that length too.
+    const machine = new StateMachine()
+    machine.entity = { name: 'Subject', components: [], get: () => undefined } as unknown as Entity
+    machine.game = {
+      input: { justPressed: () => false, consumed: () => false, consume: () => {} },
+    } as unknown as Game
+    machine.initial = 'swing'
+    machine.states = {
+      swing: { transitions: [{ on: 'timer:0.25', to: 'idle' }] },
+      idle: {},
+    }
+    machine.onReady()
+
+    for (let step = 1; step <= 14; step += 1) machine.onUpdate(SIMULATION_STEP)
+    expect(machine.current).toBe('swing')
+
+    machine.onUpdate(SIMULATION_STEP)
+    expect(machine.current).toBe('idle')
   })
 })

@@ -109,8 +109,8 @@ function makeDemo(backend: FakeAudioBackend) {
       if (!entity) throw new Error(`no entity "${name}"`)
       return entity
     },
-    frame(dt = DT) {
-      ;(game as unknown as { runFrame(value: number): void }).runFrame(dt)
+    frame() {
+      ;(game as unknown as { runFrame(steps: number): void }).runFrame(1)
     },
     frames(seconds: number) {
       for (let t = 0; t < seconds - 1e-9; t += DT) this.frame()

@@ -54,8 +54,8 @@ function makeGame(): Game {
   return new Game({ canvas })
 }
 
-function step(game: Game, dt = 1 / 60): void {
-  ;(game as unknown as { runFrame(value: number): void }).runFrame(dt)
+function step(game: Game): void {
+  ;(game as unknown as { runFrame(steps: number): void }).runFrame(1)
 }
 
 beforeEach(() => {

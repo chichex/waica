@@ -5,6 +5,20 @@ const renderer = vi.hoisted(() => ({
   loop: null as ((time: number) => void) | null,
 }))
 
+/** Counts real calls to resolveComponentUpdateSchedule, past Game's own memo. */
+const scheduleCalls = vi.hoisted(() => ({ count: 0 }))
+
+vi.mock('./component-update-schedule', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./component-update-schedule')>()
+  const resolveComponentUpdateSchedule: typeof actual.resolveComponentUpdateSchedule = (
+    ...args
+  ) => {
+    scheduleCalls.count += 1
+    return actual.resolveComponentUpdateSchedule(...args)
+  }
+  return { ...actual, resolveComponentUpdateSchedule }
+})
+
 vi.mock('three', async (importOriginal) => {
   const actual = await importOriginal<typeof import('three')>()
   class WebGLRenderer {
@@ -33,6 +47,7 @@ import { DynamicBody } from './components/dynamic-body'
 import { Hitbox } from './components/hitbox'
 import { Solid } from './components/solid'
 import type { Entity } from './entity'
+import { frameMs } from './fixed-step-test-support'
 import { Game } from './game'
 
 class ResizeObserverStub {
@@ -181,14 +196,24 @@ function makeGame(): Game {
   return new Game({ canvas })
 }
 
-function frame(time = 16): void {
+let clock: number | null = null
+
+/** Drives the real animation loop one display frame forward: `steps` Simulation Steps. */
+function frame(steps = 1): void {
   if (!renderer.loop) throw new Error('Game.start() did not install a frame callback')
-  renderer.loop(time)
+  if (clock === null) {
+    clock = 0
+    renderer.loop(clock) // the first frame after start() only seeds the clock (CA-3)
+  }
+  clock += frameMs(60) * steps
+  renderer.loop(clock)
 }
 
 beforeEach(() => {
   calls.length = 0
+  clock = null
   renderer.loop = null
+  scheduleCalls.count = 0
   document.body.innerHTML = ''
   vi.stubGlobal('ResizeObserver', ResizeObserverStub)
 })
@@ -211,6 +236,37 @@ describe('Game component update scheduling', () => {
     game.dispose()
   })
 
+  it('memoizes the component update schedule per entity, recomputing only when the composition changes (regression)', () => {
+    const game = makeGame()
+    const entity = game.spawn('Subject')
+    entity.add(Consumer)
+    entity.add(Producer)
+
+    game.start()
+
+    // Three Simulation Steps in a single rendered frame, same composition
+    // throughout: the resolve is pure for it, so it runs at most once —
+    // here, exactly once, since this is also this entity's first schedule.
+    frame(3)
+    expect(calls.filter((name) => name === 'Producer')).toHaveLength(3)
+    expect(scheduleCalls.count).toBe(1)
+
+    // Adding a component changes the composition signature: the memo must
+    // miss and recompute exactly once, not stay stale.
+    entity.add(PassiveMarker)
+    scheduleCalls.count = 0
+    frame()
+    expect(scheduleCalls.count).toBe(1)
+
+    // The following frame's composition is unchanged again: back to a
+    // memo hit, no further resolve.
+    scheduleCalls.count = 0
+    frame()
+    expect(scheduleCalls.count).toBe(0)
+
+    game.dispose()
+  })
+
   it('snapshots each entity at its turn boundary', () => {
     const game = makeGame()
     const current = game.spawn('Current')
@@ -229,7 +285,7 @@ describe('Game component update scheduling', () => {
     expect(calls).toEqual(['AddsToLaterEntity', 'AddsDuringTurn', 'AddedBeforeLaterTurn', 'LaterAnchor'])
 
     calls.length = 0
-    frame(32)
+    frame()
     expect(calls).toEqual([
       'AddsToLaterEntity',
       'AddedDuringTurn',
@@ -305,14 +361,14 @@ describe('Game component update scheduling', () => {
 
     game.start()
     frame()
-    frame(32)
+    frame()
 
     expect(calls).toEqual(['Before', 'After', 'Before', 'After'])
     expect(error).toHaveBeenCalledOnce()
     expect(error.mock.calls[0]?.[0]).toMatch(/Broken entity.*BrokenConstraint.*MissingComponent/)
 
     broken.add(PassiveMarker)
-    frame(48)
+    frame()
 
     expect(calls.slice(-2)).toEqual(['Before', 'After'])
     expect(error).toHaveBeenCalledTimes(2)

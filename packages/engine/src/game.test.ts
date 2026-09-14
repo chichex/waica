@@ -393,7 +393,7 @@ describe('y-sort render mode', () => {
   }
 
   const step = (game: Game): void => {
-    ;(game as unknown as { runFrame(dt: number): void }).runFrame(1 / 60)
+    ;(game as unknown as { runFrame(steps: number): void }).runFrame(1)
   }
 
   const spriteAt = (name: string, y: number, layer: number, props = {}) => ({
@@ -526,7 +526,7 @@ describe('y-sort render mode', () => {
 
 describe('Scene unload and swap', () => {
   const step = (game: Game): void => {
-    ;(game as unknown as { runFrame(dt: number): void }).runFrame(1 / 60)
+    ;(game as unknown as { runFrame(steps: number): void }).runFrame(1)
   }
 
   it('destroys every entity through Entity.destroy(), splicing entities in place (CA-1)', () => {
@@ -683,6 +683,63 @@ describe('Scene unload and swap', () => {
     expect(game.find('A')).toBeUndefined()
     expect(game.find('Room2')).toBeDefined()
     expect(game.sceneName).toBe('next')
+    game.dispose()
+  })
+
+  it('flushes a mid-frame scene swap even when the next frame runs zero Simulation Steps (round 2 correctness)', () => {
+    const game = makeGame()
+    class SwapOnCollide extends Component {
+      static override componentName = 'SwapOnCollide'
+      override onCollide(): void {
+        game.loadSceneByName('next')
+      }
+    }
+    game.registerSceneCatalog({
+      scenes: { next: { waicaScene: 3, entities: [{ name: 'Room2' }] } },
+      registry: { components: { Hitbox, SwapOnCollide } },
+    })
+    loadScene(
+      game,
+      {
+        waicaScene: 3,
+        entities: [
+          { name: 'A', components: [{ type: 'Hitbox' }, { type: 'SwapOnCollide' }] },
+          { name: 'B', components: [{ type: 'Hitbox' }] },
+        ],
+      },
+      { components: { Hitbox, SwapOnCollide } },
+    )
+
+    step(game) // dispatches the collision: onCollide enqueues the swap
+    expect(game.find('Room2')).toBeUndefined()
+
+    // The very next runFrame(), even though it runs zero Simulation Steps
+    // (e.g. a display frame arriving before a whole step has accumulated),
+    // must still flush the pending swap at its start: loadSceneByName's
+    // docstring promises "the very start of the next runFrame", not "the
+    // next runFrame that happens to run a step".
+    ;(game as unknown as { runFrame(steps: number): void }).runFrame(0)
+    expect(game.find('A')).toBeUndefined()
+    expect(game.find('Room2')).toBeDefined()
+    expect(game.sceneName).toBe('next')
+    game.dispose()
+  })
+
+  it('flushes a pending scene load once per step, not twice before the first step of a frame (regression)', () => {
+    // The top of runFrame already flushes once; re-flushing before step
+    // index 0 was a harmless-looking but redundant second call that halved
+    // the hop budget available to a scene-load chain within one frame.
+    const game = makeGame()
+    const flush = vi.spyOn(
+      game as unknown as { flushPendingSceneLoad(): void },
+      'flushPendingSceneLoad',
+    )
+
+    ;(game as unknown as { runFrame(steps: number): void }).runFrame(3)
+
+    // Once at the top of the frame, then once more before each step after
+    // the first: 3 steps means 3 total flushes, never 4.
+    expect(flush).toHaveBeenCalledTimes(3)
     game.dispose()
   })
 

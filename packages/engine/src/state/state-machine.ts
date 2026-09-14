@@ -7,6 +7,7 @@ import {
 import { Component } from '../component.js'
 import { AnimatedSprite } from '../components/animated-sprite.js'
 import type { Entity } from '../entity.js'
+import { MAX_CHAINED_HOPS, SIMULATION_TIME_EPSILON } from '../fixed-step.js'
 import {
   closestLogicSet,
   logicSet,
@@ -49,7 +50,14 @@ export function evaluateTrigger(on: string, env: TriggerEnv): boolean {
   const kind = on.slice(0, sep)
   const arg = on.slice(sep + 1)
   if (kind === 'input') return env.justPressed(arg)
-  if (kind === 'timer') return env.elapsed >= Number(arg)
+  // A float epsilon of tolerance, not half a Simulation Step: `elapsed` is
+  // a sum of many SIMULATION_STEP-sized dts, and float error can leave it a
+  // hair under an exact multiple (15 additions of 1/60 give
+  // 0.24999999999999997, not 0.25), which a bare `>=` would fire one whole
+  // step late. A tolerance as wide as half a step instead fired non-multiple
+  // durations one whole step early, since a target can sit closer to the
+  // step below than to the one it truly belongs to.
+  if (kind === 'timer') return env.elapsed + SIMULATION_TIME_EPSILON >= Number(arg)
   if (kind === 'signal') return env.signals.has(arg)
   return false
 }
@@ -158,7 +166,7 @@ export class StateMachine extends Component {
     this.elapsed += dt
     // Chained transitions settle within the frame (e.g. land → idle → run),
     // capped so a degenerate cyclic graph can't hang the loop.
-    for (let hops = 0; hops < 8; hops++) {
+    for (let hops = 0; hops < MAX_CHAINED_HOPS; hops++) {
       const edge = nextTransition(this.states, this.current, this.env())
       // A '*' edge is re-merged against whatever state the loop just
       // entered, so a still-queued signal (signals.clear() only runs after

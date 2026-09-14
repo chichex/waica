@@ -1,4 +1,10 @@
-import { Component, StateMachine, type Entity, type StateJson } from '@waica/engine'
+import {
+  Component,
+  SIMULATION_TIME_EPSILON,
+  StateMachine,
+  type Entity,
+  type StateJson,
+} from '@waica/engine'
 
 /**
  * Below this, current is treated as exactly zero. Repeated fractional
@@ -128,6 +134,11 @@ export class Health extends Component {
   override onUpdate(dt: number): void {
     if (this.invulnerable > 0) {
       this.invulnerable = Math.max(0, this.invulnerable - dt)
+      // this.invulnerable is a countdown of SIMULATION_STEP-sized dts, which
+      // float error can leave as a tiny positive residual instead of
+      // exactly 0 on the step that should close the window; without this,
+      // `> 0` above stays true for one whole extra step.
+      if (this.invulnerable <= SIMULATION_TIME_EPSILON) this.invulnerable = 0
       this.blink(dt)
     }
     if (this.deathPending) {

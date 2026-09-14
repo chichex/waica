@@ -15,6 +15,12 @@ import { resolveComponentUpdateSchedule } from './component-update-schedule.js'
 import { Hitbox } from './components/hitbox.js'
 import { Entity } from './entity.js'
 import { Emitter } from './events.js'
+import {
+  consumeSimulationSteps,
+  MAX_CHAINED_HOPS,
+  SIMULATION_STEP,
+  snapElapsedToStep,
+} from './fixed-step.js'
 import { Input, type InputBindings } from './input.js'
 import { Pointer } from './pointer.js'
 import {
@@ -110,6 +116,17 @@ export class Game {
   private readonly resizeObserver: ResizeObserver
   private readonly updateFns = new Set<UpdateFn>()
   private readonly invalidUpdateCompositions = new WeakMap<Entity, string>()
+  /**
+   * componentUpdateSchedule's result for the last composition signature seen
+   * per entity: the resolve (Tarjan SCC + Kahn sort) it's built from is pure
+   * for a fixed composition, so a signature match skips it entirely. Only
+   * ever holds a successful resolution — an invalid composition is never
+   * cached, since invalidUpdateCompositions already dedupes its console.error.
+   */
+  private readonly updateScheduleCache = new WeakMap<
+    Entity,
+    { signature: string; order: readonly string[] }
+  >()
   private readonly resolution: GameResolution | null
   /** The constructor's viewHeight — unloadScene() restores it. */
   private readonly baseViewHeight: number
@@ -117,7 +134,12 @@ export class Game {
   private sceneCamera: ResolvedSceneCamera | null = null
   private renderSort: 'y' | null = null
   private sceneProjection: 'isometric' | null = null
-  private lastTime = 0
+  /** Timestamp of the last animation frame; null until the loop's first frame seeds it. */
+  private lastTime: number | null = null
+  /** Seconds of elapsed time not yet worth a whole Simulation Step (ADR 0014). */
+  private stepRemainder = 0
+  /** Seconds discarded by frame-rate snapping, not yet repaid (round 3 correctness). */
+  private snapResidual = 0
   private runtimeBridge: EngineRuntimeBridge | null = null
   /** Host-registered scenes by name, resolved by loadSceneByName. Session-scoped. */
   private sceneCatalog: SceneCatalog | null = null
@@ -295,7 +317,12 @@ export class Game {
     if (override) Object.assign(component, override)
   }
 
-  /** Registers a function that runs once per frame. Returns the unsubscribe. */
+  /**
+   * Registers a function that runs once per Simulation Step, with the step
+   * as its dt (ADR 0014). While the Game is not simulating (the editor's edit
+   * mode) it runs once per render frame instead, so a host can keep drawing
+   * its overlays. Returns the unsubscribe.
+   */
   onUpdate(fn: UpdateFn): () => void {
     this.updateFns.add(fn)
     return () => this.updateFns.delete(fn)
@@ -344,8 +371,8 @@ export class Game {
       if (!this.runtimeBridge) {
         const inspector = new RuntimeInspector(this)
         this.runtimeBridge = new EngineRuntimeBridge(this.renderer.domElement, activation, {
-          step: (dt) => this.runFrame(dt),
-          resume: (frame) => this.resumeRuntime(frame),
+          step: (onStep) => this.runFrame(1, onStep),
+          resume: (onStep) => this.resumeRuntime(onStep),
           pause: () => this.stop(),
           injectAction: (action, operation) => this.input.injectAction(action, operation),
           availableActions: () => this.input.availableActions(),
@@ -364,6 +391,7 @@ export class Game {
       this.renderSurface()
       return
     }
+    this.resetClock()
     this.renderer.setAnimationLoop((time) => this.tick(time))
   }
 
@@ -405,58 +433,130 @@ export class Game {
     this.renderer.dispose()
   }
 
-  private resumeRuntime(frame: (dt: number) => void): void {
-    let previousTime: number | null = null
-    this.renderer.setAnimationLoop((time) => {
-      const dt = previousTime === null ? 0 : Math.min((time - previousTime) / 1000, 0.1)
-      previousTime = time
-      frame(dt)
-    })
+  /**
+   * Real-time playback for the Runtime Bridge: the same clock-driven loop
+   * as start(), sharing the accumulator, with `onStep` told after every
+   * Simulation Step so the bridge counts frames exactly as paused stepping
+   * does (CA-7). No wall-clock catch-up: the first frame only seeds the
+   * clock (CA-3).
+   */
+  private resumeRuntime(onStep: () => void): void {
+    this.resetClock()
+    this.renderer.setAnimationLoop((time) => this.tick(time, onStep))
   }
 
-  private tick(time: number): void {
-    // Clamp dt: switching tabs or pausing doesn't fast-forward the simulation.
-    const dt = Math.min((time - this.lastTime) / 1000, 0.1)
+  /** Forgets the clock and any partial step, so the next frame runs no burst. */
+  private resetClock(): void {
+    this.lastTime = null
+    this.stepRemainder = 0
+    this.snapResidual = 0
+  }
+
+  /**
+   * One animation frame (ADR 0014): the elapsed wall-clock time joins the
+   * retained remainder, and as many whole Simulation Steps as it holds run
+   * — capped, with the excess dropped, so a hitch can neither spiral nor
+   * play in slow motion. Not simulating: no time accrues at all. The
+   * measured duration is frame-rate-snapped first (round 2 correctness) so
+   * sub-millisecond timestamp jitter at an exact cadence like 60 Hz can't
+   * flip the whole-steps floor and judder 0/2/0/2.
+   */
+  private tick(time: number, onStep?: () => void): void {
+    const measured = this.lastTime === null ? 0 : (time - this.lastTime) / 1000
     this.lastTime = time
-    this.runFrame(dt)
+    if (!this.simulate) {
+      this.stepRemainder = 0
+      this.snapResidual = 0
+      this.runFrame(0)
+      return
+    }
+    const { elapsed, residual } = snapElapsedToStep(measured, this.snapResidual)
+    this.snapResidual = residual
+    const { steps, remainder } = consumeSimulationSteps(this.stepRemainder, elapsed)
+    this.stepRemainder = remainder
+    this.runFrame(steps, onStep)
   }
 
-  private runFrame(dt: number): void {
+  /**
+   * Runs `steps` Simulation Steps back to back, then the once-per-frame
+   * tail: audio activity and placements, the UI overlay and the render
+   * (CA-5). A queued scene swap flushes at the very start of the frame —
+   * loadSceneByName's contract — and again before every step after the
+   * first (CA-4), so two steps in one frame never see the same press
+   * twice or the outgoing scene once too often; a frame that runs zero
+   * steps (round 2 correctness) still flushes, so it never renders/
+   * audio-places the outgoing scene one frame longer than it should.
+   */
+  private runFrame(steps: number, onStep?: () => void): void {
     this.insideFrame = true
     try {
-      // Flushes a scene swap enqueued mid-frame last time (CA-7): applied
-      // before this frame's own simulation, so the incoming scene's
-      // entities are present only from this next frame onward.
       this.flushPendingSceneLoad()
       if (this.simulate) {
-        for (const entity of [...this.entities]) {
-          const schedule = this.componentUpdateSchedule(entity)
-          if (!schedule) continue
-          for (const component of schedule) component.onUpdate?.(dt)
+        // Re-read every iteration, not just once before the loop: a
+        // component or host callback can set `simulate = false` mid-step,
+        // and the remaining steps of this catch-up frame must not run.
+        for (let index = 0; index < steps && this.simulate; index += 1) {
+          // Step 0 was just flushed above; only later steps need it again.
+          if (index > 0) this.flushPendingSceneLoad()
+          this.simulateStep()
+          onStep?.()
         }
-        this.dispatchCollisions()
-        this.updateSceneCamera(dt)
+      } else {
+        // [DEVIATION 2026-09-12] The editor draws its edit-mode overlays from
+        // game.onUpdate with simulate = false (Viewport.tsx), exactly as it
+        // did before the fixed step: a non-simulating frame runs no step but
+        // still hands the host one callback and closes the input frame.
+        this.finishStep()
       }
-      // The UI must react to the pause itself (hide until resumed).
-      this.ui.setActive(this.simulate)
       this.audio.setActive(this.simulate)
       // Positional audio (CA-8): recomputed every frame, on this same pass —
       // never a second walk of `this.entities`, since `this.audio` already
       // holds direct references to whichever entities are tracked.
       this.audio.updatePlacements(this.audioListenerPosition(), (x, y) => this.renderPoint(x, y))
-      for (const fn of this.updateFns) fn(dt)
-      this.input.endFrame()
       this.renderSurface()
     } finally {
       this.insideFrame = false
     }
   }
 
+  /**
+   * One Simulation Step: the Component Update Schedule (ADR 0004) in full,
+   * collisions, the scene camera and the host's callbacks, every one of
+   * them handed exactly SIMULATION_STEP (CA-1); then the input frame ends.
+   */
+  private simulateStep(): void {
+    for (const entity of [...this.entities]) {
+      const schedule = this.componentUpdateSchedule(entity)
+      if (!schedule) continue
+      for (const component of schedule) component.onUpdate?.(SIMULATION_STEP)
+    }
+    this.dispatchCollisions()
+    this.updateSceneCamera(SIMULATION_STEP)
+    this.finishStep()
+  }
+
+  /** Closes a step (real or the non-simulating stand-in): host callbacks, then the input frame. */
+  private finishStep(): void {
+    this.runHostUpdates()
+    this.input.endFrame()
+  }
+
+  private runHostUpdates(): void {
+    for (const fn of this.updateFns) fn(SIMULATION_STEP)
+  }
+
   private flushPendingSceneLoad(): void {
-    const pending = this.pendingSceneLoad
-    if (!pending) return
-    this.pendingSceneLoad = null
-    pending()
+    // Drains the whole chain, not just one level: a loadSceneByName called
+    // from the incoming scene's onReady (still insideFrame) re-queues
+    // pendingSceneLoad, and a frame that runs zero steps never reaches the
+    // per-step flush that would otherwise pick it up next. Capped like the
+    // state machine's chained-transition loop (MAX_CHAINED_HOPS), so a
+    // degenerate scene cycle can't hang here either.
+    for (let hops = 0; hops < MAX_CHAINED_HOPS && this.pendingSceneLoad; hops += 1) {
+      const pending = this.pendingSceneLoad
+      this.pendingSceneLoad = null
+      pending()
+    }
   }
 
   private unregisterRuntimeBridge = (): void => {
@@ -504,16 +604,12 @@ export class Game {
 
   private componentUpdateSchedule(entity: Entity): Component[] | null {
     const components = [...entity.components]
-    const registry: Record<string, ComponentClass> = {
-      ...(this.registry?.components ?? {}),
-    }
     const byName = new Map<string, Component>()
     const names: string[] = []
     const signatureParts: string[] = []
     for (const component of components) {
       const Class = component.constructor as unknown as ComponentClass
       const name = Class.componentName
-      registry[name] = Class
       names.push(name)
       byName.set(name, component)
       signatureParts.push(
@@ -521,9 +617,27 @@ export class Game {
           [...new Set(Class.updateAfter ?? [])].sort().join(','),
       )
     }
+    const signature = signatureParts.sort().join('|')
+
+    // The resolve below (duplicate check + Tarjan SCC + Kahn sort) is pure
+    // for a fixed composition, and this method now runs once per entity per
+    // Simulation Step rather than once per rendered frame: skip it entirely
+    // when nothing about this entity's components changed since last time.
+    const cached = this.updateScheduleCache.get(entity)
+    if (cached && cached.signature === signature) {
+      return cached.order.map((name) => byName.get(name)!)
+    }
+
+    const registry: Record<string, ComponentClass> = {
+      ...(this.registry?.components ?? {}),
+    }
+    for (const component of components) {
+      const Class = component.constructor as unknown as ComponentClass
+      registry[Class.componentName] = Class
+    }
     const result = resolveComponentUpdateSchedule(names, registry)
     if (!result.ok) {
-      const signature = signatureParts.sort().join('|')
+      this.updateScheduleCache.delete(entity)
       if (this.invalidUpdateCompositions.get(entity) !== signature) {
         this.invalidUpdateCompositions.set(entity, signature)
         console.error(
@@ -534,6 +648,7 @@ export class Game {
       return null
     }
     this.invalidUpdateCompositions.delete(entity)
+    this.updateScheduleCache.set(entity, { signature, order: result.order })
     return result.order.map((name) => byName.get(name)!)
   }
 

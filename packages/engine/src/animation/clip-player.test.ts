@@ -24,6 +24,21 @@ describe('ClipPlayer', () => {
     expect(p.advance(10)).toBe(9)
   })
 
+  it('holds each frame for a flat, even step count under fixed-step float summation (regression)', () => {
+    // this.t is a sum of SIMULATION_STEP-sized dts: float error skews
+    // floor(t * fps) instead of holding every frame for a flat step count
+    // (fps 12 at a 60 Hz fixed step: 5 steps per frame).
+    const p = new ClipPlayer()
+    p.set({ frames: [0, 1, 2, 3, 4, 5], fps: 12, loop: false })
+    const DT = 1 / 60
+    const seen: number[] = []
+    for (let step = 0; step < 24; step += 1) seen.push(p.advance(DT))
+
+    expect(seen).toEqual([
+      0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4,
+    ])
+  })
+
   it('set resets the clock', () => {
     const p = new ClipPlayer()
     p.set({ frames: [0, 1, 2, 3], fps: 4 })

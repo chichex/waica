@@ -267,3 +267,27 @@ describe('the patroller role takes hits and dies', () => {
     expect(orc.machine.current).toBe('hurt')
   })
 })
+
+describe('the patroller dead state destroys on the Simulation Step DEATH_SECONDS is reached', () => {
+  it('does not destroy one step early and does destroy on the step that reaches it (regression)', () => {
+    // fsm.elapsed is a sum of SIMULATION_STEP-sized dts: float error can
+    // leave it a hair under an exact multiple, which a bare `>=` fires one
+    // whole step late (0.5 s should destroy on step 30, not 31).
+    const destroy = vi.fn()
+    const entity = { destroy } as unknown as Entity
+    const game = {} as Game
+    const DT = 1 / 60
+    let elapsed = 0
+    for (let step = 1; step < 30; step += 1) {
+      elapsed += DT
+      const fsm = { elapsed } as unknown as StateMachine
+      PATROLLER_ROLE.states?.dead?.onUpdate?.({ entity, game, fsm }, DT)
+    }
+    expect(destroy).not.toHaveBeenCalled()
+
+    elapsed += DT
+    const fsm = { elapsed } as unknown as StateMachine
+    PATROLLER_ROLE.states?.dead?.onUpdate?.({ entity, game, fsm }, DT)
+    expect(destroy).toHaveBeenCalledOnce()
+  })
+})
