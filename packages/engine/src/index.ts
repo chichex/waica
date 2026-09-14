@@ -132,6 +132,14 @@ export type {
   CollisionPoint,
   CollisionShape,
 } from './collision-shape.js'
+export type {
+  EntityWith,
+  NearestQueryContext,
+  NearestSpatialQueryFilter,
+  RayHit,
+  SpatialQuery,
+  SpatialQueryFilter,
+} from './spatial-query.js'
 export { Emitter } from './events.js'
 export { loadScene, spawnFromJson, resolveEntityComponents, resolveProps } from './scene.js'
 export type {

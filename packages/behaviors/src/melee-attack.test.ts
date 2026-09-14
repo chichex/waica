@@ -1,5 +1,15 @@
 import { describe, expect, it, vi } from 'vitest'
-import { Hitbox, THREE, authoringDefaults, type Component, type Entity, type Game } from '@waica/engine'
+import {
+  Hitbox,
+  THREE,
+  authoringDefaults,
+  collisionOverlap,
+  type CollisionBody,
+  type Component,
+  type Entity,
+  type Game,
+  type SpatialQueryFilter,
+} from '@waica/engine'
 import { Health } from './health'
 import { MeleeAttack } from './melee-attack'
 
@@ -8,13 +18,33 @@ interface StubEntity extends Entity {
 }
 
 function makeGame(projection: 'isometric' | null = 'isometric'): Game {
-  return {
+  const game = {
     entities: [],
     projection,
     stats: { add: vi.fn(), set: vi.fn() },
     events: { emit: vi.fn() },
     audio: { play: vi.fn() },
   } as unknown as Game
+  const area = vi.fn((body: CollisionBody, filter?: SpatialQueryFilter) =>
+    [...game.entities].filter((entity) => {
+      if (!entity.alive || entity === filter?.exclude) return false
+      if (filter?.with?.some((component) => !entity.has(component))) return false
+      const hitbox = entity.get(Hitbox)
+      return Boolean(hitbox && collisionOverlap(body, {
+        x: entity.position.x + hitbox.offsetX,
+        y: entity.position.y + hitbox.offsetY,
+        width: hitbox.width,
+        height: hitbox.height,
+        shape: hitbox.shape,
+        points: hitbox.points,
+      }))
+    }),
+  )
+  Object.defineProperty(game, 'query', {
+    configurable: true,
+    value: { area },
+  })
+  return game
 }
 
 function makeEntity(game: Game, name: string, x = 0, y = 0): StubEntity {
@@ -90,6 +120,22 @@ function arena(
 const IN_FRONT = { x: 0.6, y: -0.6 }
 
 describe('MeleeAttack.strike', () => {
+  it('delegates target discovery to query.area with the typed Health filter', () => {
+    const { game, player, attack, orc, orcHealth } = arena(0.9, 0, null)
+    game.entities.splice(game.entities.indexOf(orc), 1)
+    const area = vi.fn().mockReturnValue([orc])
+    Object.defineProperty(game, 'query', { value: { area } })
+
+    const struck = attack.strike('e')
+
+    expect(area).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ x: 0.5, y: 0, width: 1, height: 1, shape: 'polygon' }),
+      { with: [Health], exclude: player },
+    )
+    expect(orcHealth.current).toBe(1)
+    expect(struck).toEqual([orc])
+  })
+
   it('damages the target standing in front of the facing and reports it', () => {
     const { attack, orc, orcHealth } = arena(IN_FRONT.x, IN_FRONT.y)
 

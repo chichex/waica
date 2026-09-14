@@ -1,7 +1,6 @@
 import {
   Component,
   Hitbox,
-  collisionOverlap,
   type CollisionBody,
   type CollisionPoint,
   type Entity,
@@ -51,22 +50,15 @@ export class MeleeAttack extends Component {
     if (this.swingSound) this.game.audio.play(this.swingSound, { at: this.entity })
     const area = this.strikeArea(direction.x, direction.y)
     const struck: Entity[] = []
-    // A copy: a target with no death-handling graph is destroyed on the spot,
-    // which splices it out of the live array mid-loop (Game does the same).
-    for (const other of [...this.game.entities]) {
-      if (other === this.entity || !other.alive) continue
-      const hitbox = other.get(Hitbox)
+    const targets = this.game.query.area(area, {
+      with: [Health] as const,
+      exclude: this.entity,
+    })
+    for (const other of targets) {
+      // Query results are eager live references: an earlier target can destroy
+      // a later one while this strike is still consuming its snapshot.
+      if (!other.alive) continue
       const health = other.get(Health)
-      if (!hitbox || !health) continue
-      const body: CollisionBody = {
-        x: other.position.x + hitbox.offsetX,
-        y: other.position.y + hitbox.offsetY,
-        width: hitbox.width,
-        height: hitbox.height,
-        shape: hitbox.shape,
-        points: hitbox.points,
-      }
-      if (!collisionOverlap(area, body)) continue
       const before = health.current
       health.damage(this.damage, this.entity)
       if (health.current < before) struck.push(other)

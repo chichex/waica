@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import { THREE, type Entity, type Game, type StateContext } from '@waica/engine'
+import {
+  THREE,
+  type Entity,
+  type Game,
+  type NearestSpatialQueryFilter,
+  type StateContext,
+} from '@waica/engine'
 import {
   INTERACTABLE_UI,
   INTERACTABLE_UI_PIECE,
@@ -27,6 +33,30 @@ function makeWorld(): WorldHarness {
   const stats = { set: vi.fn() }
   const ui = { show: vi.fn(), hide: vi.fn() }
   const game = { entities, input, stats, ui } as unknown as Game
+  const nearest = vi.fn((
+    x: number,
+    y: number,
+    filter?: NearestSpatialQueryFilter,
+  ): Entity | null => {
+    let result: Entity | null = null
+    let bestDistance = Infinity
+    for (const candidate of entities) {
+      if (candidate === filter?.exclude) continue
+      if (filter?.with?.some((component) => !candidate.get(component))) continue
+      if (filter?.without?.some((component) => candidate.get(component))) continue
+      const distance = Math.hypot(candidate.position.x - x, candidate.position.y - y)
+      if (filter?.where && !filter.where(candidate, { distance })) continue
+      if (distance < bestDistance) {
+        result = candidate
+        bestDistance = distance
+      }
+    }
+    return result
+  })
+  Object.defineProperty(game, 'query', {
+    configurable: true,
+    value: { nearest },
+  })
   const player = {
     game,
     position: new THREE.Vector3(0, 0, 0),
@@ -62,6 +92,30 @@ function makeWorld(): WorldHarness {
 }
 
 describe('Interactable', () => {
+  it('delegates winner discovery to query.nearest with a target-owned inclusive radius', () => {
+    const world = makeWorld()
+    const interactable = world.addNpc(3, 0, { line: 'Indexed NPC', radius: 1 })
+    const npc = interactable.entity
+    world.ctx.game.entities.splice(world.ctx.game.entities.indexOf(npc), 1)
+    const nearest = vi.fn((
+      _x: number,
+      _y: number,
+      filter: NearestSpatialQueryFilter<readonly [typeof Interactable]>,
+    ) => filter.where?.(npc, { distance: 1 }) ? npc : null)
+    Object.defineProperty(world.ctx.game, 'query', { value: { nearest } })
+    world.press()
+
+    interactUpdate(world.ctx)
+
+    expect(nearest).toHaveBeenCalledOnce()
+    expect(nearest).toHaveBeenCalledWith(0, 0, {
+      with: [Interactable],
+      exclude: world.ctx.entity,
+      where: expect.any(Function),
+    })
+    expect(world.stats.set).toHaveBeenCalledWith('npcLine', 'Indexed NPC')
+  })
+
   it('ships the UI piece its behavior addresses', () => {
     expect(Object.keys(INTERACTABLE_UI)).toEqual(['npc-line'])
     expect(INTERACTABLE_UI['npc-line']).toContain('{{npcLine}}')
