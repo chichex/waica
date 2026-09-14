@@ -1,8 +1,15 @@
+import { collisionBody } from './collision-body.js'
+import { collisionOverlap, type CollisionBody } from './collision-shape.js'
 import type { Component, ComponentClass } from './component.js'
-import type { Solid } from './components/solid.js'
+import { Hitbox } from './components/hitbox.js'
+import { Solid } from './components/solid.js'
 import type { Entity } from './entity.js'
 import type { Game } from './game.js'
-import type { CollisionBody } from './collision-shape.js'
+import { sceneSolids } from './scene-solids.js'
+import {
+  collisionBodyContainsPoint,
+  usableCollisionBody,
+} from './spatial-query-geometry.js'
 
 type ComponentClasses = readonly ComponentClass[]
 type QueryEntity<Classes extends ComponentClasses> = Classes extends readonly []
@@ -124,24 +131,136 @@ export interface SpatialQuery {
   ray(x: number, y: number, dx: number, dy: number, maxDistance: number): RayHit | null
 }
 
-class LinearSpatialQuery {
-  constructor(private readonly game: Game) {}
+export interface HitboxCandidate {
+  readonly entity: Entity
+  readonly hitbox: Hitbox
+}
 
-  area(_body: CollisionBody, _filter?: SpatialQueryFilter<ComponentClasses>): Entity[] {
-    void this.game
-    return []
+export interface SolidCandidate {
+  readonly entity: Entity
+  readonly solid: Solid
+}
+
+/** Package-internal candidate boundary reserved for future acceleration. */
+export interface SpatialQueryCandidateProviders {
+  hitboxes(): readonly HitboxCandidate[]
+  transforms(): readonly Entity[]
+  solids(): readonly SolidCandidate[]
+}
+
+function linearCandidateProviders(game: Game): SpatialQueryCandidateProviders {
+  return {
+    hitboxes() {
+      const result: HitboxCandidate[] = []
+      for (const entity of [...game.entities]) {
+        if (!entity.alive) continue
+        const hitbox = entity.get(Hitbox)
+        if (hitbox) result.push({ entity, hitbox })
+      }
+      return result
+    },
+    transforms() {
+      return [...game.entities].filter((entity) => entity.alive)
+    },
+    solids() {
+      return sceneSolids(game)
+        .filter((solid) => solid.entity.alive)
+        .map((solid) => ({ entity: solid.entity, solid }))
+    },
+  }
+}
+
+function isExcluded(entity: Entity, exclude: SpatialQueryFilter['exclude']): boolean {
+  if (!exclude) return false
+  if (Array.isArray(exclude)) return exclude.includes(entity)
+  if (exclude instanceof Set) return exclude.has(entity)
+  return exclude === entity
+}
+
+function matchesCommonFilter(
+  entity: Entity,
+  filter:
+    | Pick<SpatialQueryFilter<ComponentClasses>, 'with' | 'without' | 'exclude'>
+    | undefined,
+): boolean {
+  if (!filter) return true
+  if (filter.with?.some((component) => !entity.has(component))) return false
+  if (filter.without?.some((component) => entity.has(component))) return false
+  return !isExcluded(entity, filter.exclude)
+}
+
+function matchesFilter(
+  entity: Entity,
+  filter: SpatialQueryFilter<ComponentClasses> | undefined,
+): boolean {
+  return (
+    matchesCommonFilter(entity, filter) &&
+    (!filter?.where || filter.where(entity as EntityWith<ComponentClasses>))
+  )
+}
+
+class LinearSpatialQuery {
+  constructor(private readonly candidates: SpatialQueryCandidateProviders) {}
+
+  area(body: CollisionBody, filter?: SpatialQueryFilter<ComponentClasses>): Entity[] {
+    if (!usableCollisionBody(body)) return []
+    const candidates = [...this.candidates.hitboxes()].filter(({ entity }) => entity.alive)
+    const result: Entity[] = []
+    for (const { entity, hitbox } of candidates) {
+      if (!matchesFilter(entity, filter)) continue
+      const candidateBody = collisionBody(hitbox)
+      if (usableCollisionBody(candidateBody) && collisionOverlap(body, candidateBody)) {
+        result.push(entity)
+      }
+    }
+    return result
   }
 
-  point(_x: number, _y: number, _filter?: SpatialQueryFilter<ComponentClasses>): Entity[] {
-    return []
+  point(x: number, y: number, filter?: SpatialQueryFilter<ComponentClasses>): Entity[] {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return []
+    const candidates = [...this.candidates.hitboxes()].filter(({ entity }) => entity.alive)
+    const result: Entity[] = []
+    for (const { entity, hitbox } of candidates) {
+      if (!matchesFilter(entity, filter)) continue
+      if (collisionBodyContainsPoint(collisionBody(hitbox), x, y)) result.push(entity)
+    }
+    return result
   }
 
   nearest(
-    _x: number,
-    _y: number,
-    _filter?: NearestSpatialQueryFilter<ComponentClasses>,
+    x: number,
+    y: number,
+    filter?: NearestSpatialQueryFilter<ComponentClasses>,
   ): Entity | null {
-    return null
+    const maxDistance = filter?.maxDistance ?? Infinity
+    if (
+      !Number.isFinite(x) ||
+      !Number.isFinite(y) ||
+      Number.isNaN(maxDistance) ||
+      maxDistance < 0 ||
+      (maxDistance !== Infinity && !Number.isFinite(maxDistance))
+    ) {
+      return null
+    }
+    const candidates = [...this.candidates.transforms()].filter((entity) => entity.alive)
+    let result: Entity | null = null
+    let nearestDistance = Infinity
+    for (const entity of candidates) {
+      if (!matchesCommonFilter(entity, filter)) continue
+      const distance = Math.hypot(entity.position.x - x, entity.position.y - y)
+      if (!Number.isFinite(distance) || distance > maxDistance) continue
+      if (
+        filter?.where &&
+        !filter.where(entity as EntityWith<ComponentClasses>, { distance })
+      ) {
+        continue
+      }
+      if (result === null || distance < nearestDistance) {
+        result = entity
+        nearestDistance = distance
+      }
+    }
+    return result
   }
 
   ray(
@@ -157,6 +276,9 @@ class LinearSpatialQuery {
 }
 
 /** Package-internal constructor; only the SpatialQuery interface is public. */
-export function createSpatialQuery(game: Game): SpatialQuery {
-  return new LinearSpatialQuery(game)
+export function createSpatialQuery(
+  game: Game,
+  candidates: SpatialQueryCandidateProviders = linearCandidateProviders(game),
+): SpatialQuery {
+  return new LinearSpatialQuery(candidates)
 }
