@@ -183,6 +183,9 @@ describe('the patroller role takes hits and dies', () => {
     // The striker stands screen-west of the orc: logical (−x, +y).
     const player = makeEntity('Player', -0.5, 0.5)
     const attack = player.add(new MeleeAttack())
+    Object.defineProperty(game, 'query', {
+      value: { area: vi.fn(() => orc.alive ? [orc] : []) },
+    })
 
     return {
       orc,

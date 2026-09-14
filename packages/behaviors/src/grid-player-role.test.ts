@@ -39,6 +39,10 @@ function makePlayer() {
     entities: [] as Entity[],
     input,
     projection: 'isometric',
+    query: {
+      area: vi.fn(() => []),
+      nearest: vi.fn(() => null),
+    },
     ui: { show: vi.fn(), hide: vi.fn() },
     stats: { add: vi.fn(), set: vi.fn() },
     events: { emit: vi.fn() },
