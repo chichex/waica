@@ -87,7 +87,7 @@ export interface SpatialQuery {
     body: CollisionBody,
     filter: SpatialQueryFilter<Classes>,
   ): QueryEntity<Classes>[]
-  area(body: CollisionBody): Entity[]
+  area(body: CollisionBody, filter?: SpatialQueryFilter): Entity[]
 
   /** Hitbox owners that strictly contain a logical point, in Entity order. */
   point<
@@ -99,7 +99,7 @@ export interface SpatialQuery {
     y: number,
     filter: SpatialQueryFilter<Classes>,
   ): QueryEntity<Classes>[]
-  point(x: number, y: number): Entity[]
+  point(x: number, y: number, filter?: SpatialQueryFilter): Entity[]
 
   /** Closest filtered logical transform; equal distances retain Entity order. */
   nearest<
@@ -115,7 +115,7 @@ export interface SpatialQuery {
     y: number,
     filter: NearestSpatialQueryFilter<Classes>,
   ): QueryEntity<Classes> | null
-  nearest(x: number, y: number): Entity | null
+  nearest(x: number, y: number, filter?: NearestSpatialQueryFilter): Entity | null
 
   /** First strict crossing of direct or source-derived Solid geometry. */
   ray<
@@ -137,7 +137,14 @@ export interface SpatialQuery {
     maxDistance: number,
     filter: SpatialQueryFilter<Classes>,
   ): RayHit<QueryEntity<Classes>> | null
-  ray(x: number, y: number, dx: number, dy: number, maxDistance: number): RayHit | null
+  ray(
+    x: number,
+    y: number,
+    dx: number,
+    dy: number,
+    maxDistance: number,
+    filter?: SpatialQueryFilter,
+  ): RayHit | null
 }
 
 export interface HitboxCandidate {

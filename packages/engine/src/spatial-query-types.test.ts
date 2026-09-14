@@ -146,6 +146,10 @@ function proveQueryTypes(query: SpatialQuery): void {
 
   expectTypeOf(query.area(body)).toEqualTypeOf<Entity[]>()
   expectTypeOf(query.point(0, 0)).toEqualTypeOf<Entity[]>()
+  expectTypeOf(query.area(body, undefined)).toEqualTypeOf<Entity[]>()
+  expectTypeOf(query.point(0, 0, undefined)).toEqualTypeOf<Entity[]>()
+  expectTypeOf(query.nearest(0, 0, undefined)).toEqualTypeOf<Entity | null>()
+  expectTypeOf(query.ray(0, 0, 1, 0, 10, undefined)).toEqualTypeOf<RayHit | null>()
   expectTypeOf(query.area(body, { without: [Hitbox] })).toEqualTypeOf<Entity[]>()
   expectTypeOf(query.ray(0, 0, 1, 0, 10)).toEqualTypeOf<RayHit | null>()
 }
