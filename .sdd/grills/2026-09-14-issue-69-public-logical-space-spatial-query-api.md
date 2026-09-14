@@ -1,11 +1,11 @@
 # Grill — Issue #69 Public Logical-Space Spatial Query API
-<!-- Estado: finalized. Proyecto: /Users/ayrtonmarini/Sync/workspace/waica. Fuente: chichex/waica#69. -->
+<!-- Status: finalized. Project: /Users/ayrtonmarini/Sync/workspace/waica. Source: chichex/waica#69. -->
 <!-- SDD-Tracking: version=1; type=grill; state=finalized; issue=chichex/waica#69; grill=issue-69-public-logical-space-spatial-query-api-20260914-e071ef88; project=%2FUsers%2Fayrtonmarini%2FSync%2Fworkspace%2Fwaica -->
 
-## Modo
+## Mode
 domain-modeling
 
-## Hechos comprobados
+## Verified facts
 
 - `Game.entities` is a mutable, spawn-ordered array that is spliced in place when entities are destroyed; `Game` currently has no spatial query service.
 - `Entity.position` remains in Logical Coordinates under isometric projection; rendering projects separately under ADR-0009.
@@ -19,7 +19,7 @@ domain-modeling
 - `.sdd/project.md` describes a deterministic verification ladder but records version 0.9.0 while current packages are 0.14.0.
 - `CONTEXT.md` now defines Spatial Query, Hitbox, Solid, and Ray Hit.
 
-## Decisiones resueltas
+## Resolved decisions
 
 1. `Game` exposes a stable readonly `game.query` service.
 2. `area` and `point` inspect only live entities' `Hitbox` geometry in Logical Coordinates; entities without Hitbox do not participate.
@@ -52,7 +52,7 @@ domain-modeling
 29. `where` predicates are pure eligibility tests; invocation count is not a side-effect contract, allowing future candidate pruning.
 30. Existing component cardinality remains unchanged; multiple Hitboxes per entity are not introduced.
 
-## Ramas pendientes
+## Pending branches
 
 No unresolved branch remains inside issue #69. Deliberately deferred blocks are issue #70 acceleration/layers/masks, any future nearest-player Chaser behavior, physical-area or visual query expansion, and durable Tilemap-cell identity.
 

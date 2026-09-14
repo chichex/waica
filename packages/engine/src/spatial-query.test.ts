@@ -190,6 +190,24 @@ describe('SpatialQuery.area', () => {
       first,
       predicateRejected,
     ])
+    const backing = new Set([first, forbidden])
+    const readonlyView: ReadonlySet<Entity> = {
+      get size() {
+        return backing.size
+      },
+      has: (entity) => backing.has(entity),
+      entries: () => backing.entries(),
+      keys: () => backing.keys(),
+      values: () => backing.values(),
+      forEach(callback, thisArg) {
+        backing.forEach((entity) => callback.call(thisArg, entity, entity, readonlyView))
+      },
+      [Symbol.iterator]: () => backing[Symbol.iterator](),
+    }
+    expect(world.game.query.area(body, { exclude: readonlyView })).toEqual([
+      last,
+      predicateRejected,
+    ])
   })
 
   it('returns eager arrays containing live references after later spawn, movement, and destruction', () => {

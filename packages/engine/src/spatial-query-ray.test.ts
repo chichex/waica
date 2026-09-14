@@ -86,6 +86,30 @@ describe('SpatialQuery.ray input, sources, and ordering', () => {
     expect(world.game.query.ray(0, 0, 1, 0, 4 - 2e-9)).toBeNull()
   })
 
+  it('keeps an endpoint entry when the Solid exits just beyond the segment', () => {
+    const world = makeWorld()
+    const wall = world.spawn('Thin wall', 1.00025, 0)
+    const solid = wall.add(Solid, { width: 0.0005, height: 1000 })
+
+    const hit = world.game.query.ray(0, 0, 1, 0, 1)
+
+    expect(hit?.solid).toBe(solid)
+    expect(hit?.distance).toBe(1)
+    expectVector(hit!.normal, { x: -1, y: 0 })
+  })
+
+  it('keeps a zero-distance inward entry for a thin Solid', () => {
+    const world = makeWorld()
+    const wall = world.spawn('Thin wall', 1.00025, 0)
+    const solid = wall.add(Solid, { width: 0.0005, height: 1000 })
+
+    const hit = world.game.query.ray(1, 0, 1, 0, 0)
+
+    expect(hit?.solid).toBe(solid)
+    expect(hit?.distance).toBe(0)
+    expectVector(hit!.normal, { x: -1, y: 0 })
+  })
+
   it('normalizes finite direction components without overflow or underflow', () => {
     const diagonalWorld = makeWorld()
     diagonalWorld.spawn('Diagonal wall', 5, 5).add(Solid, { width: 2, height: 2 })
@@ -420,6 +444,27 @@ describe('SpatialQuery.ray analytic ellipses', () => {
     })
     expect(Math.hypot(hit.normal.x, hit.normal.y)).toBeCloseTo(1, 12)
   })
+
+  it.each([
+    ['large scale', 0, -200_000, 200_000, 100_000],
+    ['large translation', 100_000_000, 0, 2, 99_999_999],
+  ] as const)(
+    'preserves the analytic entry under %s',
+    (_label, centerX, originX, diameter, expectedDistance) => {
+      const world = makeWorld()
+      world.spawn('Ellipse', centerX, 0).add(Solid, {
+        shape: 'circle',
+        width: diameter,
+        height: diameter,
+      })
+
+      const hit = world.game.query.ray(originX, 0, 1, 0, expectedDistance)
+
+      expect(hit?.distance).toBe(expectedDistance)
+      expectVector(hit!.point, { x: centerX - diameter / 2, y: 0 })
+      expectVector(hit!.normal, { x: -1, y: 0 })
+    },
+  )
 
   it('rejects analytic tangency and zero-radius ellipses', () => {
     const tangentWorld = makeWorld()

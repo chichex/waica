@@ -122,6 +122,10 @@ function inRayRange(distance: number, maxDistance: number): boolean {
   )
 }
 
+function onForwardRay(distance: number): boolean {
+  return Number.isFinite(distance) && distance >= -SPATIAL_QUERY_EPSILON
+}
+
 function cleanUnitValue(value: number): number {
   return Math.abs(value) <= SPATIAL_QUERY_EPSILON ? 0 : value
 }
@@ -160,7 +164,7 @@ function edgeEvents(
       const distance =
         (vertex[0] - origin[0]) * direction[0] +
         (vertex[1] - origin[1]) * direction[1]
-      if (inRayRange(distance, maxDistance)) {
+      if (onForwardRay(distance)) {
         result.push({
           distance: snappedDistance(distance, maxDistance),
           edgeOrder,
@@ -173,7 +177,8 @@ function edgeEvents(
   const distance = vectorCross(relative, edge) / denominator
   const edgeFraction = vectorCross(relative, direction) / denominator
   if (
-    !inRayRange(distance, maxDistance) ||
+    !onForwardRay(distance) ||
+    !Number.isFinite(edgeFraction) ||
     edgeFraction < -SPATIAL_QUERY_EPSILON ||
     edgeFraction > 1 + SPATIAL_QUERY_EPSILON
   ) {
@@ -271,6 +276,7 @@ function polygonRay(
   )
   for (let index = 0; index < groups.length; index += 1) {
     const group = groups[index]!
+    if (group.distance > maxDistance + SPATIAL_QUERY_EPSILON) break
     const previous = groups[index - 1]
     const next = groups[index + 1]
     const beforeLocation = group.distance === 0
@@ -320,8 +326,8 @@ function ellipseNormal(
   radiusY: number,
   point: CollisionPoint,
 ): CollisionPoint | null {
-  const gradientX = (point[0] - body.x) / (radiusX * radiusX)
-  const gradientY = (point[1] - body.y) / (radiusY * radiusY)
+  const gradientX = ((point[0] - body.x) / radiusX) / radiusX
+  const gradientY = ((point[1] - body.y) / radiusY) / radiusY
   const length = Math.hypot(gradientX, gradientY)
   if (!Number.isFinite(length) || length === 0) return null
   return [cleanUnitValue(gradientX / length), cleanUnitValue(gradientY / length)]
@@ -336,37 +342,47 @@ function ellipseRay(
   const radiusX = Math.abs(body.width) / 2
   const radiusY = Math.abs(body.height) / 2
   if (radiusX === 0 || radiusY === 0) return null
-  const relativeX = origin[0] - body.x
-  const relativeY = origin[1] - body.y
-  const a =
-    (direction[0] * direction[0]) / (radiusX * radiusX) +
-    (direction[1] * direction[1]) / (radiusY * radiusY)
-  const b =
-    (2 * relativeX * direction[0]) / (radiusX * radiusX) +
-    (2 * relativeY * direction[1]) / (radiusY * radiusY)
-  const c =
-    (relativeX * relativeX) / (radiusX * radiusX) +
-    (relativeY * relativeY) / (radiusY * radiusY) - 1
-  if (![a, b, c].every(Number.isFinite) || a === 0) return null
-
-  if (Math.abs(c) <= SPATIAL_QUERY_EPSILON) {
-    if (b >= -SPATIAL_QUERY_EPSILON) return null
-    const normal = ellipseNormal(body, radiusX, radiusY, origin)
-    if (!normal) return null
-    return {
-      distance: 0,
-      point: { x: origin[0], y: origin[1] },
-      normal: { x: normal[0], y: normal[1] },
-    }
+  const originX = (origin[0] - body.x) / radiusX
+  const originY = (origin[1] - body.y) / radiusY
+  const directionX = direction[0] / radiusX
+  const directionY = direction[1] / radiusY
+  const directionScale = Math.max(Math.abs(directionX), Math.abs(directionY))
+  if (
+    ![originX, originY, directionX, directionY, directionScale].every(Number.isFinite) ||
+    directionScale === 0
+  ) {
+    return null
   }
 
-  const discriminant = b * b - 4 * a * c
-  if (discriminant <= SPATIAL_QUERY_EPSILON) return null
-  const root = Math.sqrt(discriminant)
-  const roots = [(-b - root) / (2 * a), (-b + root) / (2 * a)].sort((x, y) => x - y)
-  const rawDistance = c < 0
-    ? roots.find((distance) => distance > SPATIAL_QUERY_EPSILON)
-    : roots.find((distance) => distance >= -SPATIAL_QUERY_EPSILON)
+  const scaledDirectionX = directionX / directionScale
+  const scaledDirectionY = directionY / directionScale
+  const directionLengthSquared =
+    scaledDirectionX * scaledDirectionX + scaledDirectionY * scaledDirectionY
+  const closestParameter = -(
+    originX * scaledDirectionX + originY * scaledDirectionY
+  ) / directionLengthSquared
+  const perpendicular =
+    originX * scaledDirectionY - originY * scaledDirectionX
+  const radialGap = 1 - (perpendicular * perpendicular) / directionLengthSquared
+  if (!Number.isFinite(closestParameter) || radialGap <= 0) return null
+
+  const halfChordParameter = Math.sqrt(radialGap / directionLengthSquared)
+  const halfChordDistance = halfChordParameter / directionScale
+  if (
+    !Number.isFinite(halfChordParameter) ||
+    halfChordDistance <= SPATIAL_QUERY_EPSILON
+  ) {
+    return null
+  }
+  const roots = [
+    (closestParameter - halfChordParameter) / directionScale,
+    (closestParameter + halfChordParameter) / directionScale,
+  ]
+  const rawDistance = roots[0]! >= -SPATIAL_QUERY_EPSILON
+    ? roots[0]!
+    : roots[1]! > SPATIAL_QUERY_EPSILON
+      ? roots[1]!
+      : undefined
   if (rawDistance === undefined || !inRayRange(rawDistance, maxDistance)) return null
   const distance = snappedDistance(rawDistance, maxDistance)
   const point = pointAlongRay(origin, direction, distance)

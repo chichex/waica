@@ -186,10 +186,20 @@ function linearCandidateProviders(game: Game): SpatialQueryCandidateProviders {
   }
 }
 
+function isReadonlyEntitySet(value: unknown): value is ReadonlySet<Entity> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
+  const candidate = value as Partial<ReadonlySet<Entity>>
+  return (
+    typeof candidate.size === 'number' &&
+    typeof candidate.has === 'function' &&
+    typeof candidate[Symbol.iterator] === 'function'
+  )
+}
+
 function isExcluded(entity: Entity, exclude: SpatialQueryFilter['exclude']): boolean {
   if (!exclude) return false
   if (Array.isArray(exclude)) return exclude.includes(entity)
-  if (exclude instanceof Set) return exclude.has(entity)
+  if (isReadonlyEntitySet(exclude)) return exclude.has(entity)
   return exclude === entity
 }
 
