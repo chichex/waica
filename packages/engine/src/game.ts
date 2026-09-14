@@ -38,6 +38,7 @@ import {
   type SceneRegistry,
   type SceneRenderJson,
 } from './scene.js'
+import { createSpatialQuery, type SpatialQuery } from './spatial-query.js'
 import { Stats, type StatValue } from './stats.js'
 import { GameUi } from './ui.js'
 
@@ -95,6 +96,7 @@ export class Game {
   readonly camera: THREE.OrthographicCamera
   readonly input: Input
   readonly pointer: Pointer
+  readonly query: SpatialQuery
   readonly entities: Entity[] = []
   readonly events = new Emitter()
   readonly stats: Stats
@@ -156,6 +158,7 @@ export class Game {
     this.viewHeight = viewHeight
     this.resolution = options.resolution ?? null
     this.input = new Input(options.bindings)
+    this.query = createSpatialQuery(this)
     this.stats = new Stats(options.stats)
     this.ui = new GameUi(this.stats, () => canvas.parentElement ?? document.body)
     this.audio = new AudioSubsystem({
