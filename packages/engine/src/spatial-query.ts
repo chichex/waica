@@ -264,7 +264,7 @@ class LinearSpatialQuery {
     for (const entity of candidates) {
       if (!matchesCommonFilter(entity, filter)) continue
       const distance = Math.hypot(entity.position.x - x, entity.position.y - y)
-      if (!Number.isFinite(distance) || distance > maxDistance) continue
+      if (Number.isNaN(distance) || distance > maxDistance) continue
       if (
         filter?.where &&
         !filter.where(entity as EntityWith<ComponentClasses>, { distance })

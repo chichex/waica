@@ -321,6 +321,22 @@ describe('SpatialQuery.nearest', () => {
     expect(world.game.query.nearest(0, 0)).not.toBe(farther)
   })
 
+  it('retains an infinite Math.hypot result when the radius is unlimited', () => {
+    const world = makeWorld()
+    const extreme = world.spawn('Extreme', Number.MAX_VALUE, 0)
+    let observedDistance = 0
+
+    const result = world.game.query.nearest(-Number.MAX_VALUE, 0, {
+      where: (_candidate, { distance }) => {
+        observedDistance = distance
+        return true
+      },
+    })
+
+    expect(result).toBe(extreme)
+    expect(observedDistance).toBe(Infinity)
+  })
+
   it('keeps game order on equal distances', () => {
     const world = makeWorld()
     const first = world.spawn('First', -1, 0)
