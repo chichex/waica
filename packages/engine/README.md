@@ -6,6 +6,47 @@ Waica's public engine core: entities and components, the game loop, scene and pr
 import { Component, Game, loadScene } from '@waica/engine'
 ```
 
+## Logical spatial queries
+
+Every `Game` owns one stable `game.query` service. Queries use logical XY coordinates, including in isometric scenes, and return typed live engine objects:
+
+```ts
+import { Component, type CollisionBody, type Entity, type Game } from '@waica/engine'
+
+declare const game: Game
+declare const player: Entity
+
+class Faction extends Component {
+  name = 'neutral'
+}
+
+const search: CollisionBody = { x: 0, y: 0, width: 8, height: 6 }
+const nearby = game.query.area(search, {
+  with: [Faction] as const,
+  exclude: player,
+  where: (entity) => entity.get(Faction).name !== 'friendly',
+})
+
+// `with` makes this non-optional at compile time.
+nearby[0]?.get(Faction).name
+```
+
+| Method | Spatial domain | Result |
+| --- | --- | --- |
+| `area(body, filter?)` | Hitbox collision outlines | All overlapping Hitbox owners |
+| `point(x, y, filter?)` | Hitbox collision outlines | All strict point containers |
+| `nearest(x, y, filter?)` | Entity logical transforms | The nearest Entity or `null` |
+| `ray(x, y, dx, dy, maxDistance, filter?)` | Direct and source-derived Solids | The first `RayHit` or `null` |
+| `Pointer` picking | Sprite visuals in projected/render space | The front-most visual owner |
+
+Every filter can require all classes in `with`, reject any class in `without`, exclude one Entity, a readonly Entity array, or a `ReadonlySet` by identity, and apply a final `where` predicate. `nearest` also accepts inclusive `maxDistance` and passes `{ distance }` to `where`. Filters compose conjunctively. Ray filters apply to each Solid's owner; for example, a generated Tilemap Solid can match `with: [Tilemap]`, but only an owner with a direct Solid matches `with: [Solid]`.
+
+Calls eagerly snapshot candidates that are alive at call start. Results preserve scene/source order, and ties keep the first candidate. Later spawns do not enter a result and later destruction does not remove it. Returned Entity, Component, and Solid references remain live; a `RayHit`'s distance, point, and normal are detached query-time values.
+
+Invalid inputs fail closed without throwing: invalid `area` bodies and non-finite point coordinates return `[]`; invalid nearest coordinates or radii return `null`; and ray returns `null` for non-finite values, a zero direction, or a negative distance. Nearest permits positive `Infinity`; ray distance must be finite and may be zero. Zero-area candidate geometry never matches.
+
+Area and point intentionally use the collision system's polygonally approximated circle/ellipse outline. Ray queries intersect circle-shaped Solids as analytic ellipses and return their exact outward unit normal.
+
 ## Component lifecycle
 
 Waica keeps the lifecycle boundaries distinct:

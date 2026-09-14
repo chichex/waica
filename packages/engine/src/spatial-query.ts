@@ -24,6 +24,7 @@ export interface EntityWith<Classes extends ComponentClasses> extends Entity {
   get<T extends Component>(component: ComponentClass<T>): T | undefined
 }
 
+/** Declarative eligibility shared by area, point, and ray queries. */
 export interface SpatialQueryFilter<Classes extends ComponentClasses = readonly []> {
   /** Every listed component class must be present. */
   with?: Classes
@@ -39,6 +40,7 @@ export interface NearestQueryContext {
   readonly distance: number
 }
 
+/** Entity eligibility plus an optional inclusive logical-space radius. */
 export interface NearestSpatialQueryFilter<Classes extends ComponentClasses = readonly []> {
   with?: Classes
   without?: readonly ComponentClass[]
@@ -48,6 +50,7 @@ export interface NearestSpatialQueryFilter<Classes extends ComponentClasses = re
   maxDistance?: number
 }
 
+/** One query-time crossing paired with the live Solid and owning Entity. */
 export interface RayHit<T extends Entity = Entity> {
   readonly entity: T
   readonly solid: Solid
@@ -75,6 +78,7 @@ type NearestGuardFilter<
 
 /** Public logical-space spatial-query service owned by every Game. */
 export interface SpatialQuery {
+  /** Hitbox owners with positive interior overlap, in Entity order. */
   area<
     Classes extends ComponentClasses = readonly [],
     Narrowed extends QueryEntity<Classes> = QueryEntity<Classes>,
@@ -85,6 +89,7 @@ export interface SpatialQuery {
   ): QueryEntity<Classes>[]
   area(body: CollisionBody): Entity[]
 
+  /** Hitbox owners that strictly contain a logical point, in Entity order. */
   point<
     Classes extends ComponentClasses = readonly [],
     Narrowed extends QueryEntity<Classes> = QueryEntity<Classes>,
@@ -96,6 +101,7 @@ export interface SpatialQuery {
   ): QueryEntity<Classes>[]
   point(x: number, y: number): Entity[]
 
+  /** Closest filtered logical transform; equal distances retain Entity order. */
   nearest<
     Classes extends ComponentClasses = readonly [],
     Narrowed extends QueryEntity<Classes> = QueryEntity<Classes>,
@@ -111,6 +117,7 @@ export interface SpatialQuery {
   ): QueryEntity<Classes> | null
   nearest(x: number, y: number): Entity | null
 
+  /** First strict crossing of direct or source-derived Solid geometry. */
   ray<
     Classes extends ComponentClasses = readonly [],
     Narrowed extends QueryEntity<Classes> = QueryEntity<Classes>,
