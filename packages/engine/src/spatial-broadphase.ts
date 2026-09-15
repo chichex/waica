@@ -95,10 +95,11 @@ function eachCell(range: CellRange, visit: (key: string) => void): void {
 export function createSpatialBroadphase<T>(
   sources: readonly SpatialBroadphaseSource<T>[],
   cellSize: number,
+  isIndexable: (body: CollisionBody) => boolean = usableCollisionBody,
 ): SpatialBroadphase<T> {
   const entries: SpatialEntry<T>[] = sources
     .map((source, serial): SpatialEntry<T> | null => {
-      if (!usableCollisionBody(source.body)) return null
+      if (!isIndexable(source.body)) return null
       return {
         ...source,
         serial,
@@ -208,6 +209,18 @@ export function createHitboxBroadphase(
   return createSpatialBroadphase(sources, broadphaseCellSize(game))
 }
 
+function rayIndexableBody(body: CollisionBody): boolean {
+  if (body.shape !== 'circle') return usableCollisionBody(body)
+  return (
+    Number.isFinite(body.x) &&
+    Number.isFinite(body.y) &&
+    Number.isFinite(body.width) &&
+    Number.isFinite(body.height) &&
+    body.width !== 0 &&
+    body.height !== 0
+  )
+}
+
 export function createSolidBroadphase(
   game: Game,
 ): SpatialBroadphase<SolidBroadphaseCandidate> {
@@ -220,5 +233,5 @@ export function createSolidBroadphase(
       body: collisionBody(solid),
     })
   }
-  return createSpatialBroadphase(sources, broadphaseCellSize(game))
+  return createSpatialBroadphase(sources, broadphaseCellSize(game), rayIndexableBody)
 }

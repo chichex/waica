@@ -711,7 +711,32 @@ function PropRow({
 
 function paramValuesEqual(left: unknown, right: unknown): boolean {
   if (!Array.isArray(left) || !Array.isArray(right)) return Object.is(left, right)
-  return left.length === right.length && left.every((value, index) => Object.is(value, right[index]))
+  return (
+    left.length === right.length &&
+    left.every((value, index) => Object.is(value, right[index]))
+  )
+}
+
+function multiCollisionDiagnostics(
+  componentType: string,
+  param: string,
+  names: readonly string[],
+  values: readonly unknown[],
+): ParamDiagnostic[] | undefined {
+  let recognized = false
+  const result: ParamDiagnostic[] = []
+  values.forEach((value, index) => {
+    const diagnostics = collisionParamDiagnostics(componentType, param, value)
+    if (diagnostics === undefined) return
+    recognized = true
+    result.push(
+      ...diagnostics.map((diagnostic) => ({
+        severity: diagnostic.severity,
+        message: `${names[index]}: ${diagnostic.message}`,
+      })),
+    )
+  })
+  return recognized ? result : undefined
 }
 
 /**
@@ -767,7 +792,7 @@ function MultiPropsSection({
                   label={key}
                   spec={uniform ? spec : { ...spec, label: `${spec?.label ?? key} (mixed)` }}
                   value={values[0] === undefined ? 0 : values[0]}
-                  diagnostics={collisionParamDiagnostics(type, key, values[0])}
+                  diagnostics={multiCollisionDiagnostics(type, key, names, values)}
                   onChange={(value) => onMultiProp(names, type, key, value)}
                 />
               )

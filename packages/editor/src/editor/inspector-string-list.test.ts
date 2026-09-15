@@ -323,6 +323,35 @@ describe('Inspector collision-category diagnostics', () => {
     expect(host.textContent).toContain('Collision Mask entry "Enemy" is invalid')
   })
 
+  it('aggregates diagnostics from every entity in a mixed multi-selection', () => {
+    const entities: SceneEntityJson[] = [
+      {
+        name: 'Valid A',
+        components: [{
+          type: 'Hitbox',
+          props: { layer: 'player', collidesWith: ['enemy'] },
+        }],
+      },
+      {
+        name: 'Invalid B',
+        components: [{
+          type: 'Hitbox',
+          props: { layer: 'Enemy', collidesWith: ['enemy', 'enemy', 7] },
+        }],
+      },
+    ]
+    render(baseProps({ selection: { kind: 'multi', entities, sceneName: 'main' } }))
+
+    const layer = host.querySelector<HTMLInputElement>('[data-param="layer"] input')!
+    const mask = list('collidesWith').querySelector<HTMLInputElement>('input')!
+    expect(layer.getAttribute('aria-invalid')).toBe('true')
+    expect(mask.getAttribute('aria-invalid')).toBe('true')
+    expect(host.textContent).toContain('Invalid B: A Collision Layer must start')
+    expect(host.textContent).toContain('Invalid B: Duplicate Collision Mask entry "enemy"')
+    expect(host.textContent).toContain('Invalid B: Collision Mask entry 3 must be a string')
+    expect(host.textContent).not.toContain('Valid A:')
+  })
+
   it('reports a non-list mask without blocking edits and leaves valid open-vocabulary values clean', () => {
     const onPrefabProp = vi.fn()
     const invalid = objectPrefab({ layer: 'custom-layer', collidesWith: 'enemy' })

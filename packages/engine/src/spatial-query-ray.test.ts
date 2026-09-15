@@ -445,6 +445,19 @@ describe('SpatialQuery.ray analytic ellipses', () => {
     expect(Math.hypot(hit.normal.x, hit.normal.y)).toBeCloseTo(1, 12)
   })
 
+  it('keeps a finite positive-area ellipse thinner than the polygon tolerance', () => {
+    const world = makeWorld()
+    const ellipse = world.spawn('Thin ellipse')
+    ellipse.add(Solid, { shape: 'circle', width: 2, height: 1e-10 })
+
+    const hit = world.game.query.ray(-2, 0, 1, 0, 4)
+
+    expect(hit?.entity).toBe(ellipse)
+    expect(hit?.distance).toBe(1)
+    expectVector(hit!.point, { x: -1, y: 0 })
+    expectVector(hit!.normal, { x: -1, y: 0 })
+  })
+
   it.each([
     ['large scale', 0, -200_000, 200_000, 100_000],
     ['large translation', 100_000_000, 0, 2, 99_999_999],

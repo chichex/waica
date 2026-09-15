@@ -46,17 +46,24 @@ export function StringListField({
 }) {
   const diagnosticId = `${useId().replaceAll(':', '')}-${param}-diagnostics`
   const entries = Array.isArray(value) ? value : null
-  const fieldErrors = diagnostics.filter(
-    (diagnostic) => diagnostic.severity === 'error' && diagnostic.entry === undefined,
+  const fieldDiagnostics = diagnostics.filter(
+    (diagnostic) => diagnostic.entry === undefined,
+  )
+  const fieldErrors = fieldDiagnostics.filter(
+    (diagnostic) => diagnostic.severity === 'error',
   )
   return (
     <div className="ed-row ed-row-string-list" data-param-list={param}>
       <div className="ed-string-list-label">{name}</div>
-      <div className="ed-string-list-control">
+      <div
+        className="ed-string-list-control"
+        aria-invalid={fieldErrors.length > 0 || undefined}
+        aria-describedby={fieldDiagnostics.length > 0 ? diagnosticId : undefined}
+      >
         {entries ? (
           entries.map((entry, index) => {
             const entryDiagnostics = diagnostics.filter(
-              (diagnostic) => diagnostic.entry === index,
+              (diagnostic) => diagnostic.entry === undefined || diagnostic.entry === index,
             )
             const hasError = entryDiagnostics.some(
               (diagnostic) => diagnostic.severity === 'error',
