@@ -77,6 +77,12 @@ Read `playing` as "the mixer accepted these calls", not "these made sound". A so
 
 Full page reload reconnects to a fresh paused baseline. Runtime operations reject while reloading; a timeout, page/browser/dev-process failure or second simultaneous Game ends the session. `stop_project` and MCP transport close both clean every owned browser context and whole dev-process group; cleanup failure is reported rather than claimed as success.
 
+## Collision-category validation
+
+`validate_project` checks every authored `Hitbox` block in prefab props, inline scene components, changed instance overrides, and `public/waica.params.json`. Invalid `layer` values produce `invalid-collision-layer`; a non-list mask or invalid/non-string entry produces `invalid-collision-mask`; repeated exact entries produce the warning `duplicate-collision-mask-entry`. Empty masks and syntactically valid project-owned names are accepted. A scene instance does not repeat findings inherited from its prefab—the finding stays at the source that must be edited.
+
+These authoring diagnostics complement the engine's quiet fail-closed runtime behavior. They do not create a layer registry, normalize values, or rewrite Project files. See `@waica/engine`'s Hitbox migration table before upgrading a Project that uses `Collectible`, `Hazard`, overlap `SceneTransition`, or the platformer example projectile.
+
 ## Animation clip validation
 
 `validate_project` reports a `missing-clip` finding when a `StateMachine` state, or a component param declared `ref: 'clip'`, names an animation the sibling `AnimatedSprite` does not ship — a warning when the state falls back to its own name, an error when the clip is written out.

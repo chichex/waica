@@ -1,7 +1,6 @@
 import { Component, type Entity } from '@waica/engine'
 import { Health } from './health.js'
 import { PlatformerMotor } from './platformer-motor.js'
-import { isPlayer } from './player-identity.js'
 import { Respawnable } from './respawnable.js'
 
 export type HazardTouch = 'stomp' | 'hurt'
@@ -22,8 +21,9 @@ export function resolveHazardTouch(
 }
 
 /**
- * Hurts the player on contact. If stompable (Mario-style), stomping it
- * bounces the player. Requires Hitbox on both entities.
+ * Hurts the Entity delivered by its Hitbox mask. Shipped hazards target the
+ * `player` layer; this handler deliberately does not recheck identity. If
+ * stompable (Mario-style), stomping it bounces the target.
  *
  * "Hurts on touch" is all this means — being able to take a hit is Health's
  * job, so a spike is a Hazard alone and an enemy is Hazard + Health. Either
@@ -68,7 +68,6 @@ export class Hazard extends Component {
   private bouncing = false
 
   override onCollide(other: Entity): void {
-    if (!isPlayer(other)) return
     const motor = other.get(PlatformerMotor)
     if (motor) {
       const playerBottom = other.position.y - motor.hitboxHeight / 2

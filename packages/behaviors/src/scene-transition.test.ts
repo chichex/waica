@@ -53,7 +53,7 @@ describe('SceneTransition', () => {
     expect(game.loadSceneByName).toHaveBeenCalledWith('cave')
   })
 
-  it('ignores an overlap from a non-player entity', () => {
+  it('trusts the authored overlap mask instead of rechecking player identity', () => {
     const game = makeGame()
     const door = makeEntity(game, 'Door')
     const transition = new SceneTransition()
@@ -62,7 +62,7 @@ describe('SceneTransition', () => {
 
     transition.onCollide?.(makeEntity(game, 'Rock'))
 
-    expect(game.loadSceneByName).not.toHaveBeenCalled()
+    expect(game.loadSceneByName).toHaveBeenCalledWith('cave')
   })
 
   it('does not fire on overlap when trigger is "interact"', () => {

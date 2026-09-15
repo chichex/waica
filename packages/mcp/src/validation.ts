@@ -14,6 +14,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { discoverArchetypes, pickArchetype } from './archetypes.js'
 import { isPlayableClip } from './clip-resolution.js'
+import { collisionCategoryFindings } from './collision-category-validation.js'
 import { classDefaults, objectRecord } from './component-metadata.js'
 import {
   isBoundAction,
@@ -56,6 +57,9 @@ export type FindingCode =
   | 'duplicate-component'
   | 'invalid-update-constraint'
   | 'component-update-cycle'
+  | 'invalid-collision-layer'
+  | 'invalid-collision-mask'
+  | 'duplicate-collision-mask-entry'
 
 export interface ValidationFinding {
   severity: FindingSeverity
@@ -462,7 +466,12 @@ function validatePrefab(
   context: ValidationContext,
 ): void {
   const components = componentList(prefab.components)
-  for (const component of components) checkComponent(component, file, ref, context)
+  for (const component of components) {
+    checkComponent(component, file, ref, context)
+    if (component.type === 'Hitbox') {
+      context.findings.push(...collisionCategoryFindings(component.props, file, ref))
+    }
+  }
   validateParamReferences(
     components.map((component) => ({ component })),
     components,
@@ -513,7 +522,12 @@ function validateScene(
     const entityRef =
       typeof entity.name === 'string' && entity.name ? entity.name : `entity[${index}]`
     const inline = componentList(entity.components)
-    for (const component of inline) checkComponent(component, file, entityRef, context)
+    for (const component of inline) {
+      checkComponent(component, file, entityRef, context)
+      if (component.type === 'Hitbox') {
+        context.findings.push(...collisionCategoryFindings(component.props, file, entityRef))
+      }
+    }
     context.findings.push(
       ...validateEntitySceneTransition(entity, entityRef, file, prefabs, knownScenes),
     )
@@ -577,9 +591,12 @@ function validateScene(
 
     const inlineTypes = new Set(inline.map((component) => component.type))
     for (const [type, rawPatch] of Object.entries(overrides)) {
+      const patch = objectRecord(rawPatch)
+      if (type === 'Hitbox') {
+        context.findings.push(...collisionCategoryFindings(patch, file, entityRef))
+      }
       if (inlineTypes.has(type)) continue
       const metadata = context.componentMetadata.get(type)
-      const patch = objectRecord(rawPatch)
       const changedRefParams = new Set(
         Object.entries(metadata?.params ?? {})
           .filter(
@@ -857,8 +874,13 @@ export async function validateProject(
 
   const params = objectRecord(fixed.get('public/waica.params.json'))
   for (const [entity, rawComponents] of Object.entries(params)) {
-    for (const component of Object.keys(objectRecord(rawComponents))) {
+    for (const [component, rawProps] of Object.entries(objectRecord(rawComponents))) {
       checkComponent({ type: component }, 'public/waica.params.json', entity, context)
+      if (component === 'Hitbox') {
+        findings.push(
+          ...collisionCategoryFindings(rawProps, 'public/waica.params.json', entity),
+        )
+      }
     }
   }
 

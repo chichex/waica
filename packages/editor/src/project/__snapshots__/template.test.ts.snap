@@ -436,6 +436,10 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
     {
       "type": "Hitbox",
       "props": {
+        "layer": "enemy",
+        "collidesWith": [
+          "player"
+        ],
         "width": 0.8,
         "height": 0.7
       }
@@ -590,6 +594,10 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
     {
       "type": "Hitbox",
       "props": {
+        "layer": "player",
+        "collidesWith": [
+          "*"
+        ],
         "width": 0.8,
         "height": 0.8
       }
@@ -914,6 +922,10 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
     {
       "type": "Hitbox",
       "props": {
+        "layer": "collectible",
+        "collidesWith": [
+          "player"
+        ],
         "width": 0.5,
         "height": 0.5
       }
@@ -2112,6 +2124,10 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
     {
       "type": "Hitbox",
       "props": {
+        "layer": "enemy",
+        "collidesWith": [
+          "player"
+        ],
         "width": 0.8,
         "height": 0.7
       }
@@ -2432,6 +2448,10 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
     {
       "type": "Hitbox",
       "props": {
+        "layer": "player",
+        "collidesWith": [
+          "*"
+        ],
         "width": 0.8,
         "height": 0.8
       }
@@ -2889,6 +2909,10 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
     {
       "type": "Hitbox",
       "props": {
+        "layer": "collectible",
+        "collidesWith": [
+          "player"
+        ],
         "width": 0.6,
         "height": 0.6
       }
@@ -2919,6 +2943,10 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
     {
       "type": "Hitbox",
       "props": {
+        "layer": "scene-transition",
+        "collidesWith": [
+          "player"
+        ],
         "width": 0.8,
         "height": 0.8
       }
@@ -4196,6 +4224,10 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
     {
       "type": "Hitbox",
       "props": {
+        "layer": "player",
+        "collidesWith": [
+          "*"
+        ],
         "width": 0.9,
         "height": 0.95
       }
@@ -4267,6 +4299,10 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
     {
       "type": "Hitbox",
       "props": {
+        "layer": "enemy",
+        "collidesWith": [
+          "player"
+        ],
         "width": 0.9,
         "height": 0.6
       }
@@ -4493,6 +4529,10 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
     {
       "type": "Hitbox",
       "props": {
+        "layer": "collectible",
+        "collidesWith": [
+          "player"
+        ],
         "width": 0.5,
         "height": 0.5
       }

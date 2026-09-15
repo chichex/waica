@@ -12,6 +12,21 @@ function props(ref: string, type: string): Record<string, unknown> {
 }
 
 describe('the topdown prefabs express the genre model', () => {
+  it('assigns the shipped directional collision taxonomy', () => {
+    expect(props('characters/player', 'Hitbox')).toMatchObject({
+      layer: 'player',
+      collidesWith: ['*'],
+    })
+    expect(props('characters/blob', 'Hitbox')).toMatchObject({
+      layer: 'enemy',
+      collidesWith: ['player'],
+    })
+    expect(props('objects/potion', 'Hitbox')).toMatchObject({
+      layer: 'collectible',
+      collidesWith: ['player'],
+    })
+  })
+
   it('gives the player health and a spawn, but no fall-out-of-world plumbing', () => {
     expect(componentTypes('characters/player')).toContain('Respawnable')
     expect(props('characters/player', 'Health')).toMatchObject({ max: 3, invulnerability: 1 })

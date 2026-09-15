@@ -194,6 +194,22 @@ describe('projectFiles', () => {
     }
   })
 
+  it('materializes explicit player, enemy, and collectible collision categories', () => {
+    const files = projectFiles('my-game')
+    const expected = {
+      'src/characters/player.character.json': ['player', ['*']],
+      'src/characters/slime.character.json': ['enemy', ['player']],
+      'src/objects/coin.object.json': ['collectible', ['player']],
+    } as const
+    for (const [path, [layer, collidesWith]] of Object.entries(expected)) {
+      const prefab = JSON.parse(files[path] ?? '') as {
+        components: Array<{ type: string; props?: Record<string, unknown> }>
+      }
+      expect(prefab.components.find((component) => component.type === 'Hitbox')?.props, path)
+        .toMatchObject({ layer, collidesWith })
+    }
+  })
+
   it('demo files reference materialized art paths, never registry URIs', () => {
     const files = projectFiles('my-game')
     expect(files['src/characters/player.character.json']).toContain('src/art/waica-dog.png')

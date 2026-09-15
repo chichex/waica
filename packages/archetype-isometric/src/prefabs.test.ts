@@ -12,6 +12,25 @@ function props(ref: string, type: string): Record<string, unknown> {
 }
 
 describe('the isometric prefabs express the genre model', () => {
+  it('assigns the shipped directional collision taxonomy', () => {
+    expect(props('characters/player', 'Hitbox')).toMatchObject({
+      layer: 'player',
+      collidesWith: ['*'],
+    })
+    expect(props('characters/orc', 'Hitbox')).toMatchObject({
+      layer: 'enemy',
+      collidesWith: ['player'],
+    })
+    expect(props('objects/crate', 'Hitbox')).toMatchObject({
+      layer: 'collectible',
+      collidesWith: ['player'],
+    })
+    expect(props('objects/door', 'Hitbox')).toMatchObject({
+      layer: 'scene-transition',
+      collidesWith: ['player'],
+    })
+  })
+
   it('ships exactly the declared cast, ground and occluding props', () => {
     expect(Object.keys(ISOMETRIC_PREFABS).sort()).toEqual([
       'characters/orc',

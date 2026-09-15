@@ -17,7 +17,7 @@ const GOLDEN: Record<string, Record<string, unknown>> = {
   Sprite: { offsetX: 0, offsetY: 0, anchorX: 0.5, anchorY: 0.5, layer: 0 },
   AnimatedSprite: { offsetX: 0, offsetY: 0, anchorX: 0.5, anchorY: 0.5, layer: 0 },
   Solid: { offsetX: 0, offsetY: 0 },
-  Hitbox: { offsetX: 0, offsetY: 0 },
+  Hitbox: { layer: 'default', collidesWith: ['*'], offsetX: 0, offsetY: 0 },
   DynamicBody: {
     vx: 0,
     vy: 0,

@@ -81,6 +81,14 @@ describe('listComponents', () => {
       sourcePackage: '@waica/engine',
       defaults: { color: 0xffffff, shape: 'rectangle', width: 1, height: 1 },
     })
+    expect(result.components.find((component) => component.componentName === 'Hitbox')).toMatchObject({
+      params: {
+        layer: { label: 'Collision Layer' },
+        collidesWith: { label: 'Collision Mask', kind: 'string-list' },
+      },
+      defaults: { layer: 'default', collidesWith: ['*'] },
+      sourcePackage: '@waica/engine',
+    })
     expect(
       result.components.some((component) =>
         Object.keys(component.defaults).some((key) => key.startsWith('_')),

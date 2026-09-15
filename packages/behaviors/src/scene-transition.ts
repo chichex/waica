@@ -1,6 +1,5 @@
 import { Component, type Entity } from '@waica/engine'
 import { Interactable } from './interactable.js'
-import { isPlayer } from './player-identity.js'
 
 /**
  * Replaces the live scene with `scene` (its file's stem, e.g.
@@ -9,9 +8,10 @@ import { isPlayer } from './player-identity.js'
  * destination: the incoming scene places its own Player wherever that
  * scene authored it (no named entry points).
  *
- * With trigger:'overlap' (the default) it fires like Collectible/Hazard:
- * the player's Hitbox overlapping its own — requires a sibling Hitbox.
- * With trigger:'interact' it implements no radius or prompt of its own:
+ * With trigger:'overlap' (the default) it fires whenever its Hitbox mask
+ * dispatches an overlap. Shipped doors target the `player` layer; this handler
+ * deliberately does not recheck identity. With trigger:'interact' it implements
+ * no radius or prompt of its own:
  * it needs a sibling Interactable and fires from the shared nearest-wins
  * interact scan (interactable.ts's fireInteract), so a door and an NPC in
  * range arbitrate themselves with no new rule.
@@ -36,9 +36,8 @@ export class SceneTransition extends Component {
     }
   }
 
-  override onCollide(other: Entity): void {
+  override onCollide(_other: Entity): void {
     if (this.trigger !== 'overlap') return
-    if (!isPlayer(other)) return
     this.fire()
   }
 

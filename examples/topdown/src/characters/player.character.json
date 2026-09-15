@@ -138,6 +138,10 @@
     {
       "type": "Hitbox",
       "props": {
+        "layer": "player",
+        "collidesWith": [
+          "*"
+        ],
         "width": 0.8,
         "height": 0.8
       }

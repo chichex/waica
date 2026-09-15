@@ -129,7 +129,7 @@ describe('driver-agnostic player identity', () => {
     expect(chaserEntity.position.x).toBeCloseTo(1)
   })
 
-  it('rejects motor-bearing entities whose role is not player across all three behaviors', () => {
+  it('trusts collision masks in handlers while Chaser still resolves player identity', () => {
     const game = makeGame()
     const motorNpc = makeEntity(game, 'Motor NPC', 4, 0)
     motorNpc.addStub(machine('npc'))
@@ -159,8 +159,8 @@ describe('driver-agnostic player identity', () => {
     chaser.range = 10
     chaser.step(0.5)
 
-    expect(coinEntity.destroy).not.toHaveBeenCalled()
-    expect(respawn).not.toHaveBeenCalled()
+    expect(coinEntity.destroy).toHaveBeenCalledOnce()
+    expect(respawn).toHaveBeenCalledOnce()
     expect(chaserEntity.position.x).toBe(0)
   })
 })

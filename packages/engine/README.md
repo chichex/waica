@@ -6,6 +6,52 @@ Waica's public engine core: entities and components, the game loop, scene and pr
 import { Component, Game, loadScene } from '@waica/engine'
 ```
 
+## Hitbox Collision Layers and Masks
+
+Every `Hitbox` belongs to one named Collision Layer and declares the other layers in which it is interested through a Collision Mask:
+
+```ts
+import { Hitbox } from '@waica/engine'
+
+entity.add(Hitbox, {
+  layer: 'projectile',
+  collidesWith: ['enemy'],
+})
+```
+
+A layer must match `^[a-z][a-z0-9-]*$`. Layer names form an open, project-owned vocabulary; matching is exact and case-sensitive. `"*"` is valid only in a mask and matches every valid layer. An empty mask means no outgoing interest. Invalid layers cannot be targeted, and invalid or non-string mask entries are ignored without runtime coercion or warnings.
+
+A pair reaches exact overlap testing when either side's mask names the other side's layer. After an overlap, only an interested side receives `onCollide`; a one-way projectile mask therefore does not notify its target. Omitted fields retain the compatibility defaults `layer: 'default'` and `collidesWith: ['*']`, so two unconfigured Hitboxes still notify both sides.
+
+Layers and masks are read while the collision-pair snapshot is consumed. A component can change them during `onUpdate` or one callback and affect later pairs in that Simulation Step. Pair order remains the original lexicographic Entity order, component callbacks remain in insertion order, and destroyed entities are still skipped between sides.
+
+### Shipped taxonomy and migration
+
+Waica's shipped prefabs use this directional policy:
+
+| Hitbox owner | `layer` | `collidesWith` |
+| --- | --- | --- |
+| Player | `player` | `['*']` |
+| Slime, blob, or orc / `Hazard` | `enemy` | `['player']` |
+| Coin, potion, or crate / `Collectible` | `collectible` | `['player']` |
+| Overlap `SceneTransition` | `scene-transition` | `['player']` |
+| Platformer projectile | `projectile` | `['enemy']` |
+
+`Collectible`, `Hazard`, overlap `SceneTransition`, and the example projectile trust those masks and no longer recheck the other Entity's role inside `onCollide`. Existing external projects using any of these handlers must explicitly migrate their sibling Hitboxes before relying on the new behavior. The defaults preserve engine-level callback delivery, but a wildcard-backed migrated handler can act on unintended default-layer entities.
+
+1. Assign `player` / `['*']` to player Hitboxes.
+2. Assign the relevant row above to each shipped handler carrier, or choose equivalent project-owned names.
+3. Run MCP `validate_project`; malformed values are errors and duplicate mask entries are warnings.
+4. Keep `trigger: 'interact'` Scene Transitions unchanged—their Hitbox mask is relevant only to overlap mode.
+
+The editor and MCP author explicit categories for newly generated player/enemy identities. NPCs, custom or identity-less characters, generic objects, and existing external project files are not inferred or rewritten. `public/waica.params.json` may override either field with the same exact values, including a `string[]` mask.
+
+## Collision broadphase
+
+The Game uses fresh internal uniform grids to accelerate automatic Hitbox dispatch, Hitbox-backed `area`/`point` queries, and Solid-backed `ray` queries. Hitboxes and Solids stay in separate domains. `nearest`, `DynamicBody` physical-contact solving, Pointer picking, navigation, and unrelated scans remain linear or otherwise unchanged.
+
+The grid changes candidate discovery only: existing exact geometry is still authoritative. Each operation observes candidates alive at its start, preserves Entity or Solid source order and tie behavior, and recomputes after scene swaps, spawns, movement, shape edits, or Tilemap-derived Solid changes. Oversized bodies and query regions fall back conservatively, so they may cost more but cannot lose results. Grid sizing, occupancy limits, indices, and rebuild controls are deliberately package-internal and have no public tuning API.
+
 ## Logical spatial queries
 
 Every `Game` owns one stable `game.query` service. Queries use logical XY coordinates, including in isometric scenes, and return typed live engine objects:
@@ -45,7 +91,7 @@ Calls eagerly snapshot candidates that are alive at call start. Results preserve
 
 Invalid inputs fail closed without throwing: invalid `area` bodies and non-finite point coordinates return `[]`; invalid nearest coordinates or radii return `null`; and ray returns `null` for non-finite values, a zero direction, or a negative distance. Nearest permits positive `Infinity`; ray distance must be finite and may be zero. Zero-area candidate geometry never matches.
 
-Area and point intentionally use the collision system's polygonally approximated circle/ellipse outline. Ray queries intersect circle-shaped Solids as analytic ellipses and return their exact outward unit normal.
+Area and point intentionally use the collision system's polygonally approximated circle/ellipse outline. Ray queries intersect circle-shaped Solids as analytic ellipses and return their exact outward unit normal. Collision Layers and Masks never filter `area` or `point`; use a query filter when category-like eligibility is needed.
 
 ## Component lifecycle
 

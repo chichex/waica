@@ -120,7 +120,10 @@ export const ISOMETRIC_PREFABS: Record<string, PrefabJson> = {
           states: ISO_PLAYER_STATE_GRAPH.states,
         },
       },
-      { type: 'Hitbox', props: { width: 0.8, height: 0.8 } },
+      {
+        type: 'Hitbox',
+        props: { layer: 'player', collidesWith: ['*'], width: 0.8, height: 0.8 },
+      },
       { type: 'MeleeAttack', props: { swingSound: 'waica:iso-sword-swing' } },
       { type: 'Respawnable' },
       {
@@ -179,7 +182,10 @@ export const ISOMETRIC_PREFABS: Record<string, PrefabJson> = {
           states: PATROLLER_STATE_GRAPH.states,
         },
       },
-      { type: 'Hitbox', props: { width: 0.8, height: 0.7 } },
+      {
+        type: 'Hitbox',
+        props: { layer: 'enemy', collidesWith: ['player'], width: 0.8, height: 0.7 },
+      },
       { type: 'Hazard', props: { stompable: false, contactDamage: 1 } },
       { type: 'Health', props: { max: 2, invulnerability: 0.3, hurtSound: 'waica:iso-hit' } },
     ],
@@ -198,7 +204,10 @@ export const ISOMETRIC_PREFABS: Record<string, PrefabJson> = {
           anchorY: 0,
         },
       },
-      { type: 'Hitbox', props: { width: 0.6, height: 0.6 } },
+      {
+        type: 'Hitbox',
+        props: { layer: 'collectible', collidesWith: ['player'], width: 0.6, height: 0.6 },
+      },
       { type: 'Collectible', props: { value: 1 } },
     ],
   },
@@ -250,7 +259,15 @@ export const ISOMETRIC_PREFABS: Record<string, PrefabJson> = {
           anchorY: 0,
         },
       },
-      { type: 'Hitbox', props: { width: 0.8, height: 0.8 } },
+      {
+        type: 'Hitbox',
+        props: {
+          layer: 'scene-transition',
+          collidesWith: ['player'],
+          width: 0.8,
+          height: 0.8,
+        },
+      },
       { type: 'SceneTransition', props: { scene: 'cave' } },
     ],
   },

@@ -1,11 +1,9 @@
-import {
-  Component,
-  StateMachine,
-  type Entity,
-  type SolidContact,
-} from '@waica/engine'
+import { Component, type Entity, type SolidContact } from '@waica/engine'
 
-/** Contact policy for the example projectile; DynamicBody owns physical motion. */
+/**
+ * Contact policy for the example projectile; DynamicBody owns physical motion.
+ * Its shipped Hitbox mask targets `enemy`, so callbacks need no role recheck.
+ */
 export class Projectile extends Component {
   static override componentName = 'Projectile'
 
@@ -14,8 +12,6 @@ export class Projectile extends Component {
   }
 
   override onCollide(other: Entity): void {
-    const role = other.get(StateMachine)?.role
-    if (role !== 'patroller' && role !== 'chaser') return
     other.destroy()
     this.entity.destroy()
   }

@@ -22,7 +22,10 @@ export const PLATFORMER_PREFABS: Record<string, PrefabJson> = {
           states: PLAYER_STATE_GRAPH.states,
         },
       },
-      { type: 'Hitbox', props: { width: 0.9, height: 0.95 } },
+      {
+        type: 'Hitbox',
+        props: { layer: 'player', collidesWith: ['*'], width: 0.9, height: 0.95 },
+      },
       { type: 'Respawnable' },
       { type: 'Health', props: { max: 3, invulnerability: 1 } },
       { type: 'OutOfBounds', props: { minY: -8 } },
@@ -53,7 +56,10 @@ export const PLATFORMER_PREFABS: Record<string, PrefabJson> = {
           states: { walk: { clip: 'idle' } },
         },
       },
-      { type: 'Hitbox', props: { width: 0.9, height: 0.6 } },
+      {
+        type: 'Hitbox',
+        props: { layer: 'enemy', collidesWith: ['player'], width: 0.9, height: 0.6 },
+      },
       { type: 'Hazard', props: { stompable: true, bounce: 10 } },
       // One point: a stomp still kills it in a single hit, the same as
       // before the damage model existed — now said out loud instead of
@@ -77,7 +83,10 @@ export const PLATFORMER_PREFABS: Record<string, PrefabJson> = {
           initialClip: 'spin',
         },
       },
-      { type: 'Hitbox', props: { width: 0.5, height: 0.5 } },
+      {
+        type: 'Hitbox',
+        props: { layer: 'collectible', collidesWith: ['player'], width: 0.5, height: 0.5 },
+      },
       { type: 'Collectible', props: { value: 1 } },
     ],
   },
