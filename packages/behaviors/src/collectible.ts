@@ -1,5 +1,4 @@
 import { Component, type Entity } from '@waica/engine'
-import { isPlayer } from './player-identity.js'
 
 /**
  * Collected when the entity with the player role touches
@@ -18,8 +17,7 @@ export class Collectible extends Component {
   stat = 'points'
   onCollect?: (value: number) => void
 
-  override onCollide(other: Entity): void {
-    if (!isPlayer(other)) return
+  override onCollide(_other: Entity): void {
     this.onCollect?.(this.value)
     if (this.stat) this.game.stats.add(this.stat, this.value)
     this.game.events.emit('collect', this.value)

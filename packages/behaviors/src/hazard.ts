@@ -1,7 +1,6 @@
 import { Component, type Entity } from '@waica/engine'
 import { Health } from './health.js'
 import { PlatformerMotor } from './platformer-motor.js'
-import { isPlayer } from './player-identity.js'
 import { Respawnable } from './respawnable.js'
 
 export type HazardTouch = 'stomp' | 'hurt'
@@ -68,7 +67,6 @@ export class Hazard extends Component {
   private bouncing = false
 
   override onCollide(other: Entity): void {
-    if (!isPlayer(other)) return
     const motor = other.get(PlatformerMotor)
     if (motor) {
       const playerBottom = other.position.y - motor.hitboxHeight / 2

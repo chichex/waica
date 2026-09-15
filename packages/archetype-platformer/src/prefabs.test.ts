@@ -11,6 +11,21 @@ function props(ref: string, type: string): Record<string, unknown> | undefined {
 }
 
 describe('the platformer prefabs express the damage model', () => {
+  it('assigns the shipped directional collision taxonomy', () => {
+    expect(props('characters/player', 'Hitbox')).toMatchObject({
+      layer: 'player',
+      collidesWith: ['*'],
+    })
+    expect(props('characters/slime', 'Hitbox')).toMatchObject({
+      layer: 'enemy',
+      collidesWith: ['player'],
+    })
+    expect(props('objects/coin', 'Hitbox')).toMatchObject({
+      layer: 'collectible',
+      collidesWith: ['player'],
+    })
+  })
+
   it('gives the player health, a world floor, and a spawn to come back to', () => {
     expect(componentTypes('characters/player')).toEqual([
       'AnimatedSprite',

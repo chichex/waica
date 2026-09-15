@@ -53,6 +53,8 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     points: RECTANGLE_TRIANGLE,
   },
   Hitbox: {
+    layer: 'default',
+    collidesWith: ['*'],
     shape: 'rectangle',
     width: 1,
     height: 1,

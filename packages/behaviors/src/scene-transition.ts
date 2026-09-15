@@ -1,6 +1,5 @@
 import { Component, type Entity } from '@waica/engine'
 import { Interactable } from './interactable.js'
-import { isPlayer } from './player-identity.js'
 
 /**
  * Replaces the live scene with `scene` (its file's stem, e.g.
@@ -36,9 +35,8 @@ export class SceneTransition extends Component {
     }
   }
 
-  override onCollide(other: Entity): void {
+  override onCollide(_other: Entity): void {
     if (this.trigger !== 'overlap') return
-    if (!isPlayer(other)) return
     this.fire()
   }
 

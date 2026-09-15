@@ -119,6 +119,11 @@ export function newPrefabComponents(
       const extras: SceneComponentJson[] = structuredClone(
         identity ? IDENTITY_EXTRAS[identity] : [],
       ) as SceneComponentJson[]
+      const hitboxCategories = identity === 'player'
+        ? { layer: 'player', collidesWith: ['*'] }
+        : identity === 'enemy'
+          ? { layer: 'enemy', collidesWith: ['player'] }
+          : {}
       return [
         { type: 'Sprite', props: { ...DEFAULT_SPRITE, layer: 2 } },
         {
@@ -131,7 +136,10 @@ export function newPrefabComponents(
         },
         ...driver,
         ...extras,
-        { type: 'Hitbox', props: { width: 0.9, height: 0.95 } },
+        {
+          type: 'Hitbox',
+          props: { ...hitboxCategories, width: 0.9, height: 0.95 },
+        },
       ]
     }
     case 'object':

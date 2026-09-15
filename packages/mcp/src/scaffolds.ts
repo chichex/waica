@@ -153,6 +153,11 @@ function prefabComponents(
   switch (type) {
     case 'character': {
       const driver: SceneComponentJson[] = definition?.driver ? [{ type: definition.driver }] : []
+      const hitboxCategories = identity === 'player'
+        ? { layer: 'player', collidesWith: ['*'] }
+        : identity === 'enemy'
+          ? { layer: 'enemy', collidesWith: ['player'] }
+          : {}
       return [
         { type: 'Sprite', props: { ...DEFAULT_SPRITE, layer: 2 } },
         {
@@ -165,7 +170,10 @@ function prefabComponents(
         },
         ...driver,
         ...(identity ? IDENTITY_EXTRAS[identity] : []),
-        { type: 'Hitbox', props: { width: 0.9, height: 0.95 } },
+        {
+          type: 'Hitbox',
+          props: { ...hitboxCategories, width: 0.9, height: 0.95 },
+        },
       ]
     }
     case 'object':

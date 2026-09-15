@@ -187,6 +187,20 @@ describe('newPrefabComponents', () => {
     ])
   })
 
+  it('authors collision categories only when player or enemy identity is known', () => {
+    const hitbox = (identity?: 'player' | 'enemy' | 'npc' | 'custom') =>
+      newPrefabComponents('character', identity === 'enemy' ? 'chaser' : 'player', identity)
+        .find((component) => component.type === 'Hitbox')?.props
+
+    expect(hitbox('player')).toMatchObject({ layer: 'player', collidesWith: ['*'] })
+    expect(hitbox('enemy')).toMatchObject({ layer: 'enemy', collidesWith: ['player'] })
+    for (const identity of ['npc', 'custom', undefined] as const) {
+      expect(hitbox(identity)).toEqual({ width: 0.9, height: 0.95 })
+    }
+    expect(newPrefabComponents('object').find((component) => component.type === 'Hitbox')?.props)
+      .toEqual({ width: 1, height: 1 })
+  })
+
   it('gives the identity extras the same props as the archetype prefabs, not bare class defaults', () => {
     // PLATFORMER_PREFABS ships Health { invulnerability: 1 } on the player
     // and Health { max: 1 } on the slime — an editor-born character must

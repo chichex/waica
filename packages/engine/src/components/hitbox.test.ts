@@ -9,8 +9,8 @@ describe('Hitbox collision categories', () => {
     expect(hitbox.layer).toBe('default')
     expect(hitbox.collidesWith).toEqual(['*'])
     expect(Hitbox.params).toMatchObject({
-      layer: { label: 'layer' },
-      collidesWith: { label: 'collides with', kind: 'string-list' },
+      layer: { label: 'Collision Layer' },
+      collidesWith: { label: 'Collision Mask', kind: 'string-list' },
     })
     expect(authoringDefaults(Hitbox)).toMatchObject({
       layer: 'default',

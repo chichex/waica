@@ -141,7 +141,7 @@ describe('Projectile', () => {
     expect(bullet.alive).toBe(false)
   })
 
-  it('passes through anything that is not a patroller or chaser', () => {
+  it('trusts the authored projectile mask instead of rechecking target roles', () => {
     defineStates('player', {})
     const world = makeWorld()
     const bullet = addBullet(world, 0)
@@ -150,7 +150,7 @@ describe('Projectile', () => {
 
     bullet.get(Projectile)?.onCollide(player as unknown as Entity)
 
-    expect(player.alive).toBe(true)
-    expect(bullet.alive).toBe(true)
+    expect(player.alive).toBe(false)
+    expect(bullet.alive).toBe(false)
   })
 })

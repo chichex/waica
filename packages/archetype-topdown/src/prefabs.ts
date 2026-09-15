@@ -26,7 +26,10 @@ export const TOPDOWN_PREFABS: Record<string, PrefabJson> = {
           states: TOPDOWN_PLAYER_STATE_GRAPH.states,
         },
       },
-      { type: 'Hitbox', props: { width: 0.8, height: 0.8 } },
+      {
+        type: 'Hitbox',
+        props: { layer: 'player', collidesWith: ['*'], width: 0.8, height: 0.8 },
+      },
       { type: 'Respawnable' },
       { type: 'Health', props: { max: 3, invulnerability: 1 } },
     ],
@@ -98,7 +101,10 @@ export const TOPDOWN_PREFABS: Record<string, PrefabJson> = {
           states: { walk: { clip: 'idle' } },
         },
       },
-      { type: 'Hitbox', props: { width: 0.8, height: 0.7 } },
+      {
+        type: 'Hitbox',
+        props: { layer: 'enemy', collidesWith: ['player'], width: 0.8, height: 0.7 },
+      },
       // No stomping without gravity: any contact hurts.
       { type: 'Hazard', props: { stompable: false, contactDamage: 1 } },
     ],
@@ -119,7 +125,10 @@ export const TOPDOWN_PREFABS: Record<string, PrefabJson> = {
           initialClip: 'idle',
         },
       },
-      { type: 'Hitbox', props: { width: 0.5, height: 0.5 } },
+      {
+        type: 'Hitbox',
+        props: { layer: 'collectible', collidesWith: ['player'], width: 0.5, height: 0.5 },
+      },
       { type: 'Collectible', props: { value: 1 } },
     ],
   },

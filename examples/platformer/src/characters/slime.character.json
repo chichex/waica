@@ -46,6 +46,10 @@
     {
       "type": "Hitbox",
       "props": {
+        "layer": "enemy",
+        "collidesWith": [
+          "player"
+        ],
         "width": 0.9,
         "height": 0.6
       }
