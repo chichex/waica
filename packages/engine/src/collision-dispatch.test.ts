@@ -229,4 +229,86 @@ describe('directional collision dispatch', () => {
     expect(enemy.probe.log).toEqual([])
     game.dispose()
   })
+
+  it('freezes spatial candidates before callbacks but evaluates frozen false positives live', () => {
+    const game = makeGame()
+    const a = spawnBox(game, 'A', { width: 0.2, height: 0.2 }, 0.1)
+    const b = spawnBox(game, 'B', { width: 0.2, height: 0.2 }, 0.1)
+    const frozen = spawnBox(game, 'Frozen', { width: 0.2, height: 0.2 }, 0.8)
+    const absent = spawnBox(game, 'Absent', { width: 0.2, height: 0.2 }, 5.1)
+    a.probe.action = (other) => {
+      if (other !== b.entity) return
+      frozen.entity.position.x = 5.1
+      absent.entity.position.x = 0.1
+      spawnBox(game, 'Spawned', { width: 0.2, height: 0.2 }, 0.1)
+    }
+
+    const stats = dispatchCollisions(game)
+
+    expect(stats.candidatePairs).toBe(3)
+    expect(a.probe.log).toEqual(['A->B'])
+    expect(b.probe.log).toEqual(['B->A'])
+    expect(frozen.probe.log).toEqual([])
+    expect(absent.probe.log).toEqual([])
+    expect(game.find('Spawned')?.get(CollisionProbe)?.log).toEqual([])
+    game.dispose()
+  })
+})
+
+describe('collision broadphase work counts', () => {
+  it('deduplicates one pair that shares several cells', () => {
+    const game = makeGame()
+    spawnBox(game, 'First', { width: 3, height: 3 })
+    spawnBox(game, 'Second', { width: 3, height: 3 })
+
+    expect(dispatchCollisions(game)).toEqual({ candidatePairs: 1, narrowphaseCalls: 1 })
+    game.dispose()
+  })
+
+  it('does no pair or narrowphase work for 1,000 isolated Hitboxes', () => {
+    const game = makeGame()
+    for (let index = 0; index < 1_000; index += 1) {
+      const entity = game.spawn(`Isolated ${index}`)
+      entity.position.x = index * 3
+      entity.add(Hitbox, { width: 0.2, height: 0.2 })
+    }
+
+    expect(dispatchCollisions(game)).toEqual({ candidatePairs: 0, narrowphaseCalls: 0 })
+    game.dispose()
+  })
+
+  it('does at most one pair and exactly one narrowphase per isolated two-body cell', () => {
+    const game = makeGame()
+    for (let index = 0; index < 500; index += 1) {
+      for (const suffix of ['A', 'B']) {
+        const entity = game.spawn(`${index}${suffix}`)
+        entity.position.x = index * 3 + 0.25
+        entity.add(Hitbox, { width: 0.2, height: 0.2 })
+      }
+    }
+
+    const stats = dispatchCollisions(game)
+
+    expect(stats.candidatePairs).toBeLessThanOrEqual(500)
+    expect(stats.narrowphaseCalls).toBe(500)
+    game.dispose()
+  })
+
+  it('permits the dense-cell worst case but filters incompatible masks before narrowphase', () => {
+    const game = makeGame()
+    for (let index = 0; index < 1_000; index += 1) {
+      game.spawn(`Dense ${index}`).add(Hitbox, {
+        layer: 'enemy',
+        collidesWith: ['player'],
+        width: 0.2,
+        height: 0.2,
+      })
+    }
+
+    expect(dispatchCollisions(game)).toEqual({
+      candidatePairs: 499_500,
+      narrowphaseCalls: 0,
+    })
+    game.dispose()
+  })
 })

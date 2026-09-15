@@ -1,11 +1,19 @@
 import { collisionBody } from './collision-body.js'
-import { collisionOverlap, type CollisionBody } from './collision-shape.js'
+import {
+  collisionBounds,
+  collisionOverlap,
+  type CollisionBody,
+  type CollisionBounds,
+} from './collision-shape.js'
 import type { Component, ComponentClass } from './component.js'
 import { Hitbox } from './components/hitbox.js'
 import { Solid } from './components/solid.js'
 import type { Entity } from './entity.js'
 import type { Game } from './game.js'
-import { sceneSolids } from './scene-solids.js'
+import {
+  createHitboxBroadphase,
+  createSolidBroadphase,
+} from './spatial-broadphase.js'
 import {
   collisionBodyContainsPoint,
   collisionBodyRay,
@@ -157,31 +165,28 @@ export interface SolidCandidate {
   readonly solid: Solid
 }
 
-/** Package-internal candidate boundary reserved for future acceleration. */
+/** Package-internal candidate boundary used by the Game-owned broadphase. */
 export interface SpatialQueryCandidateProviders {
-  hitboxes(): readonly HitboxCandidate[]
+  hitboxes(bounds: CollisionBounds): readonly HitboxCandidate[]
   transforms(): readonly Entity[]
-  solids(): readonly SolidCandidate[]
+  solids(bounds: CollisionBounds): readonly SolidCandidate[]
 }
 
-function linearCandidateProviders(game: Game): SpatialQueryCandidateProviders {
+/** Package-internal deterministic candidate-count seam for tests. */
+export interface SpatialQueryInstrumentation {
+  onCandidates(domain: 'hitbox' | 'solid', count: number): void
+}
+
+function indexedCandidateProviders(game: Game): SpatialQueryCandidateProviders {
   return {
-    hitboxes() {
-      const result: HitboxCandidate[] = []
-      for (const entity of [...game.entities]) {
-        if (!entity.alive) continue
-        const hitbox = entity.get(Hitbox)
-        if (hitbox) result.push({ entity, hitbox })
-      }
-      return result
+    hitboxes(bounds) {
+      return createHitboxBroadphase(game).candidates(bounds)
     },
     transforms() {
       return [...game.entities].filter((entity) => entity.alive)
     },
-    solids() {
-      return sceneSolids(game)
-        .filter((solid) => solid.entity.alive)
-        .map((solid) => ({ entity: solid.entity, solid }))
+    solids(bounds) {
+      return createSolidBroadphase(game).candidates(bounds)
     },
   }
 }
@@ -226,11 +231,17 @@ function matchesFilter(
 }
 
 class LinearSpatialQuery {
-  constructor(private readonly candidates: SpatialQueryCandidateProviders) {}
+  constructor(
+    private readonly candidates: SpatialQueryCandidateProviders,
+    private readonly instrumentation?: SpatialQueryInstrumentation,
+  ) {}
 
   area(body: CollisionBody, filter?: SpatialQueryFilter<ComponentClasses>): Entity[] {
     if (!usableCollisionBody(body)) return []
-    const candidates = [...this.candidates.hitboxes()].filter(({ entity }) => entity.alive)
+    const candidates = [...this.candidates.hitboxes(collisionBounds(body))].filter(
+      ({ entity }) => entity.alive,
+    )
+    this.instrumentation?.onCandidates('hitbox', candidates.length)
     const result: Entity[] = []
     for (const { entity, hitbox } of candidates) {
       if (!matchesFilter(entity, filter)) continue
@@ -244,7 +255,10 @@ class LinearSpatialQuery {
 
   point(x: number, y: number, filter?: SpatialQueryFilter<ComponentClasses>): Entity[] {
     if (!Number.isFinite(x) || !Number.isFinite(y)) return []
-    const candidates = [...this.candidates.hitboxes()].filter(({ entity }) => entity.alive)
+    const candidates = [
+      ...this.candidates.hitboxes({ left: x, right: x, bottom: y, top: y }),
+    ].filter(({ entity }) => entity.alive)
+    this.instrumentation?.onCandidates('hitbox', candidates.length)
     const result: Entity[] = []
     for (const { entity, hitbox } of candidates) {
       if (!matchesFilter(entity, filter)) continue
@@ -314,7 +328,17 @@ class LinearSpatialQuery {
     const scaledLength = Math.hypot(scaledX, scaledY)
     const unitX = scaledX / scaledLength
     const unitY = scaledY / scaledLength
-    const candidates = [...this.candidates.solids()].filter(({ entity }) => entity.alive)
+    const endX = x + unitX * maxDistance
+    const endY = y + unitY * maxDistance
+    const candidates = [
+      ...this.candidates.solids({
+        left: Math.min(x, endX) - SPATIAL_QUERY_EPSILON,
+        right: Math.max(x, endX) + SPATIAL_QUERY_EPSILON,
+        bottom: Math.min(y, endY) - SPATIAL_QUERY_EPSILON,
+        top: Math.max(y, endY) + SPATIAL_QUERY_EPSILON,
+      }),
+    ].filter(({ entity }) => entity.alive)
+    this.instrumentation?.onCandidates('solid', candidates.length)
     let result: RayHit | null = null
     for (const { entity, solid } of candidates) {
       if (!matchesFilter(entity, filter)) continue
@@ -343,7 +367,8 @@ class LinearSpatialQuery {
 /** Package-internal constructor; only the SpatialQuery interface is public. */
 export function createSpatialQuery(
   game: Game,
-  candidates: SpatialQueryCandidateProviders = linearCandidateProviders(game),
+  candidates: SpatialQueryCandidateProviders = indexedCandidateProviders(game),
+  instrumentation?: SpatialQueryInstrumentation,
 ): SpatialQuery {
-  return new LinearSpatialQuery(candidates)
+  return new LinearSpatialQuery(candidates, instrumentation)
 }

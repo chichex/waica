@@ -2,19 +2,8 @@ import { collisionBody } from './collision-body.js'
 import { collisionMaskTargets } from './collision-category.js'
 import { collisionOverlap } from './collision-shape.js'
 import { Hitbox } from './components/hitbox.js'
-import type { Entity } from './entity.js'
 import type { Game } from './game.js'
-
-interface HitboxSnapshot {
-  readonly entity: Entity
-  readonly hitbox: Hitbox
-  readonly entityIndex: number
-}
-
-interface CollisionPair {
-  readonly first: HitboxSnapshot
-  readonly second: HitboxSnapshot
-}
+import { createHitboxBroadphase } from './spatial-broadphase.js'
 
 /** Package-internal deterministic work receipt used by focused tests. */
 export interface CollisionDispatchStats {
@@ -22,27 +11,11 @@ export interface CollisionDispatchStats {
   readonly narrowphaseCalls: number
 }
 
-function collisionPairs(game: Game): CollisionPair[] {
-  const hitboxes: HitboxSnapshot[] = []
-  for (const [entityIndex, entity] of [...game.entities].entries()) {
-    if (!entity.alive) continue
-    const hitbox = entity.get(Hitbox)
-    if (hitbox) hitboxes.push({ entity, hitbox, entityIndex })
-  }
-  const result: CollisionPair[] = []
-  for (let first = 0; first < hitboxes.length; first += 1) {
-    for (let second = first + 1; second < hitboxes.length; second += 1) {
-      result.push({ first: hitboxes[first]!, second: hitboxes[second]! })
-    }
-  }
-  return result
-}
-
 /** Game's package-internal trigger dispatch implementation. */
 export function dispatchCollisions(game: Game): CollisionDispatchStats {
-  const pairs = collisionPairs(game)
+  const pairs = createHitboxBroadphase(game).pairs()
   let narrowphaseCalls = 0
-  for (const { first, second } of pairs) {
+  for (const [first, second] of pairs) {
     const a = first.entity
     const b = second.entity
     if (!a.alive || !b.alive) continue
