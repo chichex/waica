@@ -59,12 +59,24 @@ The square-grid world in which an isometric scene is authored and simulated; pre
 _Avoid_: screen coordinates, iso coordinates
 
 **Spatial Query**:
-A read-only question about live scene locations or collision geometry, always evaluated in Logical Coordinates. Area and point targeting use Hitboxes, proximity uses entity transforms, and physical rays use Solids; visual picking remains separate.
+A read-only question about live scene locations or collision geometry, always evaluated in Logical Coordinates. Area and point targeting use Hitboxes, proximity uses entity transforms, and physical rays use Solids; Collision Masks govern automatic dispatch and never narrow a Spatial Query, while visual picking remains separate.
 _Avoid_: entity scan, render-space picking
 
 **Hitbox**:
 An entity's trigger shape in Logical Coordinates, used for overlap, area, and point targeting. It is distinct from the static physical geometry that blocks movement.
 _Avoid_: Solid, sprite bounds
+
+**Collision Layer**:
+The single named category a Hitbox belongs to for automatic trigger-overlap dispatch. Its exact lowercase kebab-case name defaults to `default`; invalid names are not targetable and `*` is reserved for masks.
+_Avoid_: physics layer, render layer
+
+**Collision Mask**:
+The set of Collision Layers a Hitbox declares interest in for automatic trigger-overlap dispatch. Either mask can make a pair eligible and only matching Hitboxes receive callbacks; `*` means every layer, an empty mask means no outgoing interest, and malformed entries do not match.
+_Avoid_: collision matrix, query filter
+
+**Collision Broadphase**:
+The candidate-narrowing stage for collision geometry in Logical Coordinates. It keeps Hitbox and Solid candidates in separate domains and cannot change overlap, query, or ordering semantics.
+_Avoid_: collision solver, Spatial Query
 
 **Solid**:
 Static physical geometry in Logical Coordinates that blocks movement and physical rays. A Solid can belong directly to an entity or be derived by a Tilemap.
