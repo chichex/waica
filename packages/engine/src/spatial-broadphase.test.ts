@@ -71,19 +71,39 @@ describe('package-internal uniform grid', () => {
 
     const aboveCap = createSpatialBroadphase([
       {
-        value: 'overflow',
+        value: 'overflow-a',
         order: 0,
         body: { x: 128, y: 0.25, width: 256, height: 0.5 },
       },
       {
-        value: 'remote-normal',
+        value: 'overflow-b',
         order: 1,
-        body: { x: 1_000.25, y: 0.25, width: 0.25, height: 0.25 },
+        body: { x: 1_128, y: 0.25, width: 256, height: 0.5 },
+      },
+      {
+        value: 'local-normal',
+        order: 2,
+        body: { x: 0.25, y: 0.25, width: 0.25, height: 0.25 },
+      },
+      {
+        value: 'remote-normal',
+        order: 3,
+        body: { x: 2_000.25, y: 0.25, width: 0.25, height: 0.25 },
       },
     ], 1)
-    expect(aboveCap.stats).toEqual({ indexed: 1, overflow: 1 })
-    expect(aboveCap.pairs()).toEqual([['overflow', 'remote-normal']])
-    expect(aboveCap.candidates(LOCAL_BOUNDS)).toEqual(['overflow'])
+    expect(aboveCap.stats).toEqual({ indexed: 2, overflow: 2 })
+    expect(aboveCap.pairs()).toEqual([
+      ['overflow-a', 'overflow-b'],
+      ['overflow-a', 'local-normal'],
+      ['overflow-a', 'remote-normal'],
+      ['overflow-b', 'local-normal'],
+      ['overflow-b', 'remote-normal'],
+    ])
+    expect(aboveCap.candidates(LOCAL_BOUNDS)).toEqual([
+      'overflow-a',
+      'overflow-b',
+      'local-normal',
+    ])
   })
 
   it('falls back to the complete ordered domain when a search spans above the cap', () => {

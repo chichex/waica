@@ -109,6 +109,37 @@ describe('directional collision dispatch', () => {
     game.dispose()
   })
 
+  it('implements the shipped mutual and one-way taxonomy before narrowphase', () => {
+    const game = makeGame()
+    const player = spawnBox(game, 'Player', { layer: 'player', collidesWith: ['*'] })
+    const enemy = spawnBox(game, 'Enemy', { layer: 'enemy', collidesWith: ['player'] })
+    const collectible = spawnBox(game, 'Collectible', {
+      layer: 'collectible',
+      collidesWith: ['player'],
+    })
+    const door = spawnBox(game, 'Door', {
+      layer: 'scene-transition',
+      collidesWith: ['player'],
+    })
+    const projectile = spawnBox(game, 'Projectile', {
+      layer: 'projectile',
+      collidesWith: ['enemy'],
+    })
+
+    expect(dispatchCollisions(game)).toEqual({ candidatePairs: 10, narrowphaseCalls: 5 })
+    expect(player.probe.log).toEqual([
+      'Player->Enemy',
+      'Player->Collectible',
+      'Player->Door',
+      'Player->Projectile',
+    ])
+    expect(enemy.probe.log).toEqual(['Enemy->Player'])
+    expect(collectible.probe.log).toEqual(['Collectible->Player'])
+    expect(door.probe.log).toEqual(['Door->Player'])
+    expect(projectile.probe.log).toEqual(['Projectile->Enemy'])
+    game.dispose()
+  })
+
   it('rejects incompatible masks before exact geometry and reports no callback without overlap', () => {
     const game = makeGame()
     const first = spawnBox(game, 'First', {
@@ -193,6 +224,24 @@ describe('directional collision dispatch', () => {
 
     expect(log).toEqual(['destroyer->Second', 'after-destroy->Second'])
     expect(second.alive).toBe(false)
+    game.dispose()
+  })
+
+  it('skips frozen pairs whose snapshotted Hitbox was removed by an earlier callback', () => {
+    const game = makeGame()
+    const first = spawnBox(game, 'First')
+    const second = spawnBox(game, 'Second')
+    const removed = spawnBox(game, 'Removed')
+    first.probe.action = (other) => {
+      if (other !== second.entity) return
+      const index = removed.entity.components.indexOf(removed.hitbox)
+      removed.entity.components.splice(index, 1)
+    }
+
+    expect(dispatchCollisions(game)).toEqual({ candidatePairs: 3, narrowphaseCalls: 1 })
+    expect(first.probe.log).toEqual(['First->Second'])
+    expect(second.probe.log).toEqual(['Second->First'])
+    expect(removed.probe.log).toEqual([])
     game.dispose()
   })
 

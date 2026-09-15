@@ -323,17 +323,27 @@ describe('Inspector collision-category diagnostics', () => {
     expect(host.textContent).toContain('Collision Mask entry "Enemy" is invalid')
   })
 
-  it('reports a non-list mask without rewriting it and leaves valid open-vocabulary values clean', () => {
+  it('reports a non-list mask without blocking edits and leaves valid open-vocabulary values clean', () => {
+    const onPrefabProp = vi.fn()
     const invalid = objectPrefab({ layer: 'custom-layer', collidesWith: 'enemy' })
     render(baseProps({
       selection: { kind: 'prefab', ref: 'objects/bad-mask', prefab: invalid },
       prefabs: { 'objects/bad-mask': invalid },
+      onPrefabProp,
     }))
 
     const invalidField = list('collidesWith')
-    expect(invalidField.querySelector('input')?.getAttribute('aria-invalid')).toBe('true')
+    const invalidInput = invalidField.querySelector<HTMLInputElement>('input')!
+    expect(invalidInput.getAttribute('aria-invalid')).toBe('true')
     expect(invalidField.textContent).toContain('Collision Mask must be a list of strings')
-    expect(invalidField.querySelector('input')?.getAttribute('value')).toBe('"enemy"')
+    expect(invalidInput.value).toBe('enemy')
+    setInput(invalidInput, 'enemy-fixed')
+    expect(onPrefabProp).toHaveBeenCalledWith(
+      'objects/bad-mask',
+      'Hitbox',
+      'collidesWith',
+      ['enemy-fixed'],
+    )
 
     const valid = objectPrefab({ layer: 'unknown-valid-9', collidesWith: ['*'] })
     render(baseProps({

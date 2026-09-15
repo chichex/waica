@@ -75,7 +75,7 @@ export abstract class Component {
   onUpdate?(dt: number): void
   /** Runs after the scene changes between identity and projected rendering. */
   onProjectionChange?(projection: 'isometric' | null): void
-  /** Runs when this entity's Hitbox overlaps another one's. */
+  /** Runs on overlap when this entity's Hitbox mask names the other's layer. */
   onCollide?(other: Entity): void
   /** Runs when this entity's DynamicBody physically contacts a Solid. */
   onContact?(contact: SolidContact): void

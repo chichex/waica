@@ -268,8 +268,8 @@ export class Game {
    * the live scene. An unknown name warns and leaves the live scene
    * untouched. Triggered mid-frame (e.g. from a SceneTransition's
    * onCollide/onInteract) the swap is deferred to the very start of the
-   * next runFrame — dispatchCollisions finishes its double loop over the
-   * outgoing scene, and the incoming scene's entities are present only
+   * next runFrame — dispatchCollisions finishes its frozen pair snapshot for
+   * the outgoing scene, and the incoming scene's entities are present only
    * from the next frame. Called from outside a frame (boot, or the Runtime
    * Bridge's `scene` control operation) it applies synchronously and wins
    * over anything queued earlier this frame. A second mid-frame request

@@ -90,11 +90,11 @@ export function StringListField({
         ) : (
           <input
             type="text"
-            value={JSON.stringify(value) ?? String(value)}
-            readOnly
+            value={displayedValue(value)}
             aria-label={param}
             aria-invalid={fieldErrors.length > 0 || undefined}
             aria-describedby={fieldErrors.length > 0 ? diagnosticId : undefined}
+            onChange={(event) => onChange([event.target.value])}
           />
         )}
         <button

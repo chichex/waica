@@ -1,9 +1,9 @@
 import { Component, type Entity } from '@waica/engine'
 
 /**
- * Collected when the entity with the player role touches
- * it: adds its value to a stat, fires onCollect and destroys itself.
- * Requires Hitbox on both entities.
+ * Collected when its Hitbox mask dispatches an overlap: adds its value to a
+ * stat, fires onCollect and destroys itself. Shipped collectibles target the
+ * `player` layer; this handler deliberately does not recheck identity.
  */
 export class Collectible extends Component {
   static override componentName = 'Collectible'

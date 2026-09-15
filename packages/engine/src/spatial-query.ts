@@ -86,7 +86,7 @@ type NearestGuardFilter<
 
 /** Public logical-space spatial-query service owned by every Game. */
 export interface SpatialQuery {
-  /** Hitbox owners with positive interior overlap, in Entity order. */
+  /** Hitbox owners with positive interior overlap, mask-agnostic and in Entity order. */
   area<
     Classes extends ComponentClasses = readonly [],
     Narrowed extends QueryEntity<Classes> = QueryEntity<Classes>,
@@ -97,7 +97,7 @@ export interface SpatialQuery {
   ): QueryEntity<Classes>[]
   area(body: CollisionBody, filter?: SpatialQueryFilter): Entity[]
 
-  /** Hitbox owners that strictly contain a logical point, in Entity order. */
+  /** Hitbox owners that strictly contain a point, mask-agnostic and in Entity order. */
   point<
     Classes extends ComponentClasses = readonly [],
     Narrowed extends QueryEntity<Classes> = QueryEntity<Classes>,

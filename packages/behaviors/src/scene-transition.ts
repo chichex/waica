@@ -8,9 +8,10 @@ import { Interactable } from './interactable.js'
  * destination: the incoming scene places its own Player wherever that
  * scene authored it (no named entry points).
  *
- * With trigger:'overlap' (the default) it fires like Collectible/Hazard:
- * the player's Hitbox overlapping its own — requires a sibling Hitbox.
- * With trigger:'interact' it implements no radius or prompt of its own:
+ * With trigger:'overlap' (the default) it fires whenever its Hitbox mask
+ * dispatches an overlap. Shipped doors target the `player` layer; this handler
+ * deliberately does not recheck identity. With trigger:'interact' it implements
+ * no radius or prompt of its own:
  * it needs a sibling Interactable and fires from the shared nearest-wins
  * interact scan (interactable.ts's fireInteract), so a door and an NPC in
  * range arbitrate themselves with no new rule.
