@@ -13,10 +13,14 @@ import {
 export class Hitbox extends Component {
   static override componentName = 'Hitbox'
   static override params = {
+    layer: { label: 'layer' },
+    collidesWith: { label: 'collides with', kind: 'string-list' as const },
     offsetX: { label: 'x offset' },
     offsetY: { label: 'y offset' },
   }
 
+  layer = 'default'
+  collidesWith: string[] = ['*']
   shape: CollisionShape = 'rectangle'
   width = 1
   height = 1

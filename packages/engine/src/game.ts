@@ -1,8 +1,7 @@
 import * as THREE from 'three'
 import type { AudioBackend } from './audio/backend.js'
 import { AudioSubsystem } from './audio/audio-subsystem.js'
-import { collisionBody } from './collision-body.js'
-import { collisionOverlap } from './collision-shape.js'
+import { dispatchCollisions as dispatchHitboxCollisions } from './collision-dispatch.js'
 import {
   isCameraVelocityProvider,
   resolveSceneCamera,
@@ -13,7 +12,6 @@ import {
 } from './camera.js'
 import type { Component, ComponentClass } from './component.js'
 import { resolveComponentUpdateSchedule } from './component-update-schedule.js'
-import { Hitbox } from './components/hitbox.js'
 import { Entity } from './entity.js'
 import { Emitter } from './events.js'
 import {
@@ -86,7 +84,10 @@ export interface SceneCatalog {
 }
 
 /** Persisted overrides: entity → componentName → prop → value. */
-export type ParamOverrides = Record<string, Record<string, Record<string, number | boolean | string>>>
+export type ParamOverrides = Record<
+  string,
+  Record<string, Record<string, number | boolean | string | string[]>>
+>
 
 /**
  * Engine core: loop, unified 2D/3D three scene, orthographic camera,
@@ -701,22 +702,7 @@ export class Game {
   }
 
   private dispatchCollisions(): void {
-    const boxed = this.entities.filter((e) => e.has(Hitbox))
-    for (let i = 0; i < boxed.length; i++) {
-      for (let j = i + 1; j < boxed.length; j++) {
-        const a = boxed[i]
-        const b = boxed[j]
-        if (!a?.alive || !b?.alive) continue
-        const ha = a.get(Hitbox)
-        const hb = b.get(Hitbox)
-        if (!ha || !hb) continue
-        const hit = collisionOverlap(collisionBody(ha), collisionBody(hb))
-        if (!hit) continue
-        for (const c of [...a.components]) c.onCollide?.(b)
-        if (!a.alive || !b.alive) continue
-        for (const c of [...b.components]) c.onCollide?.(a)
-      }
-    }
+    dispatchHitboxCollisions(this)
   }
 
   private resize(): void {
