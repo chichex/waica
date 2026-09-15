@@ -1881,6 +1881,62 @@ button.ed-crumb:hover {
   color: var(--gold);
 }
 
+.ed-row input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.ed-param-block {
+  margin: 4px 0;
+}
+
+.ed-row-string-list {
+  align-items: start;
+}
+
+.ed-string-list-label {
+  padding-top: 5px;
+  color: var(--text-dim);
+}
+
+.ed-string-list-control {
+  display: grid;
+  gap: 4px;
+}
+
+.ed-string-list-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px;
+  gap: 4px;
+}
+
+.ed-string-list-entry .ed-mini {
+  padding: 0;
+}
+
+.ed-string-list-add {
+  justify-self: start;
+}
+
+.ed-param-diagnostics {
+  grid-column: 2;
+  display: grid;
+  gap: 2px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.ed-param-block > .ed-param-diagnostics {
+  margin-left: calc(100% - 110px);
+}
+
+.ed-param-diagnostic.is-error {
+  color: var(--danger);
+}
+
+.ed-param-diagnostic.is-warning {
+  color: var(--gold);
+}
+
 /* Typed-reference row in "Custom…" mode: free-text input + a small toggle
    back to the picker, sharing the row's normal 110px value column. */
 .ed-ref-custom {

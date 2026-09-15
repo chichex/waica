@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useId, useRef, useState } from 'react'
 import { resolveCollisionPoints, resolveComponentUpdateSchedule, resolveSceneCamera, roleDefinition, sheetCell, type PrefabJson, type SceneCameraJson, type SceneComponentJson, type SceneEntityJson, type SceneJson, type SheetGridParams, type StateJson } from '@waica/engine'
 import { useArchetype, type ArchetypeManifest } from '../project/archetype'
 import { classDefaults } from '../project/component-defaults'
@@ -31,6 +31,8 @@ import {
 import { MissingOption, missingOptionClass } from './missing-option'
 import { TilemapCard } from './TilemapCard'
 import type { TilemapBrushSelection } from './tilemap-brush'
+import { collisionParamDiagnostics, type ParamDiagnostic } from './collision-category-diagnostics'
+import { ParamDiagnosticMessages, StringListField } from './StringListField'
 
 /** What the inspector is editing, mirroring the explorer view. */
 export type InspectorSelection =
@@ -538,6 +540,7 @@ function PropRow({
   onChange,
   onReset,
   onApply,
+  diagnostics,
 }: {
   /** The raw prop key; shown as-is unless the spec declares a friendly label. */
   label: string
@@ -551,8 +554,11 @@ function PropRow({
   onReset?(): void
   /** Pushes the override into the prefab (shown only while overridden). */
   onApply?(): void
+  /** Present for params with value-specific authoring diagnostics. */
+  diagnostics?: readonly ParamDiagnostic[]
 }) {
   const referenceContext = useContext(RefTargetsContext)
+  const diagnosticId = `${useId().replaceAll(':', '')}-${label}-diagnostics`
   const referenceTargets =
     spec?.ref && spec.options === undefined
       ? availableRefTargets(referenceContext.project, spec.ref, referenceContext.entity)
@@ -583,6 +589,36 @@ function PropRow({
       )}
     </span>
   )
+  if (spec?.kind === 'string-list') {
+    return (
+      <StringListField
+        param={label}
+        name={name}
+        value={value}
+        diagnostics={diagnostics}
+        onChange={onChange}
+      />
+    )
+  }
+  if (diagnostics !== undefined) {
+    const invalid = diagnostics.some((diagnostic) => diagnostic.severity === 'error')
+    const text = typeof value === 'string' ? value : (JSON.stringify(value) ?? String(value))
+    return (
+      <div className="ed-param-block" data-param={label}>
+        <label className="ed-row">
+          {name}
+          <input
+            type="text"
+            value={text}
+            aria-invalid={invalid || undefined}
+            aria-describedby={diagnostics.length > 0 ? diagnosticId : undefined}
+            onChange={(event) => onChange(event.target.value)}
+          />
+        </label>
+        <ParamDiagnosticMessages diagnostics={diagnostics} id={diagnosticId} />
+      </div>
+    )
+  }
   if (typeof value === 'boolean') {
     return (
       <label className="ed-row">
@@ -673,6 +709,11 @@ function PropRow({
   )
 }
 
+function paramValuesEqual(left: unknown, right: unknown): boolean {
+  if (!Array.isArray(left) || !Array.isArray(right)) return Object.is(left, right)
+  return left.length === right.length && left.every((value, index) => Object.is(value, right[index]))
+}
+
 /**
  * Batch editor for the multi-selection: components every selected entity
  * carries, with their primitive props editable in one stroke. Uniform values
@@ -704,9 +745,10 @@ function MultiPropsSection({
         const defaults = componentDefaults(comps[0]!, archetype)
         const specs = archetype.registry.components[type]?.params ?? {}
         const valueOf = (comp: SceneComponentJson, key: string): unknown =>
-          (comp.props ?? {})[key] ?? defaults[key]
+          comp.props && Object.hasOwn(comp.props, key) ? comp.props[key] : defaults[key]
         const keys = [...new Set(comps.flatMap((c) => componentKeys(c, archetype)))].filter((key) => {
           if (ANIMATION_KEYS.has(key) || key === 'texture') return false
+          if (specs[key]?.kind === 'string-list') return true
           const sample = comps.map((c) => valueOf(c, key)).find((v) => v !== undefined)
           const kind = typeof sample
           return kind === 'number' || kind === 'boolean' || kind === 'string'
@@ -717,14 +759,15 @@ function MultiPropsSection({
             <header className="ed-sec-head">{componentLabel(type, archetype)}</header>
             {keys.map((key) => {
               const values = comps.map((c) => valueOf(c, key))
-              const uniform = values.every((v) => v === values[0])
+              const uniform = values.every((value) => paramValuesEqual(value, values[0]))
               const spec = specs[key]
               return (
                 <PropRow
                   key={`multi.${names.length}.${type}.${key}`}
                   label={key}
                   spec={uniform ? spec : { ...spec, label: `${spec?.label ?? key} (mixed)` }}
-                  value={values[0] ?? 0}
+                  value={values[0] === undefined ? 0 : values[0]}
+                  diagnostics={collisionParamDiagnostics(type, key, values[0])}
                   onChange={(value) => onMultiProp(names, type, key, value)}
                 />
               )
@@ -824,18 +867,24 @@ function ComponentRows({
   const specs = archetype.registry.components[comp.type]?.params ?? {}
   return (
     <>
-      {keys.map((key) => (
-        <PropRow
-          key={`${id}.${comp.type}.${key}`}
-          label={key}
-          spec={specs[key]}
-          value={(comp.props ?? {})[key] ?? defaults[key] ?? 0}
-          overridden={overridden?.has(key)}
-          onChange={(value) => onProp(key, value)}
-          onReset={onReset && (() => onReset(key))}
-          onApply={onApply && (() => onApply(key))}
-        />
-      ))}
+      {keys.map((key) => {
+        const value = comp.props && Object.hasOwn(comp.props, key)
+          ? comp.props[key]
+          : (defaults[key] ?? 0)
+        return (
+          <PropRow
+            key={`${id}.${comp.type}.${key}`}
+            label={key}
+            spec={specs[key]}
+            value={value}
+            diagnostics={collisionParamDiagnostics(comp.type, key, value)}
+            overridden={overridden?.has(key)}
+            onChange={(next) => onProp(key, next)}
+            onReset={onReset && (() => onReset(key))}
+            onApply={onApply && (() => onApply(key))}
+          />
+        )
+      })}
     </>
   )
 }
@@ -1277,7 +1326,9 @@ function CollisionRows({
       <ComponentRows
         id={id}
         comp={comp}
-        keys={['width', 'height', 'offsetX', 'offsetY']}
+        keys={comp.type === 'Hitbox'
+          ? ['layer', 'collidesWith', 'width', 'height', 'offsetX', 'offsetY']
+          : ['width', 'height', 'offsetX', 'offsetY']}
         overridden={overridden}
         onProp={onProp}
         onReset={onReset}
