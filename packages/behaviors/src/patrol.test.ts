@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  GameTime,
   Hitbox,
   StateMachine,
   THREE,
+  advanceGameTime,
   installArchetype,
   installDirectionalAnimation,
   isAnimationFacingProvider,
@@ -127,6 +129,7 @@ describe('the patroller role takes hits and dies', () => {
     const game = {
       entities: [] as Entity[],
       projection: 'isometric',
+      time: new GameTime(),
       input: { justPressed: () => false, consumed: () => false, consume: vi.fn(), axis: () => 0 },
       stats: { add: vi.fn(), set: vi.fn() },
       events: { emit: vi.fn() },
@@ -194,8 +197,9 @@ describe('the patroller role takes hits and dies', () => {
       attack,
       frame(dt = DT) {
         if (!orc.alive) return
+        advanceGameTime(game.time)
         machine.onUpdate(dt)
-        health.onUpdate(dt)
+        health.onUpdate()
       },
       frames(seconds: number) {
         for (let t = 0; t < seconds - 1e-9; t += DT) this.frame()

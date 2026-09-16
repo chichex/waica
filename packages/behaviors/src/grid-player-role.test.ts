@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  GameTime,
   StateMachine,
   THREE,
+  advanceGameTime,
   authoringDefaults,
   installArchetype,
   type Component,
@@ -39,6 +41,7 @@ function makePlayer() {
     entities: [] as Entity[],
     input,
     projection: 'isometric',
+    time: new GameTime(),
     query: {
       area: vi.fn(() => []),
       nearest: vi.fn(() => null),
@@ -96,10 +99,11 @@ function makePlayer() {
     motor,
     health,
     strike,
-    /** One simulation frame in the deterministic order: machine, then health. */
+    /** One simulation frame in the deterministic order: game.time, then machine, then health. */
     frame(dt = DT) {
+      advanceGameTime(game.time)
       machine.onUpdate(dt)
-      health.onUpdate(dt)
+      health.onUpdate()
       pressed = new Set()
       consumed.clear()
     },

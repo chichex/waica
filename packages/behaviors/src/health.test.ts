@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  GameTime,
   StateMachine,
   THREE,
+  advanceGameTime,
   authoringDefaults,
   resolveComponentUpdateSchedule,
   type Component,
@@ -16,12 +18,19 @@ interface StubEntity extends Entity {
 }
 
 function makeGame(): Game {
+  const time = new GameTime()
   return {
     entities: [],
+    time,
     stats: { add: vi.fn(), set: vi.fn() },
     events: { emit: vi.fn() },
     audio: { play: vi.fn() },
   } as unknown as Game
+}
+
+/** Advances the stub game's standalone GameTime by `times` Simulation Steps. */
+function step(game: Game, times = 1): void {
+  for (let i = 0; i < times; i += 1) advanceGameTime(game.time)
 }
 
 function makeEntity(game: Game, name: string): StubEntity {
@@ -33,7 +42,10 @@ function makeEntity(game: Game, name: string): StubEntity {
     node: { visible: true },
     position: new THREE.Vector3(),
     scale: new THREE.Vector3(1, 1, 1),
-    destroy: vi.fn(),
+    destroy: vi.fn(() => {
+      ;(entity as unknown as { alive: boolean }).alive = false
+      game.time.cancelOwnedBy(entity as unknown as Entity)
+    }),
     get(Class: new () => Component) {
       return components.find((component) => component instanceof Class)
     },
@@ -212,14 +224,14 @@ describe('Health invulnerability window', () => {
   })
 
   it('takes damage again once the window has been ticked away', () => {
-    const { health } = makeHealth({ max: 5, invulnerability: 1 })
+    const { game, health } = makeHealth({ max: 5, invulnerability: 1 })
     health.damage(1)
 
-    health.onUpdate(0.6)
+    step(game, 36) // 0.6s: window (60 steps) still open
     health.damage(1)
     expect(health.current).toBe(4)
 
-    health.onUpdate(0.5)
+    step(game, 24) // 60 steps total: the window closes exactly here
     health.damage(1)
 
     expect(health.current).toBe(3)
@@ -632,70 +644,65 @@ describe('Health hurt sound (CA-12)', () => {
 
 describe('Health blink', () => {
   it('toggles the node every tenth of a second while the window is open', () => {
-    const { entity, health } = makeHealth({ max: 3, invulnerability: 0.5 })
+    const { game, entity, health } = makeHealth({ max: 3, invulnerability: 0.5 })
 
     health.damage(1)
     expect(health.blinking).toBe(true)
     expect(entity.node.visible).toBe(true)
 
-    health.onUpdate(0.1)
+    step(game, 6) // every(0.1)'s 1st fire
     expect(entity.node.visible).toBe(false)
-    health.onUpdate(0.1)
+    step(game, 6) // 2nd fire
     expect(entity.node.visible).toBe(true)
-    health.onUpdate(0.1)
+    step(game, 6) // 3rd fire
     expect(entity.node.visible).toBe(false)
   })
 
   it('restores visibility the moment the window closes', () => {
-    const { entity, health } = makeHealth({ max: 3, invulnerability: 0.3 })
+    const { game, entity, health } = makeHealth({ max: 3, invulnerability: 0.3 })
     health.damage(1)
-    health.onUpdate(0.1)
+    step(game, 6) // 1st blink fire
     expect(entity.node.visible).toBe(false)
 
-    health.onUpdate(0.2)
+    step(game, 12) // 18 steps total: the window (0.3s) closes here too
 
     expect(entity.node.visible).toBe(true)
     expect(health.blinking).toBe(false)
-    health.onUpdate(0.1)
+    step(game, 6)
     expect(entity.node.visible).toBe(true)
   })
 
   it('restores visibility on a window cut short by a fresh hit landing later', () => {
     // A second hit after the window re-opens it: the blink just continues.
-    const { entity, health } = makeHealth({ max: 3, invulnerability: 0.2 })
+    const { game, entity, health } = makeHealth({ max: 3, invulnerability: 0.2 })
     health.damage(1)
-    health.onUpdate(0.1)
-    health.onUpdate(0.1)
+    step(game, 12) // the 0.2s window (12 steps) closes
     expect(health.blinking).toBe(false)
 
     health.damage(1)
-    health.onUpdate(0.1)
+    expect(entity.node.visible).toBe(true) // a fresh window starts visible
+    step(game, 6) // the fresh window's 1st blink fire
 
     expect(entity.node.visible).toBe(false)
     expect(health.current).toBe(1)
   })
 
-  it('closes the window on the Simulation Step that reaches invulnerability, not one step late (regression)', () => {
-    // this.invulnerable counts down by SIMULATION_STEP-sized dts: float
-    // error can leave a tiny positive residual instead of exactly 0 on the
-    // step that should close the window, keeping `blinking` true one whole
-    // step longer than it should.
-    const { health } = makeHealth({ max: 3, invulnerability: 0.5 })
-    const DT = 1 / 60
+  it('closes the window on the Simulation Step that reaches invulnerability, not one step late', () => {
+    const { game, health } = makeHealth({ max: 3, invulnerability: 0.5 })
     health.damage(1)
 
-    for (let step = 1; step < 30; step += 1) health.onUpdate(DT)
+    step(game, 29)
     expect(health.blinking).toBe(true)
 
-    health.onUpdate(DT)
+    step(game) // the 30th step (0.5s)
     expect(health.blinking).toBe(false)
   })
 
   it('never blinks without an invulnerability window', () => {
-    const { entity, health } = makeHealth({ max: 3 })
+    const { game, entity, health } = makeHealth({ max: 3 })
 
     health.damage(1)
-    for (let i = 0; i < 20; i++) health.onUpdate(0.05)
+    step(game, 60)
 
     expect(health.blinking).toBe(false)
     expect(entity.node.visible).toBe(true)
@@ -724,7 +731,7 @@ describe('Health blink', () => {
     expect(health.blinking).toBe(false)
     expect(health.inspectState()).toMatchObject({ invulnerable: 0, blinking: false })
     for (let i = 0; i < 10; i++) {
-      health.onUpdate(0.1)
+      step(game)
       expect(entity.node.visible).toBe(true)
     }
     health.heal(Infinity)
@@ -754,10 +761,23 @@ describe('Health blink', () => {
     })
   })
 
-  it('keeps the blink bookkeeping out of the authoring surface', () => {
+  it('keeps the window/blink bookkeeping out of the authoring surface', () => {
     expect(Health.transient).toEqual(
-      expect.arrayContaining(['blinkClock', 'lastDamageSource']),
+      expect.arrayContaining(['windowHandle', 'blinkHandle', 'lastDamageSource']),
     )
+    expect(Health.transient).not.toContain('invulnerable')
     expect(authoringDefaults(Health)).not.toHaveProperty('blinking')
+    expect(authoringDefaults(Health)).toEqual({ max: 3, invulnerability: 0, stat: '', hurtSound: '' })
+  })
+
+  it('cancels the window and blink immediately when the owning entity is destroyed mid-window (CA-11)', () => {
+    const { entity, health } = makeHealth({ max: 3, invulnerability: 1 })
+    health.damage(1)
+    expect(health.blinking).toBe(true)
+
+    entity.destroy()
+
+    expect(health.blinking).toBe(false)
+    expect(health.inspectState()).toMatchObject({ invulnerable: 0, blinking: false })
   })
 })

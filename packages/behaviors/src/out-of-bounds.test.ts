@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   DynamicBody,
+  GameTime,
   StateMachine,
   THREE,
   defineStates,
@@ -15,7 +16,7 @@ import { OutOfBounds } from './out-of-bounds'
 
 function makeSubject(y: number, options: { health?: number } = {}) {
   const components: Component[] = []
-  const game = { entities: [], events: { emit: vi.fn() } } as unknown as Game
+  const game = { entities: [], time: new GameTime(), events: { emit: vi.fn() } } as unknown as Game
   let alive = true
   const entity = {
     name: 'Faller',
@@ -23,6 +24,7 @@ function makeSubject(y: number, options: { health?: number } = {}) {
     get alive() {
       return alive
     },
+    node: { visible: true },
     position: new THREE.Vector3(0, y, 0),
     destroy: vi.fn(() => {
       alive = false

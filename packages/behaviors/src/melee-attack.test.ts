@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  GameTime,
   Hitbox,
   THREE,
   authoringDefaults,
@@ -21,6 +22,7 @@ function makeGame(projection: 'isometric' | null = 'isometric'): Game {
   const game = {
     entities: [],
     projection,
+    time: new GameTime(),
     stats: { add: vi.fn(), set: vi.fn() },
     events: { emit: vi.fn() },
     audio: { play: vi.fn() },
