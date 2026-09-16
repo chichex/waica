@@ -731,7 +731,7 @@ describe('Health blink', () => {
     expect(health.blinking).toBe(false)
     expect(health.inspectState()).toMatchObject({ invulnerable: 0, blinking: false })
     for (let i = 0; i < 10; i++) {
-      step(game)
+      step(game, 6) // a whole second in blink-period slices, as before the migration
       expect(entity.node.visible).toBe(true)
     }
     health.heal(Infinity)
@@ -768,6 +768,20 @@ describe('Health blink', () => {
     expect(Health.transient).not.toContain('invulnerable')
     expect(authoringDefaults(Health)).not.toHaveProperty('blinking')
     expect(authoringDefaults(Health)).toEqual({ max: 3, invulnerability: 0, stat: '', hurtSound: '' })
+  })
+
+  it('no longer closes the window from onUpdate: only Game Time does (CA-11)', () => {
+    const { game, health } = makeHealth({ max: 3, invulnerability: 0.5 })
+    health.damage(1)
+
+    health.onUpdate()
+    ;(health.onUpdate as (dt: number) => void)(10)
+    expect(health.blinking).toBe(true)
+    health.damage(1)
+    expect(health.current).toBe(2)
+
+    step(game, 30)
+    expect(health.blinking).toBe(false)
   })
 
   it('cancels the window and blink immediately when the owning entity is destroyed mid-window (CA-11)', () => {

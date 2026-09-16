@@ -286,8 +286,11 @@ export class GameTime {
    */
   advanceStep(): void {
     this.stepCount += 1
+    // Snapshot before any callback runs: a tween a due timer creates during
+    // this pass must not be advanced (or completed) until the next step.
+    const tweens = [...this.tweens]
     this.runDueTimers()
-    this.advanceTweens()
+    this.advanceTweens(tweens)
     this.timers = this.timers.filter((timer) => timer.active)
     this.tweens = this.tweens.filter((tween) => tween.active)
   }
@@ -328,8 +331,8 @@ export class GameTime {
     }
   }
 
-  private advanceTweens(): void {
-    for (const tween of [...this.tweens]) {
+  private advanceTweens(tweens: readonly TweenEntry[]): void {
+    for (const tween of tweens) {
       if (!tween.active) continue
       if (tween.dueTime <= this.now + SIMULATION_TIME_EPSILON) {
         tween.active = false

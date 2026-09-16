@@ -172,6 +172,23 @@ describe('GameTime start-of-step pass order (CA-3)', () => {
     expect(order).toEqual(['outer', 'inner'])
   })
 
+  it('never advances or completes a tween that a due timer created during the pass', () => {
+    const time = new GameTime()
+    const values: number[] = []
+    const completed = vi.fn()
+    time.after(0, () => {
+      time.tween({ from: 0, to: 1, seconds: 0, onUpdate: (v) => values.push(v), onComplete: completed })
+    })
+
+    step(time)
+    expect(values).toEqual([0]) // only the synchronous onUpdate(from)
+    expect(completed).not.toHaveBeenCalled()
+
+    step(time)
+    expect(values).toEqual([0, 1])
+    expect(completed).toHaveBeenCalledOnce()
+  })
+
   it("lets a component's onUpdate on this same step observe what a due callback changed", () => {
     const time = new GameTime()
     let seenByComponent: number | null = null

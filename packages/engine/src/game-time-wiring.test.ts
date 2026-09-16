@@ -147,6 +147,31 @@ describe('after(0.3) parity with a timer:0.3 StateMachine edge (CA-1)', () => {
   })
 })
 
+describe('start-of-step pass inside the real loop (CA-3)', () => {
+  it("runs before the Component Update Schedule: a component's onUpdate on the due step already sees the callback's change", () => {
+    const flag = { set: false }
+    const seen: boolean[] = []
+    class Reader extends Component {
+      static override componentName = 'Reader'
+      override onUpdate(): void {
+        seen.push(flag.set)
+      }
+    }
+    const { game, step } = makeGame()
+    game.spawn('Subject').add(Reader)
+    game.time.after(0.1, () => {
+      flag.set = true
+    })
+
+    step(5)
+    expect(seen).toEqual([false, false, false, false, false])
+
+    step() // the 6th step: the timer runs in the pass, then Reader updates
+    expect(seen.at(-1)).toBe(true)
+    game.dispose()
+  })
+})
+
 describe('scene scope (CA-4)', () => {
   it('unloadScene() cancels scene-scoped work, running no callback', () => {
     const { game, step } = makeGame()
