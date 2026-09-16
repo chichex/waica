@@ -1013,7 +1013,7 @@ async function runIsometricCombat({ client, project, inspectPlayer, hold, releas
   assert.equal(hit.health.blinking, true, 'the invulnerability window blinks the player')
   // CA-13: the hit opens the window (after) and starts the blink (every),
   // two new pending entries; the blink is due before the 60-step window.
-  assert.equal(hitTime.pending, pendingBeforeWalk + 2, 'the hit schedules a timer and a tween')
+  assert.equal(hitTime.pending, pendingBeforeWalk + 2, 'the hit schedules two timers: the window (after) and the blink (every)')
   assert.equal(hitTime.nextInSteps, 6, 'the blink is due 6 steps after the hit')
   await step(1)
   const stunned = await playerState()
