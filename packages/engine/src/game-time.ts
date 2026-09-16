@@ -27,11 +27,11 @@ export interface TimerHandle {
 
 export interface TimerOptions {
   /**
-   * Structural, not `instanceof Entity` (spec inference 19): any object with
-   * a boolean `alive` qualifies, so behaviors-test stub entities do too. An
-   * owner already dead at scheduling time yields an inactive handle that
-   * never runs, silently (CA-5) — a real Entity's `destroy()` cancels a live
-   * one the same way, whatever its scope.
+   * Structural, not `instanceof Entity` (spec inference 19) — an object with
+   * a boolean `alive` qualifies, whatever else it is, so behaviors-test stub
+   * entities do too. An owner already dead at scheduling time yields an
+   * inactive handle that never runs, silently (CA-5) — a real Entity's
+   * `destroy()` cancels a live one the same way, whatever its scope.
    */
   owner?: { readonly alive: boolean }
   /**
