@@ -171,3 +171,67 @@ describe('RuntimeSnapshot.audio (CA-15)', () => {
     game.dispose()
   })
 })
+
+describe('RuntimeSnapshot.time (CA-10)', () => {
+  it('reports pending 0 and nextInSteps null with nothing scheduled', () => {
+    const { registered } = installActivation()
+    const game = makeGame()
+    game.start()
+
+    const snapshot = registered[0]!.inspect()
+
+    expect(snapshot.time).toEqual({ pending: 0, nextInSteps: null })
+    game.dispose()
+  })
+
+  it('after(0.1): pending 1, nextInSteps 6, then 1 after five steps, then null after the sixth, callback run once', () => {
+    const { registered } = installActivation()
+    const game = makeGame()
+    game.start()
+    const callback = vi.fn()
+    game.time.after(0.1, callback)
+
+    expect(registered[0]!.inspect().time).toEqual({ pending: 1, nextInSteps: 6 })
+
+    registered[0]!.control({ operation: 'step', frames: 5 })
+    expect(registered[0]!.inspect().time).toEqual({ pending: 1, nextInSteps: 1 })
+
+    registered[0]!.control({ operation: 'step', frames: 1 })
+    expect(registered[0]!.inspect().time).toEqual({ pending: 0, nextInSteps: null })
+    expect(callback).toHaveBeenCalledOnce()
+    game.dispose()
+  })
+
+  it('every(0.25): nextInSteps 15', () => {
+    const { registered } = installActivation()
+    const game = makeGame()
+    game.start()
+    game.time.every(0.25, () => {})
+
+    expect(registered[0]!.inspect().time).toEqual({ pending: 1, nextInSteps: 15 })
+    game.dispose()
+  })
+
+  it('a 0.5s tween: nextInSteps 30', () => {
+    const { registered } = installActivation()
+    const game = makeGame()
+    game.start()
+    game.time.tween({ from: 0, to: 1, seconds: 0.5, onUpdate: () => {} })
+
+    expect(registered[0]!.inspect().time).toEqual({ pending: 1, nextInSteps: 30 })
+    game.dispose()
+  })
+
+  it('is present on entity- and component-filtered snapshots too', () => {
+    const { registered } = installActivation()
+    const game = makeGame()
+    game.start()
+    game.spawn('Subject')
+    game.time.after(0.1, () => {})
+
+    const filtered = registered[0]!.inspect({ entity_names: ['Subject'] })
+
+    expect(filtered.time).toEqual({ pending: 1, nextInSteps: 6 })
+    game.dispose()
+  })
+})

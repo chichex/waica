@@ -20,6 +20,7 @@ import {
   SIMULATION_STEP,
   snapElapsedToStep,
 } from './fixed-step.js'
+import { advanceGameTime, GameTime } from './game-time.js'
 import { Input, type InputBindings } from './input.js'
 import { Pointer } from './pointer.js'
 import {
@@ -106,6 +107,8 @@ export class Game {
   readonly ui: GameUi
   /** The audio mixer: channels, master, playback. See ADR 0012, ADR 0013. */
   readonly audio: AudioSubsystem
+  /** Simulated scheduling: `after`, `every`, `tween`, `now`. See ADR 0017. */
+  readonly time = new GameTime()
   /** Registry retained by loadScene for runtime prefab spawning. */
   registry: SceneRegistry | null = null
   paramOverrides: ParamOverrides = {}
@@ -234,6 +237,9 @@ export class Game {
   unloadScene(): void {
     this.ui.unloadScene()
     this.audio.unloadScene()
+    // Scene-scoped timers/tweens die here too (ADR 0017): before entities are
+    // destroyed below, so an owner's own destroy() cancellation is a no-op.
+    this.time.cancelSceneScoped()
     // An explicit unload means "no scene": a swap queued earlier this frame
     // would otherwise flush next frame and resurrect one.
     this.pendingSceneLoad = null
@@ -434,6 +440,9 @@ export class Game {
     this.resizeObserver.disconnect()
     this.ui.dispose()
     this.audio.dispose()
+    // Cancels both scopes, including session-scoped work no entity owns
+    // (entity.destroy() below only ever reaches owned work) — ADR 0017.
+    this.time.cancelAll()
     for (const entity of [...this.entities]) entity.destroy()
     this.renderer.dispose()
   }
@@ -525,11 +534,13 @@ export class Game {
   }
 
   /**
-   * One Simulation Step: the Component Update Schedule (ADR 0004) in full,
+   * One Simulation Step: game.time's start-of-step pass (ADR 0017, CA-3)
+   * first, then the Component Update Schedule (ADR 0004) in full,
    * collisions, the scene camera and the host's callbacks, every one of
    * them handed exactly SIMULATION_STEP (CA-1); then the input frame ends.
    */
   private simulateStep(): void {
+    advanceGameTime(this.time)
     for (const entity of [...this.entities]) {
       const schedule = this.componentUpdateSchedule(entity)
       if (!schedule) continue

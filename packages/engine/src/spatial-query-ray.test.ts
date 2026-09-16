@@ -4,6 +4,7 @@ import { Solid } from './components/solid'
 import { Tilemap } from './components/tilemap'
 import { Entity } from './entity'
 import type { Game } from './game'
+import { GameTime } from './game-time'
 import {
   SOLID_SOURCE_SYMBOL,
   type SolidSource,
@@ -24,6 +25,7 @@ function makeWorld(): World {
     entities,
     projection: null,
     applyParamOverrides: () => {},
+    time: new GameTime(),
     removeEntity(entity: Entity) {
       const index = entities.indexOf(entity)
       if (index >= 0) entities.splice(index, 1)

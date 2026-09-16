@@ -31,6 +31,8 @@ export { spritePlacement } from './sprite-placement.js'
 export type { SpritePlacement, SpritePlacementInput } from './sprite-placement.js'
 export { CAMERA_DEFAULTS, isCameraVelocityProvider, resolveSceneCamera, stepSceneCamera } from './camera.js'
 export { SIMULATION_STEP, SIMULATION_TIME_EPSILON } from './fixed-step.js'
+export { GameTime, advanceGameTime } from './game-time.js'
+export type { EasingName, TimerHandle, TimerOptions, TweenOptions } from './game-time.js'
 export type {
   SceneCameraJson,
   CameraLimitsJson,
@@ -90,6 +92,7 @@ export type {
   RuntimeSnapshot,
   RuntimeSnapshotAudio,
   RuntimeSnapshotFilters,
+  RuntimeSnapshotTime,
   RuntimeTransformSnapshot,
 } from './runtime-inspection.js'
 export type {
