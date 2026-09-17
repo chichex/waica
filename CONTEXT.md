@@ -48,6 +48,18 @@ A named behavior definition (`defineRole`) a character references from its prefa
 The fixed slice of game time — 1/60 s — by which the engine advances every component update, however often the display refreshes. A frame runs as many whole steps as its elapsed time contains, never a fraction of one.
 _Avoid_: tick, delta, variable timestep
 
+**Game Time**:
+The simulated seconds a Game has advanced since it started: the Simulation Steps it has run, times the step. It stands still while the Game is not simulating and runs continuously across scene changes.
+_Avoid_: wall clock, real time, elapsed
+
+**Timer**:
+A callback scheduled on Game Time: it fires only as Simulation Steps advance, never by the wall clock and never while the Game is not simulating. It dies with its scene unless it declares itself session-scoped, and with its owner entity when it names one.
+_Avoid_: setTimeout, delay, alarm
+
+**Tween**:
+A Timer that carries one number from a start value to an end value over Game Time, reporting the value on every step. Only a Tween that reaches its end value completes; a cancelled one stays wherever it was.
+_Avoid_: animation, lerp, transition
+
 **Component Update Schedule**:
 The deterministic per-entity sequence in which Waica advances component behavior each frame. It is derived from update constraints and canonical component identity, never from prefab authoring order.
 

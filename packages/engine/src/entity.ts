@@ -62,6 +62,10 @@ export class Entity {
   destroy(): void {
     if (this.destroyed) return
     this.destroyed = true
+    // Immediately, before any onDestroy hook runs, whatever the scope
+    // (ADR 0017, CA-5) — `alive` is already false by the time any of this
+    // entity's own timers/tweens could observe it.
+    this.game.time.cancelOwnedBy(this)
     for (const c of [...this.components]) c.onDestroy?.()
     this.components.length = 0
     this.node.removeFromParent()

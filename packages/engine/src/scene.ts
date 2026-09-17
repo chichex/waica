@@ -165,7 +165,16 @@ export function spawnFromJson(game: Game, json: SceneEntityJson, registry: Scene
  * at a time.
  */
 export function loadScene(game: Game, scene: SceneJson, registry: SceneRegistry): void {
-  if (game.registry) game.unloadScene()
+  if (game.registry) {
+    game.unloadScene()
+  } else {
+    // unloadScene() would otherwise be skipped on a Game's first load
+    // (F11), leaving a scene-scoped timer/tween created before it — a boot
+    // clock, say — to survive this load and die only at the next one
+    // instead. Cancel that slice of unloadScene()'s work directly; there is
+    // no scene, UI or audio yet for the rest of it to touch (ADR 0017, CA-4).
+    game.time.cancelSceneScoped()
+  }
   game.registry = registry
   game.setSceneRender(scene.render)
   for (const entityJson of scene.entities) spawnFromJson(game, entityJson, registry)

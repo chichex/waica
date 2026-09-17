@@ -872,6 +872,13 @@ async function runIsometricCombat({ client, project, inspectPlayer, hold, releas
     assert.ok(audio, 'the isometric snapshot must carry an audio section')
     return audio
   }
+  // CA-13: game.time's pending work over real MCP stdio, from an unfiltered inspect.
+  const inspectTime = async () => {
+    const inspected = await call(client, 'inspect_runtime', { project_path: project })
+    const time = inspected.structuredContent.snapshot.time
+    assert.ok(time, 'the isometric snapshot must carry a time section')
+    return time
+  }
   const playingUris = (audio) => audio.playing.map((sound) => sound.uri)
 
   // (0) CA-16: the mixer is inspectable and the music bed is already live.
@@ -985,13 +992,18 @@ async function runIsometricCombat({ client, project, inspectPlayer, hold, releas
   await step(20)
 
   // (c) Walk into the orc: a heart on the HUD stat, a stun and a blink.
+  const pendingBeforeWalk = (await inspectTime()).pending
   await hold('left')
   await hold('down')
   let hit
+  let hitTime
   for (let frame = 0; frame < 90 && !hit; frame += 1) {
     await step(1)
     const player = await playerState()
-    if (player.health.current < 3) hit = player
+    if (player.health.current < 3) {
+      hit = player
+      hitTime = await inspectTime()
+    }
   }
   await release('left')
   await release('down')
@@ -999,12 +1011,19 @@ async function runIsometricCombat({ client, project, inspectPlayer, hold, releas
   assert.equal(hit.health.current, 2)
   assert.equal(hit.stats.health, 2, 'the health stat mirrors the lost heart')
   assert.equal(hit.health.blinking, true, 'the invulnerability window blinks the player')
+  // CA-13: the hit opens the window (after) and starts the blink (every),
+  // two new pending entries; the blink is due before the 60-step window.
+  assert.equal(hitTime.pending, pendingBeforeWalk + 2, 'the hit schedules two timers: the window (after) and the blink (every)')
+  assert.equal(hitTime.nextInSteps, 6, 'the blink is due 6 steps after the hit')
   await step(1)
   const stunned = await playerState()
   assert.equal(stunned.machine.current, 'hurt', 'the hit stuns the player')
   assert.equal(stunned.health.lastDamageSource, 'Orc')
   await step(30)
   assert.equal((await playerState()).machine.current, 'idle', 'the stun ends on its own')
+  const afterStunTime = await inspectTime()
+  assert.equal(afterStunTime.pending, pendingBeforeWalk + 2, 'both are still pending: the window has not closed yet')
+  assert.equal(afterStunTime.nextInSteps, 5, 'the next blink (every 6 steps) is due in 5 more steps')
 }
 
 /**

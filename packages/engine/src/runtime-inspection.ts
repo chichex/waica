@@ -69,6 +69,24 @@ export interface RuntimeSnapshotAudio {
   playing: LiveSoundInfo[]
 }
 
+/**
+ * `game.time`'s pending work (CA-10), beside `audio`: `pending` counts
+ * active timers plus active tweens across both scopes; `nextInSteps` is the
+ * smallest positive integer n such that `step { frames: n }` makes an
+ * active timer run or an active tween complete, or null when `pending` is
+ * 0. Emitted unconditionally, like `audio` — never filtered, and never
+ * repeats `now` (metadata already carries `simulationTime`). That promise
+ * holds only while the Game is simulating: `runFrame` runs zero steps with
+ * `simulate === false` (`game.ts`), so on a Game that is paused AND not
+ * simulating, `nextInSteps` is still reported but stepping never consumes
+ * it — a Run Session starts with `simulate === true`, so this only matters
+ * if project code flips it.
+ */
+export interface RuntimeSnapshotTime {
+  pending: number
+  nextInSteps: number | null
+}
+
 export interface RuntimeSnapshot extends RuntimeMetadata {
   stats: Record<string, StatValue>
   /** The live scene's name (its catalog key), or null with no scene loaded. */
@@ -76,6 +94,7 @@ export interface RuntimeSnapshot extends RuntimeMetadata {
   entities: RuntimeEntitySnapshot[]
   projectionIssues: ProjectionIssue[]
   audio: RuntimeSnapshotAudio
+  time: RuntimeSnapshotTime
 }
 
 export const RUNTIME_PROJECTION_LIMITS = {
@@ -347,6 +366,7 @@ export class RuntimeInspector {
       entities,
       projectionIssues,
       audio: this.audioSnapshot(),
+      time: this.timeSnapshot(),
     })
   }
 
@@ -359,6 +379,13 @@ export class RuntimeInspector {
       master: this.game.audio.master,
       channels,
       playing: this.game.audio.liveSounds(),
+    }
+  }
+
+  private timeSnapshot(): RuntimeSnapshotTime {
+    return {
+      pending: this.game.time.pending,
+      nextInSteps: this.game.time.nextInSteps,
     }
   }
 

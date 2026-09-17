@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { StateMachine, THREE, type Component, type Entity, type Game } from '@waica/engine'
+import { GameTime, StateMachine, THREE, type Component, type Entity, type Game } from '@waica/engine'
 import { Hazard } from './hazard'
 import { Health } from './health'
 import { PlatformerMotor } from './platformer-motor'
@@ -12,6 +12,7 @@ interface StubEntity extends Entity {
 function makeGame(): Game {
   return {
     entities: [],
+    time: new GameTime(),
     stats: { add: vi.fn() },
     events: { emit: vi.fn() },
   } as unknown as Game
@@ -23,9 +24,15 @@ function makeEntity(game: Game, name: string, x = 0, y = 0): StubEntity {
     name,
     game,
     alive: true,
+    node: { visible: true },
     position: new THREE.Vector3(x, y, 0),
     scale: new THREE.Vector3(1, 1, 1),
-    destroy: vi.fn(),
+    // Like Entity.destroy: idempotent, cancels owned game.time work, and the
+    // game stops updating it.
+    destroy: vi.fn(() => {
+      ;(entity as unknown as { alive: boolean }).alive = false
+      game.time.cancelOwnedBy(entity)
+    }),
     get(Class: new () => Component) {
       return components.find((component) => component instanceof Class)
     },

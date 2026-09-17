@@ -6,6 +6,7 @@ import { Solid } from './components/solid.js'
 import { Tilemap } from './components/tilemap.js'
 import { Entity } from './entity.js'
 import type { Game } from './game.js'
+import { GameTime } from './game-time.js'
 import {
   broadphaseCellSize,
   createSpatialBroadphase,
@@ -26,6 +27,7 @@ function makeWorld(instrumentation?: SpatialQueryInstrumentation): World {
     entities,
     projection: null,
     applyParamOverrides: () => {},
+    time: new GameTime(),
     removeEntity(entity: Entity) {
       const index = entities.indexOf(entity)
       if (index >= 0) entities.splice(index, 1)

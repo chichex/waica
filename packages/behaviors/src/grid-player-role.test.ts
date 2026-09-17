@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  GameTime,
   StateMachine,
   THREE,
+  advanceGameTime,
   authoringDefaults,
   installArchetype,
   type Component,
@@ -39,6 +41,7 @@ function makePlayer() {
     entities: [] as Entity[],
     input,
     projection: 'isometric',
+    time: new GameTime(),
     query: {
       area: vi.fn(() => []),
       nearest: vi.fn(() => null),
@@ -55,7 +58,12 @@ function makePlayer() {
       node: { visible: true },
       position: new THREE.Vector3(x, y, 0),
       scale: new THREE.Vector3(1, 1, 1),
-      destroy: vi.fn(),
+      // Like Entity.destroy: idempotent, cancels owned game.time work, and
+      // the game stops updating it.
+      destroy: vi.fn(() => {
+        ;(entity as unknown as { alive: boolean }).alive = false
+        game.time.cancelOwnedBy(entity)
+      }),
       get(Class: new () => Component) {
         return list.find((component) => component instanceof Class)
       },
@@ -96,10 +104,11 @@ function makePlayer() {
     motor,
     health,
     strike,
-    /** One simulation frame in the deterministic order: machine, then health. */
+    /** One simulation frame in the deterministic order: game.time, then machine, then health. */
     frame(dt = DT) {
+      advanceGameTime(game.time)
       machine.onUpdate(dt)
-      health.onUpdate(dt)
+      health.onUpdate()
       pressed = new Set()
       consumed.clear()
     },

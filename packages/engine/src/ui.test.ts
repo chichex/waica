@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { GameTime } from './game-time'
 import { loadScene, type SceneJson } from './scene'
 import { Stats } from './stats'
 import { GameUi } from './ui'
@@ -122,6 +123,7 @@ describe('GameUi', () => {
     const { ui } = makeUi({ points: 3 })
     const game = {
       ui,
+      time: new GameTime(),
       setSceneCamera: () => {},
       setSceneRender: () => {},
     } as unknown as Parameters<typeof loadScene>[0]
@@ -136,6 +138,7 @@ describe('GameUi', () => {
     const { ui } = makeUi({ points: 3 })
     const game = {
       ui,
+      time: new GameTime(),
       setSceneCamera: () => {},
       setSceneRender: () => {},
     } as unknown as Parameters<typeof loadScene>[0]

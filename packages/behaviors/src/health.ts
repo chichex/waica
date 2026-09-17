@@ -1,9 +1,9 @@
 import {
   Component,
-  SIMULATION_TIME_EPSILON,
   StateMachine,
   type Entity,
   type StateJson,
+  type TimerHandle,
 } from '@waica/engine'
 
 /**
@@ -65,11 +65,11 @@ export class Health extends Component {
   }
   static override transient = [
     'current',
-    'invulnerable',
     'deathPending',
     'expectedStates',
     'lastDamageSource',
-    'blinkClock',
+    'windowHandle',
+    'blinkHandle',
   ]
 
   max = 3
@@ -88,14 +88,25 @@ export class Health extends Component {
   /** Whoever dealt the last accepted hit, for the state that reacts to it. */
   lastDamageSource: Entity | undefined
 
-  /** Seconds left in the invulnerability window. */
-  private invulnerable = 0
-  /** Seconds into the current blink, for the 10 Hz toggle. */
-  private blinkClock = 0
+  /**
+   * The open invulnerability window, on `game.time`. Null once
+   * `closeWindow()` has run. A window ended by owner destroy or scene
+   * unload instead of a natural close never runs `closeWindow()` — cancellation
+   * runs no callback — so this can also be present but inactive; `blinking`
+   * and `inspectState().invulnerable` both read through `.active`/`.remaining`,
+   * so that case still reports correctly.
+   */
+  private windowHandle: TimerHandle | null = null
+  /**
+   * The 10 Hz blink toggle, on `game.time`. Null once `closeWindow()` has
+   * run, same asymmetry as `windowHandle`: a window cancelled by owner
+   * destroy or scene unload leaves this present but inactive instead.
+   */
+  private blinkHandle: TimerHandle | null = null
 
   /** Whether the node is being flashed: exactly while a window is open. */
   get blinking(): boolean {
-    return this.invulnerable > 0
+    return this.windowHandle?.active ?? false
   }
 
   /** Whether the signalled death must be checked on this component's next update. */
@@ -114,7 +125,7 @@ export class Health extends Component {
       invulnerability: this.invulnerability,
       stat: this.stat,
       current: this.current,
-      invulnerable: this.invulnerable,
+      invulnerable: this.windowHandle?.remaining ?? 0,
       blinking: this.blinking,
       lastDamageSource: this.lastDamageSource?.name ?? null,
     }
@@ -131,16 +142,9 @@ export class Health extends Component {
     if (this.current === 0) this.die()
   }
 
-  override onUpdate(dt: number): void {
-    if (this.invulnerable > 0) {
-      this.invulnerable = Math.max(0, this.invulnerable - dt)
-      // this.invulnerable is a countdown of SIMULATION_STEP-sized dts, which
-      // float error can leave as a tiny positive residual instead of
-      // exactly 0 on the step that should close the window; without this,
-      // `> 0` above stays true for one whole extra step.
-      if (this.invulnerable <= SIMULATION_TIME_EPSILON) this.invulnerable = 0
-      this.blink(dt)
-    }
+  override onUpdate(): void {
+    // The invulnerability window and its blink now run entirely on
+    // game.time (ADR 0017, CA-11): this no longer drives either.
     if (this.deathPending) {
       this.deathPending = false
       this.settleDeath()
@@ -174,7 +178,7 @@ export class Health extends Component {
     // too — every NaN comparison is false, so amount <= 0 lets it through
     // and poisons current (NaN - anything is NaN, and every guard against
     // it is false forever after).
-    if (!(amount > 0) || this.current <= 0 || this.invulnerable > 0) return
+    if (!(amount > 0) || this.current <= 0 || this.blinking) return
     this.current = Math.max(0, this.current - amount)
     if (this.current < DEATH_EPSILON) this.current = 0
     this.lastDamageSource = source
@@ -186,8 +190,7 @@ export class Health extends Component {
       source,
     })
     if (this.hurtSound) this.game.audio.play(this.hurtSound, { at: this.entity })
-    this.invulnerable = this.invulnerability
-    this.blinkClock = 0
+    this.openWindow()
     if (this.current === 0) {
       this.die()
       return
@@ -210,17 +213,46 @@ export class Health extends Component {
   }
 
   /**
-   * Flashes the node at 10 Hz for as long as the window stays open, and
-   * leaves it visible the frame the window closes — the flash is feedback,
-   * never a state a hit can leave the entity stuck in.
+   * Opens a fresh invulnerability window on `game.time`, starting visible:
+   * `after(invulnerability)` closes it, and `every(0.1)` flashes the node
+   * at 10 Hz for as long as it stays open (CA-11). `invulnerability <= 0`
+   * schedules nothing and touches no `game.time` at all — the window never
+   * opens. Both are owned by this entity, so `Entity.destroy()` cancels
+   * them immediately mid-window.
+   *
+   * The `invulnerability <= 0` check below runs once, here, before either
+   * handle is touched — it is not re-checked later. So lowering
+   * `invulnerability` to 0 while a window is already open does not close it
+   * early: that window keeps blinking and rejecting damage until it runs
+   * its normal course. Deliberate, not a bug: nothing re-reads
+   * `invulnerability` once a window is open.
    */
-  private blink(dt: number): void {
-    if (this.invulnerable > 0) {
-      this.blinkClock += dt
-      this.entity.node.visible = Math.floor(this.blinkClock / BLINK_PERIOD) % 2 === 0
-      return
-    }
+  private openWindow(): void {
+    if (this.invulnerability <= 0) return
     this.entity.node.visible = true
+    this.windowHandle = this.game.time.after(
+      this.invulnerability,
+      () => this.closeWindow(),
+      { owner: this.entity },
+    )
+    this.blinkHandle = this.game.time.every(
+      BLINK_PERIOD,
+      () => this.toggleBlink(),
+      { owner: this.entity },
+    )
+  }
+
+  /** Cancels the blink and restores visibility the moment the window closes. */
+  private closeWindow(): void {
+    this.blinkHandle?.cancel()
+    this.blinkHandle = null
+    this.windowHandle = null
+    this.entity.node.visible = true
+  }
+
+  /** The 10 Hz flash while a window is open: openWindow() starts it visible, so a plain toggle lands on the right phase every time. */
+  private toggleBlink(): void {
+    this.entity.node.visible = !this.entity.node.visible
   }
 
   /**
@@ -229,13 +261,15 @@ export class Health extends Component {
    * destroying is the fallback rather than the exception.
    */
   private die(): void {
-    // The killing blow opened a window like any other hit; close it. The
-    // death pose must hold steady, and a revived entity starts without
-    // leftover immunity. The node is visible here by construction: blink()
-    // restores it the frame a window closes, and a lethal hit only lands
-    // while no window is open.
-    this.invulnerable = 0
-    this.blinkClock = 0
+    // The killing blow opened a window like any other hit; cancel it here
+    // (running no callback, per game.time's cancel contract) rather than
+    // let it run its course. The death pose must hold steady, and a
+    // revived entity starts without leftover immunity.
+    this.windowHandle?.cancel()
+    this.windowHandle = null
+    this.blinkHandle?.cancel()
+    this.blinkHandle = null
+    this.entity.node.visible = true
     this.game.events.emit('death', { entity: this.entity })
     const machine = this.entity.get(StateMachine)
     const targets = machine ? deathTargets(machine.states, machine.current) : []

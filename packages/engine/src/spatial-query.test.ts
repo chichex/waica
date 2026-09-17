@@ -4,6 +4,7 @@ import { Component } from './component'
 import { Hitbox } from './components/hitbox'
 import { Entity } from './entity'
 import type { Game } from './game'
+import { GameTime } from './game-time'
 import {
   createSpatialQuery,
   type SpatialQueryCandidateProviders,
@@ -20,6 +21,7 @@ function makeWorld(): World {
     entities,
     projection: null,
     applyParamOverrides: () => {},
+    time: new GameTime(),
     removeEntity(entity: Entity) {
       const index = entities.indexOf(entity)
       if (index >= 0) entities.splice(index, 1)
