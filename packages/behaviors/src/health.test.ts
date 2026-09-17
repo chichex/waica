@@ -672,6 +672,19 @@ describe('Health blink', () => {
     expect(entity.node.visible).toBe(true)
   })
 
+  it('restores visibility on close even when the last blink toggle left the node invisible', () => {
+    const { game, entity, health } = makeHealth({ max: 3, invulnerability: 0.15 })
+    health.damage(1)
+
+    step(game, 6) // the only blink fire: leaves the node invisible
+    expect(entity.node.visible).toBe(false)
+
+    step(game, 3) // steps 7-9: the window (0.15s = 9 steps) closes on step 9
+
+    expect(entity.node.visible).toBe(true)
+    expect(health.blinking).toBe(false)
+  })
+
   it('starts a fresh window visible and blinking again on a hit landing after the previous window closed', () => {
     // The first window runs its full course and closes; a later hit opens a
     // brand new window, starting visible, with its own blink cycle.
