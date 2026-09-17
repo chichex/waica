@@ -672,8 +672,9 @@ describe('Health blink', () => {
     expect(entity.node.visible).toBe(true)
   })
 
-  it('restores visibility on a window cut short by a fresh hit landing later', () => {
-    // A second hit after the window re-opens it: the blink just continues.
+  it('starts a fresh window visible and blinking again on a hit landing after the previous window closed', () => {
+    // The first window runs its full course and closes; a later hit opens a
+    // brand new window, starting visible, with its own blink cycle.
     const { game, entity, health } = makeHealth({ max: 3, invulnerability: 0.2 })
     health.damage(1)
     step(game, 12) // the 0.2s window (12 steps) closes
