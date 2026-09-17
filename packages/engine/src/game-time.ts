@@ -32,14 +32,22 @@ export interface TimerOptions {
    * entities do too. An owner already dead at scheduling time yields an
    * inactive handle that never runs, silently (CA-5) — a real Entity's
    * `destroy()` cancels a live one the same way, whatever its scope.
+   * `alive` is read exactly once, right here at scheduling time; nothing
+   * polls it afterwards. Automatic cancellation of a live handle is driven
+   * entirely by `Entity.destroy()` calling `cancelOwnedBy()`, so an owner
+   * that is not a real `Entity` (never calls `destroy()`) only ever gets
+   * this one dead-at-scheduling check — its handle keeps firing even if
+   * something later flips its `alive` to false by hand.
    */
   owner?: { readonly alive: boolean }
   /**
    * `'session'` survives a scene change; anything else — including leaving
    * it unset — means scene-scoped (ADR 0017), the opposite default from
-   * `game.onUpdate`/`game.events` (ADR 0011).
+   * `game.onUpdate`/`game.events` (ADR 0011). Narrowed to the two literal
+   * values (mirroring `AudioPlayOptions.scope` in `audio/types.ts`) so a
+   * typo is a compile error instead of a silent downgrade to scene scope.
    */
-  scope?: string
+  scope?: 'scene' | 'session'
 }
 
 export interface TweenOptions {
@@ -51,8 +59,17 @@ export interface TweenOptions {
   easing?: EasingName | ((t: number) => number)
   onUpdate: (value: number) => void
   onComplete?: () => void
+  /**
+   * Structural, not `instanceof Entity` (spec inference 19) — an object with
+   * a boolean `alive` qualifies. `alive` is read once, at scheduling time,
+   * to reject an owner already dead; automatic cancellation afterwards is
+   * driven entirely by `Entity.destroy()` calling `cancelOwnedBy()`, never
+   * by polling `alive` again, so a non-`Entity` owner only ever gets that
+   * one dead-at-scheduling check.
+   */
   owner?: { readonly alive: boolean }
-  scope?: string
+  /** Same as `TimerOptions.scope`: `'session'` survives a scene change, anything else means scene. */
+  scope?: 'scene' | 'session'
 }
 
 const INACTIVE_HANDLE: TimerHandle = Object.freeze({
@@ -95,6 +112,7 @@ function normalizeScope(scope: string | undefined): 'scene' | 'session' {
 /** Shared bookkeeping for a timer (`after`/`every`) or a tween. */
 interface Entry {
   readonly id: number
+  readonly kind: 'after' | 'every' | 'tween'
   readonly scope: 'scene' | 'session'
   readonly owner?: { readonly alive: boolean }
   active: boolean
@@ -106,13 +124,23 @@ interface Entry {
   deactivatedAt: number | null
 }
 
-interface TimerEntry extends Entry {
-  readonly kind: 'after' | 'every'
+/** A one-shot timer: no repeat bookkeeping, because it never needs one. */
+interface AfterTimerEntry extends Entry {
+  readonly kind: 'after'
   callback: () => void
+}
+
+/** A repeating timer: the `every`-only fields that would be dead on `AfterTimerEntry`. */
+interface EveryTimerEntry extends Entry {
+  readonly kind: 'every'
+  callback: () => void
+  /** Creation time: `dueTime` is always `startTime + occurrence * intervalSeconds`. */
   readonly startTime: number
   readonly intervalSeconds: number
   occurrence: number
 }
+
+type TimerEntry = AfterTimerEntry | EveryTimerEntry
 
 interface TweenEntry extends Entry {
   readonly kind: 'tween'
@@ -138,6 +166,15 @@ export class GameTime {
   private nextId = 0
   private timers: TimerEntry[] = []
   private tweens: TweenEntry[] = []
+  /**
+   * Set whenever a timer/tween goes inactive since the matching array was
+   * last pruned, whether by firing/completing this pass or by a plain
+   * `handle.cancel()` from outside `advanceStep()`; consumed (and cleared)
+   * by the next pass that actually reassigns that array (CA-3 perf: no
+   * reassignment when nothing died).
+   */
+  private timersDirty = false
+  private tweensDirty = false
 
   /** 0 on a new GameTime; `N * SIMULATION_STEP` exactly after N steps — computed, never summed (CA-9). */
   get now(): number {
@@ -180,7 +217,7 @@ export class GameTime {
     if (owner !== undefined && !owner.alive) return INACTIVE_HANDLE
     const effective = Math.max(0, seconds)
     const startTime = this.now
-    const entry: TimerEntry = {
+    const entry: AfterTimerEntry = {
       id: this.nextId++,
       kind: 'after',
       scope: normalizeScope(options.scope),
@@ -190,9 +227,6 @@ export class GameTime {
       dueTime: startTime + effective,
       deactivatedAt: null,
       callback,
-      startTime,
-      intervalSeconds: effective,
-      occurrence: 1,
     }
     this.timers.push(entry)
     return this.handleFor(entry)
@@ -214,7 +248,7 @@ export class GameTime {
     if (owner !== undefined && !owner.alive) return INACTIVE_HANDLE
     const interval = Math.max(seconds, SIMULATION_STEP)
     const startTime = this.now
-    const entry: TimerEntry = {
+    const entry: EveryTimerEntry = {
       id: this.nextId++,
       kind: 'every',
       scope: normalizeScope(options.scope),
@@ -282,41 +316,78 @@ export class GameTime {
    * Internal: the start-of-step pass (CA-3) — advances `now`, then runs
    * every due timer (due time, then creation order), then advances every
    * tween that existed before this pass (creation order). Call only through
-   * `advanceGameTime()`; never from project code.
+   * `advanceGameTime()`; never from project code. With nothing scheduled
+   * (the common case once a scene settles) this does no allocation beyond
+   * the step count itself.
    */
   advanceStep(): void {
     this.stepCount += 1
+    if (this.timers.length === 0 && this.tweens.length === 0) return
     // Snapshot before any callback runs: a tween a due timer creates during
     // this pass must not be advanced (or completed) until the next step.
     const tweens = [...this.tweens]
     this.runDueTimers()
     this.advanceTweens(tweens)
-    this.timers = this.timers.filter((timer) => timer.active)
-    this.tweens = this.tweens.filter((tween) => tween.active)
+    // Reassigning is itself an allocation (a filter over every entry), so
+    // it only happens for the array that actually lost something — either
+    // this pass or from a plain handle.cancel() since the last reassignment.
+    if (this.timersDirty) {
+      this.timers = this.timers.filter((timer) => timer.active)
+      this.timersDirty = false
+    }
+    if (this.tweensDirty) {
+      this.tweens = this.tweens.filter((tween) => tween.active)
+      this.tweensDirty = false
+    }
   }
 
   /** Internal: called by `Game.unloadScene()` and every scene load, including the first (CA-4). */
   cancelSceneScoped(): void {
     for (const timer of this.timers) if (timer.scope !== 'session') this.deactivate(timer)
     for (const tween of this.tweens) if (tween.scope !== 'session') this.deactivate(tween)
+    this.reclaim()
   }
 
-  /** Internal: called by `Entity.destroy()` (CA-5). */
+  /**
+   * Internal: called by `Entity.destroy()` (CA-5) — the only caller. Nothing
+   * re-reads `owner.alive` on later steps; a non-`Entity` owner whose
+   * `alive` flips without ever going through a real `destroy()` call is
+   * never reached here, so its timers/tweens keep running (see
+   * `TimerOptions.owner`).
+   */
   cancelOwnedBy(owner: { readonly alive: boolean }): void {
     for (const timer of this.timers) if (timer.owner === owner) this.deactivate(timer)
     for (const tween of this.tweens) if (tween.owner === owner) this.deactivate(tween)
+    this.reclaim()
   }
 
   /** Internal: called by `Game.dispose()` (CA-4). */
   cancelAll(): void {
     for (const timer of this.timers) this.deactivate(timer)
     for (const tween of this.tweens) this.deactivate(tween)
+    this.reclaim()
+  }
+
+  /**
+   * Drops every inactive entry right away, unlike `advanceStep()`'s
+   * dirty-flag-gated prune: `cancelSceneScoped`/`cancelOwnedBy`/`cancelAll`
+   * are also reachable with `simulate === false` (e.g. the editor's edit
+   * mode calling `loadScene` on every edit), when no step ever runs to
+   * reclaim them otherwise.
+   */
+  private reclaim(): void {
+    this.timers = this.timers.filter((timer) => timer.active)
+    this.tweens = this.tweens.filter((tween) => tween.active)
+    this.timersDirty = false
+    this.tweensDirty = false
   }
 
   private runDueTimers(): void {
-    const due = this.timers
-      .filter((timer) => timer.active && timer.dueTime <= this.now + SIMULATION_TIME_EPSILON)
-      .sort((a, b) => a.dueTime - b.dueTime || a.id - b.id)
+    const due = this.timers.filter(
+      (timer) => timer.active && timer.dueTime <= this.now + SIMULATION_TIME_EPSILON,
+    )
+    if (due.length === 0) return
+    if (due.length > 1) due.sort((a, b) => a.dueTime - b.dueTime || a.id - b.id)
     for (const timer of due) {
       if (!timer.active) continue // an earlier callback this same pass may have cancelled it
       if (timer.kind === 'every') {
@@ -326,6 +397,7 @@ export class GameTime {
       } else {
         timer.active = false
         timer.deactivatedAt = timer.dueTime
+        this.timersDirty = true
       }
       timer.callback()
     }
@@ -337,12 +409,16 @@ export class GameTime {
       if (tween.dueTime <= this.now + SIMULATION_TIME_EPSILON) {
         tween.active = false
         tween.deactivatedAt = tween.dueTime
+        this.tweensDirty = true
         tween.onUpdate(tween.to)
         tween.onComplete?.()
         continue
       }
       const elapsed = this.now - tween.referenceStart
-      const t = Math.min(elapsed / tween.seconds, 1)
+      // Reaching 1 would mean elapsed >= seconds, i.e. now >= dueTime — the
+      // branch above always exits first in that case, so this is never
+      // clamped in practice.
+      const t = elapsed / tween.seconds
       tween.onUpdate(tween.from + (tween.to - tween.from) * tween.ease(t))
     }
   }
@@ -351,6 +427,8 @@ export class GameTime {
     if (!entry.active) return
     entry.active = false
     entry.deactivatedAt = this.now
+    if (entry.kind === 'tween') this.tweensDirty = true
+    else this.timersDirty = true
   }
 
   /** Smallest n >= 1 such that `n` more steps reaches `dueTime`, guarding against float noise near a step boundary. */

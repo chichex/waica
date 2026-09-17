@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { SIMULATION_STEP } from './fixed-step'
-import { GameTime, advanceGameTime } from './game-time'
+import { GameTime, advanceGameTime, type TimerOptions } from './game-time'
 
 function step(time: GameTime, times = 1): void {
   for (let i = 0; i < times; i += 1) advanceGameTime(time)
@@ -495,7 +495,8 @@ describe('GameTime scope (CA-4)', () => {
     const session = vi.fn()
     time.after(0.1, sceneDefault)
     time.after(0.1, sceneExplicit, { scope: 'scene' })
-    time.after(0.1, sceneOther, { scope: 'whatever' })
+    // A bogus value from untyped JS still normalizes to scene, not a compile error at the call site here.
+    time.after(0.1, sceneOther, { scope: 'whatever' as TimerOptions['scope'] })
     const sessionHandle = time.after(0.1, session, { scope: 'session' })
 
     time.cancelSceneScoped()
@@ -604,5 +605,111 @@ describe('GameTime Runtime Snapshot fields (CA-10)', () => {
     time.tween({ from: 0, to: 1, seconds: 0.5, onUpdate: () => {} })
     expect(time.nextInSteps).toBe(6)
     expect(time.pending).toBe(3)
+  })
+})
+
+/** Peeks at the private backing arrays: no public API exposes raw entry counts or array identity. */
+function timerCount(time: GameTime): number {
+  return (time as unknown as { timers: unknown[] }).timers.length
+}
+function tweenCount(time: GameTime): number {
+  return (time as unknown as { tweens: unknown[] }).tweens.length
+}
+function timersArray(time: GameTime): unknown {
+  return (time as unknown as { timers: unknown }).timers
+}
+
+describe('GameTime reclaims cancelled entries outside a step (review finding 2)', () => {
+  it('cancelSceneScoped() prunes the backing arrays immediately, with no step ever running', () => {
+    const time = new GameTime()
+    time.after(0.1, () => {})
+    time.tween({ from: 0, to: 1, seconds: 0.1, onUpdate: () => {} })
+    expect(timerCount(time)).toBe(1)
+    expect(tweenCount(time)).toBe(1)
+
+    time.cancelSceneScoped() // no advanceGameTime() call anywhere in this test
+
+    expect(timerCount(time)).toBe(0)
+    expect(tweenCount(time)).toBe(0)
+  })
+
+  it('cancelOwnedBy() prunes only the cancelled entries immediately, with no step ever running', () => {
+    const time = new GameTime()
+    const owner = { alive: true }
+    const other = { alive: true }
+    time.after(0.1, () => {}, { owner })
+    time.after(0.1, () => {}, { owner: other })
+    expect(timerCount(time)).toBe(2)
+
+    time.cancelOwnedBy(owner)
+
+    expect(timerCount(time)).toBe(1)
+  })
+
+  it('cancelAll() prunes both backing arrays immediately, with no step ever running', () => {
+    const time = new GameTime()
+    time.after(0.1, () => {})
+    time.tween({ from: 0, to: 1, seconds: 0.1, onUpdate: () => {} })
+
+    time.cancelAll()
+
+    expect(timerCount(time)).toBe(0)
+    expect(tweenCount(time)).toBe(0)
+  })
+
+  it('pending/nextInSteps already ignored cancelled-but-unpruned entries, and still do after reclaiming', () => {
+    const time = new GameTime()
+    time.after(0.1, () => {})
+    time.cancelSceneScoped()
+    expect(time.pending).toBe(0)
+    expect(time.nextInSteps).toBeNull()
+  })
+
+  it('a cancellation from inside a due callback does not corrupt the pass currently running', () => {
+    const time = new GameTime()
+    const owner = { alive: true }
+    const order: string[] = []
+    // Both due on the same step; "a" was created first, so it runs first and
+    // cancels "b"'s owner mid-pass — "b" must be skipped, not run twice or throw.
+    time.after(0.1, () => {
+      order.push('a')
+      time.cancelOwnedBy(owner)
+    })
+    time.after(0.1, () => order.push('b'), { owner })
+
+    step(time, 6)
+
+    expect(order).toEqual(['a'])
+  })
+})
+
+describe('GameTime does no per-step allocation when nothing is scheduled or due (review finding 3)', () => {
+  it('now still advances and nothing fires with nothing scheduled at all', () => {
+    const time = new GameTime()
+    step(time, 5)
+    expect(time.now).toBeCloseTo(5 * SIMULATION_STEP, 12)
+    expect(time.pending).toBe(0)
+    expect(time.nextInSteps).toBeNull()
+  })
+
+  it('does not reassign the timers array on a step where nothing is due', () => {
+    const time = new GameTime()
+    time.after(10, () => {}) // due far in the future: not due this step
+    const before = timersArray(time)
+
+    step(time)
+
+    expect(timersArray(time)).toBe(before) // same reference: no filter() ran
+  })
+
+  it('does reassign the timers array on the step a timer actually fires', () => {
+    const time = new GameTime()
+    time.after(SIMULATION_STEP, () => {})
+    const before = timersArray(time)
+
+    step(time)
+
+    expect(timersArray(time)).not.toBe(before)
+    expect(timerCount(time)).toBe(0)
   })
 })
