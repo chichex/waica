@@ -88,6 +88,10 @@ function makeWorld(hazardAt: [number, number]) {
   machine.on('strike', { onEnter: () => attack.strike('e') })
 
   const frame = (): void => {
+    // Deliberate cast to the private runFrame: there is no public
+    // single-step seam outside the Runtime Bridge, and this file is the
+    // only guard for the CA-12 step-boundary behavior. Fragile to a
+    // runFrame signature change, but no better seam exists today.
     ;(game as unknown as { runFrame(steps: number): void }).runFrame(1)
   }
   return { game, frame, target, health, hazard, machine }
