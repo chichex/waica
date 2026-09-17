@@ -75,7 +75,12 @@ export interface RuntimeSnapshotAudio {
  * smallest positive integer n such that `step { frames: n }` makes an
  * active timer run or an active tween complete, or null when `pending` is
  * 0. Emitted unconditionally, like `audio` — never filtered, and never
- * repeats `now` (metadata already carries `simulationTime`).
+ * repeats `now` (metadata already carries `simulationTime`). That promise
+ * holds only while the Game is simulating: `runFrame` runs zero steps with
+ * `simulate === false` (`game.ts`), so on a Game that is paused AND not
+ * simulating, `nextInSteps` is still reported but stepping never consumes
+ * it — a Run Session starts with `simulate === true`, so this only matters
+ * if project code flips it.
  */
 export interface RuntimeSnapshotTime {
   pending: number
