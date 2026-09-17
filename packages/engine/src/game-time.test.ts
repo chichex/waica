@@ -534,12 +534,24 @@ describe('GameTime owner cancellation (CA-5)', () => {
     const otherCb = vi.fn()
     time.after(0.1, ownerCb, { owner, scope: 'session' })
     time.after(0.1, otherCb, { owner: other })
+    const ownerUpdate = vi.fn()
+    const ownerComplete = vi.fn()
+    const otherUpdate = vi.fn()
+    const otherComplete = vi.fn()
+    time.tween({ from: 0, to: 1, seconds: 1, onUpdate: ownerUpdate, onComplete: ownerComplete, owner })
+    time.tween({ from: 0, to: 1, seconds: 1, onUpdate: otherUpdate, onComplete: otherComplete, owner: other })
+    ownerUpdate.mockClear() // drop the synchronous onUpdate(from) call tween() makes at creation
+    otherUpdate.mockClear()
 
     time.cancelOwnedBy(owner)
-    step(time, 10)
+    step(time, 60) // long enough for the after(0.1)s and the 1s tweens to run their course
 
     expect(ownerCb).not.toHaveBeenCalled()
     expect(otherCb).toHaveBeenCalledOnce()
+    expect(ownerUpdate).not.toHaveBeenCalled() // cancelled tween: no further onUpdate
+    expect(ownerComplete).not.toHaveBeenCalled() // and no onComplete
+    expect(otherUpdate).toHaveBeenCalled() // another owner's tween keeps advancing
+    expect(otherComplete).toHaveBeenCalledOnce()
   })
 })
 
