@@ -43,7 +43,12 @@ function makePlayer(spawn: [number, number] = [0, 0]) {
     node: { visible: true },
     position: new THREE.Vector3(spawn[0], spawn[1], 0),
     scale: new THREE.Vector3(1, 1, 1),
-    destroy: vi.fn(),
+    // Like Entity.destroy: idempotent, cancels owned game.time work, and the
+    // game stops updating it.
+    destroy: vi.fn(() => {
+      ;(entity as unknown as { alive: boolean }).alive = false
+      game.time.cancelOwnedBy(entity)
+    }),
     get(Class: new () => Component) {
       return components.find((component) => component instanceof Class)
     },

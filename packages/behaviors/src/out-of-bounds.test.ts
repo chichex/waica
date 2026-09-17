@@ -28,6 +28,7 @@ function makeSubject(y: number, options: { health?: number } = {}) {
     position: new THREE.Vector3(0, y, 0),
     destroy: vi.fn(() => {
       alive = false
+      game.time.cancelOwnedBy(entity)
     }),
     get(Class: new () => Component) {
       return components.find((component) => component instanceof Class)
