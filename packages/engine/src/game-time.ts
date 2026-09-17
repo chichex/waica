@@ -142,6 +142,13 @@ interface EveryTimerEntry extends Entry {
 
 type TimerEntry = AfterTimerEntry | EveryTimerEntry
 
+/**
+ * Module-private key for the per-step advance pass. Not exported, so
+ * `time[ADVANCE]()` cannot be spelled outside this file — `advanceGameTime`
+ * (below, exported) is the only reachable entry point from project code.
+ */
+const ADVANCE = Symbol('waica.gameTime.advance')
+
 interface TweenEntry extends Entry {
   readonly kind: 'tween'
   readonly from: number
@@ -168,10 +175,13 @@ export class GameTime {
   private tweens: TweenEntry[] = []
   /**
    * Set whenever a timer/tween goes inactive since the matching array was
-   * last pruned, whether by firing/completing this pass or by a plain
-   * `handle.cancel()` from outside `advanceStep()`; consumed (and cleared)
-   * by the next pass that actually reassigns that array (CA-3 perf: no
-   * reassignment when nothing died).
+   * last pruned, whether by firing/completing the per-step advance pass or
+   * by a plain `handle.cancel()` from outside it; consumed (and cleared) by
+   * the next `reclaim()` that actually reassigns that array (CA-3 perf: no
+   * reassignment when nothing died). Invariant: a flag is false only when
+   * its array holds no inactive entries — every path that clears a flag
+   * prunes that array first, and every path that deactivates an entry sets
+   * the matching flag. `reclaim()` relies on this to skip a prune safely.
    */
   private timersDirty = false
   private tweensDirty = false
@@ -183,22 +193,27 @@ export class GameTime {
 
   /** Active timers plus active tweens across both scopes (CA-10). */
   get pending(): number {
-    let count = 0
-    for (const timer of this.timers) if (timer.active) count += 1
-    for (const tween of this.tweens) if (tween.active) count += 1
-    return count
+    return this.countActive(this.timers) + this.countActive(this.tweens)
   }
 
   /** Smallest positive integer n s.t. n more steps fires/completes something; null when nothing is pending (CA-10). */
   get nextInSteps(): number | null {
-    let min: number | null = null
-    for (const timer of this.timers) {
-      if (!timer.active) continue
-      min = min === null ? this.stepsUntilDue(timer.dueTime) : Math.min(min, this.stepsUntilDue(timer.dueTime))
-    }
-    for (const tween of this.tweens) {
-      if (!tween.active) continue
-      min = min === null ? this.stepsUntilDue(tween.dueTime) : Math.min(min, this.stepsUntilDue(tween.dueTime))
+    return this.minStepsUntilDue(this.tweens, this.minStepsUntilDue(this.timers, null))
+  }
+
+  /** Shared traversal for `pending`: how many entries in `entries` are active. */
+  private countActive(entries: readonly Entry[]): number {
+    let count = 0
+    for (const entry of entries) if (entry.active) count += 1
+    return count
+  }
+
+  /** Shared traversal for `nextInSteps`: folds `stepsUntilDue` over every active entry, starting from `min`. */
+  private minStepsUntilDue(entries: readonly Entry[], min: number | null): number | null {
+    for (const entry of entries) {
+      if (!entry.active) continue
+      const steps = this.stepsUntilDue(entry.dueTime)
+      min = min === null ? steps : Math.min(min, steps)
     }
     return min
   }
@@ -315,22 +330,77 @@ export class GameTime {
   /**
    * Internal: the start-of-step pass (CA-3) — advances `now`, then runs
    * every due timer (due time, then creation order), then advances every
-   * tween that existed before this pass (creation order). Call only through
-   * `advanceGameTime()`; never from project code. With nothing scheduled
-   * (the common case once a scene settles) this does no allocation beyond
-   * the step count itself.
+   * tween that existed before this pass (creation order). Reachable only as
+   * `time[ADVANCE]()`, and `ADVANCE` is not exported, so `advanceGameTime()`
+   * (below, exported) is genuinely the only way in from project code. With
+   * nothing scheduled (the common case once a scene settles) this does no
+   * allocation beyond the step count itself; with timers but no tweens, the
+   * tween snapshot and `advanceTweens()` are skipped too.
    */
-  advanceStep(): void {
+  [ADVANCE](): void {
     this.stepCount += 1
     if (this.timers.length === 0 && this.tweens.length === 0) return
-    // Snapshot before any callback runs: a tween a due timer creates during
-    // this pass must not be advanced (or completed) until the next step.
-    const tweens = [...this.tweens]
-    this.runDueTimers()
-    this.advanceTweens(tweens)
-    // Reassigning is itself an allocation (a filter over every entry), so
-    // it only happens for the array that actually lost something — either
-    // this pass or from a plain handle.cancel() since the last reassignment.
+    if (this.tweens.length === 0) {
+      this.runDueTimers()
+    } else {
+      // Snapshot before any callback runs: a tween a due timer creates
+      // during this pass must not be advanced (or completed) until the
+      // next step. Skipped entirely above when there is nothing to snapshot.
+      const tweens = [...this.tweens]
+      this.runDueTimers()
+      this.advanceTweens(tweens)
+    }
+    this.reclaim()
+  }
+
+  /**
+   * Engine-internal by convention, like `Game.removeEntity`: a public
+   * method, not access-controlled, that `Game.unloadScene()` and every
+   * scene load are expected to call, including the first (CA-4).
+   */
+  cancelSceneScoped(): void {
+    for (const timer of this.timers) if (timer.scope !== 'session') this.deactivate(timer)
+    for (const tween of this.tweens) if (tween.scope !== 'session') this.deactivate(tween)
+    this.reclaim()
+  }
+
+  /**
+   * Engine-internal by convention, like `Game.removeEntity`: a public
+   * method, not access-controlled, that `Entity.destroy()` (CA-5) is
+   * expected to be the only caller of. Nothing re-reads `owner.alive` on
+   * later steps; a non-`Entity` owner whose `alive` flips without ever
+   * going through a real `destroy()` call never reaches here, so its
+   * timers/tweens keep running (see `TimerOptions.owner`).
+   */
+  cancelOwnedBy(owner: { readonly alive: boolean }): void {
+    for (const timer of this.timers) if (timer.owner === owner) this.deactivate(timer)
+    for (const tween of this.tweens) if (tween.owner === owner) this.deactivate(tween)
+    this.reclaim()
+  }
+
+  /**
+   * Engine-internal by convention, like `Game.removeEntity`: a public
+   * method, not access-controlled, that `Game.dispose()` is expected to
+   * call (CA-4).
+   */
+  cancelAll(): void {
+    for (const timer of this.timers) this.deactivate(timer)
+    for (const tween of this.tweens) this.deactivate(tween)
+    this.reclaim()
+  }
+
+  /**
+   * Prunes each array only when its dirty flag is set, then clears that
+   * flag — safe because of the invariant documented on `timersDirty`
+   * /`tweensDirty`: a false flag means the array already holds no inactive
+   * entries, so skipping the filter changes no observable behavior. Called
+   * both at the tail of the per-step advance pass and by
+   * `cancelSceneScoped`/`cancelOwnedBy`/`cancelAll`, which are also
+   * reachable with `simulate === false` (e.g. the editor's edit mode
+   * calling `loadScene` on every edit), when no step ever runs to reclaim
+   * otherwise.
+   */
+  private reclaim(): void {
     if (this.timersDirty) {
       this.timers = this.timers.filter((timer) => timer.active)
       this.timersDirty = false
@@ -339,47 +409,6 @@ export class GameTime {
       this.tweens = this.tweens.filter((tween) => tween.active)
       this.tweensDirty = false
     }
-  }
-
-  /** Internal: called by `Game.unloadScene()` and every scene load, including the first (CA-4). */
-  cancelSceneScoped(): void {
-    for (const timer of this.timers) if (timer.scope !== 'session') this.deactivate(timer)
-    for (const tween of this.tweens) if (tween.scope !== 'session') this.deactivate(tween)
-    this.reclaim()
-  }
-
-  /**
-   * Internal: called by `Entity.destroy()` (CA-5) — the only caller. Nothing
-   * re-reads `owner.alive` on later steps; a non-`Entity` owner whose
-   * `alive` flips without ever going through a real `destroy()` call is
-   * never reached here, so its timers/tweens keep running (see
-   * `TimerOptions.owner`).
-   */
-  cancelOwnedBy(owner: { readonly alive: boolean }): void {
-    for (const timer of this.timers) if (timer.owner === owner) this.deactivate(timer)
-    for (const tween of this.tweens) if (tween.owner === owner) this.deactivate(tween)
-    this.reclaim()
-  }
-
-  /** Internal: called by `Game.dispose()` (CA-4). */
-  cancelAll(): void {
-    for (const timer of this.timers) this.deactivate(timer)
-    for (const tween of this.tweens) this.deactivate(tween)
-    this.reclaim()
-  }
-
-  /**
-   * Drops every inactive entry right away, unlike `advanceStep()`'s
-   * dirty-flag-gated prune: `cancelSceneScoped`/`cancelOwnedBy`/`cancelAll`
-   * are also reachable with `simulate === false` (e.g. the editor's edit
-   * mode calling `loadScene` on every edit), when no step ever runs to
-   * reclaim them otherwise.
-   */
-  private reclaim(): void {
-    this.timers = this.timers.filter((timer) => timer.active)
-    this.tweens = this.tweens.filter((tween) => tween.active)
-    this.timersDirty = false
-    this.tweensDirty = false
   }
 
   private runDueTimers(): void {
@@ -470,10 +499,11 @@ export class GameTime {
  * advances with `simulate === false`, on a zero-step frame, or while the
  * Runtime Bridge is paused and not stepping. A standalone `GameTime` — a
  * behaviors-test stub game, or this package's own game-time.test.ts (CA-14)
- * — must call this the same way. Not part of `GameTime`'s documented API,
- * like `resetRegistries`: project code must never call it directly, or Game
- * Time desynchronizes from the real simulation.
+ * — must call this the same way. This is the only way in: the pass itself
+ * lives behind the module-private `ADVANCE` symbol key, unreachable from
+ * outside this file, so project code has no `advanceStep()`-shaped method
+ * to call directly and desynchronize Game Time with.
  */
 export function advanceGameTime(time: GameTime): void {
-  time.advanceStep()
+  time[ADVANCE]()
 }

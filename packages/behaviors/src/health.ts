@@ -88,9 +88,20 @@ export class Health extends Component {
   /** Whoever dealt the last accepted hit, for the state that reacts to it. */
   lastDamageSource: Entity | undefined
 
-  /** The open invulnerability window, on `game.time`; null when closed. */
+  /**
+   * The open invulnerability window, on `game.time`. Null once
+   * `closeWindow()` has run. A window ended by owner destroy or scene
+   * unload instead of a natural close never runs `closeWindow()` — cancellation
+   * runs no callback — so this can also be present but inactive; `blinking`
+   * and `inspectState().invulnerable` both read through `.active`/`.remaining`,
+   * so that case still reports correctly.
+   */
   private windowHandle: TimerHandle | null = null
-  /** The 10 Hz blink toggle, on `game.time`; null when the window is closed. */
+  /**
+   * The 10 Hz blink toggle, on `game.time`. Null once `closeWindow()` has
+   * run, same asymmetry as `windowHandle`: a window cancelled by owner
+   * destroy or scene unload leaves this present but inactive instead.
+   */
   private blinkHandle: TimerHandle | null = null
 
   /** Whether the node is being flashed: exactly while a window is open. */
@@ -208,6 +219,13 @@ export class Health extends Component {
    * schedules nothing and touches no `game.time` at all — the window never
    * opens. Both are owned by this entity, so `Entity.destroy()` cancels
    * them immediately mid-window.
+   *
+   * The `invulnerability <= 0` check below runs once, here, before either
+   * handle is touched — it is not re-checked later. So lowering
+   * `invulnerability` to 0 while a window is already open does not close it
+   * early: that window keeps blinking and rejecting damage until it runs
+   * its normal course. Deliberate, not a bug: nothing re-reads
+   * `invulnerability` once a window is open.
    */
   private openWindow(): void {
     if (this.invulnerability <= 0) return
@@ -228,6 +246,7 @@ export class Health extends Component {
   private closeWindow(): void {
     this.blinkHandle?.cancel()
     this.blinkHandle = null
+    this.windowHandle = null
     this.entity.node.visible = true
   }
 
