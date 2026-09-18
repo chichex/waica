@@ -4,6 +4,7 @@ import type { Entity } from './entity.js'
 import type { Game } from './game.js'
 import type { RuntimeMetadata } from './runtime-bridge.js'
 import type { StatValue } from './stats.js'
+import { anchoredPiecesOf } from './ui.js'
 
 export type ProjectionMarkerKind = 'cycle' | 'unsupported' | 'error' | 'truncated'
 
@@ -87,6 +88,29 @@ export interface RuntimeSnapshotTime {
   nextInSteps: number | null
 }
 
+/**
+ * `game.ui` (issue #72 CA-9), beside `audio` and `time`: `shown` lists the
+ * screen pieces whose visibility flag is on, sorted by name; `anchored`
+ * lists the live Anchored Pieces in creation order. For each, `entity` is
+ * its anchor entity's name (kept for a lingering instance whose entity is
+ * gone); `x`/`y` are the whole CSS px of its last placement inside the game
+ * viewport — for one attached since the last render frame, where the next
+ * frame will place it; `clipped` is true when its anchor point lies outside
+ * the game viewport; `values` holds only its own values, after every `set`.
+ * Emitted unconditionally, like `audio` and `time` — never filtered.
+ */
+export interface RuntimeSnapshotUi {
+  shown: string[]
+  anchored: Array<{
+    piece: string
+    entity: string
+    x: number
+    y: number
+    clipped: boolean
+    values: Record<string, StatValue>
+  }>
+}
+
 export interface RuntimeSnapshot extends RuntimeMetadata {
   stats: Record<string, StatValue>
   /** The live scene's name (its catalog key), or null with no scene loaded. */
@@ -95,6 +119,7 @@ export interface RuntimeSnapshot extends RuntimeMetadata {
   projectionIssues: ProjectionIssue[]
   audio: RuntimeSnapshotAudio
   time: RuntimeSnapshotTime
+  ui: RuntimeSnapshotUi
 }
 
 export const RUNTIME_PROJECTION_LIMITS = {
@@ -367,6 +392,7 @@ export class RuntimeInspector {
       projectionIssues,
       audio: this.audioSnapshot(),
       time: this.timeSnapshot(),
+      ui: this.uiSnapshot(),
     })
   }
 
@@ -386,6 +412,14 @@ export class RuntimeInspector {
     return {
       pending: this.game.time.pending,
       nextInSteps: this.game.time.nextInSteps,
+    }
+  }
+
+  private uiSnapshot(): RuntimeSnapshotUi {
+    const ui = this.game.ui
+    return {
+      shown: ui.names().filter((name) => ui.isVisible(name)).sort(),
+      anchored: anchoredPiecesOf(ui).snapshot(),
     }
   }
 

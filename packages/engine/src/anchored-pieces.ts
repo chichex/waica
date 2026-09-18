@@ -2,6 +2,7 @@ import type { Entity } from './entity.js'
 import type { TimerHandle } from './game-time.js'
 import type { PointerCamera, PointerResolution } from './pointer.js'
 import { projectIsometric, type ProjectedPoint } from './projection.js'
+import type { RuntimeSnapshotUi } from './runtime-inspection.js'
 import type { Stats, StatValue } from './stats.js'
 import { placeholders, renderStat } from './ui-bindings.js'
 
@@ -98,6 +99,9 @@ interface Placement {
   /** The unrounded height on screen: 0 at the viewport's top, 1 at its bottom. */
   depth: number
 }
+
+/** A GameUi no Game connected has no viewport: nothing it holds is ever placed. */
+const UNPLACED: Placement = { x: 0, y: 0, clipped: true, depth: 0 }
 
 interface Instance {
   readonly piece: string
@@ -199,6 +203,26 @@ export class AnchoredPieces {
       if (instance.expiry) instance.frozen = anchorPoint(instance, this.view?.().projection ?? null)
       else this.remove(instance)
     }
+  }
+
+  /**
+   * The live instances for the Runtime Snapshot, in creation order, with
+   * the coordinates of their last placement — or, for one attached since
+   * the last render frame, where the next frame will place it.
+   */
+  snapshot(): RuntimeSnapshotUi['anchored'] {
+    const view = this.view?.()
+    return this.instances.map((instance) => {
+      const { x, y, clipped } = instance.placed ?? (view ? locate(instance, view) : UNPLACED)
+      return {
+        piece: instance.piece,
+        entity: instance.entity.name,
+        x,
+        y,
+        clipped,
+        values: Object.fromEntries(instance.values),
+      }
+    })
   }
 
   /** Removes every instance, lingering ones too (GameUi.unloadScene). */
