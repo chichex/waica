@@ -355,3 +355,83 @@ describe('RuntimeSnapshot.ui (issue #72 CA-9)', () => {
     game.dispose()
   })
 })
+
+describe('RuntimeSnapshot.ui within the projection limits (issue #72 CA-9)', () => {
+  const serializedBytes = (snapshot: unknown): number =>
+    new TextEncoder().encode(JSON.stringify(snapshot)).byteLength
+
+  it('truncates an anchored string value over 4 KiB like any projected string, so a snapshot with no entities stays within 1 MiB', () => {
+    const { registered } = installActivation()
+    const game = makeGame()
+    game.start()
+    game.ui.define('hit', '<b>{{label}}</b>')
+    const orc = game.spawn('Orc')
+    game.ui.attach('hit', orc, { seconds: 5, values: { label: 'x'.repeat(1_048_576), amount: 3 } })
+    orc.destroy()
+
+    const snapshot = registered[0]!.inspect()
+
+    expect(snapshot.entities).toEqual([])
+    expect(serializedBytes(snapshot)).toBeLessThanOrEqual(1_048_576)
+    expect(snapshot.ui.anchored[0]!.values).toEqual({
+      amount: 3,
+      label: {
+        $waica: 'truncated',
+        reason: 'string',
+        preview: 'x'.repeat(4_096),
+        originalLength: 1_048_576,
+        originalBytes: 1_048_576,
+      },
+    })
+    expect(snapshot.projectionIssues).toEqual([{ path: 'ui.anchored[0].values.label', marker: 'truncated' }])
+    game.dispose()
+  })
+
+  it('keeps the first 100 of an instance\'s values by name and marks the record truncated, like any projected record', () => {
+    const { registered } = installActivation()
+    const game = makeGame()
+    game.start()
+    game.ui.define('tag', '<i>tag</i>')
+    const name = (index: number): string => `v${String(index).padStart(3, '0')}`
+    game.ui.attach('tag', game.spawn('Orc'), {
+      values: Object.fromEntries(Array.from({ length: 101 }, (_, index) => [name(index), index])),
+    })
+
+    const snapshot = registered[0]!.inspect()
+
+    expect(snapshot.ui.anchored[0]!.values).toEqual({
+      $waica: 'truncated',
+      reason: 'entries',
+      omitted: 1,
+      value: Object.fromEntries(Array.from({ length: 100 }, (_, index) => [name(index), index])),
+    })
+    expect(snapshot.projectionIssues).toEqual([{ path: 'ui.anchored[0].values', marker: 'truncated' }])
+    game.dispose()
+  })
+
+  it('drops anchored instances from the end, once every entity is gone, until the snapshot fits in 1 MiB', () => {
+    const { registered } = installActivation()
+    const game = makeGame()
+    game.start()
+    game.ui.define('tag', '<i>tag</i>')
+    // Sixty 4 KiB strings each: about 246 KB per instance, so four fit in 1 MiB and five do not.
+    for (let index = 0; index < 5; index += 1) {
+      game.ui.attach('tag', game.spawn(`E${index}`), {
+        values: Object.fromEntries(
+          Array.from({ length: 60 }, (_, field) => [`f${field}`, String(index).padEnd(4_096, 'x')]),
+        ),
+      })
+    }
+
+    const snapshot = registered[0]!.inspect()
+
+    expect(serializedBytes(snapshot)).toBeLessThanOrEqual(1_048_576)
+    expect(snapshot.entities).toEqual([])
+    expect(snapshot.ui.anchored.map(({ entity }) => entity)).toEqual(['E0', 'E1', 'E2', 'E3'])
+    expect(snapshot.projectionIssues).toEqual([
+      { path: 'entities[0]', marker: 'truncated', omitted: 5 },
+      { path: 'ui.anchored[4]', marker: 'truncated', omitted: 1 },
+    ])
+    game.dispose()
+  })
+})
