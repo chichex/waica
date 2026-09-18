@@ -416,8 +416,9 @@ export class Game {
     this.renderer.setAnimationLoop(null)
   }
 
-  /** Internal: called by Entity.destroy(). */
+  /** Internal: called by Entity.destroy(). Its Anchored Pieces go (or freeze) with it. */
   removeEntity(entity: Entity): void {
+    anchoredPiecesOf(this.ui).release(entity)
     const i = this.entities.indexOf(entity)
     if (i !== -1) this.entities.splice(i, 1)
   }

@@ -112,7 +112,10 @@ interface Instance {
   /** The placeholder text nodes of each bound name. */
   readonly texts: Map<string, Text[]>
   readonly unsubs: Array<() => void>
+  /** The Game Time timer that removes an instance given `seconds`. */
   expiry: TimerHandle | null
+  /** Render-space anchor point frozen when a lingering instance's entity was destroyed. */
+  frozen: ProjectedPoint | null
   placed: Placement | null
   alive: boolean
 }
@@ -168,6 +171,7 @@ export class AnchoredPieces {
       texts: new Map(),
       unsubs: [],
       expiry: null,
+      frozen: null,
       placed: null,
       alive: true,
     }
@@ -175,7 +179,37 @@ export class AnchoredPieces {
     for (const [name, value] of instance.values) publish(host, name, value)
     this.mountLayer().append(host)
     this.instances.push(instance)
+    if (options.seconds !== undefined) {
+      // Not owned by the entity: it must outlive it. Scene-scoped, like the
+      // instance itself. A duration game.time rejects (it warns) leaves the
+      // instance to die with its entity instead of lingering forever.
+      const expiry = entity.game.time.after(options.seconds, () => this.remove(instance))
+      instance.expiry = expiry.active ? expiry : null
+    }
     return this.handleFor(instance)
+  }
+
+  /**
+   * Called by the Game before an entity's destroy() returns: its instances
+   * go with it, except those given `seconds`, which stay frozen at its
+   * current anchor point until they expire.
+   */
+  release(entity: Entity): void {
+    for (const instance of this.instances.filter((candidate) => candidate.entity === entity)) {
+      if (instance.expiry) instance.frozen = anchorPoint(instance, this.view?.().projection ?? null)
+      else this.remove(instance)
+    }
+  }
+
+  /** Removes every instance, lingering ones too (GameUi.unloadScene). */
+  clear(): void {
+    for (const instance of [...this.instances]) this.remove(instance)
+  }
+
+  /** Removes every instance and forgets the layer along with the overlay (GameUi.dispose). */
+  dispose(): void {
+    this.clear()
+    this.layer = undefined
   }
 
   /**
@@ -285,8 +319,9 @@ export class AnchoredPieces {
   }
 }
 
-/** The entity's render point plus the offset, in render space. */
+/** The entity's render point plus the offset, in render space — or the point frozen at its destroy(). */
 function anchorPoint(instance: Instance, projection: 'isometric' | null): ProjectedPoint {
+  if (instance.frozen) return instance.frozen
   const { x, y } = instance.entity.position
   const render = projection === 'isometric' ? projectIsometric(x, y) : { x, y }
   return { x: render.x + instance.offset[0], y: render.y + instance.offset[1] }

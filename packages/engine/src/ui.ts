@@ -116,12 +116,13 @@ export class GameUi {
     this.sync()
   }
 
-  /** Unmounts every piece and removes the overlay (Game.dispose). */
+  /** Unmounts every piece and Anchored Piece and removes the overlay (Game.dispose). */
   dispose(): void {
     for (const piece of this.pieces.values()) {
       for (const off of piece.unsubs) off()
     }
     this.pieces.clear()
+    this.anchored.dispose()
     this.overlay?.remove()
     this.overlay = undefined
   }
@@ -129,10 +130,12 @@ export class GameUi {
   /**
    * Unmounts every scene-scoped piece: the ones `loadScene` showed from the
    * outgoing scene's `ui` list, plus any shown with `{ scope: 'scene' }`.
-   * A piece the host showed with no scope is untouched. The definition
-   * catalog (sources) always survives — Game.unloadScene.
+   * A piece the host showed with no scope is untouched. Every Anchored
+   * Piece goes too, lingering ones included: none outlives its scene. The
+   * definition catalog (sources) always survives — Game.unloadScene.
    */
   unloadScene(): void {
+    this.anchored.clear()
     for (const [name, piece] of this.pieces) {
       if (piece.scope !== 'scene') continue
       for (const off of piece.unsubs) off()
