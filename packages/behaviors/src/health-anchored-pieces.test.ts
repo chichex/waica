@@ -212,7 +212,7 @@ describe('Health damage numbers (issue #72, CA-13)', () => {
     expect(harness.anchored()).toEqual([])
   })
 
-  it('attaches nothing and logs nothing when damageNumber is empty', () => {
+  it('attaches nothing and logs nothing when damageNumber is empty (the default)', () => {
     const warn = vi.spyOn(console, 'warn')
     const harness = makeHarness()
     const { health } = spawnOrc(harness.game, { max: 3 })
@@ -222,5 +222,88 @@ describe('Health damage numbers (issue #72, CA-13)', () => {
     expect(health.current).toBe(2)
     expect(harness.anchored()).toEqual([])
     expect(waicaWarnings(warn)).toEqual([])
+  })
+})
+
+describe('Health bar (issue #72, CA-15)', () => {
+  it('shows no bar while health is full', () => {
+    const harness = makeHarness()
+    spawnOrc(harness.game, { max: 2, healthBar: 'health-bar' })
+
+    harness.step()
+
+    expect(harness.anchored()).toEqual([])
+  })
+
+  it('attaches the bar above the entity on the first damage that leaves it below max', () => {
+    const harness = makeHarness()
+    const { health } = spawnOrc(harness.game, { max: 2, healthBar: 'health-bar' })
+
+    harness.duringStep(() => health.damage(1))
+
+    expect(harness.anchored()).toEqual([
+      { piece: 'health-bar', entity: 'Orc', x: 320, y: 121, clipped: false, values: { current: 1, max: 2 } },
+    ])
+  })
+
+  it('keeps that one bar up to date through later damage and healing', () => {
+    const harness = makeHarness()
+    const attach = vi.spyOn(harness.game.ui, 'attach')
+    const { health } = spawnOrc(harness.game, { max: 4, healthBar: 'health-bar' })
+    const barValues = () => pieces(harness, 'health-bar').map((instance) => instance.values)
+
+    harness.duringStep(() => health.damage(1))
+    expect(barValues()).toEqual([{ current: 3, max: 4 }])
+    harness.duringStep(() => health.damage(2))
+    expect(barValues()).toEqual([{ current: 1, max: 4 }])
+    harness.duringStep(() => health.heal(1))
+    expect(barValues()).toEqual([{ current: 2, max: 4 }])
+
+    // The same instance throughout, updated in place rather than re-attached.
+    expect(attach.mock.calls.filter(([piece]) => piece === 'health-bar')).toHaveLength(1)
+    expect(attach.mock.results[0]!.value.alive).toBe(true)
+  })
+
+  it.each([
+    ['a partial heal back to max', (health: Health) => health.heal(1)],
+    ['a full restore', (health: Health) => health.heal(Infinity)],
+  ])('removes the bar when %s brings health back to max', (_label, heal) => {
+    const harness = makeHarness()
+    const { health } = spawnOrc(harness.game, { max: 2, healthBar: 'health-bar' })
+    harness.duringStep(() => health.damage(1))
+    expect(pieces(harness, 'health-bar')).toHaveLength(1)
+
+    harness.duringStep(() => heal(health))
+
+    expect(health.current).toBe(2)
+    expect(harness.anchored()).toEqual([])
+  })
+
+  it.each([
+    ['a death state keeps the entity alive', true],
+    ['no death state destroys the entity', false],
+  ])('removes the bar before death is emitted when %s', (_label, withDeathState) => {
+    const harness = makeHarness()
+    const { orc, health } = spawnOrc(harness.game, { max: 2, healthBar: 'health-bar' }, withDeathState)
+    harness.duringStep(() => health.damage(1))
+    expect(pieces(harness, 'health-bar')).toHaveLength(1)
+    const barsAtDeath: unknown[] = []
+    harness.game.events.on('death', () => barsAtDeath.push(pieces(harness, 'health-bar')))
+
+    harness.duringStep(() => health.damage(1))
+
+    expect(barsAtDeath).toEqual([[]])
+    expect(orc.alive).toBe(withDeathState)
+    expect(harness.anchored()).toEqual([])
+  })
+
+  it('attaches nothing when healthBar is empty (the default)', () => {
+    const harness = makeHarness()
+    const { health } = spawnOrc(harness.game, { max: 2 })
+
+    harness.duringStep(() => health.damage(1))
+
+    expect(health.current).toBe(1)
+    expect(harness.anchored()).toEqual([])
   })
 })

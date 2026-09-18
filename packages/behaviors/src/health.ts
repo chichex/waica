@@ -1,6 +1,7 @@
 import {
   Component,
   StateMachine,
+  type AnchoredPieceHandle,
   type Entity,
   type StateJson,
   type TimerHandle,
@@ -76,6 +77,7 @@ export class Health extends Component {
     'lastDamageSource',
     'windowHandle',
     'blinkHandle',
+    'healthBarHandle',
   ]
 
   max = 3
@@ -113,6 +115,12 @@ export class Health extends Component {
    * destroy or scene unload leaves this present but inactive instead.
    */
   private blinkHandle: TimerHandle | null = null
+  /**
+   * The healthBar instance while the entity is hurt but alive (issue #72,
+   * CA-15); null at full health, at 0 and before the first hit. One the
+   * engine removed with its entity or its scene reads `alive: false`.
+   */
+  private healthBarHandle: AnchoredPieceHandle | null = null
 
   /** Whether the node is being flashed: exactly while a window is open. */
   get blinking(): boolean {
@@ -193,6 +201,7 @@ export class Health extends Component {
     if (this.current < DEATH_EPSILON) this.current = 0
     this.lastDamageSource = source
     this.publish()
+    this.syncHealthBar()
     this.game.events.emit('damage', {
       entity: this.entity,
       amount,
@@ -216,6 +225,7 @@ export class Health extends Component {
     if (amount <= 0) return
     this.current = Math.min(this.max, this.current + amount)
     this.publish()
+    this.syncHealthBar()
   }
 
   /** Mirrors current into the named stat, when one is named. */
@@ -237,6 +247,35 @@ export class Health extends Component {
       seconds: DAMAGE_NUMBER_SECONDS,
       values: { amount },
     })
+  }
+
+  /**
+   * Keeps the healthBar piece in step with current (issue #72, CA-15): none
+   * at full health; attached by the first hit that leaves the entity below
+   * max, then updated in place through `set` by every later hit or heal;
+   * removed once current is back at max, or at 0 (die() removes it too).
+   */
+  private syncHealthBar(): void {
+    if (!this.healthBar) return
+    if (this.current <= 0 || this.current >= this.max) {
+      this.removeHealthBar()
+      return
+    }
+    const bar = this.healthBarHandle
+    if (bar?.alive) {
+      bar.set('current', this.current)
+      bar.set('max', this.max)
+      return
+    }
+    this.healthBarHandle = this.game.ui.attach(this.healthBar, this.entity, {
+      offset: [0, anchorHeight(this.entity)],
+      values: { current: this.current, max: this.max },
+    })
+  }
+
+  private removeHealthBar(): void {
+    this.healthBarHandle?.remove()
+    this.healthBarHandle = null
   }
 
   /**
@@ -297,6 +336,9 @@ export class Health extends Component {
     this.blinkHandle?.cancel()
     this.blinkHandle = null
     this.entity.node.visible = true
+    // Before 'death' goes out, even when a death state keeps the entity
+    // alive: a dead entity shows no bar (CA-15).
+    this.removeHealthBar()
     this.game.events.emit('death', { entity: this.entity })
     const machine = this.entity.get(StateMachine)
     const targets = machine ? deathTargets(machine.states, machine.current) : []
