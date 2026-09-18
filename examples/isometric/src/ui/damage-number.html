@@ -1,0 +1,30 @@
+<style>
+  .damage-number {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    transform: translate(-50%, 0);
+    width: max-content;
+    font: 800 20px/1 system-ui, sans-serif;
+    color: #ff5d73;
+    white-space: nowrap;
+    text-shadow: 0 2px 0 #000, 0 0 4px #000c;
+    pointer-events: none;
+    user-select: none;
+    animation: damage-number-rise 0.8s ease-out forwards;
+  }
+  @keyframes damage-number-rise {
+    from {
+      transform: translate(-50%, 0) scale(1.25);
+      opacity: 1;
+    }
+    60% {
+      opacity: 1;
+    }
+    to {
+      transform: translate(-50%, calc(-0.8 * var(--waica-unit, 40px))) scale(1);
+      opacity: 0;
+    }
+  }
+</style>
+<div class="damage-number">-{{amount}}</div>
