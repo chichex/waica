@@ -211,9 +211,8 @@ export class AnchoredPieces {
    * the last render frame, where the next frame will place it.
    */
   snapshot(): RuntimeSnapshotUi['anchored'] {
-    const view = this.view?.()
     return this.instances.map((instance) => {
-      const { x, y, clipped } = instance.placed ?? (view ? locate(instance, view) : UNPLACED)
+      const { x, y, clipped } = instance.placed ?? (this.view ? locate(instance, this.view()) : UNPLACED)
       return {
         piece: instance.piece,
         entity: instance.entity.name,

@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { gameViewport } from './anchored-pieces.js'
 import type { AudioBackend } from './audio/backend.js'
 import { AudioSubsystem } from './audio/audio-subsystem.js'
 import { dispatchCollisions as dispatchHitboxCollisions } from './collision-dispatch.js'
@@ -40,7 +41,6 @@ import {
 } from './scene.js'
 import { createSpatialQuery, type SpatialQuery } from './spatial-query.js'
 import { Stats, type StatValue } from './stats.js'
-import { gameViewport } from './anchored-pieces.js'
 import { anchoredPiecesOf, GameUi } from './ui.js'
 
 /** Fixed game resolution: the view keeps this aspect, letterboxed. */
