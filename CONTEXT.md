@@ -114,6 +114,14 @@ _Avoid_: navmesh, pathfinding map
 What belongs to a running Game rather than to the scene it is currently showing: stats, parameter overrides, input, pointer, renderer, and every subscription its host created. It survives a scene change. Its complement is **scene-scoped** — the entities a scene spawned and the UI pieces it declared or showed as its own — which is exactly what unloading a scene destroys. A Game shows one scene at a time; loading another replaces it.
 _Avoid_: global, persistent, permanent
 
+**UI Piece**:
+A named, self-contained HTML fragment drawn over the game view that only presents: it shows values through `{{stat}}` bindings and positions itself with its own CSS, while behaviour is wired from code. Shown on the screen once per name, it survives a scene change unless the scene declared or showed it as its own.
+_Avoid_: widget, HUD element, panel
+
+**Anchored Piece**:
+An instance of a UI Piece that follows an entity across the screen and carries its own values ahead of the Game's stats; one piece can be anchored any number of times, to one entity or to many. It dies with its entity unless it was given a duration, in which case it lingers where the entity last was until that runs out; it never outlives its scene.
+_Avoid_: world label, nameplate, entity overlay, world-space text
+
 **Scene Transition**:
 An authored trigger that replaces the live scene with another of the Project's scenes, fired by walking into it or by interacting with it. It names only its destination: the incoming scene places its own player wherever that scene authored it.
 _Avoid_: door, portal, warp, level change
