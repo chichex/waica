@@ -116,6 +116,10 @@ interface Instance {
   /** The placeholder text nodes of each bound name. */
   readonly texts: Map<string, Text[]>
   readonly unsubs: Array<() => void>
+  /** Game Time (s) at attach: the zero of the CSS animations it starts with. */
+  readonly born: number
+  /** The Game Time (s) each of its CSS animations counts from. */
+  readonly clocks: WeakMap<Animation, number>
   /** The Game Time timer that removes an instance given `seconds`. */
   expiry: TimerHandle | null
   /** Render-space anchor point frozen when a lingering instance's entity was destroyed. */
@@ -174,6 +178,8 @@ export class AnchoredPieces {
       root,
       texts: new Map(),
       unsubs: [],
+      born: entity.game.time.now,
+      clocks: new WeakMap(),
       expiry: null,
       frozen: null,
       placed: null,
@@ -239,7 +245,8 @@ export class AnchoredPieces {
    * Called by the Game once per render frame, after the isometric pass and
    * before the render (never per Simulation Step, never on attach): fits
    * the layer to the game viewport and puts every instance's zero-size
-   * shadow host at its anchor point, with the frame's `--waica-unit`.
+   * shadow host at its anchor point, with the frame's `--waica-unit`, its
+   * CSS animations set to Game Time (followGameTime).
    */
   place(): void {
     const layer = this.layer
@@ -252,6 +259,8 @@ export class AnchoredPieces {
     layer.style.height = `${viewport.height}px`
     // The camera frames exactly viewHeight world units vertically (Game.resize).
     const unit = `${viewport.height / (camera.top - camera.bottom)}px`
+    // Before any instance's style writes below: getAnimations() flushes style.
+    for (const instance of this.instances) followGameTime(instance)
     const byDepth: Array<[Instance, number]> = []
     for (const instance of this.instances) {
       const placement = locate(instance, view)
@@ -364,6 +373,29 @@ function locate(instance: Instance, view: AnchorView): Placement {
     y: whole(ny * viewport.height),
     clipped: nx < 0 || nx > 1 || ny < 0 || ny > 1,
     depth: ny,
+  }
+}
+
+/**
+ * Drives the instance's CSS animations from Game Time instead of the
+ * document timeline: each is paused at the Game Time elapsed since it
+ * started, so a frame that runs no Simulation Step leaves it exactly where
+ * it was. One there at the first placement started with the instance (its
+ * attach); a later one (a transition a set() started) with the frame it
+ * first shows up in. Called before the frame updates `placed`. A DOM
+ * without the Web Animations API (happy-dom returns none) is left alone.
+ */
+function followGameTime(instance: Instance): void {
+  const animations = instance.host.shadowRoot?.getAnimations?.() ?? []
+  const now = instance.entity.game.time.now
+  for (const animation of animations) {
+    let start = instance.clocks.get(animation)
+    if (start === undefined) {
+      start = instance.placed ? now : instance.born
+      instance.clocks.set(animation, start)
+    }
+    animation.pause()
+    animation.currentTime = (now - start) * 1000
   }
 }
 

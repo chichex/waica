@@ -399,3 +399,78 @@ describe('Anchored Piece lifetime (CA-5)', () => {
     expect(host.style.getPropertyValue('--amount')).toBe('1')
   })
 })
+
+describe('CSS animations inside an instance follow Game Time', () => {
+  /** A stand-in for a Web Animations API Animation, recording what the engine does to it. */
+  class FakeAnimation {
+    paused = false
+    currentTime: number | null = null
+    pause(): void {
+      this.paused = true
+    }
+  }
+
+  /** happy-dom's ShadowRoot.getAnimations() is always []: stubs the browser's for one instance. */
+  function stubAnimations(handle: AnchoredPieceHandle, animations: FakeAnimation[]): void {
+    const shadow = handle.element!.getRootNode() as ShadowRoot
+    shadow.getAnimations = () => animations as unknown as Animation[]
+  }
+
+  it('pauses each one at the instance\'s Game Time age in ms, which frames running no Simulation Step leave where it was', () => {
+    const game = makeGame()
+    const hit = game.ui.attach('tag', game.spawn('Orc'), { seconds: 5 })
+    const rise = new FakeAnimation()
+    stubAnimations(hit, [rise])
+
+    for (let step = 1; step <= 3; step += 1) frame(game)
+    expect(rise.paused).toBe(true)
+    // Three steps of 1/60 s: 50 ms.
+    expect(rise.currentTime).toBeCloseTo(50, 9)
+
+    frame(game, 0)
+    expect(rise.currentTime).toBeCloseTo(50, 9)
+    game.simulate = false
+    frame(game, 1)
+    expect(rise.currentTime).toBeCloseTo(50, 9)
+
+    game.simulate = true
+    frame(game, 3)
+    // Six steps: 100 ms.
+    expect(rise.currentTime).toBeCloseTo(100, 9)
+  })
+
+  it('starts one that appears after the instance was first placed, like the transition a set() starts, from the frame it appears', () => {
+    const game = makeGame()
+    const bar = game.ui.attach('tag', game.spawn('Orc'), { values: { current: 2 } })
+    const animations: FakeAnimation[] = []
+    stubAnimations(bar, animations)
+    for (let step = 1; step <= 30; step += 1) frame(game)
+
+    bar.set('current', 1)
+    const width = new FakeAnimation()
+    animations.push(width)
+    frame(game)
+    expect(width.paused).toBe(true)
+    expect(width.currentTime).toBe(0)
+
+    frame(game, 9)
+    // Nine steps after it appeared: 150 ms, although the bar is 40 steps old.
+    expect(width.currentTime).toBeCloseTo(150, 9)
+  })
+
+  it('keeps a lingering instance\'s animations aging with Game Time after its entity is gone', () => {
+    const game = makeGame()
+    const orc = game.spawn('Orc')
+    const hit = game.ui.attach('tag', orc, { seconds: 0.8 })
+    const rise = new FakeAnimation()
+    stubAnimations(hit, [rise])
+    frame(game)
+
+    orc.destroy()
+    for (let step = 2; step <= 12; step += 1) frame(game)
+
+    expect(hit.alive).toBe(true)
+    // Twelve steps: 200 ms.
+    expect(rise.currentTime).toBeCloseTo(200, 9)
+  })
+})

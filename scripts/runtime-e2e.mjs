@@ -1014,6 +1014,27 @@ async function runIsometricCombat({ client, project, inspectPlayer, hold, releas
     ],
     `the hit must anchor one damage-number and one health-bar to the orc; anchored: ${JSON.stringify(struckOrc.ui?.anchored)}`,
   )
+  // An Anchored Piece's CSS animations follow Game Time: in a paused Run
+  // Session the damage number stays mid-flight however much wall time
+  // passes, so two screenshots a second apart with no step between them
+  // are the same PNG, byte for byte. Neither a screenshot nor the wait
+  // steps the simulation, so every step count below still holds.
+  const frozenShot = assertScreenshot(
+    await call(client, 'capture_screenshot', { project_path: project }),
+    'paused',
+    { width: 640, height: 360 },
+  )
+  await new Promise((resolve) => setTimeout(resolve, 1_000))
+  const laterShot = assertScreenshot(
+    await call(client, 'capture_screenshot', { project_path: project }),
+    'paused',
+    { width: 640, height: 360 },
+  )
+  assert.equal(laterShot.metadata.frame, frozenShot.metadata.frame, 'taking screenshots must not step the paused Run Session')
+  assert.ok(
+    Buffer.from(laterShot.image, 'base64').equals(Buffer.from(frozenShot.image, 'base64')),
+    'a paused Run Session must freeze the damage number: two screenshots 1 s of wall time apart must be identical',
+  )
   await step(1)
   assert.equal((await inspectOrc()).state('StateMachine').current, 'hurt', 'the orc flinches')
   await step(20)
