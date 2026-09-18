@@ -1396,6 +1396,130 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   ]
 }
 ",
+  "src/ui/damage-number.html": "<style>
+  .damage-number {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    transform: translate(-50%, 0);
+    width: max-content;
+    font: 800 20px/1 system-ui, sans-serif;
+    color: #ff5d73;
+    white-space: nowrap;
+    text-shadow: 0 2px 0 #000, 0 0 4px #000c;
+    pointer-events: none;
+    user-select: none;
+    animation: damage-number-rise 0.8s ease-out forwards;
+  }
+  @keyframes damage-number-rise {
+    from {
+      transform: translate(-50%, 0) scale(1.25);
+      opacity: 1;
+    }
+    60% {
+      opacity: 1;
+    }
+    to {
+      transform: translate(-50%, calc(-0.8 * var(--waica-unit, 40px))) scale(1);
+      opacity: 0;
+    }
+  }
+</style>
+<div class="damage-number">-{{amount}}</div>
+",
+  "src/ui/health-bar.html": "<style>
+  .health-bar {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    transform: translate(-50%, 0);
+    box-sizing: border-box;
+    width: var(--waica-unit, 40px);
+    height: 7px;
+    padding: 1px;
+    border-radius: 4px;
+    background: #1a1a2ecc;
+    border: 1px solid #ffffff2e;
+    pointer-events: none;
+    user-select: none;
+  }
+  .health-bar-fill {
+    width: calc(var(--current) / var(--max) * 100%);
+    height: 100%;
+    border-radius: 2px;
+    background: #ef476f;
+    transition: width 0.15s ease-out;
+  }
+</style>
+<div class="health-bar"><div class="health-bar-fill"></div></div>
+",
+  "src/ui/interact-prompt.html": "<style>
+  .interact-prompt {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    transform: translate(-50%, -6px);
+    width: max-content;
+    padding: 3px 8px;
+    border-radius: 8px;
+    background: #1a1a2ecc;
+    border: 1px solid #ffffff2e;
+    font: 500 13px/1.4 system-ui, sans-serif;
+    color: #f5f5f5;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px #000a;
+    pointer-events: none;
+    user-select: none;
+  }
+  .interact-prompt kbd {
+    display: inline-block;
+    min-width: 1.4em;
+    margin-left: 2px;
+    padding: 0 5px;
+    border-radius: 4px;
+    background: #f5f5f5;
+    box-shadow: 0 2px 0 #9a9ab0;
+    font: 700 13px/1.4 system-ui, sans-serif;
+    color: #1a1a2e;
+    text-align: center;
+    text-shadow: none;
+  }
+</style>
+<div class="interact-prompt">Press <kbd>{{key}}</kbd></div>
+",
+  "src/ui/npc-bubble.html": "<style>
+  .npc-bubble {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    transform: translate(-50%, -10px);
+    width: max-content;
+    max-width: 260px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    background: #1a1a2ee6;
+    border: 1px solid #ffffff2e;
+    font: 500 16px/1.35 system-ui, sans-serif;
+    color: #f5f5f5;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: break-word;
+    text-shadow: 0 1px 2px #000a;
+    pointer-events: none;
+    user-select: none;
+  }
+  .npc-bubble::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    transform: translateX(-50%);
+    border: 8px solid transparent;
+    border-top-color: #1a1a2ee6;
+  }
+</style>
+<div class="npc-bubble">{{line}}</div>
+",
   "src/ui/npc-line.html": "<style>
   .npc-line {
     position: absolute;
@@ -2144,7 +2268,9 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
       "props": {
         "max": 2,
         "invulnerability": 0.3,
-        "hurtSound": "src/art/waica-iso-hit.ogg"
+        "hurtSound": "src/art/waica-iso-hit.ogg",
+        "damageNumber": "damage-number",
+        "healthBar": "health-bar"
       }
     }
   ]
@@ -3650,6 +3776,63 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
 </style>
 <div class="crate-counter">📦 {{points}}</div>
 ",
+  "src/ui/damage-number.html": "<style>
+  .damage-number {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    transform: translate(-50%, 0);
+    width: max-content;
+    font: 800 20px/1 system-ui, sans-serif;
+    color: #ff5d73;
+    white-space: nowrap;
+    text-shadow: 0 2px 0 #000, 0 0 4px #000c;
+    pointer-events: none;
+    user-select: none;
+    animation: damage-number-rise 0.8s ease-out forwards;
+  }
+  @keyframes damage-number-rise {
+    from {
+      transform: translate(-50%, 0) scale(1.25);
+      opacity: 1;
+    }
+    60% {
+      opacity: 1;
+    }
+    to {
+      transform: translate(-50%, calc(-0.8 * var(--waica-unit, 40px))) scale(1);
+      opacity: 0;
+    }
+  }
+</style>
+<div class="damage-number">-{{amount}}</div>
+",
+  "src/ui/health-bar.html": "<style>
+  .health-bar {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    transform: translate(-50%, 0);
+    box-sizing: border-box;
+    width: var(--waica-unit, 40px);
+    height: 7px;
+    padding: 1px;
+    border-radius: 4px;
+    background: #1a1a2ecc;
+    border: 1px solid #ffffff2e;
+    pointer-events: none;
+    user-select: none;
+  }
+  .health-bar-fill {
+    width: calc(var(--current) / var(--max) * 100%);
+    height: 100%;
+    border-radius: 2px;
+    background: #ef476f;
+    transition: width 0.15s ease-out;
+  }
+</style>
+<div class="health-bar"><div class="health-bar-fill"></div></div>
+",
   "src/ui/health.html": "<style>
   .health {
     position: absolute;
@@ -3662,6 +3845,73 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   }
 </style>
 <div class="health">♥ {{health}}</div>
+",
+  "src/ui/interact-prompt.html": "<style>
+  .interact-prompt {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    transform: translate(-50%, -6px);
+    width: max-content;
+    padding: 3px 8px;
+    border-radius: 8px;
+    background: #1a1a2ecc;
+    border: 1px solid #ffffff2e;
+    font: 500 13px/1.4 system-ui, sans-serif;
+    color: #f5f5f5;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px #000a;
+    pointer-events: none;
+    user-select: none;
+  }
+  .interact-prompt kbd {
+    display: inline-block;
+    min-width: 1.4em;
+    margin-left: 2px;
+    padding: 0 5px;
+    border-radius: 4px;
+    background: #f5f5f5;
+    box-shadow: 0 2px 0 #9a9ab0;
+    font: 700 13px/1.4 system-ui, sans-serif;
+    color: #1a1a2e;
+    text-align: center;
+    text-shadow: none;
+  }
+</style>
+<div class="interact-prompt">Press <kbd>{{key}}</kbd></div>
+",
+  "src/ui/npc-bubble.html": "<style>
+  .npc-bubble {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    transform: translate(-50%, -10px);
+    width: max-content;
+    max-width: 260px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    background: #1a1a2ee6;
+    border: 1px solid #ffffff2e;
+    font: 500 16px/1.35 system-ui, sans-serif;
+    color: #f5f5f5;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: break-word;
+    text-shadow: 0 1px 2px #000a;
+    pointer-events: none;
+    user-select: none;
+  }
+  .npc-bubble::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    transform: translateX(-50%);
+    border: 8px solid transparent;
+    border-top-color: #1a1a2ee6;
+  }
+</style>
+<div class="npc-bubble">{{line}}</div>
 ",
   "src/ui/npc-line.html": "<style>
   .npc-line {
@@ -4317,7 +4567,8 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
     {
       "type": "Health",
       "props": {
-        "max": 1
+        "max": 1,
+        "damageNumber": "damage-number"
       }
     }
   ]
@@ -4850,6 +5101,63 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   }
 </style>
 <div class="coin-counter">🪙 {{points}}</div>
+",
+  "src/ui/damage-number.html": "<style>
+  .damage-number {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    transform: translate(-50%, 0);
+    width: max-content;
+    font: 800 20px/1 system-ui, sans-serif;
+    color: #ff5d73;
+    white-space: nowrap;
+    text-shadow: 0 2px 0 #000, 0 0 4px #000c;
+    pointer-events: none;
+    user-select: none;
+    animation: damage-number-rise 0.8s ease-out forwards;
+  }
+  @keyframes damage-number-rise {
+    from {
+      transform: translate(-50%, 0) scale(1.25);
+      opacity: 1;
+    }
+    60% {
+      opacity: 1;
+    }
+    to {
+      transform: translate(-50%, calc(-0.8 * var(--waica-unit, 40px))) scale(1);
+      opacity: 0;
+    }
+  }
+</style>
+<div class="damage-number">-{{amount}}</div>
+",
+  "src/ui/health-bar.html": "<style>
+  .health-bar {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    transform: translate(-50%, 0);
+    box-sizing: border-box;
+    width: var(--waica-unit, 40px);
+    height: 7px;
+    padding: 1px;
+    border-radius: 4px;
+    background: #1a1a2ecc;
+    border: 1px solid #ffffff2e;
+    pointer-events: none;
+    user-select: none;
+  }
+  .health-bar-fill {
+    width: calc(var(--current) / var(--max) * 100%);
+    height: 100%;
+    border-radius: 2px;
+    background: #ef476f;
+    transition: width 0.15s ease-out;
+  }
+</style>
+<div class="health-bar"><div class="health-bar-fill"></div></div>
 ",
   "tsconfig.json": "{
   "compilerOptions": {

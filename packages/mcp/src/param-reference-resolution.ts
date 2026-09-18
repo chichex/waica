@@ -35,6 +35,8 @@ export interface ParamReferenceResolutionContext {
   declaredStats: ReadonlySet<string>
   /** Every sound uri a `ref: 'sound'` param may validly name — see projectSoundRefs. */
   soundRefs: ReadonlySet<string>
+  /** The project's UI piece names (src/ui/*.html stems) a `ref: 'ui'` param may name. */
+  uiPieces: ReadonlySet<string>
 }
 
 export interface ParamReferenceFinding {
@@ -97,6 +99,17 @@ export function resolveParamReference(
         severity: 'error',
         code: 'missing-sound',
         message: `Component "${componentType}" param "${param}" references missing sound "${value}".`,
+        file,
+        ref: field,
+      }
+    case 'ui':
+      if (context.uiPieces.has(value)) return undefined
+      return {
+        // Same severity and code as an unknown entry in a scene's `ui` list:
+        // the Game only warns at runtime when a missing piece is attached.
+        severity: 'warning',
+        code: 'unknown-ui-piece',
+        message: `Component "${componentType}" param "${param}" references unknown UI piece "${value}".`,
         file,
         ref: field,
       }

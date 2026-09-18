@@ -79,6 +79,8 @@ describe('the isometric prefabs express the genre model', () => {
       max: 2,
       invulnerability: 0.3,
       hurtSound: 'waica:iso-hit',
+      damageNumber: 'damage-number',
+      healthBar: 'health-bar',
     })
     expect(props('characters/orc', 'StateMachine')).toMatchObject({
       role: 'patroller',

@@ -93,6 +93,7 @@ export type {
   RuntimeSnapshotAudio,
   RuntimeSnapshotFilters,
   RuntimeSnapshotTime,
+  RuntimeSnapshotUi,
   RuntimeTransformSnapshot,
 } from './runtime-inspection.js'
 export type {
@@ -104,6 +105,7 @@ export type {
 export { Stats } from './stats.js'
 export type { StatValue } from './stats.js'
 export { GameUi } from './ui.js'
+export type { AnchoredPieceHandle, AttachOptions } from './anchored-pieces.js'
 export { Sprite } from './components/sprite.js'
 export { Solid } from './components/solid.js'
 export { Hitbox } from './components/hitbox.js'

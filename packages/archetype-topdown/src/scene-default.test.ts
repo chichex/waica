@@ -43,7 +43,14 @@ describe('TOPDOWN_SCENE', () => {
 
   it('starts with the potion counter; the npc line only shows on interact', () => {
     expect(TOPDOWN_SCENE.ui).toEqual(['potion-counter'])
-    expect(Object.keys(TOPDOWN_UI).sort()).toEqual(['npc-line', 'potion-counter'])
+    expect(Object.keys(TOPDOWN_UI).sort()).toEqual([
+      'damage-number',
+      'health-bar',
+      'interact-prompt',
+      'npc-bubble',
+      'npc-line',
+      'potion-counter',
+    ])
     for (const piece of TOPDOWN_SCENE.ui ?? []) {
       expect(TOPDOWN_UI[piece], piece).toBeDefined()
     }

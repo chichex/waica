@@ -187,7 +187,18 @@ export const ISOMETRIC_PREFABS: Record<string, PrefabJson> = {
         props: { layer: 'enemy', collidesWith: ['player'], width: 0.8, height: 0.7 },
       },
       { type: 'Hazard', props: { stompable: false, contactDamage: 1 } },
-      { type: 'Health', props: { max: 2, invulnerability: 0.3, hurtSound: 'waica:iso-hit' } },
+      {
+        type: 'Health',
+        props: {
+          max: 2,
+          invulnerability: 0.3,
+          hurtSound: 'waica:iso-hit',
+          // Issue #72: a number rises over every hit, and a bar shows its
+          // hearts while it is hurt (the stock pieces of @waica/behaviors).
+          damageNumber: 'damage-number',
+          healthBar: 'health-bar',
+        },
+      },
     ],
   },
   'objects/crate': {

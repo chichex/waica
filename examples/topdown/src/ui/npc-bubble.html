@@ -1,0 +1,32 @@
+<style>
+  .npc-bubble {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    transform: translate(-50%, -10px);
+    width: max-content;
+    max-width: 260px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    background: #1a1a2ee6;
+    border: 1px solid #ffffff2e;
+    font: 500 16px/1.35 system-ui, sans-serif;
+    color: #f5f5f5;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: break-word;
+    text-shadow: 0 1px 2px #000a;
+    pointer-events: none;
+    user-select: none;
+  }
+  .npc-bubble::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    transform: translateX(-50%);
+    border: 8px solid transparent;
+    border-top-color: #1a1a2ee6;
+  }
+</style>
+<div class="npc-bubble">{{line}}</div>
