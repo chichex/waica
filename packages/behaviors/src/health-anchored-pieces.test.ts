@@ -307,3 +307,26 @@ describe('Health bar (issue #72, CA-15)', () => {
     expect(harness.anchored()).toEqual([])
   })
 })
+
+describe('Health naming a piece the Game never defined (issue #72, CA-16)', () => {
+  it('warns exactly once per piece name however many hits land, and never throws', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const harness = makeHarness()
+    const { health } = spawnOrc(harness.game, { max: 10, damageNumber: 'missing-number', healthBar: 'missing-bar' })
+
+    for (let hit = 0; hit < 4; hit += 1) {
+      expect(() => harness.duringStep(() => health.damage(1))).not.toThrow()
+    }
+
+    expect(health.current).toBe(6)
+    expect(harness.anchored()).toEqual([])
+    const warnings = waicaWarnings(warn).map((call) => String(call[0]))
+    expect(warnings).toHaveLength(2)
+    expect(warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('"missing-number"'),
+        expect.stringContaining('"missing-bar"'),
+      ]),
+    )
+  })
+})
