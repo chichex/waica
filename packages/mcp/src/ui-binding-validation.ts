@@ -22,11 +22,23 @@ function statBindings(html: string): Set<string> {
 }
 
 /**
+ * The stock Anchored Piece names the project's @waica/behaviors exports as
+ * ANCHORED_UI_PIECES (ADR 0001). An older behaviors without that export,
+ * or with a malformed one, names none.
+ */
+export function stockAnchoredPieces(behaviors: Readonly<Record<string, unknown>>): string[] {
+  const names = behaviors['ANCHORED_UI_PIECES']
+  if (!Array.isArray(names)) return []
+  return names.filter((name): name is string => typeof name === 'string')
+}
+
+/**
  * An `undeclared-stat` warning for every `{{binding}}` of a UI piece that
- * names no declared stat. A piece in `anchoredPieces` — one some prefab or
- * scene component names through a `ref: 'ui'` param — is skipped: it is
- * attached to an entity as an Anchored Piece, whose bindings may resolve
- * against the instance's own values rather than Game stats.
+ * names no declared stat. A piece in `anchoredPieces` — a stock Anchored
+ * Piece (stockAnchoredPieces), or one some prefab or scene component names
+ * through a `ref: 'ui'` param — is skipped: it is attached to an entity as
+ * an Anchored Piece, whose bindings may resolve against the instance's own
+ * values rather than Game stats.
  */
 export async function uiBindingFindings(
   projectPath: string,

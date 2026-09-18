@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { GameTime, GameUi, Stats, THREE, type Entity } from '@waica/engine'
 // The package entry on purpose: these pieces are public surface (CA-20).
-import { HEALTH_UI, INTERACTABLE_UI } from './index.js'
+import { ANCHORED_UI_PIECES, HEALTH_UI, INTERACTABLE_UI } from './index.js'
 
 /** The four Anchored Pieces the behaviors ship (issue #72, CA-18). */
 function anchoredStockPieces(): Record<string, string | undefined> {
@@ -45,6 +45,15 @@ describe('stock Anchored Pieces (issue #72, CA-18, CA-20)', () => {
   it('ships the speech bubble and the interact prompt next to npc-line, and the Health pieces on their own', () => {
     expect(Object.keys(INTERACTABLE_UI)).toEqual(['npc-line', 'npc-bubble', 'interact-prompt'])
     expect(Object.keys(HEALTH_UI)).toEqual(['damage-number', 'health-bar'])
+  })
+
+  it('names exactly the four stock Anchored Pieces, and not the npc-line screen piece', () => {
+    expect([...ANCHORED_UI_PIECES].sort()).toEqual([
+      'damage-number',
+      'health-bar',
+      'interact-prompt',
+      'npc-bubble',
+    ])
   })
 
   it('renders each instance from its own values', () => {

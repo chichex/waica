@@ -33,7 +33,7 @@ import {
 } from './project-component-loader.js'
 import { directFiles, requireWaicaProject } from './project-path.js'
 import { validateEntitySceneTransition, validatePrefabSceneTransition } from './scene-transition-validation.js'
-import { uiBindingFindings } from './ui-binding-validation.js'
+import { stockAnchoredPieces, uiBindingFindings } from './ui-binding-validation.js'
 
 export type FindingSeverity = 'error' | 'warning' | 'info'
 
@@ -92,7 +92,7 @@ interface ValidationContext {
   bindings: Record<string, string[]>
   soundRefs: ReadonlySet<string>
   uiPieces: ReadonlySet<string>
-  /** Pieces some prefab or scene component names through a `ref: 'ui'` param. */
+  /** The stock Anchored Pieces, plus pieces a component names through a `ref: 'ui'` param. */
   anchoredPieces: Set<string>
 }
 
@@ -834,7 +834,7 @@ export async function validateProject(
     bindings,
     soundRefs,
     uiPieces: uiNames,
-    anchoredPieces: new Set(),
+    anchoredPieces: new Set(stockAnchoredPieces(behaviors.module)),
   }
   validateComponentClassUpdateContracts(context)
   for (const { prefab, relative, ref } of prefabFiles) {

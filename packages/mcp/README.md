@@ -101,7 +101,7 @@ One consequence is deliberate: a state that only resolves through a state fallba
 
 ## UI piece reference validation
 
-`validate_project` reports a warning-severity `unknown-ui-piece` finding — the same code and severity as an unknown entry in a scene's `ui` list — when a component param declared `ref: 'ui'` (e.g. `Health.damageNumber`, `Health.healthBar`) names a piece with no `src/ui/<name>.html` file. An unset prop reports nothing. A piece that some prefab or scene component names this way is attached to an entity as an Anchored Piece, whose `{{bindings}}` may be the instance's own values rather than Game stats, so its bindings are not reported as `undeclared-stat`; every other piece's bindings still are.
+`validate_project` reports a warning-severity `unknown-ui-piece` finding — the same code and severity as an unknown entry in a scene's `ui` list — when a component param declared `ref: 'ui'` (e.g. `Health.damageNumber`, `Health.healthBar`) names a piece with no `src/ui/<name>.html` file. An unset prop reports nothing. A piece that some prefab or scene component names this way is attached to an entity as an Anchored Piece, whose `{{bindings}}` may be the instance's own values rather than Game stats, so its bindings are not reported as `undeclared-stat`. The same holds for the stock Anchored Pieces that `@waica/behaviors` lists in `ANCHORED_UI_PIECES` (`npc-bubble`, `interact-prompt`, `damage-number`, `health-bar`), read from the project's installed copy, even when nothing names them: `Interactable` attaches the first two by name. Every other piece's bindings are still reported, including the `npc-line` screen piece's `{{npcLine}}`.
 
 ## Project module execution during validation
 
