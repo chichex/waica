@@ -59,6 +59,11 @@ export class GameUi {
     return [...this.sources.keys()]
   }
 
+  /** Whether a piece of this name is defined — `names().includes(name)` without building the list. */
+  has(name: string): boolean {
+    return this.sources.has(name)
+  }
+
   show(name: string, options: ShowOptions = {}): void {
     const mounted = this.pieces.has(name)
     const piece = this.mount(name)

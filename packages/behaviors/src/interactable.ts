@@ -188,7 +188,7 @@ function keyLabel(code: string): string {
  * logged: the piece's presence is checked before any attach.
  */
 function syncPrompt(game: Game, pieces: PlayerPieces, nearest: Entity): void {
-  const code = game.ui.names().includes(INTERACT_PROMPT_PIECE)
+  const code = game.ui.has(INTERACT_PROMPT_PIECE)
     ? game.input.bindingsFor('interact')[0]
     : undefined
   if (code === undefined || pieces.bubble?.handle.alive) {
@@ -217,7 +217,7 @@ function syncPrompt(game: Game, pieces: PlayerPieces, nearest: Entity): void {
  */
 export function interactWith(game: Game, player: Entity, target: Entity, interactable: Interactable): void {
   game.stats.set('npcLine', interactable.line)
-  if (game.ui.names().includes(NPC_BUBBLE_PIECE)) {
+  if (game.ui.has(NPC_BUBBLE_PIECE)) {
     const pieces = piecesOf(player)
     closeBubble(pieces)
     pieces.bubble = {
