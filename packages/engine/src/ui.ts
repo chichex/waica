@@ -4,6 +4,13 @@ import type { Stats } from './stats.js'
 import { placeholders, renderStat } from './ui-bindings.js'
 
 /**
+ * Module-private key for the anchored layer. Not exported, so
+ * `ui[ANCHORED]()` cannot be spelled outside this file — `anchoredPiecesOf`
+ * (below, exported, but not from the package entry) is the Game's only way in.
+ */
+const ANCHORED = Symbol('waica.ui.anchored')
+
+/**
  * The HTML UI layer. Each piece is a self-contained HTML fragment
  * (markup + <style>) that only DRAWS: it declares which stats it shows
  * with {{stat}} placeholders and positions itself with its own CSS.
@@ -135,6 +142,11 @@ export class GameUi {
     this.sync()
   }
 
+  /** Engine-internal: see anchoredPiecesOf. */
+  [ANCHORED](): AnchoredPieces {
+    return this.anchored
+  }
+
   private mount(name: string): Piece | null {
     const existing = this.pieces.get(name)
     if (existing) return existing
@@ -183,6 +195,14 @@ export class GameUi {
       piece.shell.style.display = piece.visible ? '' : 'none'
     }
   }
+}
+
+/**
+ * Engine-internal: the anchored layer behind `ui.attach`, which the Game
+ * connects to its camera and viewport and places every render frame.
+ */
+export function anchoredPiecesOf(ui: GameUi): AnchoredPieces {
+  return ui[ANCHORED]()
 }
 
 interface Piece {

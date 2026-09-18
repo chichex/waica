@@ -1,5 +1,7 @@
 import type { Entity } from './entity.js'
 import type { TimerHandle } from './game-time.js'
+import type { PointerCamera, PointerResolution } from './pointer.js'
+import { projectIsometric, type ProjectedPoint } from './projection.js'
 import type { Stats, StatValue } from './stats.js'
 import { placeholders, renderStat } from './ui-bindings.js'
 
@@ -37,6 +39,40 @@ export interface AnchoredPieceHandle {
   readonly element: HTMLElement | null
 }
 
+/** A rectangle in CSS px, relative to the canvas's top-left corner. */
+export interface ViewportRect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/** What the Game tells the anchored layer each time it places: read live, never cached. */
+export interface AnchorView {
+  camera: PointerCamera
+  /** The game viewport: see gameViewport. */
+  viewport: ViewportRect
+  projection: 'isometric' | null
+}
+
+/**
+ * The game viewport (issue #72): the rectangle the renderer draws into —
+ * the whole canvas without a fixed resolution, the largest centred rect
+ * with its aspect (letterbox) with one. The same math as Game.resize() and
+ * the Pointer's letterbox, whose screen→world mapping placement inverts.
+ */
+export function gameViewport(
+  width: number,
+  height: number,
+  resolution: PointerResolution | null,
+): ViewportRect {
+  if (!resolution) return { x: 0, y: 0, width, height }
+  const aspect = resolution.width / resolution.height
+  const vw = Math.min(width, height * aspect)
+  const vh = vw / aspect
+  return { x: (width - vw) / 2, y: (height - vh) / 2, width: vw, height: vh }
+}
+
 /** What GameUi lends the anchored layer: its catalog, the stats and its overlay. */
 export interface AnchoredPiecesDeps {
   stats: Stats
@@ -54,9 +90,17 @@ const INERT_HANDLE: AnchoredPieceHandle = Object.freeze({
   element: null,
 })
 
+/** Where the last render frame put an instance, in CSS px inside the game viewport. */
+interface Placement {
+  x: number
+  y: number
+  clipped: boolean
+}
+
 interface Instance {
   readonly piece: string
   readonly entity: Entity
+  readonly offset: readonly [number, number]
   /** The instance's own values, in the order they were first set. */
   readonly values: Map<string, StatValue>
   /** Shadow host: carries the position and the custom properties. */
@@ -67,6 +111,7 @@ interface Instance {
   readonly texts: Map<string, Text[]>
   readonly unsubs: Array<() => void>
   expiry: TimerHandle | null
+  placed: Placement | null
   alive: boolean
 }
 
@@ -74,15 +119,23 @@ interface Instance {
  * Anchored Pieces (issue #72, ADR 0018): any number of instances of a UI
  * Piece, each following an entity in one layer of GameUi's overlay, each
  * with its own shadow root and its own values ahead of the Game's stats.
- * Owned by GameUi, which reaches it through `attach`.
+ * Owned by GameUi, which reaches it through `attach`; the Game drives the
+ * rest through `anchoredPiecesOf` (ui.ts): `connect` once, `place` every
+ * render frame.
  */
 export class AnchoredPieces {
   private readonly instances: Instance[] = []
   /** Undefined piece names already warned about: one warning per name per Game. */
   private readonly warnedPieces = new Set<string>()
   private layer?: HTMLDivElement
+  private view: (() => AnchorView) | null = null
 
   constructor(private readonly deps: AnchoredPiecesDeps) {}
+
+  /** Called once by the Game: where the camera, viewport and projection are read from. */
+  connect(view: () => AnchorView): void {
+    this.view = view
+  }
 
   attach(piece: string, entity: Entity, options: AttachOptions = {}): AnchoredPieceHandle {
     const html = this.deps.source(piece)
@@ -102,15 +155,18 @@ export class AnchoredPieces {
     root.style.display = 'contents'
     root.innerHTML = html
     shadow.append(root)
+    const offset = options.offset ?? [0, 0]
     const instance: Instance = {
       piece,
       entity,
+      offset: [offset[0], offset[1]],
       values: new Map(Object.entries(options.values ?? {})),
       host,
       root,
       texts: new Map(),
       unsubs: [],
       expiry: null,
+      placed: null,
       alive: true,
     }
     this.bind(instance)
@@ -118,6 +174,32 @@ export class AnchoredPieces {
     this.mountLayer().append(host)
     this.instances.push(instance)
     return this.handleFor(instance)
+  }
+
+  /**
+   * Called by the Game once per render frame, after the isometric pass and
+   * before the render (never per Simulation Step, never on attach): fits
+   * the layer to the game viewport and puts every instance's zero-size
+   * shadow host at its anchor point, with the frame's `--waica-unit`.
+   */
+  place(): void {
+    const layer = this.layer
+    if (!layer || !this.view) return
+    const view = this.view()
+    const { camera, viewport } = view
+    layer.style.left = `${viewport.x}px`
+    layer.style.top = `${viewport.y}px`
+    layer.style.width = `${viewport.width}px`
+    layer.style.height = `${viewport.height}px`
+    // The camera frames exactly viewHeight world units vertically (Game.resize).
+    const unit = `${viewport.height / (camera.top - camera.bottom)}px`
+    for (const instance of this.instances) {
+      const placement = locate(instance, view)
+      instance.placed = placement
+      instance.host.style.left = `${placement.x}px`
+      instance.host.style.top = `${placement.y}px`
+      instance.host.style.setProperty('--waica-unit', unit)
+    }
   }
 
   private bind(instance: Instance): void {
@@ -184,11 +266,43 @@ export class AnchoredPieces {
   private mountLayer(): HTMLDivElement {
     if (this.layer) return this.layer
     const layer = document.createElement('div')
-    layer.style.cssText = 'position:absolute;inset:0;overflow:hidden;z-index:0;pointer-events:none'
+    // Until the first frame fits it to the game viewport, it covers the overlay.
+    // Its own stacking context (z-index:0) keeps every instance's z-index
+    // below the screen-piece shells that follow it.
+    layer.style.cssText =
+      'position:absolute;left:0;top:0;width:100%;height:100%;overflow:hidden;z-index:0;pointer-events:none'
     this.deps.overlay().prepend(layer)
     this.layer = layer
     return layer
   }
+}
+
+/** The entity's render point plus the offset, in render space. */
+function anchorPoint(instance: Instance, projection: 'isometric' | null): ProjectedPoint {
+  const { x, y } = instance.entity.position
+  const render = projection === 'isometric' ? projectIsometric(x, y) : { x, y }
+  return { x: render.x + instance.offset[0], y: render.y + instance.offset[1] }
+}
+
+/**
+ * The anchor point in whole CSS px from the game viewport's top-left
+ * corner: the exact inverse of the Pointer's screen→world mapping.
+ */
+function locate(instance: Instance, view: AnchorView): Placement {
+  const anchor = anchorPoint(instance, view.projection)
+  const { camera, viewport } = view
+  const nx = (anchor.x - (camera.position.x + camera.left)) / (camera.right - camera.left)
+  const ny = (camera.position.y + camera.top - anchor.y) / (camera.top - camera.bottom)
+  return {
+    x: whole(nx * viewport.width),
+    y: whole(ny * viewport.height),
+    clipped: nx < 0 || nx > 1 || ny < 0 || ny > 1,
+  }
+}
+
+/** Rounds to a whole pixel, never -0. */
+function whole(value: number): number {
+  return Math.round(value) || 0
 }
 
 /** Numbers verbatim and booleans as 1/0 become `--name`; a string publishes nothing. */

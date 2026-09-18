@@ -40,7 +40,8 @@ import {
 } from './scene.js'
 import { createSpatialQuery, type SpatialQuery } from './spatial-query.js'
 import { Stats, type StatValue } from './stats.js'
-import { GameUi } from './ui.js'
+import { gameViewport } from './anchored-pieces.js'
+import { anchoredPiecesOf, GameUi } from './ui.js'
 
 /** Fixed game resolution: the view keeps this aspect, letterboxed. */
 export interface GameResolution {
@@ -166,6 +167,11 @@ export class Game {
     this.query = createSpatialQuery(this)
     this.stats = new Stats(options.stats)
     this.ui = new GameUi(this.stats, () => canvas.parentElement ?? document.body)
+    anchoredPiecesOf(this.ui).connect(() => ({
+      camera: this.camera,
+      viewport: gameViewport(canvas.clientWidth, canvas.clientHeight, this.resolution),
+      projection: this.sceneProjection,
+    }))
     this.audio = new AudioSubsystem({
       canvas,
       backend: options.audio,
@@ -608,6 +614,7 @@ export class Game {
     }
     if (this.renderSort === 'y') this.applyYSort()
     this.ui.setActive(this.simulate)
+    anchoredPiecesOf(this.ui).place()
     if (this.resolution) {
       // Letterbox bars: clear the whole canvas, then render inside the scissor.
       this.renderer.setScissorTest(false)
