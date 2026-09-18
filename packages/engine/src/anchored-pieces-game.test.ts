@@ -151,6 +151,41 @@ describe('Anchored Piece placement (CA-2)', () => {
   })
 })
 
+describe('draw order within the anchored layer (CA-6)', () => {
+  const zOf = (handle: AnchoredPieceHandle): number => Number(shadowHost(handle).style.zIndex)
+
+  it('draws the instance lower on screen on top, recomputed every frame', () => {
+    const game = makeGame()
+    const low = game.spawn('Low')
+    const high = game.spawn('High')
+    high.position.y = 2
+    const lowTag = game.ui.attach('tag', low)
+    const highTag = game.ui.attach('tag', high)
+
+    frame(game)
+    expect(zOf(lowTag)).toBeGreaterThan(zOf(highTag))
+
+    low.position.y = 3
+    frame(game)
+    expect(zOf(lowTag)).toBeLessThan(zOf(highTag))
+  })
+
+  it('keeps creation order on equal heights, later on top', () => {
+    const game = makeGame()
+    const left = game.spawn('Left')
+    const right = game.spawn('Right')
+    right.position.x = 3
+    const first = game.ui.attach('tag', right)
+    const second = game.ui.attach('tag', left)
+    const third = game.ui.attach('tag', right)
+
+    frame(game)
+
+    expect(zOf(second)).toBeGreaterThan(zOf(first))
+    expect(zOf(third)).toBeGreaterThan(zOf(second))
+  })
+})
+
 describe('--waica-unit (CA-3)', () => {
   it('is the game viewport CSS height divided by the current viewHeight, recomputed every frame', () => {
     const game = makeGame()

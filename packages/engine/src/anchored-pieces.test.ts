@@ -125,6 +125,29 @@ describe('game.ui.attach — independent instances (CA-1)', () => {
   })
 })
 
+describe('the anchored layer (CA-6)', () => {
+  it('is one element kept first in the overlay, with its own stacking context, even when a screen piece created the overlay', () => {
+    const { game, host } = makeGame()
+    game.ui.define('hud', '<div>hud</div>')
+    game.ui.define('menu', '<div>menu</div>')
+    game.ui.define('hp', '<div>hp</div>')
+    const orc = game.spawn('Orc')
+    game.ui.show('hud')
+
+    const first = game.ui.attach('hp', orc)
+    const second = game.ui.attach('hp', game.spawn('Slime'))
+    game.ui.show('menu')
+
+    const overlay = overlayOf(host)!
+    const layer = shadowHost(first).parentElement!
+    expect(shadowHost(second).parentElement).toBe(layer)
+    expect(overlay.firstElementChild).toBe(layer)
+    expect(overlay.children).toHaveLength(3)
+    expect(layer.style.zIndex).toBe('0')
+    expect(layer.style.overflow).toBe('hidden')
+  })
+})
+
 describe('game.ui.attach — per-instance values (CA-4)', () => {
   const PIECE = '<style>.x{color:red}</style><b>{{amount}}</b>|<i>{{points}}</i>|{{flag}}|{{missing}}'
 

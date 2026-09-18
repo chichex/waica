@@ -95,6 +95,8 @@ interface Placement {
   x: number
   y: number
   clipped: boolean
+  /** The unrounded height on screen: 0 at the viewport's top, 1 at its bottom. */
+  depth: number
 }
 
 interface Instance {
@@ -193,13 +195,19 @@ export class AnchoredPieces {
     layer.style.height = `${viewport.height}px`
     // The camera frames exactly viewHeight world units vertically (Game.resize).
     const unit = `${viewport.height / (camera.top - camera.bottom)}px`
+    const byDepth: Array<[Instance, number]> = []
     for (const instance of this.instances) {
       const placement = locate(instance, view)
       instance.placed = placement
       instance.host.style.left = `${placement.x}px`
       instance.host.style.top = `${placement.y}px`
       instance.host.style.setProperty('--waica-unit', unit)
+      byDepth.push([instance, placement.depth])
     }
+    // Lower on screen draws on top, like y-sort; the sort is stable, so
+    // equal heights keep creation order, later on top.
+    byDepth.sort(([, a], [, b]) => a - b)
+    for (const [index, [instance]] of byDepth.entries()) instance.host.style.zIndex = String(index + 1)
   }
 
   private bind(instance: Instance): void {
@@ -297,6 +305,7 @@ function locate(instance: Instance, view: AnchorView): Placement {
     x: whole(nx * viewport.width),
     y: whole(ny * viewport.height),
     clipped: nx < 0 || nx > 1 || ny < 0 || ny > 1,
+    depth: ny,
   }
 }
 
