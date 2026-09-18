@@ -191,6 +191,8 @@ interface Props {
    * RefTargetsContext instead.
    */
   art: ArtItem[]
+  /** The project's UI piece names (src/ui/<name>.html), offered by ref: 'ui' pickers. */
+  uiPieces?: readonly string[]
   urlFor(uri: string): string
   onImportArt(files: DroppedFile[]): Promise<void>
   viewportVisibility: ViewportComponentVisibility
@@ -268,7 +270,7 @@ interface RefTargetContext {
 }
 
 const RefTargetsContext = createContext<RefTargetContext>({
-  project: { prefabs: {}, stats: {}, actions: {}, sounds: [] },
+  project: { prefabs: {}, stats: {}, actions: {}, sounds: [], uiPieces: [] },
 })
 
 export function componentKeys(comp: SceneComponentJson, archetype: ArchetypeManifest): string[] {
@@ -2242,7 +2244,13 @@ export function Inspector(props: Props) {
     .filter((item) => item.kind === 'sound')
     .map((item) => ({ value: item.uri, label: item.label }))
   const referenceContext: RefTargetContext = {
-    project: { prefabs: props.prefabs, stats: props.stats, actions: props.actions, sounds },
+    project: {
+      prefabs: props.prefabs,
+      stats: props.stats,
+      actions: props.actions,
+      sounds,
+      uiPieces: props.uiPieces ?? [],
+    },
     ...(referenceComponents ? { entity: { components: referenceComponents } } : {}),
   }
   return (
