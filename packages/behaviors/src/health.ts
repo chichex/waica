@@ -62,6 +62,8 @@ export class Health extends Component {
     invulnerability: { label: 'Invulnerability', min: 0, max: 5, step: 0.1 },
     stat: { label: 'Stat', ref: 'stat' as const },
     hurtSound: { label: 'Hurt sound', ref: 'sound' as const },
+    damageNumber: { label: 'Damage number', ref: 'ui' as const },
+    healthBar: { label: 'Health bar', ref: 'ui' as const },
   }
   static override transient = [
     'current',
@@ -82,6 +84,10 @@ export class Health extends Component {
   stat = ''
   /** Sound played at this entity's position on every accepted hit. Empty plays nothing (CA-12). */
   hurtSound = ''
+  /** UI piece shown over this entity on every accepted hit, with `{{amount}}`. Empty shows nothing. */
+  damageNumber = ''
+  /** UI piece shown over this entity below max health, with `{{current}}`/`{{max}}`. Empty shows nothing. */
+  healthBar = ''
 
   /** Health left; 0 is dead. Filled in from max on ready. */
   current = 0

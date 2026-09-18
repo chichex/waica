@@ -107,7 +107,7 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     stompDamage: 1,
     contactDamage: 1,
   },
-  Health: { max: 3, invulnerability: 0, stat: '', hurtSound: '' },
+  Health: { max: 3, invulnerability: 0, stat: '', hurtSound: '', damageNumber: '', healthBar: '' },
   Respawnable: {},
   Lifetime: { seconds: 1 },
   SceneTransition: { scene: '', trigger: 'overlap' },
