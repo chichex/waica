@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { authoringDefaults } from '@waica/engine'
+import { HEALTH_UI } from '@waica/behaviors'
 import { ISOMETRIC_PREFABS } from './prefabs'
 import { ISOMETRIC_PALETTE, ISOMETRIC_REGISTRY_DATA } from './registry-data'
 
@@ -127,6 +128,21 @@ describe('ISOMETRIC_REGISTRY_DATA', () => {
     )
     for (const [name, expected] of Object.entries(EXPECTED_DEFAULTS)) {
       expect(authoringDefaults(ISOMETRIC_REGISTRY_DATA.components[name]!), name).toEqual(expected)
+    }
+  })
+
+  it('ships the HUD, the Interactable pieces and the stock Health pieces (issue #72, CA-18)', () => {
+    expect(Object.keys(ISOMETRIC_REGISTRY_DATA.ui ?? {}).sort()).toEqual([
+      'crate-counter',
+      'damage-number',
+      'health',
+      'health-bar',
+      'interact-prompt',
+      'npc-bubble',
+      'npc-line',
+    ])
+    for (const piece of ['damage-number', 'health-bar']) {
+      expect(ISOMETRIC_REGISTRY_DATA.ui?.[piece], piece).toBe(HEALTH_UI[piece])
     }
   })
 

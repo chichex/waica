@@ -1,3 +1,5 @@
+import { HEALTH_UI } from '@waica/behaviors'
+
 /**
  * The archetype's default UI pieces: self-contained HTML fragments
  * (markup + <style>, {{stat}} bindings) keyed by piece name. Projects
@@ -21,4 +23,5 @@ export const PLATFORMER_UI: Record<string, string> = {
 </style>
 <div class="coin-counter">🪙 {{points}}</div>
 `,
+  ...HEALTH_UI,
 }

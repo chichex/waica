@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { authoringDefaults } from '@waica/engine'
+import { HEALTH_UI } from '@waica/behaviors'
 import { TOPDOWN_REGISTRY_DATA } from './registry-data.js'
 
 const RECTANGLE_TRIANGLE = [
@@ -141,6 +142,14 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
   },
   SceneTransition: { scene: '', trigger: 'overlap' },
 }
+
+describe('TOPDOWN_REGISTRY_DATA ui', () => {
+  it('ships the stock Health pieces from @waica/behaviors (issue #72, CA-18)', () => {
+    for (const piece of ['damage-number', 'health-bar']) {
+      expect(TOPDOWN_REGISTRY_DATA.ui?.[piece], piece).toBe(HEALTH_UI[piece])
+    }
+  })
+})
 
 describe('TOPDOWN_REGISTRY_DATA authoring defaults', () => {
   it('covers exactly the 17 registered components', () => {

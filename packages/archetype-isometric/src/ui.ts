@@ -1,4 +1,4 @@
-import { INTERACTABLE_UI } from '@waica/behaviors'
+import { HEALTH_UI, INTERACTABLE_UI } from '@waica/behaviors'
 
 export const ISOMETRIC_UI: Record<string, string> = {
   'crate-counter': `<style>
@@ -28,4 +28,5 @@ export const ISOMETRIC_UI: Record<string, string> = {
 <div class="health">♥ {{health}}</div>
 `,
   ...INTERACTABLE_UI,
+  ...HEALTH_UI,
 }

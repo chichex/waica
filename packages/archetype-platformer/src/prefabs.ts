@@ -63,8 +63,10 @@ export const PLATFORMER_PREFABS: Record<string, PrefabJson> = {
       { type: 'Hazard', props: { stompable: true, bounce: 10 } },
       // One point: a stomp still kills it in a single hit, the same as
       // before the damage model existed — now said out loud instead of
-      // hardcoded into Hazard.
-      { type: 'Health', props: { max: 1 } },
+      // hardcoded into Hazard. A damage number rises where it was stomped
+      // (issue #72); no health bar, which never shows at full health and a
+      // one-point slime is never hurt without dying.
+      { type: 'Health', props: { max: 1, damageNumber: 'damage-number' } },
     ],
   },
   'objects/coin': {

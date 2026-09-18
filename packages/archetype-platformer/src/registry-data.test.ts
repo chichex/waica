@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { authoringDefaults } from '@waica/engine'
+import { HEALTH_UI } from '@waica/behaviors'
 import { PLATFORMER_REGISTRY_DATA } from './registry-data.js'
 
 const RECTANGLE_TRIANGLE = [
@@ -132,6 +133,19 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
   },
   SceneTransition: { scene: '', trigger: 'overlap' },
 }
+
+describe('PLATFORMER_REGISTRY_DATA ui', () => {
+  it('ships the coin counter and the stock Health pieces (issue #72, CA-18)', () => {
+    expect(Object.keys(PLATFORMER_REGISTRY_DATA.ui ?? {}).sort()).toEqual([
+      'coin-counter',
+      'damage-number',
+      'health-bar',
+    ])
+    for (const piece of ['damage-number', 'health-bar']) {
+      expect(PLATFORMER_REGISTRY_DATA.ui?.[piece], piece).toBe(HEALTH_UI[piece])
+    }
+  })
+})
 
 describe('PLATFORMER_REGISTRY_DATA authoring defaults', () => {
   it('covers exactly the 16 registered components', () => {

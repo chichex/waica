@@ -53,7 +53,7 @@ describe('the platformer prefabs express the damage model', () => {
       'Hazard',
       'Health',
     ])
-    expect(props('characters/slime', 'Health')).toEqual({ max: 1 })
+    expect(props('characters/slime', 'Health')).toEqual({ max: 1, damageNumber: 'damage-number' })
   })
 
   it('declares no killY anywhere — the param is gone, not merely unused', () => {
