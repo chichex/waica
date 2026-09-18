@@ -125,9 +125,9 @@ interface Instance {
 }
 
 /**
- * Anchored Pieces (issue #72, ADR 0018): any number of instances of a UI
- * Piece, each following an entity in one layer of GameUi's overlay, each
- * with its own shadow root and its own values ahead of the Game's stats.
+ * Anchored Pieces (issue #72, ADR 0018) — instances of a UI Piece, as many
+ * as needed, each following an entity in one layer of GameUi's overlay,
+ * each with its own shadow root and its own values ahead of the Game's stats.
  * Owned by GameUi, which reaches it through `attach`; the Game drives the
  * rest through `anchoredPiecesOf` (ui.ts): `connect` once, `place` every
  * render frame.
