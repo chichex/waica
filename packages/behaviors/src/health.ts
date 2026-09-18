@@ -5,6 +5,7 @@ import {
   type StateJson,
   type TimerHandle,
 } from '@waica/engine'
+import { anchorHeight } from './anchor-height.js'
 
 /**
  * Below this, current is treated as exactly zero. Repeated fractional
@@ -17,6 +18,9 @@ const DEATH_EPSILON = 1e-9
 
 /** Seconds each blink phase lasts while invulnerable: 10 Hz on/off. */
 const BLINK_PERIOD = 0.1
+
+/** Seconds of Game Time a damage number lives (issue #72, CA-13). */
+const DAMAGE_NUMBER_SECONDS = 0.8
 
 /**
  * Where a 'signal:death' from `current` could land: the targets of every
@@ -196,6 +200,7 @@ export class Health extends Component {
       source,
     })
     if (this.hurtSound) this.game.audio.play(this.hurtSound, { at: this.entity })
+    this.showDamageNumber(amount)
     this.openWindow()
     if (this.current === 0) {
       this.die()
@@ -216,6 +221,22 @@ export class Health extends Component {
   /** Mirrors current into the named stat, when one is named. */
   private publish(): void {
     if (this.stat) this.game.stats.set(this.stat, this.current)
+  }
+
+  /**
+   * Floats the damageNumber piece over the entity for an accepted hit
+   * (issue #72, CA-13). Called before die(), so a killing blow's number is
+   * already attached when the entity goes, and lingers where it stood for
+   * its own 0.8 s. A non-finite amount (OutOfBounds' Infinity) has no number
+   * worth showing.
+   */
+  private showDamageNumber(amount: number): void {
+    if (!this.damageNumber || !Number.isFinite(amount)) return
+    this.game.ui.attach(this.damageNumber, this.entity, {
+      offset: [0, anchorHeight(this.entity)],
+      seconds: DAMAGE_NUMBER_SECONDS,
+      values: { amount },
+    })
   }
 
   /**
