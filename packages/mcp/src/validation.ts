@@ -33,6 +33,7 @@ import {
 } from './project-component-loader.js'
 import { directFiles, requireWaicaProject } from './project-path.js'
 import { validateEntitySceneTransition, validatePrefabSceneTransition } from './scene-transition-validation.js'
+import { uiBindingFindings } from './ui-binding-validation.js'
 
 export type FindingSeverity = 'error' | 'warning' | 'info'
 
@@ -91,6 +92,8 @@ interface ValidationContext {
   bindings: Record<string, string[]>
   soundRefs: ReadonlySet<string>
   uiPieces: ReadonlySet<string>
+  /** Pieces some prefab or scene component names through a `ref: 'ui'` param. */
+  anchoredPieces: Set<string>
 }
 
 function add(
@@ -214,6 +217,7 @@ function validateParamReferences(
       if (!spec.ref || spec.options !== undefined) continue
       const value = Object.hasOwn(props, param) ? props[param] : metadata.defaults[param]
       if (typeof value !== 'string' || value === '') continue
+      if (spec.ref === 'ui') context.anchoredPieces.add(value)
       const field = `${component.type}.${param}`
       const finding = resolveParamReference(
         { componentType: component.type, param, ref: spec.ref, value, clips, file, field },
@@ -663,20 +667,6 @@ function validateScene(
   }
 }
 
-function statBindings(html: string): Set<string> {
-  // GameUi binds text nodes only: attributes, comments, style and script
-  // contents are not runtime bindings and must not create validator findings.
-  const textOnly = html
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/<(style|script)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
-    .replace(/<[^>]*>/g, ' ')
-  const names = new Set<string>()
-  for (const match of textOnly.matchAll(/\{\{\s*([\w-]+)\s*\}\}/g)) {
-    if (match[1]) names.add(match[1])
-  }
-  return names
-}
-
 export interface ValidateProjectOptions {
   signal?: AbortSignal
   componentLoader?: ProjectComponentLoader
@@ -844,6 +834,7 @@ export async function validateProject(
     bindings,
     soundRefs,
     uiPieces: uiNames,
+    anchoredPieces: new Set(),
   }
   validateComponentClassUpdateContracts(context)
   for (const { prefab, relative, ref } of prefabFiles) {
@@ -851,29 +842,20 @@ export async function validateProject(
     findings.push(...validatePrefabSceneTransition(prefab, relative, ref, knownScenes))
   }
 
-  for (const file of uiFiles) {
-    const relative = `src/ui/${file}`
-    const html = await readFile(path.join(projectPath, relative), 'utf8')
-    for (const stat of statBindings(html)) {
-      if (!declaredStats.has(stat)) {
-        add(
-          context,
-          'warning',
-          'undeclared-stat',
-          `UI references undeclared stat "${stat}"; runtime writes may still create it.`,
-          relative,
-          stat,
-        )
-      }
-    }
-  }
-
+  // The UI binding scan must see the ref: 'ui' params of scenes too, so it
+  // runs after them, but its findings keep their place before the scenes'.
+  const uiBindingsAt = findings.length
   for (const file of sceneFiles) {
     const relative = `src/scenes/${file}`
     const parsed = await parseJson(projectPath, relative, findings)
     if (!parsed || typeof parsed !== 'object') continue
     validateScene(parsed as SceneJson, relative, prefabs, uiNames, knownScenes, context)
   }
+  findings.splice(
+    uiBindingsAt,
+    0,
+    ...(await uiBindingFindings(projectPath, uiFiles, declaredStats, context.anchoredPieces)),
+  )
 
   const params = objectRecord(fixed.get('public/waica.params.json'))
   for (const [entity, rawComponents] of Object.entries(params)) {
