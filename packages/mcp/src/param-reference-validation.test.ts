@@ -524,6 +524,47 @@ export class RefComponent extends Component {
     ])
   })
 
+  it('CA-17: resolves Health\'s damageNumber and healthBar on prefabs and scene overrides', async () => {
+    const project = await refProject({
+      'src/ui/damage-number.html': '<div></div>',
+      'src/ui/health-bar.html': '<div></div>',
+      'src/characters/orc.character.json': JSON.stringify({
+        waicaPrefab: 1,
+        type: 'character',
+        components: [
+          { type: 'Health', props: { damageNumber: 'damage-number', healthBar: 'hp-bar' } },
+        ],
+      }),
+      'src/scenes/main.scene.json': JSON.stringify({
+        waicaScene: 3,
+        entities: [
+          {
+            name: 'Orc',
+            prefab: 'characters/orc',
+            overrides: { Health: { damageNumber: 'dmg', healthBar: 'health-bar' } },
+          },
+        ],
+      }),
+    })
+
+    const result = await validateProject(project)
+
+    expect(paramFindings(result.findings)).toEqual([
+      {
+        severity: 'warning',
+        code: 'unknown-ui-piece',
+        file: 'src/characters/orc.character.json',
+        ref: 'Health.healthBar',
+      },
+      {
+        severity: 'warning',
+        code: 'unknown-ui-piece',
+        file: 'src/scenes/main.scene.json',
+        ref: 'Health.damageNumber',
+      },
+    ])
+  })
+
   it('ignores ref metadata when a param also declares options', async () => {
     const project = await refProject({
       'src/components/ref.ts': refComponent('prefab', 'literal', ['literal']),
