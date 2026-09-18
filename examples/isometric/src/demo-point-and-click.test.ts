@@ -155,6 +155,8 @@ describe('point-and-click for the isometric demo player (CA-4..CA-8)', () => {
   it('walks to the villager and triggers its line without pressing interact', () => {
     const demo = makeDemo()
     const clickToMove = demo.player.get(ClickToMove)!
+    const attach = vi.spyOn(demo.game.ui, 'attach')
+    const line = 'The water sparkles, but it blocks the trail.'
 
     demo.click(demo.villager.position.x, demo.villager.position.y)
     demo.frame()
@@ -163,8 +165,18 @@ describe('point-and-click for the isometric demo player (CA-4..CA-8)', () => {
 
     demo.frames(5)
 
-    expect(demo.game.stats.get('npcLine')).toBe('The water sparkles, but it blocks the trail.')
-    expect(demo.game.ui.isVisible('npc-line')).toBe(true)
+    expect(demo.game.stats.get('npcLine')).toBe(line)
+    // The archetype defines npc-bubble (issue #72, CA-11): the line shows in
+    // a bubble anchored to the villager, not in the npc-line screen piece.
+    const bubbles = attach.mock.calls.flatMap(([piece, entity, options], index) =>
+      piece === 'npc-bubble' ? [{ entity, options, handle: attach.mock.results[index]!.value }] : [],
+    )
+    expect(bubbles).toHaveLength(1)
+    expect(bubbles[0]!.entity).toBe(demo.villager)
+    expect(bubbles[0]!.options?.values).toEqual({ line })
+    expect(bubbles[0]!.handle.alive).toBe(true)
+    expect(bubbles[0]!.handle.element?.textContent).toContain(line)
+    expect(demo.game.ui.isVisible('npc-line')).toBe(false)
     expect(clickToMove.order).toBeNull()
   })
 

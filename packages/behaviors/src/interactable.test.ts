@@ -31,7 +31,9 @@ function makeWorld(): WorldHarness {
     consume: (action: string) => used.add(action),
   }
   const stats = { set: vi.fn() }
-  const ui = { show: vi.fn(), hide: vi.fn() }
+  // No Anchored Pieces defined: every interaction takes the npc-line path
+  // (the bubble and prompt run on a real Game in interactable-anchored-pieces.test.ts).
+  const ui = { show: vi.fn(), hide: vi.fn(), names: () => [] }
   const game = { entities, input, stats, ui } as unknown as Game
   const nearest = vi.fn((
     x: number,

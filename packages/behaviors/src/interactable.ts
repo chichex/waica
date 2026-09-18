@@ -1,4 +1,11 @@
-import { Component, type Entity, type StateContext } from '@waica/engine'
+import {
+  Component,
+  type AnchoredPieceHandle,
+  type Entity,
+  type Game,
+  type StateContext,
+} from '@waica/engine'
+import { anchorHeight } from './anchor-height.js'
 
 /**
  * Something the player can talk to or examine: a dialogue line and the
@@ -129,11 +136,73 @@ export function fireInteract(target: Entity, initiator: Entity): void {
   for (const component of [...target.components]) component.onInteract?.(initiator)
 }
 
+/** An Anchored Piece Interactable put on an NPC, and that NPC. */
+interface NpcPiece {
+  npc: Entity
+  handle: AnchoredPieceHandle
+}
+
+/** What Interactable has anchored for one player (issue #72). */
+interface PlayerPieces {
+  /** The one open speech bubble (CA-11). */
+  bubble: NpcPiece | null
+}
+
+/**
+ * Keyed by the player entity, so the interact key and a ClickToMove arrival
+ * share one bubble, and nothing outlives the player or its Game.
+ */
+const piecesByPlayer = new WeakMap<Entity, PlayerPieces>()
+
+function piecesOf(player: Entity): PlayerPieces {
+  let pieces = piecesByPlayer.get(player)
+  if (!pieces) {
+    pieces = { bubble: null }
+    piecesByPlayer.set(player, pieces)
+  }
+  return pieces
+}
+
+function closeBubble(pieces: PlayerPieces): void {
+  pieces.bubble?.handle.remove()
+  pieces.bubble = null
+}
+
+/**
+ * `player` interacts with `target`, the NPC its Interactable belongs to.
+ * The one interaction both paths run — the interact key (interactUpdate)
+ * and a ClickToMove arrival (grill S8): publishes the line through the
+ * npcLine stat; shows it in an npc-bubble anchored to the NPC when the
+ * project defines that piece, replacing any bubble already open (CA-11),
+ * else in the npc-line screen piece as before; then fires onInteract.
+ */
+export function interactWith(game: Game, player: Entity, target: Entity, interactable: Interactable): void {
+  game.stats.set('npcLine', interactable.line)
+  if (game.ui.names().includes(NPC_BUBBLE_PIECE)) {
+    const pieces = piecesOf(player)
+    closeBubble(pieces)
+    pieces.bubble = {
+      npc: target,
+      handle: game.ui.attach(NPC_BUBBLE_PIECE, target, {
+        offset: [0, anchorHeight(target)],
+        values: { line: interactable.line },
+      }),
+    }
+  } else {
+    // Scene-scoped: the scan that hides this prompt dies with the scene, so
+    // without a scope the prompt would survive a swap into a map where
+    // nothing knows to hide it — stale line and all (grill decision 8).
+    game.ui.show(INTERACTABLE_UI_PIECE, { scope: 'scene' })
+  }
+  fireInteract(target, player)
+}
+
 /**
  * The player role's interact lookup, run by its '*' hook in every state:
- * pressing interact near an Interactable publishes its line through the
- * npcLine stat and shows the npc-line UI piece; walking out of every
- * radius hides it again. Nearest one wins when several are in range.
+ * pressing interact near an Interactable interacts with it (interactWith).
+ * The bubble belongs to the nearest Interactable in range: it closes when
+ * another one becomes the nearest, and walking out of every radius closes
+ * it and hides npc-line. Nearest one wins when several are in range.
  */
 export function interactUpdate({ entity, game }: StateContext): void {
   const nearestEntity = game.query.nearest(entity.position.x, entity.position.y, {
@@ -141,19 +210,16 @@ export function interactUpdate({ entity, game }: StateContext): void {
     exclude: entity,
     where: (candidate, { distance }) => distance <= candidate.get(Interactable).radius,
   })
+  const pieces = piecesOf(entity)
   if (!nearestEntity) {
     game.ui.hide(INTERACTABLE_UI_PIECE)
+    closeBubble(pieces)
     return
   }
-  const nearest = nearestEntity.get(Interactable)
+  if (pieces.bubble && pieces.bubble.npc !== nearestEntity) closeBubble(pieces)
   if (game.input.justPressed('interact') && !game.input.consumed('interact')) {
     // The press is spent: an input:interact edge needs a NEW press.
     game.input.consume('interact')
-    game.stats.set('npcLine', nearest.line)
-    // Scene-scoped: the scan that hides this prompt dies with the scene, so
-    // without a scope the prompt would survive a swap into a map where
-    // nothing knows to hide it — stale line and all (grill decision 8).
-    game.ui.show(INTERACTABLE_UI_PIECE, { scope: 'scene' })
-    fireInteract(nearestEntity, entity)
+    interactWith(game, entity, nearestEntity, nearestEntity.get(Interactable))
   }
 }
