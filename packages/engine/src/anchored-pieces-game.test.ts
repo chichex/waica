@@ -410,6 +410,15 @@ describe('CSS animations inside an instance follow Game Time', () => {
     }
   }
 
+  /** A stand-in for a CSSAnimation: a named @keyframes animation on one element. */
+  class FakeCssAnimation extends FakeAnimation {
+    readonly effect: { target: Element }
+    constructor(readonly animationName: string, target: Element) {
+      super()
+      this.effect = { target }
+    }
+  }
+
   /** happy-dom's ShadowRoot.getAnimations() is always []: stubs the browser's for one instance. */
   function stubAnimations(handle: AnchoredPieceHandle, animations: FakeAnimation[]): void {
     const shadow = handle.element!.getRootNode() as ShadowRoot
@@ -472,5 +481,28 @@ describe('CSS animations inside an instance follow Game Time', () => {
     expect(hit.alive).toBe(true)
     // Twelve steps: 200 ms.
     expect(rise.currentTime).toBeCloseTo(200, 9)
+  })
+
+  it('resumes a named animation the browser re-creates after the overlay was hidden at its Game Time age, not from 0', () => {
+    const game = makeGame()
+    const hit = game.ui.attach('tag', game.spawn('Orc'), { seconds: 5 })
+    const target = hit.element!.querySelector('.tag')!
+    const animations: FakeAnimation[] = [new FakeCssAnimation('rise', target)]
+    stubAnimations(hit, animations)
+    for (let step = 1; step <= 12; step += 1) frame(game)
+
+    // Not simulating hides the overlay, which cancels its CSS animations;
+    // showing it again makes new ones.
+    game.simulate = false
+    animations.length = 0
+    frame(game, 1)
+    game.simulate = true
+    const again = new FakeCssAnimation('rise', target)
+    animations.push(again)
+    frame(game)
+
+    expect(again.paused).toBe(true)
+    // Thirteen steps since the attach: 216.67 ms.
+    expect(again.currentTime).toBeCloseTo(216.667, 3)
   })
 })

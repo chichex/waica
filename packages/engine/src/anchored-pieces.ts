@@ -118,8 +118,10 @@ interface Instance {
   readonly unsubs: Array<() => void>
   /** Game Time (s) at attach: the zero of the CSS animations it starts with. */
   readonly born: number
-  /** The Game Time (s) each of its CSS animations counts from. */
+  /** The Game Time (s) each unnamed animation (a CSS transition) counts from. */
   readonly clocks: WeakMap<Animation, number>
+  /** The Game Time (s) each named CSS animation counts from, by target element and name. */
+  readonly named: WeakMap<Element, Map<string, number>>
   /** The Game Time timer that removes an instance given `seconds`. */
   expiry: TimerHandle | null
   /** Render-space anchor point frozen when a lingering instance's entity was destroyed. */
@@ -180,6 +182,7 @@ export class AnchoredPieces {
       unsubs: [],
       born: entity.game.time.now,
       clocks: new WeakMap(),
+      named: new WeakMap(),
       expiry: null,
       frozen: null,
       placed: null,
@@ -388,15 +391,35 @@ function locate(instance: Instance, view: AnchorView): Placement {
 function followGameTime(instance: Instance): void {
   const animations = instance.host.shadowRoot?.getAnimations?.() ?? []
   const now = instance.entity.game.time.now
+  const firstSeen = instance.placed ? now : instance.born
   for (const animation of animations) {
-    let start = instance.clocks.get(animation)
-    if (start === undefined) {
-      start = instance.placed ? now : instance.born
-      instance.clocks.set(animation, start)
-    }
+    const start = animationStart(instance, animation, firstSeen)
     animation.pause()
     animation.currentTime = (now - start) * 1000
   }
+}
+
+/**
+ * The Game Time `animation` counts from, recorded as `firstSeen` the first
+ * time it is met. A named CSS animation is known by its target element and
+ * name, not by object: hiding the overlay (not simulating) cancels it, and
+ * the new one the browser makes when it shows again resumes mid-flight. A
+ * transition, or anything else without a name, is known by object.
+ */
+function animationStart(instance: Instance, animation: Animation, firstSeen: number): number {
+  const name = 'animationName' in animation ? animation.animationName : undefined
+  const effect = animation.effect
+  const target = effect && 'target' in effect ? effect.target : null
+  if (typeof name === 'string' && target instanceof Element) {
+    let byName = instance.named.get(target)
+    if (!byName) instance.named.set(target, (byName = new Map()))
+    const start = byName.get(name) ?? firstSeen
+    byName.set(name, start)
+    return start
+  }
+  const start = instance.clocks.get(animation) ?? firstSeen
+  instance.clocks.set(animation, start)
+  return start
 }
 
 /** Rounds to a whole pixel, never -0. */
