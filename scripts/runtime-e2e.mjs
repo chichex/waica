@@ -822,6 +822,7 @@ async function runIsometricLeg({ client, root, parent, chrome, viteBin, engineRo
 
   await runIsometricCombat({ client, project, inspectPlayer, hold, release, step })
   await runIsometricPointAndClick({ client, project, inspectPlayer, step })
+  await runIsometricVillager({ client, project, inspectPlayer, hold, release, step })
 
   const shot = assertScreenshot(
     await call(client, 'capture_screenshot', { project_path: project }),
@@ -861,9 +862,25 @@ async function runIsometricCombat({ client, project, inspectPlayer, hold, releas
     const entity = inspected.structuredContent.snapshot.entities[0]
     assert.ok(entity, `isometric snapshot must contain ${name}`)
     const state = (type) => entity.components.find((component) => component.type === type)?.state
-    return { position: entity.transform.position, state, stats: inspected.structuredContent.snapshot.stats }
+    return {
+      position: entity.transform.position,
+      state,
+      stats: inspected.structuredContent.snapshot.stats,
+      ui: inspected.structuredContent.snapshot.ui,
+    }
   }
   const inspectOrc = () => inspect('Orc', ['Health', 'StateMachine', 'Patrol'])
+  // CA-19 (issue #72): the orc's Anchored Pieces, from the ui section every
+  // snapshot carries — entity-filtered ones included — sorted by piece name.
+  const orcPieces = (snapshot) => {
+    assert.ok(snapshot.ui, 'the isometric snapshot must carry a ui section')
+    return snapshot.ui.anchored
+      .filter((anchored) => anchored.entity === 'Orc')
+      .map(({ piece, values, clipped }) => ({ piece, values, clipped }))
+      .sort((a, b) => a.piece.localeCompare(b.piece))
+  }
+  const orcDamageNumbers = (snapshot) =>
+    orcPieces(snapshot).filter(({ piece }) => piece === 'damage-number')
   // CA-16: the audio section is emitted unconditionally, so any inspect call
   // carries it — including the entity-filtered ones above.
   const inspectAudio = async () => {
@@ -987,9 +1004,51 @@ async function runIsometricCombat({ client, project, inspectPlayer, hold, releas
   await step(1)
   const struckOrc = await inspectOrc()
   assert.equal(struckOrc.state('Health').current, 1, 'a swing next to the orc takes one heart')
+  // CA-19: the same snapshot shows the hit over the orc — a bar for the heart
+  // it has left and a number for the one it lost, both inside the viewport.
+  assert.deepEqual(
+    orcPieces(struckOrc),
+    [
+      { piece: 'damage-number', values: { amount: 1 }, clipped: false },
+      { piece: 'health-bar', values: { current: 1, max: 2 }, clipped: false },
+    ],
+    `the hit must anchor one damage-number and one health-bar to the orc; anchored: ${JSON.stringify(struckOrc.ui?.anchored)}`,
+  )
   await step(1)
   assert.equal((await inspectOrc()).state('StateMachine').current, 'hurt', 'the orc flinches')
   await step(20)
+
+  // CA-19: the number lives 0.8 s, 48 fixed steps counted from the step that
+  // landed the hit (the 1 + 20 above, then 26 + 1). Its expiry is a
+  // game.time timer, so it has to be gone before (c) counts the pending ones.
+  const resumedOrc = await inspectOrc()
+  await step(26)
+  assert.equal(
+    orcDamageNumbers(await inspectOrc()).length,
+    1,
+    'the damage number is still over the orc 47 steps after the hit',
+  )
+  await step(1)
+  const expiredOrc = await inspectOrc()
+  assert.deepEqual(
+    orcDamageNumbers(expiredOrc),
+    [],
+    `48 steps after the hit the damage number is gone; anchored: ${JSON.stringify(expiredOrc.ui?.anchored)}`,
+  )
+  // Waiting for it let the orc patrol on, and (c) and the point-and-click leg
+  // depend on where it is: walking into it, and clicking its feet where no
+  // prop's sprite covers them. Its rail is periodic, so let it finish the
+  // lap: back where it was 21 steps after the hit, heading the same way —
+  // the exact state (c) started from before the orc carried any piece.
+  const lapX = resumedOrc.position.x
+  const lapDirection = resumedOrc.state('Patrol').dir
+  let lapped = false
+  for (let frame = 0; frame < 800 && !lapped; frame += 1) {
+    await step(1)
+    const orc = await inspectOrc()
+    lapped = Math.abs(orc.position.x - lapX) < 1e-6 && orc.state('Patrol').dir === lapDirection
+  }
+  assert.ok(lapped, `the orc must patrol back to x=${lapX} heading ${lapDirection} within 800 frames`)
 
   // (c) Walk into the orc: a heart on the HUD stat, a stun and a blink.
   const pendingBeforeWalk = (await inspectTime()).pending
@@ -1079,6 +1138,110 @@ async function runIsometricPointAndClick({ client, project, inspectPlayer, step 
     orcGone = (await inspectOrc()) === null
   }
   assert.ok(orcGone, 'clicking the orc must walk into range, strike and kill it')
+}
+
+/**
+ * CA-19 (issue #72): the villager's Anchored Pieces over real MCP stdio.
+ * Walking the player into the villager's radius puts a prompt naming the
+ * first key bound to interact over the villager; an interact press swaps it
+ * for a speech bubble with the villager's line. Runs after the orc is dead,
+ * so nothing upstream moves. The walk goes around the villager's Solid:
+ * across to a clear column first, then north of the villager, then over.
+ *
+ * Set WAICA_E2E_SCREENSHOT_DIR to a directory to also save the screenshot
+ * taken with the bubble open as villager-bubble.png there (PR evidence);
+ * without it the leg writes nothing.
+ */
+async function runIsometricVillager({ client, project, inspectPlayer, hold, release, step }) {
+  const inspectVillager = async () => {
+    const inspected = await call(client, 'inspect_runtime', {
+      project_path: project,
+      entity_names: ['Villager'],
+    })
+    const { entities, ui } = inspected.structuredContent.snapshot
+    assert.ok(entities[0], 'isometric snapshot must contain Villager')
+    assert.ok(ui, 'the isometric snapshot must carry a ui section')
+    return { position: entities[0].transform.position, ui }
+  }
+  const anchoredAs = (ui, piece) =>
+    ui.anchored
+      .filter((anchored) => anchored.piece === piece)
+      .map(({ entity, values }) => ({ entity, values }))
+
+  // Same "walk one axis at a time until close, retrying" recipe as
+  // runIsometricCombat's approach(): logical x runs screen south-east
+  // (right+down) / north-west (left+up), logical y screen south-west
+  // (left+down) / north-east (right+up).
+  const AXIS_ACTIONS = {
+    x: { positive: ['right', 'down'], negative: ['left', 'up'] },
+    y: { positive: ['left', 'down'], negative: ['right', 'up'] },
+  }
+  const approach = async (axis, target) => {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      let { position } = await inspectPlayer()
+      const delta = target - position[axis]
+      if (Math.abs(delta) < 0.15) return position
+      const actions = AXIS_ACTIONS[axis][delta > 0 ? 'positive' : 'negative']
+      for (const action of actions) await hold(action)
+      for (let frame = 0; frame < 240; frame += 1) {
+        await step(1)
+        position = (await inspectPlayer()).position
+        const remaining = target - position[axis]
+        // The motor coasts about 0.45 units after release.
+        if (Math.abs(remaining) < 0.4 || Math.sign(remaining) !== Math.sign(delta)) break
+      }
+      for (const action of actions) await release(action)
+      await step(30)
+    }
+    throw new Error(`could not walk the player to logical ${axis} = ${target}`)
+  }
+
+  const villager = (await inspectVillager()).position
+  await approach('x', villager.x + 3)
+  await approach('y', villager.y - 1.2)
+  await approach('x', villager.x)
+  const near = await inspectPlayer()
+  const distance = Math.hypot(near.position.x - villager.x, near.position.y - villager.y)
+  assert.ok(distance <= 1.5, `the player must stand within the villager's 1.5 radius; distance=${distance}`)
+
+  const prompted = (await inspectVillager()).ui
+  assert.deepEqual(
+    anchoredAs(prompted, 'interact-prompt'),
+    [{ entity: 'Villager', values: { key: 'E' } }],
+    `in range, the villager must carry one interact prompt naming E; anchored: ${JSON.stringify(prompted.anchored)}`,
+  )
+
+  const pressed = await call(client, 'control_runtime', {
+    project_path: project,
+    operation: 'press',
+    action: 'interact',
+  })
+  assert.equal(pressed.isError, undefined, `interact press failed: ${JSON.stringify(pressed)}`)
+  await step(1)
+  const talking = (await inspectVillager()).ui
+  const bubbles = anchoredAs(talking, 'npc-bubble')
+  assert.equal(bubbles.length, 1, `interacting must open one speech bubble; anchored: ${JSON.stringify(talking.anchored)}`)
+  assert.equal(bubbles[0].entity, 'Villager', 'the bubble is anchored to the villager')
+  assert.equal(
+    bubbles[0].values.line,
+    'The water sparkles, but it blocks the trail.',
+    'the bubble carries the villager\'s line',
+  )
+  assert.deepEqual(anchoredAs(talking, 'interact-prompt'), [], 'the bubble takes the prompt\'s place')
+
+  const shot = assertScreenshot(
+    await call(client, 'capture_screenshot', { project_path: project }),
+    'paused',
+    { width: 640, height: 360 },
+  )
+  const screenshotDirectory = process.env.WAICA_E2E_SCREENSHOT_DIR
+  if (screenshotDirectory) {
+    await mkdir(screenshotDirectory, { recursive: true })
+    await writeFile(
+      path.join(screenshotDirectory, 'villager-bubble.png'),
+      Buffer.from(shot.image, 'base64'),
+    )
+  }
 }
 
 /**
