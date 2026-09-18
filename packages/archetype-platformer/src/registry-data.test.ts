@@ -118,6 +118,8 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     invulnerability: 0,
     stat: '',
     hurtSound: '',
+    damageNumber: '',
+    healthBar: '',
   },
   // Nothing authorable left: the remembered spawn is transient, and the
   // kill height moved out to OutOfBounds.
