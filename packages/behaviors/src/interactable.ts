@@ -230,9 +230,9 @@ export function interactWith(game: Game, player: Entity, target: Entity, interac
     // The bubble answers the prompt: it goes while the bubble is open (CA-12).
     closePrompt(pieces)
   } else {
-    // Scene-scoped: the scan that hides this prompt dies with the scene, so
-    // without a scope the prompt would survive a swap into a map where
-    // nothing knows to hide it — stale line and all (grill decision 8).
+    // Scene-scoped: the scan that hides npc-line dies with the scene, so
+    // without a scope the line would survive a swap into a map where
+    // nothing knows to hide it — stale text and all (grill decision 8).
     game.ui.show(INTERACTABLE_UI_PIECE, { scope: 'scene' })
   }
   fireInteract(target, player)
