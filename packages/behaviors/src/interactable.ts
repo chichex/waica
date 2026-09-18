@@ -146,6 +146,8 @@ interface NpcPiece {
 interface PlayerPieces {
   /** The one open speech bubble (CA-11). */
   bubble: NpcPiece | null
+  /** The one interact prompt (CA-12). */
+  prompt: NpcPiece | null
 }
 
 /**
@@ -157,7 +159,7 @@ const piecesByPlayer = new WeakMap<Entity, PlayerPieces>()
 function piecesOf(player: Entity): PlayerPieces {
   let pieces = piecesByPlayer.get(player)
   if (!pieces) {
-    pieces = { bubble: null }
+    pieces = { bubble: null, prompt: null }
     piecesByPlayer.set(player, pieces)
   }
   return pieces
@@ -168,13 +170,50 @@ function closeBubble(pieces: PlayerPieces): void {
   pieces.bubble = null
 }
 
+function closePrompt(pieces: PlayerPieces): void {
+  pieces.prompt?.handle.remove()
+  pieces.prompt = null
+}
+
+/** A key code as the prompt shows it: 'KeyE' → 'E', 'Digit1' → '1', 'Space' and 'ArrowUp' as they are. */
+function keyLabel(code: string): string {
+  return code.replace(/^(?:Key|Digit)/, '')
+}
+
+/**
+ * Keeps the interact prompt (CA-12) on `nearest`, the nearest Interactable
+ * in range: exactly one interact-prompt with values { key }, the first key
+ * bound to interact — when the project defines the piece and binds the
+ * action, and never while a bubble is open. Otherwise none, and nothing
+ * logged: the piece's presence is checked before any attach.
+ */
+function syncPrompt(game: Game, pieces: PlayerPieces, nearest: Entity): void {
+  const code = game.ui.names().includes(INTERACT_PROMPT_PIECE)
+    ? game.input.bindingsFor('interact')[0]
+    : undefined
+  if (code === undefined || pieces.bubble?.handle.alive) {
+    closePrompt(pieces)
+    return
+  }
+  if (pieces.prompt?.handle.alive && pieces.prompt.npc === nearest) return
+  closePrompt(pieces)
+  pieces.prompt = {
+    npc: nearest,
+    handle: game.ui.attach(INTERACT_PROMPT_PIECE, nearest, {
+      offset: [0, anchorHeight(nearest)],
+      values: { key: keyLabel(code) },
+    }),
+  }
+}
+
 /**
  * `player` interacts with `target`, the NPC its Interactable belongs to.
  * The one interaction both paths run — the interact key (interactUpdate)
  * and a ClickToMove arrival (grill S8): publishes the line through the
  * npcLine stat; shows it in an npc-bubble anchored to the NPC when the
- * project defines that piece, replacing any bubble already open (CA-11),
- * else in the npc-line screen piece as before; then fires onInteract.
+ * project defines that piece, replacing any bubble already open and
+ * taking the prompt's place (CA-11, CA-12), else in the npc-line screen
+ * piece as before; then fires onInteract.
  */
 export function interactWith(game: Game, player: Entity, target: Entity, interactable: Interactable): void {
   game.stats.set('npcLine', interactable.line)
@@ -188,6 +227,8 @@ export function interactWith(game: Game, player: Entity, target: Entity, interac
         values: { line: interactable.line },
       }),
     }
+    // The bubble answers the prompt: it goes while the bubble is open (CA-12).
+    closePrompt(pieces)
   } else {
     // Scene-scoped: the scan that hides this prompt dies with the scene, so
     // without a scope the prompt would survive a swap into a map where
@@ -199,10 +240,12 @@ export function interactWith(game: Game, player: Entity, target: Entity, interac
 
 /**
  * The player role's interact lookup, run by its '*' hook in every state:
- * pressing interact near an Interactable interacts with it (interactWith).
- * The bubble belongs to the nearest Interactable in range: it closes when
- * another one becomes the nearest, and walking out of every radius closes
- * it and hides npc-line. Nearest one wins when several are in range.
+ * pressing interact near an Interactable interacts with it (interactWith),
+ * and the nearest one in range carries the interact prompt. The bubble
+ * belongs to the nearest Interactable in range too: it closes when another
+ * one becomes the nearest, and walking out of every radius closes it,
+ * removes the prompt and hides npc-line. Nearest one wins when several are
+ * in range.
  */
 export function interactUpdate({ entity, game }: StateContext): void {
   const nearestEntity = game.query.nearest(entity.position.x, entity.position.y, {
@@ -214,6 +257,7 @@ export function interactUpdate({ entity, game }: StateContext): void {
   if (!nearestEntity) {
     game.ui.hide(INTERACTABLE_UI_PIECE)
     closeBubble(pieces)
+    closePrompt(pieces)
     return
   }
   if (pieces.bubble && pieces.bubble.npc !== nearestEntity) closeBubble(pieces)
@@ -222,4 +266,5 @@ export function interactUpdate({ entity, game }: StateContext): void {
     game.input.consume('interact')
     interactWith(game, entity, nearestEntity, nearestEntity.get(Interactable))
   }
+  syncPrompt(game, pieces, nearestEntity)
 }

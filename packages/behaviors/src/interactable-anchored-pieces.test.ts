@@ -309,3 +309,141 @@ describe('ClickToMove arrival at an NPC (issue #72, CA-11, grill S8)', () => {
     expect(harness.anchored()).toEqual([])
   })
 })
+
+describe('Interactable interact prompt (issue #72, CA-12)', () => {
+  const BOTH: HarnessOptions['pieces'] = ['npc-bubble', 'interact-prompt']
+
+  function waicaWarnings(warn: { mock: { calls: unknown[][] } }): unknown[][] {
+    return warn.mock.calls.filter((call) => String(call[0]).startsWith('[waica]'))
+  }
+
+  it('anchors exactly one prompt with the interact key to the nearest Interactable in range', () => {
+    const harness = makeHarness({ pieces: BOTH })
+    const attach = vi.spyOn(harness.game.ui, 'attach')
+    spawnNpc(harness.game, 'Villager', 0, 0, { line: LINE, radius: 1.5 })
+    harness.moveTo(1, 0)
+
+    harness.step()
+    expect(harness.anchored()).toEqual([
+      { piece: 'interact-prompt', entity: 'Villager', x: 320, y: 101, clipped: false, values: { key: 'E' } },
+    ])
+
+    harness.step(10)
+    expect(pieces(harness, 'interact-prompt')).toHaveLength(1)
+    expect(attach).toHaveBeenCalledTimes(1) // kept, not re-attached every frame
+  })
+
+  it.each([
+    ['KeyE', 'E'],
+    ['Digit1', '1'],
+    ['Space', 'Space'],
+    ['ArrowUp', 'ArrowUp'],
+  ])('labels the first bound code %s as %s', (code, key) => {
+    const harness = makeHarness({ pieces: BOTH, bindings: { interact: [code, 'KeyQ'] } })
+    spawnNpc(harness.game, 'Villager', 0, 0, { radius: 1.5 })
+    harness.moveTo(1, 0)
+
+    harness.step()
+
+    expect(pieces(harness, 'interact-prompt').map((instance) => instance.values)).toEqual([{ key }])
+  })
+
+  it('gives way to the bubble while it is open', () => {
+    const harness = makeHarness({ pieces: BOTH })
+    spawnNpc(harness.game, 'Villager', 0, 0, { line: LINE, radius: 1.5 })
+    harness.moveTo(1, 0)
+    harness.step()
+
+    harness.interact()
+    expect(harness.anchored().map((instance) => instance.piece)).toEqual(['npc-bubble'])
+
+    harness.step(10)
+    expect(harness.anchored().map((instance) => instance.piece)).toEqual(['npc-bubble'])
+  })
+
+  it('gives way to a bubble a ClickToMove arrival opens too', () => {
+    const harness = makeHarness({ pieces: BOTH })
+    spawnNpc(harness.game, 'Villager', 0, 0, { line: LINE, radius: 1.5 })
+    harness.moveTo(1, 0)
+    harness.step()
+
+    harness.click(0, 1)
+    harness.step()
+
+    expect(harness.anchored().map((instance) => instance.piece)).toEqual(['npc-bubble'])
+  })
+
+  it('stays up when interacting takes the npc-line fallback: no bubble opens to replace it', () => {
+    const harness = makeHarness({ pieces: ['interact-prompt'] })
+    spawnNpc(harness.game, 'Villager', 0, 0, { line: LINE, radius: 1.5 })
+    harness.moveTo(1, 0)
+    harness.step()
+
+    harness.interact()
+
+    expect(harness.game.ui.isVisible('npc-line')).toBe(true)
+    expect(harness.anchored().map((instance) => [instance.piece, instance.entity])).toEqual([
+      ['interact-prompt', 'Villager'],
+    ])
+  })
+
+  it('moves to the new nearest Interactable in range', () => {
+    const harness = makeHarness({ pieces: BOTH })
+    spawnNpc(harness.game, 'Villager', 0, 0, { line: LINE, radius: 3 })
+    spawnNpc(harness.game, 'Fisher', 3, 0, { line: 'Quiet, please.', radius: 3 })
+    harness.moveTo(1, 0)
+    harness.step()
+    expect(pieces(harness, 'interact-prompt').map((instance) => instance.entity)).toEqual(['Villager'])
+
+    harness.moveTo(2.5, 0)
+    harness.step()
+
+    expect(harness.anchored().map((instance) => [instance.piece, instance.entity])).toEqual([
+      ['interact-prompt', 'Fisher'],
+    ])
+  })
+
+  it('comes back on the new nearest Interactable once the bubble closes', () => {
+    const harness = makeHarness({ pieces: BOTH })
+    spawnNpc(harness.game, 'Villager', 0, 0, { line: LINE, radius: 3 })
+    spawnNpc(harness.game, 'Fisher', 3, 0, { line: 'Quiet, please.', radius: 3 })
+    harness.moveTo(1, 0)
+    harness.interact()
+
+    harness.moveTo(2.5, 0)
+    harness.step()
+
+    expect(harness.anchored().map((instance) => [instance.piece, instance.entity])).toEqual([
+      ['interact-prompt', 'Fisher'],
+    ])
+  })
+
+  it('is removed when the player leaves every radius', () => {
+    const harness = makeHarness({ pieces: BOTH })
+    spawnNpc(harness.game, 'Villager', 0, 0, { line: LINE, radius: 1.5 })
+    harness.moveTo(1, 0)
+    harness.step()
+    expect(pieces(harness, 'interact-prompt')).toHaveLength(1)
+
+    harness.moveTo(4, 0)
+    harness.step()
+
+    expect(harness.anchored()).toEqual([])
+  })
+
+  it.each([
+    ['the project does not define interact-prompt', { pieces: ['npc-bubble'] }],
+    ['nothing is bound to interact', { pieces: BOTH, bindings: { interact: [] } }],
+    ['interact is not an action at all', { pieces: BOTH, bindings: {} }],
+  ] as Array<[string, HarnessOptions]>)('attaches no prompt and logs nothing when %s', (_label, options) => {
+    const warn = vi.spyOn(console, 'warn')
+    const harness = makeHarness(options)
+    spawnNpc(harness.game, 'Villager', 0, 0, { line: LINE, radius: 1.5 })
+    harness.moveTo(1, 0)
+
+    harness.step(5)
+
+    expect(harness.anchored()).toEqual([])
+    expect(waicaWarnings(warn)).toEqual([])
+  })
+})
