@@ -90,6 +90,7 @@ interface ValidationContext {
   roleStateSources: Map<string, string[]>
   bindings: Record<string, string[]>
   soundRefs: ReadonlySet<string>
+  uiPieces: ReadonlySet<string>
 }
 
 function add(
@@ -222,6 +223,7 @@ function validateParamReferences(
           bindings: context.bindings,
           declaredStats: context.declaredStats,
           soundRefs: context.soundRefs,
+          uiPieces: context.uiPieces,
         },
       )
       if (finding) context.findings.push(finding)
@@ -825,6 +827,8 @@ export async function validateProject(
       prefabFiles.push({ prefab, relative, ref })
     }
   }
+  const uiFiles = await directFiles(path.join(projectPath, 'src/ui'), '.html')
+  const uiNames = new Set(uiFiles.map((file) => file.slice(0, -'.html'.length)))
   const context: ValidationContext = {
     findings,
     manifest,
@@ -839,6 +843,7 @@ export async function validateProject(
     roleStateSources,
     bindings,
     soundRefs,
+    uiPieces: uiNames,
   }
   validateComponentClassUpdateContracts(context)
   for (const { prefab, relative, ref } of prefabFiles) {
@@ -846,8 +851,6 @@ export async function validateProject(
     findings.push(...validatePrefabSceneTransition(prefab, relative, ref, knownScenes))
   }
 
-  const uiFiles = await directFiles(path.join(projectPath, 'src/ui'), '.html')
-  const uiNames = new Set(uiFiles.map((file) => file.slice(0, -'.html'.length)))
   for (const file of uiFiles) {
     const relative = `src/ui/${file}`
     const html = await readFile(path.join(projectPath, relative), 'utf8')
