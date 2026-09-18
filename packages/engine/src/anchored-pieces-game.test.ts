@@ -215,16 +215,22 @@ describe('while not simulating (CA-8)', () => {
 })
 
 describe('--waica-unit (CA-3)', () => {
-  it('is the game viewport CSS height divided by the current viewHeight, recomputed every frame', () => {
+  const unitOf = (element: HTMLElement): string => element.style.getPropertyValue('--waica-unit')
+
+  it('is carried inline by the anchored layer as the game viewport CSS height divided by the current viewHeight, recomputed every frame', () => {
     const game = makeGame()
-    const tag = game.ui.attach('tag', game.spawn('Orc'))
+    const orc = game.spawn('Orc')
+    const tags = [game.ui.attach('tag', orc), game.ui.attach('tag', orc)]
+    const layer = shadowHost(tags[0]!).parentElement!
 
     frame(game)
-    expect(shadowHost(tag).style.getPropertyValue('--waica-unit')).toBe('60px')
+    expect(unitOf(layer)).toBe('60px')
 
     game.setViewHeight(20)
     frame(game)
-    expect(shadowHost(tag).style.getPropertyValue('--waica-unit')).toBe('30px')
+    expect(unitOf(layer)).toBe('30px')
+    // Every instance inherits it from the layer: no shadow host carries its own.
+    expect(tags.map((tag) => unitOf(shadowHost(tag)))).toEqual(['', ''])
   })
 
   it('follows the letterbox scale under a fixed resolution', () => {
@@ -233,7 +239,8 @@ describe('--waica-unit (CA-3)', () => {
 
     frame(game)
 
-    expect(shadowHost(tag).style.getPropertyValue('--waica-unit')).toBe('45px')
+    expect(unitOf(shadowHost(tag).parentElement!)).toBe('45px')
+    expect(unitOf(shadowHost(tag))).toBe('')
   })
 })
 

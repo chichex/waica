@@ -247,9 +247,10 @@ export class AnchoredPieces {
   /**
    * Called by the Game once per render frame, after the isometric pass and
    * before the render (never per Simulation Step, never on attach): fits
-   * the layer to the game viewport and puts every instance's zero-size
-   * shadow host at its anchor point, with the frame's `--waica-unit`, its
-   * CSS animations set to Game Time (followGameTime).
+   * the layer to the game viewport, sets the frame's `--waica-unit` on it
+   * (every instance inherits it through its shadow host) and puts every
+   * instance's zero-size shadow host at its anchor point, its CSS
+   * animations set to Game Time (followGameTime).
    */
   place(): void {
     const layer = this.layer
@@ -261,7 +262,7 @@ export class AnchoredPieces {
     layer.style.width = `${viewport.width}px`
     layer.style.height = `${viewport.height}px`
     // The camera frames exactly viewHeight world units vertically (Game.resize).
-    const unit = `${viewport.height / (camera.top - camera.bottom)}px`
+    layer.style.setProperty('--waica-unit', `${viewport.height / (camera.top - camera.bottom)}px`)
     // Before any instance's style writes below: getAnimations() flushes style.
     for (const instance of this.instances) followGameTime(instance)
     const byDepth: Array<[Instance, number]> = []
@@ -270,7 +271,6 @@ export class AnchoredPieces {
       instance.placed = placement
       instance.host.style.left = `${placement.x}px`
       instance.host.style.top = `${placement.y}px`
-      instance.host.style.setProperty('--waica-unit', unit)
       byDepth.push([instance, placement.depth])
     }
     // Lower on screen draws on top, like y-sort; the sort is stable, so
