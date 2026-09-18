@@ -187,6 +187,33 @@ describe('draw order within the anchored layer (CA-6)', () => {
   })
 })
 
+describe('while not simulating (CA-8)', () => {
+  it('hides the anchored layer with the overlay; instances keep existing and reappear placed correctly', () => {
+    const game = makeGame()
+    const orc = game.spawn('Orc')
+    const tag = game.ui.attach('tag', orc, { offset: [0, 1] })
+    frame(game)
+    const layer = shadowHost(tag).parentElement!
+    const overlay = layer.parentElement!
+    expect(overlay.style.display).toBe('')
+
+    game.simulate = false
+    frame(game, 0)
+    expect(overlay.style.display).toBe('none')
+    expect(tag.alive).toBe(true)
+
+    // Edit mode moves entities while the overlay is hidden.
+    orc.position.x = 1
+    frame(game, 0)
+    game.simulate = true
+    frame(game)
+
+    expect(overlay.style.display).toBe('')
+    expect(shadowHost(tag).parentElement).toBe(layer)
+    expect(placed(tag)).toEqual(['460px', '240px'])
+  })
+})
+
 describe('--waica-unit (CA-3)', () => {
   it('is the game viewport CSS height divided by the current viewHeight, recomputed every frame', () => {
     const game = makeGame()
