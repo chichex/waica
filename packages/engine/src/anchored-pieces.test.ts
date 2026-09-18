@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 
 vi.mock('three', async (importOriginal) => {
   const actual = await importOriginal<typeof import('three')>()
@@ -24,6 +24,14 @@ vi.mock('three', async (importOriginal) => {
 
 import { Game } from './game'
 import type { AnchoredPieceHandle } from './anchored-pieces'
+import {
+  Game as EntryGame,
+  GameUi,
+  type AnchoredPieceHandle as EntryHandle,
+  type AttachOptions,
+  type RuntimeSnapshot,
+  type RuntimeSnapshotUi,
+} from './index'
 import type { StatValue } from './stats'
 
 class ResizeObserverStub {
@@ -274,5 +282,15 @@ describe('game.ui.attach — invalid attach never throws (CA-7)', () => {
     expect(warn).toHaveBeenCalledTimes(2)
     for (const [message] of warn.mock.calls) expect(String(message)).toMatch(/^\[waica\].*"Orc"/)
     expect(overlayOf(host)).toBeNull()
+  })
+})
+
+describe('the package entry (CA-20)', () => {
+  it('exports the Anchored Piece types, with GameUi.attach reachable from game.ui', () => {
+    expectTypeOf<Parameters<GameUi['attach']>[2]>().toEqualTypeOf<AttachOptions | undefined>()
+    expectTypeOf<ReturnType<GameUi['attach']>>().toEqualTypeOf<EntryHandle>()
+    expectTypeOf<RuntimeSnapshot['ui']>().toEqualTypeOf<RuntimeSnapshotUi>()
+    expectTypeOf<EntryGame['ui']>().toEqualTypeOf<GameUi>()
+    expect(typeof GameUi.prototype.attach).toBe('function')
   })
 })
