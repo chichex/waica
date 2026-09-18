@@ -193,3 +193,34 @@ game.time.now  // seconds of Game Time since the Game started
 - **Step placement.** At the start of every Simulation Step, before the Component Update Schedule, `game.time` advances `now`, runs every due timer (due time, then creation order), then advances every tween that existed before that step (creation order). Work a callback creates is never run or advanced in that same step.
 - **Scope.** A timer or tween is scene-scoped by default: `unloadScene()` and every scene load — including a Game's first — cancel it, running no callback. `{ scope: 'session' }` survives a scene change. `{ owner: entity }` cancels it immediately when that entity is destroyed, whatever its scope; an owner already dead at scheduling time yields an inactive handle. `game.dispose()` cancels everything in both scopes. This is the opposite default from `game.onUpdate`/`game.events` (ADR 0011), which survive a scene change by construction, and the same one `game.audio.play()` uses (ADR 0012) — see ADR 0017 for why timers follow audio's rule rather than the host-subscription one: a timer's callback almost always closes over the scene that scheduled it.
 - **No Promises.** Nothing here returns one, and nothing is async — a `.then` continuation is not step-exact (it runs after the whole synchronous frame), which is exactly what `game.time` exists to avoid. Compose delays with `after`, not `await`.
+
+## game.ui.attach: Anchored Pieces
+
+A UI Piece shown with `game.ui.show(name)` is a screen-space singleton. `game.ui.attach(piece, entity, options?)` instead creates an **Anchored Piece**: a new instance of the piece that follows `entity` across the screen, with its own shadow root and its own values. Every call is a new instance — five orcs can each carry a `health-bar` — and the screen piece of the same name is never mounted, shown or changed by it.
+
+```ts
+const hit = game.ui.attach('damage-number', orc, { offset: [0, 1.2], seconds: 0.8, values: { amount: 3 } })
+const bar = game.ui.attach('health-bar', orc, { offset: [0, 1.4], values: { current: 7, max: 10 } })
+bar.set('current', 6) // {{current}} and --current update live
+bar.remove()
+```
+
+```html
+<style>
+  .bar { position: absolute; transform: translate(-50%, -100%); width: calc(1.2 * var(--waica-unit)); height: 4px; background: #0008 }
+  .fill { width: calc(var(--current) / var(--max) * 100%); height: 100%; background: #ef476f }
+</style>
+<div class="bar"><div class="fill"></div></div>
+```
+
+- **Options.** `offset: [x, y]` (default `[0, 0]`) is in world units, added to the entity's render point in render space: `[0, 1]` is one unit up on screen, under `projection: 'isometric'` too. `seconds` gives the instance its own lifetime (below). `values` are the instance's own values.
+- **Handle.** `set(name, value)`, `remove()`, `alive` and `element` — the piece's content root inside the instance's shadow root, `null` once removed.
+- **Placement.** Once per render frame — after the isometric projection and the camera step, before the render, never per Simulation Step — each instance's shadow host is placed as a zero-size box at its anchor point, converted to whole CSS pixels from the top-left corner of the game viewport; the piece's own CSS centres itself around that point (e.g. `transform: translate(-50%, -100%)`). A move therefore shows on the next frame, not before. All instances live in one layer fitted to the game viewport — the whole canvas, or the letterboxed rectangle under a fixed `resolution` — with `overflow: hidden`, so they never draw over the letterbox bars.
+- **Per-instance values.** Inside an instance, `{{name}}` renders the instance's own value when it has one and the Game stat of that name otherwise (booleans as ✓/✕, missing as empty); `set` updates it in place, and a stat change still updates every placeholder with no instance value. Every number value is also published as the custom property `--name` on the instance (`values: { current: 7, max: 10 }` gives `--current: 7` and `--max: 10`), booleans as `1`/`0`; strings are text only. There are no binding expressions: arithmetic belongs in CSS `calc()`.
+- **`--waica-unit`.** Every frame, each instance also carries `--waica-unit`: CSS pixels per world unit, the game viewport's CSS height divided by the current view height. It follows camera zoom and the letterbox scale, so `calc(1.1 * var(--waica-unit))` sizes a piece in world units while everything else keeps its CSS pixel size.
+- **Draw order.** The anchored layer sits below every screen-space piece. Within it, every frame, the instance lower on screen draws on top, like y-sort; equal heights keep creation order, later on top.
+- **Lifetime.** Without `seconds`, an instance is removed before its entity's `destroy()` returns. With `seconds: S`, it is removed exactly when a `game.time.after(S, …)` scheduled at the same moment would fire — it counts Game Time (ADR 0017), so it never runs out while the Game is paused or not simulating, and until then it counts in `game.time.pending`. If its entity is destroyed first, it lingers frozen where the entity was at `destroy()` time (still moving with the camera) until it expires. `unloadScene()`, every scene load that unloads and `game.dispose()` remove every instance: none outlives its scene. `remove()` is immediate; `set` and `remove` on a removed handle are silent no-ops.
+- **Invalid attach never throws.** An undefined piece name logs one `[waica]` warning per name per Game; an entity that is no longer `alive` logs one per call. Both return a handle with `alive: false` and `element: null` that mounts nothing.
+- **Runtime Snapshot.** Every snapshot carries `ui: { shown, anchored }`: the visible screen pieces by name, and each live instance in creation order as `{ piece, entity, x, y, clipped, values }`, with the pixel coordinates of its last placement.
+
+The trade-off is ADR 0018's: Anchored Pieces are HTML drawn over the game view, not text rendered in the three scene. They always draw above the world — a label behind a tree draws over it — hide with the rest of the UI overlay while the Game is not simulating (including the editor's edit mode), and do not align to a pixel-art grid.
