@@ -1,4 +1,14 @@
-import type { Stats, StatValue } from './stats.js'
+import { AnchoredPieces, type AnchoredPieceHandle, type AttachOptions } from './anchored-pieces.js'
+import type { Entity } from './entity.js'
+import type { Stats } from './stats.js'
+import { placeholders, renderStat } from './ui-bindings.js'
+
+/**
+ * Module-private key for the anchored layer. Not exported, so
+ * `ui[ANCHORED]()` cannot be spelled outside this file — `anchoredPiecesOf`
+ * (below, exported, but not from the package entry) is the Game's only way in.
+ */
+const ANCHORED = Symbol('waica.ui.anchored')
 
 /**
  * The HTML UI layer. Each piece is a self-contained HTML fragment
@@ -11,10 +21,15 @@ import type { Stats, StatValue } from './stats.js'
  * (each in its own shadow root, so styles never leak between pieces or
  * into the hosting page). The whole overlay hides while the game is not
  * simulating (pause / editor edit mode).
+ *
+ * Screen pieces are singletons by name (show/hide). An Anchored Piece is
+ * one more instance of a piece that follows an entity (attach), in a layer
+ * below every screen piece — see ADR 0018.
  */
 export class GameUi {
   private readonly sources = new Map<string, string>()
   private readonly pieces = new Map<string, Piece>()
+  private readonly anchored: AnchoredPieces
   private overlay?: HTMLDivElement
   private active = true
 
@@ -22,7 +37,13 @@ export class GameUi {
     private readonly stats: Stats,
     /** Resolved lazily: the canvas may not be in the DOM at construction. */
     private readonly host: () => HTMLElement,
-  ) {}
+  ) {
+    this.anchored = new AnchoredPieces({
+      stats,
+      source: (name) => this.sources.get(name),
+      overlay: () => this.mountOverlay(),
+    })
+  }
 
   /** Registers a piece's HTML source. Re-defining an unmounted name wins. */
   define(name: string, html: string): void {
@@ -36,6 +57,11 @@ export class GameUi {
   /** Piece names available to show (defined via the registry or define()). */
   names(): string[] {
     return [...this.sources.keys()]
+  }
+
+  /** Whether a piece of this name is defined — `names().includes(name)` without building the list. */
+  has(name: string): boolean {
+    return this.sources.has(name)
   }
 
   show(name: string, options: ShowOptions = {}): void {
@@ -77,6 +103,17 @@ export class GameUi {
     return this.mount(name)?.root ?? null
   }
 
+  /**
+   * Anchors a new instance of the piece to `entity` (issue #72): its own
+   * shadow root and values, placed every render frame at the entity's
+   * render point plus `offset`. Every call is a new instance; the screen
+   * piece of the same name is never touched. An undefined piece or a dead
+   * entity warns and returns an inert handle — it never throws.
+   */
+  attach(piece: string, entity: Entity, options: AttachOptions = {}): AnchoredPieceHandle {
+    return this.anchored.attach(piece, entity, options)
+  }
+
   /** Called by the game loop: the overlay only draws while simulating. */
   setActive(active: boolean): void {
     if (this.active === active) return
@@ -84,12 +121,13 @@ export class GameUi {
     this.sync()
   }
 
-  /** Unmounts every piece and removes the overlay (Game.dispose). */
+  /** Unmounts every piece and Anchored Piece and removes the overlay (Game.dispose). */
   dispose(): void {
     for (const piece of this.pieces.values()) {
       for (const off of piece.unsubs) off()
     }
     this.pieces.clear()
+    this.anchored.dispose()
     this.overlay?.remove()
     this.overlay = undefined
   }
@@ -97,10 +135,12 @@ export class GameUi {
   /**
    * Unmounts every scene-scoped piece: the ones `loadScene` showed from the
    * outgoing scene's `ui` list, plus any shown with `{ scope: 'scene' }`.
-   * A piece the host showed with no scope is untouched. The definition
-   * catalog (sources) always survives — Game.unloadScene.
+   * A piece the host showed with no scope is untouched. Every Anchored
+   * Piece goes too, lingering ones included: none outlives its scene. The
+   * definition catalog (sources) always survives — Game.unloadScene.
    */
   unloadScene(): void {
+    this.anchored.clear()
     for (const [name, piece] of this.pieces) {
       if (piece.scope !== 'scene') continue
       for (const off of piece.unsubs) off()
@@ -108,6 +148,11 @@ export class GameUi {
       this.pieces.delete(name)
     }
     this.sync()
+  }
+
+  /** Engine-internal: see anchoredPiecesOf. */
+  [ANCHORED](): AnchoredPieces {
+    return this.anchored
   }
 
   private mount(name: string): Piece | null {
@@ -160,6 +205,14 @@ export class GameUi {
   }
 }
 
+/**
+ * Engine-internal: the anchored layer behind `ui.attach`, which the Game
+ * connects to its camera and viewport and places every render frame.
+ */
+export function anchoredPiecesOf(ui: GameUi): AnchoredPieces {
+  return ui[ANCHORED]()
+}
+
 interface Piece {
   /** Shadow host, same box as the overlay; display toggles visibility. */
   shell: HTMLDivElement
@@ -176,44 +229,13 @@ export interface ShowOptions {
   scope?: 'scene'
 }
 
-const BINDING = /\{\{\s*([\w-]+)\s*\}\}/g
-
-function renderStat(value: StatValue | undefined): string {
-  if (value === undefined) return ''
-  if (typeof value === 'boolean') return value ? '✓' : '✕'
-  return String(value)
-}
-
 /**
- * Replaces {{stat}} placeholders in the fragment's text with reactive text
- * nodes kept in sync with the stats. Text-only by design: the binding
- * language has no expressions — presentation, never logic.
+ * Fills each {{stat}} placeholder with the stat's value and keeps it in
+ * sync; returns the unsubscribes.
  */
 function bindStats(root: HTMLElement, stats: Stats): Array<() => void> {
-  const unsubs: Array<() => void> = []
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
-  const targets: Text[] = []
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    // Braces inside <style>/<script> are CSS/code, not bindings.
-    if ((node as Text).parentElement?.closest('style, script')) continue
-    if ((node.nodeValue ?? '').includes('{{')) targets.push(node as Text)
-  }
-  for (const text of targets) {
-    const source = text.nodeValue ?? ''
-    const parts: Node[] = []
-    let last = 0
-    for (const match of source.matchAll(BINDING)) {
-      const stat = match[1]
-      if (stat === undefined) continue
-      if (match.index > last) parts.push(document.createTextNode(source.slice(last, match.index)))
-      const bound = document.createTextNode(renderStat(stats.get(stat)))
-      unsubs.push(stats.onChange(stat, (value) => (bound.nodeValue = renderStat(value))))
-      parts.push(bound)
-      last = match.index + match[0].length
-    }
-    if (parts.length === 0) continue
-    if (last < source.length) parts.push(document.createTextNode(source.slice(last)))
-    text.replaceWith(...parts)
-  }
-  return unsubs
+  return placeholders(root).map(([stat, text]) => {
+    text.nodeValue = renderStat(stats.get(stat))
+    return stats.onChange(stat, (value) => (text.nodeValue = renderStat(value)))
+  })
 }

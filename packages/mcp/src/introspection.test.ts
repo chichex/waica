@@ -243,7 +243,7 @@ describe('describeArchetype', () => {
         jump: ['Space', 'ArrowUp', 'KeyW'],
       },
       actionLabels: { left: 'Move left', right: 'Move right', jump: 'Jump' },
-      ui: ['coin-counter'],
+      ui: ['coin-counter', 'damage-number', 'health-bar'],
       art: [
         { file: 'waica-dog.png', uri: 'waica:dog' },
         { file: 'waica-coin.png', uri: 'waica:coin' },

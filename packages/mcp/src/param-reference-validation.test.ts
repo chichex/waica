@@ -11,6 +11,7 @@ const PARAM_CODES = new Set([
   'input-action-unbound',
   'undeclared-stat',
   'missing-sound',
+  'unknown-ui-piece',
 ])
 
 function prefab(components: unknown[]): string {
@@ -18,7 +19,7 @@ function prefab(components: unknown[]): string {
 }
 
 function refComponent(
-  ref: 'prefab' | 'stat' | 'action' | 'clip' | 'sound',
+  ref: 'prefab' | 'stat' | 'action' | 'clip' | 'sound' | 'ui',
   defaultValue = '',
   options?: string[],
 ): string {
@@ -431,6 +432,135 @@ export class RefComponent extends Component {
         code: 'missing-sound',
         file: 'src/objects/a-wrong-kind.object.json',
         ref: 'RefComponent.target',
+      },
+    ])
+  })
+
+  it('CA-17: resolves a project component\'s ui refs against the project src/ui/ pieces', async () => {
+    const project = await refProject({
+      'src/components/ref.ts': refComponent('ui'),
+      'src/ui/damage-number.html': '<div class="n"></div>',
+      'src/ui/nested/health-bar.html': '<div></div>',
+      'src/objects/a-valid.object.json': prefab([
+        { type: 'RefComponent', props: { target: 'damage-number' } },
+      ]),
+      'src/objects/b-broken.object.json': prefab([
+        { type: 'RefComponent', props: { target: 'speech-bubble' } },
+      ]),
+      'src/objects/c-empty.object.json': prefab([
+        { type: 'RefComponent', props: { target: '' } },
+      ]),
+      'src/objects/d-nested.object.json': prefab([
+        { type: 'RefComponent', props: { target: 'health-bar' } },
+      ]),
+    })
+
+    const result = await validateProject(project)
+
+    expect(result.findings.filter((finding) => finding.code === 'component-load-failed')).toEqual([])
+    expect(paramFindings(result.findings)).toEqual([
+      {
+        severity: 'warning',
+        code: 'unknown-ui-piece',
+        file: 'src/objects/b-broken.object.json',
+        ref: 'RefComponent.target',
+      },
+      {
+        severity: 'warning',
+        code: 'unknown-ui-piece',
+        file: 'src/objects/d-nested.object.json',
+        ref: 'RefComponent.target',
+      },
+    ])
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        message: 'Component "RefComponent" param "target" references unknown UI piece "speech-bubble".',
+      }),
+    )
+  })
+
+  it('CA-17: resolves ui refs on inline scene components and on scene overrides of a prefab', async () => {
+    const project = await refProject({
+      'src/components/ref.ts': refComponent('ui'),
+      'src/ui/damage-number.html': '<div></div>',
+      'src/ui/health-bar.html': '<div></div>',
+      'src/objects/owner.object.json': prefab([
+        { type: 'RefComponent', props: { target: 'damage-number' } },
+      ]),
+      'src/scenes/main.scene.json': JSON.stringify({
+        waicaScene: 3,
+        entities: [
+          { name: 'Inline', components: [{ type: 'RefComponent', props: { target: 'npc-bubble' } }] },
+          { name: 'Broken', prefab: 'objects/owner', overrides: { RefComponent: { target: 'hp' } } },
+          { name: 'Valid', prefab: 'objects/owner', overrides: { RefComponent: { target: 'health-bar' } } },
+          { name: 'Off', prefab: 'objects/owner', overrides: { RefComponent: { target: '' } } },
+        ],
+      }),
+    })
+
+    const result = await validateProject(project)
+
+    expect(paramFindings(result.findings)).toEqual([
+      {
+        severity: 'warning',
+        code: 'unknown-ui-piece',
+        file: 'src/scenes/main.scene.json',
+        ref: 'RefComponent.target',
+      },
+      {
+        severity: 'warning',
+        code: 'unknown-ui-piece',
+        file: 'src/scenes/main.scene.json',
+        ref: 'RefComponent.target',
+      },
+    ])
+    expect(
+      result.findings
+        .filter((finding) => finding.code === 'unknown-ui-piece')
+        .map((finding) => finding.message),
+    ).toEqual([
+      'Component "RefComponent" param "target" references unknown UI piece "npc-bubble".',
+      'Component "RefComponent" param "target" references unknown UI piece "hp".',
+    ])
+  })
+
+  it('CA-17: resolves Health\'s damageNumber and healthBar on prefabs and scene overrides', async () => {
+    const project = await refProject({
+      'src/ui/damage-number.html': '<div></div>',
+      'src/ui/health-bar.html': '<div></div>',
+      'src/characters/orc.character.json': JSON.stringify({
+        waicaPrefab: 1,
+        type: 'character',
+        components: [
+          { type: 'Health', props: { damageNumber: 'damage-number', healthBar: 'hp-bar' } },
+        ],
+      }),
+      'src/scenes/main.scene.json': JSON.stringify({
+        waicaScene: 3,
+        entities: [
+          {
+            name: 'Orc',
+            prefab: 'characters/orc',
+            overrides: { Health: { damageNumber: 'dmg', healthBar: 'health-bar' } },
+          },
+        ],
+      }),
+    })
+
+    const result = await validateProject(project)
+
+    expect(paramFindings(result.findings)).toEqual([
+      {
+        severity: 'warning',
+        code: 'unknown-ui-piece',
+        file: 'src/characters/orc.character.json',
+        ref: 'Health.healthBar',
+      },
+      {
+        severity: 'warning',
+        code: 'unknown-ui-piece',
+        file: 'src/scenes/main.scene.json',
+        ref: 'Health.damageNumber',
       },
     ])
   })

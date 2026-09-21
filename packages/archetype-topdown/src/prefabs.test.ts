@@ -36,6 +36,11 @@ describe('the topdown prefabs express the genre model', () => {
     }
   })
 
+  it('turns on no Health piece: no player prefab names a damage number or a health bar (issue #72)', () => {
+    expect(props('characters/player', 'Health')).not.toHaveProperty('damageNumber')
+    expect(props('characters/player', 'Health')).not.toHaveProperty('healthBar')
+  })
+
   it('ships a code-free villager: npc role, a line to say, and a body that blocks', () => {
     expect(props('characters/villager', 'StateMachine')).toMatchObject({ role: 'npc' })
     const interactable = props('characters/villager', 'Interactable')

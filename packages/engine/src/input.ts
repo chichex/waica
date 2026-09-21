@@ -46,6 +46,15 @@ export class Input {
     return [...this.bindings.keys()].sort()
   }
 
+  /**
+   * The key codes bound to the action, in their declared order (e.g.
+   * `['KeyE', 'Space']`); `[]` for an unknown or unbound action. A new
+   * array every call: mutating it never changes the bindings.
+   */
+  bindingsFor(action: ActionName): string[] {
+    return [...(this.bindings.get(action) ?? [])]
+  }
+
   /** Currently held semantic action names in deterministic order. */
   heldActions(): ActionName[] {
     return this.availableActions().filter((action) => this.held(action))

@@ -1,0 +1,33 @@
+<style>
+  .interact-prompt {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    transform: translate(-50%, -6px);
+    width: max-content;
+    padding: 3px 8px;
+    border-radius: 8px;
+    background: #1a1a2ecc;
+    border: 1px solid #ffffff2e;
+    font: 500 13px/1.4 system-ui, sans-serif;
+    color: #f5f5f5;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px #000a;
+    pointer-events: none;
+    user-select: none;
+  }
+  .interact-prompt kbd {
+    display: inline-block;
+    min-width: 1.4em;
+    margin-left: 2px;
+    padding: 0 5px;
+    border-radius: 4px;
+    background: #f5f5f5;
+    box-shadow: 0 2px 0 #9a9ab0;
+    font: 700 13px/1.4 system-ui, sans-serif;
+    color: #1a1a2e;
+    text-align: center;
+    text-shadow: none;
+  }
+</style>
+<div class="interact-prompt">Press <kbd>{{key}}</kbd></div>

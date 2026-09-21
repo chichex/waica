@@ -75,6 +75,19 @@ describe('GameUi', () => {
     expect(root?.querySelector('style')?.textContent).toBe('.x{color:red}')
   })
 
+  it('has(name) tells whether a piece is defined, like names().includes(name)', () => {
+    const { ui } = makeUi()
+    ui.defineAll({ 'coin-counter': COUNTER })
+
+    expect(ui.has('coin-counter')).toBe(true)
+    expect(ui.has('npc-bubble')).toBe(false)
+
+    ui.define('npc-bubble', '<div>{{line}}</div>')
+
+    expect(ui.has('npc-bubble')).toBe(true)
+    expect(ui.names()).toEqual(['coin-counter', 'npc-bubble'])
+  })
+
   it('show/hide/toggle drive per-piece visibility', () => {
     const { ui } = makeUi()
     ui.define('hud', '<div>hud</div>')

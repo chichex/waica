@@ -17,6 +17,7 @@ const BASE_CONTEXT: ParamReferenceResolutionContext = {
   bindings: { shoot: ['KeyF'], empty: [] },
   declaredStats: new Set(['health']),
   soundRefs: new Set(['waica:iso-hit', 'src/art/hurt.ogg']),
+  uiPieces: new Set(['damage-number']),
 }
 
 function check(
@@ -120,6 +121,22 @@ describe('resolveParamReference', () => {
       severity: 'error',
       code: 'missing-sound',
       message: 'Component "RefComponent" param "target" references missing sound "src/art/missing.ogg".',
+      file: 'src/objects/owner.object.json',
+      ref: 'RefComponent.target',
+    })
+  })
+
+  it('CA-17: accepts a UI piece the project defines and warns on an unknown one', () => {
+    expect(
+      resolveParamReference(check({ ref: 'ui', value: 'damage-number' }), BASE_CONTEXT),
+    ).toBeUndefined()
+
+    expect(
+      resolveParamReference(check({ ref: 'ui', value: 'health-bar' }), BASE_CONTEXT),
+    ).toEqual({
+      severity: 'warning',
+      code: 'unknown-ui-piece',
+      message: 'Component "RefComponent" param "target" references unknown UI piece "health-bar".',
       file: 'src/objects/owner.object.json',
       ref: 'RefComponent.target',
     })

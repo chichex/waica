@@ -19,6 +19,8 @@ export interface RefProjectState {
    * just sorts and shapes whatever it's given.
    */
   sounds: readonly RefTarget[]
+  /** The project's UI piece names (src/ui/<name>.html), in any order. */
+  uiPieces: readonly string[]
 }
 
 export interface RefEntityContext {
@@ -61,6 +63,8 @@ export function availableRefTargets(
       return plainTargets(Object.keys(project.stats))
     case 'sound':
       return [...project.sounds].sort((a, b) => a.label.localeCompare(b.label))
+    case 'ui':
+      return plainTargets(project.uiPieces)
     case 'action':
       // Kept selectable even with zero key bindings — the runtime installs
       // exactly controls.json's bindings, so this action genuinely exists,

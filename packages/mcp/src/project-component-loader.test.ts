@@ -30,7 +30,7 @@ async function makeModuleProject(
   return project
 }
 
-function componentSource(target: string, ref: 'prefab' | 'stat' = 'prefab'): string {
+function componentSource(target: string, ref: 'prefab' | 'stat' | 'ui' = 'prefab'): string {
   return `
 import { Component } from '@waica/engine'
 export class Target extends Component {
@@ -371,6 +371,20 @@ export class Target {
     expect(second.components.Target).toMatchObject({
       params: { target: { ref: 'stat' } },
       defaults: { target: 'points' },
+    })
+  })
+
+  it('CA-17: exposes a ref: \'ui\' param and its default like any other reference kind', async () => {
+    const project = await makeModuleProject({
+      'src/components/target.ts': componentSource('damage-number', 'ui'),
+    })
+
+    const result = await loadProjectComponents(project)
+
+    expect(result.failures).toEqual([])
+    expect(result.components.Target).toMatchObject({
+      params: { target: { ref: 'ui' } },
+      defaults: { target: 'damage-number' },
     })
   })
 

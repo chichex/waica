@@ -110,3 +110,34 @@ describe('Input bindings', () => {
     expect(input.held('down')).toBe(false)
   })
 })
+
+describe('Input.bindingsFor (issue #72 CA-10)', () => {
+  it('lists the codes bound to an action in their declared order', () => {
+    const input = makeInput({ interact: ['KeyE', 'Space'], jump: ['Space'] })
+
+    expect(input.bindingsFor('interact')).toEqual(['KeyE', 'Space'])
+    expect(input.bindingsFor('jump')).toEqual(['Space'])
+  })
+
+  it('is empty for an unknown or unbound action', () => {
+    const input = makeInput({ interact: [] })
+
+    expect(input.bindingsFor('interact')).toEqual([])
+    expect(input.bindingsFor('missing')).toEqual([])
+  })
+
+  it('hands back a new array every call: mutating it never changes the bindings', () => {
+    const input = makeInput({ interact: ['KeyE', 'Space'] })
+
+    const codes = input.bindingsFor('interact')
+    codes.push('KeyQ')
+    codes.shift()
+
+    expect(input.bindingsFor('interact')).toEqual(['KeyE', 'Space'])
+    expect(input.bindingsFor('interact')).not.toBe(input.bindingsFor('interact'))
+    key('keydown', 'KeyQ')
+    expect(input.held('interact')).toBe(false)
+    key('keydown', 'KeyE')
+    expect(input.held('interact')).toBe(true)
+  })
+})

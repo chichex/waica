@@ -249,6 +249,8 @@ describe('Health invulnerability window', () => {
   it('keeps runtime state out of the authoring surface', () => {
     expect(Health.transient).toContain('current')
     expect(Object.keys(Health.params ?? {}).sort()).toEqual([
+      'damageNumber',
+      'healthBar',
       'hurtSound',
       'invulnerability',
       'max',
@@ -466,7 +468,14 @@ describe('Health deferred death fallback', () => {
   })
 
   it('keeps the deferred bookkeeping out of the authoring surface', () => {
-    expect(authoringDefaults(Health)).toEqual({ max: 3, invulnerability: 0, stat: '', hurtSound: '' })
+    expect(authoringDefaults(Health)).toEqual({
+      max: 3,
+      invulnerability: 0,
+      stat: '',
+      hurtSound: '',
+      damageNumber: '',
+      healthBar: '',
+    })
   })
 })
 
@@ -781,7 +790,14 @@ describe('Health blink', () => {
     )
     expect(Health.transient).not.toContain('invulnerable')
     expect(authoringDefaults(Health)).not.toHaveProperty('blinking')
-    expect(authoringDefaults(Health)).toEqual({ max: 3, invulnerability: 0, stat: '', hurtSound: '' })
+    expect(authoringDefaults(Health)).toEqual({
+      max: 3,
+      invulnerability: 0,
+      stat: '',
+      hurtSound: '',
+      damageNumber: '',
+      healthBar: '',
+    })
   })
 
   it('no longer closes the window from onUpdate: only Game Time does (CA-11)', () => {

@@ -17,7 +17,7 @@ const FALLBACK_PACKAGES = new Set([
   '@waica/archetype-isometric',
 ])
 const FALLBACK_SPECIFIERS = new Set([...FALLBACK_PACKAGES, 'three'])
-const REF_KINDS = new Set(['prefab', 'clip', 'action', 'stat', 'sound'])
+const REF_KINDS = new Set(['prefab', 'clip', 'action', 'stat', 'sound', 'ui'])
 const RELATIVE_EXTENSIONS = ['.ts', '.tsx', '.js']
 
 interface RunnerRequest {
@@ -32,7 +32,7 @@ interface RunnerRequest {
 
 interface ComponentParamRow {
   name: string
-  ref: 'prefab' | 'clip' | 'action' | 'stat' | 'sound'
+  ref: 'prefab' | 'clip' | 'action' | 'stat' | 'sound' | 'ui'
   hasOptions: boolean
   default?: string
 }

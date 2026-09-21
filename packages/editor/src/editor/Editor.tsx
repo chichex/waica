@@ -1818,6 +1818,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             stats={stats ?? EMPTY_STATS}
             actions={controls ?? EMPTY_ACTIONS}
             art={projectArt.art}
+            uiPieces={Object.keys(uiLib)}
             urlFor={projectArt.urlFor}
             onImportArt={projectArt.importArt}
             viewportVisibility={viewportVisibility}

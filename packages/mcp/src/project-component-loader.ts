@@ -22,7 +22,7 @@ export const PROJECT_COMPONENT_DEADLINE_MS = 5_000
 export const PROJECT_COMPONENT_DIAGNOSTIC_BYTES = 64 * 1_024
 
 const MODULE_HOOKS_MIN_NODE = '22.15'
-const REF_KINDS = new Set(['prefab', 'clip', 'action', 'stat', 'sound'])
+const REF_KINDS = new Set(['prefab', 'clip', 'action', 'stat', 'sound', 'ui'])
 const FALLBACK_PACKAGE_DIRECTORIES: ReadonlyArray<readonly [string, string]> = [
   ['@waica/engine', 'engine'],
   ['@waica/behaviors', 'behaviors'],
@@ -77,7 +77,7 @@ export interface ProjectComponentLoaderOptions {
 
 interface ComponentParamRow {
   name: string
-  ref: 'prefab' | 'clip' | 'action' | 'stat' | 'sound'
+  ref: 'prefab' | 'clip' | 'action' | 'stat' | 'sound' | 'ui'
   hasOptions: boolean
   default?: string
 }

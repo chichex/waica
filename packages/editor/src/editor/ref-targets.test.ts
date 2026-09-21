@@ -13,6 +13,7 @@ const project: RefProjectState = {
     { value: 'src/art/swing.ogg', label: 'swing.ogg' },
     { value: 'src/art/hurt.ogg', label: 'hurt.ogg' },
   ],
+  uiPieces: ['npc-line', 'health-bar', 'damage-number'],
 }
 
 const entityComponents: SceneComponentJson[] = [
@@ -58,6 +59,18 @@ describe('availableRefTargets', () => {
     ])
   })
 
+  it('CA-17: returns the project UI piece names sorted', () => {
+    expect(availableRefTargets(project, 'ui')).toEqual([
+      { value: 'damage-number', label: 'damage-number' },
+      { value: 'health-bar', label: 'health-bar' },
+      { value: 'npc-line', label: 'npc-line' },
+    ])
+  })
+
+  it('CA-17: constrains a ui ref to zero targets, not free text, when the project has no pieces', () => {
+    expect(availableRefTargets({ ...project, uiPieces: [] }, 'ui')).toEqual([])
+  })
+
   it('returns clip names from the sibling AnimatedSprite', () => {
     expect(availableRefTargets(project, 'clip', { components: entityComponents })).toEqual([
       { value: 'idle', label: 'idle' },
@@ -80,7 +93,7 @@ describe('availableRefTargets', () => {
   })
 
   it('returns no targets for an empty project and absent entity context', () => {
-    const empty: RefProjectState = { prefabs: {}, stats: {}, actions: {}, sounds: [] }
+    const empty: RefProjectState = { prefabs: {}, stats: {}, actions: {}, sounds: [], uiPieces: [] }
 
     expect(availableRefTargets(empty, 'prefab')).toEqual([])
     expect(availableRefTargets(empty, 'stat')).toEqual([])

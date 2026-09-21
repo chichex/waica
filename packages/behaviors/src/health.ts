@@ -1,10 +1,12 @@
 import {
   Component,
   StateMachine,
+  type AnchoredPieceHandle,
   type Entity,
   type StateJson,
   type TimerHandle,
 } from '@waica/engine'
+import { anchorHeight } from './anchor-height.js'
 
 /**
  * Below this, current is treated as exactly zero. Repeated fractional
@@ -17,6 +19,9 @@ const DEATH_EPSILON = 1e-9
 
 /** Seconds each blink phase lasts while invulnerable: 10 Hz on/off. */
 const BLINK_PERIOD = 0.1
+
+/** Seconds of Game Time a damage number lives (issue #72, CA-13). */
+const DAMAGE_NUMBER_SECONDS = 0.8
 
 /**
  * Where a 'signal:death' from `current` could land: the targets of every
@@ -62,6 +67,8 @@ export class Health extends Component {
     invulnerability: { label: 'Invulnerability', min: 0, max: 5, step: 0.1 },
     stat: { label: 'Stat', ref: 'stat' as const },
     hurtSound: { label: 'Hurt sound', ref: 'sound' as const },
+    damageNumber: { label: 'Damage number', ref: 'ui' as const },
+    healthBar: { label: 'Health bar', ref: 'ui' as const },
   }
   static override transient = [
     'current',
@@ -70,6 +77,7 @@ export class Health extends Component {
     'lastDamageSource',
     'windowHandle',
     'blinkHandle',
+    'healthBarHandle',
   ]
 
   max = 3
@@ -82,6 +90,10 @@ export class Health extends Component {
   stat = ''
   /** Sound played at this entity's position on every accepted hit. Empty plays nothing (CA-12). */
   hurtSound = ''
+  /** UI piece shown over this entity on every accepted hit, with `{{amount}}`. Empty shows nothing. */
+  damageNumber = ''
+  /** UI piece shown over this entity below max health, with `{{current}}`/`{{max}}`. Empty shows nothing. */
+  healthBar = ''
 
   /** Health left; 0 is dead. Filled in from max on ready. */
   current = 0
@@ -103,6 +115,12 @@ export class Health extends Component {
    * destroy or scene unload leaves this present but inactive instead.
    */
   private blinkHandle: TimerHandle | null = null
+  /**
+   * The healthBar instance while the entity is hurt but alive (issue #72,
+   * CA-15); null at full health, at 0 and before the first hit. One the
+   * engine removed with its entity or its scene reads `alive: false`.
+   */
+  private healthBarHandle: AnchoredPieceHandle | null = null
 
   /** Whether the node is being flashed: exactly while a window is open. */
   get blinking(): boolean {
@@ -183,6 +201,7 @@ export class Health extends Component {
     if (this.current < DEATH_EPSILON) this.current = 0
     this.lastDamageSource = source
     this.publish()
+    this.syncHealthBar()
     this.game.events.emit('damage', {
       entity: this.entity,
       amount,
@@ -190,6 +209,7 @@ export class Health extends Component {
       source,
     })
     if (this.hurtSound) this.game.audio.play(this.hurtSound, { at: this.entity })
+    this.showDamageNumber(amount)
     this.openWindow()
     if (this.current === 0) {
       this.die()
@@ -205,11 +225,57 @@ export class Health extends Component {
     if (amount <= 0) return
     this.current = Math.min(this.max, this.current + amount)
     this.publish()
+    this.syncHealthBar()
   }
 
   /** Mirrors current into the named stat, when one is named. */
   private publish(): void {
     if (this.stat) this.game.stats.set(this.stat, this.current)
+  }
+
+  /**
+   * Floats the damageNumber piece over the entity for an accepted hit
+   * (issue #72, CA-13). Called before die(), so a killing blow's number is
+   * already attached when the entity goes, and lingers where it stood for
+   * its own 0.8 s. A non-finite amount (OutOfBounds' Infinity) has no number
+   * worth showing.
+   */
+  private showDamageNumber(amount: number): void {
+    if (!this.damageNumber || !Number.isFinite(amount)) return
+    this.game.ui.attach(this.damageNumber, this.entity, {
+      offset: [0, anchorHeight(this.entity)],
+      seconds: DAMAGE_NUMBER_SECONDS,
+      values: { amount },
+    })
+  }
+
+  /**
+   * Keeps the healthBar piece in step with current (issue #72, CA-15): none
+   * at full health; attached by the first hit that leaves the entity below
+   * max, then updated in place through `set` by every later hit or heal;
+   * removed once current is back at max, or at 0 (die() removes it too).
+   */
+  private syncHealthBar(): void {
+    if (!this.healthBar) return
+    if (this.current <= 0 || this.current >= this.max) {
+      this.removeHealthBar()
+      return
+    }
+    const bar = this.healthBarHandle
+    if (bar?.alive) {
+      bar.set('current', this.current)
+      bar.set('max', this.max)
+      return
+    }
+    this.healthBarHandle = this.game.ui.attach(this.healthBar, this.entity, {
+      offset: [0, anchorHeight(this.entity)],
+      values: { current: this.current, max: this.max },
+    })
+  }
+
+  private removeHealthBar(): void {
+    this.healthBarHandle?.remove()
+    this.healthBarHandle = null
   }
 
   /**
@@ -270,6 +336,9 @@ export class Health extends Component {
     this.blinkHandle?.cancel()
     this.blinkHandle = null
     this.entity.node.visible = true
+    // Before 'death' goes out, even when a death state keeps the entity
+    // alive: a dead entity shows no bar (CA-15).
+    this.removeHealthBar()
     this.game.events.emit('death', { entity: this.entity })
     const machine = this.entity.get(StateMachine)
     const targets = machine ? deathTargets(machine.states, machine.current) : []

@@ -1,4 +1,4 @@
-import { INTERACTABLE_UI } from '@waica/behaviors'
+import { HEALTH_UI, INTERACTABLE_UI } from '@waica/behaviors'
 
 /**
  * The archetype's default UI pieces: self-contained HTML fragments
@@ -24,4 +24,5 @@ export const TOPDOWN_UI: Record<string, string> = {
 <div class="potion-counter">🧪 {{points}}</div>
 `,
   ...INTERACTABLE_UI,
+  ...HEALTH_UI,
 }

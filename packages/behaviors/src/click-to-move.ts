@@ -6,7 +6,7 @@ import {
   type Game,
   type StateContext,
 } from '@waica/engine'
-import { fireInteract, INTERACTABLE_UI_PIECE, Interactable } from './interactable.js'
+import { Interactable, interactWith } from './interactable.js'
 import { Health } from './health.js'
 import { MeleeAttack } from './melee-attack.js'
 import { buildNavigationGrid, type GridPoint } from './navigation-grid.js'
@@ -256,10 +256,8 @@ function driveNpcOrder(clickToMove: ClickToMove, entity: Entity, game: Game, ord
     return null
   }
   if (distance(pointOf(entity), pointOf(target)) <= interactable.radius) {
-    game.stats.set('npcLine', interactable.line)
-    // Scene-scoped, same reason as interactUpdate's prompt (grill decision 8).
-    game.ui.show(INTERACTABLE_UI_PIECE, { scope: 'scene' })
-    fireInteract(target, entity)
+    // The interact key's own path: bubble or npc-line, npcLine, onInteract (grill S8).
+    interactWith(game, entity, target, interactable)
     clickToMove.cancel() // CA-5: one trigger per arrival, no key simulated
     return null
   }

@@ -4,6 +4,7 @@ import type { Entity } from './entity.js'
 import type { Game } from './game.js'
 import type { RuntimeMetadata } from './runtime-bridge.js'
 import type { StatValue } from './stats.js'
+import { anchoredPiecesOf } from './ui.js'
 
 export type ProjectionMarkerKind = 'cycle' | 'unsupported' | 'error' | 'truncated'
 
@@ -87,6 +88,31 @@ export interface RuntimeSnapshotTime {
   nextInSteps: number | null
 }
 
+/**
+ * `game.ui` (issue #72 CA-9), beside `audio` and `time`: `shown` lists the
+ * screen pieces whose visibility flag is on, sorted by name; `anchored`
+ * lists the live Anchored Pieces in creation order. For each, `entity` is
+ * its anchor entity's name (kept for a lingering instance whose entity is
+ * gone); `x`/`y` are the whole CSS px of its last placement inside the game
+ * viewport — for one attached since the last render frame, where the next
+ * frame will place it; `clipped` is true when its anchor point lies outside
+ * the game viewport; `values` holds only its own values, after every `set`,
+ * bounded like component state (CA-5): sorted by name, a string over 4 KiB
+ * becomes a truncated marker, and past 100 values the record does too.
+ * Emitted unconditionally, like `audio` and `time` — never filtered.
+ */
+export interface RuntimeSnapshotUi {
+  shown: string[]
+  anchored: Array<{
+    piece: string
+    entity: string
+    x: number
+    y: number
+    clipped: boolean
+    values: Record<string, StatValue | ProjectionMarker> | ProjectionMarker
+  }>
+}
+
 export interface RuntimeSnapshot extends RuntimeMetadata {
   stats: Record<string, StatValue>
   /** The live scene's name (its catalog key), or null with no scene loaded. */
@@ -95,6 +121,7 @@ export interface RuntimeSnapshot extends RuntimeMetadata {
   projectionIssues: ProjectionIssue[]
   audio: RuntimeSnapshotAudio
   time: RuntimeSnapshotTime
+  ui: RuntimeSnapshotUi
 }
 
 export const RUNTIME_PROJECTION_LIMITS = {
@@ -303,6 +330,39 @@ function boundedComponentState(
   })
 }
 
+function fitsSnapshot(snapshot: RuntimeSnapshot): boolean {
+  return utf8Bytes(JSON.stringify(snapshot)) <= RUNTIME_PROJECTION_LIMITS.snapshotBytes
+}
+
+/** The index of the `ui.anchored` instance an issue path points into, or null. */
+function anchoredIndex(path: string): number | null {
+  const match = /^ui\.anchored\[(\d+)\]/.exec(path)
+  return match ? Number(match[1]) : null
+}
+
+/**
+ * The global cap's second stage, once every entity is gone: drops
+ * `ui.anchored` instances from the end, with their projection issues,
+ * until the snapshot fits, recording how many went.
+ */
+function capAnchored(snapshot: RuntimeSnapshot): RuntimeSnapshot {
+  let capped = snapshot
+  const retained = [...snapshot.ui.anchored]
+  while (retained.length > 0) {
+    retained.pop()
+    const omitted = snapshot.ui.anchored.length - retained.length
+    const projectionIssues = snapshot.projectionIssues
+      .filter((issue) => {
+        const index = anchoredIndex(issue.path)
+        return index === null || index < retained.length
+      })
+      .concat({ path: `ui.anchored[${retained.length}]`, marker: 'truncated', omitted })
+    capped = { ...snapshot, ui: { ...snapshot.ui, anchored: retained }, projectionIssues }
+    if (fitsSnapshot(capped)) return capped
+  }
+  return capped
+}
+
 export class RuntimeInspector {
   private readonly ids = new WeakMap<Entity, string>()
   private nextId = 1
@@ -367,6 +427,7 @@ export class RuntimeInspector {
       projectionIssues,
       audio: this.audioSnapshot(),
       time: this.timeSnapshot(),
+      ui: this.uiSnapshot(projectionIssues),
     })
   }
 
@@ -389,10 +450,25 @@ export class RuntimeInspector {
     }
   }
 
-  private capSnapshot(snapshot: RuntimeSnapshot): RuntimeSnapshot {
-    if (utf8Bytes(JSON.stringify(snapshot)) <= RUNTIME_PROJECTION_LIMITS.snapshotBytes) {
-      return snapshot
+  private uiSnapshot(issues: ProjectionIssue[]): RuntimeSnapshotUi {
+    const ui = this.game.ui
+    return {
+      shown: ui.names().filter((name) => ui.isVisible(name)).sort(),
+      anchored: anchoredPiecesOf(ui).snapshot().map((instance, index) => ({
+        ...instance,
+        // A record of StatValues projects to one of these, never to anything else.
+        values: projectValue(
+          instance.values,
+          `ui.anchored[${index}].values`,
+          { issues, seen: new Map() },
+        ) as RuntimeSnapshotUi['anchored'][number]['values'],
+      })),
     }
+  }
+
+  private capSnapshot(snapshot: RuntimeSnapshot): RuntimeSnapshot {
+    if (fitsSnapshot(snapshot)) return snapshot
+    let capped = snapshot
     const retained = [...snapshot.entities]
     const removedIds = new Set<string>()
     while (retained.length > 0) {
@@ -404,20 +480,10 @@ export class RuntimeInspector {
           [...removedIds].every((id) => !issue.path.startsWith(`entities[${id}]`)),
         )
         .concat({ path: `entities[${retained.length}]`, marker: 'truncated', omitted })
-      const candidate = { ...snapshot, entities: retained, projectionIssues }
-      if (utf8Bytes(JSON.stringify(candidate)) <= RUNTIME_PROJECTION_LIMITS.snapshotBytes) {
-        return candidate
-      }
+      capped = { ...snapshot, entities: retained, projectionIssues }
+      if (fitsSnapshot(capped)) return capped
     }
-    return {
-      ...snapshot,
-      entities: [],
-      projectionIssues: [{
-        path: 'entities[0]',
-        marker: 'truncated',
-        omitted: snapshot.entities.length,
-      }],
-    }
+    return capAnchored(capped)
   }
 
   private idFor(entity: Entity): string {
