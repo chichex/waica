@@ -421,6 +421,7 @@ export class Game {
           },
           loadScene: (name) => this.loadSceneByName(name),
           availableScenes: () => this.availableScenes,
+          assets: () => this.assets.status,
         })
         activation.register(this.runtimeBridge)
         this.audio.setSilenced(true)

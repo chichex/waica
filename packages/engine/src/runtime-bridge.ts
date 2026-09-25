@@ -1,4 +1,5 @@
 import enginePackage from '../package.json' with { type: 'json' }
+import type { AssetStatus } from './assets/asset-loader.js'
 import { SIMULATION_STEP } from './fixed-step.js'
 import type { RuntimeSnapshot, RuntimeSnapshotFilters } from './runtime-inspection.js'
 
@@ -15,9 +16,13 @@ export type RuntimeMode = 'paused' | 'real-time'
  * gating on capabilities check for (review finding #4) — protocol 1 alone
  * doesn't distinguish an engine that silently no-ops an unknown operation
  * from one that runs it. `fixed-step` (ADR 0014) announces that `step`
- * advances whole 1/60 s Simulation Steps and takes no `dt`.
+ * advances whole 1/60 s Simulation Steps and takes no `dt`. `assets`
+ * (ADR 0019) announces that every metadata carries `assets: { pending,
+ * loaded, failed }` from `game.assets.status`, so a Run Session can wait
+ * for Assets Ready (`pending === 0`) at readiness, after a `scene`
+ * operation and before a screenshot.
  */
-export const RUNTIME_BRIDGE_CAPABILITIES = ['click', 'scene', 'fixed-step'] as const
+export const RUNTIME_BRIDGE_CAPABILITIES = ['click', 'scene', 'fixed-step', 'assets'] as const
 
 export interface RuntimeMetadata {
   bridgeVersion: typeof RUNTIME_BRIDGE_PROTOCOL_VERSION
@@ -26,6 +31,8 @@ export interface RuntimeMetadata {
   frame: number
   simulationTime: number
   capabilities: readonly string[]
+  /** `game.assets.status` at the moment of the read — reading it never advances `frame`. */
+  assets: AssetStatus
 }
 
 export type RuntimeControlRequest =
@@ -101,6 +108,8 @@ export interface RuntimeBridgeHost {
   /** Resolves `name` through the registered catalog and loads it. */
   loadScene(name: string): boolean
   availableScenes(): string[]
+  /** A fresh `game.assets.status`. */
+  assets(): AssetStatus
 }
 
 export class EngineRuntimeBridge implements RuntimeBridge {
@@ -125,6 +134,7 @@ export class EngineRuntimeBridge implements RuntimeBridge {
       // Derived, never summed: 60 steps are exactly 1 s, with no float drift.
       simulationTime: this.frame * SIMULATION_STEP,
       capabilities: RUNTIME_BRIDGE_CAPABILITIES,
+      assets: this.host.assets(),
     }
   }
 

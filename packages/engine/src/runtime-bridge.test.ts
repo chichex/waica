@@ -45,6 +45,7 @@ import {
   type RuntimeControlRequest,
 } from './index'
 import { frameMs } from './fixed-step-test-support'
+import { FakeTextureBackend } from './assets/test-helpers'
 
 class UpdateProbe extends Component {
   static override componentName = 'UpdateProbe'
@@ -165,7 +166,7 @@ class ResizeObserverStub {
   disconnect(): void {}
 }
 
-function makeGame(bindings: Record<string, string[]> = {}): Game {
+function makeGame(bindings: Record<string, string[]> = {}, textures?: FakeTextureBackend): Game {
   const host = document.createElement('main')
   const canvas = document.createElement('canvas')
   Object.defineProperties(canvas, {
@@ -174,7 +175,7 @@ function makeGame(bindings: Record<string, string[]> = {}): Game {
   })
   host.append(canvas)
   document.body.append(host)
-  return new Game({ canvas, bindings })
+  return new Game(textures ? { canvas, bindings, textures } : { canvas, bindings })
 }
 
 function installActivation(): {
@@ -224,12 +225,39 @@ describe('Runtime Bridge protocol', () => {
       mode: 'paused',
       frame: 0,
       simulationTime: 0,
-      capabilities: ['click', 'scene', 'fixed-step'],
+      capabilities: ['click', 'scene', 'fixed-step', 'assets'],
+      assets: { pending: 0, loaded: 0, failed: 0 },
     })
-    expect(RUNTIME_BRIDGE_CAPABILITIES).toEqual(['click', 'scene', 'fixed-step'])
+    expect(RUNTIME_BRIDGE_CAPABILITIES).toEqual(['click', 'scene', 'fixed-step', 'assets'])
     expect(registered[0]?.surface).toBe(document.querySelector('canvas'))
     expect(renderer.loop).toBeNull()
     expect(renderer.renders).toBe(1)
+    game.dispose()
+  })
+
+  it('reports game.assets.status in metadata, control results and snapshots without advancing frame (CA-9)', async () => {
+    const { registered } = installActivation()
+    const backend = new FakeTextureBackend()
+    backend.hold('/held.png')
+    const game = makeGame({}, backend)
+    game.assets.texture('/held.png')
+    game.start()
+    const bridge = registered[0]!
+
+    expect(bridge.metadata()).toMatchObject({ frame: 0, assets: { pending: 1, loaded: 0, failed: 0 } })
+    expect(bridge.control({ operation: 'click', x: 0, y: 0 })).toMatchObject({
+      frame: 0,
+      assets: { pending: 1, loaded: 0, failed: 0 },
+    })
+    expect(bridge.inspect()).toMatchObject({ frame: 0, assets: { pending: 1, loaded: 0, failed: 0 } })
+
+    backend.release('/held.png')
+    await game.assets.ready()
+
+    // Read from game.assets on every call, never captured: the settled numbers show up everywhere.
+    expect(bridge.metadata()).toMatchObject({ frame: 0, assets: { pending: 0, loaded: 1, failed: 0 } })
+    expect(bridge.inspect()).toMatchObject({ frame: 0, assets: { pending: 0, loaded: 1, failed: 0 } })
+    expect(bridge.metadata().frame).toBe(0)
     game.dispose()
   })
 
