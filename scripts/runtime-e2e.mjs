@@ -835,6 +835,7 @@ async function runIsometricLeg({ client, root, parent, chrome, viteBin, engineRo
   await runIsometricCombat({ client, project, inspectPlayer, hold, release, step })
   await runIsometricPointAndClick({ client, project, inspectPlayer, step })
   await runIsometricVillager({ client, project, inspectPlayer, hold, release, step })
+  await runIsometricKeepAll({ client, project })
 
   const shot = assertScreenshot(
     await call(client, 'capture_screenshot', { project_path: project }),
@@ -854,13 +855,11 @@ async function runIsometricLeg({ client, root, parent, chrome, viteBin, engineRo
 }
 
 /**
- * Issue #76 (CA-10, CA-12): Assets Ready over real MCP stdio, on the demo's
- * own art. Readiness waited for the seven images "main" uses (crate,
- * ground, hero, orc, rock, tree, villager), a screenshot taken right after
- * is already fully textured, a scene operation waits for the incoming
- * scene's art before answering, and the cache keeps everything across the
- * round trip: cave's art is a subset of main's, and coming back to main
- * loads nothing new. None of these waits steps the paused Run Session.
+ * Issue #76 (CA-10, CA-12), the boot half: Assets Ready over real MCP stdio,
+ * on the demo's own art. Readiness waited for the seven images "main" uses
+ * (crate, ground, hero, orc, rock, tree, villager), none failed, and a
+ * screenshot taken right after is already fully textured. Neither wait
+ * steps the paused Run Session.
  */
 async function runIsometricAssets({ client, project, start }) {
   const booted = start.structuredContent.assets
@@ -876,8 +875,24 @@ async function runIsometricAssets({ client, project, start }) {
   )
   assert.equal(readyShot.metadata.assets?.pending, 0, 'a screenshot right after readiness is fully textured')
   assert.equal(readyShot.metadata.frame, 0, 'waiting for assets before a screenshot must not step the Run Session')
+}
 
-  const settled = { pending: 0, loaded: booted.loaded, failed: 0 }
+/**
+ * Issue #76 (CA-10, CA-12), the keep-all half, run once the leg has played
+ * through: a scene operation waits for the incoming scene's art before
+ * answering, and the cache keeps everything across the round trip — cave's
+ * art is a subset of main's, and coming back to main loads nothing new.
+ * Neither wait steps the paused Run Session. It runs at the end because a
+ * bridge scene operation renders no frame: the render-position probe the
+ * movement assertions read is only written by the next stepped frame.
+ */
+async function runIsometricKeepAll({ client, project }) {
+  const before = (await call(client, 'inspect_runtime', { project_path: project })).structuredContent
+  assert.ok(before.assets, 'inspect_runtime must carry assets')
+  assert.equal(before.assets.pending, 0, 'nothing may be pending after the leg played through')
+  assert.equal(before.assets.failed, 0, `no texture may have failed during the leg; assets=${JSON.stringify(before.assets)}`)
+  const settled = { pending: 0, loaded: before.assets.loaded, failed: 0 }
+
   const toCave = await call(client, 'control_runtime', {
     project_path: project,
     operation: 'scene',
@@ -889,7 +904,7 @@ async function runIsometricAssets({ client, project, start }) {
     settled,
     "cave's art is a subset of main's: the swap waited, and nothing new was loaded",
   )
-  assert.equal(toCave.structuredContent.frame, 0, 'waiting after a scene operation must not step the Run Session')
+  assert.equal(toCave.structuredContent.frame, before.frame, 'waiting after a scene operation must not step the Run Session')
 
   const backToMain = await call(client, 'control_runtime', {
     project_path: project,
@@ -902,12 +917,12 @@ async function runIsometricAssets({ client, project, start }) {
     settled,
     'keep-all: the return trip to main loaded nothing new',
   )
-  assert.equal(backToMain.structuredContent.frame, 0, 'the second scene wait must not step the Run Session either')
+  assert.equal(backToMain.structuredContent.frame, before.frame, 'the second scene wait must not step the Run Session either')
 
-  const inspected = await call(client, 'inspect_runtime', { project_path: project })
-  assert.deepEqual(inspected.structuredContent.assets, settled, 'inspect_runtime carries the same assets')
-  assert.equal(inspected.structuredContent.frame, 0)
-  assert.equal(inspected.structuredContent.snapshot.scene, 'main', 'the leg goes on from a fresh "main"')
+  const after = (await call(client, 'inspect_runtime', { project_path: project })).structuredContent
+  assert.deepEqual(after.assets, settled, 'inspect_runtime carries the same assets')
+  assert.equal(after.frame, before.frame)
+  assert.equal(after.snapshot.scene, 'main', 'the round trip ends on "main"')
 }
 
 /**
