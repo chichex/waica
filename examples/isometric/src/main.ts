@@ -123,6 +123,11 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   // starts with (the counter).
   game.registerSceneCatalog({ scenes, registry })
   game.loadSceneByName('main')
+  // Assets Ready (ADR 0019): the scene above spawned synchronously and its
+  // textures are still arriving; wait for them before the first frame so
+  // nothing pops in. A failed image is recorded, not thrown: this never
+  // rejects.
+  await game.assets.ready()
   // CA-19: a looping music bed, session-scoped (ADR 0012) so a Scene
   // Transition never stops or restarts it — every combat one-shot stays
   // scene-scoped by default. The isometric archetype declares its own

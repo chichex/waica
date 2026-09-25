@@ -119,6 +119,11 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   // starts with (the counter).
   game.registerSceneCatalog({ scenes, registry })
   game.loadSceneByName('main')
+  // Assets Ready (ADR 0019): the scene above spawned synchronously and its
+  // textures are still arriving; wait for them before the first frame so
+  // nothing pops in. A failed image is recorded, not thrown: this never
+  // rejects.
+  await game.assets.ready()
 
   if (import.meta.env.DEV) {
     ;(window as unknown as Record<string, unknown>).__waica = { game }

@@ -123,6 +123,11 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   // with (the coin counter).
   game.registerSceneCatalog({ scenes, registry })
   game.loadSceneByName('main')
+  // Assets Ready (ADR 0019): the scene above spawned synchronously and its
+  // textures are still arriving; wait for them before the first frame so
+  // nothing pops in. A failed image is recorded, not thrown: this never
+  // rejects.
+  await game.assets.ready()
 
   // Some archetypes ship a looping music bed (see ARCHETYPE.music); this is
   // where the host asks for it, if it has one — session-scoped so a Scene
