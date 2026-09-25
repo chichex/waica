@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { readFile } from 'node:fs/promises'
+import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 
 const root = path.resolve(import.meta.dirname, '../../..')
@@ -38,5 +38,20 @@ describe('@waica/engine package contract', () => {
 
     expect(manifest.files).toEqual(['dist', 'README.md'])
     expect(Object.keys(manifest.dependencies).sort()).toEqual(['@types/three', 'three'])
+  })
+})
+
+describe('@waica/engine texture ownership (issue #76, CA-5)', () => {
+  it('constructs THREE.TextureLoader only in the real backend, never under components/', async () => {
+    const components = path.join(packageRoot, 'src/components')
+    const names = (await readdir(components)).filter((name) => name.endsWith('.ts'))
+    const offenders: string[] = []
+    for (const name of names) {
+      if ((await text(path.join(components, name))).includes('TextureLoader')) offenders.push(name)
+    }
+    expect(offenders).toEqual([])
+
+    const backend = await text(path.join(packageRoot, 'src/assets/texture-backend.ts'))
+    expect(backend.match(/new THREE\.TextureLoader\(\)/g)).toHaveLength(1)
   })
 })

@@ -13,8 +13,6 @@ import {
 } from '../tilemap-grid.js'
 import { Solid } from './solid.js'
 
-const loader = new THREE.TextureLoader()
-
 /** One authorable cell map rendered as a single merged geometry. */
 export class Tilemap extends Component implements SolidSource {
   static override componentName = 'Tilemap'
@@ -248,14 +246,20 @@ export class Tilemap extends Component implements SolidSource {
     mesh.material = this.makeMaterial()
     if (!this.texture) return
     const requested = this.texture
-    const texture = loader.load(requested, () => {
-      if (this.loadedTexture === texture && this.texture === requested) this.rebuildGeometry()
+    // Its own clone of the cached base (game.assets, ADR 0019). The image's
+    // pixel size drives the UVs, so the geometry is rebuilt once the texture
+    // settles — on a cache hit too, whose settlement is already resolved —
+    // unless the texture was replaced or the component destroyed meanwhile.
+    const { texture, settled } = this.game.assets.texture(requested)
+    void settled.then((outcome) => {
+      if (outcome === 'loaded' && this.loadedTexture === texture && this.texture === requested) {
+        this.rebuildGeometry()
+      }
     })
     if (this.pixelArt) {
       texture.magFilter = THREE.NearestFilter
       texture.minFilter = THREE.NearestFilter
     }
-    texture.colorSpace = THREE.SRGBColorSpace
     this.loadedTexture = texture
     mesh.material.map = texture
     mesh.material.color.set(0xffffff)

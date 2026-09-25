@@ -7,6 +7,9 @@ export type {
   UpdateFn,
   ParamOverrides,
 } from './game.js'
+export { AssetLoader } from './assets/asset-loader.js'
+export type { AssetStatus } from './assets/asset-loader.js'
+export type { TextureBackend } from './assets/texture-backend.js'
 export { AudioSubsystem } from './audio/audio-subsystem.js'
 export type { AudioSubsystemOptions } from './audio/audio-subsystem.js'
 export type { AudioBackend, AudioResource, BackendPlayHandle, BackendPlayOptions } from './audio/backend.js'

@@ -22,6 +22,8 @@ vi.mock('three', async (importOriginal) => {
   return { ...actual, WebGLRenderer }
 })
 
+import * as THREE from 'three'
+import { FakeTextureBackend, flush } from '../assets/test-helpers'
 import { authoringDefaults } from '../authoring-defaults'
 import { Component, type SolidContact } from '../component'
 import { DynamicBody } from './dynamic-body'
@@ -42,18 +44,18 @@ class ContactProbe extends Component {
   }
 }
 
-function makeGame(): Game {
+function makeGame(textures?: FakeTextureBackend): Game {
   const canvas = document.createElement('canvas')
   Object.defineProperties(canvas, {
     clientWidth: { value: 640 },
     clientHeight: { value: 360 },
   })
   document.body.append(canvas)
-  return new Game({ canvas })
+  return new Game(textures ? { canvas, textures } : { canvas })
 }
 
 function geometryOf(tilemapEntity: ReturnType<Game['spawn']>) {
-  const mesh = tilemapEntity.node.children[0] as import('three').Mesh<import('three').BufferGeometry>
+  const mesh = tilemapEntity.node.children[0] as THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
   const positions = [...mesh.geometry.getAttribute('position').array]
   const uvs = [...mesh.geometry.getAttribute('uv').array]
   return { mesh, positions, uvs }
@@ -219,8 +221,9 @@ describe('Tilemap derived collision', () => {
 })
 
 describe('Tilemap scene loading', () => {
-  it('loads an inline component and resolves its texture through the registry', () => {
-    const game = makeGame()
+  it('loads an inline component and resolves its texture through the registry', async () => {
+    const backend = new FakeTextureBackend()
+    const game = makeGame(backend)
     loadScene(
       game,
       {
@@ -244,6 +247,77 @@ describe('Tilemap scene loading', () => {
     )
 
     expect(game.find('Map')?.get(Tilemap)?.texture).toBe('/tiles.png')
+    // The component asks game.assets for exactly what resolveProps gave it (CA-2).
+    await game.assets.ready()
+    expect(backend.loadCalls).toEqual(['/tiles.png'])
+    game.dispose()
+  })
+})
+
+describe('Tilemap textures through game.assets (CA-5)', () => {
+  /** A 2x1 tileset with a 2 px gap: the UVs only come out right once the image's pixel size is known. */
+  const spaced = { cols: 2, rows: 1, spacingX: 2, mapWidth: 1, mapHeight: 1, cells: [0] }
+
+  it('rebuilds its geometry from the image size once its texture settles, on a cache hit too', async () => {
+    const backend = new FakeTextureBackend()
+    backend.imageSize('/tiles.png', 64, 32)
+    const game = makeGame(backend)
+    const first = game.spawn('Map')
+    first.add(Tilemap, { ...spaced, texture: '/tiles.png' })
+    // Before the image: cell width from `cols` alone, the whole half.
+    expect(geometryOf(first).uvs.slice(0, 4)).toEqual([0, 0, 0.5, 0])
+
+    await game.assets.ready()
+    // 64 px wide, 2 px gap, 2 columns: a 31 px cell.
+    expect(geometryOf(first).uvs.slice(0, 4)).toEqual([0, 0, 31 / 64, 0])
+    expect(backend.loadCalls).toEqual(['/tiles.png'])
+
+    const second = game.spawn('Map-2')
+    second.add(Tilemap, { ...spaced, texture: '/tiles.png' })
+    await flush()
+    expect(backend.loadCalls).toEqual(['/tiles.png'])
+    expect(geometryOf(second).uvs.slice(0, 4)).toEqual([0, 0, 31 / 64, 0])
+    game.dispose()
+  })
+
+  it('ignores a settlement for a texture that is no longer the current one', async () => {
+    const backend = new FakeTextureBackend()
+    backend.imageSize('/old.png', 64, 32)
+    backend.imageSize('/new.png', 128, 32)
+    backend.hold('/old.png')
+    const game = makeGame(backend)
+    const entity = game.spawn('Map')
+    const tilemap = entity.add(Tilemap, { ...spaced, texture: '/old.png' })
+
+    tilemap.texture = '/new.png'
+    await flush()
+    expect(geometryOf(entity).uvs.slice(0, 4)).toEqual([0, 0, 63 / 128, 0])
+
+    backend.release('/old.png')
+    await game.assets.ready()
+    expect(geometryOf(entity).uvs.slice(0, 4)).toEqual([0, 0, 63 / 128, 0])
+    game.dispose()
+  })
+
+  it('rebuildMaterial and onDestroy dispose only their own clone, never the cached base', async () => {
+    const backend = new FakeTextureBackend()
+    const game = makeGame(backend)
+    const entity = game.spawn('Map')
+    const tilemap = entity.add(Tilemap, { ...spaced, texture: '/tiles.png' })
+    await game.assets.ready()
+    const firstClone = geometryOf(entity).mesh.material.map
+    expect(firstClone).toBeInstanceOf(THREE.Texture)
+    const dispose = vi.spyOn(THREE.Texture.prototype, 'dispose')
+
+    tilemap.pixelArt = false
+    expect(dispose.mock.instances).toEqual([firstClone])
+    const secondClone = geometryOf(entity).mesh.material.map
+    expect(secondClone).not.toBe(firstClone)
+    expect(secondClone?.source).toBe(firstClone?.source)
+
+    entity.destroy()
+    expect(dispose.mock.instances).toEqual([firstClone, secondClone])
+    expect(game.assets.status).toEqual({ pending: 0, loaded: 1, failed: 0 })
     game.dispose()
   })
 })

@@ -3,7 +3,6 @@ import { Component } from '../component.js'
 import type { YSortParticipant } from '../render-sort.js'
 import { spritePlacement } from '../sprite-placement.js'
 
-const loader = new THREE.TextureLoader()
 const clampAnchor = (value: number): number => Math.min(1, Math.max(0, value))
 
 export type SpriteShape = 'rectangle' | 'circle'
@@ -121,13 +120,15 @@ export class Sprite extends Component implements YSortParticipant {
   override onReady(): void {
     const material = new THREE.MeshBasicMaterial({ color: this.color, transparent: true })
     if (this.texture) {
-      const tex = loader.load(this.texture)
+      // Its own clone of the cached base (game.assets, ADR 0019): filters
+      // are per clone, colour space comes with the base, and the image lands
+      // on the Source every clone of this URL shares.
+      const { texture } = this.game.assets.texture(this.texture)
       if (this.pixelArt) {
-        tex.magFilter = THREE.NearestFilter
-        tex.minFilter = THREE.NearestFilter
+        texture.magFilter = THREE.NearestFilter
+        texture.minFilter = THREE.NearestFilter
       }
-      tex.colorSpace = THREE.SRGBColorSpace
-      material.map = tex
+      material.map = texture
       material.color.set(0xffffff)
     }
     this.mesh = new THREE.Mesh(this.createGeometry(), material)
@@ -139,6 +140,8 @@ export class Sprite extends Component implements YSortParticipant {
   override onDestroy(): void {
     this.mesh?.removeFromParent()
     this.mesh?.geometry.dispose()
+    // Only this sprite's clone: the cached base lives with the Game.
+    this.mesh?.material.map?.dispose()
     this.mesh?.material.dispose()
   }
 

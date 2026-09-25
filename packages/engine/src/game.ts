@@ -1,5 +1,7 @@
 import * as THREE from 'three'
 import { gameViewport } from './anchored-pieces.js'
+import { AssetLoader } from './assets/asset-loader.js'
+import type { TextureBackend } from './assets/texture-backend.js'
 import type { AudioBackend } from './audio/backend.js'
 import { AudioSubsystem } from './audio/audio-subsystem.js'
 import { dispatchCollisions as dispatchHitboxCollisions } from './collision-dispatch.js'
@@ -70,6 +72,13 @@ export interface GameOptions {
    * first unlock (CA-6), never eagerly here.
    */
   audio?: AudioBackend
+  /**
+   * Replaces the real `THREE.TextureLoader` implementation behind
+   * `game.assets` (ADR 0013's seam, applied to textures — ADR 0019), mainly
+   * for a project's own tests: `happy-dom` decodes no images. Defaults to
+   * the real backend either way; `game.assets` always exists.
+   */
+  textures?: TextureBackend
 }
 
 export type UpdateFn = (dt: number) => void
@@ -108,6 +117,12 @@ export class Game {
   readonly ui: GameUi
   /** The audio mixer: channels, master, playback. See ADR 0012, ADR 0013. */
   readonly audio: AudioSubsystem
+  /**
+   * The texture cache: keep-all for the Game's life, `preload`, `status`
+   * and the Assets Ready promise `ready()`. Session-scoped by construction
+   * (ADR 0011): `unloadScene()` never touches it. See ADR 0019.
+   */
+  readonly assets: AssetLoader
   /** Simulated scheduling: `after`, `every`, `tween`, `now`. See ADR 0017. */
   readonly time = new GameTime()
   /** Registry retained by loadScene for runtime prefab spawning. */
@@ -179,6 +194,12 @@ export class Game {
       // unloadScene() nulls the latter but leaves the catalog (and its
       // resolver) untouched, which is exactly what a { scope: 'session' }
       // music bed needs across a scene swap.
+      resolveAsset: (uri) => this.sceneCatalog?.registry.resolveAsset?.(uri) ?? uri,
+    })
+    this.assets = new AssetLoader({
+      backend: options.textures,
+      // Same late lookup as audio's: preload() resolves through whatever
+      // catalog is registered at call time, which outlives every scene.
       resolveAsset: (uri) => this.sceneCatalog?.registry.resolveAsset?.(uri) ?? uri,
     })
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
@@ -451,6 +472,9 @@ export class Game {
     // (entity.destroy() below only ever reaches owned work) — ADR 0017.
     this.time.cancelAll()
     for (const entity of [...this.entities]) entity.destroy()
+    // After the entities: their clones go with the cascade above, the
+    // cached bases go here, exactly once (ADR 0019).
+    this.assets.dispose()
     this.renderer.dispose()
   }
 
