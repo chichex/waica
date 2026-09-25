@@ -37,7 +37,7 @@ const ready = {
   },
 }
 
-function preflight(projectPath: string): RuntimePreflightResult {
+function preflight(projectPath: string, timeoutMs = 30_000): RuntimePreflightResult {
   return {
     projectPath,
     packageManager: 'npm',
@@ -53,7 +53,7 @@ function preflight(projectPath: string): RuntimePreflightResult {
       '--strictPort',
     ],
     viewport: { width: 640, height: 360 },
-    timeoutMs: 30_000,
+    timeoutMs,
     headless: true,
     browserExecutablePath: '/chrome',
     engine: { package: '@waica/engine', version: '0.5.0', source: 'project' },
@@ -63,6 +63,7 @@ function preflight(projectPath: string): RuntimePreflightResult {
 function fakeBrowser(): RuntimeBrowser {
   return {
     ready: async () => ready,
+    metadata: async () => ({ ...ready }),
     inspect: async () => ({ ...ready, snapshot: ready.initialSnapshot }),
     control: async () => ({ ...ready, heldActions: [] }),
     captureScreenshot: async () => ({ ...ready, data: 'png' }),
@@ -146,6 +147,7 @@ describe('RuntimeSessionManager', () => {
       startBrowser: async (checked) => {
         const browser: RuntimeBrowser = {
           ready: async () => ready,
+          metadata: async () => ({ ...ready }),
           inspect: async (filters) => ({
             ...ready,
             frame: frames.get(checked.projectPath) ?? 0,
@@ -241,6 +243,7 @@ describe('RuntimeSessionManager', () => {
     let processStopped = 0
     const browser: RuntimeBrowser = {
       ready: async () => ready,
+      metadata: async () => ({ ...ready }),
       inspect: async () => ({ ...ready, snapshot: { entities: [] } }),
       control: async () => ({ ...ready, heldActions: [] }),
       captureScreenshot: async () => ({ ...ready, data: 'png' }),
@@ -305,6 +308,7 @@ describe('RuntimeSessionManager', () => {
     let controlCalls = 0
     const browser: RuntimeBrowser = {
       ready: async () => oldEngineReady,
+      metadata: async () => ({ ...oldEngineReady }),
       inspect: async () => ({ ...oldEngineReady, snapshot: { entities: [] } }),
       control: async (request) => {
         controlCalls += 1
@@ -358,6 +362,176 @@ describe('RuntimeSessionManager', () => {
     ).resolves.toMatchObject({ heldActions: ['right'] })
     expect(controlCalls).toBe(1)
 
+    await manager.close()
+  })
+})
+
+interface AssetNumbers {
+  pending: number
+  loaded: number
+  failed: number
+}
+
+/**
+ * A browser whose engine reports the 'assets' capability and whose
+ * metadata() serves `script` one entry per call, repeating the last one:
+ * what a Run Session sees while a scene's images trickle in.
+ */
+function assetsBrowser(script: AssetNumbers[]): {
+  browser: RuntimeBrowser
+  metadataCalls: () => number
+} {
+  let reads = 0
+  const current = (): AssetNumbers => script[Math.min(Math.max(reads - 1, 0), script.length - 1)]!
+  const base = { ...ready, capabilities: ['click', 'scene', 'fixed-step', 'assets'] }
+  const { initialSnapshot: _snapshot, ...metadata } = base
+  const browser: RuntimeBrowser = {
+    ready: async () => ({ ...base, assets: script[0]! }),
+    metadata: async () => {
+      reads += 1
+      return { ...metadata, assets: current() }
+    },
+    inspect: async () => ({ ...metadata, assets: current(), snapshot: { entities: [] } }),
+    control: async (request) => ({
+      ...metadata,
+      assets: current(),
+      heldActions: request.operation === 'hold' ? ['right'] : [],
+    }),
+    captureScreenshot: async () => ({ ...metadata, assets: current(), data: 'png' }),
+    close: async () => {},
+    setLifecycleHandlers: () => {},
+  }
+  return { browser, metadataCalls: () => reads }
+}
+
+function assetsAdapters(browser: RuntimeBrowser, timeoutMs?: number): RuntimeSessionAdapters {
+  return {
+    canonicalize: async () => '/assets',
+    preflight: async () => preflight('/assets', timeoutMs),
+    startDevServer: async () => ({
+      url: 'http://127.0.0.1:41010/',
+      stop: async () => {},
+      diagnostics: () => ({ portOpen: true }),
+    }),
+    startBrowser: async () => browser,
+  }
+}
+
+describe('Assets Ready over the Run Session (CA-10)', () => {
+  it('waits at readiness until assets.pending is 0 and reports assets on every tool result', async () => {
+    const { browser, metadataCalls } = assetsBrowser([
+      { pending: 2, loaded: 5, failed: 0 },
+      { pending: 1, loaded: 6, failed: 0 },
+      { pending: 0, loaded: 7, failed: 0 },
+    ])
+    const manager = new RuntimeSessionManager(assetsAdapters(browser))
+
+    const started = await manager.start({ projectPath: '/assets' })
+
+    expect(metadataCalls()).toBe(3)
+    expect(started).toMatchObject({ frame: 0, assets: { pending: 0, loaded: 7, failed: 0 } })
+    await expect(manager.start({ projectPath: '/assets' })).resolves.toMatchObject({
+      reused: true,
+      assets: { pending: 0, loaded: 7, failed: 0 },
+    })
+    await expect(manager.inspect({ projectPath: '/assets' })).resolves.toMatchObject({
+      assets: { pending: 0, loaded: 7, failed: 0 },
+    })
+    await expect(
+      manager.control({ projectPath: '/assets', operation: 'step', frames: 1 }),
+    ).resolves.toMatchObject({ assets: { pending: 0, loaded: 7, failed: 0 } })
+    await expect(manager.captureScreenshot('/assets')).resolves.toMatchObject({
+      metadata: { assets: { pending: 0, loaded: 7, failed: 0 } },
+      data: 'png',
+    })
+    await manager.close()
+  })
+
+  it('never waits and carries no assets for an engine that does not report the capability', async () => {
+    let reads = 0
+    const browser = fakeBrowser()
+    browser.metadata = async () => {
+      reads += 1
+      return { ...ready }
+    }
+    const manager = new RuntimeSessionManager({
+      canonicalize: async () => '/old',
+      preflight: async () => preflight('/old'),
+      startDevServer: async () => ({ url: 'http://127.0.0.1:41011/', stop: async () => {}, diagnostics: () => ({}) }),
+      startBrowser: async () => browser,
+    })
+
+    const started = await manager.start({ projectPath: '/old' })
+    const inspected = await manager.inspect({ projectPath: '/old' })
+    const controlled = await manager.control({ projectPath: '/old', operation: 'step' })
+    const shot = await manager.captureScreenshot('/old')
+
+    expect(reads).toBe(0)
+    expect(started).not.toHaveProperty('assets')
+    expect(inspected).not.toHaveProperty('assets')
+    expect(controlled).not.toHaveProperty('assets')
+    expect(shot.metadata).not.toHaveProperty('assets')
+    await manager.close()
+  })
+
+  it("waits after a 'scene' operation and returns the settled numbers; step, press and inspect never wait", async () => {
+    const { browser, metadataCalls } = assetsBrowser([
+      { pending: 0, loaded: 7, failed: 0 },
+      { pending: 3, loaded: 7, failed: 0 },
+      { pending: 0, loaded: 10, failed: 0 },
+    ])
+    const manager = new RuntimeSessionManager(assetsAdapters(browser))
+    await manager.start({ projectPath: '/assets' })
+    expect(metadataCalls()).toBe(1)
+
+    const swapped = await manager.control({ projectPath: '/assets', operation: 'scene', scene: 'cave' })
+
+    expect(metadataCalls()).toBe(3)
+    expect(swapped).toMatchObject({ frame: 0, heldActions: [], assets: { pending: 0, loaded: 10, failed: 0 } })
+
+    await manager.control({ projectPath: '/assets', operation: 'step', frames: 2 })
+    await manager.control({ projectPath: '/assets', operation: 'press', action: 'jump' })
+    await manager.inspect({ projectPath: '/assets' })
+    expect(metadataCalls()).toBe(3)
+    await manager.close()
+  })
+
+  it('fails structurally, naming the last assets numbers, when the wait outlives the session timeout', async () => {
+    const stuckAtStart = assetsBrowser([{ pending: 1, loaded: 6, failed: 0 }])
+    const failing = new RuntimeSessionManager(assetsAdapters(stuckAtStart.browser, 1_000))
+    await expect(failing.start({ projectPath: '/assets' })).rejects.toMatchObject({
+      body: {
+        code: 'runtime-start-failed',
+        stage: 'game',
+        diagnostics: expect.objectContaining({ portOpen: true, assets: { pending: 1, loaded: 6, failed: 0 } }),
+      },
+    })
+    expect(stuckAtStart.metadataCalls()).toBeGreaterThan(1)
+    await failing.close()
+
+    const stuckLater = assetsBrowser([
+      { pending: 0, loaded: 7, failed: 0 },
+      { pending: 1, loaded: 7, failed: 0 },
+    ])
+    const manager = new RuntimeSessionManager(assetsAdapters(stuckLater.browser, 1_000))
+    await manager.start({ projectPath: '/assets' })
+    await expect(manager.captureScreenshot('/assets')).rejects.toMatchObject({
+      body: {
+        code: 'runtime-operation-failed',
+        diagnostics: expect.objectContaining({ assets: { pending: 1, loaded: 7, failed: 0 } }),
+      },
+    })
+    await expect(
+      manager.control({ projectPath: '/assets', operation: 'scene', scene: 'cave' }),
+    ).rejects.toMatchObject({
+      body: {
+        code: 'runtime-operation-failed',
+        stage: 'control',
+        diagnostics: expect.objectContaining({ assets: { pending: 1, loaded: 7, failed: 0 } }),
+      },
+    })
+    // The session survives a timed-out wait: the Game is fine, only its art is late.
+    await expect(manager.inspect({ projectPath: '/assets' })).resolves.toMatchObject({ frame: 0 })
     await manager.close()
   })
 })

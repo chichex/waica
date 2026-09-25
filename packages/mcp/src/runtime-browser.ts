@@ -10,6 +10,7 @@ import type {
   RuntimeDevServer,
   RuntimeLifecycleHandlers,
 } from './runtime-session-manager.js'
+import { runtimeAssetStatus } from './runtime-assets.js'
 import type { RuntimePreflightResult } from './runtime-preflight.js'
 import { RuntimeToolError, type RuntimeControlInput } from './runtime-service.js'
 
@@ -64,6 +65,8 @@ interface PageBridgeMetadata {
   simulationTime: number
   /** Absent on a pre-CA-10 engine build — never assume it's there. */
   capabilities?: string[]
+  /** Absent on an engine without the 'assets' capability (ADR 0019). */
+  assets?: { pending: number; loaded: number; failed: number }
   [key: string]: unknown
 }
 
@@ -165,6 +168,7 @@ function bridgeReady(
       { metadata },
     )
   }
+  const assets = runtimeAssetStatus(metadata.assets)
   return {
     engineVersion: metadata.engineVersion,
     bridgeVersion: metadata.bridgeVersion,
@@ -174,6 +178,7 @@ function bridgeReady(
     // [] (not undefined) for a pre-CA-10 engine that never sent the field,
     // so a capability check can do a plain .includes() either way.
     capabilities: metadata.capabilities ?? [],
+    ...(assets ? { assets } : {}),
     initialSnapshot,
   }
 }
@@ -245,6 +250,10 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
   async ready(): Promise<RuntimeBridgeReady> {
     if (!this.readyValue) throw new Error('Runtime browser was not initialized.')
     return this.readyValue
+  }
+
+  async metadata(): Promise<Record<string, unknown>> {
+    return this.invokeBridge('metadata', {})
   }
 
   async inspect(filters: {
