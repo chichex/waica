@@ -374,6 +374,13 @@ async function runHappyPath({
   assert.deepEqual(started.provenance, [
     { package: '@waica/engine', version: started.engineVersion, source: 'project' },
   ])
+  // Issue #76 (CA-10, CA-12): readiness is Assets Ready under the 'assets'
+  // capability, and every runtime result carries the numbers.
+  assert.deepEqual(
+    started.assets,
+    { pending: 0, loaded: 0, failed: 0 },
+    'a fixture with no textures reports settled, empty assets at readiness',
+  )
   const initialPlayer = started.initialSnapshot.entities.find((entity) => entity.name === 'Player')
   assert.ok(initialPlayer, 'initial snapshot must contain Player')
   assert.equal(initialPlayer.transform.position.x, 0)
@@ -497,6 +504,7 @@ async function runProjectionLeg({ client, project, chrome }) {
   })
   assert.equal(start.isError, undefined, `projection start_project failed: ${JSON.stringify(start)}`)
   assert.equal(start.structuredContent.mode, 'paused')
+  assert.equal(start.structuredContent.assets?.pending, 0, 'projection readiness must be Assets Ready')
   const initial = start.structuredContent.initialSnapshot.entities.find(
     (entity) => entity.name === 'Player',
   )
@@ -609,6 +617,9 @@ async function runTopdownLeg({ client, root, parent, chrome, viteBin, engineRoot
     start.structuredContent.initialSnapshot.entities.some((entity) => entity.name === 'Player'),
     'topdown initial snapshot must contain Player',
   )
+  // Issue #76 (CA-12): the demo's art settled before readiness, none of it failed.
+  assert.equal(start.structuredContent.assets?.pending, 0, 'topdown readiness must be Assets Ready')
+  assert.equal(start.structuredContent.assets?.failed, 0, 'no topdown texture may fail to load')
 
   const inspectPlayer = async () => {
     const inspected = await call(client, 'inspect_runtime', {
@@ -728,6 +739,7 @@ async function runIsometricLeg({ client, root, parent, chrome, viteBin, engineRo
   })
   assert.equal(start.isError, undefined, `isometric start_project failed: ${JSON.stringify(start)}`)
   assert.equal(start.structuredContent.mode, 'paused')
+  await runIsometricAssets({ client, project, start })
 
   const inspectPlayer = async () => {
     const inspected = await call(client, 'inspect_runtime', {
@@ -839,6 +851,63 @@ async function runIsometricLeg({ client, root, parent, chrome, viteBin, engineRo
     isometricUrl: start.structuredContent.url,
     isometricPngBytes: png.png.byteLength,
   }
+}
+
+/**
+ * Issue #76 (CA-10, CA-12): Assets Ready over real MCP stdio, on the demo's
+ * own art. Readiness waited for the seven images "main" uses (crate,
+ * ground, hero, orc, rock, tree, villager), a screenshot taken right after
+ * is already fully textured, a scene operation waits for the incoming
+ * scene's art before answering, and the cache keeps everything across the
+ * round trip: cave's art is a subset of main's, and coming back to main
+ * loads nothing new. None of these waits steps the paused Run Session.
+ */
+async function runIsometricAssets({ client, project, start }) {
+  const booted = start.structuredContent.assets
+  assert.ok(booted, 'the isometric start_project result must carry assets')
+  assert.equal(booted.pending, 0, 'isometric readiness must be Assets Ready')
+  assert.equal(booted.failed, 0, `no isometric texture may fail to load; assets=${JSON.stringify(booted)}`)
+  assert.ok(booted.loaded >= 7, `"main" uses seven distinct images; loaded=${booted.loaded}`)
+
+  const readyShot = assertScreenshot(
+    await call(client, 'capture_screenshot', { project_path: project }),
+    'paused',
+    { width: 640, height: 360 },
+  )
+  assert.equal(readyShot.metadata.assets?.pending, 0, 'a screenshot right after readiness is fully textured')
+  assert.equal(readyShot.metadata.frame, 0, 'waiting for assets before a screenshot must not step the Run Session')
+
+  const settled = { pending: 0, loaded: booted.loaded, failed: 0 }
+  const toCave = await call(client, 'control_runtime', {
+    project_path: project,
+    operation: 'scene',
+    scene: 'cave',
+  })
+  assert.equal(toCave.isError, undefined, `scene:'cave' failed: ${JSON.stringify(toCave)}`)
+  assert.deepEqual(
+    toCave.structuredContent.assets,
+    settled,
+    "cave's art is a subset of main's: the swap waited, and nothing new was loaded",
+  )
+  assert.equal(toCave.structuredContent.frame, 0, 'waiting after a scene operation must not step the Run Session')
+
+  const backToMain = await call(client, 'control_runtime', {
+    project_path: project,
+    operation: 'scene',
+    scene: 'main',
+  })
+  assert.equal(backToMain.isError, undefined, `scene:'main' failed: ${JSON.stringify(backToMain)}`)
+  assert.deepEqual(
+    backToMain.structuredContent.assets,
+    settled,
+    'keep-all: the return trip to main loaded nothing new',
+  )
+  assert.equal(backToMain.structuredContent.frame, 0, 'the second scene wait must not step the Run Session either')
+
+  const inspected = await call(client, 'inspect_runtime', { project_path: project })
+  assert.deepEqual(inspected.structuredContent.assets, settled, 'inspect_runtime carries the same assets')
+  assert.equal(inspected.structuredContent.frame, 0)
+  assert.equal(inspected.structuredContent.snapshot.scene, 'main', 'the leg goes on from a fresh "main"')
 }
 
 /**
@@ -1310,6 +1379,7 @@ async function runSceneSwapLeg({ client, root, parent, chrome, viteBin, engineRo
   })
   assert.equal(start.isError, undefined, `scene-swap start_project failed: ${JSON.stringify(start)}`)
   assert.equal(start.structuredContent.mode, 'paused')
+  assert.equal(start.structuredContent.assets?.pending, 0, 'scene-swap readiness must be Assets Ready')
 
   const inspectPlayer = async () => {
     const inspected = await call(client, 'inspect_runtime', {
