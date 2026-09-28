@@ -35,13 +35,6 @@ const COUNT = { skipBlankLines: true, skipComments: true }
 const PENDING_MUST = new Set([
   'max-lines-per-function',
   'max-lines',
-  '@typescript-eslint/no-non-null-assertion',
-  '@typescript-eslint/no-unsafe-assignment',
-  '@typescript-eslint/no-unsafe-argument',
-  '@typescript-eslint/no-unsafe-call',
-  '@typescript-eslint/no-unsafe-member-access',
-  '@typescript-eslint/no-unsafe-return',
-  '@typescript-eslint/no-unnecessary-type-parameters',
   'react-hooks/exhaustive-deps',
   'react-hooks/immutability',
   'react-hooks/refs',

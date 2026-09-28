@@ -43,16 +43,16 @@ config to check the severity.
 | L38 | SHOULD | `waica/soft-max-lines` | `warn` | `packages/engine/src/game.ts` | 300 logical lines |
 | L40 | MUST | `max-lines` | `warn` | `packages/engine/src/game.ts` | 600 logical lines; `error` once the size refactors land |
 | L64 | MUST | `@eslint-community/eslint-comments/require-description` | `error` | `packages/editor/src/editor/Viewport.tsx` | plus `reportUnusedDisableDirectives: "error"` |
-| L97 | MUST | `@typescript-eslint/no-non-null-assertion` | `warn` | `packages/engine/src/game.ts` | `error` once assertions are replaced |
+| L97 | MUST | `@typescript-eslint/no-non-null-assertion` | `error` | `packages/engine/src/game.ts` | tests use `defined()` from `packages/engine/src/test-support.ts` |
 | L98 | MUST | `@typescript-eslint/no-explicit-any` | `error` | `packages/engine/src/game.ts` | |
-| L98 | MUST | `@typescript-eslint/no-unsafe-assignment` | `warn` | `packages/engine/src/game.ts` | `error` once JSON is validated |
-| L98 | MUST | `@typescript-eslint/no-unsafe-argument` | `warn` | `packages/engine/src/game.ts` | `error` once JSON is validated |
-| L98 | MUST | `@typescript-eslint/no-unsafe-call` | `warn` | `packages/engine/src/game.ts` | `error` once JSON is validated |
-| L98 | MUST | `@typescript-eslint/no-unsafe-member-access` | `warn` | `packages/engine/src/game.ts` | `error` once JSON is validated |
-| L98 | MUST | `@typescript-eslint/no-unsafe-return` | `warn` | `packages/engine/src/game.ts` | `error` once JSON is validated |
+| L98 | MUST | `@typescript-eslint/no-unsafe-assignment` | `error` | `packages/engine/src/game.ts` | |
+| L98 | MUST | `@typescript-eslint/no-unsafe-argument` | `error` | `packages/engine/src/game.ts` | |
+| L98 | MUST | `@typescript-eslint/no-unsafe-call` | `error` | `packages/engine/src/game.ts` | |
+| L98 | MUST | `@typescript-eslint/no-unsafe-member-access` | `error` | `packages/engine/src/game.ts` | |
+| L98 | MUST | `@typescript-eslint/no-unsafe-return` | `error` | `packages/engine/src/game.ts` | |
 | L99 | MUST | `no-restricted-syntax` | `error` | `packages/engine/src/game.ts` | forbids `as unknown as` and `JSON.parse(...) as T` (L97, L117) outside tests |
 | L106 | MUST | `@typescript-eslint/switch-exhaustiveness-check` | `error` | `packages/engine/src/game.ts` | a `default` does not count as exhaustive for a union |
-| L111 | MUST | `@typescript-eslint/no-unnecessary-type-parameters` | `warn` | `packages/engine/src/game.ts` | `error` once the generics are fixed |
+| L111 | MUST | `@typescript-eslint/no-unnecessary-type-parameters` | `error` | `packages/engine/src/game.ts` | |
 | L112 | SHOULD | `@typescript-eslint/unified-signatures` | `warn` | `packages/engine/src/game.ts` | |
 | L124 | MUST | `@typescript-eslint/no-floating-promises` | `error` | `packages/engine/src/game.ts` | `ignoreVoid: false` (L125) |
 | L126 | MUST | `@typescript-eslint/no-misused-promises` | `error` | `packages/engine/src/game.ts` | |
