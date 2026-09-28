@@ -41,6 +41,7 @@ import {
 import { createDefaultRuntimeSessionManager } from './runtime-session-manager.js'
 import { ProjectComponentLoader } from './project-component-loader.js'
 import { validateProject } from './validation.js'
+import { objectRecord } from './component-metadata.js'
 
 const PROJECT_PATH = {
   type: 'string',
@@ -642,8 +643,9 @@ async function execute(
   }
 }
 
+/** The payload as plain JSON data (drops undefined, functions and prototypes). */
 function jsonSafe(value: Record<string, unknown>): Record<string, unknown> {
-  return JSON.parse(JSON.stringify(value)) as Record<string, unknown>
+  return objectRecord(JSON.parse(JSON.stringify(value)))
 }
 
 function result(payload: Record<string, unknown>, isError = false): CallToolResult {
@@ -720,8 +722,8 @@ function shippedVersion(): string {
   for (;;) {
     const manifest = path.join(directory, 'package.json')
     if (existsSync(manifest)) {
-      const { version } = JSON.parse(readFileSync(manifest, 'utf8')) as { version?: string }
-      if (version) return version
+      const { version } = objectRecord(JSON.parse(readFileSync(manifest, 'utf8')))
+      if (typeof version === 'string' && version !== '') return version
     }
     const parent = path.dirname(directory)
     if (parent === directory) return '0.0.0'

@@ -15,6 +15,7 @@ import {
   type DroppedFile,
 } from './use-project-art'
 import { reportRejection } from '../report-rejection'
+import { isStringArray } from '../json-object'
 
 /** What the center pane (and the inspector) is looking at. */
 export type ExplorerView =
@@ -67,6 +68,16 @@ function RenameInput({
       }}
     />
   )
+}
+
+/** The entity names a multi-entity drag carries, or null for a torn payload. */
+function readDraggedNames(payload: string): string[] | null {
+  try {
+    const parsed: unknown = JSON.parse(payload)
+    return isStringArray(parsed) ? parsed : null
+  } catch {
+    return null
+  }
 }
 
 export function Explorer({
@@ -399,11 +410,9 @@ export function Explorer({
     // Dropping into a shut folder would otherwise look like a delete.
     if (typeof target === 'object' && 'into' in target) openFolder(target.into)
     if (groupJson) {
-      try {
-        onReorderEntities(JSON.parse(groupJson) as string[], target)
-      } catch {
-        // torn payload from another tab/app: nothing sane to do
-      }
+      // A torn payload from another tab or app: nothing sane to do.
+      const names = readDraggedNames(groupJson)
+      if (names) onReorderEntities(names, target)
     } else if (entityName) onReorderEntity(entityName, target)
     else if (folderName && !(typeof target === 'object' && 'into' in target)) {
       onReorderFolder(folderName, target)

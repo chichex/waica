@@ -1,4 +1,5 @@
 import { DEFAULT_BINDINGS, type InputBindings } from '@waica/engine'
+import { isJsonObject, readJsonObject } from '../json-object'
 
 /**
  * Project controls: which keys fire each input action. Persisted as
@@ -70,14 +71,11 @@ export function parseControls(
   defaults: Readonly<InputBindings> = DEFAULT_BINDINGS,
 ): InputBindings {
   const bindings = structuredClone(defaults) as InputBindings
-  if (!text) return bindings
-  try {
-    const json = JSON.parse(text) as Partial<ControlsJson>
-    for (const [action, codes] of Object.entries(json.bindings ?? {})) {
-      if (isCodeList(codes)) bindings[action] = codes
-    }
-  } catch {
-    // hand-edited into invalid JSON: the defaults keep the game playable
+  // Hand-edited into invalid JSON or junk: the defaults keep the game playable.
+  const declared = text ? readJsonObject(text)?.bindings : undefined
+  if (!isJsonObject(declared)) return bindings
+  for (const [action, codes] of Object.entries(declared)) {
+    if (isCodeList(codes)) bindings[action] = codes
   }
   return bindings
 }
@@ -89,16 +87,11 @@ export function parseControls(
  */
 export function parseControlLabels(text: string | null): ActionLabels {
   const labels: ActionLabels = {}
-  if (!text) return labels
-  try {
-    const json = JSON.parse(text) as Partial<ControlsJson>
-    const declared = json.labels
-    if (!declared || typeof declared !== 'object' || Array.isArray(declared)) return labels
-    for (const [action, label] of Object.entries(declared)) {
-      if (typeof label === 'string') labels[action] = label
-    }
-  } catch {
-    // hand-edited into invalid JSON: actions simply render by their raw name
+  // Hand-edited into invalid JSON or junk: actions simply render by their raw name.
+  const declared = text ? readJsonObject(text)?.labels : undefined
+  if (!isJsonObject(declared)) return labels
+  for (const [action, label] of Object.entries(declared)) {
+    if (typeof label === 'string') labels[action] = label
   }
   return labels
 }

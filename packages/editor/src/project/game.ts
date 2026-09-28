@@ -1,3 +1,5 @@
+import { isJsonObject, readJsonObject } from '../json-object'
+
 /**
  * Project game settings: global options of the shipped game that no scene
  * owns — the render resolution and the art scale. Persisted as
@@ -42,21 +44,18 @@ export const DEFAULT_GAME_SETTINGS: GameSettings = {
  */
 export function parseGameSettings(text: string | null): GameSettings {
   const settings = structuredClone(DEFAULT_GAME_SETTINGS)
-  if (!text) return settings
-  try {
-    const json = JSON.parse(text) as Partial<GameSettingsJson>
-    if (typeof json.archetype === 'string' && json.archetype !== '') {
-      settings.archetype = json.archetype
-    }
-    const res = json.resolution
-    if (res?.mode === 'fill' || res?.mode === 'fixed') settings.resolution.mode = res.mode
-    if (typeof res?.width === 'number' && res.width > 0) settings.resolution.width = res.width
-    if (typeof res?.height === 'number' && res.height > 0) settings.resolution.height = res.height
-    const ppu = json.pixelsPerUnit
-    if (typeof ppu === 'number' && isFinite(ppu) && ppu > 0) settings.pixelsPerUnit = ppu
-  } catch {
-    // hand-edited into invalid JSON: the game still runs with the defaults
+  // Hand-edited into invalid JSON or junk: the game still runs with the defaults.
+  const json = text ? readJsonObject(text) : null
+  if (!json) return settings
+  if (typeof json.archetype === 'string' && json.archetype !== '') {
+    settings.archetype = json.archetype
   }
+  const res = isJsonObject(json.resolution) ? json.resolution : {}
+  if (res.mode === 'fill' || res.mode === 'fixed') settings.resolution.mode = res.mode
+  if (typeof res.width === 'number' && res.width > 0) settings.resolution.width = res.width
+  if (typeof res.height === 'number' && res.height > 0) settings.resolution.height = res.height
+  const ppu = json.pixelsPerUnit
+  if (typeof ppu === 'number' && isFinite(ppu) && ppu > 0) settings.pixelsPerUnit = ppu
   return settings
 }
 

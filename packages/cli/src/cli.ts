@@ -44,7 +44,12 @@ interface Pkg {
 
 async function readPkg(): Promise<Pkg> {
   const raw = await readFile(path.join(here, '..', 'package.json'), 'utf8')
-  return JSON.parse(raw) as Pkg
+  const parsed: unknown = JSON.parse(raw)
+  if (typeof parsed === 'object' && parsed !== null && 'name' in parsed && 'version' in parsed) {
+    const { name, version } = parsed
+    if (typeof name === 'string' && typeof version === 'string') return { name, version }
+  }
+  throw new Error('its package.json has no name and version — this install looks broken, try reinstalling')
 }
 
 const interactive = process.stdin.isTTY === true && process.stdout.isTTY === true

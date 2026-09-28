@@ -10,6 +10,7 @@ import {
   type Provenance,
 } from './package-resolver.js'
 import { assertAbsoluteProjectPath } from './project-path.js'
+import { isJsonObject } from './component-metadata.js'
 
 export type ProjectStart = 'demo' | 'blank'
 
@@ -109,11 +110,11 @@ async function chassisFiles(
       read('public/waica.params.json'),
     ])
   const controls = {
-    ...(JSON.parse(controlsText) as Record<string, unknown>),
+    ...templateObject(controlsText, 'src/controls.json'),
     bindings: archetype.bindings,
   }
   const game = {
-    ...(JSON.parse(gameText) as Record<string, unknown>),
+    ...templateObject(gameText, 'src/game.json'),
     archetype: archetype.id,
   }
   const scene = start === 'demo' ? archetype.scene : archetype.blankScene
@@ -180,6 +181,13 @@ async function validateTarget(target: string): Promise<{ exists: boolean; name: 
 }
 
 /** Creates one project without installing dependencies or overwriting files. */
+/** A bundled template JSON file; a non-object means the bundled template is broken. */
+function templateObject(text: string, file: string): Record<string, unknown> {
+  const parsed: unknown = JSON.parse(text)
+  if (!isJsonObject(parsed)) throw new Error(`the bundled template's ${file} is not a JSON object`)
+  return parsed
+}
+
 export async function createProject(
   projectPath: string,
   start: ProjectStart = 'demo',

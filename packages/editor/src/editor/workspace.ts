@@ -1,4 +1,5 @@
 import type { ExplorerView } from './Explorer'
+import { readJsonObject } from '../json-object'
 
 /**
  * Where the user was in a project — open scene and centered view — kept in
@@ -61,7 +62,7 @@ export function loadWorkspace(project: string): WorkspaceState | null {
   try {
     const text = localStorage.getItem(keyFor(project))
     if (!text) return null
-    const raw = JSON.parse(text) as Record<string, unknown> | null
+    const raw = readJsonObject(text)
     if (raw?.waicaWorkspace !== 1) return null
     return {
       openScenePath: typeof raw.openScenePath === 'string' ? raw.openScenePath : null,

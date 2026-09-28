@@ -38,3 +38,10 @@ describe('serializeStats', () => {
     expect(JSON.parse(serializeStats({}))).toEqual({ waicaStats: 1, stats: {} })
   })
 })
+
+describe('parseStats with a malformed stats block', () => {
+  it('ignores a stats value that is not an object instead of reading its characters', () => {
+    expect(parseStats('{"waicaStats":1,"stats":"ab"}')).toEqual({})
+    expect(parseStats('null')).toEqual({})
+  })
+})

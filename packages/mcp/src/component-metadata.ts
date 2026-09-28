@@ -1,8 +1,11 @@
+/** A parsed JSON object: not null, not an array. */
+export function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
 /** Narrows an unknown JSON value to a plain object; anything else (including arrays and null) becomes `{}`. */
 export function objectRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {}
+  return isJsonObject(value) ? value : {}
 }
 
 /**

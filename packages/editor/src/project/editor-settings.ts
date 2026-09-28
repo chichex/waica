@@ -1,3 +1,5 @@
+import { isJsonObject, readJsonObject } from '../json-object'
+
 /**
  * Per-project editor settings: preferences of the editing experience that
  * ship with the project but never with the game — today, the viewport grid.
@@ -41,18 +43,14 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
  */
 export function parseEditorSettings(text: string | null): EditorSettings {
   const settings = structuredClone(DEFAULT_EDITOR_SETTINGS)
-  if (!text) return settings
-  try {
-    const json = JSON.parse(text) as Partial<EditorSettingsJson>
-    const grid = json.grid
-    if (grid?.type === 'square' || grid?.type === 'isometric') settings.grid.type = grid.type
-    if (typeof grid?.show === 'boolean') settings.grid.show = grid.show
-    if (typeof grid?.snap === 'boolean') settings.grid.snap = grid.snap
-    if (typeof grid?.size === 'number' && isFinite(grid.size) && grid.size >= MIN_GRID_SIZE) {
-      settings.grid.size = grid.size
-    }
-  } catch {
-    // hand-edited into invalid JSON: the editor still opens with the defaults
+  // Hand-edited into invalid JSON or junk: the editor still opens with the defaults.
+  const grid = text ? readJsonObject(text)?.grid : undefined
+  if (!isJsonObject(grid)) return settings
+  if (grid.type === 'square' || grid.type === 'isometric') settings.grid.type = grid.type
+  if (typeof grid.show === 'boolean') settings.grid.show = grid.show
+  if (typeof grid.snap === 'boolean') settings.grid.snap = grid.snap
+  if (typeof grid.size === 'number' && isFinite(grid.size) && grid.size >= MIN_GRID_SIZE) {
+    settings.grid.size = grid.size
   }
   return settings
 }

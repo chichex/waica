@@ -4,6 +4,7 @@ import type { SceneJson } from '@waica/engine'
 import { SCENE_PATH, type ProjectFS } from '../fs/project-fs'
 import { WRITE_DELAY_MS } from './write-scheduler'
 import { reportRejection } from '../report-rejection'
+import { parseSceneJson } from '../scene/scene-file'
 
 const LANGUAGES: Record<string, string> = {
   ts: 'typescript',
@@ -84,9 +85,9 @@ export function CodePane({
     }
     if (path === SCENE_PATH) {
       try {
-        onSceneSaved?.(JSON.parse(current) as SceneJson)
+        onSceneSaved?.(parseSceneJson(current))
       } catch {
-        // Invalid JSON: it stays saved on disk, the live scene is untouched.
+        // Invalid JSON or not a scene: it stays saved on disk, the live scene is untouched.
       }
     }
   }

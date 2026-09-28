@@ -7,6 +7,7 @@ import {
   RuntimeToolError,
   type StartRuntimeInput,
 } from './runtime-service.js'
+import { objectRecord } from './component-metadata.js'
 
 export type RuntimePackageManager = 'npm' | 'pnpm' | 'yarn' | 'bun'
 const RUNTIME_PORT_ARGUMENT = '__WAICA_RUNTIME_PORT__'
@@ -159,9 +160,7 @@ async function projectViewport(
 ): Promise<{ width: number; height: number }> {
   if (explicit) return validateViewport(projectPath, explicit, 'explicit')!
   try {
-    const game = JSON.parse(await readFile(path.join(projectPath, 'src/game.json'), 'utf8')) as {
-      resolution?: unknown
-    }
+    const game = objectRecord(JSON.parse(await readFile(path.join(projectPath, 'src/game.json'), 'utf8')))
     return validateViewport(projectPath, game.resolution, 'project') ?? { width: 640, height: 360 }
   } catch {
     return { width: 640, height: 360 }
@@ -224,9 +223,7 @@ function devArgs(manager: RuntimePackageManager): string[] {
 async function packageRootFromEntry(entry: string, packageName: string): Promise<string> {
   for (let current = path.dirname(entry); ; current = path.dirname(current)) {
     try {
-      const manifest = JSON.parse(await readFile(path.join(current, 'package.json'), 'utf8')) as {
-        name?: unknown
-      }
+      const manifest = objectRecord(JSON.parse(await readFile(path.join(current, 'package.json'), 'utf8')))
       if (manifest.name === packageName) return current
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
@@ -266,9 +263,7 @@ async function verifyDependencies(
     }
   }
   const engineRoot = await packageRootFromEntry(entries.get('@waica/engine')!, '@waica/engine')
-  const engineManifest = JSON.parse(await readFile(path.join(engineRoot, 'package.json'), 'utf8')) as {
-    version?: unknown
-  }
+  const engineManifest = objectRecord(JSON.parse(await readFile(path.join(engineRoot, 'package.json'), 'utf8')))
   if (typeof engineManifest.version !== 'string' || engineManifest.version.length === 0) {
     throw runtimeError(projectPath, 'dependencies', 'Installed @waica/engine has no valid version.')
   }
