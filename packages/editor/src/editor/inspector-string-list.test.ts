@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, createElement, type ComponentProps } from 'react'
+import { act, type ComponentProps, createElement, StrictMode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -100,11 +100,11 @@ function render(
 ): void {
   act(() => {
     root.render(
-      createElement(
+      createElement(StrictMode, null, createElement(
         ArchetypeContext.Provider,
         { value: manifest(extra) },
         createElement(Inspector, props),
-      ),
+      )),
     )
   })
 }

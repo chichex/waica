@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, createElement, type ComponentProps } from 'react'
+import { act, type ComponentProps, createElement, StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -246,7 +246,7 @@ describe('Inspector component update visibility', () => {
     const root = createRoot(host)
 
     await act(async () => {
-      root.render(createElement(Editor, { fs, onClose: vi.fn() }))
+      root.render(createElement(StrictMode, null, createElement(Editor, { fs, onClose: vi.fn() })))
     })
     await vi.waitFor(() => {
       const play = [...host.querySelectorAll('button')].find((button) =>

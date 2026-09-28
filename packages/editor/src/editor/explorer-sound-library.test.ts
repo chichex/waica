@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, createElement, type ComponentProps } from 'react'
+import { act, type ComponentProps, createElement, StrictMode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemFS } from '../fs/project-fs'
@@ -39,7 +39,7 @@ function baseProps(
     fs: new MemFS('proj', {}),
     scenePaths: [],
     openScenePath: null,
-    justCreatedFolder: null,
+    sceneFolders: { expanded: new Set(), toggle: () => {}, open: () => {}, setAll: () => {} },
     scene: null,
     view: null,
     selected: null,
@@ -122,11 +122,11 @@ describe('Explorer sound library (CA-17, CA-18)', () => {
     const archetype = resolveArchetype('platformer')
     act(() => {
       root.render(
-        createElement(
+        createElement(StrictMode, null, createElement(
           ArchetypeContext.Provider,
           { value: archetype },
           createElement(Explorer, props),
-        ),
+        )),
       )
     })
   }

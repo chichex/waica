@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act } from 'react'
+import { act, createElement, StrictMode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -61,7 +61,7 @@ function render(root: Root, box: HandleBox, options: RenderOptions = {}): void {
   const { epoch = 1, mode = 'edit', music } = options
   act(() => {
     root.render(
-      <Viewport
+      createElement(StrictMode, null, <Viewport
         ref={(instance) => {
           box.current = instance
         }}
@@ -74,7 +74,7 @@ function render(root: Root, box: HandleBox, options: RenderOptions = {}): void {
         selected={null}
         onSelect={() => {}}
         onMoved={() => {}}
-      />,
+      />),
     )
   })
 }

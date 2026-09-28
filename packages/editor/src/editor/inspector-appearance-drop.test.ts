@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, createElement, type ComponentProps } from 'react'
+import { act, type ComponentProps, createElement, StrictMode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SceneEntityJson } from '@waica/engine'
@@ -117,11 +117,11 @@ describe('Appearance texture drop target rejects non-image art (review finding A
     const archetype = resolveArchetype('platformer')
     act(() => {
       root.render(
-        createElement(
+        createElement(StrictMode, null, createElement(
           ArchetypeContext.Provider,
           { value: archetype },
           createElement(Inspector, props),
-        ),
+        )),
       )
     })
   }
