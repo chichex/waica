@@ -104,6 +104,7 @@ export type {
   RuntimeEntitySnapshot,
   RuntimeSnapshot,
   RuntimeSnapshotAudio,
+  RuntimeSnapshotCamera,
   RuntimeSnapshotFilters,
   RuntimeSnapshotTime,
   RuntimeSnapshotUi,

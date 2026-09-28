@@ -20,9 +20,17 @@ export type RuntimeMode = 'paused' | 'real-time'
  * (ADR 0019) announces that every metadata carries `assets: { pending,
  * loaded, failed }` from `game.assets.status`, so a Run Session can wait
  * for Assets Ready (`pending === 0`) at readiness, after a `scene`
- * operation and before a screenshot.
+ * operation and before a screenshot. `camera-effects` (issue #74, ADR 0020)
+ * announces that every snapshot carries `camera: { shake, fade, flash }`
+ * from `game.cameraEffects`; the `scene` operation stays a hard cut.
  */
-export const RUNTIME_BRIDGE_CAPABILITIES = ['click', 'scene', 'fixed-step', 'assets'] as const
+export const RUNTIME_BRIDGE_CAPABILITIES = [
+  'click',
+  'scene',
+  'fixed-step',
+  'assets',
+  'camera-effects',
+] as const
 
 export interface RuntimeMetadata {
   bridgeVersion: typeof RUNTIME_BRIDGE_PROTOCOL_VERSION
