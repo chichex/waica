@@ -434,6 +434,52 @@ describe('MCP server', () => {
     }
   })
 
+  it.each([
+    ['start_project', {}],
+    ['inspect_runtime', {}],
+    ['control_runtime', { operation: 'step' }],
+    ['capture_screenshot', {}],
+  ] as const)('hands the host cancellation signal to %s', async (tool, extra) => {
+    const seen: AbortSignal[] = []
+    const cancellable = (options?: { signal?: AbortSignal }): Promise<never> => {
+      const signal = options?.signal
+      if (!signal) return Promise.reject(new Error('no signal reached the Run Session service'))
+      seen.push(signal)
+      return new Promise((_resolve, reject) => {
+        const abort = (): void => reject(new Error('aborted', { cause: signal.reason }))
+        signal.addEventListener('abort', abort, { once: true })
+      })
+    }
+    const runtime: RuntimeService = {
+      start: (_input, options) => cancellable(options),
+      stop: () => Promise.resolve({}),
+      inspect: (_input, options) => cancellable(options),
+      control: (_input, options) => cancellable(options),
+      captureScreenshot: (_projectPath, options) => cancellable(options),
+      close: () => Promise.resolve(),
+    }
+    const pair = await connectedPair(runtime)
+    try {
+      const controller = new AbortController()
+      const outcome = pair.client
+        .callTool(
+          { name: tool, arguments: { project_path: '/abs/game', ...extra } },
+          undefined,
+          { signal: controller.signal, timeout: 3_000 },
+        )
+        .then(
+          () => 'resolved',
+          () => 'rejected',
+        )
+      await expect.poll(() => seen.length).toBe(1)
+      controller.abort(new Error('host cancelled'))
+      expect(await outcome).toBe('rejected')
+      await expect.poll(() => seen[0]?.aborted).toBe(true)
+    } finally {
+      await pair.close()
+    }
+  })
+
   it('keeps unexpected runtime-service failures inside the stable runtime error contract', async () => {
     const runtime: RuntimeService = {
       start: async () => { throw new Error('adapter boom') },

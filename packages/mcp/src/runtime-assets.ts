@@ -1,3 +1,5 @@
+import { setTimeout as sleep } from 'node:timers/promises'
+
 /**
  * Assets Ready over a Run Session (ADR 0019). When the engine reports the
  * 'assets' Runtime Bridge capability, its metadata carries
@@ -34,25 +36,36 @@ export function runtimeAssetStatus(value: unknown): RuntimeAssetStatus | undefin
   return { pending, loaded, failed }
 }
 
-function delay(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds))
+/** Waits `milliseconds`, or rejects with the signal's reason as soon as it aborts. */
+export async function abortableDelay(milliseconds: number, signal?: AbortSignal): Promise<void> {
+  try {
+    await sleep(milliseconds, undefined, signal ? { signal } : undefined)
+  } catch (error) {
+    // timers/promises rejects with its own AbortError; callers get the reason.
+    signal?.throwIfAborted()
+    throw error
+  }
 }
 
 /**
  * Reads `metadata()` until its `assets.pending` is 0 — or until the engine
  * reports no `assets` at all — within `timeoutMs`. Always reads at least
- * once. On timeout it hands back the last numbers seen, for diagnostics.
+ * once. On timeout it hands back the last numbers seen, for diagnostics. An
+ * aborted `signal` rejects with its reason at the next read or poll.
  */
 export async function waitForAssetsReady(
   read: () => Promise<Record<string, unknown>>,
   timeoutMs: number,
+  signal?: AbortSignal,
 ): Promise<AssetsWait> {
   const deadline = Date.now() + timeoutMs
   for (;;) {
+    signal?.throwIfAborted()
     const metadata = await read()
+    signal?.throwIfAborted()
     const assets = runtimeAssetStatus(metadata.assets)
     if (!assets || assets.pending === 0) return { ok: true, metadata }
     if (Date.now() >= deadline) return { ok: false, assets }
-    await delay(ASSETS_POLL_INTERVAL_MS)
+    await abortableDelay(ASSETS_POLL_INTERVAL_MS, signal)
   }
 }

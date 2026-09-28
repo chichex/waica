@@ -10,7 +10,7 @@ import type {
   RuntimeDevServer,
   RuntimeLifecycleHandlers,
 } from './runtime-session-manager.js'
-import { ASSETS_POLL_INTERVAL_MS, runtimeAssetStatus } from './runtime-assets.js'
+import { ASSETS_POLL_INTERVAL_MS, abortableDelay, runtimeAssetStatus } from './runtime-assets.js'
 import type { RuntimePreflightResult } from './runtime-preflight.js'
 import { RuntimeToolError, type RuntimeControlInput } from './runtime-service.js'
 
@@ -108,10 +108,6 @@ function runtimeError(
   })
 }
 
-function delay(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds))
-}
-
 async function readinessProbe(page: Page): Promise<ReadinessProbe> {
   return page.evaluate(() => {
     type Bridge = {
@@ -201,6 +197,7 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
     private readonly browser: Browser,
     private readonly context: BrowserContext,
     private readonly page: Page,
+    private readonly signal?: AbortSignal,
   ) {
     const recordError = (detail: unknown): void => {
       this.browserErrors.push(boundedMessage(detail))
@@ -224,7 +221,7 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
         !this.reloading &&
         !this.closed
       ) {
-        void this.handleReload()
+        this.handleReload().catch((error: unknown) => this.lifecycle.failed(error))
       }
     })
   }
@@ -243,7 +240,9 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
         this.diagnostics(),
       )
     }
-    this.readyValue = await this.waitForReady()
+    // Only the initial readiness belongs to the start call; reloads later in
+    // the session are not cancelled by it.
+    this.readyValue = await this.waitForReady(this.signal)
     this.initialReady = true
   }
 
@@ -328,9 +327,10 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
     this.lifecycle = handlers
   }
 
-  private async waitForReady(): Promise<RuntimeBridgeReady> {
+  private async waitForReady(signal?: AbortSignal): Promise<RuntimeBridgeReady> {
     const deadline = Date.now() + this.preflight.timeoutMs
     while (Date.now() <= deadline) {
+      signal?.throwIfAborted()
       if (this.closed || this.page.isClosed()) {
         throw runtimeError(
           this.preflight,
@@ -352,7 +352,7 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
           this.diagnostics(),
         )
       }
-      await delay(ASSETS_POLL_INTERVAL_MS)
+      await abortableDelay(ASSETS_POLL_INTERVAL_MS, signal)
     }
     const diagnostics = this.diagnostics()
     if (this.browserErrors.length > 0) {
@@ -502,6 +502,7 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
 export async function startRuntimeBrowser(
   preflight: RuntimePreflightResult,
   devServer: RuntimeDevServer,
+  signal?: AbortSignal,
 ): Promise<RuntimeBrowser> {
   let browser: Browser | undefined
   let context: BrowserContext | undefined
@@ -516,12 +517,14 @@ export async function startRuntimeBrowser(
     })
     await context.addInitScript(installRuntimeBridgeActivation)
     const page = await context.newPage()
-    const runtime = new PlaywrightRuntimeBrowser(preflight, devServer, browser, context, page)
+    signal?.throwIfAborted()
+    const runtime = new PlaywrightRuntimeBrowser(preflight, devServer, browser, context, page, signal)
     await runtime.initialize()
     return runtime
   } catch (error) {
     await context?.close().catch(() => {})
     await browser?.close().catch(() => {})
+    if (signal?.aborted) throw signal.reason
     if (error instanceof RuntimeToolError) throw error
     throw runtimeError(
       preflight,

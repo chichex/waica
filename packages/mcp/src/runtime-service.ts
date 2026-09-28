@@ -62,11 +62,20 @@ export interface RuntimeScreenshotResult {
   data: string
 }
 
+/**
+ * Per-call options. `signal` is the MCP host's cancellation for the tool
+ * call: an aborted call rejects with the signal's reason and leaves no
+ * half-registered Run Session behind.
+ */
+export interface RuntimeCallOptions {
+  readonly signal?: AbortSignal
+}
+
 export interface RuntimeService {
-  start(input: StartRuntimeInput): Promise<Record<string, unknown>>
+  start(input: StartRuntimeInput, options?: RuntimeCallOptions): Promise<Record<string, unknown>>
   stop(projectPath: string): Promise<Record<string, unknown>>
-  inspect(input: RuntimeInspectInput): Promise<Record<string, unknown>>
-  control(input: RuntimeControlInput): Promise<Record<string, unknown>>
-  captureScreenshot(projectPath: string): Promise<RuntimeScreenshotResult>
+  inspect(input: RuntimeInspectInput, options?: RuntimeCallOptions): Promise<Record<string, unknown>>
+  control(input: RuntimeControlInput, options?: RuntimeCallOptions): Promise<Record<string, unknown>>
+  captureScreenshot(projectPath: string, options?: RuntimeCallOptions): Promise<RuntimeScreenshotResult>
   close(): Promise<void>
 }

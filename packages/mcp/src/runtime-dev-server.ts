@@ -13,6 +13,8 @@ export interface RuntimeDevServerOptions {
   forceWaitMs?: number
   maxPortAttempts?: number
   allocatePort?: () => Promise<number>
+  /** Cancels the start: the process group is terminated and the start rejects with the reason. */
+  signal?: AbortSignal
 }
 
 class ByteTail {
@@ -231,6 +233,10 @@ async function startAttempt(
   const deadline = Date.now() + preflight.timeoutMs
   let parsedUrl: string | undefined
   while (Date.now() <= deadline) {
+    if (options.signal?.aborted) {
+      await terminateGroup(child, options.graceMs ?? 2_000, options.forceWaitMs ?? 2_000)
+      throw options.signal.reason
+    }
     if (child.exitCode !== null || child.signalCode !== null) break
     const match = LOOPBACK_URL.exec(`${stdout.text()}\n${stderr.text()}`)
     if (match) {
@@ -285,6 +291,11 @@ function isBindCollision(error: unknown): boolean {
   )
 }
 
+/** A port race worth another attempt, unless the caller cancelled the start. */
+function retryableBindCollision(error: unknown, signal: AbortSignal | undefined): boolean {
+  return signal?.aborted !== true && isBindCollision(error)
+}
+
 export async function startRuntimeDevServer(
   preflight: RuntimePreflightResult,
   options: RuntimeDevServerOptions = {},
@@ -302,7 +313,7 @@ export async function startRuntimeDevServer(
       return await startAttempt(preflight, args, port, options)
     } catch (error) {
       lastError = error
-      if (!isBindCollision(error) || attempt === attempts - 1) throw error
+      if (!retryableBindCollision(error, options.signal) || attempt === attempts - 1) throw error
     }
   }
   throw lastError

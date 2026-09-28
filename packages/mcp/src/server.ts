@@ -609,7 +609,7 @@ async function execute(
           ? { viewport: args.viewport as { width: number; height: number } }
           : {}),
         ...(typeof args.timeout_ms === 'number' ? { timeoutMs: args.timeout_ms } : {}),
-      })
+      }, { signal })
     case 'stop_project':
       return runtime.stop(projectPath)
     case 'inspect_runtime':
@@ -620,7 +620,7 @@ async function execute(
         ...(Array.isArray(args.component_types)
           ? { componentTypes: args.component_types as string[] }
           : {}),
-      })
+      }, { signal })
     case 'control_runtime':
       return runtime.control({
         projectPath,
@@ -630,9 +630,9 @@ async function execute(
         ...(typeof args.x === 'number' ? { x: args.x } : {}),
         ...(typeof args.y === 'number' ? { y: args.y } : {}),
         ...(typeof args.scene === 'string' ? { scene: args.scene } : {}),
-      } as RuntimeControlInput)
+      } as RuntimeControlInput, { signal })
     case 'capture_screenshot':
-      return runtime.captureScreenshot(projectPath)
+      return runtime.captureScreenshot(projectPath, { signal })
     default:
       throw new WaicaToolError({
         code: 'unknown-tool',
@@ -773,7 +773,9 @@ export function createWaicaMcpServer(options: WaicaMcpServerOptions = {}): Serve
     return cleanup
   }
   server.onclose = () => {
-    void cleanupResources()
+    cleanupResources().catch((error: unknown) => {
+      console.error(`waica-mcp: cleanup failed: ${error instanceof Error ? error.message : String(error)}`)
+    })
   }
   const closeProtocol = server.close.bind(server)
   server.close = async () => {
