@@ -4,6 +4,26 @@ import type { SceneRegistry } from './scene.js'
 /** The namespace returned by importing one project code module. */
 export type ComponentModule = Readonly<Record<string, unknown>>
 
+/** Whether `value` is a class that extends Component (the abstract base itself is not). */
+export function isComponentClass(value: unknown): value is ComponentClass {
+  if (typeof value !== 'function') return false
+  const prototype: unknown = Reflect.get(value, 'prototype')
+  return prototype instanceof Component
+}
+
+/**
+ * The class a live component was constructed from. TypeScript types
+ * `constructor` as Function; this narrows it for real instead of asserting.
+ * Internal: not re-exported from the package entry.
+ */
+export function componentClassOf(component: Component): ComponentClass {
+  const Class: unknown = component.constructor
+  if (!isComponentClass(Class)) {
+    throw new TypeError('a component was not constructed from a Component class')
+  }
+  return Class
+}
+
 /**
  * Finds exported Component subclasses in project modules. Classes are keyed by
  * their stable componentName, not by the export name, so minification and
@@ -16,9 +36,8 @@ export function collectModuleComponents(
   const components: Record<string, ComponentClass> = {}
   for (const module of modules) {
     for (const value of Object.values(module)) {
-      if (typeof value !== 'function') continue
-      const Class = value as unknown as ComponentClass
-      if (!(Class.prototype instanceof Component)) continue
+      if (!isComponentClass(value)) continue
+      const Class = value
       // Without its own componentName a class inherits the base's, so nothing
       // could reference it from scene JSON. Silently skipping it looks like
       // the editor lost the file: say so instead.

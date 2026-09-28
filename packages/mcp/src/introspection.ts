@@ -29,6 +29,12 @@ export interface ComponentDescription {
   sourcePackage: string
 }
 
+/** Whether a class's prototype defines `method` as a function. */
+function prototypeDefines(Class: ComponentClass, method: string): boolean {
+  const prototype: unknown = Reflect.get(Class, 'prototype')
+  return typeof prototype === 'object' && prototype !== null && typeof Reflect.get(prototype, method) === 'function'
+}
+
 function moduleDeclaresComponent(
   module: Record<string, unknown>,
   Class: ComponentClass,
@@ -36,7 +42,7 @@ function moduleDeclaresComponent(
   return Object.values(module).some((candidate) => {
     if (candidate === Class) return true
     if (typeof candidate !== 'function') return false
-    return (candidate as unknown as { componentName?: unknown }).componentName === Class.componentName
+    return Reflect.get(candidate, 'componentName') === Class.componentName
   })
 }
 
@@ -78,7 +84,7 @@ export async function listComponents(projectPath: string): Promise<{
       componentName: Class.componentName,
       params: (Class.params ?? {}) as Record<string, unknown>,
       defaults: authoringDefaults(Class),
-      updates: typeof Class.prototype.onUpdate === 'function',
+      updates: prototypeDefines(Class, 'onUpdate'),
       updateAfter: [...(Class.updateAfter ?? [])],
       sourcePackage: sourcePackage(
         Class,

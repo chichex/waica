@@ -1,11 +1,12 @@
 import type { AudioChannelState, LiveSoundInfo } from './audio/types.js'
 import type { CameraEffectsState } from './camera-effects.js'
-import type { Component, ComponentClass } from './component.js'
+import type { Component } from './component.js'
 import type { Entity } from './entity.js'
 import type { Game } from './game.js'
 import type { RuntimeMetadata } from './runtime-bridge.js'
 import type { StatValue } from './stats.js'
 import { anchoredPiecesOf } from './ui.js'
+import { componentClassOf } from './component-registry.js'
 
 export type ProjectionMarkerKind = 'cycle' | 'unsupported' | 'error' | 'truncated'
 
@@ -158,7 +159,7 @@ function marker(
 }
 
 function isPlainRecord(value: object): value is Record<string, unknown> {
-  const prototype = Object.getPrototypeOf(value)
+  const prototype = Reflect.getPrototypeOf(value)
   return prototype === Object.prototype || prototype === null
 }
 
@@ -314,7 +315,7 @@ function componentState(
     if (key === 'entity' || key === 'game' || key.startsWith('_')) continue
     const valuePath = `${path}.${key}`
     try {
-      const value = (component as unknown as Record<string, unknown>)[key]
+      const value: unknown = Reflect.get(component, key)
       if (typeof value === 'function') continue
       state[key] = projectValue(value, valuePath, context, 1)
     } catch (error) {
@@ -389,7 +390,7 @@ export class RuntimeInspector {
       if (idFilter && !idFilter.has(id)) return []
       if (nameFilter && !nameFilter.has(entity.name)) return []
       const components = entity.components.flatMap((component, index) => {
-        const Class = component.constructor as unknown as ComponentClass
+        const Class = componentClassOf(component)
         if (componentFilter && !componentFilter.has(Class.componentName)) return []
         const context: ProjectionContext = { issues: projectionIssues, seen: new Map() }
         return [{

@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
-import { Game, GameUi, loadScene, resolveCollisionPoints, resolveSceneCamera, Tilemap, THREE, type CollisionPoint, type Entity, type GameResolution, type InputBindings, type SceneJson, type SceneRegistry, type StatValue } from '@waica/engine'
+import { Game, GameUi, loadScene, resolveCollisionPoints, resolveSceneCamera, Tilemap, THREE, type CollisionPoint, type Component, type Entity, type GameResolution, type InputBindings, type SceneJson, type SceneRegistry, type StatValue } from '@waica/engine'
 import { DEFAULT_EDITOR_SETTINGS, MIN_GRID_SIZE, type GridSettings } from '../project/editor-settings'
 import { CAMERA_NODE } from '../scene/ops'
 import { componentBox, entityBounds as editorEntityBounds, type EditorBoxBounds, type EditorBoxLike, type EditorBoxRole } from './appearance-bounds'
@@ -111,11 +111,27 @@ const projectionOf = (scene: SceneJson): ViewportProjection =>
 const roleForType = (type: string): EditorBoxRole =>
   type === 'Sprite' || type === 'AnimatedSprite' ? 'appearance' : 'collision'
 
+/** The box fields a live component exposes, read without asserting its type. */
+function editorBoxOf(component: object): EditorBoxLike {
+  const read = (key: keyof EditorBoxLike): unknown => Reflect.get(component, key)
+  return {
+    width: read('width'),
+    height: read('height'),
+    offsetX: read('offsetX'),
+    offsetY: read('offsetY'),
+    anchorX: read('anchorX'),
+    anchorY: read('anchorY'),
+    flipX: read('flipX'),
+    frameScaleX: read('frameScaleX'),
+    frameScaleY: read('frameScaleY'),
+  }
+}
+
 /** Render-space union used by both picking and selection gizmos. */
 function entityBounds(entity: Entity, projection: ViewportProjection): EditorBoxBounds {
   const components = entity.components.map((component) => {
     const type = (component.constructor as { componentName?: string }).componentName ?? ''
-    return { role: roleForType(type), box: component as unknown as EditorBoxLike }
+    return { role: roleForType(type), box: editorBoxOf(component) }
   })
   if (projection !== 'isometric') return editorEntityBounds(components)
   const boxes = components.flatMap(({ role, box }) => {
@@ -197,6 +213,33 @@ interface LiveBox {
   frameScaleY?: number
   shape?: string
   points?: CollisionPoint[]
+}
+
+const isNumber = (value: unknown): boolean => typeof value === 'number'
+const isPoint = (value: unknown): boolean =>
+  Array.isArray(value) && value.length === 2 && value.every(isNumber)
+
+/** How each optional LiveBox field must look when a component has it. */
+const LIVE_BOX_OPTIONAL: Record<Exclude<keyof LiveBox, 'width' | 'height'>, (value: unknown) => boolean> = {
+  offsetX: isNumber,
+  offsetY: isNumber,
+  anchorX: isNumber,
+  anchorY: isNumber,
+  flipX: (value) => typeof value === 'boolean',
+  frameScaleX: isNumber,
+  frameScaleY: isNumber,
+  shape: (value) => typeof value === 'string',
+  points: (value) => Array.isArray(value) && value.every(isPoint),
+}
+
+/** A live component with a resizable box: numeric size and well-typed box fields. */
+function isLiveBox(component: Component): component is Component & LiveBox {
+  const read = (key: string): unknown => Reflect.get(component, key)
+  return (
+    isNumber(read('width')) &&
+    isNumber(read('height')) &&
+    Object.entries(LIVE_BOX_OPTIONAL).every(([key, check]) => read(key) === undefined || check(read(key)))
+  )
 }
 
 function boxShape(comp: LiveBox, role: BoxRole): 'rectangle' | 'circle' | 'polygon' {
@@ -311,10 +354,7 @@ function findBox(
   for (const c of entity.components) {
     const type = (c.constructor as { componentName?: string }).componentName ?? ''
     if (!types.includes(type)) continue
-    const comp = c as unknown as Partial<LiveBox>
-    if (typeof comp.width === 'number' && typeof comp.height === 'number') {
-      return { comp: comp as LiveBox, type }
-    }
+    if (isLiveBox(c)) return { comp: c, type }
   }
   return null
 }
@@ -785,7 +825,7 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
       (candidate) =>
         (candidate.constructor as { componentName?: string }).componentName === componentType,
     )
-    if (component) (component as unknown as Record<string, unknown>)[key] = value
+    if (component) Reflect.set(component, key, value)
   }
 
   useImperativeHandle(ref, () => ({

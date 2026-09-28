@@ -77,6 +77,7 @@ import { loadWorkspace, saveWorkspace, type WorkspaceView } from './workspace'
 import { WriteScheduler } from './write-scheduler'
 import type { TilemapBrushSelection } from './tilemap-brush'
 import { reportRejection } from '../report-rejection'
+import { parseSceneJson } from '../scene/scene-file'
 
 type SaveState = 'saved' | 'saving' | 'error'
 
@@ -331,8 +332,11 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             case 'stateFile':
             case 'componentFile':
               return codeFiles.has(v.path)
-            default:
-              // script/controls/stats/game always resolve.
+            case 'script':
+            case 'controls':
+            case 'stats':
+            case 'game':
+              // These always resolve.
               return true
           }
         }
@@ -452,7 +456,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       if (stale) return
       try {
         if (text == null) throw new Error('missing')
-        setOpenScene({ path, scene: ops.migrateScene(JSON.parse(text) as SceneJson) })
+        setOpenScene({ path, scene: ops.migrateScene(parseSceneJson(text)) })
       } catch {
         setSceneFailed(true)
       }
@@ -847,7 +851,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
         if (!before) {
           const text = await fs.readText(path)
           if (text == null) throw new Error(`missing scene: ${path}`)
-          before = ops.migrateScene(JSON.parse(text) as SceneJson)
+          before = ops.migrateScene(parseSceneJson(text))
         }
         if (!before.entities.some((entity) => entity.prefab === ref)) continue
         const after: SceneJson = {
@@ -1032,7 +1036,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       const text = await fs.readText(path)
       if (text == null) continue
       try {
-        library[name] = ops.migrateScene(JSON.parse(text) as SceneJson)
+        library[name] = ops.migrateScene(parseSceneJson(text))
       } catch {
         console.error(`[waica] Play could not read scene ${path}`)
       }
@@ -1583,7 +1587,9 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
         return { icon: '📊', label: 'stats' }
       case 'game':
         return { icon: '🕹️', label: 'game' }
-      default:
+      case 'scene':
+      case undefined:
+        // The scene has its own breadcrumb below; no view has none.
         return null
     }
   })()
@@ -2091,7 +2097,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
               urlFor={projectArt.urlFor}
               onImportArt={projectArt.importArt}
               onSave={(next) => {
-                const props = next as unknown as Record<string, unknown>
+                const props: Record<string, unknown> = { ...next }
                 if (animTarget.kind === 'prefab') {
                   const prefab = prefabLib[animTarget.ref]
                   if (prefab) {

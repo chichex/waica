@@ -197,10 +197,13 @@ function causeText(error: unknown): string {
   return `${code ? `${code}: ` : ''}${error.message}`
 }
 
-function stringDefaults(Class: new () => object): Record<string, string> {
+/** The string-valued fields of a fresh instance; nothing when it cannot be constructed. */
+function stringDefaults(Class: unknown): Record<string, string> {
+  if (typeof Class !== 'function') return {}
   try {
+    const instance: unknown = Reflect.construct(Class, [])
     return Object.fromEntries(
-      Object.entries(new Class()).filter((entry): entry is [string, string] =>
+      Object.entries(record(instance)).filter((entry): entry is [string, string] =>
         typeof entry[1] === 'string',
       ),
     )
@@ -209,55 +212,55 @@ function stringDefaults(Class: new () => object): Record<string, string> {
   }
 }
 
+function isStringList(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string')
+}
+
+function paramRows(Class: object): ComponentParamRow[] {
+  const defaults = stringDefaults(Class)
+  const params: ComponentParamRow[] = []
+  for (const [name, rawSpec] of Object.entries(record(Reflect.get(Class, 'params')))) {
+    const spec = record(rawSpec)
+    if (typeof spec.ref !== 'string' || !REF_KINDS.has(spec.ref)) continue
+    params.push({
+      name,
+      ref: spec.ref as ComponentParamRow['ref'],
+      hasOptions: spec.options !== undefined,
+      ...(Object.hasOwn(defaults, name) ? { default: defaults[name] } : {}),
+    })
+  }
+  return params
+}
+
+/** The row for one module export, or null when it is not a named component class. */
+function componentRow(value: unknown, relativeFile: string): ComponentRow | null {
+  if (typeof value !== 'function' || !Object.hasOwn(value, 'componentName')) return null
+  const name: unknown = Reflect.get(value, 'componentName')
+  if (typeof name !== 'string' || !name) return null
+  const updateAfter: unknown = Reflect.get(value, 'updateAfter')
+  const hasUpdateAfter = updateAfter !== undefined
+  if (hasUpdateAfter && !isStringList(updateAfter)) {
+    throw new Error(`Component "${name}" updateAfter must be an array of strings.`)
+  }
+  const prototype = record(Reflect.get(value, 'prototype'))
+  return {
+    name,
+    file: relativeFile,
+    params: paramRows(value),
+    hasOnUpdate: typeof prototype.onUpdate === 'function',
+    hasUpdateAfter,
+    updateAfter: isStringList(updateAfter) ? [...updateAfter] : [],
+  }
+}
+
 function componentRows(
   loaded: Record<string, unknown>,
   relativeFile: string,
 ): ComponentRow[] {
-  const rows: ComponentRow[] = []
-  for (const value of Object.values(loaded)) {
-    if (typeof value !== 'function' || !Object.hasOwn(value, 'componentName')) continue
-    const Class = value as unknown as {
-      new (): object
-      componentName?: unknown
-      params?: unknown
-      updateAfter?: unknown
-      prototype?: Record<string, unknown>
-    }
-    if (typeof Class.componentName !== 'string' || !Class.componentName) continue
-
-    const defaults = stringDefaults(Class)
-    const params: ComponentParamRow[] = []
-    for (const [name, rawSpec] of Object.entries(record(Class.params))) {
-      const spec = record(rawSpec)
-      if (typeof spec.ref !== 'string' || !REF_KINDS.has(spec.ref)) continue
-      params.push({
-        name,
-        ref: spec.ref as ComponentParamRow['ref'],
-        hasOptions: spec.options !== undefined,
-        ...(Object.hasOwn(defaults, name) ? { default: defaults[name] } : {}),
-      })
-    }
-
-    const hasUpdateAfter = Class.updateAfter !== undefined
-    if (
-      hasUpdateAfter &&
-      (!Array.isArray(Class.updateAfter) ||
-        Class.updateAfter.some((target) => typeof target !== 'string'))
-    ) {
-      throw new Error(
-        `Component "${Class.componentName}" updateAfter must be an array of strings.`,
-      )
-    }
-    rows.push({
-      name: Class.componentName,
-      file: relativeFile,
-      params,
-      hasOnUpdate: typeof Class.prototype?.onUpdate === 'function',
-      hasUpdateAfter,
-      updateAfter: hasUpdateAfter ? [...(Class.updateAfter as string[])] : [],
-    })
-  }
-  return rows
+  return Object.values(loaded).flatMap((value) => {
+    const row = componentRow(value, relativeFile)
+    return row ? [row] : []
+  })
 }
 
 function validRequest(value: unknown): value is RunnerRequest {

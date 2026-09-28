@@ -300,7 +300,19 @@ function schedulingAdapter(row: ComponentRow): ComponentClass {
       value: () => undefined,
     })
   }
-  return SchedulingAdapter as unknown as ComponentClass
+  return asSchedulingClass(SchedulingAdapter)
+}
+
+/**
+ * A scheduling stand-in carries only what resolveComponentUpdateSchedule
+ * reads (componentName, updateAfter, prototype.onUpdate). This process imports
+ * @waica/engine for types only — project code and its engine run in isolated
+ * children — so the stand-in cannot extend the real Component class. This is
+ * the one place that presents it as a ComponentClass.
+ */
+function asSchedulingClass(adapter: new () => object): ComponentClass {
+  // eslint-disable-next-line no-restricted-syntax -- structural stand-in: this process loads no engine runtime code, and the scheduler reads only componentName, updateAfter and prototype.onUpdate
+  return adapter as unknown as ComponentClass
 }
 
 function description(row: ComponentRow): ProjectComponentDescription {

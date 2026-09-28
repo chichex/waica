@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import { Component } from './component'
-import { collectModuleComponents, mergeRegistryComponents } from './component-registry'
+import {
+  collectModuleComponents,
+  componentClassOf,
+  isComponentClass,
+  mergeRegistryComponents,
+} from './component-registry'
 
 class BuiltinProbe extends Component {
   static override componentName = 'BuiltinProbe'
@@ -65,5 +70,26 @@ describe('mergeRegistryComponents', () => {
     expect(merged.resolveAsset).toBe(base.resolveAsset)
     expect(warn).toHaveBeenCalledOnce()
     expect(warn.mock.calls[0]?.[0]).toContain('BuiltinProbe')
+  })
+})
+
+describe('componentClassOf', () => {
+  it('returns the class a live component was built from', () => {
+    class Probe extends Component {
+      static override componentName = 'Probe'
+    }
+    expect(componentClassOf(new Probe())).toBe(Probe)
+    expect(componentClassOf(new Probe()).componentName).toBe('Probe')
+  })
+
+  it('recognises Component subclasses and nothing else', () => {
+    class Probe extends Component {
+      static override componentName = 'Probe'
+    }
+    expect(isComponentClass(Probe)).toBe(true)
+    expect(isComponentClass(Component)).toBe(false)
+    expect(isComponentClass(class NotAComponent {})).toBe(false)
+    expect(isComponentClass(() => {})).toBe(false)
+    expect(isComponentClass('Probe')).toBe(false)
   })
 })

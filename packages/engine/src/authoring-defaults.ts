@@ -6,9 +6,9 @@ function isSerializable(value: unknown): boolean {
   if (value === null) return true
   const kind = typeof value
   if (kind === 'string' || kind === 'number' || kind === 'boolean') return true
-  if (kind !== 'object') return false
+  if (typeof value !== 'object') return false
   if (Array.isArray(value)) return true
-  const proto = Object.getPrototypeOf(value)
+  const proto = Reflect.getPrototypeOf(value)
   return proto === Object.prototype || proto === null
 }
 
@@ -25,9 +25,9 @@ export function authoringDefaults(
   Class: ComponentClass,
   onError?: (error: unknown) => void,
 ): Record<string, unknown> {
-  let instance: Record<string, unknown>
+  let instance: object
   try {
-    instance = new Class() as unknown as Record<string, unknown>
+    instance = new Class()
   } catch (error) {
     onError?.(error)
     return {}
@@ -36,9 +36,9 @@ export function authoringDefaults(
   const transient = new Set(Class.transient ?? [])
   const keys = new Set(Object.keys(instance))
   for (
-    let proto: object | null = Object.getPrototypeOf(instance);
+    let proto: object | null = Reflect.getPrototypeOf(instance);
     proto && proto !== Object.prototype;
-    proto = Object.getPrototypeOf(proto)
+    proto = Reflect.getPrototypeOf(proto)
   ) {
     for (const [key, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(proto))) {
       if (descriptor.set) keys.add(key)
@@ -48,7 +48,7 @@ export function authoringDefaults(
   const result: Record<string, unknown> = {}
   for (const key of keys) {
     if (EXCLUDED_KEYS.has(key) || key.startsWith('_') || transient.has(key)) continue
-    const value = instance[key]
+    const value: unknown = Reflect.get(instance, key)
     if (value === undefined || !isSerializable(value)) continue
     result[key] = value
   }

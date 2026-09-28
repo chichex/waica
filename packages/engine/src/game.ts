@@ -15,7 +15,7 @@ import {
 } from './camera.js'
 import { advanceCameraEffects, CameraEffects, layoutCameraEffects } from './camera-effects.js'
 import type { Component, ComponentClass } from './component.js'
-import { resolveComponentUpdateSchedule } from './component-update-schedule.js'
+import { implementsOnUpdate, resolveComponentUpdateSchedule } from './component-update-schedule.js'
 import { Entity } from './entity.js'
 import { Emitter } from './events.js'
 import {
@@ -45,6 +45,7 @@ import {
 import { createSpatialQuery, type SpatialQuery } from './spatial-query.js'
 import { Stats, type StatValue } from './stats.js'
 import { anchoredPiecesOf, GameUi } from './ui.js'
+import { componentClassOf } from './component-registry.js'
 
 /** Fixed game resolution: the view keeps this aspect, letterboxed. */
 export interface GameResolution {
@@ -362,7 +363,7 @@ export class Game {
 
   /** Applies persisted overrides to a freshly added component. */
   applyParamOverrides(entity: Entity, component: Component): void {
-    const Class = component.constructor as unknown as ComponentClass
+    const Class = componentClassOf(component)
     const override = this.paramOverrides[entity.name]?.[Class.componentName]
     if (override) Object.assign(component, override)
   }
@@ -683,12 +684,12 @@ export class Game {
     const names: string[] = []
     const signatureParts: string[] = []
     for (const component of components) {
-      const Class = component.constructor as unknown as ComponentClass
+      const Class = componentClassOf(component)
       const name = Class.componentName
       names.push(name)
       byName.set(name, component)
       signatureParts.push(
-        `${name}:${typeof Class.prototype.onUpdate === 'function' ? 'updates' : 'passive'}:` +
+        `${name}:${implementsOnUpdate(Class) ? 'updates' : 'passive'}:` +
           [...new Set(Class.updateAfter ?? [])].sort().join(','),
       )
     }
@@ -707,7 +708,7 @@ export class Game {
       ...(this.registry?.components ?? {}),
     }
     for (const component of components) {
-      const Class = component.constructor as unknown as ComponentClass
+      const Class = componentClassOf(component)
       registry[Class.componentName] = Class
     }
     const result = resolveComponentUpdateSchedule(names, registry)
