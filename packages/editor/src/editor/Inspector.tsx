@@ -769,8 +769,8 @@ function MultiPropsSection({
   return (
     <>
       {sharedTypes.map((type) => {
-        const comps = resolved.map((list) => list.find((c) => c.type === type)!)
-        const defaults = componentDefaults(comps[0]!, archetype)
+        const comps = lookupShared(resolved, (list) => list.find((c) => c.type === type), type)
+        const defaults = componentDefaults(comps[0], archetype)
         const specs = archetype.registry.components[type]?.params ?? {}
         const valueOf = (comp: SceneComponentJson, key: string): unknown =>
           comp.props && Object.hasOwn(comp.props, key) ? comp.props[key] : defaults[key]
@@ -807,6 +807,26 @@ function MultiPropsSection({
   )
 }
 
+/**
+ * Looks a shared component type up on every selected entity. Shared types are
+ * taken from the first entity and kept only when every entity carries them, so
+ * a miss or an empty selection means that invariant broke.
+ */
+function lookupShared<T, U>(
+  items: readonly T[],
+  lookup: (item: T) => U | undefined,
+  type: string,
+): [U, ...U[]] {
+  const found = items.map((item) => {
+    const value = lookup(item)
+    if (value === undefined) throw new Error(`shared component type "${type}" is missing on a selected entity`)
+    return value
+  })
+  const [first, ...rest] = found
+  if (first === undefined) throw new Error(`shared component type "${type}" has no selected entity`)
+  return [first, ...rest]
+}
+
 function MultiUpdateScheduleSection({
   entities,
   prefabs,
@@ -841,14 +861,14 @@ function MultiUpdateScheduleSection({
     <div className="ed-section ed-update-multi">
       <header className="ed-sec-head">Update schedule</header>
       {sharedTypes.map((type) => {
-        const annotations = valid.map((schedule) => schedule.annotations.get(type)!)
-        const position = annotations.every(({ position }) => position === annotations[0]?.position)
-          ? annotations[0]!.position
+        const annotations = lookupShared(valid, (schedule) => schedule.annotations.get(type), type)
+        const position = annotations.every(({ position }) => position === annotations[0].position)
+          ? annotations[0].position
           : 'varies'
         const after = annotations.every(
-          ({ after }) => after.join('\0') === annotations[0]?.after.join('\0'),
+          ({ after }) => after.join('\0') === annotations[0].after.join('\0'),
         )
-          ? annotations[0]!.after
+          ? annotations[0].after
           : []
         return (
           <div className="ed-comp" key={type}>
@@ -1272,24 +1292,30 @@ function AppearanceSection({
   )
 }
 
+/** The vertex at `index`, wrapping past the end; a polygon always has vertices. */
+function vertexAt(points: readonly CollisionPoint[], index: number): CollisionPoint {
+  const point = points[index % points.length]
+  if (!point) throw new Error(`polygon has no vertex at index ${index}`)
+  return point
+}
+
 function addPolygonVertex(points: CollisionPoint[]): CollisionPoint[] {
   let edge = 0
   let longest = -1
-  for (let index = 0; index < points.length; index++) {
-    const [x1, y1] = points[index]!
-    const [x2, y2] = points[(index + 1) % points.length]!
+  for (const [index, [x1, y1]] of points.entries()) {
+    const [x2, y2] = vertexAt(points, index + 1)
     const length = (x2 - x1) ** 2 + (y2 - y1) ** 2
     if (length > longest) {
       longest = length
       edge = index
     }
   }
-  const [x1, y1] = points[edge]!
-  const [x2, y2] = points[(edge + 1) % points.length]!
+  const [x1, y1] = vertexAt(points, edge)
+  const [x2, y2] = vertexAt(points, edge + 1)
   // Rotate so the chosen edge closes the loop, then append its midpoint.
   // “− last” can therefore undo the topology change exactly.
   const start = (edge + 1) % points.length
-  const rotated = points.map((_, index) => points[(start + index) % points.length]!)
+  const rotated = [...points.slice(start), ...points.slice(0, start)]
   return [...rotated, [(x1 + x2) / 2, (y1 + y2) / 2]]
 }
 

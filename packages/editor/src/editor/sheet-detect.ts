@@ -20,6 +20,9 @@ const MIN_SIZE = 3
 /** Breathing room around each tight box, so soft anti-aliased edges stay in. */
 const PADDING = 2
 
+/** Horizontal center of a box. */
+const centerX = (box: SheetCell): number => box.x + box.width / 2
+
 /** Contiguous true-runs of a profile: [start, end) pairs. */
 function runs(profile: boolean[]): Array<[number, number]> {
   const out: Array<[number, number]> = []
@@ -71,30 +74,35 @@ function stabilizeBand(
   width: number,
   height: number,
 ): SheetCell[] | null {
-  if (boxes.length < 2) return null
-  const centers = boxes.map((b) => b.x + b.width / 2)
+  // Fewer than two boxes have no pitch to snap to.
+  const [firstBox, ...laterBoxes] = boxes
+  const lastBox = laterBoxes.at(-1)
+  if (!firstBox || !lastBox) return null
   const n = boxes.length
-  const pitch = (centers[n - 1]! - centers[0]!) / (n - 1)
+  const firstCenter = centerX(firstBox)
+  const pitch = (centerX(lastBox) - firstCenter) / (n - 1)
   if (pitch <= 0) return null
   const tolerance = Math.max(2, pitch * 0.1)
-  const fitted = centers.map((_, i) => centers[0]! + i * pitch)
-  if (centers.some((c, i) => Math.abs(c - fitted[i]!) > tolerance)) return null
+  const fitted = (i: number): number => firstCenter + i * pitch
+  if (boxes.some((b, i) => Math.abs(centerX(b) - fitted(i)) > tolerance)) return null
   // The equal width: fits every frame's content (plus padding), but never
   // reaches into a neighbour's content.
   let half = 0
   boxes.forEach((b, i) => {
-    half = Math.max(half, fitted[i]! - b.x, b.x + b.width - fitted[i]!)
+    half = Math.max(half, fitted(i) - b.x, b.x + b.width - fitted(i))
   })
   let boxWidth = 2 * half + 2 * PADDING
-  for (let i = 0; i < n - 1; i++) {
-    boxWidth = Math.min(boxWidth, 2 * (boxes[i + 1]!.x - fitted[i]!))
-    boxWidth = Math.min(boxWidth, 2 * (fitted[i + 1]! - (boxes[i]!.x + boxes[i]!.width)))
+  let previous = firstBox
+  for (const [i, next] of laterBoxes.entries()) {
+    boxWidth = Math.min(boxWidth, 2 * (next.x - fitted(i)))
+    boxWidth = Math.min(boxWidth, 2 * (fitted(i + 1) - (previous.x + previous.width)))
+    previous = next
   }
   if (boxWidth < 2 * half) return null
   const top = Math.max(0, Math.min(...boxes.map((b) => b.y)) - PADDING)
   const bottom = Math.min(height, Math.max(...boxes.map((b) => b.y + b.height)) + PADDING)
   return boxes.map((_, i) => ({
-    x: Math.min(width - boxWidth, Math.max(0, fitted[i]! - boxWidth / 2)),
+    x: Math.min(width - boxWidth, Math.max(0, fitted(i) - boxWidth / 2)),
     y: top,
     width: boxWidth,
     height: bottom - top,
@@ -173,6 +181,7 @@ export async function detectCellsFromUrl(url: string): Promise<SheetCell[]> {
   ctx.drawImage(img, 0, 0)
   const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data
   const alpha = new Uint8Array(canvas.width * canvas.height)
-  for (let i = 0; i < alpha.length; i++) alpha[i] = data[i * 4 + 3]!
+  // An out-of-range typed-array read is undefined, which a Uint8Array stores as 0.
+  for (let i = 0; i < alpha.length; i++) alpha[i] = data[i * 4 + 3] ?? 0
   return detectCells({ width: canvas.width, height: canvas.height, alpha })
 }

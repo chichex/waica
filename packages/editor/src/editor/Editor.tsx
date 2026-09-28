@@ -240,7 +240,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     } finally {
       const entries = batchEntries.current
       batchEntries.current = null
-      if (entries && entries.length === 1) history.current.push(entries[0]!, Date.now())
+      if (entries && entries.length === 1 && entries[0]) history.current.push(entries[0], Date.now())
       else if (entries && entries.length > 1) {
         history.current.push({ kind: 'group', entries }, Date.now())
       }
@@ -582,24 +582,27 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     const single = selected && ops.findEntity(scene, selected) ? [selected] : []
     const base = multi.length > 0 ? multi : single
     const next = base.includes(name) ? base.filter((n) => n !== name) : [...base, name]
-    if (next.length <= 1) {
-      setSelected(next[0] ?? null)
+    // Below two names there is no multi-selection, only the single one (or none).
+    const [first = null, ...others] = next
+    if (others.length === 0) {
+      setSelected(first)
       setMulti([])
       return
     }
     setMulti(next)
-    if (!selected || !next.includes(selected)) setSelected(next[0]!)
+    if (!selected || !next.includes(selected)) setSelected(first)
   }
 
   /** Shift-click range / select-all: the run replaces the selection wholesale. */
   const rangeEntities = (names: string[]): void => {
-    if (names.length === 0) return
-    if (names.length === 1) {
-      selectEntity(names[0]!)
+    const [first, ...others] = names
+    if (first === undefined) return
+    if (others.length === 0) {
+      selectEntity(first)
       return
     }
     setMulti(names)
-    if (!selected || !names.includes(selected)) setSelected(names[0]!)
+    if (!selected || !names.includes(selected)) setSelected(first)
   }
 
   const clearSelection = (): void => {
@@ -685,11 +688,12 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       next = ops.addEntity(next, copy)
       copies.push(copy.name)
     }
-    if (copies.length === 0) return
+    const [firstCopy] = copies
+    if (firstCopy === undefined) return
     commit(next, true)
     setView({ kind: 'scene', path: openScenePath })
     // The copies become the selection, ready to drag somewhere as a group.
-    setSelected(copies[0]!)
+    setSelected(firstCopy)
     setMulti(copies.length > 1 ? copies : [])
   }
 

@@ -251,8 +251,8 @@ export function reorderEntity(scene: SceneJson, name: string, target: DropTarget
     return fromTree(scene, rows)
   }
   const idx = targetIndex(rows, target)
-  if (idx < 0) return scene
-  const row = rows[idx]!
+  const row = rows[idx]
+  if (!row) return scene
   const entityName = 'beforeEntity' in target ? target.beforeEntity : 'afterEntity' in target ? target.afterEntity : null
   if (row.kind === 'folder' && entityName != null) {
     // Landing between two members of a folder: the entity joins it.
@@ -300,16 +300,17 @@ export function reorderEntities(scene: SceneJson, names: string[], target: DropT
 export function reorderFolder(scene: SceneJson, name: string, target: Exclude<DropTarget, { into: string }>): SceneJson {
   const rows = sceneTree(scene)
   const from = rows.findIndex((r) => r.kind === 'folder' && r.name === name)
-  if (from < 0) return scene
-  const [row] = rows.splice(from, 1)
+  const row = rows[from]
+  if (!row) return scene
+  rows.splice(from, 1)
   if (target === 'end') {
-    rows.push(row!)
+    rows.push(row)
     return fromTree(scene, rows)
   }
   const idx = targetIndex(rows, target)
   if (idx < 0) return scene
   const slot = 'afterEntity' in target || 'afterFolder' in target ? idx + 1 : idx
-  rows.splice(slot, 0, row!)
+  rows.splice(slot, 0, row)
   return fromTree(scene, rows)
 }
 

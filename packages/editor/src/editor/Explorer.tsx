@@ -338,9 +338,9 @@ export function Explorer({
     if ((e.key === 'Delete' || e.key === 'Backspace') && group.length > 0) {
       e.preventDefault()
       onDeleteEntities(group)
-    } else if (e.key === 'F2' && group.length === 1) {
+    } else if (e.key === 'F2' && group.length === 1 && group[0] !== undefined) {
       e.preventDefault()
-      setEditing({ kind: 'entity', name: group[0]! })
+      setEditing({ kind: 'entity', name: group[0] })
     } else if (mod && e.key.toLowerCase() === 'd' && group.length > 0) {
       e.preventDefault()
       onDuplicateEntities(group)

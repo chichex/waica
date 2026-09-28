@@ -266,6 +266,27 @@ function boxHandlePoints(comp: LiveBox, role: BoxRole): CollisionPoint[] {
     : CORNERS.map(([x, y]) => [x, y])
 }
 
+/** componentBox of a live box: isLiveBox already proved width and height are numbers. */
+function liveBoxBounds(comp: LiveBox, role: BoxRole): EditorBoxBounds {
+  const bounds = componentBox(comp, role)
+  if (!bounds) throw new Error('componentBox rejected a live box whose width and height are numbers')
+  return bounds
+}
+
+/** The normalized handle point behind rendered handle `index`; both lists come from boxHandlePoints. */
+function handleCorner(normalized: readonly CollisionPoint[], index: number): CollisionPoint {
+  const corner = normalized[index]
+  if (!corner) throw new Error(`box handle ${index} has no normalized corner`)
+  return corner
+}
+
+/** Whether `point` lies within `threshold` of any edge of the closed outline. */
+function nearOutline(points: readonly CollisionPoint[], [x, y]: CollisionPoint, threshold: number): boolean {
+  const [first] = points
+  if (!first) return false
+  return points.some((start, index) => pointSegmentDistance(x, y, start, points[index + 1] ?? first) <= threshold)
+}
+
 function boxCenter(
   entity: Entity,
   comp: LiveBox,
@@ -273,7 +294,7 @@ function boxCenter(
   projection: ViewportProjection,
 ): CollisionPoint {
   if (role === 'appearance') {
-    const bounds = componentBox(comp, 'appearance')!
+    const bounds = liveBoxBounds(comp, 'appearance')
     const [entityX, entityY] = renderPoint(projection, entity.position.x, entity.position.y)
     return [entityX + bounds.centerX, entityY + bounds.centerY]
   }
@@ -293,7 +314,7 @@ function boxRenderPoints(
 ): CollisionPoint[] {
   const points = handles ? boxHandlePoints(comp, role) : boxOutline(comp, role)
   if (role === 'appearance') {
-    const bounds = componentBox(comp, 'appearance')!
+    const bounds = liveBoxBounds(comp, 'appearance')
     const [centerX, centerY] = boxCenter(entity, comp, role, projection)
     return points.map(([x, y]) => [
       centerX + x * bounds.width,
@@ -892,12 +913,11 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
       const polygon = boxShape(box.comp, role) === 'polygon'
       const normalized = boxHandlePoints(box.comp, role)
       const rendered = boxRenderPoints(entity, box.comp, role, projection, true)
-      for (let index = 0; index < rendered.length; index++) {
-        const point = rendered[index]!
+      for (const [index, point] of rendered.entries()) {
         if (Math.abs(wx - point[0]) <= hs && Math.abs(wy - point[1]) <= hs) {
           return polygon
             ? { kind: 'polygon', name, compType: box.type, role, point: index }
-            : { kind: 'box', name, compType: box.type, role, corner: normalized[index]! }
+            : { kind: 'box', name, compType: box.type, role, corner: handleCorner(normalized, index) }
         }
       }
     }
@@ -922,14 +942,7 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
       if (!box) continue
       const center = boxCenter(entity, box.comp, role, projection)
       const points = boxRenderPoints(entity, box.comp, role, projection, false)
-      for (let index = 0; index < points.length; index++) {
-        if (
-          pointSegmentDistance(wx, wy, points[index]!, points[(index + 1) % points.length]!) <=
-          threshold
-        ) {
-          return { name, compType: box.type, role, center }
-        }
-      }
+      if (nearOutline(points, [wx, wy], threshold)) return { name, compType: box.type, role, center }
     }
     return null
   }
@@ -1021,7 +1034,7 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
             const box = entity && findBox(entity, [handle.compType])
             if (entity && box) {
               const projection = projectionOf(sceneRef.current)
-              const bounds = componentBox(box.comp, handle.role)!
+              const bounds = liveBoxBounds(box.comp, handle.role)
               const center =
                 handle.role === 'appearance'
                   ? boxCenter(entity, box.comp, handle.role, projection)

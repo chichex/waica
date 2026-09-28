@@ -148,7 +148,9 @@ export function AnimationEditor({
     setDraft((d) => {
       const defs = sheetsOf(d)
       const removed = defs[index]
-      if (defs.length <= 1 || !removed) return d
+      // The first remaining sheet becomes the main one; a lone sheet has none.
+      const [main, ...extraSheets] = defs.filter((_, i) => i !== index)
+      if (!removed || !main) return d
       const base = defs.slice(0, index).reduce((sum, def) => sum + sheetFrameCount(def), 0)
       const count = sheetFrameCount(removed)
       const clips: Record<string, ClipDef> = {}
@@ -158,9 +160,6 @@ export function AnimationEditor({
           .map((f) => (f >= base + count ? f - count : f))
         clips[name] = { ...c, frames }
       }
-      const rest = defs.filter((_, i) => i !== index)
-      const main = rest[0]!
-      const extraSheets = rest.slice(1)
       const next: AnimatedProps = {
         ...d,
         clips,
@@ -189,7 +188,8 @@ export function AnimationEditor({
       const patched: Partial<SheetDef> = { cells: cells.length ? cells : undefined }
       if (sheetIndex === 0) return { ...next, ...patched }
       const extras = [...(next.extraSheets ?? [])]
-      extras[sheetIndex - 1] = { ...extras[sheetIndex - 1]!, ...patched }
+      // sheetsOf lists extraSheets as-is after the main sheet, so `sheet` is extras[sheetIndex - 1].
+      extras[sheetIndex - 1] = { ...sheet, ...patched }
       return { ...next, extraSheets: extras }
     })
 
@@ -321,7 +321,8 @@ export function AnimationEditor({
   const previewScale = (() => {
     const cells = previewSheet?.cells
     if (!cells?.length) return null
-    const cell = cells[Math.min(located.frame, cells.length - 1)]!
+    const cell = cells[Math.min(located.frame, cells.length - 1)]
+    if (!cell) throw new Error('locateFrame returned a frame outside the preview sheet')
     const maxW = Math.max(...cells.map((c) => c.width))
     const maxH = Math.max(...cells.map((c) => c.height))
     return { x: maxW > 0 ? cell.width / maxW : 1, y: maxH > 0 ? cell.height / maxH : 1 }
@@ -682,8 +683,9 @@ function SheetPane({
         width: Math.abs(p.x - d.startX),
         height: Math.abs(p.y - d.startY),
       })
-    } else if (d.kind === 'move' && cells?.[d.index]) {
-      const cell = cells[d.index]!
+    } else if (d.kind === 'move') {
+      const cell = cells?.[d.index]
+      if (!cell) return
       patchCellAt(d.index, {
         ...cell,
         x: Math.min(Math.max(0, p.x - d.grabX), dims[0] - cell.width),
@@ -720,7 +722,7 @@ function SheetPane({
     e.stopPropagation()
     const p = toImagePx(e)
     if (!p) return
-    const cell = cells[cellIndex]!
+    const cell = cells[cellIndex]
     drag.current = { kind: 'move', index: cellIndex, grabX: p.x - cell.x, grabY: p.y - cell.y }
     captureOnOverlay(e.pointerId)
   }
@@ -728,7 +730,7 @@ function SheetPane({
   const startResize = (e: React.PointerEvent, cellIndex: number, corner: string): void => {
     if (!cells?.[cellIndex]) return
     e.stopPropagation()
-    const cell = cells[cellIndex]!
+    const cell = cells[cellIndex]
     // The dragged corner's opposite stays anchored.
     const anchorX = corner.includes('w') ? cell.x + cell.width : cell.x
     const anchorY = corner.includes('n') ? cell.y + cell.height : cell.y
