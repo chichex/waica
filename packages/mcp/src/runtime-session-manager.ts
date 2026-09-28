@@ -325,34 +325,7 @@ export class RuntimeSessionManager implements RuntimeService {
       signal.throwIfAborted()
       browser = await this.adapters.startBrowser(preflight, devServer, signal)
       signal.throwIfAborted()
-      let ready = await browser.ready()
-      signal.throwIfAborted()
-      if (ready.bridgeVersion !== 1) {
-        throw new RuntimeToolError({
-          code: 'runtime-incompatible',
-          stage: 'bridge',
-          message: `The Project engine does not provide Runtime Bridge protocol 1; upgrade @waica/engine to at least ${preflight.engine.version}.`,
-          projectPath: preflight.projectPath,
-          diagnostics: { minimumEngineVersion: preflight.engine.version },
-        })
-      }
-      if (ready.capabilities.includes('assets')) {
-        // Readiness is Assets Ready too (ADR 0019): the Game registered at
-        // frame 0, and its scene's images still have to arrive.
-        const live = browser
-        const wait = await waitForAssetsReady(() => live.metadata(), preflight.timeoutMs, signal)
-        if (!wait.ok) {
-          throw new RuntimeToolError({
-            code: 'runtime-start-failed',
-            stage: 'game',
-            message: `The Game registered, but its assets did not settle within ${preflight.timeoutMs} ms.`,
-            projectPath: preflight.projectPath,
-            diagnostics: { ...devServer.diagnostics(), assets: wait.assets },
-          })
-        }
-        const assets = runtimeAssetStatus(wait.metadata.assets)
-        if (assets) ready = { ...ready, assets }
-      }
+      const ready = await bridgeReadiness(preflight, { devServer, browser }, signal)
       const session: RuntimeSession = {
         preflight,
         devServer,
@@ -360,23 +333,7 @@ export class RuntimeSessionManager implements RuntimeService {
         state: 'active',
         ready,
       }
-      devServer.setExitHandler?.(() => {
-        this.failSession(session)
-      })
-      browser.setLifecycleHandlers({
-        reloading: () => {
-          if (session.state === 'active') session.state = 'reloading'
-        },
-        reloaded: (nextReady) => {
-          if (session.state !== 'stopped') {
-            session.ready = nextReady
-            session.state = 'active'
-          }
-        },
-        failed: () => {
-          this.failSession(session)
-        },
-      })
+      this.watchSessionLifecycle(session)
       return session
     } catch (error) {
       await browser?.close().catch(() => {})
@@ -391,6 +348,27 @@ export class RuntimeSessionManager implements RuntimeService {
         diagnostics: devServer?.diagnostics(),
       })
     }
+  }
+
+  /** Tracks reloads and fails the session when its dev server or page dies. */
+  private watchSessionLifecycle(session: RuntimeSession): void {
+    session.devServer.setExitHandler?.(() => {
+      this.failSession(session)
+    })
+    session.browser.setLifecycleHandlers({
+      reloading: () => {
+        if (session.state === 'active') session.state = 'reloading'
+      },
+      reloaded: (nextReady) => {
+        if (session.state !== 'stopped') {
+          session.ready = nextReady
+          session.state = 'active'
+        }
+      },
+      failed: () => {
+        this.failSession(session)
+      },
+    })
   }
 
   private async startResult(
@@ -511,4 +489,41 @@ export function createDefaultRuntimeSessionManager(): RuntimeSessionManager {
     startDevServer: (preflight, signal) => startRuntimeDevServer(preflight, signal ? { signal } : {}),
     startBrowser: startRuntimeBrowser,
   })
+}
+
+/**
+ * The page's Runtime Bridge readiness: protocol 1 required, and — when the
+ * engine reports asset status — Assets Ready too (ADR 0019): the Game
+ * registered at frame 0, and its scene's images still have to arrive.
+ */
+async function bridgeReadiness(
+  preflight: RuntimePreflightResult,
+  started: { devServer: RuntimeDevServer; browser: RuntimeBrowser },
+  signal: AbortSignal,
+): Promise<RuntimeSession['ready']> {
+  const { devServer, browser } = started
+  const ready = await browser.ready()
+  signal.throwIfAborted()
+  if (ready.bridgeVersion !== 1) {
+    throw new RuntimeToolError({
+      code: 'runtime-incompatible',
+      stage: 'bridge',
+      message: `The Project engine does not provide Runtime Bridge protocol 1; upgrade @waica/engine to at least ${preflight.engine.version}.`,
+      projectPath: preflight.projectPath,
+      diagnostics: { minimumEngineVersion: preflight.engine.version },
+    })
+  }
+  if (!ready.capabilities.includes('assets')) return ready
+  const wait = await waitForAssetsReady(() => browser.metadata(), preflight.timeoutMs, signal)
+  if (!wait.ok) {
+    throw new RuntimeToolError({
+      code: 'runtime-start-failed',
+      stage: 'game',
+      message: `The Game registered, but its assets did not settle within ${preflight.timeoutMs} ms.`,
+      projectPath: preflight.projectPath,
+      diagnostics: { ...devServer.diagnostics(), assets: wait.assets },
+    })
+  }
+  const assets = runtimeAssetStatus(wait.metadata.assets)
+  return assets ? { ...ready, assets } : ready
 }
