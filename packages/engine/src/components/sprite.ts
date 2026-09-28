@@ -123,13 +123,16 @@ export class Sprite extends Component implements YSortParticipant {
       // Its own clone of the cached base (game.assets, ADR 0019): filters
       // are per clone, colour space comes with the base, and the image lands
       // on the Source every clone of this URL shares.
-      const { texture } = this.game.assets.texture(this.texture)
+      const { texture, settled } = this.game.assets.texture(this.texture)
       if (this.pixelArt) {
         texture.magFilter = THREE.NearestFilter
         texture.minFilter = THREE.NearestFilter
       }
       material.map = texture
       material.color.set(0xffffff)
+      void settled.then((outcome) => {
+        if (outcome === 'failed') this.dropFailedTexture(texture)
+      })
     }
     this.mesh = new THREE.Mesh(this.createGeometry(), material)
     this.mesh.position.z = this.layer * 0.01
@@ -143,6 +146,21 @@ export class Sprite extends Component implements YSortParticipant {
     // Only this sprite's clone: the cached base lives with the Game.
     this.mesh?.material.map?.dispose()
     this.mesh?.material.dispose()
+    this.mesh = undefined
+  }
+
+  /**
+   * CA-4's failure rule: an image that never arrives leaves the flat
+   * `color`, not a white quad over an empty map. Skipped once the sprite
+   * was destroyed or the clone is no longer this material's map.
+   */
+  private dropFailedTexture(texture: THREE.Texture): void {
+    const material = this.mesh?.material
+    if (!material || material.map !== texture) return
+    material.map = null
+    texture.dispose()
+    material.color.setHex(this.color)
+    material.needsUpdate = true
   }
 
   private syncQuad(): void {

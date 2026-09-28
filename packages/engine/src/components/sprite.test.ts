@@ -1,6 +1,8 @@
 // @vitest-environment happy-dom
 import * as THREE from 'three'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { AssetLoader } from '../assets/asset-loader'
+import { FakeTextureBackend } from '../assets/test-helpers'
 import type { Entity } from '../entity'
 import type { Game } from '../game'
 import { Sprite } from './sprite'
@@ -23,6 +25,10 @@ function mount(sprite: Sprite, game: unknown): Mesh {
   sprite.onReady()
   return added[0] as Mesh
 }
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('Sprite placement characterization', () => {
   it('pins the default-anchor quad at its offsets with its declared size', () => {
@@ -118,5 +124,54 @@ describe('Sprite textures through game.assets (CA-5)', () => {
 
     expect(cloneDispose).toHaveBeenCalledTimes(1)
     expect(baseDispose).not.toHaveBeenCalled()
+  })
+})
+
+describe('Sprite failure rule (CA-4)', () => {
+  it('drops a texture that fails to load and renders its flat colour again', async () => {
+    const backend = new FakeTextureBackend()
+    backend.failUrl('/missing.png')
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const assets = new AssetLoader({ backend })
+    const sprite = new Sprite()
+    sprite.texture = '/missing.png'
+    sprite.color = 0x123456
+
+    const mesh = mount(sprite, { assets })
+    const clone = mesh.material.map
+    expect(clone).toBeInstanceOf(THREE.Texture)
+    const cloneDispose = vi.spyOn(clone!, 'dispose')
+    const versionBefore = mesh.material.version
+    expect(mesh.material.color.getHex()).toBe(0xffffff)
+
+    await assets.ready()
+
+    expect(mesh.material.map).toBeNull()
+    expect(cloneDispose).toHaveBeenCalledTimes(1)
+    expect(mesh.material.color.getHex()).toBe(0x123456)
+    expect(mesh.material.version).toBeGreaterThan(versionBefore)
+    // The clone is gone from the material, so onDestroy has nothing left to dispose.
+    sprite.onDestroy()
+    expect(cloneDispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignores a failure that lands after onDestroy', async () => {
+    const backend = new FakeTextureBackend()
+    backend.hold('/missing.png')
+    backend.failUrl('/missing.png')
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const assets = new AssetLoader({ backend })
+    const sprite = new Sprite()
+    sprite.texture = '/missing.png'
+    sprite.color = 0x123456
+    const mesh = mount(sprite, { assets })
+    const cloneDispose = vi.spyOn(mesh.material.map!, 'dispose')
+
+    sprite.onDestroy()
+    backend.release('/missing.png')
+    await assets.ready()
+
+    expect(cloneDispose).toHaveBeenCalledTimes(1)
+    expect(mesh.material.color.getHex()).toBe(0xffffff)
   })
 })

@@ -1,6 +1,8 @@
 // @vitest-environment happy-dom
 import * as THREE from 'three'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { AssetLoader } from '../assets/asset-loader'
+import { FakeTextureBackend } from '../assets/test-helpers'
 import type { Entity } from '../entity'
 import type { Game } from '../game'
 import { AnimatedSprite } from './animated-sprite'
@@ -58,6 +60,10 @@ function mountWith(sprite: AnimatedSprite, game: unknown): Mesh {
 }
 
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('AnimatedSprite quad sync', () => {
   const mount = (sprite: AnimatedSprite) => {
@@ -211,5 +217,38 @@ describe('AnimatedSprite sheets through game.assets (CA-5)', () => {
     expect(assets.texture).not.toHaveBeenCalled()
     expect(mesh.material.map).toBeInstanceOf(THREE.Texture)
     expect(mesh.material.map?.image).toBeNull()
+  })
+})
+
+describe('AnimatedSprite failure rule (CA-4)', () => {
+  it('clears the map of a sheet that fails to load and never samples that sheet again', async () => {
+    const backend = new FakeTextureBackend()
+    backend.failUrl('/hero.png')
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const assets = new AssetLoader({ backend })
+    const sprite = new AnimatedSprite()
+    sprite.texture = '/hero.png'
+    sprite.cols = 2
+    sprite.rows = 1
+    sprite.extraSheets = [{ texture: '/hero-extra.png', cols: 1, rows: 1 }]
+    // Frame 0 lives on the failed main sheet, frame 2 on the healthy extra one.
+    sprite.clips = { idle: { frames: [0, 2], fps: 1 } }
+    sprite.initialClip = 'idle'
+
+    const mesh = mountWith(sprite, { assets })
+    const failed = mesh.material.map
+    expect(failed).toBeInstanceOf(THREE.Texture)
+
+    await assets.ready()
+
+    expect(mesh.material.map).toBeNull()
+    expect(mesh.material.color.getHex()).toBe(0xffffff)
+    sprite.onUpdate(1)
+    const extra = mesh.material.map
+    expect(extra).toBeInstanceOf(THREE.Texture)
+    expect(extra).not.toBe(failed)
+    // Back on the failed sheet: its clone is never installed again.
+    sprite.onUpdate(1)
+    expect(mesh.material.map).toBeNull()
   })
 })

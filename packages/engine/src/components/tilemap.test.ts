@@ -68,6 +68,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
 })
 
 describe('Tilemap authoring surface', () => {
@@ -318,6 +319,60 @@ describe('Tilemap textures through game.assets (CA-5)', () => {
     entity.destroy()
     expect(dispose.mock.instances).toEqual([firstClone, secondClone])
     expect(game.assets.status).toEqual({ pending: 0, loaded: 1, failed: 0 })
+    game.dispose()
+  })
+})
+
+describe('Tilemap failure rule (CA-4)', () => {
+  const spaced = { cols: 2, rows: 1, spacingX: 2, mapWidth: 1, mapHeight: 1, cells: [0] }
+
+  it('drops a texture that fails to load and renders its flat colour again', async () => {
+    const backend = new FakeTextureBackend()
+    backend.failUrl('/missing.png')
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const game = makeGame(backend)
+    const entity = game.spawn('Map')
+    entity.add(Tilemap, { ...spaced, texture: '/missing.png', color: 0x336699 })
+    const { mesh } = geometryOf(entity)
+    const clone = mesh.material.map
+    expect(clone).toBeInstanceOf(THREE.Texture)
+    const cloneDispose = vi.spyOn(clone!, 'dispose')
+    const versionBefore = mesh.material.version
+    expect(mesh.material.color.getHex()).toBe(0xffffff)
+
+    await game.assets.ready()
+
+    expect(mesh.material.map).toBeNull()
+    expect(cloneDispose).toHaveBeenCalledTimes(1)
+    expect(mesh.material.color.getHex()).toBe(0x336699)
+    expect(mesh.material.version).toBeGreaterThan(versionBefore)
+    // The clone is gone from the component, so destroying it disposes nothing twice.
+    entity.destroy()
+    expect(cloneDispose).toHaveBeenCalledTimes(1)
+    expect(game.assets.status).toEqual({ pending: 0, loaded: 0, failed: 1 })
+    game.dispose()
+  })
+
+  it('ignores a failure for a texture that is no longer the current one', async () => {
+    const backend = new FakeTextureBackend()
+    backend.hold('/old.png')
+    backend.failUrl('/old.png')
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const game = makeGame(backend)
+    const entity = game.spawn('Map')
+    const tilemap = entity.add(Tilemap, { ...spaced, texture: '/old.png', color: 0x336699 })
+
+    tilemap.texture = '/new.png'
+    await flush()
+    const current = geometryOf(entity).mesh.material.map
+    expect(current).toBeInstanceOf(THREE.Texture)
+
+    backend.release('/old.png')
+    await game.assets.ready()
+
+    const { mesh } = geometryOf(entity)
+    expect(mesh.material.map).toBe(current)
+    expect(mesh.material.color.getHex()).toBe(0xffffff)
     game.dispose()
   })
 })
