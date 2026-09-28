@@ -278,33 +278,33 @@ async function verifyDependencies(
   return { package: '@waica/engine', version: engineManifest.version, source: 'project' }
 }
 
-export async function preflightRuntimeProject(
-  input: StartRuntimeInput,
-  adapters: RuntimePreflightAdapters = DEFAULT_RUNTIME_PREFLIGHT_ADAPTERS,
-): Promise<RuntimePreflightResult> {
-  if (adapters.platform === 'win32') {
+function assertSupportedHost(platform: NodeJS.Platform, projectPath: string): void {
+  if (platform === 'win32') {
     throw new RuntimeToolError({
       code: 'runtime-unsupported-host',
       stage: 'project',
       message: 'Run Sessions support macOS and Linux; Windows is not supported in this MVP.',
-      projectPath: input.projectPath,
+      projectPath,
     })
   }
-  if (adapters.platform !== 'darwin' && adapters.platform !== 'linux') {
+  if (platform !== 'darwin' && platform !== 'linux') {
     throw new RuntimeToolError({
       code: 'runtime-unsupported-host',
       stage: 'project',
-      message: `Run Sessions do not support host platform ${adapters.platform}.`,
-      projectPath: input.projectPath,
+      message: `Run Sessions do not support host platform ${platform}.`,
+      projectPath,
     })
   }
+}
 
+/** The real path of an accessible directory that looks like a Waica Project. */
+async function waicaProjectRoot(requestedPath: string): Promise<string> {
   let projectPath: string
   try {
-    projectPath = await realpath(input.projectPath)
+    projectPath = await realpath(requestedPath)
   } catch (error) {
     throw runtimeError(
-      input.projectPath,
+      requestedPath,
       'project',
       `Project path is not accessible: ${error instanceof Error ? error.message : String(error)}`,
     )
@@ -320,7 +320,11 @@ export async function preflightRuntimeProject(
       'Not a Waica Project: expected src/game.json or src/scenes/main.scene.json.',
     )
   }
+  return projectPath
+}
 
+/** The Project's package.json, which must declare a nonempty scripts.dev. */
+async function runnableProjectManifest(projectPath: string): Promise<ProjectManifest> {
   let manifest: ProjectManifest
   try {
     const parsed = JSON.parse(await readFile(path.join(projectPath, 'package.json'), 'utf8')) as unknown
@@ -337,6 +341,16 @@ export async function preflightRuntimeProject(
   if (typeof dev !== 'string' || dev.trim().length === 0) {
     throw runtimeError(projectPath, 'project', 'package.json scripts.dev must be a nonempty string.')
   }
+  return manifest
+}
+
+export async function preflightRuntimeProject(
+  input: StartRuntimeInput,
+  adapters: RuntimePreflightAdapters = DEFAULT_RUNTIME_PREFLIGHT_ADAPTERS,
+): Promise<RuntimePreflightResult> {
+  assertSupportedHost(adapters.platform, input.projectPath)
+  const projectPath = await waicaProjectRoot(input.projectPath)
+  const manifest = await runnableProjectManifest(projectPath)
 
   const packageManager = await selectPackageManager(projectPath, manifest)
   if (!(await adapters.commandAvailable(packageManager))) {
