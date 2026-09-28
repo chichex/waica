@@ -92,7 +92,10 @@ export const HEALTH_PATH = '/__waica.json'
  */
 export function createEditorServer(root: string, version = '0.0.0'): Server {
   return createServer((req, res) => {
-    void handle(root, version, req, res)
+    handle(root, version, req, res).catch(() => {
+      if (!res.headersSent) res.writeHead(500)
+      res.end()
+    })
   })
 }
 
@@ -176,14 +179,57 @@ export function compareVersions(a: string, b: string): number {
  * Fetches {version} from a registry "latest" URL. Null on any failure — the
  * update check must never break or delay startup beyond its timeout.
  */
-export async function fetchLatestVersion(url: string, timeoutMs: number): Promise<string | null> {
+/**
+ * The registry's `latest` for the CLI. Only a plain semantic version (with an
+ * optional prerelease) is `ok`: the value reaches `npm install -g` and, on
+ * Windows, a shell, so anything else is `rejected` with the reason.
+ */
+export type LatestVersion =
+  | { readonly status: 'ok'; readonly version: string }
+  | { readonly status: 'unavailable' }
+  | { readonly status: 'rejected'; readonly reason: string }
+
+const PLAIN_SEMVER = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/
+
+export async function fetchLatestVersion(url: string, timeoutMs: number): Promise<LatestVersion> {
+  let version: unknown
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) })
-    if (!res.ok) return null
-    const data = (await res.json()) as { version?: unknown }
-    return typeof data.version === 'string' ? data.version : null
+    if (!res.ok) return { status: 'unavailable' }
+    const data: unknown = await res.json()
+    version = typeof data === 'object' && data !== null && 'version' in data ? data.version : undefined
   } catch {
-    return null
+    return { status: 'unavailable' }
+  }
+  if (typeof version !== 'string') return { status: 'unavailable' }
+  if (!PLAIN_SEMVER.test(version)) {
+    return {
+      status: 'rejected',
+      reason: `the registry reported ${JSON.stringify(version)}, which is not a plain semantic version`,
+    }
+  }
+  return { status: 'ok', version }
+}
+
+/** An `npm install -g` that has not finished in five minutes is abandoned. */
+const SELF_UPDATE_TIMEOUT_MS = 300_000
+
+export interface SelfUpdateInstall {
+  readonly command: 'npm'
+  readonly args: string[]
+  readonly options: { stdio: 'inherit'; shell: boolean; timeout: number }
+}
+
+/** The spawn for updating the CLI in place to a version `fetchLatestVersion` accepted. */
+export function selfUpdateInstall(
+  packageName: string,
+  version: string,
+  platform: NodeJS.Platform,
+): SelfUpdateInstall {
+  return {
+    command: 'npm',
+    args: ['install', '-g', `${packageName}@${version}`],
+    options: { stdio: 'inherit', shell: platform === 'win32', timeout: SELF_UPDATE_TIMEOUT_MS },
   }
 }
 

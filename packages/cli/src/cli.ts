@@ -15,7 +15,9 @@ import {
   listenWithRetry,
   parseArgs,
   probeWaica,
+  selfUpdateInstall,
 } from './server.js'
+import { runCli } from './run-cli.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const HOST = '127.0.0.1'
@@ -71,13 +73,28 @@ function openBrowser(url: string): void {
 }
 
 /**
+ * The registry's `latest` when it is a valid version newer than this one;
+ * null when offline, current, or when the registry answered something that
+ * is not a plain semantic version (reported, never installed).
+ */
+async function newerRegistryVersion(pkg: Pkg): Promise<string | null> {
+  const url = `https://registry.npmjs.org/${pkg.name.replace('/', '%2f')}/latest`
+  const registry = await fetchLatestVersion(url, 1500)
+  if (registry.status === 'rejected') {
+    console.error(`waica: skipping the update check: ${registry.reason}`)
+    return null
+  }
+  if (registry.status === 'unavailable') return null
+  return compareVersions(registry.version, pkg.version) > 0 ? registry.version : null
+}
+
+/**
  * Checks the registry for a newer version; in an interactive global install it
  * offers to update in place and re-executes itself. Silent when offline.
  */
 async function maybeSelfUpdate(pkg: Pkg): Promise<void> {
-  const url = `https://registry.npmjs.org/${pkg.name.replace('/', '%2f')}/latest`
-  const latest = await fetchLatestVersion(url, 1500)
-  if (latest === null || compareVersions(latest, pkg.version) <= 0) return
+  const latest = await newerRegistryVersion(pkg)
+  if (latest === null) return
 
   console.log(`  update available: ${pkg.version} → ${latest}`)
   const canSelfUpdate = interactive && !runByNpx && process.env['WAICA_UPDATED'] !== '1'
@@ -87,10 +104,8 @@ async function maybeSelfUpdate(pkg: Pkg): Promise<void> {
   }
   if (!(await confirm('  update now? [y/N] '))) return
 
-  const install = spawnSync('npm', ['install', '-g', `${pkg.name}@${latest}`], {
-    stdio: 'inherit',
-    shell: process.platform === 'win32',
-  })
+  const { command, args, options } = selfUpdateInstall(pkg.name, latest, process.platform)
+  const install = spawnSync(command, args, options)
   if (install.status !== 0) {
     console.error('waica: update failed — continuing with the current version')
     return
@@ -213,4 +228,4 @@ async function main(): Promise<void> {
   if (args.open) openBrowser(url)
 }
 
-void main()
+await runCli(main)
