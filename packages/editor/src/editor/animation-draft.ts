@@ -32,7 +32,7 @@ export function patchSheet(d: AnimatedProps, index: number, p: Partial<SheetDef>
 }
 
 /**
- * The patch for one slicing param typed as `raw`: any non-positive entry
+ * The patch for one slicing param typed as `raw`. Any non-positive entry
  * falls back to the default (0 / auto cell), stored as undefined so saved
  * JSON stays minimal.
  */
