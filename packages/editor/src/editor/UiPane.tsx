@@ -22,25 +22,16 @@ export function UiPane({
   stats: ProjectStats
   onChange(html: string): void
 }) {
-  const [value, setValue] = useState(html)
+  // The debounced source the preview renders; it trails `html` by 250 ms.
   const [preview, setPreview] = useState(html)
   const stage = useRef<HTMLDivElement>(null)
 
-  // External changes (undo/redo) replace the buffer; our own edits round-trip
-  // back equal through the html prop and must leave the cursor alone.
-  const buffer = useRef(html)
-  useEffect(() => {
-    if (html === buffer.current) return
-    buffer.current = html
-    setValue(html)
-  }, [html])
-
   // Re-render the preview shortly after the user stops typing.
   useEffect(() => {
-    if (preview === value) return
-    const timer = setTimeout(() => setPreview(value), 250)
+    if (preview === html) return
+    const timer = setTimeout(() => setPreview(html), 250)
     return () => clearTimeout(timer)
-  }, [value, preview])
+  }, [html, preview])
 
   useEffect(() => {
     const host = stage.current
@@ -63,13 +54,10 @@ export function UiPane({
           height="100%"
           language="html"
           theme="vs-dark"
-          value={value}
-          onChange={(next) => {
-            const text = next ?? ''
-            buffer.current = text
-            setValue(text)
-            onChange(text)
-          }}
+          // Controlled by the committed source: an edit round-trips back equal
+          // (the editor leaves the cursor alone), an undo arrives as new html.
+          value={html}
+          onChange={(next) => onChange(next ?? '')}
           options={{ minimap: { enabled: false }, fontSize: 13, tabSize: 2 }}
         />
       </div>

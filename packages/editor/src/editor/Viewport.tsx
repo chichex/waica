@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useEffect, useEffectEvent, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
 import { Game, GameUi, loadScene, resolveCollisionPoints, resolveSceneCamera, Tilemap, THREE, type CollisionPoint, type Component, type Entity, type GameResolution, type InputBindings, type SceneJson, type SceneRegistry, type StatValue } from '@waica/engine'
 import { DEFAULT_EDITOR_SETTINGS, MIN_GRID_SIZE, type GridSettings } from '../project/editor-settings'
 import { CAMERA_NODE } from '../scene/ops'
@@ -446,20 +446,25 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
   const uiFrameRef = useRef<HTMLDivElement>(null)
   const uiScaleRef = useRef<HTMLDivElement>(null)
 
-  sceneRef.current = scene
-  scenePathRef.current = scenePath
-  sceneCatalogRef.current = sceneCatalog
-  registryRef.current = registry
-  bindingsRef.current = bindings
-  statsRef.current = stats
-  musicRef.current = music
-  resolutionRef.current = resolution
-  selectedRef.current = selected
-  multiRef.current = multiSelected
-  modeRef.current = mode
-  gridRef.current = effectiveGrid(scene, grid)
-  componentVisibilityRef.current = componentVisibility
-  tilemapBrushRef.current = tilemapBrush
+  // The game loop and pointer handlers read the latest committed props
+  // through these refs. Written after commit (never during render), before
+  // the passive effects below that build or reload the Game.
+  useLayoutEffect(() => {
+    sceneRef.current = scene
+    scenePathRef.current = scenePath
+    sceneCatalogRef.current = sceneCatalog
+    registryRef.current = registry
+    bindingsRef.current = bindings
+    statsRef.current = stats
+    musicRef.current = music
+    resolutionRef.current = resolution
+    selectedRef.current = selected
+    multiRef.current = multiSelected
+    modeRef.current = mode
+    gridRef.current = effectiveGrid(scene, grid)
+    componentVisibilityRef.current = componentVisibility
+    tilemapBrushRef.current = tilemapBrush
+  })
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -804,8 +809,9 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
       game.dispose()
       gameRef.current = null
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- the Game is rebuilt only on a structural epoch or an edit/play switch; every other input is read live through refs
-  }, [epoch, mode])
+    // Every other input is read live through the refs above; background and
+    // showCamera are fixed per Viewport instance, so they never force a rebuild.
+  }, [epoch, mode, background, showCamera])
 
   // Opening a different scene FILE: load it over the SAME Game (ADR 0011)
   // instead of remounting — the [epoch, mode] effect above still owns
@@ -813,9 +819,8 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
   // an ordinary edit (which always produces a new SceneJson) is not mistaken
   // for opening another scene, and so the load the [epoch, mode] effect just
   // did is not repeated on mount.
-  useEffect(() => {
+  const loadOpenedScene = useEffectEvent((path: string | null): void => {
     const game = gameRef.current
-    const path = scenePath ?? null
     if (!game || path === null || path === lastLoadedScenePath.current) return
     lastLoadedScenePath.current = path
     loadScene(game, sceneRef.current, registryRef.current)
@@ -832,7 +837,9 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
       game.camera.position.y = cam.current.y
       game.setViewHeight(cam.current.view)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the scene path only, so an ordinary edit (a new SceneJson) is not mistaken for opening another scene
+  })
+  useEffect(() => {
+    loadOpenedScene(scenePath ?? null)
   }, [scenePath])
 
   const applyLiveProp = (

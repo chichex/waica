@@ -33,6 +33,8 @@ export interface DroppedFile {
 
 export interface ProjectArt {
   art: ArtItem[]
+  /** How many scans have been committed: bumps each time `art` is replaced. */
+  loads: number
   /** Re-scans src/art and public (after an import or delete). */
   refresh(): void
   /** Writes image files to src/art (preserving each one's relativePath) and re-scans. */
@@ -147,7 +149,8 @@ export function useProjectArt(
   fs: ProjectFS,
   resolveArchetypeAsset: (uri: string) => string = (uri) => uri,
 ): ProjectArt {
-  const [art, setArt] = useState<ArtItem[]>([])
+  const [library, setLibrary] = useState<{ art: ArtItem[]; loads: number }>({ art: [], loads: 0 })
+  const art = library.art
   const [artEpoch, setArtEpoch] = useState(0)
   const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(
     null,
@@ -190,7 +193,7 @@ export function useProjectArt(
       }
       for (const url of owned.current) URL.revokeObjectURL(url)
       owned.current = created
-      setArt(items)
+      setLibrary((previous) => ({ art: items, loads: previous.loads + 1 }))
     }), 'load project art')
     return () => {
       cancelled = true
@@ -230,5 +233,5 @@ export function useProjectArt(
     [art, resolveArchetypeAsset],
   )
 
-  return { art, refresh, importArt, urlFor, importProgress }
+  return { art, loads: library.loads, refresh, importArt, urlFor, importProgress }
 }

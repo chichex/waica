@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { PrefabJson, SceneEntityJson, SceneJson } from '@waica/engine'
 import { useArchetype } from '../project/archetype'
 import type { ProjectFS } from '../fs/project-fs'
@@ -16,6 +16,7 @@ import {
 } from './use-project-art'
 import { reportRejection } from '../report-rejection'
 import { isStringArray } from '../json-object'
+import type { SceneFolders } from './use-scene-folders'
 
 /** What the center pane (and the inspector) is looking at. */
 export type ExplorerView =
@@ -55,6 +56,7 @@ function RenameInput({
     <input
       className="ed-x-edit"
       value={text}
+      // eslint-disable-next-line jsx-a11y/no-autofocus -- the user just asked to rename this row (F2, double-click or the menu); focus moves into the field
       autoFocus
       onFocus={(e) => e.currentTarget.select()}
       onChange={(e) => setText(e.currentTarget.value)}
@@ -84,7 +86,7 @@ export function Explorer({
   fs,
   scenePaths,
   openScenePath,
-  justCreatedFolder,
+  sceneFolders,
   scene,
   view,
   selected,
@@ -148,12 +150,8 @@ export function Explorer({
   fs: ProjectFS
   scenePaths: string[]
   openScenePath: string | null
-  /**
-   * The folder the Editor just created, wrapped fresh each time so creating
-   * the same name twice still reopens it. Scene folders start collapsed; this
-   * is what keeps a brand-new one from hiding what you just put in it.
-   */
-  justCreatedFolder: { name: string } | null
+  /** Expanded folders of the open scene's tree, owned by the Editor per scene file. */
+  sceneFolders: SceneFolders
   /** The open scene's contents (for the expanded entity subtree). */
   scene: SceneJson | null
   view: ExplorerView | null
@@ -255,7 +253,7 @@ export function Explorer({
    * A scene opens with every folder shut: the tree is a map of the scene, and
    * one folder of 29 platforms shouldn't bury the rest of it.
    */
-  const [expandedFolders, setExpandedFolders] = useState<ReadonlySet<string>>(new Set())
+  const expandedFolders = sceneFolders.expanded
   /** Expanded art folder paths (Explorer's Art panel tree); absent = collapsed. */
   const [artExpanded, setArtExpanded] = useState<ReadonlySet<string>>(new Set())
   const [artQuery, setArtQuery] = useState('')
@@ -294,18 +292,6 @@ export function Explorer({
 
   const rows = scene ? sceneTree(scene) : []
   const folders = rows.filter((r) => r.kind === 'folder').map((r) => r.name)
-
-  useEffect(() => {
-    // Another scene is another tree: forget what was open and start shut.
-    setExpandedFolders(new Set())
-  }, [openScenePath])
-
-  useEffect(() => {
-    // Cmd+G groups the selection INTO a brand-new folder, so leaving that one
-    // shut would swallow the entities the moment you group them. The Editor
-    // hands us a fresh object per creation, so the same name can reopen.
-    if (justCreatedFolder) openFolder(justCreatedFolder.name)
-  }, [justCreatedFolder])
 
   /** Entity names as displayed, skipping collapsed folders — the space shift-ranges live in. */
   const visibleEntities = rows.flatMap((r) =>
@@ -352,18 +338,10 @@ export function Explorer({
     }
   }
 
-  const toggleFolder = (name: string): void => {
-    setExpandedFolders((prev) => {
-      const next = new Set(prev)
-      if (!next.delete(name)) next.add(name)
-      return next
-    })
-  }
+  const toggleFolder = (name: string): void => sceneFolders.toggle(name)
 
   /** Opens a folder the user just put something into, so it doesn't vanish. */
-  const openFolder = (name: string): void => {
-    setExpandedFolders((prev) => (prev.has(name) ? prev : new Set(prev).add(name)))
-  }
+  const openFolder = (name: string): void => sceneFolders.open(name)
 
   const hintCls = (key: string): string => (hint?.key === key ? ` is-drop-${hint.pos}` : '')
 
@@ -717,8 +695,10 @@ export function Explorer({
                 {open && scene && (
                   // Dimmed while the center pane shows something else: the
                   // subtree stays reachable but reads as "not what you're editing".
+                  // Shortcuts (Delete, F2, Cmd+D…) bubble here from the focused row buttons.
                   <div
                     className={`ed-x-subtree ${view && view.kind !== 'scene' ? 'is-inactive' : ''}`}
+                    role="presentation"
                     onKeyDown={treeKeys}
                     onDragLeave={(e) => {
                       if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setHint(null)
@@ -819,7 +799,7 @@ export function Explorer({
                               // Alt-click syncs every folder to this one's next state.
                               if (e.altKey) {
                                 const opening = !expandedFolders.has(row.name)
-                                setExpandedFolders(opening ? new Set(folders) : new Set())
+                                sceneFolders.setAll(opening ? folders : [])
                                 return
                               }
                               toggleFolder(row.name)

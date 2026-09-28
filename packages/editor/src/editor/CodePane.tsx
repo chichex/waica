@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import MonacoEditor from '@monaco-editor/react'
 import type { SceneJson } from '@waica/engine'
 import { SCENE_PATH, type ProjectFS } from '../fs/project-fs'
@@ -26,7 +26,10 @@ export function CodePane({
   onSceneSaved,
 }: {
   fs?: ProjectFS
-  /** Display path; also the file to load/save when no `source` is given. */
+  /**
+   * Display path; also the file to load/save when no `source` is given. A
+   * pane stays on its first file: render a new one (key it by path) per file.
+   */
   path: string
   /** Inline source: skips fs loading and disables saving. */
   source?: string
@@ -41,18 +44,12 @@ export function CodePane({
   const dirtyRef = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // One instance edits one file: the Editor keys each pane by its path, so a
+  // different file is a fresh pane with fresh state. This effect only reads.
   useEffect(() => {
-    dirtyRef.current = false
-    if (source != null) {
-      valueRef.current = source
-      setValue(source)
-      setDirty(false)
-      return
-    }
-    if (!fs) return
-    setValue(null)
-    setDirty(false)
-    // Switching file before this read lands must not show the old file.
+    if (source != null || !fs) return
+    // A read this effect's cleanup already discarded (StrictMode's first
+    // mount, or an unmount) must not land.
     let current = true
     fs.readText(path).then(
       (text) => {
@@ -94,21 +91,20 @@ export function CodePane({
 
   // A dirty buffer lands when the pane unmounts (switching files, closing the
   // project) and when the tab hides or closes — editing is saving, like
-  // everywhere else in the editor.
+  // everywhere else in the editor. save() skips read-only and inline panes.
+  const flushDirty = useEffectEvent((): void => {
+    if (dirtyRef.current) reportRejection(save(), 'save')
+  })
   useEffect(() => {
-    if (readOnly || source != null || !fs) return
-    const flush = (): void => {
-      if (dirtyRef.current) reportRejection(save(), 'save')
-    }
+    const flush = (): void => flushDirty()
     window.addEventListener('pagehide', flush)
     window.addEventListener('beforeunload', flush)
     return () => {
       window.removeEventListener('pagehide', flush)
       window.removeEventListener('beforeunload', flush)
-      flush()
+      flushDirty()
     }
-    // save() closes over these same props; refs carry the live buffer.
-  }, [fs, path, source, readOnly])
+  }, [])
 
   const ext = path.split('.').pop() ?? ''
   const slash = path.lastIndexOf('/')

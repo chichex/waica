@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import {
   mergeRegistryComponents,
   type ComponentClass,
@@ -56,7 +56,7 @@ import { DEFAULT_GAME_SETTINGS, GAME_PATH, parseGameSettings, serializeGameSetti
 import { STATS_PATH, parseStats, serializeStats, type ProjectStats } from '../project/stats'
 import * as ops from '../scene/ops'
 import { EditorHistory, type AtomicEntry, type HistoryEntry } from '../history/history'
-import { toAnimatedProps } from '../project/clips'
+import { toAnimatedProps, type AnimatedProps } from '../project/clips'
 import {
   Viewport,
   type ViewportComponentVisibility,
@@ -78,6 +78,7 @@ import { WriteScheduler } from './write-scheduler'
 import type { TilemapBrushSelection } from './tilemap-brush'
 import { reportRejection } from '../report-rejection'
 import { parseSceneJson } from '../scene/scene-file'
+import { useSceneFolders } from './use-scene-folders'
 
 type SaveState = 'saved' | 'saving' | 'error'
 
@@ -139,6 +140,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   })
   const [scenePaths, setScenePaths] = useState<string[]>([])
   const [openScenePath, setOpenScenePath] = useState<string | null>(null)
+  const sceneFolders = useSceneFolders(openScenePath)
   /**
    * The scene in the viewport, paired with the file it came from. The two
    * travel together for two reasons: an edit is never written to a path the
@@ -200,7 +202,6 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   /** New-character flow: the role picker modal is open. */
   const [rolePicking, setRolePicking] = useState(false)
   /** Last folder created here — the Explorer opens it (scene folders start shut). */
-  const [justCreatedFolder, setJustCreatedFolder] = useState<{ name: string } | null>(null)
   /** null until src/controls.json is read (or defaulted). */
   const [controls, setControls] = useState<InputBindings | null>(null)
   /** The project's own names for its actions; the archetype's stay in its manifest. */
@@ -247,10 +248,10 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     }
   }
 
-  // Textures referencing freshly scanned art need the stage to rebind them.
-  useEffect(() => {
-    setEpoch((e) => e + 1)
-  }, [projectArt.art])
+  // The stage rebuilds on every structural edit (epoch) and, so textures
+  // rebind to freshly scanned art, on every art scan. Both only grow, so the
+  // sum changes exactly when either one does.
+  const stageEpoch = epoch + projectArt.loads
 
   useEffect(() => {
     workspaceRestored.current = false
@@ -716,7 +717,8 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     if (!scene || names.length === 0) return
     const folder = ops.uniqueFolderName(scene, 'Group')
     commit(ops.reorderEntities(ops.addFolder(scene, folder), names, { into: folder }), true)
-    setJustCreatedFolder({ name: folder })
+    // A brand-new folder holding the grouped entities opens, so they stay in sight.
+    sceneFolders.open(folder)
   }
 
   const deleteEntities = (names: string[]): void => {
@@ -743,7 +745,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     if (!scene) return
     const folder = ops.uniqueFolderName(scene, 'Folder')
     commit(ops.addFolder(scene, folder))
-    setJustCreatedFolder({ name: folder })
+    sceneFolders.open(folder)
   }
 
   const renameFolder = (from: string, to: string): void => {
@@ -1214,13 +1216,12 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     revealEntry(entry, dir)
   }
 
-  // Latest-closure refs so the mount-once key listener sees fresh state.
-  const stepRef = useRef(doStep)
-  stepRef.current = doStep
-  const duplicateRef = useRef(duplicateSelection)
-  duplicateRef.current = duplicateSelection
-  const groupRef = useRef(groupSelection)
-  groupRef.current = groupSelection
+  // Non-reactive: the mount-once key listener runs the latest handlers.
+  const runShortcut = useEffectEvent((shortcut: 'duplicate' | 'group' | 'undo' | 'redo'): void => {
+    if (shortcut === 'duplicate') duplicateSelection()
+    else if (shortcut === 'group') groupSelection()
+    else reportRejection(doStep(shortcut), 'undo or redo')
+  })
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -1241,9 +1242,9 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
         if (input && !['checkbox', 'radio', 'range', 'color'].includes(input.type)) return
       }
       e.preventDefault()
-      if (isDuplicate) duplicateRef.current()
-      else if (isGroup) groupRef.current()
-      else reportRejection(stepRef.current(isUndo ? 'undo' : 'redo'), 'undo or redo')
+      if (isDuplicate) runShortcut('duplicate')
+      else if (isGroup) runShortcut('group')
+      else runShortcut(isUndo ? 'undo' : 'redo')
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -1319,6 +1320,26 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     commit(next, true)
   }
 
+  /** The animation modal's Save: its clips land on the prefab or scene entity it opened for. */
+  const saveAnimationClips = (next: AnimatedProps): void => {
+    const props: Record<string, unknown> = { ...next }
+    const prefab = animTarget?.kind === 'prefab' ? prefabLib[animTarget.ref] : undefined
+    if (animTarget?.kind === 'prefab' && prefab) {
+      const components = prefab.components.map((c) => (c.type === 'AnimatedSprite' ? { ...c, props } : c))
+      commitPrefab(animTarget.ref, { ...prefab, components }, true)
+    } else if (animTarget?.kind === 'entity' && scene) {
+      commit(ops.setComponentProps(scene, animTarget.name, 'AnimatedSprite', props), true)
+    }
+    setAnimTarget(null)
+  }
+
+  /** The state modal's Save: the machine patch lands on the prefab or scene entity it opened for. */
+  const saveStateMachinePatch = (patch: Partial<MachineProps>): void => {
+    if (stateTarget?.kind === 'prefab') prefabMachinePatch(stateTarget.ref, patch)
+    else if (stateTarget) entityMachinePatch(stateTarget.name, patch)
+    setStateTarget(null)
+  }
+
   const selection: InspectorSelection = (() => {
     if (view?.kind === 'prefab') {
       const prefab = prefabLib[view.ref]
@@ -1370,7 +1391,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
           scenePath={openScene.path}
           sceneCatalog={sceneLibrary}
           registry={registryWithPrefabs}
-          epoch={epoch}
+          epoch={stageEpoch}
           mode={mode}
           bindings={controls ?? undefined}
           stats={stats ?? undefined}
@@ -1459,7 +1480,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
           ref={viewport}
           scene={prefabScene ?? EMPTY_SCENE}
           registry={registryWithPrefabs}
-          epoch={epoch}
+          epoch={stageEpoch}
           mode="edit"
           viewHeight={5}
           background={0x211a33}
@@ -1515,7 +1536,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     }
     if (view.kind === 'script') {
       const src = scriptSource(view.name)
-      return <CodePane path={`scripts/${src.file}`} source={src.source} readOnly />
+      return <CodePane key={src.file} path={`scripts/${src.file}`} source={src.source} readOnly />
     }
     if (view.kind === 'stateFile') {
       // Project state/role code: a real file, edited for real (⌘S saves).
@@ -1774,7 +1795,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             onAddEntity={addEntity}
             onCreateScene={() => reportRejection(createScene(), 'create scene')}
             onCreateFolder={createFolder}
-            justCreatedFolder={justCreatedFolder}
+            sceneFolders={sceneFolders}
             onRenameFolder={renameFolder}
             onDissolveFolder={dissolveFolder}
             onDeleteFolder={deleteFolder}
@@ -2100,27 +2121,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
               art={projectArt.art.filter((item) => item.kind === 'image')}
               urlFor={projectArt.urlFor}
               onImportArt={projectArt.importArt}
-              onSave={(next) => {
-                const props: Record<string, unknown> = { ...next }
-                if (animTarget.kind === 'prefab') {
-                  const prefab = prefabLib[animTarget.ref]
-                  if (prefab) {
-                    commitPrefab(
-                      animTarget.ref,
-                      {
-                        ...prefab,
-                        components: prefab.components.map((c) =>
-                          c.type === 'AnimatedSprite' ? { ...c, props } : c,
-                        ),
-                      },
-                      true,
-                    )
-                  }
-                } else if (scene) {
-                  commit(ops.setComponentProps(scene, animTarget.name, 'AnimatedSprite', props), true)
-                }
-                setAnimTarget(null)
-              }}
+              onSave={saveAnimationClips}
               onCancel={() => setAnimTarget(null)}
             />
           )
@@ -2145,11 +2146,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
               inputActions={Object.keys(controls ?? {})}
               stateFiles={stateFiles}
               onCreateFile={(state) => reportRejection(createStateFile(machine.role, state), 'create state file')}
-              onSave={(patch) => {
-                if (stateTarget.kind === 'prefab') prefabMachinePatch(stateTarget.ref, patch)
-                else entityMachinePatch(stateTarget.name, patch)
-                setStateTarget(null)
-              }}
+              onSave={saveStateMachinePatch}
               onCancel={() => setStateTarget(null)}
             />
           )
