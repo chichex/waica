@@ -435,3 +435,40 @@ describe('RuntimeSnapshot.ui within the projection limits (issue #72 CA-9)', () 
     game.dispose()
   })
 })
+
+describe('RuntimeSnapshot.camera (issue #74 CA-17)', () => {
+  it('reports no shake and clear layers on a fresh Game, with or without filters', () => {
+    const { registered } = installActivation()
+    const game = makeGame()
+    game.start()
+
+    const expected = {
+      shake: { x: 0, y: 0 },
+      fade: { color: '#000000', opacity: 0 },
+      flash: { color: '#ffffff', opacity: 0 },
+    }
+    expect(registered[0]!.inspect().camera).toEqual(expected)
+    expect(registered[0]!.inspect({ entity_names: ['nobody'] }).camera).toEqual(expected)
+    game.dispose()
+  })
+
+  it('carries the shake offset, fade and flash of the last completed step', () => {
+    const { registered } = installActivation()
+    const game = makeGame()
+    game.start()
+    game.cameraEffects.shake({ intensity: 1, seconds: 1 })
+    game.cameraEffects.fade({ to: 'white', seconds: 0.5 })
+    game.cameraEffects.flash({ color: '#00ff00', seconds: 0.5 })
+
+    registered[0]!.control({ operation: 'step', frames: 6 })
+    const snapshot = registered[0]!.inspect()
+
+    expect(snapshot.camera).toEqual(game.cameraEffects.state)
+    expect(snapshot.camera.shake).not.toEqual({ x: 0, y: 0 })
+    expect(snapshot.camera.fade.color).toBe('#ffffff')
+    expect(snapshot.camera.fade.opacity).toBeCloseTo(6 / 30, 12)
+    expect(snapshot.camera.flash.color).toBe('#00ff00')
+    expect(snapshot.camera.flash.opacity).toBeCloseTo(1 - 6 / 30, 12)
+    game.dispose()
+  })
+})

@@ -90,7 +90,8 @@ const EASINGS: Record<EasingName, EasingFn> = {
   sineInOut: (t) => -(Math.cos(Math.PI * t) - 1) / 2,
 }
 
-function resolveEasing(easing: EasingName | ((t: number) => number) | undefined): EasingFn | null {
+/** Engine-internal (not re-exported from the package entry): also resolves Camera Effect easings. */
+export function resolveEasing(easing: EasingName | ((t: number) => number) | undefined): EasingFn | null {
   if (easing === undefined) return EASINGS.linear
   if (typeof easing === 'function') return easing
   return Object.prototype.hasOwnProperty.call(EASINGS, easing) ? EASINGS[easing] : null

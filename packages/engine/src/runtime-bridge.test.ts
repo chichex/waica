@@ -225,10 +225,10 @@ describe('Runtime Bridge protocol', () => {
       mode: 'paused',
       frame: 0,
       simulationTime: 0,
-      capabilities: ['click', 'scene', 'fixed-step', 'assets'],
+      capabilities: ['click', 'scene', 'fixed-step', 'assets', 'camera-effects'],
       assets: { pending: 0, loaded: 0, failed: 0 },
     })
-    expect(RUNTIME_BRIDGE_CAPABILITIES).toEqual(['click', 'scene', 'fixed-step', 'assets'])
+    expect(RUNTIME_BRIDGE_CAPABILITIES).toEqual(['click', 'scene', 'fixed-step', 'assets', 'camera-effects'])
     expect(registered[0]?.surface).toBe(document.querySelector('canvas'))
     expect(renderer.loop).toBeNull()
     expect(renderer.renders).toBe(1)

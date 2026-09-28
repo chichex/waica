@@ -1,5 +1,40 @@
-import { describe, expect, it, vi } from 'vitest'
-import { StateMachine, type Component, type Entity, type Game } from '@waica/engine'
+// @vitest-environment happy-dom
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+// @waica/engine resolves its own nested `three` copy, so the mock has to
+// target that exact module — same technique as navigation-grid.test.ts.
+vi.mock(
+  new URL('../../engine/node_modules/three/build/three.module.js', import.meta.url).pathname,
+  async (importOriginal) => {
+    const actual = await importOriginal<Record<string, unknown>>()
+    class WebGLRenderer {
+      readonly domElement: HTMLCanvasElement
+      constructor({ canvas }: { canvas: HTMLCanvasElement }) {
+        this.domElement = canvas
+      }
+      setPixelRatio(): void {}
+      setSize(): void {}
+      setViewport(): void {}
+      setScissor(): void {}
+      setScissorTest(): void {}
+      setClearColor(): void {}
+      clear(): void {}
+      render(): void {}
+      setAnimationLoop(): void {}
+      dispose(): void {}
+    }
+    return { ...actual, WebGLRenderer }
+  },
+)
+
+import {
+  authoringDefaults,
+  Game,
+  StateMachine,
+  type Component,
+  type Entity,
+  type SceneJson,
+} from '@waica/engine'
 import { Interactable } from './interactable'
 import { SceneTransition } from './scene-transition'
 
@@ -8,7 +43,10 @@ interface StubEntity extends Entity {
 }
 
 function makeGame(): Game {
-  return { loadSceneByName: vi.fn() } as unknown as Game
+  return {
+    loadSceneByName: vi.fn(),
+    cameraEffects: { fade: vi.fn() },
+  } as unknown as Game
 }
 
 function makeEntity(game: Game, name: string): StubEntity {
@@ -51,6 +89,8 @@ describe('SceneTransition', () => {
     transition.onCollide?.(playerEntity(game))
 
     expect(game.loadSceneByName).toHaveBeenCalledWith('cave')
+    // fadeSeconds 0 (the default) is today's hard cut: no fade at all.
+    expect(game.cameraEffects.fade).not.toHaveBeenCalled()
   })
 
   it('trusts the authored overlap mask instead of rechecking player identity', () => {
@@ -138,5 +178,288 @@ describe('SceneTransition', () => {
 
     expect(warn).not.toHaveBeenCalled()
     warn.mockRestore()
+  })
+})
+
+class ResizeObserverStub {
+  observe(): void {}
+  disconnect(): void {}
+}
+
+const registry = { components: { SceneTransition, Interactable } }
+
+function doorScene(props: Record<string, unknown>, extra: SceneJson['entities'] = []): SceneJson {
+  return {
+    waicaScene: 3,
+    entities: [
+      { name: 'Door', components: [{ type: 'SceneTransition', props: { scene: 'cave', ...props } }] },
+      { name: 'Player' },
+      ...extra,
+    ],
+  }
+}
+
+function makeRealGame(main: SceneJson, extraScenes: Record<string, SceneJson> = {}): Game {
+  const host = document.createElement('div')
+  const canvas = document.createElement('canvas')
+  Object.defineProperties(canvas, { clientWidth: { value: 640 }, clientHeight: { value: 360 } })
+  host.append(canvas)
+  document.body.append(host)
+  const game = new Game({ canvas })
+  game.registerSceneCatalog({
+    scenes: { main, cave: { waicaScene: 3, entities: [{ name: 'Torch' }] }, ...extraScenes },
+    registry,
+  })
+  game.loadSceneByName('main')
+  return game
+}
+
+/** One render frame running one Simulation Step. */
+function frame(game: Game): void {
+  ;(game as unknown as { runFrame(steps: number): void }).runFrame(1)
+}
+
+function door(game: Game): SceneTransition {
+  return game.find('Door')!.get(SceneTransition)!
+}
+
+describe('SceneTransition with a fade (issue #74 CA-15)', () => {
+  beforeEach(() => {
+    document.body.innerHTML = ''
+    vi.stubGlobal('ResizeObserver', ResizeObserverStub)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('with fadeSeconds 0 loads the destination on the same step, with no fade', () => {
+    const game = makeRealGame(doorScene({}))
+    frame(game)
+
+    door(game).onCollide?.(game.find('Player')!)
+
+    expect(game.sceneName).toBe('cave')
+    expect(game.cameraEffects.state.fade.opacity).toBe(0)
+    game.dispose()
+  })
+
+  it('fades out over fadeSeconds, swaps, then clears over fadeSeconds in the incoming scene; retriggers do nothing', () => {
+    const game = makeRealGame(doorScene({ fadeSeconds: 0.25, fadeColor: '#ff0000' }))
+    const load = vi.spyOn(game, 'loadSceneByName')
+    let simulated = 0
+    game.onUpdate(() => (simulated += 1))
+    frame(game)
+    frame(game)
+    const player = game.find('Player')!
+
+    door(game).onCollide?.(player)
+
+    const seen: Array<{ scene: string | null; opacity: number }> = []
+    for (let n = 1; n <= 30; n += 1) {
+      // Retriggers during the outgoing fade are ignored.
+      if (n <= 10) door(game).onCollide?.(player)
+      frame(game)
+      seen.push({ scene: game.sceneName, opacity: game.cameraEffects.state.fade.opacity })
+    }
+
+    // Outgoing: 15 steps of a rising fade to the authored color, still "main".
+    for (let n = 1; n <= 14; n += 1) {
+      expect(seen[n - 1]!.scene).toBe('main')
+      expect(seen[n - 1]!.opacity).toBeCloseTo(n / 15, 12)
+    }
+    expect(seen[14]).toEqual({ scene: 'main', opacity: 1 })
+    expect(game.cameraEffects.state.fade.color).toBe('#ff0000')
+    // The swap, then 15 steps of clearing in "cave".
+    for (let n = 16; n <= 30; n += 1) {
+      expect(seen[n - 1]!.scene).toBe('cave')
+      expect(seen[n - 1]!.opacity).toBeCloseTo((30 - n) / 15, 12)
+    }
+    expect(seen[29]!.opacity).toBe(0)
+    expect(load).toHaveBeenCalledTimes(1)
+    expect(load).toHaveBeenCalledWith('cave')
+    // Simulation never froze.
+    expect(simulated).toBe(32)
+    game.dispose()
+  })
+
+  it('defaults fadeColor to black and fires the same way from an interaction', () => {
+    const main = doorScene({ fadeSeconds: 0.1, trigger: 'interact' })
+    main.entities[0]!.components!.unshift({ type: 'Interactable' })
+    const game = makeRealGame(main)
+    frame(game)
+
+    door(game).onInteract?.(game.find('Player')!)
+    frame(game)
+
+    expect(game.sceneName).toBe('main')
+    expect(game.cameraEffects.state.fade.color).toBe('#000000')
+    expect(game.cameraEffects.state.fade.opacity).toBeCloseTo(1 / 6, 12)
+    for (let n = 0; n < 6; n += 1) frame(game)
+    expect(game.sceneName).toBe('cave')
+    game.dispose()
+  })
+
+  it('a mid-fade scene change does not leave the fade stuck at opacity 1 (issue #74 review)', () => {
+    const game = makeRealGame(doorScene({ fadeSeconds: 0.25 }), {
+      town: { waicaScene: 3, entities: [{ name: 'Mayor' }] },
+    })
+    frame(game)
+    const player = game.find('Player')!
+
+    door(game).onCollide?.(player)
+    for (let n = 0; n < 5; n += 1) frame(game)
+    expect(game.sceneName).toBe('main')
+    expect(game.cameraEffects.state.fade.opacity).toBeGreaterThan(0)
+    expect(game.cameraEffects.state.fade.opacity).toBeLessThan(1)
+
+    // Something else changes the scene mid-fade: e.g. the Runtime Bridge's
+    // `scene` control operation, called synchronously outside a frame.
+    game.loadSceneByName('town')
+    expect(game.sceneName).toBe('town')
+
+    // Run well past the door's own fadeSeconds: the fade must still clear,
+    // in whichever scene ended up live, instead of staying stuck.
+    for (let n = 0; n < 40; n += 1) frame(game)
+
+    expect(game.sceneName).toBe('town')
+    expect(game.cameraEffects.state.fade.opacity).toBe(0)
+    game.dispose()
+  })
+
+  it('an overlap that persists through the swap step does not re-arm the door and cancel a later fade (PR #98 review)', () => {
+    const game = makeRealGame(doorScene({ fadeSeconds: 0.25 }))
+    const load = vi.spyOn(game, 'loadSceneByName')
+    frame(game)
+    const player = game.find('Player')!
+
+    door(game).onCollide?.(player)
+    // The outgoing fade takes 15 steps (0.25s / (1/60)). Run all of them:
+    // by the 15th, the swap timer has decided to swap and reset
+    // `_fadingOut`, but `loadSceneByName` only queued the swap — it applies
+    // at the start of the next frame (game.ts's loadSceneByName contract).
+    for (let n = 0; n < 15; n += 1) frame(game)
+    expect(game.sceneName).toBe('main')
+    expect(game.cameraEffects.state.fade.opacity).toBe(1)
+
+    // The door is still alive and the player still overlaps it: the rest of
+    // this step's dispatchCollisions would call onCollide again.
+    door(game).onCollide?.(player)
+
+    // The queued swap applies here.
+    frame(game)
+    expect(game.sceneName).toBe('cave')
+    expect(load).toHaveBeenCalledTimes(1)
+
+    // The incoming scene starts its own outgoing fade within fadeSeconds of
+    // the swap (e.g. its own door) and it must run to completion, not get
+    // cancelled by an orphaned 'clear' from the re-fire above.
+    game.cameraEffects.fade({ to: '#00ff00', seconds: 0.25 })
+    for (let n = 0; n < 60; n += 1) frame(game)
+
+    expect(game.cameraEffects.state.fade.color).toBe('#00ff00')
+    expect(game.cameraEffects.state.fade.opacity).toBe(1)
+    game.dispose()
+  })
+
+  it('two doors fading at once: the later one wins the swap, not the earlier one under its partial cover (PR #98 review)', () => {
+    const main: SceneJson = {
+      waicaScene: 3,
+      entities: [
+        { name: 'DoorA', components: [{ type: 'SceneTransition', props: { scene: 'cave', fadeSeconds: 0.25 } }] },
+        { name: 'DoorB', components: [{ type: 'SceneTransition', props: { scene: 'town', fadeSeconds: 0.25 } }] },
+        { name: 'Player' },
+      ],
+    }
+    const game = makeRealGame(main, { town: { waicaScene: 3, entities: [{ name: 'Mayor' }] } })
+    const load = vi.spyOn(game, 'loadSceneByName')
+    frame(game)
+    const player = game.find('Player')!
+    const doorA = game.find('DoorA')!.get(SceneTransition)!
+    const doorB = game.find('DoorB')!.get(SceneTransition)!
+
+    doorA.onCollide?.(player)
+    // The player walks from A onto B partway through A's outgoing fade,
+    // hijacking the one shared Fade layer: it restarts from A's opacity at
+    // that point toward B's own target.
+    for (let n = 0; n < 9; n += 1) frame(game)
+    doorB.onCollide?.(player)
+
+    // A's own deadline (15 steps after it fired) passes while B's fade is
+    // still mid-flight: A must not swap to its destination under B's
+    // partial cover.
+    for (let n = 0; n < 6; n += 1) frame(game)
+    expect(game.sceneName).toBe('main')
+    expect(load).not.toHaveBeenCalled()
+
+    // B's own deadline (15 steps after it fired) passes: only now does the
+    // swap happen, to B's destination -- the door the player actually
+    // touched last -- fully covered.
+    for (let n = 0; n < 30; n += 1) frame(game)
+
+    expect(load).toHaveBeenCalledTimes(1)
+    expect(load).toHaveBeenCalledWith('town')
+    expect(game.sceneName).toBe('town')
+    expect(game.cameraEffects.state.fade.opacity).toBe(0)
+    game.dispose()
+  })
+
+  it("an external cameraEffects.fade call during a door's outgoing fade is not clobbered by that door's swap or clear (PR #98 review)", () => {
+    const game = makeRealGame(doorScene({ fadeSeconds: 0.25 }))
+    const load = vi.spyOn(game, 'loadSceneByName')
+    frame(game)
+    const player = game.find('Player')!
+
+    door(game).onCollide?.(player)
+    for (let n = 0; n < 5; n += 1) frame(game)
+    expect(game.cameraEffects.state.fade.opacity).toBeGreaterThan(0)
+    expect(game.cameraEffects.state.fade.opacity).toBeLessThan(1)
+
+    // Game code unrelated to this door -- e.g. a scripted cutscene -- takes
+    // over the one shared Fade layer mid-transition.
+    game.cameraEffects.fade({ to: '#0000ff', seconds: 0.1 })
+
+    // Run well past both the door's own deadline and the external fade's.
+    for (let n = 0; n < 40; n += 1) frame(game)
+
+    expect(game.sceneName).toBe('main')
+    expect(load).not.toHaveBeenCalled()
+    expect(game.cameraEffects.state.fade.color).toBe('#0000ff')
+    expect(game.cameraEffects.state.fade.opacity).toBe(1)
+    game.dispose()
+  })
+
+  it('the door being destroyed mid-fade does not leave the fade stuck at opacity 1 (issue #74 review)', () => {
+    const game = makeRealGame(doorScene({ fadeSeconds: 0.25 }))
+    frame(game)
+    const player = game.find('Player')!
+
+    door(game).onCollide?.(player)
+    for (let n = 0; n < 5; n += 1) frame(game)
+    expect(game.cameraEffects.state.fade.opacity).toBeGreaterThan(0)
+    expect(game.cameraEffects.state.fade.opacity).toBeLessThan(1)
+
+    // The door entity itself is destroyed mid-fade (e.g. a hard reset script).
+    game.find('Door')!.destroy()
+
+    for (let n = 0; n < 40; n += 1) frame(game)
+
+    // No swap: the door that would have triggered it is gone.
+    expect(game.sceneName).toBe('main')
+    expect(game.cameraEffects.state.fade.opacity).toBe(0)
+    game.dispose()
+  })
+})
+
+describe('SceneTransition params reach tooling (issue #74 CA-16)', () => {
+  it('lists fadeSeconds and fadeColor with their defaults', () => {
+    expect(Object.keys(SceneTransition.params)).toEqual(['scene', 'trigger', 'fadeSeconds', 'fadeColor'])
+    expect(authoringDefaults(SceneTransition)).toEqual({
+      scene: '',
+      trigger: 'overlap',
+      fadeSeconds: 0,
+      fadeColor: 'black',
+    })
   })
 })

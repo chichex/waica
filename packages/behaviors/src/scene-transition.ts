@@ -1,4 +1,4 @@
-import { Component, type Entity } from '@waica/engine'
+import { Component, type CameraEffectColor, type Entity } from '@waica/engine'
 import { Interactable } from './interactable.js'
 
 /**
@@ -15,17 +15,31 @@ import { Interactable } from './interactable.js'
  * it needs a sibling Interactable and fires from the shared nearest-wins
  * interact scan (interactable.ts's fireInteract), so a door and an NPC in
  * range arbitrate themselves with no new rule.
+ *
+ * With fadeSeconds > 0 it hides the swap behind a Fade (issue #74): the
+ * view fades to fadeColor over fadeSeconds, the destination loads, and the
+ * Fade clears over the same fadeSeconds in the incoming scene. Simulation
+ * and input keep running; while its outgoing fade runs, this component
+ * ignores further triggers. fadeSeconds 0 (the default) is a hard cut.
  */
 export class SceneTransition extends Component {
   static override componentName = 'SceneTransition'
   static override params = {
     scene: { label: 'Scene' },
     trigger: { label: 'Trigger', options: ['overlap', 'interact'] },
+    fadeSeconds: { label: 'Fade seconds', min: 0, max: 5, step: 0.05 },
+    fadeColor: { label: 'Fade color' },
   }
 
   /** Destination scene name. */
   scene = ''
   trigger: 'overlap' | 'interact' = 'overlap'
+  /** Seconds of each half of the fade (out, then clear); 0 = hard cut. */
+  fadeSeconds = 0
+  /** `'black'`, `'white'` or `'#rrggbb'`. */
+  fadeColor: CameraEffectColor = 'black'
+  /** True while the outgoing fade runs: further triggers do nothing. */
+  private _fadingOut = false
 
   override onReady(): void {
     if (this.trigger === 'interact' && !this.entity.has(Interactable)) {
@@ -47,6 +61,79 @@ export class SceneTransition extends Component {
   }
 
   private fire(): void {
-    this.game.loadSceneByName(this.scene)
+    if (!(this.fadeSeconds > 0)) {
+      this.game.loadSceneByName(this.scene)
+      return
+    }
+    if (this._fadingOut) return
+    const { game, fadeSeconds } = this
+    const sceneAtFadeStart = game.sceneName
+    const fadeHandle = game.cameraEffects.fade({ to: this.fadeColor, seconds: fadeSeconds })
+    this._fadingOut = true
+    // Scheduled on Game Time, not on `fade.done`: a promise settles in a
+    // microtask, after a whole multi-step frame or Runtime Bridge `step`,
+    // while this timer fires on the exact step the fade has covered the view.
+    //
+    // Session-scoped and un-owned (issue #74 review): a mid-fade scene
+    // change (another transition, a Runtime Bridge `scene` op, a host
+    // reset) cancels scene-scoped work, and Entity.destroy() cancels an
+    // owned timer whatever its scope. Either would otherwise strand the
+    // Fade at opacity 1 with nothing left to clear it, since the Fade
+    // itself is session-scoped and keeps advancing on its own. This timer
+    // always runs; it swaps only if the door is still alive and the scene
+    // it started the fade in is still live, and it always queues the
+    // 'clear'.
+    game.time.after(
+      fadeSeconds,
+      () => {
+        // Superseded (PR #98 review): the Fade is one shared, session-scoped
+        // layer — a second door, or any other `cameraEffects.fade(...)`
+        // call, replaces this fade outright instead of queueing behind it
+        // (CameraEffects.fade() cancels whatever is running). `fadeHandle
+        // .superseded` is read synchronously here, never `.done`: that
+        // Promise only notifies its `.then()` in a microtask, and nothing
+        // flushes the microtask queue between this Game Time-scheduled
+        // callback and the many Simulation Steps that led up to it (same
+        // reasoning as scheduling the swap itself on Game Time instead of
+        // on `fade.done`, above). It is set once, synchronously, only when
+        // a *later* fade call actually replaces this one while it is still
+        // running — never for this door's own fade completing on its own,
+        // whatever step that lands on (`fire()` runs mid-`dispatchCollisions`
+        // for a real overlap, one Simulation Step "behind" where `game.time`
+        // sees this same call start, which would otherwise look identical
+        // to a supersession). If it is true, somebody else now owns the
+        // shared layer and its eventual 'clear': this door must not swap
+        // under their partial cover, and must not queue a 'clear' of its
+        // own that would cancel their fade. Nothing is in flight to
+        // protect, so the latch resets right away — the door can be
+        // triggered again if the player is still on it.
+        if (fadeHandle.superseded) {
+          this._fadingOut = false
+          return
+        }
+        if (this.entity.alive && game.sceneName === sceneAtFadeStart) {
+          game.loadSceneByName(this.scene)
+        }
+        // `_fadingOut` stays true here (PR #98 review): loadSceneByName
+        // above only *queues* the swap mid-frame, it doesn't apply it until
+        // the next frame. Dropping the guard now would let the rest of
+        // this same step's dispatchCollisions re-fire on the door, still
+        // alive and still overlapped, in the outgoing scene — a second
+        // fire() that schedules an orphan timer whose 'clear' lands in the
+        // new scene and cancels whatever legitimate fade is running there.
+        // Reset it only in the zero-delay follow-up below, once the queued
+        // swap has applied and the door has died with its scene (or, if
+        // the swap was skipped, once there is nothing left to re-arm).
+        game.time.after(
+          0,
+          () => {
+            this._fadingOut = false
+            game.cameraEffects.fade({ to: 'clear', seconds: fadeSeconds })
+          },
+          { scope: 'session' },
+        )
+      },
+      { scope: 'session' },
+    )
   }
 }

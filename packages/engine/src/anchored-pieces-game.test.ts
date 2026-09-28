@@ -513,3 +513,25 @@ describe('CSS animations inside an instance follow Game Time', () => {
     expect(again.currentTime).toBeCloseTo(216.667, 3)
   })
 })
+
+describe('Anchored Pieces shake with the world (issue #74 CA-14)', () => {
+  it('places every instance from the drawn center, so it keeps its offset relative to its entity', () => {
+    const game = makeGame()
+    const orc = game.spawn('Orc')
+    const tag = game.ui.attach('tag', orc, { offset: [0, 1] })
+    game.cameraEffects.shake({ intensity: 1, seconds: 1 })
+
+    let moved = 0
+    for (let step = 0; step < 20; step += 1) {
+      frame(game)
+      const { shake } = game.cameraEffects.state
+      // 60 px per unit on this 800×600, viewHeight 10 viewport; the camera's
+      // base center stays at the origin, the drawn one is the base + shake.
+      const expected = [`${Math.round(400 - shake.x * 60)}px`, `${Math.round(240 + shake.y * 60)}px`]
+      expect(placed(tag)).toEqual(expected)
+      if (expected[0] !== '400px' || expected[1] !== '240px') moved += 1
+    }
+    expect(game.camera.position.x).toBe(0)
+    expect(moved).toBeGreaterThan(10)
+  })
+})

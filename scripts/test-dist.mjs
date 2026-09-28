@@ -747,6 +747,7 @@ try {
     includeIsometric: false,
     includeProjection: false,
     includeSceneSwap: false,
+    includeSceneFade: false,
   })
 
   console.log(

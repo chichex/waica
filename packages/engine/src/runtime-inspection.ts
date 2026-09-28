@@ -1,4 +1,5 @@
 import type { AudioChannelState, LiveSoundInfo } from './audio/types.js'
+import type { CameraEffectsState } from './camera-effects.js'
 import type { Component, ComponentClass } from './component.js'
 import type { Entity } from './entity.js'
 import type { Game } from './game.js'
@@ -113,6 +114,14 @@ export interface RuntimeSnapshotUi {
   }>
 }
 
+/**
+ * `game.cameraEffects.state` (issue #74 CA-17), beside `time` and `ui`: the
+ * shake offset (world units, added to the camera only while drawing) and
+ * the Fade and Flash layers' `#rrggbb` color and opacity, all from the
+ * last completed Simulation Step. Emitted unconditionally — never filtered.
+ */
+export type RuntimeSnapshotCamera = CameraEffectsState
+
 export interface RuntimeSnapshot extends RuntimeMetadata {
   stats: Record<string, StatValue>
   /** The live scene's name (its catalog key), or null with no scene loaded. */
@@ -122,6 +131,7 @@ export interface RuntimeSnapshot extends RuntimeMetadata {
   audio: RuntimeSnapshotAudio
   time: RuntimeSnapshotTime
   ui: RuntimeSnapshotUi
+  camera: RuntimeSnapshotCamera
 }
 
 export const RUNTIME_PROJECTION_LIMITS = {
@@ -428,6 +438,7 @@ export class RuntimeInspector {
       audio: this.audioSnapshot(),
       time: this.timeSnapshot(),
       ui: this.uiSnapshot(projectionIssues),
+      camera: this.game.cameraEffects.state,
     })
   }
 

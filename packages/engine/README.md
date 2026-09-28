@@ -194,6 +194,28 @@ game.time.now  // seconds of Game Time since the Game started
 - **Scope.** A timer or tween is scene-scoped by default: `unloadScene()` and every scene load — including a Game's first — cancel it, running no callback. `{ scope: 'session' }` survives a scene change. `{ owner: entity }` cancels it immediately when that entity is destroyed, whatever its scope; an owner already dead at scheduling time yields an inactive handle. `game.dispose()` cancels everything in both scopes. This is the opposite default from `game.onUpdate`/`game.events` (ADR 0011), which survive a scene change by construction, and the same one `game.audio.play()` uses (ADR 0012) — see ADR 0017 for why timers follow audio's rule rather than the host-subscription one: a timer's callback almost always closes over the scene that scheduled it.
 - **No Promises.** Nothing here returns one, and nothing is async — a `.then` continuation is not step-exact (it runs after the whole synchronous frame), which is exactly what `game.time` exists to avoid. Compose delays with `after`, not `await`.
 
+## game.cameraEffects: shake, fade and flash
+
+Every `Game` owns a `cameraEffects: CameraEffects` service beside `game.camera`, which stays the plain `THREE.OrthographicCamera` (ADR 0020). Effects advance only inside a Simulation Step, right after the scene camera, so nothing moves while the Game is not simulating, is stopped, or a Run Session is paused; `step { frames: N }` advances them by exactly N steps.
+
+```ts
+game.cameraEffects.shake({ intensity: 0.3, seconds: 0.25 })          // world units, decaying to 0
+const out = game.cameraEffects.fade({ to: 'black', seconds: 0.4 })   // 'black' | 'white' | '#rrggbb' | 'clear'
+game.cameraEffects.flash({ color: 'white', seconds: 0.15 })          // up to 1, back to exactly 0
+out.cancel()                                                          // opacity stays where it was
+await out.done                                                        // true: completed; false: cancelled or replaced
+```
+
+- **Shake.** An offset added to the camera only while drawing (the world render and Anchored Pieces), never to the base center that follow, deadzone and limits compute, so smoothing never feeds on it. Each axis stays within `intensity · (1 − ease(t / seconds))` (`easing` takes `game.time`'s names, `'linear'` by default) and is exactly `{0, 0}` from `seconds` on. Overlapping shakes apply the largest current amplitude. The jitter is deterministic per Simulation Step (no `Math.random`), so a Run Session reproduces it. It is not re-clamped to `limits`: at a map edge up to `intensity` beyond them can show. Under a fixed `resolution` the offset snaps to whole screen pixels; the base center is never snapped.
+- **Fade.** Carries an HTML layer over the game viewport — inside the letterbox, above the world, UI Pieces and Anchored Pieces — from its current opacity to 1 in the given color, or to 0 with `'clear'`, and then holds. A new `fade` cancels a running one (its `done` resolves `false`) and starts from the current opacity.
+- **Flash.** Its own layer above the Fade, shown at opacity 1 and returned to exactly 0 over `seconds`; it never changes the Fade.
+- **Scope.** A Fade is session-scoped: it survives `unloadScene()` and every scene load with its color, opacity and any running progress, so it can cover a scene change. A Shake or Flash is scene-scoped: `unloadScene()` ends it, running no callback (its `done` resolves `false`). `game.dispose()` ends everything and removes the layers. This follows the audio and timer scope notes above (ADR 0011, ADR 0017): a transition fade is exactly the case that must cross a scene change.
+- **Invalid arguments never throw.** A non-finite or negative `seconds`/`intensity`, an unknown color or an unknown easing logs one `[waica]` warning and returns a handle whose `done` resolves `false`; no effect changes.
+- **Scene Transition.** `SceneTransition` takes `fadeSeconds` (default 0: a hard cut) and `fadeColor` (default `'black'`): it fades out over `fadeSeconds`, loads its destination, then clears over `fadeSeconds` in the incoming scene. Simulation and input keep running; the component ignores further triggers during its outgoing fade. The Runtime Bridge `scene` operation stays a hard cut.
+- **Runtime Snapshot.** Every snapshot carries `camera: { shake: { x, y }, fade: { color, opacity }, flash: { color, opacity } }` from the last completed step, under the `'camera-effects'` capability.
+
+A Fade to a color that nothing clears leaves the view covered; the engine does not warn.
+
 ## game.ui.attach: Anchored Pieces
 
 A UI Piece shown with `game.ui.show(name)` is a screen-space singleton. `game.ui.attach(piece, entity, options?)` instead creates an **Anchored Piece**: a new instance of the piece that follows `entity` across the screen, with its own shadow root and its own values. Every call is a new instance — five orcs can each carry a `health-bar` — and the screen piece of the same name is never mounted, shown or changed by it.

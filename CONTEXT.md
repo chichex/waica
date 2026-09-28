@@ -123,8 +123,12 @@ An instance of a UI Piece that follows an entity across the screen and carries i
 _Avoid_: world label, nameplate, entity overlay, world-space text
 
 **Scene Transition**:
-An authored trigger that replaces the live scene with another of the Project's scenes, fired by walking into it or by interacting with it. It names only its destination: the incoming scene places its own player wherever that scene authored it.
+An authored trigger that replaces the live scene with another of the Project's scenes, fired by walking into it or by interacting with it. It names only its destination: the incoming scene places its own player wherever that scene authored it. It may hide the swap behind a Fade that starts in the outgoing scene and clears in the incoming one.
 _Avoid_: door, portal, warp, level change
+
+**Camera Effect**:
+A temporary, screen-level alteration of what the scene camera shows, layered over its follow and limits without changing them: a **Shake** jitters the view and decays, a **Fade** carries the game view to or from a color and holds there, and a **Flash** is a Fade that returns to clear on its own. A Fade is session-scoped so it can cover a scene change; a Shake or Flash dies with its scene.
+_Avoid_: screen effect, post-processing, filter, transition
 
 **Art**:
 Any asset file an archetype ships for its demo — sprite sheets, tiles and sounds alike — declared as a file, the `waica:*` URI that resolves to it, and which kind of asset it is. One catalog and one emission path into a project's `src/art/`; the kind travels as data, so a picker, a validator or an agent tells a sound from a sprite without parsing file names.

@@ -323,6 +323,37 @@ async function samplePixel(playwright, executablePath, base64, x, y) {
   }
 }
 
+/** Per-channel minimum and maximum over every pixel of a PNG screenshot. */
+async function pixelRange(playwright, executablePath, base64) {
+  const browser = await playwright.chromium.launch({ executablePath, headless: true })
+  try {
+    const page = await browser.newPage({ viewport: { width: 320, height: 180 }, deviceScaleFactor: 1 })
+    return await page.evaluate(async ({ base64 }) => {
+      const image = new Image()
+      image.src = `data:image/png;base64,${base64}`
+      await image.decode()
+      const canvas = document.createElement('canvas')
+      canvas.width = image.naturalWidth
+      canvas.height = image.naturalHeight
+      const context = canvas.getContext('2d')
+      if (!context) throw new Error('missing 2d context')
+      context.drawImage(image, 0, 0)
+      const data = context.getImageData(0, 0, canvas.width, canvas.height).data
+      const min = [255, 255, 255, 255]
+      const max = [0, 0, 0, 0]
+      for (let index = 0; index < data.length; index += 4) {
+        for (let channel = 0; channel < 4; channel += 1) {
+          min[channel] = Math.min(min[channel], data[index + channel])
+          max[channel] = Math.max(max[channel], data[index + channel])
+        }
+      }
+      return { min, max }
+    }, { base64 })
+  } finally {
+    await browser.close()
+  }
+}
+
 function assertScreenshot(
   result,
   expectedMode,
@@ -1519,6 +1550,165 @@ async function runSceneSwapLeg({ client, root, parent, chrome, viteBin, engineRo
   return { sceneSwapUrl: start.structuredContent.url }
 }
 
+/**
+ * Issue #74 CA-18: its own generated isometric Project whose Door prefab
+ * sets `fadeSeconds: 0.25` (and a magenta `fadeColor`, so a uniformly
+ * covered screenshot cannot be mistaken for letterbox black or an unlit
+ * canvas). A paused Run Session walks the player into the Door: while the
+ * scene is still "main" `camera.fade.opacity` rises step by step; at full
+ * opacity a screenshot is uniformly the fade color; then the scene is
+ * "cave", and 15 steps later the Fade has cleared to 0.
+ */
+async function runSceneFadeLeg({ client, root, parent, chrome, viteBin, engineRoot, playwright }) {
+  const project = path.join(parent, 'waica-scene-fade')
+  const created = await call(client, 'create_project', {
+    project_path: project,
+    start: 'demo',
+    archetype: 'isometric',
+  })
+  assert.equal(created.isError, undefined, `create_project(scene-fade) failed: ${JSON.stringify(created)}`)
+
+  const manifestPath = path.join(project, 'package.json')
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+  manifest.scripts.dev = `node ${quoteForPackageScript(viteBin)}`
+  delete manifest.devDependencies
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+  await rm(path.join(project, 'vite.config.ts'), { force: true })
+  await materializeRuntimeDependencies(project, engineRoot)
+  for (const directory of ['behaviors', 'archetype-isometric']) {
+    await copyPackage(
+      path.join(root, 'packages', directory),
+      path.join(project, 'node_modules/@waica', directory),
+    )
+  }
+  const doorPath = path.join(project, 'src/objects/door.object.json')
+  const door = JSON.parse(await readFile(doorPath, 'utf8'))
+  const transition = door.components.find((component) => component.type === 'SceneTransition')
+  assert.ok(transition, 'the generated Door prefab must carry a SceneTransition')
+  transition.props = { ...transition.props, fadeSeconds: 0.25, fadeColor: '#ff00ff' }
+  await writeFile(doorPath, `${JSON.stringify(door, null, 2)}\n`)
+
+  const start = await call(client, 'start_project', {
+    project_path: project,
+    browser_executable_path: chrome.executablePath,
+    timeout_ms: 15_000,
+  })
+  assert.equal(start.isError, undefined, `scene-fade start_project failed: ${JSON.stringify(start)}`)
+  assert.equal(start.structuredContent.mode, 'paused')
+
+  const inspect = async (names) => {
+    const inspected = await call(client, 'inspect_runtime', {
+      project_path: project,
+      ...(names ? { entity_names: names } : {}),
+    })
+    return inspected.structuredContent.snapshot
+  }
+  const inspectPlayer = async () => {
+    const player = (await inspect(['Player'])).entities[0]
+    assert.ok(player, 'scene-fade snapshot must contain Player')
+    return { position: player.transform.position }
+  }
+  const hold = (action) =>
+    call(client, 'control_runtime', { project_path: project, operation: 'hold', action })
+  const release = (action) =>
+    call(client, 'control_runtime', { project_path: project, operation: 'release', action })
+  const step = (frames = 1) =>
+    call(client, 'control_runtime', { project_path: project, operation: 'step', frames })
+
+  const baseline = await inspect(['Player'])
+  assert.equal(baseline.scene, 'main', 'the demo must boot on "main"')
+  assert.deepEqual(
+    baseline.camera,
+    { shake: { x: 0, y: 0 }, fade: { color: '#000000', opacity: 0 }, flash: { color: '#ffffff', opacity: 0 } },
+    'a fresh Run Session reports no Camera Effect',
+  )
+
+  // Same one-axis walk as runSceneSwapLeg, then into the Door at (2, 2).
+  const AXIS_ACTIONS = {
+    x: { positive: ['right', 'down'], negative: ['left', 'up'] },
+    y: { positive: ['left', 'down'], negative: ['right', 'up'] },
+  }
+  const approach = async (axis, target) => {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      let { position } = await inspectPlayer()
+      const delta = target - position[axis]
+      if (Math.abs(delta) < 0.15) return position
+      const actions = AXIS_ACTIONS[axis][delta > 0 ? 'positive' : 'negative']
+      for (const action of actions) await hold(action)
+      for (let frame = 0; frame < 240; frame += 1) {
+        await step(1)
+        position = (await inspectPlayer()).position
+        const remaining = target - position[axis]
+        if (Math.abs(remaining) < 0.4 || Math.sign(remaining) !== Math.sign(delta)) break
+      }
+      for (const action of actions) await release(action)
+      await step(30)
+    }
+    throw new Error(`could not walk the player to logical ${axis} = ${target}`)
+  }
+  await approach('x', 2)
+  await hold('right')
+  await hold('up')
+  let fading = null
+  for (let frame = 0; frame < 240 && !fading; frame += 1) {
+    await step(1)
+    const snapshot = await inspect(['Player'])
+    assert.equal(snapshot.scene, 'main', 'the Door must fade before it swaps, never cut')
+    if (snapshot.camera.fade.opacity > 0) fading = snapshot
+  }
+  await release('right')
+  await release('up')
+  assert.ok(fading, 'walking into the Door must start a Fade within 240 frames')
+  assert.equal(fading.camera.fade.color, '#ff00ff', 'the Fade takes the Door\'s fadeColor')
+
+  // The outgoing fade: still "main", opacity rising every step until 1.
+  const rising = [fading.camera.fade.opacity]
+  let covered = null
+  for (let frame = 0; frame < 20 && !covered; frame += 1) {
+    await step(1)
+    const snapshot = await inspect(['Player'])
+    assert.equal(snapshot.scene, 'main', `the swap must wait for full opacity; opacities so far ${rising.join(',')}`)
+    const { opacity } = snapshot.camera.fade
+    assert.ok(opacity > rising.at(-1), `the outgoing Fade must rise every step; ${opacity} after ${rising.join(',')}`)
+    rising.push(opacity)
+    if (opacity === 1) covered = snapshot
+  }
+  assert.ok(covered, `the Fade must reach opacity 1 on "main"; opacities ${rising.join(',')}`)
+  assert.ok(rising.length >= 14, `a 0.25 s fade spans about 15 steps; saw ${rising.length}`)
+
+  const shot = assertScreenshot(
+    await call(client, 'capture_screenshot', { project_path: project }),
+    'paused',
+    { width: 640, height: 360 },
+  )
+  const range = await pixelRange(playwright, chrome.executablePath, shot.image)
+  const target = [255, 0, 255, 255]
+  for (let channel = 0; channel < 4; channel += 1) {
+    assert.ok(
+      Math.abs(range.min[channel] - target[channel]) <= 8 && Math.abs(range.max[channel] - target[channel]) <= 8,
+      `a fully faded screenshot must be uniformly #ff00ff; channel ${channel} spans ${range.min[channel]}..${range.max[channel]}`,
+    )
+  }
+
+  let inCave = null
+  for (let frame = 0; frame < 5 && !inCave; frame += 1) {
+    await step(1)
+    const snapshot = await inspect()
+    if (snapshot.scene === 'cave') inCave = snapshot
+  }
+  assert.ok(inCave, 'the Door must load "cave" right after the view is covered')
+  assert.ok(inCave.camera.fade.opacity < 1, 'the incoming Fade starts clearing in "cave"')
+  await step(15)
+  const cleared = await inspect(['Player'])
+  assert.equal(cleared.scene, 'cave')
+  assert.equal(cleared.camera.fade.opacity, 0, '15 steps after the swap the Fade has cleared')
+
+  const stopped = await call(client, 'stop_project', { project_path: project })
+  assert.equal(stopped.structuredContent.stopped, true)
+  await assertUrlClosed(start.structuredContent.url)
+  return { sceneFadeUrl: start.structuredContent.url, sceneFadeSteps: rising.length }
+}
+
 async function runNegativeReadiness({ client, fixture, chrome }) {
   const result = await call(client, 'start_project', {
     project_path: fixture.project,
@@ -1545,6 +1735,7 @@ export async function runRuntimeE2e({
   includeIsometric = true,
   includeProjection = true,
   includeSceneSwap = true,
+  includeSceneFade = true,
 }) {
   if (process.platform === 'win32') {
     throw new Error('The browser e2e gate requires its supported macOS/Linux host, not Windows.')
@@ -1622,6 +1813,17 @@ export async function runRuntimeE2e({
           engineRoot,
         })
       : {}
+    const sceneFadeResult = includeSceneFade
+      ? await runSceneFadeLeg({
+          client,
+          root,
+          parent: temporaryParent,
+          chrome,
+          viteBin,
+          engineRoot,
+          playwright,
+        })
+      : {}
     if (negative) await runNegativeReadiness({ client, fixture: negative, chrome })
     const result = {
       label,
@@ -1633,6 +1835,7 @@ export async function runRuntimeE2e({
       ...topdownResult,
       ...isometricResult,
       ...sceneSwapResult,
+      ...sceneFadeResult,
     }
     console.log(`waica runtime e2e (${label}): ${JSON.stringify(result)}`)
     return result
