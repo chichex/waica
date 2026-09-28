@@ -195,16 +195,7 @@ function projectValue(
     })
   }
   if (value === null || typeof value === 'boolean') return value
-  if (typeof value === 'string') {
-    const bytes = utf8Bytes(value)
-    if (bytes <= RUNTIME_PROJECTION_LIMITS.stringBytes) return value
-    return marker(context, path, 'truncated', {
-      reason: 'string',
-      preview: stringPreview(value, RUNTIME_PROJECTION_LIMITS.stringBytes),
-      originalLength: value.length,
-      originalBytes: bytes,
-    })
-  }
+  if (typeof value === 'string') return projectString(value, path, context)
   if (typeof value === 'bigint') return { $waica: 'bigint', value: value.toString() }
   if (typeof value === 'number') {
     return Number.isFinite(value)
@@ -217,68 +208,115 @@ function projectValue(
   const previousPath = context.seen.get(value)
   if (previousPath) return marker(context, path, 'cycle', { path: previousPath })
   context.seen.set(value, path)
+  return projectObject(value, { path, depth }, context)
+}
+
+/** Where a value sits in the projection: its path and nesting depth. */
+interface ProjectionSite {
+  path: string
+  depth: number
+}
+
+function projectString(value: string, path: string, context: ProjectionContext): ProjectedValue {
+  const bytes = utf8Bytes(value)
+  if (bytes <= RUNTIME_PROJECTION_LIMITS.stringBytes) return value
+  return marker(context, path, 'truncated', {
+    reason: 'string',
+    preview: stringPreview(value, RUNTIME_PROJECTION_LIMITS.stringBytes),
+    originalLength: value.length,
+    originalBytes: bytes,
+  })
+}
+
+/** Projects a not-yet-seen object: dates, collections and plain records; anything else is unsupported. */
+function projectObject(value: object, site: ProjectionSite, context: ProjectionContext): ProjectedValue {
+  const { path } = site
   if (value instanceof Date) {
     return Number.isFinite(value.getTime())
       ? { $waica: 'date', value: value.toISOString() }
       : marker(context, path, 'error', { message: 'Invalid Date' })
   }
-  if (Array.isArray(value)) {
-    const entries = value.slice(0, RUNTIME_PROJECTION_LIMITS.entries)
-      .map((entry, index) => projectValue(entry, `${path}[${index}]`, context, depth + 1))
-    const omitted = value.length - entries.length
-    if (omitted > 0) {
-      entries.push(marker(context, path, 'truncated', { reason: 'entries', omitted }))
-    }
-    return entries
-  }
-  if (value instanceof Map) {
-    const sourceEntries = [...value.entries()]
-    const entries = sourceEntries.slice(0, RUNTIME_PROJECTION_LIMITS.entries)
-      .map(([key, entry], index) => [
-        projectValue(key, `${path}.entries[${index}].key`, context, depth + 1),
-        projectValue(entry, `${path}.entries[${index}].value`, context, depth + 1),
-      ])
-    const omitted = sourceEntries.length - entries.length
-    return {
-      $waica: 'map',
-      entries,
-      ...(omitted > 0
-        ? { truncated: marker(context, path, 'truncated', { reason: 'entries', omitted }) }
-        : {}),
-    }
-  }
-  if (value instanceof Set) {
-    const sourceValues = [...value]
-    const values = sourceValues.slice(0, RUNTIME_PROJECTION_LIMITS.entries)
-      .map((entry, index) => projectValue(entry, `${path}.values[${index}]`, context, depth + 1))
-    const omitted = sourceValues.length - values.length
-    return {
-      $waica: 'set',
-      values,
-      ...(omitted > 0
-        ? { truncated: marker(context, path, 'truncated', { reason: 'entries', omitted }) }
-        : {}),
-    }
-  }
-  if (isPlainRecord(value)) {
-    const keys = Object.keys(value).sort()
-    const projected = Object.fromEntries(
-      keys.slice(0, RUNTIME_PROJECTION_LIMITS.entries)
-        .map((key) => [
-          key,
-          projectValue(value[key], `${path}.${key}`, context, depth + 1),
-        ]),
-    )
-    const omitted = keys.length - Object.keys(projected).length
-    if (omitted === 0) return projected
-    return marker(context, path, 'truncated', {
-      reason: 'entries',
-      omitted,
-      value: projected,
-    })
-  }
+  if (Array.isArray(value)) return projectArray(value, site, context)
+  if (value instanceof Map) return projectMap(value, site, context)
+  if (value instanceof Set) return projectSet(value, site, context)
+  if (isPlainRecord(value)) return projectRecord(value, site, context)
   return marker(context, path, 'unsupported', {
     type: value.constructor?.name ?? 'object',
+  })
+}
+
+function projectArray(
+  value: readonly unknown[],
+  { path, depth }: ProjectionSite,
+  context: ProjectionContext,
+): ProjectedValue {
+  const entries = value.slice(0, RUNTIME_PROJECTION_LIMITS.entries)
+    .map((entry, index) => projectValue(entry, `${path}[${index}]`, context, depth + 1))
+  const omitted = value.length - entries.length
+  if (omitted > 0) {
+    entries.push(marker(context, path, 'truncated', { reason: 'entries', omitted }))
+  }
+  return entries
+}
+
+function projectMap(
+  value: ReadonlyMap<unknown, unknown>,
+  { path, depth }: ProjectionSite,
+  context: ProjectionContext,
+): ProjectedValue {
+  const sourceEntries = [...value.entries()]
+  const entries = sourceEntries.slice(0, RUNTIME_PROJECTION_LIMITS.entries)
+    .map(([key, entry], index) => [
+      projectValue(key, `${path}.entries[${index}].key`, context, depth + 1),
+      projectValue(entry, `${path}.entries[${index}].value`, context, depth + 1),
+    ])
+  const omitted = sourceEntries.length - entries.length
+  return {
+    $waica: 'map',
+    entries,
+    ...(omitted > 0
+      ? { truncated: marker(context, path, 'truncated', { reason: 'entries', omitted }) }
+      : {}),
+  }
+}
+
+function projectSet(
+  value: ReadonlySet<unknown>,
+  { path, depth }: ProjectionSite,
+  context: ProjectionContext,
+): ProjectedValue {
+  const sourceValues = [...value]
+  const values = sourceValues.slice(0, RUNTIME_PROJECTION_LIMITS.entries)
+    .map((entry, index) => projectValue(entry, `${path}.values[${index}]`, context, depth + 1))
+  const omitted = sourceValues.length - values.length
+  return {
+    $waica: 'set',
+    values,
+    ...(omitted > 0
+      ? { truncated: marker(context, path, 'truncated', { reason: 'entries', omitted }) }
+      : {}),
+  }
+}
+
+function projectRecord(
+  value: Record<string, unknown>,
+  { path, depth }: ProjectionSite,
+  context: ProjectionContext,
+): ProjectedValue {
+  const keys = Object.keys(value).sort()
+  const projected = Object.fromEntries(
+    keys.slice(0, RUNTIME_PROJECTION_LIMITS.entries)
+      .map((key) => [
+        key,
+        projectValue(value[key], `${path}.${key}`, context, depth + 1),
+      ]),
+  )
+  const omitted = keys.length - Object.keys(projected).length
+  if (omitted === 0) return projected
+  return marker(context, path, 'truncated', {
+    reason: 'entries',
+    omitted,
+    value: projected,
   })
 }
 
@@ -374,6 +412,28 @@ function capAnchored(snapshot: RuntimeSnapshot): RuntimeSnapshot {
   return capped
 }
 
+/** An entity's position, rotation (with its Euler order) and scale, as plain numbers. */
+function transformSnapshot(entity: Entity): RuntimeSnapshot['entities'][number]['transform'] {
+  return {
+    position: {
+      x: entity.position.x,
+      y: entity.position.y,
+      z: entity.position.z,
+    },
+    rotation: {
+      x: entity.node.rotation.x,
+      y: entity.node.rotation.y,
+      z: entity.node.rotation.z,
+      order: entity.node.rotation.order,
+    },
+    scale: {
+      x: entity.scale.x,
+      y: entity.scale.y,
+      z: entity.scale.z,
+    },
+  }
+}
+
 export class RuntimeInspector {
   private readonly ids = new WeakMap<Entity, string>()
   private nextId = 1
@@ -407,24 +467,7 @@ export class RuntimeInspector {
       return [{
         id,
         name: entity.name,
-        transform: {
-          position: {
-            x: entity.position.x,
-            y: entity.position.y,
-            z: entity.position.z,
-          },
-          rotation: {
-            x: entity.node.rotation.x,
-            y: entity.node.rotation.y,
-            z: entity.node.rotation.z,
-            order: entity.node.rotation.order,
-          },
-          scale: {
-            x: entity.scale.x,
-            y: entity.scale.y,
-            z: entity.scale.z,
-          },
-        },
+        transform: transformSnapshot(entity),
         components,
       }]
     })
