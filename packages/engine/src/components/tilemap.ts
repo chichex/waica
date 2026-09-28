@@ -14,6 +14,13 @@ import {
 import { Solid } from './solid.js'
 import { reportRejection } from '../report-rejection.js'
 
+/** Vertex positions, UVs and triangle indices for a Tilemap's mesh. */
+interface TileMeshBuffers {
+  positions: number[]
+  uvs: number[]
+  indices: number[]
+}
+
 /** One authorable cell map rendered as a single merged geometry. */
 export class Tilemap extends Component implements SolidSource {
   static override componentName = 'Tilemap'
@@ -294,75 +301,81 @@ export class Tilemap extends Component implements SolidSource {
   private rebuildGeometry(): void {
     const mesh = this.mesh
     if (!mesh) return
-    const positions: number[] = []
-    const uvs: number[] = []
-    const indices: number[] = []
+    const buffers: TileMeshBuffers = { positions: [], uvs: [], indices: [] }
     const width = Math.max(0, Math.floor(this.mapWidth))
     const height = Math.max(0, Math.floor(this.mapHeight))
     const size = this.cellSize
     if (Number.isFinite(size) && size > 0) {
-      const image = this.loadedTexture?.image as { width?: number; height?: number } | undefined
-      const imageWidth = image?.width && image.width > 0 ? image.width : Math.max(1, this.cols)
-      const imageHeight = image?.height && image.height > 0 ? image.height : Math.max(1, this.rows)
-      const frameParams = {
-        gridOffsetX: this.gridOffsetX,
-        gridOffsetY: this.gridOffsetY,
-        spacingX: this.spacingX,
-        spacingY: this.spacingY,
-        cellWidth: this.cellWidth,
-        cellHeight: this.cellHeight,
-      }
+      const sheet = this.sheetSize()
       for (let index = 0; index < width * height; index++) {
         const tile = this.cells[index] ?? -1
         if (!Number.isFinite(tile) || tile < 0) continue
-        const column = index % width
-        const row = Math.floor(index / width)
-        const logicalCenterX = (column + 0.5) * size
-        const logicalCenterY = (row + 0.5) * size
-        const center =
-          this.game.projection === 'isometric'
-            ? projectIsometric(logicalCenterX, logicalCenterY)
-            : { x: logicalCenterX, y: logicalCenterY }
-        const halfWidth = this.game.projection === 'isometric' ? size : size / 2
-        const halfHeight = size / 2
-        const z = this.layer * 0.01
-        positions.push(
-          center.x - halfWidth,
-          center.y - halfHeight,
-          z,
-          center.x + halfWidth,
-          center.y - halfHeight,
-          z,
-          center.x + halfWidth,
-          center.y + halfHeight,
-          z,
-          center.x - halfWidth,
-          center.y + halfHeight,
-          z,
-        )
-        const frame = sheetCell(
-          imageWidth,
-          imageHeight,
-          this.cols,
-          this.rows,
-          tile,
-          frameParams,
-        )
-        const left = frame.x / imageWidth
-        const right = (frame.x + frame.width) / imageWidth
-        const bottom = 1 - (frame.y + frame.height) / imageHeight
-        const top = 1 - frame.y / imageHeight
-        uvs.push(left, bottom, right, bottom, right, top, left, top)
-        const vertex = positions.length / 3 - 4
-        indices.push(vertex, vertex + 1, vertex + 2, vertex, vertex + 2, vertex + 3)
+        this.pushTileQuad(buffers.positions, index % width, Math.floor(index / width))
+        buffers.uvs.push(...this.tileUvs(tile, sheet))
+        const vertex = buffers.positions.length / 3 - 4
+        buffers.indices.push(vertex, vertex + 1, vertex + 2, vertex, vertex + 2, vertex + 3)
       }
     }
     const geometry = new THREE.BufferGeometry()
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
-    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
-    geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1))
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(buffers.positions, 3))
+    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(buffers.uvs, 2))
+    geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(buffers.indices), 1))
     mesh.geometry.dispose()
     mesh.geometry = geometry
+  }
+
+  /** The loaded sheet image's size, or one pixel per sheet cell until it arrives. */
+  private sheetSize(): { width: number; height: number } {
+    const image = this.loadedTexture?.image as { width?: number; height?: number } | undefined
+    return {
+      width: image?.width && image.width > 0 ? image.width : Math.max(1, this.cols),
+      height: image?.height && image.height > 0 ? image.height : Math.max(1, this.rows),
+    }
+  }
+
+  /** The four corners of a cell's quad, projected for the Game, on this layer's depth. */
+  private pushTileQuad(positions: number[], column: number, row: number): void {
+    const size = this.cellSize
+    const logicalCenterX = (column + 0.5) * size
+    const logicalCenterY = (row + 0.5) * size
+    const center =
+      this.game.projection === 'isometric'
+        ? projectIsometric(logicalCenterX, logicalCenterY)
+        : { x: logicalCenterX, y: logicalCenterY }
+    const halfWidth = this.game.projection === 'isometric' ? size : size / 2
+    const halfHeight = size / 2
+    const z = this.layer * 0.01
+    positions.push(
+      center.x - halfWidth,
+      center.y - halfHeight,
+      z,
+      center.x + halfWidth,
+      center.y - halfHeight,
+      z,
+      center.x + halfWidth,
+      center.y + halfHeight,
+      z,
+      center.x - halfWidth,
+      center.y + halfHeight,
+      z,
+    )
+  }
+
+  /** The UVs of a tile's sheet cell, in the quad's corner order. */
+  private tileUvs(tile: number, sheet: { width: number; height: number }): number[] {
+    const frame = sheetCell(sheet.width, sheet.height, this.cols, this.rows, tile, {
+      gridOffsetX: this.gridOffsetX,
+      gridOffsetY: this.gridOffsetY,
+      spacingX: this.spacingX,
+      spacingY: this.spacingY,
+      cellWidth: this.cellWidth,
+      cellHeight: this.cellHeight,
+    })
+    const left = frame.x / sheet.width
+    const right = (frame.x + frame.width) / sheet.width
+    const bottom = 1 - (frame.y + frame.height) / sheet.height
+    const top = 1 - frame.y / sheet.height
+    return [left, bottom, right, bottom, right, top, left, top]
   }
 
   private rebuildSolids(): void {
