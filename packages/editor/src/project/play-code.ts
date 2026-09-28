@@ -138,10 +138,7 @@ async function loadCode(
 
   const entries = await entryPaths(fs, groups)
   const available = new Set(allTypeScriptFiles(await fs.tree()))
-  const transpiled = new Map<string, string>()
-  const urls = new Map<string, string>()
-  const failures = new Map<string, Error>()
-  const building = new Set<string>()
+  const build = moduleBuilder(runner, cachedTranspile(fs, runner), available)
   const result: PlayCodeResult = {
     loaded: [],
     errors: [],
@@ -149,7 +146,22 @@ async function loadCode(
     componentPaths: {},
   }
 
-  const transpile = async (path: string): Promise<string> => {
+  for (const path of entries) {
+    try {
+      const namespace = (await runner.execute(await build(path), path)) ?? {}
+      result.loaded.push(path)
+      if (path.startsWith(`${COMPONENTS_DIR}/`)) registerComponents(result, path, namespace)
+    } catch (error) {
+      result.errors.push({ path, message: errorMessage(error) })
+    }
+  }
+  return result
+}
+
+/** Transpiles each project file once per run. */
+function cachedTranspile(fs: ProjectFS, runner: PlayCodeRunner): (path: string) => Promise<string> {
+  const transpiled = new Map<string, string>()
+  return async (path) => {
     const previous = transpiled.get(path)
     if (previous != null) return previous
     const source = await fs.readText(path)
@@ -158,6 +170,21 @@ async function loadCode(
     transpiled.set(path, js)
     return js
   }
+}
+
+/**
+ * Builds a project module's URL after the URLs of its project-relative
+ * imports, once per run. A failure is remembered and rethrown for every
+ * importer; an import cycle is an error.
+ */
+function moduleBuilder(
+  runner: PlayCodeRunner,
+  transpile: (path: string) => Promise<string>,
+  available: ReadonlySet<string>,
+): (path: string) => Promise<string> {
+  const urls = new Map<string, string>()
+  const failures = new Map<string, Error>()
+  const building = new Set<string>()
 
   const build = async (path: string): Promise<string> => {
     const ready = urls.get(path)
@@ -168,21 +195,7 @@ async function loadCode(
     building.add(path)
     try {
       const js = await transpile(path)
-      const imports: Record<string, string> = {}
-      for (const { specifier, dynamicOnly } of importSpecifiers(js)) {
-        if (!specifier.startsWith('.')) continue
-        const target = resolveProjectImport(path, specifier, available)
-        if (!target) {
-          // A static import must resolve or the module cannot load at all.
-          // An import() may sit in dead code — or in a comment the regex
-          // cannot tell apart — so leave it for the browser to report if it
-          // ever runs, the same policy bare specifiers get.
-          if (dynamicOnly) continue
-          throw new Error(`Cannot resolve project import "${specifier}" from "${path}"`)
-        }
-        imports[specifier] = await build(target)
-      }
-      const url = await runner.createModule(js, path, imports)
+      const url = await runner.createModule(js, path, await buildImports(path, js))
       urls.set(path, url)
       return url
     } catch (error) {
@@ -194,34 +207,49 @@ async function loadCode(
     }
   }
 
-  for (const path of entries) {
-    try {
-      const namespace = (await runner.execute(await build(path), path)) ?? {}
-      result.loaded.push(path)
-      if (path.startsWith(`${COMPONENTS_DIR}/`)) {
-        // A class the editor cannot register is reported against its file:
-        // "my component never shows up" is otherwise a silent no-op.
-        const classes = collectModuleComponents([namespace], (message) =>
-          result.errors.push({ path, message }),
-        )
-        for (const [name, Class] of Object.entries(classes)) {
-          const owner = result.componentPaths[name]
-          if (owner != null && owner !== path) {
-            result.errors.push({
-              path,
-              message: `component "${name}" is already defined in "${owner}"`,
-            })
-            continue
-          }
-          result.components[name] = Class
-          result.componentPaths[name] = path
-        }
+  /** The module URL of every project-relative specifier `path` imports. */
+  const buildImports = async (path: string, js: string): Promise<Record<string, string>> => {
+    const imports: Record<string, string> = {}
+    for (const { specifier, dynamicOnly } of importSpecifiers(js)) {
+      if (!specifier.startsWith('.')) continue
+      const target = resolveProjectImport(path, specifier, available)
+      if (!target) {
+        // A static import must resolve or the module cannot load at all.
+        // An import() may sit in dead code — or in a comment the regex
+        // cannot tell apart — so leave it for the browser to report if it
+        // ever runs, the same policy bare specifiers get.
+        if (dynamicOnly) continue
+        throw new Error(`Cannot resolve project import "${specifier}" from "${path}"`)
       }
-    } catch (error) {
-      result.errors.push({ path, message: errorMessage(error) })
+      imports[specifier] = await build(target)
     }
+    return imports
   }
-  return result
+
+  return build
+}
+
+/**
+ * Registers the component classes a components/ module exports. A class the
+ * editor cannot register is reported against its file: "my component never
+ * shows up" is otherwise a silent no-op.
+ */
+function registerComponents(result: PlayCodeResult, path: string, namespace: ComponentModule): void {
+  const classes = collectModuleComponents([namespace], (message) =>
+    result.errors.push({ path, message }),
+  )
+  for (const [name, Class] of Object.entries(classes)) {
+    const owner = result.componentPaths[name]
+    if (owner != null && owner !== path) {
+      result.errors.push({
+        path,
+        message: `component "${name}" is already defined in "${owner}"`,
+      })
+      continue
+    }
+    result.components[name] = Class
+    result.componentPaths[name] = path
+  }
 }
 
 /** Runs project components only, used to populate the editor outside Play. */
