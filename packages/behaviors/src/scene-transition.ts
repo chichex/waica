@@ -68,7 +68,7 @@ export class SceneTransition extends Component {
     if (this._fadingOut) return
     const { game, fadeSeconds } = this
     const sceneAtFadeStart = game.sceneName
-    game.cameraEffects.fade({ to: this.fadeColor, seconds: fadeSeconds })
+    const fadeHandle = game.cameraEffects.fade({ to: this.fadeColor, seconds: fadeSeconds })
     this._fadingOut = true
     // Scheduled on Game Time, not on `fade.done`: a promise settles in a
     // microtask, after a whole multi-step frame or Runtime Bridge `step`,
@@ -86,6 +86,31 @@ export class SceneTransition extends Component {
     game.time.after(
       fadeSeconds,
       () => {
+        // Superseded (PR #98 review): the Fade is one shared, session-scoped
+        // layer — a second door, or any other `cameraEffects.fade(...)`
+        // call, replaces this fade outright instead of queueing behind it
+        // (CameraEffects.fade() cancels whatever is running). `fadeHandle
+        // .superseded` is read synchronously here, never `.done`: that
+        // Promise only notifies its `.then()` in a microtask, and nothing
+        // flushes the microtask queue between this Game Time-scheduled
+        // callback and the many Simulation Steps that led up to it (same
+        // reasoning as scheduling the swap itself on Game Time instead of
+        // on `fade.done`, above). It is set once, synchronously, only when
+        // a *later* fade call actually replaces this one while it is still
+        // running — never for this door's own fade completing on its own,
+        // whatever step that lands on (`fire()` runs mid-`dispatchCollisions`
+        // for a real overlap, one Simulation Step "behind" where `game.time`
+        // sees this same call start, which would otherwise look identical
+        // to a supersession). If it is true, somebody else now owns the
+        // shared layer and its eventual 'clear': this door must not swap
+        // under their partial cover, and must not queue a 'clear' of its
+        // own that would cancel their fade. Nothing is in flight to
+        // protect, so the latch resets right away — the door can be
+        // triggered again if the player is still on it.
+        if (fadeHandle.superseded) {
+          this._fadingOut = false
+          return
+        }
         if (this.entity.alive && game.sceneName === sceneAtFadeStart) {
           game.loadSceneByName(this.scene)
         }

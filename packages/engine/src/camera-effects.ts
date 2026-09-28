@@ -34,6 +34,19 @@ export interface CameraEffectHandle {
   cancel(): void
   /** True once the effect completed; false if cancelled, replaced, ended by its scope or invalid. */
   readonly done: Promise<boolean>
+  /**
+   * True once a *later* call to the same kind of effect has taken over
+   * before this one ended on its own — false while it is still running,
+   * and false once it ends on its own accord (completes, is cancelled, or
+   * ends by its scope) with nothing else in its place. A Shake never
+   * supersedes another (CA-7: overlapping shakes coexist), so this is
+   * always false for a Shake handle. Unlike `done`, this reads
+   * synchronously: a Promise only notifies its `.then()` in a microtask,
+   * which can land well after a caller scheduled on Game Time needs the
+   * answer on an exact Simulation Step (PR #98 review, `scene-
+   * transition.ts`).
+   */
+  readonly superseded: boolean
 }
 
 /** The effects' state after the last completed Simulation Step (read-only copy). */
@@ -59,6 +72,21 @@ interface Timed {
   readonly seconds: number
   readonly ease: (t: number) => number
   readonly resolve: Resolve
+  /**
+   * Set once, synchronously, the moment a *later* call of the same kind
+   * (fade replacing fade, flash replacing flash) replaces this entry —
+   * never for ending on its own accord (completing or `cancel()`), and
+   * never unset afterwards. A live check against "what's running now"
+   * (e.g. comparing against the current `fadeRun`) cannot tell a real
+   * supersession apart from this entry simply completing a step early —
+   * `fire()` calling `fade()` mid-`dispatchCollisions()` starts this
+   * entry's Game Time bookkeeping one Simulation Step after its Camera
+   * Effects bookkeeping, so it would otherwise finish one step "ahead" of
+   * where a caller scheduled on Game Time expects (PR #98 review) — nor
+   * would it survive the replacement itself later completing or being
+   * replaced in turn. A plain flag, read once, side-steps both.
+   */
+  superseded: boolean
 }
 
 interface Shake extends Timed {
@@ -111,8 +139,14 @@ function jitter(seed: number, step: number, axis: number): number {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296
 }
 
-function settledHandle(done: Promise<boolean>, cancel: () => void): CameraEffectHandle {
-  return { cancel, done }
+function settledHandle(done: Promise<boolean>, cancel: () => void, superseded: () => boolean): CameraEffectHandle {
+  return {
+    cancel,
+    done,
+    get superseded() {
+      return superseded()
+    },
+  }
 }
 
 /**
@@ -160,14 +194,20 @@ export class CameraEffects {
     if (!ease) return this.invalid('shake(): easing must be a known easing name')
     let resolve: Resolve = () => {}
     const done = new Promise<boolean>((r) => (resolve = r))
-    const entry: Shake = { start: this.steps, seconds, ease, resolve, intensity }
+    const entry: Shake = { start: this.steps, seconds, ease, resolve, intensity, superseded: false }
     this.shakes.push(entry)
-    return settledHandle(done, () => {
-      const index = this.shakes.indexOf(entry)
-      if (index === -1) return
-      this.shakes.splice(index, 1)
-      entry.resolve(false)
-    })
+    return settledHandle(
+      done,
+      () => {
+        const index = this.shakes.indexOf(entry)
+        if (index === -1) return
+        this.shakes.splice(index, 1)
+        entry.resolve(false)
+      },
+      // Never superseded (CA-7): overlapping shakes coexist, so nothing
+      // ever sets a Shake entry's flag; it stays false for its own life.
+      () => entry.superseded,
+    )
   }
 
   /**
@@ -182,6 +222,10 @@ export class CameraEffects {
     if (!validSeconds(options.seconds)) return this.invalid('fade(): seconds must be a finite number >= 0')
     const ease = easingOf(options.easing)
     if (!ease) return this.invalid('fade(): easing must be a known easing name')
+    // Marks the outgoing fade superseded (not just cancelled) before
+    // resolving `done` false: a caller checking `.superseded` later must
+    // see this, whatever happens to the layer afterwards (PR #98 review).
+    if (this.fadeRun) this.fadeRun.superseded = true
     this.fadeRun?.resolve(false)
     let resolve: Resolve = () => {}
     const done = new Promise<boolean>((r) => (resolve = r))
@@ -192,15 +236,20 @@ export class CameraEffects {
       resolve,
       from: this.fadeLayer.opacity,
       to: clear ? 0 : 1,
+      superseded: false,
     }
     this.fadeRun = entry
     this.fadeLayer.color = color
     this.draw()
-    return settledHandle(done, () => {
-      if (this.fadeRun !== entry) return
-      this.fadeRun = null
-      entry.resolve(false)
-    })
+    return settledHandle(
+      done,
+      () => {
+        if (this.fadeRun !== entry) return
+        this.fadeRun = null
+        entry.resolve(false)
+      },
+      () => entry.superseded,
+    )
   }
 
   /**
@@ -212,21 +261,26 @@ export class CameraEffects {
     const color = normalizeColor(options.color)
     if (!color) return this.invalid(`flash(): unknown color "${String(options.color)}"; use 'black', 'white' or '#rrggbb'`)
     if (!validSeconds(options.seconds)) return this.invalid('flash(): seconds must be a finite number >= 0')
+    if (this.flashRun) this.flashRun.superseded = true
     this.flashRun?.resolve(false)
     let resolve: Resolve = () => {}
     const done = new Promise<boolean>((r) => (resolve = r))
-    const entry: Timed = { start: this.steps, seconds: options.seconds, ease: (t) => t, resolve }
+    const entry: Timed = { start: this.steps, seconds: options.seconds, ease: (t) => t, resolve, superseded: false }
     this.flashRun = entry
     this.flashLayer.color = color
     this.flashLayer.opacity = 1
     this.draw()
-    return settledHandle(done, () => {
-      if (this.flashRun !== entry) return
-      this.flashRun = null
-      this.flashLayer.opacity = 0
-      this.draw()
-      entry.resolve(false)
-    })
+    return settledHandle(
+      done,
+      () => {
+        if (this.flashRun !== entry) return
+        this.flashRun = null
+        this.flashLayer.opacity = 0
+        this.draw()
+        entry.resolve(false)
+      },
+      () => entry.superseded,
+    )
   }
 
   /**
@@ -374,7 +428,11 @@ export class CameraEffects {
 
   private invalid(message: string): CameraEffectHandle {
     console.warn(`[waica] cameraEffects.${message}`)
-    return settledHandle(Promise.resolve(false), () => {})
+    return settledHandle(
+      Promise.resolve(false),
+      () => {},
+      () => false,
+    )
   }
 }
 

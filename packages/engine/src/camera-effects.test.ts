@@ -261,6 +261,32 @@ describe('fade (CA-8)', () => {
     expect(await settled(second)).toBe(true)
     expect(await settled(first)).toBe(false)
   })
+
+  it('superseded reads synchronously, and is true only once a later fade replaces this one while it is still running (PR #98 review)', () => {
+    const { effects } = makeEffects()
+    const first = effects.fade({ to: 'black', seconds: 0.5 })
+    expect(first.superseded).toBe(false)
+    step(effects, 10)
+    expect(first.superseded).toBe(false)
+
+    // Replaced by a second fade while still running (10 of 30 steps in):
+    // superseded, and it reads synchronously, no microtask needed.
+    const second = effects.fade({ to: 'clear', seconds: 0.25 })
+    expect(first.superseded).toBe(true)
+    expect(second.superseded).toBe(false)
+
+    // The second runs all the way to completion on its own afterwards:
+    // not superseded, even though nothing is "running" for it any more --
+    // nobody replaced it, it just finished.
+    step(effects, 20)
+    expect(effects.state.fade.opacity).toBe(0)
+    expect(second.superseded).toBe(false)
+
+    // Cancelling directly (nobody replaced it) is not superseded either.
+    const third = effects.fade({ to: 'white', seconds: 0.1 })
+    third.cancel()
+    expect(third.superseded).toBe(false)
+  })
 })
 
 describe('flash (CA-9)', () => {

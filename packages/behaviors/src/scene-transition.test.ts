@@ -363,6 +363,73 @@ describe('SceneTransition with a fade (issue #74 CA-15)', () => {
     game.dispose()
   })
 
+  it('two doors fading at once: the later one wins the swap, not the earlier one under its partial cover (PR #98 review)', () => {
+    const main: SceneJson = {
+      waicaScene: 3,
+      entities: [
+        { name: 'DoorA', components: [{ type: 'SceneTransition', props: { scene: 'cave', fadeSeconds: 0.25 } }] },
+        { name: 'DoorB', components: [{ type: 'SceneTransition', props: { scene: 'town', fadeSeconds: 0.25 } }] },
+        { name: 'Player' },
+      ],
+    }
+    const game = makeRealGame(main, { town: { waicaScene: 3, entities: [{ name: 'Mayor' }] } })
+    const load = vi.spyOn(game, 'loadSceneByName')
+    frame(game)
+    const player = game.find('Player')!
+    const doorA = game.find('DoorA')!.get(SceneTransition)!
+    const doorB = game.find('DoorB')!.get(SceneTransition)!
+
+    doorA.onCollide?.(player)
+    // The player walks from A onto B partway through A's outgoing fade,
+    // hijacking the one shared Fade layer: it restarts from A's opacity at
+    // that point toward B's own target.
+    for (let n = 0; n < 9; n += 1) frame(game)
+    doorB.onCollide?.(player)
+
+    // A's own deadline (15 steps after it fired) passes while B's fade is
+    // still mid-flight: A must not swap to its destination under B's
+    // partial cover.
+    for (let n = 0; n < 6; n += 1) frame(game)
+    expect(game.sceneName).toBe('main')
+    expect(load).not.toHaveBeenCalled()
+
+    // B's own deadline (15 steps after it fired) passes: only now does the
+    // swap happen, to B's destination -- the door the player actually
+    // touched last -- fully covered.
+    for (let n = 0; n < 30; n += 1) frame(game)
+
+    expect(load).toHaveBeenCalledTimes(1)
+    expect(load).toHaveBeenCalledWith('town')
+    expect(game.sceneName).toBe('town')
+    expect(game.cameraEffects.state.fade.opacity).toBe(0)
+    game.dispose()
+  })
+
+  it("an external cameraEffects.fade call during a door's outgoing fade is not clobbered by that door's swap or clear (PR #98 review)", () => {
+    const game = makeRealGame(doorScene({ fadeSeconds: 0.25 }))
+    const load = vi.spyOn(game, 'loadSceneByName')
+    frame(game)
+    const player = game.find('Player')!
+
+    door(game).onCollide?.(player)
+    for (let n = 0; n < 5; n += 1) frame(game)
+    expect(game.cameraEffects.state.fade.opacity).toBeGreaterThan(0)
+    expect(game.cameraEffects.state.fade.opacity).toBeLessThan(1)
+
+    // Game code unrelated to this door -- e.g. a scripted cutscene -- takes
+    // over the one shared Fade layer mid-transition.
+    game.cameraEffects.fade({ to: '#0000ff', seconds: 0.1 })
+
+    // Run well past both the door's own deadline and the external fade's.
+    for (let n = 0; n < 40; n += 1) frame(game)
+
+    expect(game.sceneName).toBe('main')
+    expect(load).not.toHaveBeenCalled()
+    expect(game.cameraEffects.state.fade.color).toBe('#0000ff')
+    expect(game.cameraEffects.state.fade.opacity).toBe(1)
+    game.dispose()
+  })
+
   it('the door being destroyed mid-fade does not leave the fade stuck at opacity 1 (issue #74 review)', () => {
     const game = makeRealGame(doorScene({ fadeSeconds: 0.25 }))
     frame(game)
