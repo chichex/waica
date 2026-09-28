@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
-import { act, type ComponentProps, createElement, StrictMode } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, render as renderUi, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { type ComponentProps, createElement, type ReactElement } from 'react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   Component,
   type ComponentClass,
@@ -27,9 +28,6 @@ class LegacyArray extends Component {
   static override params = { values: { label: 'values' } }
   values: string[] = ['read-only']
 }
-
-let host: HTMLDivElement
-let root: Root
 
 function baseProps(
   overrides: Partial<ComponentProps<typeof Inspector>> = {},
@@ -94,37 +92,42 @@ function manifest(extra: Record<string, ComponentClass> = {}): ArchetypeManifest
   }
 }
 
+/** Re-renders the mounted Inspector: later renders in a test update the same root. */
+let rerender: ((ui: ReactElement) => void) | undefined
+
 function render(
   props: ComponentProps<typeof Inspector>,
   extra: Record<string, ComponentClass> = {},
 ): void {
-  act(() => {
-    root.render(
-      createElement(StrictMode, null, createElement(
-        ArchetypeContext.Provider,
-        { value: manifest(extra) },
-        createElement(Inspector, props),
-      )),
-    )
+  const ui: ReactElement = createElement(
+    ArchetypeContext.Provider,
+    { value: manifest(extra) },
+    createElement(Inspector, props),
+  )
+  if (rerender) {
+    rerender(ui)
+    return
+  }
+  const view = renderUi(ui, { reactStrictMode: true })
+  rerender = (next) => view.rerender(next)
+}
+
+/** The entry textboxes of a string-list param, in order (labelled "<param> entry <n>"). */
+function entries(param: string): HTMLInputElement[] {
+  return screen.getAllByRole<HTMLInputElement>('textbox', {
+    name: new RegExp(`^${param} entry \\d+$`),
   })
 }
 
-function list(name: string): HTMLElement {
-  const field = host.querySelector<HTMLElement>(`[data-param-list="${name}"]`)
-  if (!field) throw new Error(`missing string-list field ${name}`)
-  return field
+/** Replaces a text field's whole value in one input event (select all, then paste). */
+async function replaceText(input: HTMLInputElement, value: string): Promise<void> {
+  const user = userEvent.setup()
+  await user.tripleClick(input)
+  await user.paste(value)
 }
 
-function setInput(input: HTMLInputElement, value: string): void {
-  act(() => {
-    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
-    setter?.call(input, value)
-    input.dispatchEvent(new Event('input', { bubbles: true }))
-  })
-}
-
-function click(button: HTMLButtonElement): void {
-  act(() => button.click())
+async function click(button: HTMLElement): Promise<void> {
+  await userEvent.setup().click(button)
 }
 
 function objectPrefab(hitboxProps: Record<string, unknown>): PrefabJson {
@@ -135,21 +138,13 @@ function objectPrefab(hitboxProps: Record<string, unknown>): PrefabJson {
   }
 }
 
-beforeEach(() => {
-  ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
-  host = document.createElement('div')
-  document.body.append(host)
-  root = createRoot(host)
-})
-
 afterEach(() => {
-  act(() => root.unmount())
-  document.body.innerHTML = ''
-  ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = false
+  cleanup()
+  rerender = undefined
 })
 
 describe('Inspector string-list control', () => {
-  it('edits, adds, and removes ordered prefab tokens without normalization', () => {
+  it('edits, adds, and removes ordered prefab tokens without normalization', async () => {
     const onPrefabProp = vi.fn()
     const prefab = objectPrefab({
       layer: 'projectile',
@@ -162,11 +157,10 @@ describe('Inspector string-list control', () => {
     })
     render(props)
 
-    const field = list('collidesWith')
-    const inputs = [...field.querySelectorAll<HTMLInputElement>('input[type="text"]')]
+    const inputs = entries('collidesWith')
     expect(inputs.map((input) => input.value)).toEqual(['enemy', 'collectible'])
 
-    setInput(defined(inputs[0]), ' Enemy ')
+    await replaceText(defined(inputs[0]), ' Enemy ')
     expect(onPrefabProp).toHaveBeenCalledWith(
       'objects/bullet',
       'Hitbox',
@@ -174,7 +168,7 @@ describe('Inspector string-list control', () => {
       [' Enemy ', 'collectible'],
     )
 
-    click(defined(field.querySelector<HTMLButtonElement>('button[data-list-add]')))
+    await click(screen.getByRole('button', { name: '+ add' }))
     expect(onPrefabProp).toHaveBeenCalledWith(
       'objects/bullet',
       'Hitbox',
@@ -182,7 +176,7 @@ describe('Inspector string-list control', () => {
       ['enemy', 'collectible', ''],
     )
 
-    click(defined(field.querySelectorAll<HTMLButtonElement>('button[data-list-remove]')[1]))
+    await click(screen.getByRole('button', { name: 'Remove collidesWith entry 2' }))
     expect(onPrefabProp).toHaveBeenCalledWith(
       'objects/bullet',
       'Hitbox',
@@ -196,7 +190,7 @@ describe('Inspector string-list control', () => {
       prefabs: { 'objects/bullet': finalPrefab },
       onPrefabProp,
     }))
-    click(defined(list('collidesWith').querySelector<HTMLButtonElement>('button[data-list-remove]')))
+    await click(screen.getByRole('button', { name: 'Remove collidesWith entry 1' }))
     expect(onPrefabProp).toHaveBeenLastCalledWith(
       'objects/bullet',
       'Hitbox',
@@ -205,7 +199,7 @@ describe('Inspector string-list control', () => {
     )
   })
 
-  it('uses the same control for inline props and instance reset/apply wiring', () => {
+  it('uses the same control for inline props and instance reset/apply wiring', async () => {
     const onProp = vi.fn()
     const inline: SceneEntityJson = {
       name: 'Inline',
@@ -215,7 +209,7 @@ describe('Inspector string-list control', () => {
       selection: { kind: 'entity', entity: inline, sceneName: 'main' },
       onProp,
     }))
-    click(defined(list('collidesWith').querySelector<HTMLButtonElement>('button[data-list-add]')))
+    await click(screen.getByRole('button', { name: '+ add' }))
     expect(onProp).toHaveBeenCalledWith('Inline', 'Hitbox', 'collidesWith', [''])
 
     const onResetProp = vi.fn()
@@ -232,14 +226,13 @@ describe('Inspector string-list control', () => {
       onResetProp,
       onApplyProp,
     }))
-    const overrideField = list('collidesWith')
-    click(defined(overrideField.querySelector<HTMLButtonElement>('button[title^="Reset"]')))
-    click(defined(overrideField.querySelector<HTMLButtonElement>('button[title^="Apply"]')))
+    await click(screen.getByRole('button', { description: /^Reset/ }))
+    await click(screen.getByRole('button', { description: /^Apply/ }))
     expect(onResetProp).toHaveBeenCalledWith('Instance', 'Hitbox', 'collidesWith')
     expect(onApplyProp).toHaveBeenCalledWith('Instance', 'Hitbox', 'collidesWith')
   })
 
-  it('compares multi-selection arrays structurally and writes one complete list', () => {
+  it('compares multi-selection arrays structurally and writes one complete list', async () => {
     const onMultiProp = vi.fn()
     const entities: SceneEntityJson[] = [
       { name: 'A', components: [{ type: 'Hitbox', props: { collidesWith: ['enemy', '*'] } }] },
@@ -250,10 +243,9 @@ describe('Inspector string-list control', () => {
       onMultiProp,
     }))
 
-    const field = list('collidesWith')
-    expect(field.textContent).not.toContain('(mixed)')
-    const second = defined(field.querySelectorAll<HTMLInputElement>('input[type="text"]')[1])
-    setInput(second, 'player')
+    expect(screen.getByText(/^Collision Mask/).textContent).not.toContain('(mixed)')
+    const second = defined(entries('collidesWith')[1])
+    await replaceText(second, 'player')
     expect(onMultiProp).toHaveBeenCalledWith(
       ['A', 'B'],
       'Hitbox',
@@ -269,7 +261,7 @@ describe('Inspector string-list control', () => {
       selection: { kind: 'multi', entities: mixed, sceneName: 'main' },
       onMultiProp,
     }))
-    expect(list('collidesWith').textContent).toContain('(mixed)')
+    expect(screen.getByText(/^Collision Mask/).textContent).toContain('(mixed)')
   })
 
   it('honors generic metadata while arrays without it remain read-only', () => {
@@ -289,12 +281,11 @@ describe('Inspector string-list control', () => {
       { GenericStringList, LegacyArray },
     )
 
-    expect(list('tokens').querySelectorAll('input[type="text"]')).toHaveLength(2)
-    const legacyRow = [...host.querySelectorAll('.ed-row')].find((row) =>
-      row.textContent?.startsWith('values'),
-    )
-    expect(legacyRow?.querySelector('code.ed-obj')).not.toBeNull()
-    expect(legacyRow?.querySelector('input')).toBeNull()
+    expect(entries('tokens')).toHaveLength(2)
+    const legacyRow = within(defined(screen.getByText('values').parentElement))
+    expect(legacyRow.getByText('{…}').tagName).toBe('CODE')
+    // No form control of any kind shows a value in the read-only row.
+    expect(legacyRow.queryAllByDisplayValue(() => true)).toHaveLength(0)
   })
 })
 
@@ -309,19 +300,19 @@ describe('Inspector collision-category diagnostics', () => {
       prefabs: { 'objects/bad': prefab },
     }))
 
-    const layer = defined(host.querySelector<HTMLInputElement>('[data-param="layer"] input'))
+    const layer = screen.getByLabelText<HTMLInputElement>('Collision Layer')
     expect(layer.value).toBe('*')
     expect(layer.getAttribute('aria-invalid')).toBe('true')
-    expect(host.textContent).toContain('A Collision Layer must start with a lowercase letter')
+    expect(screen.getByText(/A Collision Layer must start with a lowercase letter/)).toBeDefined()
 
-    const inputs = [...list('collidesWith').querySelectorAll<HTMLInputElement>('input')]
+    const inputs = entries('collidesWith')
     expect(inputs[0]?.hasAttribute('aria-invalid')).toBe(false)
     expect(inputs[1]?.hasAttribute('aria-invalid')).toBe(false)
     expect(inputs[2]?.getAttribute('aria-invalid')).toBe('true')
     expect(inputs[3]?.getAttribute('aria-invalid')).toBe('true')
-    expect(host.textContent).toContain('Duplicate Collision Mask entry "enemy"')
-    expect(host.textContent).toContain('Collision Mask entry 3 must be a string')
-    expect(host.textContent).toContain('Collision Mask entry "Enemy" is invalid')
+    expect(screen.getByText(/Duplicate Collision Mask entry "enemy"/)).toBeDefined()
+    expect(screen.getByText(/Collision Mask entry 3 must be a string/)).toBeDefined()
+    expect(screen.getByText(/Collision Mask entry "Enemy" is invalid/)).toBeDefined()
   })
 
   it('aggregates diagnostics from every entity in a mixed multi-selection', () => {
@@ -343,17 +334,17 @@ describe('Inspector collision-category diagnostics', () => {
     ]
     render(baseProps({ selection: { kind: 'multi', entities, sceneName: 'main' } }))
 
-    const layer = defined(host.querySelector<HTMLInputElement>('[data-param="layer"] input'))
-    const mask = defined(list('collidesWith').querySelector<HTMLInputElement>('input'))
+    const layer = screen.getByLabelText<HTMLInputElement>(/^Collision Layer/)
+    const mask = defined(entries('collidesWith')[0])
     expect(layer.getAttribute('aria-invalid')).toBe('true')
     expect(mask.getAttribute('aria-invalid')).toBe('true')
-    expect(host.textContent).toContain('Invalid B: A Collision Layer must start')
-    expect(host.textContent).toContain('Invalid B: Duplicate Collision Mask entry "enemy"')
-    expect(host.textContent).toContain('Invalid B: Collision Mask entry 3 must be a string')
-    expect(host.textContent).not.toContain('Valid A:')
+    expect(screen.getByText(/Invalid B: A Collision Layer must start/)).toBeDefined()
+    expect(screen.getByText(/Invalid B: Duplicate Collision Mask entry "enemy"/)).toBeDefined()
+    expect(screen.getByText(/Invalid B: Collision Mask entry 3 must be a string/)).toBeDefined()
+    expect(document.body.textContent).not.toContain('Valid A:')
   })
 
-  it('reports a non-list mask without blocking edits and leaves valid open-vocabulary values clean', () => {
+  it('reports a non-list mask without blocking edits and leaves valid open-vocabulary values clean', async () => {
     const onPrefabProp = vi.fn()
     const invalid = objectPrefab({ layer: 'custom-layer', collidesWith: 'enemy' })
     render(baseProps({
@@ -362,12 +353,14 @@ describe('Inspector collision-category diagnostics', () => {
       onPrefabProp,
     }))
 
-    const invalidField = list('collidesWith')
-    const invalidInput = defined(invalidField.querySelector<HTMLInputElement>('input'))
+    // The single fallback textbox carries the field diagnostic as its description.
+    const invalidInput = screen.getByRole<HTMLInputElement>('textbox', {
+      name: 'collidesWith',
+      description: /Collision Mask must be a list of strings/,
+    })
     expect(invalidInput.getAttribute('aria-invalid')).toBe('true')
-    expect(invalidField.textContent).toContain('Collision Mask must be a list of strings')
     expect(invalidInput.value).toBe('enemy')
-    setInput(invalidInput, 'enemy-fixed')
+    await replaceText(invalidInput, 'enemy-fixed')
     expect(onPrefabProp).toHaveBeenCalledWith(
       'objects/bad-mask',
       'Hitbox',
@@ -380,6 +373,8 @@ describe('Inspector collision-category diagnostics', () => {
       selection: { kind: 'prefab', ref: 'objects/valid', prefab: valid },
       prefabs: { 'objects/valid': valid },
     }))
-    expect(host.querySelectorAll('.ed-param-diagnostic')).toHaveLength(0)
+    // Diagnostics render as alerts (errors) or statuses (warnings).
+    expect(screen.queryAllByRole('alert')).toHaveLength(0)
+    expect(screen.queryAllByRole('status')).toHaveLength(0)
   })
 })

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
-import { act, type ComponentProps, createElement, StrictMode } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render as renderUi, screen } from '@testing-library/react'
+import { type ComponentProps, createElement } from 'react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SceneEntityJson } from '@waica/engine'
 import { ArchetypeContext, resolveArchetype } from '../project/archetype'
 import { Inspector } from './Inspector'
@@ -99,37 +99,25 @@ function artDropEvent(uri: string): { types: string[]; getData(type: string): st
 }
 
 describe('Appearance texture drop target rejects non-image art (review finding A)', () => {
-  let container: HTMLDivElement
-  let root: Root
-
-  beforeEach(() => {
-    document.body.innerHTML = ''
-    container = document.createElement('div')
-    document.body.append(container)
-    root = createRoot(container)
-  })
-
-  afterEach(() => {
-    act(() => root.unmount())
-  })
+  afterEach(cleanup)
 
   function render(props: ComponentProps<typeof Inspector>): void {
     const archetype = resolveArchetype('platformer')
-    act(() => {
-      root.render(
-        createElement(StrictMode, null, createElement(
-          ArchetypeContext.Provider,
-          { value: archetype },
-          createElement(Inspector, props),
-        )),
-      )
-    })
+    renderUi(
+      createElement(
+        ArchetypeContext.Provider,
+        { value: archetype },
+        createElement(Inspector, props),
+      ),
+      { reactStrictMode: true },
+    )
   }
 
-  function dropTarget(): Element {
-    const target = container.querySelector('.ed-appear-preview')
-    if (!target) throw new Error('missing .ed-appear-preview drop target')
-    return target
+  /** The image preview button, which doubles as the texture drop target. */
+  function dropTarget(): HTMLElement {
+    return screen.getByRole('button', {
+      description: 'Click to change the image — or drop a new one on it',
+    })
   }
 
   it('does not set the texture when a sound uri is dropped on it', () => {
@@ -141,13 +129,7 @@ describe('Appearance texture drop target rejects non-image art (review finding A
       }),
     )
 
-    const dataTransfer = artDropEvent(SOUND.uri)
-    act(() => {
-      const event = Object.assign(new Event('drop', { bubbles: true, cancelable: true }), {
-        dataTransfer,
-      })
-      dropTarget().dispatchEvent(event)
-    })
+    fireEvent.drop(dropTarget(), { dataTransfer: artDropEvent(SOUND.uri) })
 
     expect(onSetTexture).not.toHaveBeenCalled()
   })
@@ -161,13 +143,7 @@ describe('Appearance texture drop target rejects non-image art (review finding A
       }),
     )
 
-    const dataTransfer = artDropEvent(IMAGE.uri)
-    act(() => {
-      const event = Object.assign(new Event('drop', { bubbles: true, cancelable: true }), {
-        dataTransfer,
-      })
-      dropTarget().dispatchEvent(event)
-    })
+    fireEvent.drop(dropTarget(), { dataTransfer: artDropEvent(IMAGE.uri) })
 
     expect(onSetTexture).toHaveBeenCalledExactlyOnceWith('Hero', 'Sprite', IMAGE.uri)
   })
