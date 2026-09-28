@@ -325,4 +325,14 @@
 
 ## Ajustes de este proyecto
 <!-- coding-policies:ajustes:start -->
+Decided in the 2026-09-28 compliance grill (`.sdd/grills/2026-09-28-coding-policies-compliance.md`, issue #100). The policy text above stays in Spanish; these adjustments are written in English like the rest of the repository.
+
+- **Language.** Code, comments, UI strings, tests, docs and commit messages are written in English. This convention lives here instead of `CLAUDE.md`.
+- **Enforcement.** Every MUST rule whose gate names a lint rule runs at `error` in `pnpm lint` (ESLint flat config in `packages/lint`); every SHOULD rule runs at `warn` and is held to `packages/lint/lint-baseline.json` by a per-file, per-rule ratchet: a change may remove warnings but never add them. `packages/lint/README.md` maps each policy line to its rule and severity.
+- **Thresholds.** Logical lines skip blank lines and comments. Error tier: 60 per function (L23), 600 per file (L40). Warn tier: 40 per function (L18), 300 per file (L38), complexity 10 (L25), depth 3 (L26), 3 parameters (L27).
+- **Tests.** Size and complexity rules are warn-only in test code: `*.test.ts(x)` plus the two scripted harnesses `scripts/runtime-e2e.mjs` and `scripts/test-*.mjs`. Type, promise and suppression rules keep their production severity in tests.
+- **Preset rules.** `recommendedTypeChecked` rules that no policy line names are adopted through L138 (a SHOULD) and run at `warn` under the ratchet; rules a MUST line names run at `error`.
+- **Lint TypeScript.** ESLint's type-aware rules run on a lint-only `typescript@6.0.3` in `packages/lint`, because TypeScript 7 has no JavaScript compiler API and `typescript-eslint` supports `<6.1.0`; builds and `pnpm typecheck` stay on TypeScript 7.
+- **`exactOptionalPropertyTypes` (L91): declined.** Distinguishing an absent property from an explicit `undefined` changes the public engine types (component params, scene JSON, runtime options) across every package; that migration is a separate, deliberate change, not part of compliance.
+- **React Compiler (L215): not enabled.** The build plugin is not configured and there is no plan to enable it here; its diagnostics run through `eslint-plugin-react-hooks` (purity, refs, immutability, static components and the rest of the recommended preset). Existing manual memoization stays (L217).
 <!-- coding-policies:ajustes:end -->

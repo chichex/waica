@@ -3,7 +3,7 @@
 <!-- SDD-Tracking: version=1; type=project; generated-at=2026-09-28 -->
 
 ## Stack
-TypeScript (tsc 7.x) end to end. pnpm monorepo (`pnpm@11.4.0`, 12 workspace projects: the root plus 8 under `packages/` and 3 under `examples/`): `packages/engine` (ECS-style entities/components, fixed-step simulation, scene lifecycle, collisions/physics, state machines, animation, audio, pointer/input, runtime bridge and three.js rendering), `packages/editor` (React + Vite + Monaco browser editor; owns the project template), `packages/behaviors` (motors, roles, combat, interaction, grid navigation/pathfinding and point-and-click), three archetypes, `packages/mcp`, `packages/cli`, and one Vite example per archetype.
+TypeScript (tsc 7.x) end to end. pnpm monorepo (`pnpm@11.4.0`, 13 workspace projects: the root plus 9 under `packages/` and 3 under `examples/`): `packages/engine` (ECS-style entities/components, fixed-step simulation, scene lifecycle, collisions/physics, state machines, animation, audio, pointer/input, runtime bridge and three.js rendering), `packages/editor` (React + Vite + Monaco browser editor; owns the project template), `packages/behaviors` (motors, roles, combat, interaction, grid navigation/pathfinding and point-and-click), three archetypes, `packages/mcp`, `packages/cli`, the private lint toolchain `packages/lint` (ESLint 9 + `typescript-eslint` on a lint-only `typescript@6.0.3`, never published), and one Vite example per archetype.
 
 `packages/mcp` is a private stdio MCP server with 15 tools: ten file-oriented creation/introspection/validation/scaffold tools plus five browser-backed Run Session tools. `packages/mcp/src/known-archetypes.ts` is the single source of truth for the three archetypes it can bundle, resolve and scaffold. `packages/cli` publishes the plain `waica` binary as `@waica/cli`; it serves the editor and bundles the MCP server plus vendored published-shape copies of the five public libraries.
 
@@ -15,6 +15,7 @@ Tests use Vitest 4 + happy-dom from the repository root (1951 tests in 189 files
 | Accion | Comando | cwd | Estado | Duracion | Notas |
 |---|---|---|---|---|---|
 | test | `pnpm test` | . | verified 2026-09-28 | 9.32s wall | Vitest run: 1951/1951 tests in 189/189 files passed. Deterministic and network-free. |
+| lint | `pnpm lint` | . | verified 2026-09-28 | 14.3s wall | ESLint flat config in `packages/lint` over `packages/*/src`, `examples/*/src` and `scripts/` (416 files): MUST rules of `.sdd/coding-policies.md` at error, SHOULD rules at warn held to `packages/lint/lint-baseline.json` by a per-file, per-rule ratchet. Exit 0 = no errors and no ratchet regression. Rule map in `packages/lint/README.md`. |
 | typecheck | `pnpm typecheck` | . | verified 2026-09-28 | 2.12s | `tsc --noEmit` completed in all 11 non-root workspace projects. |
 | build | `pnpm build` | . | verified 2026-09-28 | 3.63s | Cleans and builds libraries, editor, all three examples, MCP and CLI; CLI reported `bundled MCP server and 5 @waica packages`. Vite's pre-existing >500 kB chunk warnings are informational, not failures. |
 | runtime browser e2e | `pnpm test:e2e` | . | verified 2026-09-28 | 27.78s total; browser leg 23.304s on Google Chrome 153.0.8010.54 | Fresh build plus network-free Vite Projects driven through the built CLI over real MCP stdio. Covers paused/frame-exact runtime control, snapshots, screenshots, reload, projection/collision, topdown/isometric movement, isometric combat/audio/point-and-click, scene swapping, camera-effect fades through a Scene Transition (opacity and screenshot) and cleanup. Missing compatible Chrome is a failure, never a skip. |
@@ -28,18 +29,19 @@ Tests use Vitest 4 + happy-dom from the repository root (1951 tests in 189 files
 ## Ambientes
 - **Local only.** There is no staging/prod service, Docker, `.env` file, database, queue or external API. `import.meta.env.DEV` is the only detected environment lookup and is supplied by Vite; it is not a secret or operator-provided variable.
 - **Prerequisites:** `pnpm install` at the root and a compatible system Google Chrome/Chromium for `pnpm test:e2e` and the browser leg of `pnpm test:dist`. `playwright-core` downloads no browser. Discovery is the fixed macOS/Linux list in `scripts/runtime-e2e.mjs`; this refresh used `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` 153.0.8010.54. A fresh Git worktree needs its own `pnpm install` before verification.
-- **CI:** `.github/workflows/publish.yml` runs only on release tags and performs typecheck, unit tests and published-shape verification before publishing. `.github/workflows/claude-review.yml` is an on-demand PR review workflow (`workflow_dispatch`), not a required PR check. There is still no automatically triggered PR verification workflow, so the local ladder below is the pre-merge enforcement.
+- **CI:** `.github/workflows/ci.yml` runs on every pull request against `main` (`ubuntu-latest`, Node 22): `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm test:dist`, `pnpm test:e2e` and `pnpm audit --audit-level high`. `.github/workflows/publish.yml` runs only on release tags and performs typecheck, unit tests and published-shape verification before publishing. `.github/workflows/claude-review.yml` is an on-demand PR review workflow (`workflow_dispatch`). `.github/dependabot.yml` schedules weekly npm and GitHub Actions updates.
 - **SDD artifacts:** `.sdd/project.md`, 17 tracked feature specs in `.sdd/specs/`, 15 tracked handoffs in `.sdd/grills/` and 20 ADRs in `docs/adr/` at `origin/main` (`68c52de`), plus `CONTEXT.md` as the domain glossary. Newer specs are issue-hosted in their issue bodies (e.g. #69, #70, #76, #74).
 - **Git:** default branch `main`; remote `origin` = `ssh://git@github.com/chichex/waica.git`; `gh` authenticated as `chichex`. `/skill:sdd-run` can branch from the updated `origin/main`, push a feature branch and open a PR. Merged branches are normally deleted, and PRs land as merge commits rather than squashes.
 
 ## Verificacion autonoma
 Ladder for this repository, from cheapest to strongest:
-1. **Typecheck:** `pnpm typecheck` (~2s), across all 11 non-root workspace projects.
-2. **Unit/component tests:** `pnpm test` (~9s), currently 1951 deterministic tests in 189 files. This is the primary TDD seam for engine, behavior, editor and MCP contracts.
-3. **Build:** `pnpm build` (~4s), including clean library declaration/JavaScript output, all browser bundles, MCP template bundling and CLI editor/MCP/library vendoring.
-4. **Published package shape:** `pnpm test:dist` (~18s), proving source/dist parity, publish manifests, package exports, normal Node imports, packed CLI stdio behavior and a packed browser Runtime Session.
-5. **Scripted browser e2e:** `pnpm test:e2e` (~28s), driving the checkout CLI and real Chrome through deterministic Runtime Session operations, projection, movement, collision, combat, audio, point-and-click, scene swapping, screenshots and cleanup. Host/browser integration can fail; a missing browser is red.
-6. **Live editor/example smoke:** start the relevant Vite command, probe its printed URL, and use browser automation when visual/editor behavior is in scope. The examples expose `window.__waica.game` in DEV for logical-state inspection.
+1. **Typecheck:** `pnpm typecheck` (~3s), across all 12 non-root workspace projects.
+2. **Lint:** `pnpm lint` (~14s), ESLint with type-aware rules plus the SHOULD-warning ratchet.
+3. **Unit/component tests:** `pnpm test` (~9s), currently 1951 deterministic tests in 189 files. This is the primary TDD seam for engine, behavior, editor and MCP contracts.
+4. **Build:** `pnpm build` (~4s), including clean library declaration/JavaScript output, all browser bundles, MCP template bundling and CLI editor/MCP/library vendoring.
+5. **Published package shape:** `pnpm test:dist` (~18s), proving source/dist parity, publish manifests, package exports, normal Node imports, packed CLI stdio behavior and a packed browser Runtime Session.
+6. **Scripted browser e2e:** `pnpm test:e2e` (~28s), driving the checkout CLI and real Chrome through deterministic Runtime Session operations, projection, movement, collision, combat, audio, point-and-click, scene swapping, screenshots and cleanup. Host/browser integration can fail; a missing browser is red.
+7. **Live editor/example smoke:** start the relevant Vite command, probe its printed URL, and use browser automation when visual/editor behavior is in scope. The examples expose `window.__waica.game` in DEV for logical-state inspection.
 
 **Not autonomously verifiable:** subjective game feel (movement, camera, animation, knockback/stun and audio mix), absolute visual/art orientation beyond deterministic screenshots/state, and any npm publication. Release tags, deploy-like external mutation and npm state always require a human.
 
@@ -51,13 +53,14 @@ Ladder for this repository, from cheapest to strongest:
 - Deploys, shared-data migrations and paid services are absent; if introduced, treat them as human-only by default.
 
 ## Politicas de generacion
-Cuatro politicas de la tecnologia activas (elegidas el 2026-08-21 tras research de buenas practicas TS cruzado contra las convenciones medidas del repo). Cada gate corre sobre el DIFF del PR contra su base — nunca audita codigo preexistente — y fue verificado ejecutandolo contra el diff real del PR #46 (119 archivos): los cuatro en verde. Las genericas (tamaño de PR, dependencias nuevas, commits convencionales) fueron ofrecidas el 2026-08-06 y declinadas; coverage sigue no activable (sin tooling, ver `## Gaps`).
+Cinco politicas de la tecnologia activas (`lint-clean` agregada el 2026-09-28 por el grill de coding policies compliance) (elegidas el 2026-08-21 tras research de buenas practicas TS cruzado contra las convenciones medidas del repo). Cada gate corre sobre el DIFF del PR contra su base — nunca audita codigo preexistente — y fue verificado ejecutandolo contra el diff real del PR #46 (119 archivos): los cuatro en verde. Las genericas (tamaño de PR, dependencias nuevas, commits convencionales) fueron ofrecidas el 2026-08-06 y declinadas; coverage sigue no activable (sin tooling, ver `## Gaps`).
 
 | Politica | Valor | Gate |
 |---|---|---|
 | higiene-ts-diff | prohibidos en lineas nuevas: `: any`/`as any`, `@ts-ignore`/`@ts-expect-error`, `export default` y `enum` (`as never` y las definite assignments `entity!:` son idioma del repo y quedan permitidos; `.d.ts` y `*.test.ts` exentos) | dos greps sobre `git diff --unified=0 <base>...HEAD -- 'packages/*/src/*.ts' 'examples/*/src/*.ts' ':(exclude)*.test.ts' ':(exclude)*.d.ts'` lineas `^+`: (a) escapes/enum/default-export con comentarios removidos (`sed 's://.*::'`), (b) directivas `@ts-*` sobre la linea cruda. 0 hits = pasa |
 | tests-acompañan-src | todo package que agrega `.ts` nuevos bajo `packages/<p>/src/` debe agregar o modificar al menos un `.test.ts` en ese mismo package dentro del PR | script: por cada package con archivos `--diff-filter=A` no-test bajo `src/`, exigir algun `*.test.ts` en el diff de ese package |
-| max-lineas-archivo | ningun archivo `.ts` tocado supera 950 lineas (ratchet sobre el baseline medido 2026-08-21: el mayor es `packages/mcp/src/validation.ts` con 903) | script: `wc -l` sobre cada `.ts` del diff, tope 950 |
+| max-lineas-archivo | ningun archivo `.ts` o `.tsx` tocado supera 950 lineas fisicas (ratchet sobre el baseline medido 2026-08-21: el mayor `.ts` es `packages/mcp/src/validation.ts` con 903; extendido a `.tsx` el 2026-09-28) | script: `wc -l` sobre cada `.ts`/`.tsx` del diff, tope 950 |
+| lint-clean | `pnpm lint` termina en 0: ningun error de ESLint (reglas MUST de `.sdd/coding-policies.md`) y ninguna regresion del ratchet de warnings SHOULD (`packages/lint/lint-baseline.json`) | `pnpm lint` exit 0 |
 | naming-archivos | archivos nuevos bajo `src/`: `.ts` en kebab-case; `.tsx` en PascalCase o kebab-case (convencion React del editor) | grep del basename de cada archivo `--diff-filter=A` contra `^([a-z0-9][a-z0-9._-]*\.(ts|json|html|png|md)|([A-Z][A-Za-z0-9]*|[a-z0-9][a-z0-9._-]*)\.tsx)$` |
 | coding-policies | .sdd/coding-policies.md (typescript, react, node) | guia — sin gate: /sdd-run la sigue al generar, la juzga el reviewer |
 
@@ -68,10 +71,11 @@ Cuatro politicas de la tecnologia activas (elegidas el 2026-08-21 tras research 
 - 2026-08-21: refresco corrido con `--update --assume` en un worktree desatendido, tras la release 0.7.0 y el archetype topdown. Sin preguntas; las mejoras de version disponibles (politicas de la tecnologia) quedaron sin activar por ser una eleccion humana. A diferencia del 2026-08-06, esta corrida NO se pushea a `main`: termina en commit local sobre la branch del worktree.
 - 2026-08-21 (misma fecha, corrida interactiva posterior): el usuario pidio research de buenas practicas TS y activo las cuatro politicas de la tecnologia de `## Politicas de generacion` (higiene-ts-diff, tests-acompañan-src, max-lineas-archivo 950 ratchet, naming-archivos). Las genericas siguen declinadas.
 - 2026-09-14: during the prerequisite refresh for `/skill:sdd-run #69`, the user asked not to reconfigure policies and to continue with the four existing technology policies unchanged.
+- 2026-09-28: the coding policies compliance grill (`.sdd/grills/2026-09-28-coding-policies-compliance.md`, issue #100) added the `lint-clean` generation policy, extended `max-lineas-archivo` to `.tsx`, and added PR CI plus Dependabot.
 - 2026-09-28: refresh after release 0.19.0 (`/sdd-init --update`, interactive). The user chose to keep the four technology policies unchanged and to generate `.sdd/coding-policies.md` with `/coding-policies` after this refresh.
 
 ## Gaps
-- `[NEEDS-INPUT]` No automatically triggered CI runs on PRs. The publish workflow verifies releases, and Claude review can be dispatched manually, but the full local ladder remains the only mandatory pre-merge execution. Decide whether to add PR-triggered checks.
+- PR CI (`.github/workflows/ci.yml`) runs the ladder through `pnpm test:e2e` plus `pnpm audit --audit-level high` on every PR against `main`. It is not yet a required status check in the branch protection settings; making it required is a repository-settings decision for a human.
 - `[NEEDS-INPUT]` No coverage tooling is configured; there is no verified coverage command or measured baseline, so a coverage generation policy is not activable.
 - `[NEEDS-INPUT]` Browser gates depend on a host-installed Chrome/Chromium selected from a fixed candidate list. Release runs through `v0.19.0` have succeeded on `ubuntu-latest`, but the runner browser is not explicitly pinned.
 - `pnpm release` is intentionally untested because release tags publish externally.
