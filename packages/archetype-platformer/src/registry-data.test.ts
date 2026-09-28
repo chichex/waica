@@ -131,7 +131,7 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
   Lifetime: {
     seconds: 1,
   },
-  SceneTransition: { scene: '', trigger: 'overlap' },
+  SceneTransition: { scene: '', trigger: 'overlap', fadeSeconds: 0, fadeColor: 'black' },
 }
 
 describe('PLATFORMER_REGISTRY_DATA ui', () => {

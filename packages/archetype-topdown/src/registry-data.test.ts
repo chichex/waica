@@ -140,7 +140,7 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     markerColor: 0xffffff,
     markerTexture: '',
   },
-  SceneTransition: { scene: '', trigger: 'overlap' },
+  SceneTransition: { scene: '', trigger: 'overlap', fadeSeconds: 0, fadeColor: 'black' },
 }
 
 describe('TOPDOWN_REGISTRY_DATA ui', () => {

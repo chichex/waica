@@ -54,7 +54,7 @@ const GOLDEN: Record<string, Record<string, unknown>> = {
   Respawnable: {},
   OutOfBounds: { minY: -12 },
   Lifetime: { seconds: 1 },
-  SceneTransition: { scene: '', trigger: 'overlap' },
+  SceneTransition: { scene: '', trigger: 'overlap', fadeSeconds: 0, fadeColor: 'black' },
 }
 
 describe('Inspector component rows (golden, behavior preservation)', () => {

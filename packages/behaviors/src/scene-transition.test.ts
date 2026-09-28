@@ -1,5 +1,40 @@
-import { describe, expect, it, vi } from 'vitest'
-import { StateMachine, type Component, type Entity, type Game } from '@waica/engine'
+// @vitest-environment happy-dom
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+// @waica/engine resolves its own nested `three` copy, so the mock has to
+// target that exact module — same technique as navigation-grid.test.ts.
+vi.mock(
+  new URL('../../engine/node_modules/three/build/three.module.js', import.meta.url).pathname,
+  async (importOriginal) => {
+    const actual = await importOriginal<Record<string, unknown>>()
+    class WebGLRenderer {
+      readonly domElement: HTMLCanvasElement
+      constructor({ canvas }: { canvas: HTMLCanvasElement }) {
+        this.domElement = canvas
+      }
+      setPixelRatio(): void {}
+      setSize(): void {}
+      setViewport(): void {}
+      setScissor(): void {}
+      setScissorTest(): void {}
+      setClearColor(): void {}
+      clear(): void {}
+      render(): void {}
+      setAnimationLoop(): void {}
+      dispose(): void {}
+    }
+    return { ...actual, WebGLRenderer }
+  },
+)
+
+import {
+  authoringDefaults,
+  Game,
+  StateMachine,
+  type Component,
+  type Entity,
+  type SceneJson,
+} from '@waica/engine'
 import { Interactable } from './interactable'
 import { SceneTransition } from './scene-transition'
 
@@ -8,7 +43,10 @@ interface StubEntity extends Entity {
 }
 
 function makeGame(): Game {
-  return { loadSceneByName: vi.fn() } as unknown as Game
+  return {
+    loadSceneByName: vi.fn(),
+    cameraEffects: { fade: vi.fn() },
+  } as unknown as Game
 }
 
 function makeEntity(game: Game, name: string): StubEntity {
@@ -51,6 +89,8 @@ describe('SceneTransition', () => {
     transition.onCollide?.(playerEntity(game))
 
     expect(game.loadSceneByName).toHaveBeenCalledWith('cave')
+    // fadeSeconds 0 (the default) is today's hard cut: no fade at all.
+    expect(game.cameraEffects.fade).not.toHaveBeenCalled()
   })
 
   it('trusts the authored overlap mask instead of rechecking player identity', () => {
@@ -138,5 +178,138 @@ describe('SceneTransition', () => {
 
     expect(warn).not.toHaveBeenCalled()
     warn.mockRestore()
+  })
+})
+
+class ResizeObserverStub {
+  observe(): void {}
+  disconnect(): void {}
+}
+
+const registry = { components: { SceneTransition, Interactable } }
+
+function doorScene(props: Record<string, unknown>, extra: SceneJson['entities'] = []): SceneJson {
+  return {
+    waicaScene: 3,
+    entities: [
+      { name: 'Door', components: [{ type: 'SceneTransition', props: { scene: 'cave', ...props } }] },
+      { name: 'Player' },
+      ...extra,
+    ],
+  }
+}
+
+function makeRealGame(main: SceneJson): Game {
+  const host = document.createElement('div')
+  const canvas = document.createElement('canvas')
+  Object.defineProperties(canvas, { clientWidth: { value: 640 }, clientHeight: { value: 360 } })
+  host.append(canvas)
+  document.body.append(host)
+  const game = new Game({ canvas })
+  game.registerSceneCatalog({
+    scenes: { main, cave: { waicaScene: 3, entities: [{ name: 'Torch' }] } },
+    registry,
+  })
+  game.loadSceneByName('main')
+  return game
+}
+
+/** One render frame running one Simulation Step. */
+function frame(game: Game): void {
+  ;(game as unknown as { runFrame(steps: number): void }).runFrame(1)
+}
+
+function door(game: Game): SceneTransition {
+  return game.find('Door')!.get(SceneTransition)!
+}
+
+describe('SceneTransition with a fade (issue #74 CA-15)', () => {
+  beforeEach(() => {
+    document.body.innerHTML = ''
+    vi.stubGlobal('ResizeObserver', ResizeObserverStub)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('with fadeSeconds 0 loads the destination on the same step, with no fade', () => {
+    const game = makeRealGame(doorScene({}))
+    frame(game)
+
+    door(game).onCollide?.(game.find('Player')!)
+
+    expect(game.sceneName).toBe('cave')
+    expect(game.cameraEffects.state.fade.opacity).toBe(0)
+    game.dispose()
+  })
+
+  it('fades out over fadeSeconds, swaps, then clears over fadeSeconds in the incoming scene; retriggers do nothing', () => {
+    const game = makeRealGame(doorScene({ fadeSeconds: 0.25, fadeColor: '#ff0000' }))
+    const load = vi.spyOn(game, 'loadSceneByName')
+    let simulated = 0
+    game.onUpdate(() => (simulated += 1))
+    frame(game)
+    frame(game)
+    const player = game.find('Player')!
+
+    door(game).onCollide?.(player)
+
+    const seen: Array<{ scene: string | null; opacity: number }> = []
+    for (let n = 1; n <= 30; n += 1) {
+      // Retriggers during the outgoing fade are ignored.
+      if (n <= 10) door(game).onCollide?.(player)
+      frame(game)
+      seen.push({ scene: game.sceneName, opacity: game.cameraEffects.state.fade.opacity })
+    }
+
+    // Outgoing: 15 steps of a rising fade to the authored color, still "main".
+    for (let n = 1; n <= 14; n += 1) {
+      expect(seen[n - 1]!.scene).toBe('main')
+      expect(seen[n - 1]!.opacity).toBeCloseTo(n / 15, 12)
+    }
+    expect(seen[14]).toEqual({ scene: 'main', opacity: 1 })
+    expect(game.cameraEffects.state.fade.color).toBe('#ff0000')
+    // The swap, then 15 steps of clearing in "cave".
+    for (let n = 16; n <= 30; n += 1) {
+      expect(seen[n - 1]!.scene).toBe('cave')
+      expect(seen[n - 1]!.opacity).toBeCloseTo((30 - n) / 15, 12)
+    }
+    expect(seen[29]!.opacity).toBe(0)
+    expect(load).toHaveBeenCalledTimes(1)
+    expect(load).toHaveBeenCalledWith('cave')
+    // Simulation never froze.
+    expect(simulated).toBe(32)
+    game.dispose()
+  })
+
+  it('defaults fadeColor to black and fires the same way from an interaction', () => {
+    const main = doorScene({ fadeSeconds: 0.1, trigger: 'interact' })
+    main.entities[0]!.components!.unshift({ type: 'Interactable' })
+    const game = makeRealGame(main)
+    frame(game)
+
+    door(game).onInteract?.(game.find('Player')!)
+    frame(game)
+
+    expect(game.sceneName).toBe('main')
+    expect(game.cameraEffects.state.fade.color).toBe('#000000')
+    expect(game.cameraEffects.state.fade.opacity).toBeCloseTo(1 / 6, 12)
+    for (let n = 0; n < 6; n += 1) frame(game)
+    expect(game.sceneName).toBe('cave')
+    game.dispose()
+  })
+})
+
+describe('SceneTransition params reach tooling (issue #74 CA-16)', () => {
+  it('lists fadeSeconds and fadeColor with their defaults', () => {
+    expect(Object.keys(SceneTransition.params)).toEqual(['scene', 'trigger', 'fadeSeconds', 'fadeColor'])
+    expect(authoringDefaults(SceneTransition)).toEqual({
+      scene: '',
+      trigger: 'overlap',
+      fadeSeconds: 0,
+      fadeColor: 'black',
+    })
   })
 })
