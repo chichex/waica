@@ -373,9 +373,10 @@ interface AssetNumbers {
 }
 
 /**
- * A browser whose engine reports the 'assets' capability and whose
- * metadata() serves `script` one entry per call, repeating the last one:
- * what a Run Session sees while a scene's images trickle in.
+ * A browser whose engine reports the 'assets' capability and whose bridge
+ * reads — metadata(), and the one a capture makes right before its PNG —
+ * serve `script` one entry per read, repeating the last one: what a Run
+ * Session sees while a scene's images trickle in.
  */
 function assetsBrowser(script: AssetNumbers[]): {
   browser: RuntimeBrowser
@@ -397,7 +398,10 @@ function assetsBrowser(script: AssetNumbers[]): {
       assets: current(),
       heldActions: request.operation === 'hold' ? ['right'] : [],
     }),
-    captureScreenshot: async () => ({ ...metadata, assets: current(), data: 'png' }),
+    captureScreenshot: async () => {
+      reads += 1
+      return { ...metadata, assets: current(), data: 'png' }
+    },
     close: async () => {},
     setLifecycleHandlers: () => {},
   }
@@ -493,6 +497,36 @@ describe('Assets Ready over the Run Session (CA-10)', () => {
     await manager.control({ projectPath: '/assets', operation: 'press', action: 'jump' })
     await manager.inspect({ projectPath: '/assets' })
     expect(metadataCalls()).toBe(3)
+    await manager.close()
+  })
+
+  it("captures a settled session with one bridge read — the capture's own — and answers with its numbers", async () => {
+    const { browser, metadataCalls } = assetsBrowser([{ pending: 0, loaded: 7, failed: 0 }])
+    const manager = new RuntimeSessionManager(assetsAdapters(browser))
+    await manager.start({ projectPath: '/assets' })
+    expect(metadataCalls()).toBe(1)
+
+    const shot = await manager.captureScreenshot('/assets')
+
+    expect(metadataCalls()).toBe(2)
+    expect(shot).toMatchObject({ metadata: { assets: { pending: 0, loaded: 7, failed: 0 } }, data: 'png' })
+    await manager.close()
+  })
+
+  it('waits for Assets Ready and captures again when the capture finds art still arriving', async () => {
+    const { browser, metadataCalls } = assetsBrowser([
+      { pending: 0, loaded: 7, failed: 0 },
+      { pending: 2, loaded: 7, failed: 0 },
+      { pending: 0, loaded: 9, failed: 0 },
+    ])
+    const manager = new RuntimeSessionManager(assetsAdapters(browser))
+    await manager.start({ projectPath: '/assets' })
+
+    const shot = await manager.captureScreenshot('/assets')
+
+    // The capture's read (pending 2), one poll (pending 0), the capture again.
+    expect(metadataCalls()).toBe(4)
+    expect(shot).toMatchObject({ metadata: { assets: { pending: 0, loaded: 9, failed: 0 } }, data: 'png' })
     await manager.close()
   })
 

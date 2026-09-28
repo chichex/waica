@@ -57,6 +57,7 @@ export interface RuntimeBrowser {
   metadata(): Promise<Record<string, unknown>>
   inspect(filters: Omit<RuntimeInspectInput, 'projectPath'>): Promise<Record<string, unknown>>
   control(request: Omit<RuntimeControlInput, 'projectPath'>): Promise<Record<string, unknown>>
+  /** The PNG plus the bridge metadata read right before it, in one round trip. */
   captureScreenshot(): Promise<Record<string, unknown> & { data: string }>
   close(): Promise<void>
   setLifecycleHandlers(handlers: RuntimeLifecycleHandlers): void
@@ -223,8 +224,13 @@ export class RuntimeSessionManager implements RuntimeService {
 
   async captureScreenshot(projectPath: string): Promise<RuntimeScreenshotResult> {
     const session = await this.requireSession(projectPath)
-    if (waitsForAssets(session)) {
-      // A structured failure rather than a half-textured capture (ADR 0019).
+    // The capture reads the bridge once, right before its PNG, so a settled
+    // session pays one round trip per screenshot. Only when that read shows
+    // art still arriving does the session wait for Assets Ready and capture
+    // again — a structured failure rather than a half-textured capture
+    // (ADR 0019).
+    let screenshot = await session.browser.captureScreenshot()
+    if (waitsForAssets(session) && (runtimeAssetStatus(screenshot.assets)?.pending ?? 0) > 0) {
       const wait = await waitForAssetsReady(() => session.browser.metadata(), session.preflight.timeoutMs)
       if (!wait.ok) {
         throw new RuntimeToolError({
@@ -235,8 +241,8 @@ export class RuntimeSessionManager implements RuntimeService {
           diagnostics: { assets: wait.assets },
         })
       }
+      screenshot = await session.browser.captureScreenshot()
     }
-    const screenshot = await session.browser.captureScreenshot()
     const { data, ...metadata } = screenshot
     return { metadata: this.sharedMetadata(session, metadata), data }
   }

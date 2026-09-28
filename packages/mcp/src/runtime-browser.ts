@@ -274,6 +274,7 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
     return this.invokeBridge('control', request as Record<string, unknown>)
   }
 
+  /** The PNG plus the bridge metadata read in the same round trip, right before the capture. */
   async captureScreenshot(): Promise<Record<string, unknown> & { data: string }> {
     this.assertOperational()
     const geometry = await this.page.evaluate(() => {
@@ -313,8 +314,7 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
       animations: 'allow',
       caret: 'hide',
     })
-    const metadata = await this.invokeBridge('metadata', {})
-    return { ...metadata, data: png.toString('base64') }
+    return { ...geometry.metadata, data: png.toString('base64') }
   }
 
   async close(): Promise<void> {
