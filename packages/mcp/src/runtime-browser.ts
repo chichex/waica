@@ -10,6 +10,7 @@ import type {
   RuntimeDevServer,
   RuntimeLifecycleHandlers,
 } from './runtime-session-manager.js'
+import { ASSETS_POLL_INTERVAL_MS, runtimeAssetStatus } from './runtime-assets.js'
 import type { RuntimePreflightResult } from './runtime-preflight.js'
 import { RuntimeToolError, type RuntimeControlInput } from './runtime-service.js'
 
@@ -64,6 +65,8 @@ interface PageBridgeMetadata {
   simulationTime: number
   /** Absent on a pre-CA-10 engine build — never assume it's there. */
   capabilities?: string[]
+  /** Absent on an engine without the 'assets' capability (ADR 0019). */
+  assets?: { pending: number; loaded: number; failed: number }
   [key: string]: unknown
 }
 
@@ -165,6 +168,7 @@ function bridgeReady(
       { metadata },
     )
   }
+  const assets = runtimeAssetStatus(metadata.assets)
   return {
     engineVersion: metadata.engineVersion,
     bridgeVersion: metadata.bridgeVersion,
@@ -174,6 +178,7 @@ function bridgeReady(
     // [] (not undefined) for a pre-CA-10 engine that never sent the field,
     // so a capability check can do a plain .includes() either way.
     capabilities: metadata.capabilities ?? [],
+    ...(assets ? { assets } : {}),
     initialSnapshot,
   }
 }
@@ -247,6 +252,10 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
     return this.readyValue
   }
 
+  async metadata(): Promise<Record<string, unknown>> {
+    return this.invokeBridge('metadata', {})
+  }
+
   async inspect(filters: {
     entityIds?: string[]
     entityNames?: string[]
@@ -265,6 +274,7 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
     return this.invokeBridge('control', request as Record<string, unknown>)
   }
 
+  /** The PNG plus the bridge metadata read in the same round trip, right before the capture. */
   async captureScreenshot(): Promise<Record<string, unknown> & { data: string }> {
     this.assertOperational()
     const geometry = await this.page.evaluate(() => {
@@ -304,8 +314,7 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
       animations: 'allow',
       caret: 'hide',
     })
-    const metadata = await this.invokeBridge('metadata', {})
-    return { ...metadata, data: png.toString('base64') }
+    return { ...geometry.metadata, data: png.toString('base64') }
   }
 
   async close(): Promise<void> {
@@ -343,7 +352,7 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
           this.diagnostics(),
         )
       }
-      await delay(25)
+      await delay(ASSETS_POLL_INTERVAL_MS)
     }
     const diagnostics = this.diagnostics()
     if (this.browserErrors.length > 0) {

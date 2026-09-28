@@ -133,3 +133,7 @@ _Avoid_: images, textures, sprites, graphics
 **Audio Channel**:
 The named mixing group a sound plays on, with its own volume and mute, scaled by a single master. `music` and `sfx` exist from the start; naming any other one while playing creates it. A channel carries mixing and nothing else — how long a sound outlives its scene is declared per sound, not by the channel it sits on.
 _Avoid_: bus, track, group, layer
+
+**Assets Ready**:
+The state of a Game in which every texture requested so far — by a spawned component or by an explicit preload — has loaded, or has failed and been recorded. A host awaits it before its first frame and a Run Session waits for it before reporting ready or capturing a screenshot; a later spawn that requests new art leaves the state until that art settles.
+_Avoid_: loaded, preloaded, settled, scene ready

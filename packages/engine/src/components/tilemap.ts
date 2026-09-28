@@ -13,8 +13,6 @@ import {
 } from '../tilemap-grid.js'
 import { Solid } from './solid.js'
 
-const loader = new THREE.TextureLoader()
-
 /** One authorable cell map rendered as a single merged geometry. */
 export class Tilemap extends Component implements SolidSource {
   static override componentName = 'Tilemap'
@@ -248,17 +246,40 @@ export class Tilemap extends Component implements SolidSource {
     mesh.material = this.makeMaterial()
     if (!this.texture) return
     const requested = this.texture
-    const texture = loader.load(requested, () => {
-      if (this.loadedTexture === texture && this.texture === requested) this.rebuildGeometry()
+    // Its own clone of the cached base (game.assets, ADR 0019). The image's
+    // pixel size drives the UVs, so the geometry is rebuilt once the texture
+    // settles — on a cache hit too, whose settlement is already resolved —
+    // and a texture that fails is dropped for the flat colour; neither
+    // happens if the texture was replaced or the component destroyed
+    // meanwhile.
+    const { texture, settled } = this.game.assets.texture(requested)
+    void settled.then((outcome) => {
+      if (this.loadedTexture !== texture || this.texture !== requested) return
+      if (outcome === 'loaded') this.rebuildGeometry()
+      else this.dropFailedTexture()
     })
     if (this.pixelArt) {
       texture.magFilter = THREE.NearestFilter
       texture.minFilter = THREE.NearestFilter
     }
-    texture.colorSpace = THREE.SRGBColorSpace
     this.loadedTexture = texture
     mesh.material.map = texture
     mesh.material.color.set(0xffffff)
+    mesh.material.needsUpdate = true
+  }
+
+  /**
+   * CA-4's failure rule: an image that never arrives leaves the flat
+   * `color`, not a white map over an empty texture. Only reached while the
+   * failed clone is still the current one (see rebuildMaterial).
+   */
+  private dropFailedTexture(): void {
+    const mesh = this.mesh
+    if (!mesh) return
+    this.loadedTexture?.dispose()
+    this.loadedTexture = undefined
+    mesh.material.map = null
+    mesh.material.color.setHex(this.color)
     mesh.material.needsUpdate = true
   }
 

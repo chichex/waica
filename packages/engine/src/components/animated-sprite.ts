@@ -5,17 +5,17 @@ import { locateFrame, sheetCell, type SheetCell, type SheetDef } from '../animat
 import type { YSortParticipant } from '../render-sort.js'
 import { spritePlacement } from '../sprite-placement.js'
 
-const loader = new THREE.TextureLoader()
 const clampAnchor = (value: number): number => Math.min(1, Math.max(0, value))
 
 /**
  * Sprite animated from one or more spritesheets. The main sheet is the
  * top-level texture/cols/rows (or explicit cells); extraSheets append after
  * it, and clip frames index the sheets consecutively (sheet 0 owns 0..n0-1,
- * sheet 1 the next n1, …). Each instance clones its textures to animate UVs
- * independently. On sheets with explicit cells the frames vary in pixel size,
- * so the quad rescales per frame, anchored bottom-center — width/height size
- * the sheet's largest frame and smaller ones keep their feet planted.
+ * sheet 1 the next n1, …). Each instance owns its own clones of the cached
+ * sheets (game.assets, ADR 0019) to animate UVs independently. On sheets
+ * with explicit cells the frames vary in pixel size, so the quad rescales
+ * per frame, anchored bottom-center — width/height size the sheet's largest
+ * frame and smaller ones keep their feet planted.
  */
 export class AnimatedSprite extends Component implements YSortParticipant {
   static override componentName = 'AnimatedSprite'
@@ -33,6 +33,7 @@ export class AnimatedSprite extends Component implements YSortParticipant {
     'player',
     'sheets',
     'texs',
+    'failedSheets',
     'mesh',
     'frame',
     'frameScaleX',
@@ -144,6 +145,8 @@ export class AnimatedSprite extends Component implements YSortParticipant {
   private readonly player = new ClipPlayer()
   private sheets: SheetDef[] = []
   private texs: THREE.Texture[] = []
+  // Clones whose sheet failed to load: applyFrame never installs them (CA-4).
+  private readonly failedSheets = new Set<THREE.Texture>()
   private mesh?: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
   private frame = 0
   // Current frame's quad scale relative to the sheet's largest cell: always
@@ -166,10 +169,7 @@ export class AnimatedSprite extends Component implements YSortParticipant {
     if (this.cells.length) main.cells = this.cells
     this.sheets = [main, ...this.extraSheets]
     this.texs = this.sheets.map((sheet) => {
-      // Non-uniform slicing needs the image's pixel size, so re-apply the
-      // current frame once each texture is in.
-      const tex = loader.load(sheet.texture, () => this.applyFrame())
-      tex.colorSpace = THREE.SRGBColorSpace
+      const tex = this.sheetTexture(sheet.texture)
       if (this.pixelArt) {
         tex.magFilter = THREE.NearestFilter
         tex.minFilter = THREE.NearestFilter
@@ -203,7 +203,31 @@ export class AnimatedSprite extends Component implements YSortParticipant {
     this.mesh?.removeFromParent()
     this.mesh?.geometry.dispose()
     this.mesh?.material.dispose()
+    // Only this sprite's clones: the cached bases live with the Game.
     for (const tex of this.texs) tex.dispose()
+    this.texs = []
+    this.failedSheets.clear()
+  }
+
+  /**
+   * The sheet's own clone of the cached base. Non-uniform slicing needs
+   * the image's pixel size, so the current frame is re-applied once the
+   * sheet settles — on a cache hit too, whose settlement is already
+   * resolved — unless this sprite was destroyed meanwhile. A sheet that
+   * fails is remembered so the quad shows its flat material on that
+   * sheet's frames instead of sampling an image that never arrived (CA-4).
+   * An empty url (a sheet not authored yet) owns a bare texture and never
+   * touches game.assets, so it counts nowhere and warns about nothing.
+   */
+  private sheetTexture(url: string): THREE.Texture {
+    if (!url) return new THREE.Texture()
+    const { texture, settled } = this.game.assets.texture(url)
+    void settled.then((outcome) => {
+      if (!this.texs.includes(texture)) return
+      if (outcome === 'failed') this.failedSheets.add(texture)
+      this.applyFrame()
+    })
+    return texture
   }
 
   private showFrame(index: number): void {
@@ -235,9 +259,12 @@ export class AnimatedSprite extends Component implements YSortParticipant {
     const sheet = this.sheets[located.sheet]
     const tex = this.texs[located.sheet]
     if (!sheet || !tex) return
-    if (this.mesh && this.mesh.material.map !== tex) {
-      this.mesh.material.map = tex
-      this.mesh.material.needsUpdate = true
+    if (this.mesh) {
+      const map = this.failedSheets.has(tex) ? null : tex
+      if (this.mesh.material.map !== map) {
+        this.mesh.material.map = map
+        this.mesh.material.needsUpdate = true
+      }
     }
     const cells = sheet.cells
     if (cells?.length) {

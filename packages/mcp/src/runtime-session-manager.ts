@@ -1,5 +1,6 @@
 import { realpath } from 'node:fs/promises'
 import path from 'node:path'
+import { runtimeAssetStatus, waitForAssetsReady, type RuntimeAssetStatus } from './runtime-assets.js'
 import { startRuntimeBrowser } from './runtime-browser.js'
 import { startRuntimeDevServer } from './runtime-dev-server.js'
 import {
@@ -23,6 +24,8 @@ export interface RuntimeBridgeReady {
   simulationTime: number
   /** [] for a pre-CA-10 engine build that never reports this field. */
   capabilities: readonly string[]
+  /** `game.assets.status` at readiness; absent for an engine without the 'assets' capability. */
+  assets?: RuntimeAssetStatus
   initialSnapshot: Record<string, unknown>
 }
 
@@ -50,8 +53,11 @@ export interface RuntimeLifecycleHandlers {
 
 export interface RuntimeBrowser {
   ready(): Promise<RuntimeBridgeReady>
+  /** The bridge's metadata alone — what the Assets Ready wait polls (ADR 0019). */
+  metadata(): Promise<Record<string, unknown>>
   inspect(filters: Omit<RuntimeInspectInput, 'projectPath'>): Promise<Record<string, unknown>>
   control(request: Omit<RuntimeControlInput, 'projectPath'>): Promise<Record<string, unknown>>
+  /** The PNG plus the bridge metadata read right before it, in one round trip. */
   captureScreenshot(): Promise<Record<string, unknown> & { data: string }>
   close(): Promise<void>
   setLifecycleHandlers(handlers: RuntimeLifecycleHandlers): void
@@ -78,6 +84,8 @@ export interface StartProjectResult extends Record<string, unknown> {
   frame: number
   simulationTime: number
   provenance: Array<{ package: '@waica/engine'; version: string; source: 'project' }>
+  /** Present when the engine reports the 'assets' capability: settled at readiness (`pending` 0). */
+  assets?: RuntimeAssetStatus
   initialSnapshot: Record<string, unknown>
 }
 
@@ -92,6 +100,10 @@ interface RuntimeSession {
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+function waitsForAssets(session: RuntimeSession): boolean {
+  return session.ready.capabilities.includes('assets')
 }
 
 export class RuntimeSessionManager implements RuntimeService {
@@ -191,13 +203,46 @@ export class RuntimeSessionManager implements RuntimeService {
       })
     }
     const { projectPath: _projectPath, ...request } = input
-    const controlled = await session.browser.control(request)
+    let controlled = await session.browser.control(request)
+    if (input.operation === 'scene' && waitsForAssets(session)) {
+      // The swap spawned synchronously; its art is still arriving. Wait for
+      // Assets Ready before answering, so the result's numbers are settled.
+      const wait = await waitForAssetsReady(() => session.browser.metadata(), session.preflight.timeoutMs)
+      if (!wait.ok) {
+        throw new RuntimeToolError({
+          code: 'runtime-operation-failed',
+          stage: 'control',
+          message: `Scene "${input.scene}" loaded, but its assets did not settle within ${session.preflight.timeoutMs} ms.`,
+          projectPath: session.preflight.projectPath,
+          diagnostics: { assets: wait.assets },
+        })
+      }
+      controlled = { ...controlled, ...wait.metadata }
+    }
     return { ...this.sharedMetadata(session, controlled), heldActions: controlled.heldActions ?? [] }
   }
 
   async captureScreenshot(projectPath: string): Promise<RuntimeScreenshotResult> {
     const session = await this.requireSession(projectPath)
-    const screenshot = await session.browser.captureScreenshot()
+    // The capture reads the bridge once, right before its PNG, so a settled
+    // session pays one round trip per screenshot. Only when that read shows
+    // art still arriving does the session wait for Assets Ready and capture
+    // again — a structured failure rather than a half-textured capture
+    // (ADR 0019).
+    let screenshot = await session.browser.captureScreenshot()
+    if (waitsForAssets(session) && (runtimeAssetStatus(screenshot.assets)?.pending ?? 0) > 0) {
+      const wait = await waitForAssetsReady(() => session.browser.metadata(), session.preflight.timeoutMs)
+      if (!wait.ok) {
+        throw new RuntimeToolError({
+          code: 'runtime-operation-failed',
+          stage: 'game',
+          message: `The Game's assets did not settle within ${session.preflight.timeoutMs} ms; not capturing a half-textured screenshot.`,
+          projectPath: session.preflight.projectPath,
+          diagnostics: { assets: wait.assets },
+        })
+      }
+      screenshot = await session.browser.captureScreenshot()
+    }
     const { data, ...metadata } = screenshot
     return { metadata: this.sharedMetadata(session, metadata), data }
   }
@@ -224,7 +269,7 @@ export class RuntimeSessionManager implements RuntimeService {
     try {
       devServer = await this.adapters.startDevServer(preflight)
       browser = await this.adapters.startBrowser(preflight, devServer)
-      const ready = await browser.ready()
+      let ready = await browser.ready()
       if (ready.bridgeVersion !== 1) {
         throw new RuntimeToolError({
           code: 'runtime-incompatible',
@@ -233,6 +278,23 @@ export class RuntimeSessionManager implements RuntimeService {
           projectPath: preflight.projectPath,
           diagnostics: { minimumEngineVersion: preflight.engine.version },
         })
+      }
+      if (ready.capabilities.includes('assets')) {
+        // Readiness is Assets Ready too (ADR 0019): the Game registered at
+        // frame 0, and its scene's images still have to arrive.
+        const live = browser
+        const wait = await waitForAssetsReady(() => live.metadata(), preflight.timeoutMs)
+        if (!wait.ok) {
+          throw new RuntimeToolError({
+            code: 'runtime-start-failed',
+            stage: 'game',
+            message: `The Game registered, but its assets did not settle within ${preflight.timeoutMs} ms.`,
+            projectPath: preflight.projectPath,
+            diagnostics: { ...devServer.diagnostics(), assets: wait.assets },
+          })
+        }
+        const assets = runtimeAssetStatus(wait.metadata.assets)
+        if (assets) ready = { ...ready, assets }
       }
       const session: RuntimeSession = {
         preflight,
@@ -279,6 +341,7 @@ export class RuntimeSessionManager implements RuntimeService {
   ): Promise<StartProjectResult> {
     const { preflight, devServer, ready } = session
     const current = reused ? await session.browser.inspect({}) : ready
+    const assets = runtimeAssetStatus(current.assets) ?? ready.assets
     return {
       projectPath: preflight.projectPath,
       url: devServer.url,
@@ -290,6 +353,7 @@ export class RuntimeSessionManager implements RuntimeService {
       frame: Number(current.frame ?? ready.frame),
       simulationTime: Number(current.simulationTime ?? ready.simulationTime),
       provenance: [preflight.engine],
+      ...(assets ? { assets } : {}),
       initialSnapshot: ready.initialSnapshot,
     }
   }
@@ -298,6 +362,9 @@ export class RuntimeSessionManager implements RuntimeService {
     session: RuntimeSession,
     value: Record<string, unknown>,
   ): Record<string, unknown> {
+    // Passed through only when the bridge reported it (ADR 0019): an older
+    // engine's results keep exactly their pre-assets shape.
+    const assets = runtimeAssetStatus(value.assets) ?? session.ready.assets
     return {
       projectPath: session.preflight.projectPath,
       url: session.devServer.url,
@@ -307,6 +374,7 @@ export class RuntimeSessionManager implements RuntimeService {
       frame: value.frame ?? session.ready.frame,
       simulationTime: value.simulationTime ?? session.ready.simulationTime,
       provenance: [session.preflight.engine],
+      ...(assets ? { assets } : {}),
     }
   }
 

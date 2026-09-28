@@ -224,3 +224,25 @@ bar.remove()
 - **Runtime Snapshot.** Every snapshot carries `ui: { shown, anchored }`: the visible screen pieces by name, and each live instance in creation order as `{ piece, entity, x, y, clipped, values }`, with the pixel coordinates of its last placement; `values` are bounded like component state (a string over 4 KiB becomes a `$waica: 'truncated'` marker), and once every entity is cut the 1 MiB snapshot cap drops instances from the end.
 
 The trade-off is ADR 0018's: Anchored Pieces are HTML drawn over the game view, not text rendered in the three scene. They always draw above the world — a label behind a tree draws over it — hide with the rest of the UI overlay while the Game is not simulating (including the editor's edit mode), and do not align to a pixel-art grid.
+
+## game.assets: textures, preload and Assets Ready
+
+Every `Game` owns an `assets: AssetLoader` — the engine's texture cache. `Sprite`, `AnimatedSprite` and `Tilemap` load through it: one fetch and one base texture per URL for the whole life of the Game, and every component gets its own clone of that base (three shares the GPU upload between clones with equal sampler parameters and reference-counts their disposal), so eight crates cost one image. A scene load never waits for images — `loadScene` stays synchronous — and **Assets Ready** is a promise beside it (ADR 0019):
+
+```ts
+game.registerSceneCatalog({ scenes, registry })
+game.loadSceneByName('main')
+await game.assets.ready() // every texture requested so far has loaded, or failed and been recorded
+game.start()
+
+await game.assets.preload(['waica:iso-crate', 'src/art/tree.png']) // ahead of a later scene
+game.assets.status // { pending, loaded, failed } — a fresh object on every read
+```
+
+- **Cache rule.** Keyed by the URL as received: components pass what `resolveProps` resolved, `preload` resolves each uri through the registered scene catalog first (identity before `registerSceneCatalog`, and for a uri the resolver leaves unchanged). N requests of one URL call the backend once; `status.loaded` counts URLs, not requests. Keep-all: `unloadScene()`, `loadScene` and `loadSceneByName` never dispose, evict or reset an entry — `main → cave → main` re-downloads nothing — and only `game.dispose()` disposes every cached base, exactly once, leaving `status` at zeros. Components dispose only their own clone.
+- **`ready()`.** Resolves the first time `pending` is 0 after the call: at once when nothing is pending, otherwise once every URL requested before or while waiting has settled. Readiness is relative to the moment it is awaited — a later spawn that requests new art reopens it until that art settles — and concurrent callers all resolve. It never rejects, and it has no timeout: a stalled image with no error event holds a host that awaits it (a Run Session is bounded by the MCP's session timeout instead).
+- **`preload(uris)`.** Requests every uri and resolves once all of them settled, failures included. A component that later asks for the same resolved URL is a cache hit.
+- **`status`.** `pending` is current; `loaded` and `failed` are cumulative for the Game and only grow until `dispose()`. A host that wants a loading bar reads it from `game.onUpdate`.
+- **Failure rule.** A texture that fails to load is recorded, not thrown: `console.warn('[waica] assets: failed to load "<url>"', error)` once per Game per URL, `failed` counts it, `ready()` resolves, and every consumer falls back to its flat material — `Sprite` and `Tilemap` drop the failed map, dispose their clone and render their `color` again; `AnimatedSprite` never installs the failed sheet's clone, so that sheet's frames show a plain white quad. Asking for that URL again on the same Game is a cached failure — no retry, no second warning.
+- **`GameOptions.textures`.** Replaces the real `THREE.TextureLoader` backend for that Game (ADR 0013's seam, applied to textures): `happy-dom` decodes no images, so a project's own tests inject a backend that resolves at once. The Runtime Bridge reports `assets` in its metadata under the `'assets'` capability, and a Run Session waits for `pending === 0` at readiness, after a `scene` operation and before every screenshot.
+
