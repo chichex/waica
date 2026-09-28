@@ -39,6 +39,10 @@ interface CacheEntry {
   settled: Promise<TextureOutcome>
 }
 
+type LoadAttempt =
+  | { outcome: 'loaded'; texture: THREE.Texture }
+  | { outcome: 'failed'; error: unknown }
+
 /**
  * Not `base.clone()`: `Texture.copy` sets `needsUpdate`, which bumps the
  * shared Source's version — a GPU re-upload of the same image for every
@@ -150,24 +154,32 @@ export class AssetLoader {
   }
 
   private async load(url: string, entry: CacheEntry): Promise<TextureOutcome> {
-    let outcome: TextureOutcome
-    try {
-      const loaded = await this.backend.load(url)
+    const attempt = await this.attempt(url)
+    // A dispose() in flight already forgot this entry and disposed its base:
+    // nothing to write, warn about or count. Only the settlement is still
+    // owed, so a consumer awaiting it never hangs; it reports what the
+    // backend did.
+    if (this.entries.get(url) !== entry) return attempt.outcome
+    if (attempt.outcome === 'loaded') {
       // The image lands on the base's Source, which every clone shares.
-      entry.base.image = loaded.image
+      entry.base.image = attempt.texture.image
       entry.base.needsUpdate = true
-      outcome = 'loaded'
+      this.loadedCount += 1
+    } else {
+      console.warn(`[waica] assets: failed to load "${url}"`, attempt.error)
+      this.failedCount += 1
+    }
+    entry.outcome = attempt.outcome
+    this.pendingCount -= 1
+    return attempt.outcome
+  }
+
+  /** One backend load as an outcome, never a rejection — a backend that throws synchronously included. */
+  private async attempt(url: string): Promise<LoadAttempt> {
+    try {
+      return { outcome: 'loaded', texture: await this.backend.load(url) }
     } catch (error: unknown) {
-      console.warn(`[waica] assets: failed to load "${url}"`, error)
-      outcome = 'failed'
+      return { outcome: 'failed', error }
     }
-    entry.outcome = outcome
-    // A dispose() in flight already forgot this entry: its counters stay zero.
-    if (this.entries.get(url) === entry) {
-      this.pendingCount -= 1
-      if (outcome === 'loaded') this.loadedCount += 1
-      else this.failedCount += 1
-    }
-    return outcome
   }
 }

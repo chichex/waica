@@ -227,6 +227,30 @@ describe('AssetLoader dispose() (CA-6)', () => {
     loader.texture('/crate.png')
     expect(backend.loadCalls).toEqual(['/crate.png', '/tree.png', '/crate.png'])
   })
+
+  it('ignores a load that settles after dispose(): no warning, no write on the disposed base, counters at zero', async () => {
+    const { loader, backend } = make()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    backend.hold('/late.png')
+    backend.hold('/broken.png')
+    backend.failUrl('/broken.png')
+    const late = loader.texture('/late.png')
+    const broken = loader.texture('/broken.png')
+    expect(loader.status).toEqual({ pending: 2, loaded: 0, failed: 0 })
+
+    loader.dispose()
+    backend.release('/late.png')
+    backend.release('/broken.png')
+
+    // The settlement is still owed, so nobody awaiting it hangs; it reports what the backend did.
+    await expect(late.settled).resolves.toBe('loaded')
+    await expect(broken.settled).resolves.toBe('failed')
+    expect(warn).not.toHaveBeenCalled()
+    // The image never lands on the disposed base, so the clone sharing its Source stays empty.
+    expect(late.texture.image).toBeNull()
+    expect(late.texture.version).toBe(0)
+    expect(loader.status).toEqual({ pending: 0, loaded: 0, failed: 0 })
+  })
 })
 
 describe('the default backend (CA-8)', () => {
