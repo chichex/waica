@@ -7,9 +7,16 @@
     "strict": true,
     "resolveJsonModule": true,
     "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
+    // Kept deliberately (coding policies L153; Ajustes): tsc 7.0.2 does not
+    // finish checking the declarations of @types/three 0.185.1 — a file that
+    // only imports 'three' was still running after 90 s, the engine after
+    // 636 s. tsc 6.0.3 checks the same declarations with zero errors in 3 s,
+    // so no third-party type is wrong. Remove once tsc 7 checks them.
     "skipLibCheck": true,
     "noEmit": true
   }

@@ -108,7 +108,7 @@ class DiscoveryProbe extends Component {
 class OverrideProbe extends Component {
   static override componentName = 'OverrideProbe'
   automatic = 'excluded'
-  inspectState(): unknown {
+  override inspectState(): unknown {
     return { custom: 42 }
   }
 }
@@ -116,7 +116,7 @@ class OverrideProbe extends Component {
 class ConfigurableProjectionProbe extends Component {
   static override componentName = 'ConfigurableProjectionProbe'
   state: unknown = null
-  inspectState(): unknown {
+  override inspectState(): unknown {
     return this.state
   }
 }
@@ -125,7 +125,7 @@ class TypedProjectionProbe extends Component {
   static override componentName = 'TypedProjectionProbe'
   toJsonCalls = 0
 
-  inspectState(): unknown {
+  override inspectState(): unknown {
     const cycle: Record<string, unknown> = { label: 'cycle' }
     cycle.self = cycle
     return {
@@ -149,7 +149,7 @@ class TypedProjectionProbe extends Component {
 
 class ThrowingOverrideProbe extends Component {
   static override componentName = 'ThrowingOverrideProbe'
-  inspectState(): unknown {
+  override inspectState(): unknown {
     throw new Error('override boom')
   }
 }

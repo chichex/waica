@@ -269,7 +269,7 @@ describe('Anchored Piece lifetime (CA-5)', () => {
     let steps = 0
     let probeFiredOnStep: number | null = null
     class Striker extends Component {
-      onUpdate(): void {
+      override onUpdate(): void {
         steps += 1
         if (hit) return
         // Attached during step k = 1; seconds 0.8 is 48 steps of Game Time.
