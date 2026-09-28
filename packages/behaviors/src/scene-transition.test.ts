@@ -199,7 +199,7 @@ function doorScene(props: Record<string, unknown>, extra: SceneJson['entities'] 
   }
 }
 
-function makeRealGame(main: SceneJson): Game {
+function makeRealGame(main: SceneJson, extraScenes: Record<string, SceneJson> = {}): Game {
   const host = document.createElement('div')
   const canvas = document.createElement('canvas')
   Object.defineProperties(canvas, { clientWidth: { value: 640 }, clientHeight: { value: 360 } })
@@ -207,7 +207,7 @@ function makeRealGame(main: SceneJson): Game {
   document.body.append(host)
   const game = new Game({ canvas })
   game.registerSceneCatalog({
-    scenes: { main, cave: { waicaScene: 3, entities: [{ name: 'Torch' }] } },
+    scenes: { main, cave: { waicaScene: 3, entities: [{ name: 'Torch' }] }, ...extraScenes },
     registry,
   })
   game.loadSceneByName('main')
@@ -298,6 +298,54 @@ describe('SceneTransition with a fade (issue #74 CA-15)', () => {
     expect(game.cameraEffects.state.fade.opacity).toBeCloseTo(1 / 6, 12)
     for (let n = 0; n < 6; n += 1) frame(game)
     expect(game.sceneName).toBe('cave')
+    game.dispose()
+  })
+
+  it('a mid-fade scene change does not leave the fade stuck at opacity 1 (issue #74 review)', () => {
+    const game = makeRealGame(doorScene({ fadeSeconds: 0.25 }), {
+      town: { waicaScene: 3, entities: [{ name: 'Mayor' }] },
+    })
+    frame(game)
+    const player = game.find('Player')!
+
+    door(game).onCollide?.(player)
+    for (let n = 0; n < 5; n += 1) frame(game)
+    expect(game.sceneName).toBe('main')
+    expect(game.cameraEffects.state.fade.opacity).toBeGreaterThan(0)
+    expect(game.cameraEffects.state.fade.opacity).toBeLessThan(1)
+
+    // Something else changes the scene mid-fade: e.g. the Runtime Bridge's
+    // `scene` control operation, called synchronously outside a frame.
+    game.loadSceneByName('town')
+    expect(game.sceneName).toBe('town')
+
+    // Run well past the door's own fadeSeconds: the fade must still clear,
+    // in whichever scene ended up live, instead of staying stuck.
+    for (let n = 0; n < 40; n += 1) frame(game)
+
+    expect(game.sceneName).toBe('town')
+    expect(game.cameraEffects.state.fade.opacity).toBe(0)
+    game.dispose()
+  })
+
+  it('the door being destroyed mid-fade does not leave the fade stuck at opacity 1 (issue #74 review)', () => {
+    const game = makeRealGame(doorScene({ fadeSeconds: 0.25 }))
+    frame(game)
+    const player = game.find('Player')!
+
+    door(game).onCollide?.(player)
+    for (let n = 0; n < 5; n += 1) frame(game)
+    expect(game.cameraEffects.state.fade.opacity).toBeGreaterThan(0)
+    expect(game.cameraEffects.state.fade.opacity).toBeLessThan(1)
+
+    // The door entity itself is destroyed mid-fade (e.g. a hard reset script).
+    game.find('Door')!.destroy()
+
+    for (let n = 0; n < 40; n += 1) frame(game)
+
+    // No swap: the door that would have triggered it is gone.
+    expect(game.sceneName).toBe('main')
+    expect(game.cameraEffects.state.fade.opacity).toBe(0)
     game.dispose()
   })
 })

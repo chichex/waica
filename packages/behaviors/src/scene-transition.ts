@@ -67,24 +67,38 @@ export class SceneTransition extends Component {
     }
     if (this._fadingOut) return
     const { game, fadeSeconds } = this
+    const sceneAtFadeStart = game.sceneName
     game.cameraEffects.fade({ to: this.fadeColor, seconds: fadeSeconds })
     this._fadingOut = true
     // Scheduled on Game Time, not on `fade.done`: a promise settles in a
     // microtask, after a whole multi-step frame or Runtime Bridge `step`,
     // while this timer fires on the exact step the fade has covered the view.
+    //
+    // Session-scoped and un-owned (issue #74 review): a mid-fade scene
+    // change (another transition, a Runtime Bridge `scene` op, a host
+    // reset) cancels scene-scoped work, and Entity.destroy() cancels an
+    // owned timer whatever its scope. Either would otherwise strand the
+    // Fade at opacity 1 with nothing left to clear it, since the Fade
+    // itself is session-scoped and keeps advancing on its own. This timer
+    // always runs; it swaps only if the door is still alive and the scene
+    // it started the fade in is still live, and it always queues the
+    // 'clear'.
     game.time.after(
       fadeSeconds,
       () => {
-        const swapping = game.loadSceneByName(this.scene)
-        if (!swapping) this._fadingOut = false
+        if (this.entity.alive && game.sceneName === sceneAtFadeStart) {
+          game.loadSceneByName(this.scene)
+        }
+        this._fadingOut = false
         // Session-scoped, zero-delay: fires at the start of the next step,
         // after the queued swap has applied, so the clear runs in the
-        // incoming scene (or, if the swap failed, uncovers this one).
+        // incoming scene (or, if the swap was skipped, uncovers whichever
+        // scene ended up live).
         game.time.after(0, () => game.cameraEffects.fade({ to: 'clear', seconds: fadeSeconds }), {
           scope: 'session',
         })
       },
-      { owner: this.entity },
+      { scope: 'session' },
     )
   }
 }
