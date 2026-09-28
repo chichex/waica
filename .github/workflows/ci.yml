@@ -1,0 +1,53 @@
+name: CI
+
+# Pull-request gate: the local verification ladder from .sdd/project.md, run
+# on every PR against main so the ladder is no longer only a local habit.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      # No version input: pnpm/action-setup reads the packageManager field
+      # from the root package.json.
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Unit and component tests
+        run: pnpm test
+
+      # Fresh build plus packed-package checks, including a Chrome leg.
+      - name: Published package shape
+        run: pnpm test:dist
+
+      # Needs the runner's system Google Chrome; a missing browser is red.
+      - name: Runtime browser e2e
+        run: pnpm test:e2e
+
+      - name: Audit dependencies
+        run: pnpm audit --audit-level high
