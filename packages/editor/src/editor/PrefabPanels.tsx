@@ -87,16 +87,14 @@ function prefabMenu(ref: string, group: PrefabGroup, panel: PrefabPanelsProps): 
   ]
 }
 
-/** One prefab: open it, drag it into the scene, rename it inline, or act from its menu. */
-function PrefabRow({
-  prefabRef: ref,
-  group,
-  panel,
-}: {
+interface PrefabRowProps {
   prefabRef: string
   group: PrefabGroup
   panel: PrefabPanelsProps
-}) {
+}
+
+/** One prefab: open it, drag it into the scene, rename it inline, or act from its menu. */
+function PrefabRow({ prefabRef: ref, group, panel }: PrefabRowProps) {
   const archetype = useArchetype()
   const base = refBase(ref)
   const { renaming } = panel

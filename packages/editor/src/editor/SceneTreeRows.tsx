@@ -118,16 +118,15 @@ function entityDragHandlers(entity: SceneEntityJson, inFolder: boolean, { props,
   }
 }
 
-/** One entity of the scene tree: select, range, toggle, rename, drag and its menu. */
-export function EntityRow({
-  entity,
-  inFolder,
-  tree,
-}: {
+interface EntityRowProps {
   entity: SceneEntityJson
+  /** Rows inside a folder are indented, and folders can't be dropped between them. */
   inFolder: boolean
   tree: SceneTree
-}) {
+}
+
+/** One entity of the scene tree: select, range, toggle, rename, drag and its menu. */
+export function EntityRow({ entity, inFolder, tree }: EntityRowProps) {
   const { props, dnd, renaming } = tree
   const icon = <span className="ed-x-ico">{entityIcon(entity, props.prefabLib, tree.archetype)}</span>
   if (renaming.editing?.kind === 'entity' && renaming.editing.name === entity.name) {
