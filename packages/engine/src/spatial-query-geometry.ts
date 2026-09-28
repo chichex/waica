@@ -255,6 +255,39 @@ function selectVertexNormal(
   return selected
 }
 
+/** Every edge's ray events, for each edge with a usable outward normal. */
+function polygonEdgeEvents(
+  polygon: readonly CollisionPoint[],
+  winding: 1 | -1,
+  ray: { origin: CollisionPoint; direction: CollisionPoint; maxDistance: number },
+): EdgeEvent[] {
+  const events: EdgeEvent[] = []
+  for (let index = 0; index < polygon.length; index += 1) {
+    const a = itemAt(polygon, index)
+    const b = itemAt(polygon, (index + 1) % polygon.length)
+    const normal = edgeNormal(a, b, winding)
+    if (!normal) continue
+    events.push(...edgeEvents(ray.origin, ray.direction, ray.maxDistance, a, b, normal, index))
+  }
+  return events
+}
+
+/**
+ * Whether the ray enters or leaves the polygon at an event group, from where
+ * it was just before and just after it. A ray starting on the boundary and
+ * heading inside counts as entering.
+ */
+function boundaryCrossing(
+  distance: number,
+  before: PointLocation,
+  after: PointLocation,
+): 'entry' | 'exit' | null {
+  if ((before === 'outside' || (distance === 0 && before === 'boundary')) && after === 'inside') {
+    return 'entry'
+  }
+  return before === 'inside' && after === 'outside' ? 'exit' : null
+}
+
 function polygonRay(
   body: CollisionBody,
   origin: CollisionPoint,
@@ -266,16 +299,7 @@ function polygonRay(
   const area = signedArea(polygon)
   if (Math.abs(area) <= SPATIAL_QUERY_EPSILON) return null
   const winding = area > 0 ? 1 : -1
-  const events: EdgeEvent[] = []
-  for (let index = 0; index < polygon.length; index += 1) {
-    const a = itemAt(polygon, index)
-    const b = itemAt(polygon, (index + 1) % polygon.length)
-    const normal = edgeNormal(a, b, winding)
-    if (!normal) continue
-    events.push(...edgeEvents(origin, direction, maxDistance, a, b, normal, index))
-  }
-
-  const groups = groupEvents(events)
+  const groups = groupEvents(polygonEdgeEvents(polygon, winding, { origin, direction, maxDistance }))
   const originLocation = polygonPointLocation(polygon, origin)
   const scale = Math.max(Math.abs(body.width), Math.abs(body.height), 1)
   const terminalProbe = Math.max(
@@ -305,16 +329,7 @@ function polygonRay(
         next ? (group.distance + next.distance) / 2 : group.distance + terminalProbe,
       ),
     )
-    let crossing: 'entry' | 'exit' | null = null
-    if (
-      (beforeLocation === 'outside' ||
-        (group.distance === 0 && beforeLocation === 'boundary')) &&
-      afterLocation === 'inside'
-    ) {
-      crossing = 'entry'
-    } else if (beforeLocation === 'inside' && afterLocation === 'outside') {
-      crossing = 'exit'
-    }
+    const crossing = boundaryCrossing(group.distance, beforeLocation, afterLocation)
     if (!crossing) continue
     const normal = selectVertexNormal(group.normals, direction, crossing)
     if (!normal) continue
