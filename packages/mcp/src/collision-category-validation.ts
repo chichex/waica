@@ -40,8 +40,19 @@ export function collisionCategoryFindings(
     return findings
   }
 
+  findings.push(...collisionMaskEntryFindings(props.collidesWith, file, owner))
+  return findings
+}
+
+/** Findings for each entry of an authored Hitbox.collidesWith list, in list order. */
+function collisionMaskEntryFindings(
+  entries: readonly unknown[],
+  file: string,
+  owner: string | undefined,
+): ValidationFinding[] {
+  const findings: ValidationFinding[] = []
   const seen = new Set<string>()
-  props.collidesWith.forEach((entry, index) => {
+  entries.forEach((entry, index) => {
     const ref = fieldRef(owner, `collidesWith[${index}]`)
     if (typeof entry !== 'string') {
       findings.push({
