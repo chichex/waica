@@ -7,6 +7,7 @@ import {
   nodeSupportsModuleHooks,
   unsupportedNodeFailure,
 } from './project-component-loader.js'
+import { match } from '../../engine/src/test-support.js'
 
 const roots: string[] = []
 afterEach(async () => cleanup(...roots.splice(0)))
@@ -245,7 +246,7 @@ export class Target extends Component {
       expect.objectContaining({
         code: 'component-load-failed',
         file: 'src/components/broken.ts',
-        message: expect.any(String),
+        message: match.any(String),
       }),
     ])
   })
@@ -323,7 +324,7 @@ throw new Error('module scope exploded')
       expect.objectContaining({
         code: 'component-load-failed',
         file: 'src/components/broken.ts',
-        message: expect.stringContaining('module scope exploded'),
+        message: match.stringContaining('module scope exploded'),
       }),
     ])
   })
@@ -416,7 +417,7 @@ export class Target {
       expect.objectContaining({
         code: 'component-load-failed',
         file: 'src/components/throws.ts',
-        message: expect.stringContaining('scope exploded'),
+        message: match.stringContaining('scope exploded'),
       }),
     ])
   })

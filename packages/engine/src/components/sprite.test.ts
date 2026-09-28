@@ -6,6 +6,7 @@ import { FakeTextureBackend } from '../assets/test-helpers'
 import type { Entity } from '../entity'
 import type { Game } from '../game'
 import { Sprite } from './sprite'
+import { defined } from '../test-support'
 
 type Mesh = THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
 
@@ -126,7 +127,7 @@ describe('Sprite failure rule (CA-4)', () => {
     const mesh = mount(sprite, { assets })
     const clone = mesh.material.map
     expect(clone).toBeInstanceOf(THREE.Texture)
-    const cloneDispose = vi.spyOn(clone!, 'dispose')
+    const cloneDispose = vi.spyOn(defined(clone), 'dispose')
     const versionBefore = mesh.material.version
     expect(mesh.material.color.getHex()).toBe(0xffffff)
 
@@ -151,7 +152,7 @@ describe('Sprite failure rule (CA-4)', () => {
     sprite.texture = '/missing.png'
     sprite.color = 0x123456
     const mesh = mount(sprite, { assets })
-    const cloneDispose = vi.spyOn(mesh.material.map!, 'dispose')
+    const cloneDispose = vi.spyOn(defined(mesh.material.map), 'dispose')
 
     sprite.onDestroy()
     backend.release('/missing.png')

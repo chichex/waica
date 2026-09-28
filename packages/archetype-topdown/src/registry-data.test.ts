@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { authoringDefaults } from '@waica/engine'
 import { HEALTH_UI } from '@waica/behaviors'
 import { TOPDOWN_REGISTRY_DATA } from './registry-data.js'
+import { defined } from '../../engine/src/test-support'
 
 const RECTANGLE_TRIANGLE = [
   [-0.5, -0.5],
@@ -159,7 +160,7 @@ describe('TOPDOWN_REGISTRY_DATA authoring defaults', () => {
   })
 
   it.each(Object.entries(EXPECTED_DEFAULTS))('%s reports only its authorable defaults', (name, expected) => {
-    const Class = TOPDOWN_REGISTRY_DATA.components[name]!
+    const Class = defined(TOPDOWN_REGISTRY_DATA.components[name])
     expect(authoringDefaults(Class)).toEqual(expected)
   })
 })

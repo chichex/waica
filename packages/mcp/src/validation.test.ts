@@ -5,6 +5,7 @@ import { cleanup, makeProject, stubPackage, tempDir, writeTree } from './test-he
 import { createProject } from './create-project.js'
 import { scaffoldRole } from './scaffolds.js'
 import { validateProject } from './validation.js'
+import { match } from '../../engine/src/test-support.js'
 
 const roots: string[] = []
 afterEach(async () => cleanup(...roots.splice(0)))
@@ -249,7 +250,7 @@ export class CycleRight extends Component {
         expect.objectContaining({
           severity: 'info',
           code: 'unknown-component',
-          message: expect.stringMatching(/project-owned, not validated/i),
+          message: match.stringMatching(/project-owned, not validated/i),
           file: 'src/characters/hero.character.json',
           ref: 'characters/hero',
         }),
@@ -277,10 +278,10 @@ export class CycleRight extends Component {
     )
     for (const finding of result.findings) {
       expect(finding).toMatchObject({
-        severity: expect.stringMatching(/^(error|warning|info)$/),
-        code: expect.any(String),
-        message: expect.any(String),
-        file: expect.any(String),
+        severity: match.stringMatching(/^(error|warning|info)$/),
+        code: match.any(String),
+        message: match.any(String),
+        file: match.any(String),
       })
     }
   })
@@ -540,35 +541,35 @@ export class AfterKnownAbsent extends Component {
           code: 'invalid-update-constraint',
           file: 'src/components/schedule.ts',
           ref: 'PassiveDeclarer',
-          message: expect.stringMatching(/PassiveDeclarer.*onUpdate/),
+          message: match.stringMatching(/PassiveDeclarer.*onUpdate/),
         }),
         expect.objectContaining({
           severity: 'error',
           code: 'component-update-cycle',
           file: 'src/objects/broken.object.json',
           ref: 'objects/broken',
-          message: expect.stringMatching(/CycleA.*CycleB/),
+          message: match.stringMatching(/CycleA.*CycleB/),
         }),
         expect.objectContaining({
           severity: 'error',
           code: 'duplicate-component',
           file: 'src/objects/broken.object.json',
           ref: 'objects/broken',
-          message: expect.stringMatching(/StateMachine.*2/),
+          message: match.stringMatching(/StateMachine.*2/),
         }),
         expect.objectContaining({
           severity: 'error',
           code: 'duplicate-component',
           file: 'src/scenes/main.scene.json',
           ref: 'Inline duplicate',
-          message: expect.stringMatching(/AfterKnownAbsent.*2/),
+          message: match.stringMatching(/AfterKnownAbsent.*2/),
         }),
         expect.objectContaining({
           severity: 'error',
           code: 'component-update-cycle',
           file: 'src/scenes/main.scene.json',
           ref: 'Inline cycle',
-          message: expect.stringMatching(/CycleA.*CycleB/),
+          message: match.stringMatching(/CycleA.*CycleB/),
         }),
       ]),
     )

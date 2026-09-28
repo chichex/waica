@@ -31,6 +31,7 @@ import { Tilemap } from './tilemap'
 import { Game } from '../game'
 import { isYSortParticipant } from '../render-sort'
 import { loadScene } from '../scene'
+import { defined } from '../test-support'
 
 class ResizeObserverStub {
   observe(): void {}
@@ -336,7 +337,7 @@ describe('Tilemap failure rule (CA-4)', () => {
     const { mesh } = geometryOf(entity)
     const clone = mesh.material.map
     expect(clone).toBeInstanceOf(THREE.Texture)
-    const cloneDispose = vi.spyOn(clone!, 'dispose')
+    const cloneDispose = vi.spyOn(defined(clone), 'dispose')
     const versionBefore = mesh.material.version
     expect(mesh.material.color.getHex()).toBe(0xffffff)
 

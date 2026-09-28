@@ -41,6 +41,7 @@ import { ClickToMove, Health } from '@waica/behaviors'
 import { ARCHETYPE, ISOMETRIC_SCENE } from '@waica/archetype-isometric'
 import controls from './controls.json'
 import stats from './stats.json'
+import { defined, returnedValue } from '../../../packages/engine/src/test-support'
 
 class ResizeObserverStub {
   observe(): void {}
@@ -84,7 +85,7 @@ function makeDemo() {
 }
 
 function machineOf(entity: Entity): StateMachine {
-  return entity.get(StateMachine)!
+  return defined(entity.get(StateMachine))
 }
 
 beforeEach(() => {
@@ -100,7 +101,7 @@ afterEach(() => {
 describe('point-and-click for the isometric demo player (CA-4..CA-8)', () => {
   it('walks to a ground click and clears the order and marker on arrival', () => {
     const demo = makeDemo()
-    const clickToMove = demo.player.get(ClickToMove)!
+    const clickToMove = defined(demo.player.get(ClickToMove))
 
     // Open grass, clear of every prop/tilemap solid in the shipped scene.
     demo.click(13, 13)
@@ -108,7 +109,7 @@ describe('point-and-click for the isometric demo player (CA-4..CA-8)', () => {
 
     expect(clickToMove.order?.kind).toBe('ground')
     expect(clickToMove.marker).not.toBeNull()
-    const markerName = clickToMove.marker!.name
+    const markerName = defined(clickToMove.marker).name
 
     demo.frames(3)
 
@@ -123,11 +124,11 @@ describe('point-and-click for the isometric demo player (CA-4..CA-8)', () => {
 
   it('replaces the order (and its marker) on a new click', () => {
     const demo = makeDemo()
-    const clickToMove = demo.player.get(ClickToMove)!
+    const clickToMove = defined(demo.player.get(ClickToMove))
 
     demo.click(13, 13)
     demo.frame()
-    const firstMarker = clickToMove.marker!
+    const firstMarker = defined(clickToMove.marker)
 
     demo.click(3, 13)
     demo.frame()
@@ -139,7 +140,7 @@ describe('point-and-click for the isometric demo player (CA-4..CA-8)', () => {
 
   it('cancels the order immediately on keyboard movement', () => {
     const demo = makeDemo()
-    const clickToMove = demo.player.get(ClickToMove)!
+    const clickToMove = defined(demo.player.get(ClickToMove))
 
     demo.click(13, 13)
     demo.frame()
@@ -154,7 +155,7 @@ describe('point-and-click for the isometric demo player (CA-4..CA-8)', () => {
 
   it('walks to the villager and triggers its line without pressing interact', () => {
     const demo = makeDemo()
-    const clickToMove = demo.player.get(ClickToMove)!
+    const clickToMove = defined(demo.player.get(ClickToMove))
     const attach = vi.spyOn(demo.game.ui, 'attach')
     const line = 'The water sparkles, but it blocks the trail.'
 
@@ -169,20 +170,20 @@ describe('point-and-click for the isometric demo player (CA-4..CA-8)', () => {
     // The archetype defines npc-bubble (issue #72, CA-11): the line shows in
     // a bubble anchored to the villager, not in the npc-line screen piece.
     const bubbles = attach.mock.calls.flatMap(([piece, entity, options], index) =>
-      piece === 'npc-bubble' ? [{ entity, options, handle: attach.mock.results[index]!.value }] : [],
+      piece === 'npc-bubble' ? [{ entity, options, handle: returnedValue(attach.mock.results[index]) }] : [],
     )
     expect(bubbles).toHaveLength(1)
-    expect(bubbles[0]!.entity).toBe(demo.villager)
-    expect(bubbles[0]!.options?.values).toEqual({ line })
-    expect(bubbles[0]!.handle.alive).toBe(true)
-    expect(bubbles[0]!.handle.element?.textContent).toContain(line)
+    expect(defined(bubbles[0]).entity).toBe(demo.villager)
+    expect(defined(bubbles[0]).options?.values).toEqual({ line })
+    expect(defined(bubbles[0]).handle.alive).toBe(true)
+    expect(defined(bubbles[0]).handle.element?.textContent).toContain(line)
     expect(demo.game.ui.isVisible('npc-line')).toBe(false)
     expect(clickToMove.order).toBeNull()
   })
 
   it('walks into range of the orc and keeps re-attacking until it dies', () => {
     const demo = makeDemo()
-    const clickToMove = demo.player.get(ClickToMove)!
+    const clickToMove = defined(demo.player.get(ClickToMove))
 
     demo.click(demo.orc.position.x, demo.orc.position.y)
     demo.frame()
@@ -196,7 +197,7 @@ describe('point-and-click for the isometric demo player (CA-4..CA-8)', () => {
 
   it('pauses the order while hurt, resuming instead of dropping it after the stun', () => {
     const demo = makeDemo()
-    const clickToMove = demo.player.get(ClickToMove)!
+    const clickToMove = defined(demo.player.get(ClickToMove))
 
     demo.click(8, 3)
     demo.frame()
@@ -220,7 +221,7 @@ describe('point-and-click for the isometric demo player (CA-4..CA-8)', () => {
 
   it('cancels the order and its marker outright when the player dies', () => {
     const demo = makeDemo()
-    const clickToMove = demo.player.get(ClickToMove)!
+    const clickToMove = defined(demo.player.get(ClickToMove))
 
     demo.click(8, 3)
     demo.frame()
@@ -228,13 +229,13 @@ describe('point-and-click for the isometric demo player (CA-4..CA-8)', () => {
     const marker = clickToMove.marker
     expect(marker).not.toBeNull()
 
-    demo.player.get(Health)!.damage(Infinity)
+    defined(demo.player.get(Health)).damage(Infinity)
     demo.frame()
     demo.frame()
 
     expect(machineOf(demo.player).current).toBe('dead')
     expect(clickToMove.order).toBeNull()
     expect(clickToMove.marker).toBeNull()
-    expect(demo.game.entities.some((entity) => entity.name === marker!.name)).toBe(false)
+    expect(demo.game.entities.some((entity) => entity.name === defined(marker).name)).toBe(false)
   })
 })

@@ -29,6 +29,7 @@ import {
   type RuntimeBridgeActivation,
 } from './index'
 import { FakeAudioBackend, flush } from './audio/test-helpers.js'
+import { defined } from './test-support'
 
 class ResizeObserverStub {
   observe(): void {}
@@ -75,7 +76,7 @@ describe('RuntimeSnapshot.scene (CA-9)', () => {
     const game = makeGame()
     game.start()
 
-    const snapshot = registered[0]!.inspect()
+    const snapshot = defined(registered[0]).inspect()
 
     expect(snapshot.scene).toBeNull()
     game.dispose()
@@ -91,7 +92,7 @@ describe('RuntimeSnapshot.scene (CA-9)', () => {
     game.loadSceneByName('cave')
     game.start()
 
-    const snapshot = registered[0]!.inspect()
+    const snapshot = defined(registered[0]).inspect()
 
     expect(snapshot.scene).toBe('cave')
     expect(snapshot.stats).toEqual({})
@@ -105,7 +106,7 @@ describe('RuntimeSnapshot.audio (CA-15)', () => {
     const game = makeGame(new FakeAudioBackend())
     game.start()
 
-    const snapshot = registered[0]!.inspect()
+    const snapshot = defined(registered[0]).inspect()
 
     expect(snapshot.audio).toEqual({
       master: 1,
@@ -126,7 +127,7 @@ describe('RuntimeSnapshot.audio (CA-15)', () => {
     game.audio.play('aaa.ogg', { channel: 'music', scope: 'session' })
     await flush()
 
-    const snapshot = registered[0]!.inspect()
+    const snapshot = defined(registered[0]).inspect()
 
     expect(snapshot.audio).toEqual({
       master: 0.5,
@@ -151,7 +152,7 @@ describe('RuntimeSnapshot.audio (CA-15)', () => {
     game.audio.play('waica:theme', { channel: 'music' })
     await flush()
 
-    const snapshot = registered[0]!.inspect()
+    const snapshot = defined(registered[0]).inspect()
 
     expect(snapshot.audio.playing).toEqual([{ uri: '/resolved/theme.ogg', channel: 'music', scope: 'scene' }])
     game.dispose()
@@ -165,7 +166,7 @@ describe('RuntimeSnapshot.audio (CA-15)', () => {
     game.audio.play('bell.ogg', { channel: 'zeta' })
     await flush()
 
-    const snapshot = registered[0]!.inspect()
+    const snapshot = defined(registered[0]).inspect()
 
     expect(Object.keys(snapshot.audio.channels)).toEqual(['music', 'sfx', 'zeta'])
     game.dispose()
@@ -178,7 +179,7 @@ describe('RuntimeSnapshot.time (CA-10)', () => {
     const game = makeGame()
     game.start()
 
-    const snapshot = registered[0]!.inspect()
+    const snapshot = defined(registered[0]).inspect()
 
     expect(snapshot.time).toEqual({ pending: 0, nextInSteps: null })
     game.dispose()
@@ -191,13 +192,13 @@ describe('RuntimeSnapshot.time (CA-10)', () => {
     const callback = vi.fn()
     game.time.after(0.1, callback)
 
-    expect(registered[0]!.inspect().time).toEqual({ pending: 1, nextInSteps: 6 })
+    expect(defined(registered[0]).inspect().time).toEqual({ pending: 1, nextInSteps: 6 })
 
-    registered[0]!.control({ operation: 'step', frames: 5 })
-    expect(registered[0]!.inspect().time).toEqual({ pending: 1, nextInSteps: 1 })
+    defined(registered[0]).control({ operation: 'step', frames: 5 })
+    expect(defined(registered[0]).inspect().time).toEqual({ pending: 1, nextInSteps: 1 })
 
-    registered[0]!.control({ operation: 'step', frames: 1 })
-    expect(registered[0]!.inspect().time).toEqual({ pending: 0, nextInSteps: null })
+    defined(registered[0]).control({ operation: 'step', frames: 1 })
+    expect(defined(registered[0]).inspect().time).toEqual({ pending: 0, nextInSteps: null })
     expect(callback).toHaveBeenCalledOnce()
     game.dispose()
   })
@@ -208,7 +209,7 @@ describe('RuntimeSnapshot.time (CA-10)', () => {
     game.start()
     game.time.every(0.25, () => {})
 
-    expect(registered[0]!.inspect().time).toEqual({ pending: 1, nextInSteps: 15 })
+    expect(defined(registered[0]).inspect().time).toEqual({ pending: 1, nextInSteps: 15 })
     game.dispose()
   })
 
@@ -218,7 +219,7 @@ describe('RuntimeSnapshot.time (CA-10)', () => {
     game.start()
     game.time.tween({ from: 0, to: 1, seconds: 0.5, onUpdate: () => {} })
 
-    expect(registered[0]!.inspect().time).toEqual({ pending: 1, nextInSteps: 30 })
+    expect(defined(registered[0]).inspect().time).toEqual({ pending: 1, nextInSteps: 30 })
     game.dispose()
   })
 
@@ -229,7 +230,7 @@ describe('RuntimeSnapshot.time (CA-10)', () => {
     game.spawn('Subject')
     game.time.after(0.1, () => {})
 
-    const filtered = registered[0]!.inspect({ entity_names: ['Subject'] })
+    const filtered = defined(registered[0]).inspect({ entity_names: ['Subject'] })
 
     expect(filtered.time).toEqual({ pending: 1, nextInSteps: 6 })
     game.dispose()
@@ -248,7 +249,7 @@ describe('RuntimeSnapshot.ui (issue #72 CA-9)', () => {
     const game = makeGame()
     game.start()
 
-    expect(registered[0]!.inspect().ui).toEqual({ shown: [], anchored: [] })
+    expect(defined(registered[0]).inspect().ui).toEqual({ shown: [], anchored: [] })
     game.dispose()
   })
 
@@ -264,7 +265,7 @@ describe('RuntimeSnapshot.ui (issue #72 CA-9)', () => {
     game.ui.hide('mid')
     game.ui.element('menu')
 
-    expect(registered[0]!.inspect().ui.shown).toEqual(['alpha', 'zeta'])
+    expect(defined(registered[0]).inspect().ui.shown).toEqual(['alpha', 'zeta'])
     game.dispose()
   })
 
@@ -283,9 +284,9 @@ describe('RuntimeSnapshot.ui (issue #72 CA-9)', () => {
     bar.set('current', 6)
     bar.set('label', 'orc')
 
-    stepFrames(registered[0]!, 1)
+    stepFrames(defined(registered[0]), 1)
 
-    expect(registered[0]!.inspect().ui.anchored).toEqual([
+    expect(defined(registered[0]).inspect().ui.anchored).toEqual([
       // Render (20, 1): 1040 px across a 640 px viewport.
       { piece: 'tag', entity: 'Bat', x: 1040, y: 144, clipped: true, values: {} },
       { piece: 'bar', entity: 'Orc', x: 320, y: 144, clipped: false, values: { current: 6, max: 10, label: 'orc' } },
@@ -303,14 +304,14 @@ describe('RuntimeSnapshot.ui (issue #72 CA-9)', () => {
 
     // Not placed yet: reported where the next frame will place it.
     game.ui.attach('tag', orc, { offset: [0, 1] })
-    expect(registered[0]!.inspect().ui.anchored[0]).toMatchObject({ x: 320, y: 144 })
+    expect(defined(registered[0]).inspect().ui.anchored[0]).toMatchObject({ x: 320, y: 144 })
 
-    stepFrames(registered[0]!, 1)
+    stepFrames(defined(registered[0]), 1)
     orc.position.x = 1
-    expect(registered[0]!.inspect().ui.anchored[0]).toMatchObject({ x: 320, y: 144 })
+    expect(defined(registered[0]).inspect().ui.anchored[0]).toMatchObject({ x: 320, y: 144 })
 
-    stepFrames(registered[0]!, 1)
-    expect(registered[0]!.inspect().ui.anchored[0]).toMatchObject({ x: 356, y: 144 })
+    stepFrames(defined(registered[0]), 1)
+    expect(defined(registered[0]).inspect().ui.anchored[0]).toMatchObject({ x: 356, y: 144 })
     game.dispose()
   })
 
@@ -321,17 +322,17 @@ describe('RuntimeSnapshot.ui (issue #72 CA-9)', () => {
     game.ui.define('hit', '<b>-{{amount}}</b>')
     const orc = game.spawn('Orc')
     game.ui.attach('hit', orc, { seconds: 0.8, values: { amount: 3 } })
-    stepFrames(registered[0]!, 1)
+    stepFrames(defined(registered[0]), 1)
 
     orc.destroy()
-    const snapshot = registered[0]!.inspect()
+    const snapshot = defined(registered[0]).inspect()
 
     expect(snapshot.entities).toEqual([])
     expect(snapshot.ui.anchored).toEqual([
       { piece: 'hit', entity: 'Orc', x: 320, y: 180, clipped: false, values: { amount: 3 } },
     ])
-    stepFrames(registered[0]!, 47)
-    expect(registered[0]!.inspect().ui.anchored).toEqual([])
+    stepFrames(defined(registered[0]), 47)
+    expect(defined(registered[0]).inspect().ui.anchored).toEqual([])
     game.dispose()
   })
 
@@ -342,10 +343,10 @@ describe('RuntimeSnapshot.ui (issue #72 CA-9)', () => {
     game.ui.define('tag', '<i>tag</i>')
     game.ui.show('tag')
     game.ui.attach('tag', game.spawn('Orc'))
-    stepFrames(registered[0]!, 1)
+    stepFrames(defined(registered[0]), 1)
 
-    const byName = registered[0]!.inspect({ entity_names: ['Nobody'] })
-    const byComponent = registered[0]!.inspect({ component_types: ['Missing'] })
+    const byName = defined(registered[0]).inspect({ entity_names: ['Nobody'] })
+    const byComponent = defined(registered[0]).inspect({ component_types: ['Missing'] })
 
     for (const filtered of [byName, byComponent]) {
       expect(filtered.entities).toEqual([])
@@ -369,11 +370,11 @@ describe('RuntimeSnapshot.ui within the projection limits (issue #72 CA-9)', () 
     game.ui.attach('hit', orc, { seconds: 5, values: { label: 'x'.repeat(1_048_576), amount: 3 } })
     orc.destroy()
 
-    const snapshot = registered[0]!.inspect()
+    const snapshot = defined(registered[0]).inspect()
 
     expect(snapshot.entities).toEqual([])
     expect(serializedBytes(snapshot)).toBeLessThanOrEqual(1_048_576)
-    expect(snapshot.ui.anchored[0]!.values).toEqual({
+    expect(defined(snapshot.ui.anchored[0]).values).toEqual({
       amount: 3,
       label: {
         $waica: 'truncated',
@@ -397,9 +398,9 @@ describe('RuntimeSnapshot.ui within the projection limits (issue #72 CA-9)', () 
       values: Object.fromEntries(Array.from({ length: 101 }, (_, index) => [name(index), index])),
     })
 
-    const snapshot = registered[0]!.inspect()
+    const snapshot = defined(registered[0]).inspect()
 
-    expect(snapshot.ui.anchored[0]!.values).toEqual({
+    expect(defined(snapshot.ui.anchored[0]).values).toEqual({
       $waica: 'truncated',
       reason: 'entries',
       omitted: 1,
@@ -423,7 +424,7 @@ describe('RuntimeSnapshot.ui within the projection limits (issue #72 CA-9)', () 
       })
     }
 
-    const snapshot = registered[0]!.inspect()
+    const snapshot = defined(registered[0]).inspect()
 
     expect(serializedBytes(snapshot)).toBeLessThanOrEqual(1_048_576)
     expect(snapshot.entities).toEqual([])
@@ -447,8 +448,8 @@ describe('RuntimeSnapshot.camera (issue #74 CA-17)', () => {
       fade: { color: '#000000', opacity: 0 },
       flash: { color: '#ffffff', opacity: 0 },
     }
-    expect(registered[0]!.inspect().camera).toEqual(expected)
-    expect(registered[0]!.inspect({ entity_names: ['nobody'] }).camera).toEqual(expected)
+    expect(defined(registered[0]).inspect().camera).toEqual(expected)
+    expect(defined(registered[0]).inspect({ entity_names: ['nobody'] }).camera).toEqual(expected)
     game.dispose()
   })
 
@@ -460,8 +461,8 @@ describe('RuntimeSnapshot.camera (issue #74 CA-17)', () => {
     game.cameraEffects.fade({ to: 'white', seconds: 0.5 })
     game.cameraEffects.flash({ color: '#00ff00', seconds: 0.5 })
 
-    registered[0]!.control({ operation: 'step', frames: 6 })
-    const snapshot = registered[0]!.inspect()
+    defined(registered[0]).control({ operation: 'step', frames: 6 })
+    const snapshot = defined(registered[0]).inspect()
 
     expect(snapshot.camera).toEqual(game.cameraEffects.state)
     expect(snapshot.camera.shake).not.toEqual({ x: 0, y: 0 })

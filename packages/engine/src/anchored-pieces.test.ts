@@ -33,6 +33,7 @@ import {
   type RuntimeSnapshotUi,
 } from './index'
 import type { StatValue } from './stats'
+import { defined } from './test-support'
 
 class ResizeObserverStub {
   observe(): void {}
@@ -54,7 +55,7 @@ function makeGame(stats: Record<string, StatValue> = {}): { game: Game; host: HT
 
 /** The instance's shadow host: where its position and custom properties live. */
 function shadowHost(handle: AnchoredPieceHandle): HTMLElement {
-  return (handle.element!.getRootNode() as ShadowRoot).host as HTMLElement
+  return (defined(handle.element).getRootNode() as ShadowRoot).host as HTMLElement
 }
 
 /** Rendered text of a piece root, ignoring <style>/<script>. */
@@ -94,12 +95,12 @@ describe('game.ui.attach — independent instances (CA-1)', () => {
     expect(first.element).not.toBeNull()
     expect(second.element).not.toBeNull()
     expect(first.element).not.toBe(second.element)
-    const firstRoot = first.element!.getRootNode()
-    const secondRoot = second.element!.getRootNode()
+    const firstRoot = defined(first.element).getRootNode()
+    const secondRoot = defined(second.element).getRootNode()
     expect(firstRoot).toBeInstanceOf(ShadowRoot)
     expect(secondRoot).toBeInstanceOf(ShadowRoot)
     expect(firstRoot).not.toBe(secondRoot)
-    first.element!.querySelector('.hp')!.textContent = 'changed'
+    defined(defined(first.element).querySelector('.hp')).textContent = 'changed'
     expect(text(first.element)).toBe('changed')
     expect(text(second.element)).toBe('hp')
   })
@@ -115,12 +116,12 @@ describe('game.ui.attach — independent instances (CA-1)', () => {
     expect(game.ui.isVisible('hp')).toBe(false)
     expect(game.ui.names()).toEqual(['hp'])
     // Only the anchored layer lives in the overlay: no screen-piece shell.
-    expect(overlayOf(host)!.children).toHaveLength(1)
+    expect(defined(overlayOf(host)).children).toHaveLength(1)
 
     const screen = game.ui.element('hp')
     expect(screen).not.toBeNull()
     expect(screen).not.toBe(instance.element)
-    expect(overlayOf(host)!.children).toHaveLength(2)
+    expect(defined(overlayOf(host)).children).toHaveLength(2)
     expect(game.ui.isVisible('hp')).toBe(false)
     game.ui.show('hp')
     expect(game.ui.isVisible('hp')).toBe(true)
@@ -146,8 +147,8 @@ describe('the anchored layer (CA-6)', () => {
     const second = game.ui.attach('hp', game.spawn('Slime'))
     game.ui.show('menu')
 
-    const overlay = overlayOf(host)!
-    const layer = shadowHost(first).parentElement!
+    const overlay = defined(overlayOf(host))
+    const layer = defined(shadowHost(first).parentElement)
     expect(shadowHost(second).parentElement).toBe(layer)
     expect(overlay.firstElementChild).toBe(layer)
     expect(overlay.children).toHaveLength(3)
@@ -179,14 +180,14 @@ describe('game.ui.attach — per-instance values (CA-4)', () => {
     const orc = game.spawn('Orc')
     const a = game.ui.attach('hit', orc, { values: { amount: 5 } })
     const b = game.ui.attach('hit', orc, { values: { amount: 9 } })
-    const bold = a.element!.querySelector('b')
+    const bold = defined(a.element).querySelector('b')
 
     a.set('amount', 6)
     game.stats.set('points', 4)
 
     expect(text(a.element)).toBe('6|4||')
     expect(text(b.element)).toBe('9|4||')
-    expect(a.element!.querySelector('b')).toBe(bold)
+    expect(defined(a.element).querySelector('b')).toBe(bold)
 
     // An instance value now shadows the stat for this instance only.
     a.set('points', 10)
@@ -227,7 +228,7 @@ describe('game.ui.attach — per-instance values (CA-4)', () => {
     game.ui.define('score', '<span>{{points}}</span>')
     const orc = game.spawn('Orc')
     const score = game.ui.attach('score', orc)
-    const root = score.element!
+    const root = defined(score.element)
 
     score.remove()
     game.stats.set('points', 2)
@@ -258,8 +259,8 @@ describe('game.ui.attach — invalid attach never throws (CA-7)', () => {
 
     for (const handle of handles) expectInert(handle)
     expect(warn).toHaveBeenCalledTimes(2)
-    expect(String(warn.mock.calls[0]![0])).toMatch(/^\[waica\].*"ghost"/)
-    expect(String(warn.mock.calls[1]![0])).toMatch(/^\[waica\].*"phantom"/)
+    expect(String(defined(warn.mock.calls[0])[0])).toMatch(/^\[waica\].*"ghost"/)
+    expect(String(defined(warn.mock.calls[1])[0])).toMatch(/^\[waica\].*"phantom"/)
     expect(overlayOf(host)).toBeNull()
 
     // Per Game: another Game warns about the same name again, once.

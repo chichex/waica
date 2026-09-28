@@ -6,6 +6,7 @@ import type { PrefabJson } from '@waica/engine'
 import { ArchetypeContext, resolveArchetype } from '../project/archetype'
 import { Inspector } from './Inspector'
 import type { ArtItem } from './use-project-art'
+import { defined } from '../../../engine/src/test-support'
 
 /**
  * A component with ref: 'sound' (Health.hurtSound, MeleeAttack.swingSound —
@@ -117,7 +118,7 @@ describe('Inspector sound ref picker (CA-17)', () => {
 
     const select = rowNamed('Hurt sound').querySelector('select')
     expect(select).not.toBeNull()
-    const options = [...select!.querySelectorAll('option')].map((o) => o.getAttribute('value'))
+    const options = [...defined(select).querySelectorAll('option')].map((o) => o.getAttribute('value'))
     expect(options).toContain('src/art/hurt.ogg')
     expect(options).not.toContain('src/art/hero.png')
   })

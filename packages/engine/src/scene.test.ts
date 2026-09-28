@@ -32,6 +32,7 @@ import {
   type SceneEntityJson,
   type SceneJson,
 } from './scene'
+import { defined } from './test-support'
 
 class ResizeObserverStub {
   observe(): void {}
@@ -157,8 +158,8 @@ describe('resolveEntityComponents', () => {
     }
     const [sprite] = resolveEntityComponents(entity, { 'objects/box': prefab })
     expect(sprite).not.toBe(prefab.components[0])
-    sprite!.props!.width = 99
-    expect(prefab.components[0]!.props).toEqual({ width: 16 })
+    defined(defined(sprite).props).width = 99
+    expect(defined(prefab.components[0]).props).toEqual({ width: 16 })
     expect(entity.overrides).toEqual({ Sprite: { width: 32 } })
   })
 })
@@ -201,7 +202,7 @@ describe('resolveProps', () => {
       clips: { idle: { frames: [0, 1], fps: 5 } },
     })
     // Inputs are never mutated by the deep walk.
-    expect(props.extraSheets[0]!.texture).toBe('waica:dog')
+    expect(defined(props.extraSheets[0]).texture).toBe('waica:dog')
   })
 })
 

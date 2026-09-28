@@ -46,6 +46,7 @@ import {
 } from './index'
 import { frameMs } from './fixed-step-test-support'
 import { FakeTextureBackend } from './assets/test-helpers'
+import { defined, match } from './test-support'
 
 class UpdateProbe extends Component {
   static override componentName = 'UpdateProbe'
@@ -242,7 +243,7 @@ describe('Runtime Bridge protocol', () => {
     const game = makeGame({}, backend)
     game.assets.texture('/held.png')
     game.start()
-    const bridge = registered[0]!
+    const bridge = defined(registered[0])
 
     expect(bridge.metadata()).toMatchObject({ frame: 0, assets: { pending: 1, loaded: 0, failed: 0 } })
     expect(bridge.control({ operation: 'click', x: 0, y: 0 })).toMatchObject({
@@ -352,7 +353,7 @@ describe('Runtime Bridge protocol', () => {
     const calls: number[] = []
     game.onUpdate((dt) => calls.push(dt))
     game.start()
-    const bridge = registered[0]!
+    const bridge = defined(registered[0])
 
     expect(bridge.control({ operation: 'resume' }).mode).toBe('real-time')
     const firstLoop = renderer.loop
@@ -400,7 +401,7 @@ describe('Runtime Bridge protocol', () => {
     const { registered } = installActivation()
     const game = makeGame()
     game.start()
-    const bridge = registered[0]!
+    const bridge = defined(registered[0])
 
     for (const request of [
       { operation: 'step' as const, frames: 0 },
@@ -421,7 +422,7 @@ describe('Runtime Bridge protocol', () => {
         expect.objectContaining({
           code: 'runtime-operation-failed',
           stage: 'control',
-          message: expect.stringMatching(/frames.*1\/60|1\/60.*frames/s),
+          message: match.stringMatching(/frames.*1\/60|1\/60.*frames/s),
         }),
       )
     }
@@ -440,7 +441,7 @@ describe('Runtime Bridge protocol', () => {
     const observations: ObservedInput[] = []
     game.spawn('Subject').add(InputProbe, { observations })
     game.start()
-    const bridge = registered[0]!
+    const bridge = defined(registered[0])
 
     expect(bridge.control({ operation: 'press', action: 'jump' }).heldActions).toEqual(['jump'])
     expect(observations).toEqual([])
@@ -469,16 +470,16 @@ describe('Runtime Bridge protocol', () => {
     const { registered } = installActivation()
     const game = makeGame()
     game.start()
-    const bridge = registered[0]!
+    const bridge = defined(registered[0])
 
     const result = bridge.control({ operation: 'click', x: 2, y: -3 })
 
     expect(result.heldActions).toEqual([])
     const pending = game.pointer.takePending()
     expect(pending).not.toBeNull()
-    expect(pending!.point.x).toBeCloseTo(2, 5)
-    expect(pending!.point.y).toBeCloseTo(-3, 5)
-    expect(pending!.entity).toBeNull()
+    expect(defined(pending).point.x).toBeCloseTo(2, 5)
+    expect(defined(pending).point.y).toBeCloseTo(-3, 5)
+    expect(defined(pending).entity).toBeNull()
     game.dispose()
   })
 
@@ -486,7 +487,7 @@ describe('Runtime Bridge protocol', () => {
     const { registered } = installActivation()
     const game = makeGame()
     game.start()
-    const bridge = registered[0]!
+    const bridge = defined(registered[0])
 
     expect(() =>
       bridge.control({ operation: 'click', x: Number.NaN, y: 0 }),
@@ -509,7 +510,7 @@ describe('Runtime Bridge protocol', () => {
     })
     loadScene(game, { waicaScene: 3, entities: [{ name: 'Player' }] }, { components: {} })
     game.start()
-    const bridge = registered[0]!
+    const bridge = defined(registered[0])
 
     const result = bridge.control({ operation: 'scene', scene: 'cave' })
 
@@ -528,7 +529,7 @@ describe('Runtime Bridge protocol', () => {
       registry: { components: {} },
     })
     game.start()
-    const bridge = registered[0]!
+    const bridge = defined(registered[0])
 
     expect(() => bridge.control({ operation: 'scene', scene: 'nope' })).toThrowError(
       expect.objectContaining({
@@ -544,7 +545,7 @@ describe('Runtime Bridge protocol', () => {
     const { registered } = installActivation()
     const game = makeGame()
     game.start()
-    const bridge = registered[0]!
+    const bridge = defined(registered[0])
 
     expect(() =>
       bridge.control({ operation: 'teleport' } as unknown as Parameters<typeof bridge.control>[0]),
@@ -563,7 +564,7 @@ describe('Runtime Bridge protocol', () => {
     entity.scale.set(2, 2, 1)
     entity.add(SnapshotProbe)
     game.start()
-    const bridge = registered[0]!
+    const bridge = defined(registered[0])
 
     const first = bridge.inspect()
     const second = bridge.inspect()
@@ -578,7 +579,7 @@ describe('Runtime Bridge protocol', () => {
       projectionIssues: [],
       entities: [
         {
-          id: expect.any(String),
+          id: match.any(String),
           name: 'Duplicate',
           transform: {
             position: { x: 2, y: 3, z: 4 },
@@ -614,8 +615,8 @@ describe('Runtime Bridge protocol', () => {
 
     game.start()
 
-    expect(game.find('Logical')!.node.position.toArray()).toEqual([1, -1.5, 0])
-    expect(registered[0]!.inspect().entities[0]?.transform.position).toEqual({
+    expect(defined(game.find('Logical')).node.position.toArray()).toEqual([1, -1.5, 0])
+    expect(defined(registered[0]).inspect().entities[0]?.transform.position).toEqual({
       x: 2,
       y: 1,
       z: 0,
@@ -634,7 +635,7 @@ describe('Runtime Bridge protocol', () => {
     third.add(SnapshotProbe)
     third.add(PassiveProbe)
     game.start()
-    const bridge = registered[0]!
+    const bridge = defined(registered[0])
     const baseline = bridge.inspect()
     const [firstId, secondId, thirdId] = baseline.entities.map(({ id }) => id)
 
@@ -643,11 +644,11 @@ describe('Runtime Bridge protocol', () => {
         .map(({ id }) => id),
     ).toEqual([firstId])
     expect(
-      bridge.inspect({ entity_ids: [secondId!], entity_names: ['Other'] }).entities,
+      bridge.inspect({ entity_ids: [defined(secondId)], entity_names: ['Other'] }).entities,
     ).toEqual([])
     expect(
       bridge.inspect({
-        entity_ids: [firstId!, thirdId!],
+        entity_ids: [defined(firstId), defined(thirdId)],
         component_types: ['PassiveProbe', 'SnapshotProbe'],
       }).entities.map(({ id, components }) => ({
         id,
@@ -676,7 +677,7 @@ describe('Runtime Bridge protocol', () => {
     entity.add(ThrowingOverrideProbe)
     game.start()
 
-    const snapshot = registered[0]!.inspect()
+    const snapshot = defined(registered[0]).inspect()
 
     expect(snapshot.entities[0]?.components.map(({ state }) => state)).toEqual([
       {
@@ -701,7 +702,7 @@ describe('Runtime Bridge protocol', () => {
     const probe = game.spawn('Typed').add(TypedProjectionProbe)
     game.start()
 
-    const snapshot = registered[0]!.inspect()
+    const snapshot = defined(registered[0]).inspect()
     const state = snapshot.entities[0]?.components[0]?.state
 
     expect(state).toEqual({
@@ -757,7 +758,7 @@ describe('Runtime Bridge protocol', () => {
     }
     game.start()
 
-    const snapshot = registered[0]!.inspect()
+    const snapshot = defined(registered[0]).inspect()
     const state = snapshot.entities[0]?.components[0]?.state as Record<string, unknown>
 
     expect(state.long).toEqual({
@@ -775,19 +776,19 @@ describe('Runtime Bridge protocol', () => {
       $waica: 'truncated',
       reason: 'entries',
       omitted: 1,
-      value: expect.objectContaining({ 'key-000': 0, 'key-099': 99 }),
+      value: match.objectContaining({ 'key-000': 0, 'key-099': 99 }),
     })
     expect(state.deep).toMatchObject({
       one: { two: { three: { four: { five: { $waica: 'truncated', reason: 'depth' } } } } },
     })
     expect(state.map).toMatchObject({
       $waica: 'map',
-      entries: expect.arrayContaining([['key-000', 0], ['key-099', 99]]),
+      entries: match.arrayContaining([['key-000', 0], ['key-099', 99]]),
       truncated: { $waica: 'truncated', reason: 'entries', omitted: 1 },
     })
     expect(state.set).toMatchObject({
       $waica: 'set',
-      values: expect.arrayContaining([0, 99]),
+      values: match.arrayContaining([0, 99]),
       truncated: { $waica: 'truncated', reason: 'entries', omitted: 1 },
     })
     expect(snapshot.projectionIssues.map(({ path, marker }) => ({ path, marker }))).toEqual([
@@ -818,8 +819,8 @@ describe('Runtime Bridge protocol', () => {
     )
     game.start()
 
-    const snapshot = registered[0]!.inspect()
-    const [withinState, overState] = snapshot.entities[0]!.components.map(({ state }) => state)
+    const snapshot = defined(registered[0]).inspect()
+    const [withinState, overState] = defined(snapshot.entities[0]).components.map(({ state }) => state)
 
     expect(withinState).not.toHaveProperty('$waica')
     expect(overState).toMatchObject({
@@ -827,7 +828,7 @@ describe('Runtime Bridge protocol', () => {
       reason: 'component-size',
       limit: 65_536,
       path: 'entities[entity-1].components[1].state',
-      originalBytes: expect.any(Number),
+      originalBytes: match.any(Number),
     })
     expect((overState as { originalBytes: number }).originalBytes).toBeGreaterThan(65_536)
     expect(snapshot.projectionIssues).toContainEqual({
@@ -851,7 +852,7 @@ describe('Runtime Bridge protocol', () => {
     }
     game.start()
 
-    const snapshot = registered[0]!.inspect()
+    const snapshot = defined(registered[0]).inspect()
     const serializedBytes = new TextEncoder().encode(JSON.stringify(snapshot)).byteLength
     const truncation = snapshot.projectionIssues.at(-1)
 

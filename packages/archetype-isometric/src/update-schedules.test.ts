@@ -15,13 +15,14 @@ import {
 } from '@waica/behaviors'
 import { ISOMETRIC_PREFABS } from './prefabs'
 import { ISOMETRIC_REGISTRY_DATA } from './registry-data'
+import { defined } from '../../engine/src/test-support'
 
 function representativePermutations(names: readonly string[]): string[][] {
   if (names.length === 0) return [[]]
   return [
     names.slice(),
     names.slice().reverse(),
-    [...names.slice(1), names[0]!],
+    [...names.slice(1), defined(names[0])],
     names.slice().sort(),
   ]
 }

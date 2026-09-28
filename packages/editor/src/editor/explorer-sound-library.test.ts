@@ -6,6 +6,7 @@ import { MemFS } from '../fs/project-fs'
 import { ArchetypeContext, resolveArchetype } from '../project/archetype'
 import { Explorer } from './Explorer'
 import type { ArtItem } from './use-project-art'
+import { defined } from '../../../engine/src/test-support'
 
 /**
  * CA-17 (the library learns audio) and CA-18 (preview, editor-owned, disabled
@@ -144,9 +145,9 @@ describe('Explorer sound library (CA-17, CA-18)', () => {
 
     const button = container.querySelector<HTMLButtonElement>('.ed-sound-play')
     expect(button).not.toBeNull()
-    expect(button!.disabled).toBe(false)
+    expect(defined(button).disabled).toBe(false)
 
-    act(() => button!.click())
+    act(() => defined(button).click())
 
     expect(onPreviewSound).toHaveBeenCalledExactlyOnceWith(SOUND)
   })
@@ -157,9 +158,9 @@ describe('Explorer sound library (CA-17, CA-18)', () => {
 
     const button = container.querySelector<HTMLButtonElement>('.ed-sound-play')
     expect(button).not.toBeNull()
-    expect(button!.disabled).toBe(true)
+    expect(defined(button).disabled).toBe(true)
 
-    act(() => button!.click())
+    act(() => defined(button).click())
 
     expect(onPreviewSound).not.toHaveBeenCalled()
   })
@@ -173,9 +174,9 @@ describe('Explorer sound library (CA-17, CA-18)', () => {
 
     const button = container.querySelector<HTMLButtonElement>('.ed-sound-play')
     expect(button).not.toBeNull()
-    expect(button!.textContent).toBe('⏹')
+    expect(defined(button).textContent).toBe('⏹')
 
-    act(() => button!.click())
+    act(() => defined(button).click())
 
     expect(onStopPreview).toHaveBeenCalledOnce()
     expect(onPreviewSound).not.toHaveBeenCalled()
@@ -194,7 +195,7 @@ describe('Explorer sound library (CA-17, CA-18)', () => {
     const otherButton = [...buttons].find((b) => b.textContent === '▶')
     expect(otherButton).not.toBeUndefined()
 
-    act(() => otherButton!.click())
+    act(() => defined(otherButton).click())
 
     expect(onPreviewSound).toHaveBeenCalledExactlyOnceWith(other)
     expect(onStopPreview).not.toHaveBeenCalled()
@@ -211,9 +212,9 @@ describe('Explorer sound library (CA-17, CA-18)', () => {
 
       const button = container.querySelector<HTMLButtonElement>('.ed-sound-play')
       expect(button).not.toBeNull()
-      expect(button!.textContent).toBe('⏹')
+      expect(defined(button).textContent).toBe('⏹')
 
-      act(() => button!.click())
+      act(() => defined(button).click())
 
       expect(onStopPreview).toHaveBeenCalledOnce()
     },
@@ -232,14 +233,14 @@ describe('Explorer sound library (CA-17, CA-18)', () => {
       const row = container.querySelector('.ed-x-sound')
       expect(row).not.toBeNull()
       act(() => {
-        row!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
+        defined(row).dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
       })
       const deleteButton = [...container.querySelectorAll<HTMLButtonElement>('.ed-ctx-item')].find(
         (b) => b.textContent?.includes('Delete'),
       )
       expect(deleteButton).not.toBeUndefined()
 
-      act(() => deleteButton!.click())
+      act(() => defined(deleteButton).click())
 
       expect(onStopPreview).toHaveBeenCalledOnce()
     } finally {
@@ -260,14 +261,14 @@ describe('Explorer sound library (CA-17, CA-18)', () => {
       const otherRow = [...rows].find((r) => r.textContent?.includes('hit.ogg'))
       expect(otherRow).not.toBeUndefined()
       act(() => {
-        otherRow!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
+        defined(otherRow).dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
       })
       const deleteButton = [...container.querySelectorAll<HTMLButtonElement>('.ed-ctx-item')].find(
         (b) => b.textContent?.includes('Delete'),
       )
       expect(deleteButton).not.toBeUndefined()
 
-      act(() => deleteButton!.click())
+      act(() => defined(deleteButton).click())
 
       expect(onStopPreview).not.toHaveBeenCalled()
     } finally {

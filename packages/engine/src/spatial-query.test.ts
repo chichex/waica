@@ -9,6 +9,7 @@ import {
   createSpatialQuery,
   type SpatialQueryCandidateProviders,
 } from './spatial-query'
+import { defined } from './test-support'
 
 interface World {
   readonly game: Game
@@ -226,8 +227,8 @@ describe('SpatialQuery.area', () => {
 
     expect(result).toEqual([first])
     expect(result).not.toContain(later)
-    expect(result[0]!.alive).toBe(false)
-    expect(result[0]!.position.x).toBe(9)
+    expect(defined(result[0]).alive).toBe(false)
+    expect(defined(result[0]).position.x).toBe(9)
     expect(hitbox.width).toBe(7)
   })
 
@@ -455,7 +456,7 @@ describe('SpatialQuery.nearest', () => {
     selected.destroy()
 
     expect(result).toBe(selected)
-    expect(result!.alive).toBe(false)
-    expect(result!.position.x).toBe(8)
+    expect(defined(result).alive).toBe(false)
+    expect(defined(result).position.x).toBe(8)
   })
 })

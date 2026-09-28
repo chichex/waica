@@ -4,6 +4,7 @@ import { Hazard } from './hazard'
 import { Health } from './health'
 import { PlatformerMotor } from './platformer-motor'
 import { Respawnable } from './respawnable'
+import { defined } from '../../engine/src/test-support'
 
 interface StubEntity extends Entity {
   addStub(component: Component): void
@@ -209,7 +210,7 @@ describe('Hazard contact', () => {
 
     hazard.onCollide(player)
 
-    expect(hazardEntity.get(Health)!.current).toBe(3)
+    expect(defined(hazardEntity.get(Health)).current).toBe(3)
     expect(hazardEntity.destroy).not.toHaveBeenCalled()
   })
 })

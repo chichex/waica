@@ -7,6 +7,7 @@ import { ARCHETYPE as TOPDOWN } from '../../archetype-topdown/src/index.js'
 import { ARCHETYPE as ISOMETRIC } from '../../archetype-isometric/src/index.js'
 import { archetypePackageName } from '../../editor/src/project/archetype.js'
 import { knownArchetype } from './known-archetypes.js'
+import { defined } from '../../engine/src/test-support.js'
 
 /**
  * Portable conformance suite: the coherence rules every archetype package
@@ -61,7 +62,7 @@ describe.each(MANIFESTS.map((manifest) => [manifest.id, manifest] as const))(
       const actions = Object.keys(archetype.bindings)
       expect(actions.length).toBeGreaterThan(0)
       for (const action of actions) {
-        expect(archetype.bindings[action]!.length, action).toBeGreaterThan(0)
+        expect(defined(archetype.bindings[action]).length, action).toBeGreaterThan(0)
         expect(archetype.actionLabels[action], action).toBeTruthy()
       }
       expect(Object.keys(archetype.actionLabels).sort()).toEqual(actions.sort())
@@ -84,7 +85,7 @@ describe.each(MANIFESTS.map((manifest) => [manifest.id, manifest] as const))(
             clips.includes(clip) ||
             (archetype.animation !== undefined &&
               archetype.animation.directions.every(
-                (dir) => resolveDirectionalClip(archetype.animation!, clips, clip, dir).clip,
+                (dir) => resolveDirectionalClip(defined(archetype.animation), clips, clip, dir).clip,
               ))
           expect(playable, `${ref}: state "${state}" needs a playable clip "${clip}"`).toBe(true)
         }
@@ -96,9 +97,9 @@ describe.each(MANIFESTS.map((manifest) => [manifest.id, manifest] as const))(
       for (const template of archetype.palette) {
         const made = template.make()
         expect(made.prefab, template.label).toBeTruthy()
-        const prefab = archetype.prefabs[made.prefab!]
+        const prefab = archetype.prefabs[defined(made.prefab)]
         expect(prefab, template.label).toBeDefined()
-        expect(template.category, template.label).toBe(prefab!.type)
+        expect(template.category, template.label).toBe(defined(prefab).type)
         expect(template.icon, template.label).toBeTruthy()
       }
     })
@@ -134,7 +135,7 @@ describe.each(MANIFESTS.map((manifest) => [manifest.id, manifest] as const))(
       expect(known, `${id} must have a KNOWN_ARCHETYPES row`).toBeDefined()
       for (const art of archetype.art) {
         const file = fileURLToPath(
-          new URL(`../../${known!.directory}/assets/${art.file}`, import.meta.url),
+          new URL(`../../${defined(known).directory}/assets/${art.file}`, import.meta.url),
         )
         await expect(access(file), art.file).resolves.toBeUndefined()
         expect(archetype.artUrls[art.file], art.file).toBeTruthy()
@@ -144,7 +145,7 @@ describe.each(MANIFESTS.map((manifest) => [manifest.id, manifest] as const))(
     it('follows the package-name convention the tooling relies on', () => {
       const known = knownArchetype(id)
       expect(known, `${id} must have a KNOWN_ARCHETYPES row`).toBeDefined()
-      expect(archetypePackageName(id)).toBe(known!.packageName)
+      expect(archetypePackageName(id)).toBe(defined(known).packageName)
     })
   },
 )

@@ -36,6 +36,7 @@ vi.mock(
 
 import type { SceneJson, SceneRegistry } from '@waica/engine'
 import { Viewport, type ViewportHandle } from './Viewport'
+import { defined } from '../../../engine/src/test-support'
 
 class ResizeObserverStub {
   observe(): void {}
@@ -108,11 +109,11 @@ describe('Viewport Play-mode music (review finding 2)', () => {
     const box: HandleBox = { current: null }
     render(root, box, { mode: 'edit', music: MUSIC })
 
-    expect(box.current!.game()!.audio.liveSounds()).toEqual([])
+    expect(defined(defined(box.current).game()).audio.liveSounds()).toEqual([])
 
     render(root, box, { mode: 'play', music: MUSIC })
 
-    expect(box.current!.game()!.audio.liveSounds()).toEqual([
+    expect(defined(defined(box.current).game()).audio.liveSounds()).toEqual([
       { uri: MUSIC, channel: 'music', scope: 'session' },
     ])
   })
@@ -121,13 +122,13 @@ describe('Viewport Play-mode music (review finding 2)', () => {
     const box: HandleBox = { current: null }
     render(root, box, { mode: 'edit', music: MUSIC })
 
-    expect(box.current!.game()!.audio.liveSounds()).toEqual([])
+    expect(defined(defined(box.current).game()).audio.liveSounds()).toEqual([])
   })
 
   it('does not survive going back to edit: the rebuilt edit-mode Game has no music playing', () => {
     const box: HandleBox = { current: null }
     render(root, box, { mode: 'play', music: MUSIC })
-    const playGame = box.current!.game()!
+    const playGame = defined(defined(box.current).game())
     expect(playGame.audio.liveSounds()).not.toEqual([])
 
     render(root, box, { mode: 'edit', music: MUSIC })
@@ -135,14 +136,14 @@ describe('Viewport Play-mode music (review finding 2)', () => {
     // mode is part of the [epoch, mode] effect's own dependencies (ADR: a
     // mode change always rebuilds the Game), so this is a fresh instance —
     // the old one, and every live sound it held, was disposed (CA-10).
-    expect(box.current!.game()).not.toBe(playGame)
-    expect(box.current!.game()!.audio.liveSounds()).toEqual([])
+    expect(defined(box.current).game()).not.toBe(playGame)
+    expect(defined(defined(box.current).game()).audio.liveSounds()).toEqual([])
   })
 
   it('starts nothing for an archetype with no music', () => {
     const box: HandleBox = { current: null }
     render(root, box, { mode: 'play' })
 
-    expect(box.current!.game()!.audio.liveSounds()).toEqual([])
+    expect(defined(defined(box.current).game()).audio.liveSounds()).toEqual([])
   })
 })

@@ -10,6 +10,7 @@ import {
   type ArtItem,
   type ProjectArt,
 } from './use-project-art'
+import { defined } from '../../../engine/src/test-support'
 
 /** Mounts useProjectArt over a real MemFS and hands back its live return value. */
 async function mountProjectArt(fs: MemFS): Promise<{ art(): ProjectArt; unmount(): void }> {
@@ -24,7 +25,7 @@ async function mountProjectArt(fs: MemFS): Promise<{ art(): ProjectArt; unmount(
     root.render(createElement(Harness))
   })
   return {
-    art: () => latest!,
+    art: () => defined(latest),
     unmount: () => root.unmount(),
   }
 }

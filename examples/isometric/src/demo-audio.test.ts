@@ -38,6 +38,7 @@ import { ARCHETYPE, ISOMETRIC_CAVE_SCENE, ISOMETRIC_SCENE } from '@waica/archety
 import { FakeAudioBackend, flush } from '../../../packages/engine/src/audio/test-helpers.js'
 import controls from './controls.json'
 import stats from './stats.json'
+import { defined } from '../../../packages/engine/src/test-support'
 
 class ResizeObserverStub {
   observe(): void {}
@@ -136,8 +137,8 @@ function makeDemo(backend: FakeAudioBackend) {
 async function triggerCombatSounds(demo: ReturnType<typeof makeDemo>): Promise<void> {
   const player = demo.find('Player')
   const orc = demo.find('Orc')
-  const motor = player.get(IsoMotor)!
-  const orcHealth = orc.get(Health)!
+  const motor = defined(player.get(IsoMotor))
+  const orcHealth = defined(orc.get(Health))
 
   // The real demo's first unlock comes from whatever key the player presses
   // first (movement, attack, ...) — always after boot, never before (CA-6).
@@ -160,7 +161,7 @@ async function triggerCombatSounds(demo: ReturnType<typeof makeDemo>): Promise<v
   player.position.set(currentOrc.position.x - 0.5, currentOrc.position.y, 0)
   demo.frame()
   await flush()
-  expect(player.get(Health)!.current).toBe(2) // took the orc's contact damage
+  expect(defined(player.get(Health)).current).toBe(2) // took the orc's contact damage
 }
 
 beforeEach(() => {

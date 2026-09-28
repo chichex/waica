@@ -3,6 +3,7 @@ import { authoringDefaults } from '@waica/engine'
 import { HEALTH_UI } from '@waica/behaviors'
 import { ISOMETRIC_PREFABS } from './prefabs'
 import { ISOMETRIC_PALETTE, ISOMETRIC_REGISTRY_DATA } from './registry-data'
+import { defined } from '../../engine/src/test-support'
 
 const RECTANGLE_TRIANGLE = [
   [-0.5, -0.5],
@@ -127,7 +128,7 @@ describe('ISOMETRIC_REGISTRY_DATA', () => {
       Object.keys(EXPECTED_DEFAULTS).sort(),
     )
     for (const [name, expected] of Object.entries(EXPECTED_DEFAULTS)) {
-      expect(authoringDefaults(ISOMETRIC_REGISTRY_DATA.components[name]!), name).toEqual(expected)
+      expect(authoringDefaults(defined(ISOMETRIC_REGISTRY_DATA.components[name])), name).toEqual(expected)
     }
   })
 
@@ -151,7 +152,7 @@ describe('ISOMETRIC_REGISTRY_DATA', () => {
     for (const piece of ISOMETRIC_PALETTE) {
       const made = piece.make()
       expect(made.prefab).toBeTruthy()
-      expect(piece.category).toBe(ISOMETRIC_PREFABS[made.prefab!]!.type)
+      expect(piece.category).toBe(defined(ISOMETRIC_PREFABS[defined(made.prefab)]).type)
     }
   })
 })

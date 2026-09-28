@@ -9,6 +9,7 @@ import {
   preflightRuntimeProject,
   type RuntimePreflightAdapters,
 } from './runtime-preflight.js'
+import { match } from '../../engine/src/test-support.js'
 
 const roots: string[] = []
 afterEach(async () => cleanup(...roots.splice(0)))
@@ -139,7 +140,7 @@ describe('Runtime Project preflight', () => {
         body: {
           code: 'runtime-prerequisite-missing',
           stage,
-          message: expect.stringMatching(message),
+          message: match.stringMatching(message),
           projectPath: await realpath(project),
         },
       })
@@ -154,7 +155,7 @@ describe('Runtime Project preflight', () => {
       body: {
         code: 'runtime-prerequisite-missing',
         stage: 'project',
-        message: expect.stringMatching(/Waica Project/),
+        message: match.stringMatching(/Waica Project/),
       },
     })
   })
@@ -209,10 +210,10 @@ describe('Runtime Project preflight', () => {
         { projectPath: project, viewport: { width: 1_001, height: 1_000 } },
         adapters(),
       ),
-    ).rejects.toMatchObject({ body: { stage: 'project', message: expect.stringMatching(/viewport/) } })
+    ).rejects.toMatchObject({ body: { stage: 'project', message: match.stringMatching(/viewport/) } })
     await expect(
       preflightRuntimeProject({ projectPath: project, timeoutMs: 999 }, adapters()),
-    ).rejects.toMatchObject({ body: { stage: 'project', message: expect.stringMatching(/timeout_ms/) } })
+    ).rejects.toMatchObject({ body: { stage: 'project', message: match.stringMatching(/timeout_ms/) } })
   })
 
   it('fails when the selected manager or a system browser is unavailable', async () => {

@@ -38,6 +38,7 @@ import {
   type RuntimeBridge,
   type SceneJson,
 } from './index'
+import { defined } from './test-support'
 
 class ResizeObserverStub {
   observe(): void {}
@@ -79,7 +80,7 @@ function followScene(camera: SceneJson['camera'] = {}): SceneJson {
 function playFollow(game: Game, shake: boolean, steps = 40): Array<{ base: { x: number; y: number }; drawn: { x: number; y: number } }> {
   game.registerSceneCatalog({ scenes: { main: followScene() }, registry: { components: {} } })
   game.loadSceneByName('main')
-  const runner = game.find('Runner')!
+  const runner = defined(game.find('Runner'))
   game.onUpdate(() => {
     runner.position.x += 0.137
     runner.position.y += 0.061
@@ -91,7 +92,7 @@ function playFollow(game: Game, shake: boolean, steps = 40): Array<{ base: { x: 
     frame(game)
     out.push({
       base: { x: game.camera.position.x, y: game.camera.position.y },
-      drawn: drawn.centers.at(-1)!,
+      drawn: defined(drawn.centers.at(-1)),
     })
   }
   return out
@@ -204,7 +205,7 @@ describe('shake is not re-clamped (CA-5)', () => {
     for (let n = 1; n < 30; n += 1) {
       frame(game)
       expect(game.camera.position.x).toBeCloseTo(clampX, 9)
-      const excess = drawn.centers.at(-1)!.x - clampX
+      const excess = defined(drawn.centers.at(-1)).x - clampX
       expect(excess).toBeLessThanOrEqual(0.5 * (1 - n / 30) + 1e-9)
       if (excess > 1e-6) beyond += 1
     }
@@ -276,12 +277,12 @@ describe('only simulated steps advance effects (CA-12)', () => {
     const game = makeGame()
     game.start()
     game.cameraEffects.fade({ to: 'black', seconds: 0.5 })
-    registered[0]!.inspect()
+    defined(registered[0]).inspect()
     expect(game.cameraEffects.state.fade.opacity).toBe(0)
 
-    registered[0]!.control({ operation: 'step', frames: 3 })
+    defined(registered[0]).control({ operation: 'step', frames: 3 })
     expect(game.cameraEffects.state.fade.opacity).toBeCloseTo(3 / 30, 12)
-    registered[0]!.control({ operation: 'step' })
+    defined(registered[0]).control({ operation: 'step' })
     expect(game.cameraEffects.state.fade.opacity).toBeCloseTo(4 / 30, 12)
     game.dispose()
   })
@@ -295,12 +296,12 @@ describe('Fade layer covers the game view (CA-13)', () => {
     game.cameraEffects.fade({ to: 'black', seconds: 0.5 })
     frame(game)
 
-    const fade = document.querySelector<HTMLElement>('[data-waica-camera-effect="fade"]')!
+    const fade = defined(document.querySelector<HTMLElement>('[data-waica-camera-effect="fade"]'))
     // 800×600 letterboxed to 16:9: 800×450 at y 75.
     expect([fade.style.left, fade.style.top, fade.style.width, fade.style.height]).toEqual(['0px', '75px', '800px', '450px'])
     expect(fade.style.pointerEvents).toBe('none')
     expect(Number(fade.style.zIndex)).toBeGreaterThan(9000)
-    const canvas = document.querySelector('canvas')!
+    const canvas = defined(document.querySelector('canvas'))
     expect(fade.parentElement).toBe(canvas.parentElement)
 
     Object.defineProperties(canvas, {
@@ -319,10 +320,10 @@ describe('Fade layer covers the game view (CA-13)', () => {
   it('is not displayed while its opacity is 0', () => {
     const game = makeGame()
     game.cameraEffects.flash({ color: 'white', seconds: 0.1 })
-    const fade = document.querySelector<HTMLElement>('[data-waica-camera-effect="fade"]')!
+    const fade = defined(document.querySelector<HTMLElement>('[data-waica-camera-effect="fade"]'))
     expect(fade.style.display).toBe('none')
     for (let index = 0; index < 6; index += 1) frame(game)
-    const flash = document.querySelector<HTMLElement>('[data-waica-camera-effect="flash"]')!
+    const flash = defined(document.querySelector<HTMLElement>('[data-waica-camera-effect="flash"]'))
     expect(flash.style.display).toBe('none')
     game.dispose()
   })

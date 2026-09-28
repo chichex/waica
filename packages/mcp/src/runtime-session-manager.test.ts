@@ -6,6 +6,7 @@ import {
   type RuntimeSessionAdapters,
 } from './runtime-session-manager.js'
 import type { RuntimePreflightResult } from './runtime-preflight.js'
+import { defined, match } from '../../engine/src/test-support.js'
 
 function deferred<T>(): {
   promise: Promise<T>
@@ -190,7 +191,7 @@ describe('RuntimeSessionManager', () => {
       frame: 3,
     })
     await expect(manager.captureScreenshot('/a')).resolves.toEqual({
-      metadata: expect.objectContaining({ projectPath: '/a', frame: 3 }),
+      metadata: match.objectContaining({ projectPath: '/a', frame: 3 }),
       data: 'png-data',
     })
 
@@ -230,7 +231,7 @@ describe('RuntimeSessionManager', () => {
       body: {
         code: 'runtime-operation-failed',
         stage: 'cleanup',
-        diagnostics: expect.objectContaining({ portOpen: false }),
+        diagnostics: match.objectContaining({ portOpen: false }),
       },
     })
     expect(processStops).toBe(1)
@@ -383,11 +384,11 @@ function assetsBrowser(script: AssetNumbers[]): {
   metadataCalls: () => number
 } {
   let reads = 0
-  const current = (): AssetNumbers => script[Math.min(Math.max(reads - 1, 0), script.length - 1)]!
+  const current = (): AssetNumbers => defined(script[Math.min(Math.max(reads - 1, 0), script.length - 1)])
   const base = { ...ready, capabilities: ['click', 'scene', 'fixed-step', 'assets'] }
   const { initialSnapshot: _snapshot, ...metadata } = base
   const browser: RuntimeBrowser = {
-    ready: async () => ({ ...base, assets: script[0]! }),
+    ready: async () => ({ ...base, assets: defined(script[0]) }),
     metadata: async () => {
       reads += 1
       return { ...metadata, assets: current() }
@@ -537,7 +538,7 @@ describe('Assets Ready over the Run Session (CA-10)', () => {
       body: {
         code: 'runtime-start-failed',
         stage: 'game',
-        diagnostics: expect.objectContaining({ portOpen: true, assets: { pending: 1, loaded: 6, failed: 0 } }),
+        diagnostics: match.objectContaining({ portOpen: true, assets: { pending: 1, loaded: 6, failed: 0 } }),
       },
     })
     expect(stuckAtStart.metadataCalls()).toBeGreaterThan(1)
@@ -552,7 +553,7 @@ describe('Assets Ready over the Run Session (CA-10)', () => {
     await expect(manager.captureScreenshot('/assets')).rejects.toMatchObject({
       body: {
         code: 'runtime-operation-failed',
-        diagnostics: expect.objectContaining({ assets: { pending: 1, loaded: 7, failed: 0 } }),
+        diagnostics: match.objectContaining({ assets: { pending: 1, loaded: 7, failed: 0 } }),
       },
     })
     await expect(
@@ -561,7 +562,7 @@ describe('Assets Ready over the Run Session (CA-10)', () => {
       body: {
         code: 'runtime-operation-failed',
         stage: 'control',
-        diagnostics: expect.objectContaining({ assets: { pending: 1, loaded: 7, failed: 0 } }),
+        diagnostics: match.objectContaining({ assets: { pending: 1, loaded: 7, failed: 0 } }),
       },
     })
     // The session survives a timed-out wait: the Game is fine, only its art is late.

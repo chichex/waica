@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { findPath, nearestReachableCell, planPath, reachableCells } from './pathfinding'
 import type { GridCell, GridPoint, NavigationGrid } from './navigation-grid'
+import { defined } from '../../engine/src/test-support'
 
 /**
  * A NavigationGrid from ASCII rows: '#' blocked, anything else walkable.
@@ -50,10 +51,10 @@ describe('findPath — A* over the Navigation Grid', () => {
 
     expect(path).not.toBeNull()
     // Every step must land on a walkable cell, and the path must end at the goal.
-    for (const cell of path!) expect(grid.isWalkable(cell)).toBe(true)
-    expect(path![path!.length - 1]).toEqual({ column: 4, row: 2 })
+    for (const cell of defined(path)) expect(grid.isWalkable(cell)).toBe(true)
+    expect(defined(path)[defined(path).length - 1]).toEqual({ column: 4, row: 2 })
     // It has to detour: a straight 4-step line is blocked by the wall.
-    expect(path!.length).toBeGreaterThan(4)
+    expect(defined(path).length).toBeGreaterThan(4)
   })
 
   it('returns an empty path when already at the goal', () => {
@@ -116,9 +117,9 @@ describe('reachableCells / nearestReachableCell', () => {
     const nearest = nearestReachableCell(grid, { column: 1, row: 0 }, { x: 1.5, y: 2.5 })
 
     expect(nearest).not.toBeNull()
-    expect(grid.isWalkable(nearest!)).toBe(true)
+    expect(grid.isWalkable(defined(nearest))).toBe(true)
     // Must be on the reachable (top) side, not the walled-off bottom row.
-    expect(nearest!.row).not.toBe(2)
+    expect(defined(nearest).row).not.toBe(2)
   })
 })
 
@@ -129,8 +130,8 @@ describe('planPath — click resolution (CA-3)', () => {
     const plan = planPath(grid, { x: 0.5, y: 0.5 }, { x: 4.5, y: 0.5 })
 
     expect(plan).not.toBeNull()
-    expect(plan!.targetCell).toEqual({ column: 4, row: 0 })
-    expect(plan!.target).toEqual({ x: 4.5, y: 0.5 })
+    expect(defined(plan).targetCell).toEqual({ column: 4, row: 0 })
+    expect(defined(plan).target).toEqual({ x: 4.5, y: 0.5 })
   })
 
   it('resolves a click on a blocked cell (e.g. water) to the nearest walkable cell', () => {
@@ -139,8 +140,8 @@ describe('planPath — click resolution (CA-3)', () => {
     const plan = planPath(grid, { x: 0.5, y: 0.5 }, { x: 2.5, y: 0.5 })
 
     expect(plan).not.toBeNull()
-    expect(grid.isWalkable(plan!.targetCell)).toBe(true)
-    expect(plan!.targetCell).not.toEqual({ column: 2, row: 0 })
+    expect(grid.isWalkable(defined(plan).targetCell)).toBe(true)
+    expect(defined(plan).targetCell).not.toEqual({ column: 2, row: 0 })
   })
 
   it('resolves a click outside the grid to the nearest walkable cell inside it', () => {
@@ -149,8 +150,8 @@ describe('planPath — click resolution (CA-3)', () => {
     const plan = planPath(grid, { x: 0.5, y: 0.5 }, { x: 50, y: 50 })
 
     expect(plan).not.toBeNull()
-    expect(grid.isWalkable(plan!.targetCell)).toBe(true)
-    expect(plan!.targetCell.column).toBeLessThan(3)
+    expect(grid.isWalkable(defined(plan).targetCell)).toBe(true)
+    expect(defined(plan).targetCell.column).toBeLessThan(3)
   })
 
   it('returns null when the mover itself is not standing on a walkable cell', () => {

@@ -33,6 +33,7 @@ import { Game } from './game'
 import { loadScene, type SceneRegistry } from './scene'
 import { defineStates, resetRegistries } from './state/hooks'
 import { StateMachine } from './state/state-machine'
+import { defined } from './test-support'
 
 const observers: ResizeObserverStub[] = []
 
@@ -116,7 +117,7 @@ describe('Game glue characterization', () => {
       { waicaScene: 3, entities: [{ name: 'Pinned', position: [2, -3] }] },
       { components: {} },
     )
-    const entity = game.find('Pinned')!
+    const entity = defined(game.find('Pinned'))
 
     expect(entity.position).toBe(entity.node.position)
     expect(entity.position.toArray()).toEqual([2, -3, 0])
@@ -388,7 +389,7 @@ describe('Game glue characterization', () => {
 
 describe('y-sort render mode', () => {
   const meshZ = (game: Game, name: string): number => {
-    const entity = game.entities.find((e) => e.name === name)!
+    const entity = defined(game.entities.find((e) => e.name === name))
     return (entity.node.children[0] as { position: { z: number } }).position.z
   }
 
@@ -432,7 +433,7 @@ describe('y-sort render mode', () => {
     // Lower Y renders in front: B (y -2) above A (y 2).
     expect(meshZ(game, 'B')).toBeGreaterThan(meshZ(game, 'A'))
 
-    game.entities.find((e) => e.name === 'A')!.position.y = -5
+    defined(game.entities.find((e) => e.name === 'A')).position.y = -5
     step(game)
     expect(meshZ(game, 'A')).toBeGreaterThan(meshZ(game, 'B'))
     game.dispose()
@@ -516,10 +517,10 @@ describe('y-sort render mode', () => {
       { components: { Sprite, DepthMarker } },
     )
     step(game)
-    const marker = game.entities.find((e) => e.name === 'Marker')!.get(DepthMarker)!
+    const marker = defined(defined(game.entities.find((e) => e.name === 'Marker')).get(DepthMarker))
     // The marker shares the band with the sprite: lower Y sorts in front.
     expect(marker.sortZ).not.toBeNull()
-    expect(marker.sortZ!).toBeGreaterThan(meshZ(game, 'Above'))
+    expect(defined(marker.sortZ)).toBeGreaterThan(meshZ(game, 'Above'))
     game.dispose()
   })
 })
@@ -606,7 +607,7 @@ describe('Scene unload and swap', () => {
     )
     step(game)
     const meshZ = (name: string): number =>
-      (game.find(name)!.node.children[0] as { position: { z: number } }).position.z
+      (defined(game.find(name)).node.children[0] as { position: { z: number } }).position.z
     expect(meshZ('X')).toBe(0.01)
     expect(meshZ('Y')).toBe(0.01)
 

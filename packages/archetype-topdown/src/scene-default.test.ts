@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { TOPDOWN_PREFABS } from './prefabs'
 import { TOPDOWN_BLANK_SCENE, TOPDOWN_SCENE } from './scene-default'
 import { TOPDOWN_UI } from './ui'
+import { defined } from '../../engine/src/test-support'
 
 describe('TOPDOWN_SCENE', () => {
   it('renders y-sorted with a two-axis follow camera clamped to the meadow', () => {
@@ -15,18 +16,18 @@ describe('TOPDOWN_SCENE', () => {
   it('references only prefabs the archetype declares, with unique names', () => {
     const names = new Set<string>()
     for (const entity of TOPDOWN_SCENE.entities) {
-      expect(TOPDOWN_PREFABS[entity.prefab!], entity.name).toBeDefined()
+      expect(TOPDOWN_PREFABS[defined(entity.prefab)], entity.name).toBeDefined()
       expect(names.has(entity.name), entity.name).toBe(false)
       names.add(entity.name)
     }
   })
 
   it('places trees inside the walkable field so occlusion flips both ways', () => {
-    const limits = TOPDOWN_SCENE.camera!.limits!
+    const limits = defined(defined(TOPDOWN_SCENE.camera).limits)
     const trees = TOPDOWN_SCENE.entities.filter((e) => e.prefab === 'tiles/tree')
     expect(trees.length).toBeGreaterThanOrEqual(2)
     for (const tree of trees) {
-      const [, y] = tree.position!
+      const [, y] = defined(tree.position)
       expect(y - 1, tree.name).toBeGreaterThanOrEqual(limits.minY)
       expect(y + 1, tree.name).toBeLessThanOrEqual(limits.maxY)
     }

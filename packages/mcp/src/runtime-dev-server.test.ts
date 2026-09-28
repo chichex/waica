@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, tempDir } from './test-helpers.js'
 import { startRuntimeDevServer } from './runtime-dev-server.js'
 import type { RuntimePreflightResult } from './runtime-preflight.js'
+import { defined, match } from '../../engine/src/test-support.js'
 
 const roots: string[] = []
 afterEach(async () => cleanup(...roots.splice(0)))
@@ -111,7 +112,7 @@ describe('Runtime dev-server process', () => {
 
     const server = await startRuntimeDevServer(preflight, {
       graceMs: 100,
-      allocatePort: async () => ports[allocations++]!,
+      allocatePort: async () => defined(ports[allocations++]),
     })
 
     expect(allocations).toBe(2)
@@ -150,9 +151,9 @@ describe('Runtime dev-server process', () => {
         code: 'runtime-start-failed',
         stage: 'dev-server',
         projectPath: fixture.root,
-        diagnostics: expect.objectContaining({
-          stdout: expect.stringContaining('before exit'),
-          stderr: expect.stringContaining('dev exploded'),
+        diagnostics: match.objectContaining({
+          stdout: match.stringContaining('before exit'),
+          stderr: match.stringContaining('dev exploded'),
           exitCode: 7,
         }),
       },

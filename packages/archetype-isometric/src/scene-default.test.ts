@@ -10,6 +10,7 @@ import {
   ISOMETRIC_PREFABS,
 } from './prefabs'
 import { ISOMETRIC_BLANK_SCENE, ISOMETRIC_CAVE_SCENE, ISOMETRIC_SCENE } from './scene-default'
+import { defined } from '../../engine/src/test-support'
 
 interface TilemapProps {
   mapWidth: number
@@ -20,9 +21,9 @@ interface TilemapProps {
 }
 
 function groundTilemap(): TilemapProps {
-  return ISOMETRIC_PREFABS['tiles/ground']!.components.find(
+  return defined(defined(ISOMETRIC_PREFABS['tiles/ground']).components.find(
     (component) => component.type === 'Tilemap',
-  )!.props as unknown as TilemapProps
+  )).props as unknown as TilemapProps
 }
 
 describe('ISOMETRIC_SCENE', () => {
@@ -74,7 +75,7 @@ describe('ISOMETRIC_SCENE', () => {
 
   it('contains one map-origin Tilemap with a closed solid border ring', () => {
     const tilemapEntities = ISOMETRIC_SCENE.entities.filter((entity) =>
-      ISOMETRIC_PREFABS[entity.prefab!]?.components.some(
+      ISOMETRIC_PREFABS[defined(entity.prefab)]?.components.some(
         (component) => component.type === 'Tilemap',
       ),
     )
@@ -97,7 +98,7 @@ describe('ISOMETRIC_SCENE', () => {
 
   it('resolves every prefab and stages the full cast', () => {
     for (const entity of ISOMETRIC_SCENE.entities) {
-      expect(ISOMETRIC_PREFABS[entity.prefab!], entity.name).toBeDefined()
+      expect(ISOMETRIC_PREFABS[defined(entity.prefab)], entity.name).toBeDefined()
     }
     const byPrefab = (ref: string) =>
       ISOMETRIC_SCENE.entities.filter((entity) => entity.prefab === ref)
@@ -117,7 +118,7 @@ describe('ISOMETRIC_SCENE', () => {
     const doors = ISOMETRIC_SCENE.entities.filter((entity) => entity.prefab === 'objects/door')
     expect(doors).toHaveLength(1)
     expect(doors[0]?.overrides).toBeUndefined()
-    expect(ISOMETRIC_PREFABS['objects/door']!.components).toContainEqual({
+    expect(defined(ISOMETRIC_PREFABS['objects/door']).components).toContainEqual({
       type: 'SceneTransition',
       props: { scene: 'cave' },
     })
@@ -128,7 +129,7 @@ describe('ISOMETRIC_SCENE', () => {
     for (const entity of ISOMETRIC_SCENE.entities.filter((candidate) =>
       ['objects/tree', 'objects/rock'].includes(candidate.prefab ?? ''),
     )) {
-      const [x, y] = entity.position!
+      const [x, y] = defined(entity.position)
       expect(x, entity.name).toBeGreaterThan(1)
       expect(x, entity.name).toBeLessThan(map.mapWidth - 1)
       expect(y, entity.name).toBeGreaterThan(1)
@@ -152,7 +153,7 @@ describe('ISOMETRIC_BLANK_SCENE', () => {
 describe('ISOMETRIC_CAVE_SCENE (CA-13)', () => {
   it('resolves every prefab and stages exactly one Player and one Door back to main', () => {
     for (const entity of ISOMETRIC_CAVE_SCENE.entities) {
-      expect(ISOMETRIC_PREFABS[entity.prefab!], entity.name).toBeDefined()
+      expect(ISOMETRIC_PREFABS[defined(entity.prefab)], entity.name).toBeDefined()
     }
     const byPrefab = (ref: string) =>
       ISOMETRIC_CAVE_SCENE.entities.filter((entity) => entity.prefab === ref)
@@ -163,7 +164,7 @@ describe('ISOMETRIC_CAVE_SCENE (CA-13)', () => {
   })
 
   it('overrides the shared ground prefab with a smaller, distinct, fully enclosed layout', () => {
-    const ground = ISOMETRIC_CAVE_SCENE.entities.find((entity) => entity.name === 'Ground')!
+    const ground = defined(ISOMETRIC_CAVE_SCENE.entities.find((entity) => entity.name === 'Ground'))
     const override = ground.overrides?.['Tilemap'] as {
       mapWidth: number
       mapHeight: number
@@ -173,7 +174,7 @@ describe('ISOMETRIC_CAVE_SCENE (CA-13)', () => {
     expect(override.mapHeight).toBe(ISOMETRIC_CAVE_MAP_HEIGHT)
     expect(override.cells).toHaveLength(ISOMETRIC_CAVE_MAP_WIDTH * ISOMETRIC_CAVE_MAP_HEIGHT)
     expect(override.cells).not.toEqual(
-      ISOMETRIC_PREFABS['tiles/ground']!.components.find((c) => c.type === 'Tilemap')!.props![
+      defined(defined(defined(ISOMETRIC_PREFABS['tiles/ground']).components.find((c) => c.type === 'Tilemap')).props)[
         'cells'
       ],
     )

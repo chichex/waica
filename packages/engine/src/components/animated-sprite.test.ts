@@ -6,6 +6,7 @@ import { FakeTextureBackend, flush } from '../assets/test-helpers'
 import type { Entity } from '../entity'
 import type { Game } from '../game'
 import { AnimatedSprite } from './animated-sprite'
+import { defined } from '../test-support'
 
 type Mesh = THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
 type Outcome = 'loaded' | 'failed'
@@ -182,7 +183,7 @@ describe('AnimatedSprite sheets through game.assets (CA-5)', () => {
     sprite.clips = { idle: { frames: [0], fps: 1 } }
     sprite.initialClip = 'idle'
     mount(sprite, { assets })
-    const handle = handles[0]!
+    const handle = defined(handles[0])
     const cloneDispose = vi.spyOn(handle.clone, 'dispose')
     const baseDispose = vi.spyOn(handle.base, 'dispose')
 

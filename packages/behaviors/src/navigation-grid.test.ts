@@ -31,6 +31,7 @@ vi.mock(
 
 import { Game, Solid, Tilemap } from '@waica/engine'
 import { buildNavigationGrid } from './navigation-grid'
+import { defined } from '../../engine/src/test-support'
 
 class ResizeObserverStub {
   observe(): void {}
@@ -197,9 +198,9 @@ describe('buildNavigationGrid — AABB fallback without a Tilemap (CA-2)', () =>
 
     const blockedCell = grid.cellAt({ x: 1.5, y: 1.5 })
     expect(blockedCell).not.toBeNull()
-    expect(grid.isWalkable(blockedCell!)).toBe(false)
+    expect(grid.isWalkable(defined(blockedCell))).toBe(false)
     const openCell = grid.cellAt({ x: 0.5, y: 0.5 })
-    expect(grid.isWalkable(openCell!)).toBe(true)
+    expect(grid.isWalkable(defined(openCell))).toBe(true)
     game.dispose()
   })
 })

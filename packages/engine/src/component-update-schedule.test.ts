@@ -4,6 +4,7 @@ import {
   resolveComponentUpdateSchedule,
   type ComponentUpdateScheduleResult,
 } from './index'
+import { match } from './test-support'
 
 class Writer extends Component {
   static override componentName = 'Writer'
@@ -170,7 +171,7 @@ describe('resolveComponentUpdateSchedule', () => {
           declarer: 'UnknownTargetReader',
           target: 'Missing',
           componentNames: ['UnknownTargetReader', 'Missing'],
-          cause: expect.stringMatching(/UnknownTargetReader.*Missing/),
+          cause: match.stringMatching(/UnknownTargetReader.*Missing/),
         },
       ],
     })
@@ -208,7 +209,7 @@ describe('resolveComponentUpdateSchedule', () => {
           code: 'invalid-update-constraint',
           reason: 'passive-declarer',
           componentNames: ['PassiveDeclarer'],
-          cause: expect.stringContaining('PassiveDeclarer'),
+          cause: match.stringContaining('PassiveDeclarer'),
         },
       ],
     })
@@ -227,7 +228,7 @@ describe('resolveComponentUpdateSchedule', () => {
           declarer: 'ReaderAfterPassive',
           target: 'Passive',
           componentNames: ['ReaderAfterPassive', 'Passive'],
-          cause: expect.stringMatching(/ReaderAfterPassive.*Passive/),
+          cause: match.stringMatching(/ReaderAfterPassive.*Passive/),
         },
       ],
     })
@@ -245,7 +246,7 @@ describe('resolveComponentUpdateSchedule', () => {
         {
           code: 'component-update-cycle',
           componentNames: ['CycleA', 'CycleB'],
-          cause: expect.stringMatching(/CycleA.*CycleB/),
+          cause: match.stringMatching(/CycleA.*CycleB/),
         },
       ],
     })
@@ -264,7 +265,7 @@ describe('resolveComponentUpdateSchedule', () => {
           declarer: 'SelfReader',
           target: 'SelfReader',
           componentNames: ['SelfReader'],
-          cause: expect.stringContaining('SelfReader'),
+          cause: match.stringContaining('SelfReader'),
         },
       ],
     })
@@ -281,7 +282,7 @@ describe('resolveComponentUpdateSchedule', () => {
           componentName: 'Writer',
           componentNames: ['Writer'],
           count: 2,
-          cause: expect.stringMatching(/Writer.*2/),
+          cause: match.stringMatching(/Writer.*2/),
         },
       ],
     })

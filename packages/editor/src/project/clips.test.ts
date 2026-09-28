@@ -10,6 +10,7 @@ import {
   uniqueClipName,
   type AnimatedProps,
 } from './clips'
+import { defined } from '../../../engine/src/test-support'
 
 const CELLS = [
   { x: 0, y: 0, width: 10, height: 12 },
@@ -119,7 +120,7 @@ describe('sanitizeAnimated', () => {
 
   it('drops malformed cells, and the cells key when none survive', () => {
     const bad = { x: -1, y: 0, width: 0, height: 5 }
-    const next = sanitizeAnimated(animated({ cells: [CELLS[0]!, bad] }))
+    const next = sanitizeAnimated(animated({ cells: [defined(CELLS[0]), bad] }))
     expect(next.cells).toEqual([CELLS[0]])
     expect('cells' in sanitizeAnimated(animated({ cells: [bad] }))).toBe(false)
   })

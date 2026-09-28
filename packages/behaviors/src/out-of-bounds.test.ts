@@ -13,6 +13,7 @@ import {
 } from '@waica/engine'
 import { Health } from './health'
 import { OutOfBounds } from './out-of-bounds'
+import { defined } from '../../engine/src/test-support'
 
 function makeSubject(y: number, options: { health?: number } = {}) {
   const components: Component[] = []
@@ -60,7 +61,7 @@ describe('OutOfBounds', () => {
 
     bounds.onUpdate()
 
-    expect(health!.current).toBe(3)
+    expect(defined(health).current).toBe(3)
     expect(entity.destroy).not.toHaveBeenCalled()
   })
 
@@ -69,7 +70,7 @@ describe('OutOfBounds', () => {
 
     bounds.onUpdate()
 
-    expect(health!.current).toBe(3)
+    expect(defined(health).current).toBe(3)
     expect(entity.destroy).not.toHaveBeenCalled()
   })
 
@@ -78,7 +79,7 @@ describe('OutOfBounds', () => {
 
     bounds.onUpdate()
 
-    expect(health!.current).toBe(0)
+    expect(defined(health).current).toBe(0)
     expect(entity.game.events.emit).toHaveBeenCalledWith('death', { entity })
   })
 

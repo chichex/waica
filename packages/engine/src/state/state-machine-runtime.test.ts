@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { installDirectionalAnimation, type DirectionalAnimation } from '../animation/directional'
 import type { Component } from '../component'
 import { resolveComponentUpdateSchedule } from '../component-update-schedule'
@@ -307,8 +307,8 @@ describe('StateMachine directional clip resolution', () => {
 
   interface DirectionalHarness {
     machine: StateMachine
-    play: ReturnType<typeof vi.spyOn>
-    setFlipX: ReturnType<typeof vi.spyOn>
+    play: MockInstance<AnimatedSprite['play']>
+    setFlipX: MockInstance<AnimatedSprite['setFlipX']>
     /** Mutates the facing the sibling AnimationFacingProvider reports, live. */
     setFacing(next: string): void
   }

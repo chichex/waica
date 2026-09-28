@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { AnimatedSprite } from './components/animated-sprite'
 import { Sprite } from './components/sprite'
 import { isYSortParticipant, ySortZ } from './render-sort'
+import { defined } from './test-support'
 
 describe('ySortZ', () => {
   it('renders lower Y in front within a layer', () => {
@@ -9,7 +10,7 @@ describe('ySortZ', () => {
       { layer: 0, y: 2 },
       { layer: 0, y: -2 },
     ])
-    expect(z[1]).toBeGreaterThan(z[0]!)
+    expect(z[1]).toBeGreaterThan(defined(z[0]))
   })
 
   it('keeps the layer as the primary band regardless of Y', () => {
@@ -17,7 +18,7 @@ describe('ySortZ', () => {
       { layer: 1, y: -1000 },
       { layer: 2, y: 1000 },
     ])
-    expect(z[1]).toBeGreaterThan(z[0]!)
+    expect(z[1]).toBeGreaterThan(defined(z[0]))
   })
 
   it('confines every offset to its own 0.01 layer band', () => {
@@ -44,8 +45,8 @@ describe('ySortZ', () => {
       { layer: 0, y: 3 },
       { layer: 0, y: 3 },
     ])
-    expect(z[0]).toBeLessThan(z[1]!)
-    expect(z[1]).toBeLessThan(z[2]!)
+    expect(z[0]).toBeLessThan(defined(z[1]))
+    expect(z[1]).toBeLessThan(defined(z[2]))
   })
 
   it('caps a fractional layer band at the gap to the next distinct layer, however extreme Y gets', () => {
@@ -61,10 +62,10 @@ describe('ySortZ', () => {
     // layer bleed into a fractional layer right above it.
     expect(Math.max(...layer0)).toBeLessThan(Math.min(...layer05))
     // Ordering within each band still holds: lower Y renders in front.
-    expect(layer0[0]).toBeGreaterThan(layer0[1]!)
-    expect(layer0[1]).toBeGreaterThan(layer0[2]!)
-    expect(layer0[2]).toBeGreaterThan(layer0[3]!)
-    expect(layer05[0]).toBeGreaterThan(layer05[1]!)
+    expect(layer0[0]).toBeGreaterThan(defined(layer0[1]))
+    expect(layer0[1]).toBeGreaterThan(defined(layer0[2]))
+    expect(layer0[2]).toBeGreaterThan(defined(layer0[3]))
+    expect(layer05[0]).toBeGreaterThan(defined(layer05[1]))
   })
 })
 

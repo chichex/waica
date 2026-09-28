@@ -24,6 +24,7 @@ vi.mock('three', async (importOriginal) => {
 
 import { Sprite } from './components/sprite'
 import { Game } from './game'
+import { defined } from './test-support'
 
 class ResizeObserverStub {
   observe(): void {}
@@ -57,21 +58,21 @@ afterEach(() => {
 describe('Pointer — screen to logical conversion', () => {
   it('resolves a click at the canvas center to the camera center, unprojected', () => {
     const game = makeGame()
-    const canvas = document.querySelector('canvas')!
+    const canvas = defined(document.querySelector('canvas'))
     click(canvas, 320, 180)
 
     const pick = game.pointer.takePending()
 
     expect(pick).not.toBeNull()
-    expect(pick!.point.x).toBeCloseTo(0, 5)
-    expect(pick!.point.y).toBeCloseTo(0, 5)
-    expect(pick!.entity).toBeNull()
+    expect(defined(pick).point.x).toBeCloseTo(0, 5)
+    expect(defined(pick).point.y).toBeCloseTo(0, 5)
+    expect(defined(pick).entity).toBeNull()
     game.dispose()
   })
 
   it('resolves an off-center click through the camera frustum, without a projection', () => {
     const game = makeGame()
-    const canvas = document.querySelector('canvas')!
+    const canvas = defined(document.querySelector('canvas'))
     // Top-left corner of the canvas.
     click(canvas, 0, 0)
 
@@ -80,14 +81,14 @@ describe('Pointer — screen to logical conversion', () => {
     // halfH = viewHeight/2 = 5; aspect = 640/360; halfW = halfH*aspect.
     const halfH = 5
     const halfW = halfH * (640 / 360)
-    expect(pick!.point.x).toBeCloseTo(-halfW, 4)
-    expect(pick!.point.y).toBeCloseTo(halfH, 4)
+    expect(defined(pick).point.x).toBeCloseTo(-halfW, 4)
+    expect(defined(pick).point.y).toBeCloseTo(halfH, 4)
     game.dispose()
   })
 
   it('ignores a click landing in the letterbox bars when a fixed resolution is set', () => {
     const game = makeGame({ canvasWidth: 640, canvasHeight: 480, resolution: { width: 320, height: 180 } })
-    const canvas = document.querySelector('canvas')!
+    const canvas = defined(document.querySelector('canvas'))
     // Letterbox math: aspect 16:9, vw=640, vh=360, vy=(480-360)/2=60 — bars top/bottom.
     click(canvas, 320, 20) // inside the top bar (py=20 < vy=60)
 
@@ -97,7 +98,7 @@ describe('Pointer — screen to logical conversion', () => {
 
   it('accounts for the letterbox offset on a click inside the visible viewport', () => {
     const game = makeGame({ canvasWidth: 640, canvasHeight: 480, resolution: { width: 320, height: 180 } })
-    const canvas = document.querySelector('canvas')!
+    const canvas = defined(document.querySelector('canvas'))
     // vx=0,vy=60,vw=640,vh=360. Click at (480,240): nx=480/640=0.75, ny=(240-60)/360=0.5.
     click(canvas, 480, 240)
 
@@ -106,15 +107,15 @@ describe('Pointer — screen to logical conversion', () => {
     const halfW = halfH * (320 / 180)
     const expectedX = -halfW + 0.75 * (2 * halfW)
     const expectedY = halfH - 0.5 * (2 * halfH)
-    expect(pick!.point.x).toBeCloseTo(expectedX, 4)
-    expect(pick!.point.y).toBeCloseTo(expectedY, 4)
+    expect(defined(pick).point.x).toBeCloseTo(expectedX, 4)
+    expect(defined(pick).point.y).toBeCloseTo(expectedY, 4)
     game.dispose()
   })
 
   it('unprojects through the isometric projection when the scene declares it', () => {
     const game = makeGame()
     game.setSceneRender({ projection: 'isometric' })
-    const canvas = document.querySelector('canvas')!
+    const canvas = defined(document.querySelector('canvas'))
     click(canvas, 320 + 160, 180) // px=480 → nx=0.75, ny=0.5 (center vertically)
 
     const pick = game.pointer.takePending()
@@ -122,14 +123,14 @@ describe('Pointer — screen to logical conversion', () => {
     const halfW = halfH * (640 / 360)
     const renderX = -halfW + 0.75 * (2 * halfW)
     const renderY = 0 // ny=0.5 → center
-    expect(pick!.point.x).toBeCloseTo(renderX / 2 - renderY, 4)
-    expect(pick!.point.y).toBeCloseTo(-renderX / 2 - renderY, 4)
+    expect(defined(pick).point.x).toBeCloseTo(renderX / 2 - renderY, 4)
+    expect(defined(pick).point.y).toBeCloseTo(-renderX / 2 - renderY, 4)
     game.dispose()
   })
 
   it('ignores a non-primary button click', () => {
     const game = makeGame()
-    const canvas = document.querySelector('canvas')!
+    const canvas = defined(document.querySelector('canvas'))
     click(canvas, 320, 180, 2)
 
     expect(game.pointer.takePending()).toBeNull()

@@ -14,6 +14,7 @@ import {
   type ArchetypeManifest,
 } from '../project/archetype'
 import { Inspector } from './Inspector'
+import { defined } from '../../../engine/src/test-support'
 
 class GenericStringList extends Component {
   static override componentName = 'GenericStringList'
@@ -165,7 +166,7 @@ describe('Inspector string-list control', () => {
     const inputs = [...field.querySelectorAll<HTMLInputElement>('input[type="text"]')]
     expect(inputs.map((input) => input.value)).toEqual(['enemy', 'collectible'])
 
-    setInput(inputs[0]!, ' Enemy ')
+    setInput(defined(inputs[0]), ' Enemy ')
     expect(onPrefabProp).toHaveBeenCalledWith(
       'objects/bullet',
       'Hitbox',
@@ -173,7 +174,7 @@ describe('Inspector string-list control', () => {
       [' Enemy ', 'collectible'],
     )
 
-    click(field.querySelector<HTMLButtonElement>('button[data-list-add]')!)
+    click(defined(field.querySelector<HTMLButtonElement>('button[data-list-add]')))
     expect(onPrefabProp).toHaveBeenCalledWith(
       'objects/bullet',
       'Hitbox',
@@ -181,7 +182,7 @@ describe('Inspector string-list control', () => {
       ['enemy', 'collectible', ''],
     )
 
-    click(field.querySelectorAll<HTMLButtonElement>('button[data-list-remove]')[1]!)
+    click(defined(field.querySelectorAll<HTMLButtonElement>('button[data-list-remove]')[1]))
     expect(onPrefabProp).toHaveBeenCalledWith(
       'objects/bullet',
       'Hitbox',
@@ -195,7 +196,7 @@ describe('Inspector string-list control', () => {
       prefabs: { 'objects/bullet': finalPrefab },
       onPrefabProp,
     }))
-    click(list('collidesWith').querySelector<HTMLButtonElement>('button[data-list-remove]')!)
+    click(defined(list('collidesWith').querySelector<HTMLButtonElement>('button[data-list-remove]')))
     expect(onPrefabProp).toHaveBeenLastCalledWith(
       'objects/bullet',
       'Hitbox',
@@ -214,7 +215,7 @@ describe('Inspector string-list control', () => {
       selection: { kind: 'entity', entity: inline, sceneName: 'main' },
       onProp,
     }))
-    click(list('collidesWith').querySelector<HTMLButtonElement>('button[data-list-add]')!)
+    click(defined(list('collidesWith').querySelector<HTMLButtonElement>('button[data-list-add]')))
     expect(onProp).toHaveBeenCalledWith('Inline', 'Hitbox', 'collidesWith', [''])
 
     const onResetProp = vi.fn()
@@ -232,8 +233,8 @@ describe('Inspector string-list control', () => {
       onApplyProp,
     }))
     const overrideField = list('collidesWith')
-    click(overrideField.querySelector<HTMLButtonElement>('button[title^="Reset"]')!)
-    click(overrideField.querySelector<HTMLButtonElement>('button[title^="Apply"]')!)
+    click(defined(overrideField.querySelector<HTMLButtonElement>('button[title^="Reset"]')))
+    click(defined(overrideField.querySelector<HTMLButtonElement>('button[title^="Apply"]')))
     expect(onResetProp).toHaveBeenCalledWith('Instance', 'Hitbox', 'collidesWith')
     expect(onApplyProp).toHaveBeenCalledWith('Instance', 'Hitbox', 'collidesWith')
   })
@@ -251,7 +252,7 @@ describe('Inspector string-list control', () => {
 
     const field = list('collidesWith')
     expect(field.textContent).not.toContain('(mixed)')
-    const second = field.querySelectorAll<HTMLInputElement>('input[type="text"]')[1]!
+    const second = defined(field.querySelectorAll<HTMLInputElement>('input[type="text"]')[1])
     setInput(second, 'player')
     expect(onMultiProp).toHaveBeenCalledWith(
       ['A', 'B'],
@@ -261,7 +262,7 @@ describe('Inspector string-list control', () => {
     )
 
     const mixed: SceneEntityJson[] = [
-      entities[0]!,
+      defined(entities[0]),
       { name: 'B', components: [{ type: 'Hitbox', props: { collidesWith: ['*', 'enemy'] } }] },
     ]
     render(baseProps({
@@ -308,7 +309,7 @@ describe('Inspector collision-category diagnostics', () => {
       prefabs: { 'objects/bad': prefab },
     }))
 
-    const layer = host.querySelector<HTMLInputElement>('[data-param="layer"] input')!
+    const layer = defined(host.querySelector<HTMLInputElement>('[data-param="layer"] input'))
     expect(layer.value).toBe('*')
     expect(layer.getAttribute('aria-invalid')).toBe('true')
     expect(host.textContent).toContain('A Collision Layer must start with a lowercase letter')
@@ -342,8 +343,8 @@ describe('Inspector collision-category diagnostics', () => {
     ]
     render(baseProps({ selection: { kind: 'multi', entities, sceneName: 'main' } }))
 
-    const layer = host.querySelector<HTMLInputElement>('[data-param="layer"] input')!
-    const mask = list('collidesWith').querySelector<HTMLInputElement>('input')!
+    const layer = defined(host.querySelector<HTMLInputElement>('[data-param="layer"] input'))
+    const mask = defined(list('collidesWith').querySelector<HTMLInputElement>('input'))
     expect(layer.getAttribute('aria-invalid')).toBe('true')
     expect(mask.getAttribute('aria-invalid')).toBe('true')
     expect(host.textContent).toContain('Invalid B: A Collision Layer must start')
@@ -362,7 +363,7 @@ describe('Inspector collision-category diagnostics', () => {
     }))
 
     const invalidField = list('collidesWith')
-    const invalidInput = invalidField.querySelector<HTMLInputElement>('input')!
+    const invalidInput = defined(invalidField.querySelector<HTMLInputElement>('input'))
     expect(invalidInput.getAttribute('aria-invalid')).toBe('true')
     expect(invalidField.textContent).toContain('Collision Mask must be a list of strings')
     expect(invalidInput.value).toBe('enemy')

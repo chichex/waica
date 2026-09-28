@@ -30,6 +30,7 @@ import { Sprite } from './components/sprite'
 import { Game } from './game'
 import { projectIsometric } from './projection'
 import { loadScene, type SceneRegistry } from './scene'
+import { defined } from './test-support'
 
 class ResizeObserverStub {
   observe(): void {}
@@ -79,7 +80,7 @@ describe('projected entity render seam', () => {
       },
       { components: {} },
     )
-    const entity = game.find('Projected')!
+    const entity = defined(game.find('Projected'))
     entity.node.position.z = 7
 
     step(game)
@@ -118,7 +119,7 @@ describe('projected entity render seam', () => {
 describe('projected y-sort', () => {
   const registry: SceneRegistry = { components: { Sprite } }
   const zOf = (game: Game, name: string): number =>
-    game.find(name)!.node.children[0]!.position.z
+    defined(defined(game.find(name)).node.children[0]).position.z
 
   it('sorts on render-space Y after projection and flips after logical positions swap', () => {
     const game = makeGame()
@@ -136,11 +137,11 @@ describe('projected y-sort', () => {
     )
 
     step(game)
-    expect(game.find('Lower')!.node.position.y).toBe(-1)
+    expect(defined(game.find('Lower')).node.position.y).toBe(-1)
     expect(zOf(game, 'Lower')).toBeGreaterThan(zOf(game, 'Origin'))
 
-    game.find('Origin')!.position.set(1, 1, 0)
-    game.find('Lower')!.position.set(0, 0, 0)
+    defined(game.find('Origin')).position.set(1, 1, 0)
+    defined(game.find('Lower')).position.set(0, 0, 0)
     step(game)
     expect(zOf(game, 'Origin')).toBeGreaterThan(zOf(game, 'Lower'))
     game.dispose()

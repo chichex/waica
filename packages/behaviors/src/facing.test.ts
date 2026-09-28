@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { facingForInput, facingVector, logicalDirection, SCREEN_FACINGS } from './facing'
+import { defined } from '../../engine/src/test-support'
 
 const ROOT_HALF = Math.SQRT1_2
 
@@ -31,7 +32,7 @@ describe('facingVector', () => {
     for (const facing of SCREEN_FACINGS) {
       const vector = facingVector(facing)
       expect(vector, facing).toBeDefined()
-      expect(facingForInput(vector!.x, vector!.y)).toBe(facing)
+      expect(facingForInput(defined(vector).x, defined(vector).y)).toBe(facing)
     }
   })
 
@@ -44,13 +45,13 @@ describe('logicalDirection', () => {
   it('is the normalized screen vector when the scene has no projection', () => {
     expect(logicalDirection('e', null)).toEqual({ x: 1, y: 0 })
     expect(logicalDirection('n', null)).toEqual({ x: 0, y: 1 })
-    const ne = logicalDirection('ne', null)!
+    const ne = defined(logicalDirection('ne', null))
     expect(ne.x).toBeCloseTo(ROOT_HALF)
     expect(ne.y).toBeCloseTo(ROOT_HALF)
   })
 
   it('maps screen facings onto the logical diamond under isometric projection', () => {
-    const east = logicalDirection('e', 'isometric')!
+    const east = defined(logicalDirection('e', 'isometric'))
     expect(east.x).toBeCloseTo(ROOT_HALF)
     expect(east.y).toBeCloseTo(-ROOT_HALF)
     expect(logicalDirection('se', 'isometric')).toEqual({ x: 1, y: 0 })

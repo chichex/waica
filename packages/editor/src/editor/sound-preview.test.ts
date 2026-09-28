@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { browserSoundPreview } from './sound-preview'
+import { defined } from '../../../engine/src/test-support'
 
 class FakeAudio {
   static instances: FakeAudio[] = []
@@ -50,9 +51,9 @@ describe('browserSoundPreview (CA-18, review finding B)', () => {
     browserSoundPreview.play('blob:swing')
 
     expect(FakeAudio.instances).toHaveLength(1)
-    expect(FakeAudio.instances[0]!.src).toBe('blob:swing')
-    expect(FakeAudio.instances[0]!.volume).toBe(1)
-    expect(FakeAudio.instances[0]!.played).toBe(true)
+    expect(defined(FakeAudio.instances[0]).src).toBe('blob:swing')
+    expect(defined(FakeAudio.instances[0]).volume).toBe(1)
+    expect(defined(FakeAudio.instances[0]).played).toBe(true)
   })
 
   it('never throws when playback is rejected (e.g. a decode failure)', async () => {
@@ -67,22 +68,22 @@ describe('browserSoundPreview (CA-18, review finding B)', () => {
     vi.stubGlobal('Audio', FakeAudio)
 
     browserSoundPreview.play('blob:swing')
-    const first = FakeAudio.instances[0]!
+    const first = defined(FakeAudio.instances[0])
     expect(first.paused).toBe(false)
 
     browserSoundPreview.play('blob:hit')
 
     expect(first.paused).toBe(true)
     expect(FakeAudio.instances).toHaveLength(2)
-    expect(FakeAudio.instances[1]!.played).toBe(true)
-    expect(FakeAudio.instances[1]!.paused).toBe(false)
+    expect(defined(FakeAudio.instances[1]).played).toBe(true)
+    expect(defined(FakeAudio.instances[1]).paused).toBe(false)
   })
 
   it('stop() stops a playing preview', () => {
     vi.stubGlobal('Audio', FakeAudio)
 
     browserSoundPreview.play('blob:swing')
-    const audio = FakeAudio.instances[0]!
+    const audio = defined(FakeAudio.instances[0])
     expect(audio.paused).toBe(false)
 
     browserSoundPreview.stop()
@@ -121,7 +122,7 @@ describe('browserSoundPreview (CA-18, review finding B)', () => {
     const onEnded = vi.fn()
 
     browserSoundPreview.play('blob:swing', onEnded)
-    FakeAudio.instances[0]!.emit('ended')
+    defined(FakeAudio.instances[0]).emit('ended')
 
     expect(onEnded).toHaveBeenCalledTimes(1)
   })

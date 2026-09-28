@@ -12,6 +12,7 @@
 import { describe, expect, it } from 'vitest'
 import { ARCHETYPE } from '@waica/archetype-isometric'
 import type { PrefabJson } from '@waica/engine'
+import { defined } from '../../../packages/engine/src/test-support'
 
 const mainTsFiles = import.meta.glob<string>('./main.ts', {
   eager: true,
@@ -30,7 +31,7 @@ const prefabFiles = import.meta.glob<PrefabJson>(
 function preloadUrisInMainTs(source: string): string[] {
   const call = source.match(/game\.audio\.preload\(\[([\s\S]*?)\]\)/)
   if (!call) throw new Error('could not find a game.audio.preload([...]) call in main.ts')
-  return [...call[1]!.matchAll(/'([^']+)'/g)].map((match) => match[1]!)
+  return [...defined(call[1]).matchAll(/'([^']+)'/g)].map((match) => defined(match[1]))
 }
 
 describe('main.ts preloads exactly what it plays (CA-9)', () => {

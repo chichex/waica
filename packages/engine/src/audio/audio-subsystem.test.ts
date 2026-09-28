@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AudioSubsystem } from './audio-subsystem.js'
 import { FakeAudioBackend, flush } from './test-helpers.js'
+import { defined } from '../test-support'
 
 function makeSubsystem(
   resolveAsset?: (uri: string) => string,
@@ -243,7 +244,7 @@ describe('CA-2 — the handle', () => {
     // setValueAtTime before the ramp's end, per the Web Audio spec — which
     // jumps the gain back up to 0.5 and only then resumes descending to
     // zero, cutting the fade short. No new backend write must happen.
-    expect(backend.playbacks[0]?.setVolumeCalls).toHaveLength(setVolumeCallsWhenFadeStarted!)
+    expect(backend.playbacks[0]?.setVolumeCalls).toHaveLength(defined(setVolumeCallsWhenFadeStarted))
     expect(backend.playbacks[0]?.stops).toEqual([{ fadeMs: 500 }])
     expect(handle.playing).toBe(true)
 

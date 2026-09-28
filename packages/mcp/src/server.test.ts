@@ -7,6 +7,7 @@ import { cleanup, makeProject, tempDir } from './test-helpers.js'
 import { ProjectComponentLoader } from './project-component-loader.js'
 import { createWaicaMcpServer } from './server.js'
 import type { RuntimeService } from './runtime-service.js'
+import { defined, match } from '../../engine/src/test-support.js'
 
 const STATIC_TOOL_NAMES = [
   'create_project',
@@ -152,7 +153,7 @@ describe('MCP server', () => {
       // CA-8: `step` advances whole 1/60 s Simulation Steps — no `dt` anywhere
       // in the schema (not as a property, not in any branch's guard), only
       // the optional `frames`, and the description says so.
-      const control = byName.get('control_runtime')!
+      const control = defined(byName.get('control_runtime'))
       expect(control.inputSchema.properties).not.toHaveProperty('dt')
       expect(control.inputSchema.properties).toHaveProperty('frames')
       expect(JSON.stringify(control.inputSchema)).not.toContain('"dt"')
@@ -282,7 +283,7 @@ describe('MCP server', () => {
         expect(jsonResult(response)).toMatchObject({
           error: {
             code: 'runtime-operation-failed',
-            message: expect.any(String),
+            message: match.any(String),
             projectPath: '/game',
           },
         })
@@ -331,7 +332,7 @@ describe('MCP server', () => {
         error: {
           code: 'runtime-operation-failed',
           stage: 'control',
-          message: expect.stringMatching(/frames/),
+          message: match.stringMatching(/frames/),
           projectPath: '/game',
         },
       })
@@ -558,7 +559,7 @@ setInterval(() => {}, 1_000)
         expect(jsonResult(response)).toEqual({
           error: {
             code: 'tool-error',
-            message: expect.stringMatching(/runner|handshake/i),
+            message: match.stringMatching(/runner|handshake/i),
             projectPath: project,
           },
           provenance: [],
@@ -635,7 +636,7 @@ export class Later { static componentName = 'Later' }
           (error: unknown) => ({ error }),
         )
       const [cancelRow] = await waitForLines(starts, 1)
-      const cancelledPid = Number(cancelRow!.split(':')[1])
+      const cancelledPid = Number(defined(cancelRow).split(':')[1])
 
       const completing = pair.client.callTool(
         { name: 'validate_project', arguments: { project_path: project } },
