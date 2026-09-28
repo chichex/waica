@@ -47,29 +47,21 @@ export interface ProjectCode {
 export function useProjectCode(fs: ProjectFS): ProjectCode {
   const [archetype, setArchetype] = useState<ArchetypeManifest>(defaultArchetype)
   const [archetypeFailed, setArchetypeFailed] = useState<string | null>(null)
-  /** Component classes exported by src/components/*.ts. */
-  const [projectComponents, setProjectComponents] = useState<Record<string, ComponentClass>>({})
-  /** Exported component name → editable project source path. */
-  const [componentPaths, setComponentPaths] = useState<Record<string, string>>({})
-  /** Basenames in src/components/ — the project's component code files. */
-  const [componentFiles, setComponentFiles] = useState<string[]>([])
+  const components = useComponentLayer()
+  const { projectComponents, componentPaths, componentFiles, install } = components
   const [stateFiles, setStateFiles] = useState<string[]>([])
   const [roleFiles, setRoleFiles] = useState<string[]>([])
 
   const hydrate = useCallback((loaded: LoadedCode): void => {
-    setComponentFiles(loaded.components)
-    setProjectComponents(loaded.projectCode.components)
-    setComponentPaths(loaded.projectCode.componentPaths)
+    install(loaded.projectCode, loaded.components)
     setStateFiles(loaded.states)
     setRoleFiles(loaded.roles)
     setArchetype(loaded.archetype)
-  }, [])
+  }, [install])
 
   const run = async (scope: 'components' | 'play'): Promise<void> => {
     const { projectCode, files } = await executeProjectCode(fs, archetype, scope)
-    setComponentFiles(files)
-    setProjectComponents(projectCode.components)
-    setComponentPaths(projectCode.componentPaths)
+    install(projectCode, files)
   }
 
   const editorArchetype = useMemo<ArchetypeManifest>(
@@ -94,6 +86,22 @@ export function useProjectCode(fs: ProjectFS): ProjectCode {
     setStateFiles,
     setRoleFiles,
   }
+}
+
+/** The project's component classes, where each one is defined, and the component files. */
+function useComponentLayer() {
+  /** Component classes exported by src/components/*.ts. */
+  const [projectComponents, setProjectComponents] = useState<Record<string, ComponentClass>>({})
+  /** Exported component name → editable project source path. */
+  const [componentPaths, setComponentPaths] = useState<Record<string, string>>({})
+  /** Basenames in src/components/ — the project's component code files. */
+  const [componentFiles, setComponentFiles] = useState<string[]>([])
+  const install = useCallback((projectCode: PlayCodeResult, files: string[]): void => {
+    setComponentFiles(files)
+    setProjectComponents(projectCode.components)
+    setComponentPaths(projectCode.componentPaths)
+  }, [])
+  return { projectComponents, componentPaths, componentFiles, install }
 }
 
 /** The default archetype, installed as the chassis until the project names its own. */

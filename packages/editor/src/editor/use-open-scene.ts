@@ -62,9 +62,30 @@ export function useOpenScene(
     if (pending) setOpenScene({ path, scene: pending })
   }
 
+  useSceneFileRead({ fs, path: openScenePath, pendingScene }, { setOpenScene, setSceneFailed })
+
+  return {
+    openScenePath,
+    setOpenScenePath,
+    openScene,
+    setOpenScene,
+    scene: openScene?.scene ?? null,
+    loadedScenePath,
+    sceneSwitching: openScenePath !== null && loadedScenePath !== openScenePath,
+    sceneFailed,
+  }
+}
+
+/**
+ * Reads the picked scene file unless a pending write already supplied it; a
+ * read the next pick (or an unmount) superseded never lands.
+ */
+function useSceneFileRead(
+  { fs, path, pendingScene }: { fs: ProjectFS; path: string | null; pendingScene: (path: string) => SceneJson | undefined },
+  { setOpenScene, setSceneFailed }: { setOpenScene: (scene: LoadedScene) => void; setSceneFailed: (failed: boolean) => void },
+): void {
   useEffect(() => {
-    if (!openScenePath || pendingScene(openScenePath)) return
-    const path = openScenePath
+    if (!path || pendingScene(path)) return
     let stale = false
     reportRejection(fs.readText(path).then((text) => {
       if (stale) return
@@ -78,16 +99,5 @@ export function useOpenScene(
     return () => {
       stale = true
     }
-  }, [fs, openScenePath, pendingScene])
-
-  return {
-    openScenePath,
-    setOpenScenePath,
-    openScene,
-    setOpenScene,
-    scene: openScene?.scene ?? null,
-    loadedScenePath,
-    sceneSwitching: openScenePath !== null && loadedScenePath !== openScenePath,
-    sceneFailed,
-  }
+  }, [fs, path, pendingScene, setOpenScene, setSceneFailed])
 }

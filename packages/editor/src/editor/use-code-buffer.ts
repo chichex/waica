@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState, type RefObject } from 'react'
 import type { SceneJson } from '@waica/engine'
 import { SCENE_PATH, type ProjectFS } from '../fs/project-fs'
 import { reportRejection } from '../report-rejection'
@@ -29,33 +29,11 @@ export interface CodeBuffer {
 
 export function useCodeBuffer(options: CodeBufferOptions): CodeBuffer {
   const { fs, path, source } = options
-  const [value, setValue] = useState<string | null>(source ?? null)
   const [dirty, setDirty] = useState(false)
   const valueRef = useRef<string | null>(source ?? null)
   const dirtyRef = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // One instance edits one file: the Editor keys each pane by its path, so a
-  // different file is a fresh pane with fresh state. This effect only reads.
-  useEffect(() => {
-    if (source != null || !fs) return
-    // A read this effect's cleanup already discarded (StrictMode's first
-    // mount, or an unmount) must not land.
-    let current = true
-    fs.readText(path).then(
-      (text) => {
-        if (!current) return
-        valueRef.current = text
-        setValue(text)
-      },
-      (error: unknown) => {
-        if (current) console.error(error)
-      },
-    )
-    return () => {
-      current = false
-    }
-  }, [fs, path, source])
+  const value = useLoadedText({ fs, path, source }, valueRef)
 
   const save = async (): Promise<void> => {
     if (timer.current) {
@@ -88,6 +66,39 @@ export function useCodeBuffer(options: CodeBufferOptions): CodeBuffer {
   }
 
   return { value, dirty, edit, save }
+}
+
+/**
+ * The file's text as first read (or the inline source), mirrored into
+ * `valueRef` so saving always starts from what the pane holds.
+ */
+function useLoadedText(
+  { fs, path, source }: Pick<CodeBufferOptions, 'fs' | 'path' | 'source'>,
+  valueRef: RefObject<string | null>,
+): string | null {
+  const [value, setValue] = useState<string | null>(source ?? null)
+  // One instance edits one file: the Editor keys each pane by its path, so a
+  // different file is a fresh pane with fresh state. This effect only reads.
+  useEffect(() => {
+    if (source != null || !fs) return
+    // A read this effect's cleanup already discarded (StrictMode's first
+    // mount, or an unmount) must not land.
+    let current = true
+    fs.readText(path).then(
+      (text) => {
+        if (!current) return
+        valueRef.current = text
+        setValue(text)
+      },
+      (error: unknown) => {
+        if (current) console.error(error)
+      },
+    )
+    return () => {
+      current = false
+    }
+  }, [fs, path, source, valueRef])
+  return value
 }
 
 function handSceneUp(text: string, onSceneSaved: ((scene: SceneJson) => void) | undefined): void {
