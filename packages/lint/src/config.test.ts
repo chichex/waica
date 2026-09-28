@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { ESLint, type Linter } from 'eslint'
 import { describe, expect, it } from 'vitest'
@@ -113,6 +114,20 @@ describe('lint rule map (CA-2)', () => {
       expect(severityOf(rules[rule])).toBe(severity)
     },
   )
+})
+
+describe('final gates (CA-35)', () => {
+  it('maps every MUST rule to error (CA-35)', () => {
+    const rows = readRuleMap()
+    const must = rows.filter((row) => /\| MUST \|/.test(readFileSync(readmeFile, 'utf8').split('\n').find((line) => line.includes(`\`${row.rule}\``) && line.startsWith(`| ${row.policy} |`)) ?? ''))
+    expect(must.length).toBeGreaterThan(20)
+    for (const row of must) expect(row.severity, `${row.policy} ${row.rule}`).toBe('error')
+  })
+
+  it('has no MUST rule still pending in the config (CA-35)', async () => {
+    const config = await readFile(configFile, 'utf8')
+    expect(config).toMatch(/const PENDING_MUST = new Set\(\[\]\)|PENDING_MUST = new Set<string>\(\)/)
+  })
 })
 
 describe('size thresholds (CA-3)', () => {

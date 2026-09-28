@@ -21,6 +21,7 @@ const TESTS = [
   '**/*.test.ts',
   '**/*.test.tsx',
   '**/test-*.ts',
+  '**/test-*.tsx',
   'scripts/runtime-e2e.mjs',
   'scripts/test-*.mjs',
 ]
@@ -29,13 +30,10 @@ const EDITOR_JSX = ['packages/editor/src/**/*.tsx']
 
 const COUNT = { skipBlankLines: true, skipComments: true }
 
-// MUST rules whose existing violations are fixed by a later phase of the
-// compliance run. Until that phase lands they run at warn under the ratchet;
-// the phase that fixes them removes them from this set.
-const PENDING_MUST = new Set([
-  'max-lines-per-function',
-  'max-lines',
-])
+// MUST rules still being brought to zero violations run at warn under the
+// ratchet until the change that fixes them removes them from this set. The
+// compliance run (issue #100) emptied it: every MUST rule runs at error.
+const PENDING_MUST = new Set([])
 
 /** Severity for a rule a MUST policy line names. */
 function must(rule) {

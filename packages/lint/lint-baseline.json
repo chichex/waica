@@ -96,7 +96,6 @@
     "waica/soft-max-lines-per-function": 3
   },
   "packages/behaviors/src/grid-player-role.ts": {
-    "max-lines-per-function": 1,
     "waica/soft-max-lines-per-function": 1
   },
   "packages/behaviors/src/hazard-damage.test.ts": {
@@ -248,27 +247,19 @@
     "complexity": 1,
     "max-params": 2
   },
-  "packages/editor/src/App.tsx": {
-    "max-depth": 1,
-    "max-lines-per-function": 1,
-    "waica/soft-max-lines-per-function": 1
-  },
   "packages/editor/src/editor/AnimationEditor.tsx": {
-    "@typescript-eslint/unbound-method": 11,
-    "complexity": 3,
-    "max-lines": 1,
-    "max-lines-per-function": 2,
-    "waica/soft-max-lines": 1,
-    "waica/soft-max-lines-per-function": 4
+    "@typescript-eslint/unbound-method": 4,
+    "waica/soft-max-lines-per-function": 1
   },
   "packages/editor/src/editor/ArtPicker.tsx": {
     "@typescript-eslint/unbound-method": 1,
     "waica/soft-max-lines-per-function": 1
   },
+  "packages/editor/src/editor/ClipList.tsx": {
+    "waica/soft-max-lines-per-function": 1
+  },
   "packages/editor/src/editor/CodePane.tsx": {
     "@typescript-eslint/unbound-method": 3,
-    "complexity": 2,
-    "max-lines-per-function": 1,
     "waica/soft-max-lines-per-function": 1
   },
   "packages/editor/src/editor/ContextMenu.tsx": {
@@ -276,59 +267,50 @@
     "waica/soft-max-lines-per-function": 1
   },
   "packages/editor/src/editor/Editor.tsx": {
-    "@typescript-eslint/unbound-method": 10,
-    "complexity": 13,
-    "max-depth": 1,
-    "max-lines": 1,
-    "max-lines-per-function": 3,
-    "max-params": 7,
-    "waica/soft-max-lines": 1,
-    "waica/soft-max-lines-per-function": 3
+    "@typescript-eslint/unbound-method": 1
   },
-  "packages/editor/src/editor/Explorer.tsx": {
-    "@typescript-eslint/unbound-method": 48,
-    "complexity": 5,
-    "max-lines": 1,
-    "max-lines-per-function": 6,
-    "waica/soft-max-lines": 1,
-    "waica/soft-max-lines-per-function": 8
+  "packages/editor/src/editor/EditorCenter.tsx": {
+    "@typescript-eslint/unbound-method": 1
+  },
+  "packages/editor/src/editor/EditorCrumbs.tsx": {
+    "complexity": 1
+  },
+  "packages/editor/src/editor/EditorExplorer.tsx": {
+    "@typescript-eslint/unbound-method": 2
+  },
+  "packages/editor/src/editor/EditorInspector.tsx": {
+    "@typescript-eslint/unbound-method": 2
+  },
+  "packages/editor/src/editor/EditorModals.tsx": {
+    "@typescript-eslint/unbound-method": 2
+  },
+  "packages/editor/src/editor/EditorViewports.tsx": {
+    "max-params": 2
   },
   "packages/editor/src/editor/Inspector.tsx": {
-    "@typescript-eslint/no-base-to-string": 1,
-    "@typescript-eslint/no-unnecessary-type-assertion": 1,
-    "@typescript-eslint/unbound-method": 71,
-    "complexity": 6,
-    "max-lines": 1,
-    "max-lines-per-function": 11,
-    "max-params": 1,
-    "waica/soft-max-lines": 1,
-    "waica/soft-max-lines-per-function": 17
+    "@typescript-eslint/unbound-method": 7,
+    "complexity": 1,
+    "waica/soft-max-lines-per-function": 1
   },
   "packages/editor/src/editor/NumberField.tsx": {
     "@typescript-eslint/unbound-method": 1
   },
   "packages/editor/src/editor/ProjectPane.tsx": {
-    "@typescript-eslint/unbound-method": 4,
-    "max-lines-per-function": 3,
-    "waica/soft-max-lines": 1,
-    "waica/soft-max-lines-per-function": 3
+    "waica/soft-max-lines": 1
   },
-  "packages/editor/src/editor/StateMachinePanel.tsx": {
-    "@typescript-eslint/unbound-method": 9,
-    "complexity": 3,
-    "max-lines-per-function": 4,
-    "waica/soft-max-lines": 1,
-    "waica/soft-max-lines-per-function": 4
-  },
-  "packages/editor/src/editor/StringListField.tsx": {
-    "@typescript-eslint/unbound-method": 1,
-    "max-lines-per-function": 1,
+  "packages/editor/src/editor/RolePickerModal.tsx": {
     "waica/soft-max-lines-per-function": 1
   },
-  "packages/editor/src/editor/TilemapCard.tsx": {
-    "@typescript-eslint/unbound-method": 5,
-    "max-lines-per-function": 1,
-    "max-params": 1,
+  "packages/editor/src/editor/SceneTreeRows.tsx": {
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/SheetCellsOverlay.tsx": {
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/StateEditorModal.tsx": {
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/StateMachinePanel.tsx": {
     "waica/soft-max-lines-per-function": 1
   },
   "packages/editor/src/editor/UiPane.tsx": {
@@ -337,13 +319,7 @@
   },
   "packages/editor/src/editor/Viewport.tsx": {
     "@typescript-eslint/unbound-method": 13,
-    "complexity": 7,
-    "max-depth": 6,
-    "max-lines": 1,
-    "max-lines-per-function": 6,
-    "max-params": 6,
-    "waica/soft-max-lines": 1,
-    "waica/soft-max-lines-per-function": 7
+    "complexity": 1
   },
   "packages/editor/src/editor/appearance-bounds.test.ts": {
     "max-lines-per-function": 1,
@@ -351,6 +327,9 @@
   },
   "packages/editor/src/editor/box-math.ts": {
     "max-params": 2
+  },
+  "packages/editor/src/editor/editor-commits.ts": {
+    "max-params": 1
   },
   "packages/editor/src/editor/explorer-sound-library.test.ts": {
     "@typescript-eslint/unbound-method": 2,
@@ -361,25 +340,55 @@
     "waica/soft-max-lines-per-function": 1
   },
   "packages/editor/src/editor/inspector-appearance-drop.test.ts": {
-    "max-lines-per-function": 1,
     "waica/soft-max-lines-per-function": 2
+  },
+  "packages/editor/src/editor/inspector-entity-handlers.ts": {
+    "max-params": 2
+  },
+  "packages/editor/src/editor/inspector-prefab-handlers.ts": {
+    "max-params": 1
   },
   "packages/editor/src/editor/inspector-sound-ref.test.ts": {
     "waica/soft-max-lines-per-function": 2
   },
   "packages/editor/src/editor/inspector-string-list.test.ts": {
-    "@typescript-eslint/unbound-method": 1,
     "max-lines-per-function": 2,
     "waica/soft-max-lines": 1,
     "waica/soft-max-lines-per-function": 4
   },
   "packages/editor/src/editor/inspector-ui-ref.test.ts": {
-    "@typescript-eslint/require-await": 5,
+    "@typescript-eslint/require-await": 3,
     "max-lines-per-function": 1,
     "waica/soft-max-lines-per-function": 2
   },
+  "packages/editor/src/editor/inspector/AppearanceSection.tsx": {
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/editor/src/editor/inspector/ContextHeader.tsx": {
+    "complexity": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/inspector/EntityInspector.tsx": {
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/editor/src/editor/inspector/MultiInspector.tsx": {
+    "max-params": 1
+  },
+  "packages/editor/src/editor/inspector/PropRow.tsx": {
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/editor/src/editor/inspector/ScriptInspector.tsx": {
+    "@typescript-eslint/no-base-to-string": 1
+  },
+  "packages/editor/src/editor/inspector/image-frame-size.ts": {
+    "@typescript-eslint/no-unnecessary-type-assertion": 1,
+    "complexity": 1
+  },
   "packages/editor/src/editor/play-runner.ts": {
     "@typescript-eslint/require-await": 1
+  },
+  "packages/editor/src/editor/prefab-commands.ts": {
+    "max-params": 1
   },
   "packages/editor/src/editor/ref-targets.test.ts": {
     "@typescript-eslint/no-unnecessary-type-assertion": 2,
@@ -417,7 +426,7 @@
     "max-params": 1
   },
   "packages/editor/src/editor/update-schedule-inspector.test.ts": {
-    "@typescript-eslint/require-await": 5,
+    "@typescript-eslint/require-await": 3,
     "max-lines-per-function": 1,
     "waica/soft-max-lines-per-function": 2
   },
@@ -425,9 +434,11 @@
     "@typescript-eslint/require-await": 1,
     "waica/soft-max-lines-per-function": 1
   },
-  "packages/editor/src/editor/use-project-art.ts": {
-    "max-lines-per-function": 1,
-    "waica/soft-max-lines-per-function": 1
+  "packages/editor/src/editor/use-viewport-game.ts": {
+    "max-params": 1
+  },
+  "packages/editor/src/editor/viewport-boxes.ts": {
+    "max-params": 4
   },
   "packages/editor/src/editor/viewport-play-music.test.tsx": {
     "waica/soft-max-lines-per-function": 1
@@ -475,13 +486,10 @@
     "waica/soft-max-lines-per-function": 1
   },
   "packages/editor/src/home/ArchetypePicker.tsx": {
-    "@typescript-eslint/unbound-method": 2,
-    "max-lines-per-function": 1,
-    "waica/soft-max-lines-per-function": 1
+    "@typescript-eslint/unbound-method": 2
   },
   "packages/editor/src/home/Home.tsx": {
     "@typescript-eslint/unbound-method": 3,
-    "max-lines-per-function": 1,
     "waica/soft-max-lines-per-function": 1
   },
   "packages/editor/src/monaco-types.ts": {
@@ -521,8 +529,6 @@
     "waica/soft-max-lines-per-function": 1
   },
   "packages/editor/src/project/play-code.ts": {
-    "max-depth": 3,
-    "max-lines-per-function": 1,
     "max-params": 4,
     "waica/soft-max-lines-per-function": 1
   },
@@ -654,12 +660,6 @@
     "max-lines-per-function": 1,
     "waica/soft-max-lines-per-function": 1
   },
-  "packages/engine/src/component-update-schedule.ts": {
-    "complexity": 1,
-    "max-depth": 1,
-    "max-lines-per-function": 1,
-    "waica/soft-max-lines-per-function": 1
-  },
   "packages/engine/src/components/animated-sprite.test.ts": {
     "@typescript-eslint/no-unnecessary-type-assertion": 1,
     "max-lines-per-function": 1,
@@ -689,10 +689,7 @@
     "waica/soft-max-lines-per-function": 4
   },
   "packages/engine/src/components/tilemap.ts": {
-    "complexity": 1,
-    "max-lines-per-function": 1,
-    "waica/soft-max-lines": 1,
-    "waica/soft-max-lines-per-function": 1
+    "waica/soft-max-lines": 1
   },
   "packages/engine/src/game-camera-effects.test.ts": {
     "@typescript-eslint/consistent-type-imports": 1,
@@ -773,7 +770,6 @@
   },
   "packages/engine/src/runtime-bridge.ts": {
     "complexity": 1,
-    "max-lines-per-function": 1,
     "max-params": 1,
     "waica/soft-max-lines-per-function": 1
   },
@@ -785,10 +781,9 @@
   },
   "packages/engine/src/runtime-inspection.ts": {
     "complexity": 2,
-    "max-lines-per-function": 2,
     "max-params": 2,
     "waica/soft-max-lines": 1,
-    "waica/soft-max-lines-per-function": 3
+    "waica/soft-max-lines-per-function": 1
   },
   "packages/engine/src/scene.test.ts": {
     "@typescript-eslint/consistent-type-imports": 1,
@@ -811,13 +806,10 @@
     "waica/soft-max-lines-per-function": 3
   },
   "packages/engine/src/spatial-broadphase.ts": {
-    "@typescript-eslint/consistent-type-imports": 1,
-    "max-lines-per-function": 1,
-    "waica/soft-max-lines-per-function": 1
+    "@typescript-eslint/consistent-type-imports": 1
   },
   "packages/engine/src/spatial-query-geometry.ts": {
     "complexity": 2,
-    "max-lines-per-function": 1,
     "max-params": 5,
     "waica/soft-max-lines": 1,
     "waica/soft-max-lines-per-function": 3
@@ -895,8 +887,11 @@
     "waica/soft-max-lines-per-function": 2
   },
   "packages/mcp/src/collision-category-validation.ts": {
-    "max-lines-per-function": 1,
     "waica/soft-max-lines-per-function": 1
+  },
+  "packages/mcp/src/component-validation.ts": {
+    "complexity": 1,
+    "max-params": 4
   },
   "packages/mcp/src/create-project.test.ts": {
     "max-lines-per-function": 1,
@@ -915,10 +910,7 @@
   },
   "packages/mcp/src/introspection.ts": {
     "@typescript-eslint/no-unnecessary-type-assertion": 1,
-    "complexity": 1,
-    "max-lines-per-function": 3,
-    "max-params": 1,
-    "waica/soft-max-lines-per-function": 3
+    "waica/soft-max-lines-per-function": 2
   },
   "packages/mcp/src/package-resolver.test.ts": {
     "max-lines-per-function": 1,
@@ -937,15 +929,13 @@
     "max-lines-per-function": 1,
     "waica/soft-max-lines-per-function": 1
   },
-  "packages/mcp/src/param-reference-resolution.ts": {
-    "complexity": 1,
-    "max-lines-per-function": 1,
-    "waica/soft-max-lines-per-function": 1
-  },
   "packages/mcp/src/param-reference-validation.test.ts": {
     "max-lines-per-function": 1,
     "waica/soft-max-lines": 1,
     "waica/soft-max-lines-per-function": 2
+  },
+  "packages/mcp/src/project-component-fallbacks.ts": {
+    "waica/soft-max-lines-per-function": 1
   },
   "packages/mcp/src/project-component-loader.test.ts": {
     "max-lines-per-function": 1,
@@ -955,11 +945,9 @@
   "packages/mcp/src/project-component-loader.ts": {
     "@typescript-eslint/no-unnecessary-type-assertion": 1,
     "@typescript-eslint/prefer-promise-reject-errors": 1,
-    "complexity": 5,
-    "max-lines": 1,
-    "max-lines-per-function": 3,
+    "complexity": 2,
     "waica/soft-max-lines": 1,
-    "waica/soft-max-lines-per-function": 6
+    "waica/soft-max-lines-per-function": 2
   },
   "packages/mcp/src/project-component-process.test.ts": {
     "@typescript-eslint/no-unnecessary-type-assertion": 1,
@@ -967,6 +955,9 @@
     "max-lines-per-function": 1,
     "waica/soft-max-lines": 1,
     "waica/soft-max-lines-per-function": 4
+  },
+  "packages/mcp/src/project-component-protocol.ts": {
+    "complexity": 3
   },
   "packages/mcp/src/project-component-runner.ts": {
     "complexity": 1,
@@ -977,10 +968,9 @@
     "@typescript-eslint/no-unnecessary-type-assertion": 2,
     "@typescript-eslint/require-await": 1,
     "complexity": 1,
-    "max-lines-per-function": 1,
     "max-params": 2,
     "waica/soft-max-lines": 1,
-    "waica/soft-max-lines-per-function": 4
+    "waica/soft-max-lines-per-function": 3
   },
   "packages/mcp/src/runtime-dev-server.test.ts": {
     "@typescript-eslint/require-await": 1,
@@ -989,8 +979,7 @@
   },
   "packages/mcp/src/runtime-dev-server.ts": {
     "complexity": 1,
-    "max-lines-per-function": 1,
-    "max-params": 3,
+    "max-params": 1,
     "waica/soft-max-lines-per-function": 1
   },
   "packages/mcp/src/runtime-docs.test.ts": {
@@ -1005,8 +994,6 @@
   },
   "packages/mcp/src/runtime-preflight.ts": {
     "@typescript-eslint/no-unnecessary-type-assertion": 1,
-    "complexity": 1,
-    "max-lines-per-function": 1,
     "waica/soft-max-lines": 1,
     "waica/soft-max-lines-per-function": 1
   },
@@ -1021,10 +1008,7 @@
     "@typescript-eslint/no-base-to-string": 1,
     "@typescript-eslint/no-unnecessary-type-assertion": 1,
     "@typescript-eslint/no-unused-vars": 1,
-    "complexity": 1,
-    "max-lines-per-function": 1,
-    "waica/soft-max-lines": 1,
-    "waica/soft-max-lines-per-function": 1
+    "waica/soft-max-lines": 1
   },
   "packages/mcp/src/scaffolds.test.ts": {
     "max-lines-per-function": 2,
@@ -1032,7 +1016,6 @@
   },
   "packages/mcp/src/scaffolds.ts": {
     "complexity": 2,
-    "max-lines-per-function": 1,
     "max-params": 2,
     "waica/soft-max-lines-per-function": 2
   },
@@ -1056,17 +1039,20 @@
   "packages/mcp/src/server.ts": {
     "@typescript-eslint/no-unnecessary-type-assertion": 1,
     "@typescript-eslint/require-await": 1,
-    "complexity": 2,
-    "max-lines": 1,
-    "max-lines-per-function": 2,
-    "max-params": 3,
+    "complexity": 1,
     "waica/soft-max-lines": 1,
-    "waica/soft-max-lines-per-function": 3
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/mcp/src/state-machine-validation.ts": {
+    "max-params": 1
   },
   "packages/mcp/src/ui-binding-validation.test.ts": {
     "waica/soft-max-lines-per-function": 1
   },
   "packages/mcp/src/ui-binding-validation.ts": {
+    "max-params": 1
+  },
+  "packages/mcp/src/validation-context.ts": {
     "max-params": 1
   },
   "packages/mcp/src/validation.test.ts": {
@@ -1077,13 +1063,10 @@
   },
   "packages/mcp/src/validation.ts": {
     "@typescript-eslint/no-redundant-type-constituents": 1,
-    "complexity": 4,
-    "max-depth": 9,
-    "max-lines": 1,
-    "max-lines-per-function": 3,
-    "max-params": 8,
+    "max-depth": 1,
+    "max-params": 1,
     "waica/soft-max-lines": 1,
-    "waica/soft-max-lines-per-function": 3
+    "waica/soft-max-lines-per-function": 1
   },
   "packages/mcp/src/workspace-runtime.ts": {
     "@typescript-eslint/no-unused-vars": 1

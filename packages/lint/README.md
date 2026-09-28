@@ -36,12 +36,12 @@ config to check the severity.
 | Policy | Level | ESLint rule | Severity | Representative file | Notes |
 |---|---|---|---|---|---|
 | L18 | SHOULD | `waica/soft-max-lines-per-function` | `warn` | `packages/engine/src/game.ts` | 40 logical lines; core rule under a second name |
-| L23 | MUST | `max-lines-per-function` | `warn` | `packages/engine/src/game.ts` | 60 logical lines; `error` once the size refactors land |
+| L23 | MUST | `max-lines-per-function` | `error` | `packages/engine/src/game.ts` | 60 logical lines |
 | L25 | SHOULD | `complexity` | `warn` | `packages/engine/src/game.ts` | 10 |
 | L26 | SHOULD | `max-depth` | `warn` | `packages/engine/src/game.ts` | 3 |
 | L27 | SHOULD | `max-params` | `warn` | `packages/engine/src/game.ts` | 3 |
 | L38 | SHOULD | `waica/soft-max-lines` | `warn` | `packages/engine/src/game.ts` | 300 logical lines |
-| L40 | MUST | `max-lines` | `warn` | `packages/engine/src/game.ts` | 600 logical lines; `error` once the size refactors land |
+| L40 | MUST | `max-lines` | `error` | `packages/engine/src/game.ts` | 600 logical lines |
 | L64 | MUST | `@eslint-community/eslint-comments/require-description` | `error` | `packages/editor/src/editor/Viewport.tsx` | plus `reportUnusedDisableDirectives: "error"` |
 | L97 | MUST | `@typescript-eslint/no-non-null-assertion` | `error` | `packages/engine/src/game.ts` | tests use `defined()` from `packages/engine/src/test-support.ts` |
 | L98 | MUST | `@typescript-eslint/no-explicit-any` | `error` | `packages/engine/src/game.ts` | |
