@@ -54,7 +54,7 @@ config to check the severity.
 | L106 | MUST | `@typescript-eslint/switch-exhaustiveness-check` | `warn` | `packages/engine/src/game.ts` | a `default` does not count as exhaustive; `error` once the switches are fixed |
 | L111 | MUST | `@typescript-eslint/no-unnecessary-type-parameters` | `warn` | `packages/engine/src/game.ts` | `error` once the generics are fixed |
 | L112 | SHOULD | `@typescript-eslint/unified-signatures` | `warn` | `packages/engine/src/game.ts` | |
-| L124 | MUST | `@typescript-eslint/no-floating-promises` | `warn` | `packages/engine/src/game.ts` | `ignoreVoid: false` (L125); `error` once rejections are handled |
+| L124 | MUST | `@typescript-eslint/no-floating-promises` | `error` | `packages/engine/src/game.ts` | `ignoreVoid: false` (L125) |
 | L126 | MUST | `@typescript-eslint/no-misused-promises` | `error` | `packages/engine/src/game.ts` | |
 | L132 | SHOULD | `@typescript-eslint/consistent-type-imports` | `warn` | `packages/engine/src/game.ts` | |
 | L138 | SHOULD | `@typescript-eslint/require-await` | `warn` | `packages/engine/src/game.ts` | stands for every `recommendedTypeChecked` rule no policy line names |

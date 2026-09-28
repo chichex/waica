@@ -33,6 +33,7 @@ import { TilemapCard } from './TilemapCard'
 import type { TilemapBrushSelection } from './tilemap-brush'
 import { collisionParamDiagnostics, type ParamDiagnostic } from './collision-category-diagnostics'
 import { ParamDiagnosticMessages, StringListField } from './StringListField'
+import { reportRejection } from '../report-rejection'
 
 /** What the inspector is editing, mirroring the explorer view. */
 export type InspectorSelection =
@@ -1126,7 +1127,7 @@ function AppearanceSection({
         if (art.some((item) => item.uri === uri)) choose(uri)
       } else {
         const dataTransfer = e.dataTransfer
-        void collectDroppedFiles(dataTransfer).then(importImage)
+        reportRejection(collectDroppedFiles(dataTransfer).then(importImage), 'import dropped image')
       }
     },
   }
@@ -1193,7 +1194,7 @@ function AppearanceSection({
                 file,
                 relativePath: file.name,
               }))
-              void importImage(files)
+              reportRejection(importImage(files), 'import image')
               e.currentTarget.value = ''
             }}
           />

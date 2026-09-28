@@ -1,3 +1,4 @@
+import { reportRejection } from '../report-rejection.js'
 import type { AudioBackend, AudioResource, BackendPlayHandle, BackendPlayOptions } from './backend.js'
 
 /**
@@ -91,15 +92,18 @@ export class WebAudioBackend implements AudioBackend {
   }
 
   suspend(): void {
-    void this.context?.suspend()
+    const suspending = this.context?.suspend()
+    if (suspending) reportRejection(suspending, 'audio suspend')
   }
 
   resume(): void {
-    void this.ensureContext()?.resume()
+    const resuming = this.ensureContext()?.resume()
+    if (resuming) reportRejection(resuming, 'audio resume')
   }
 
   close(): void {
-    void this.context?.close()
+    const closing = this.context?.close()
+    if (closing) reportRejection(closing, 'audio close')
     this.context = null
     this.masterGain = null
     this.channelGains.clear()

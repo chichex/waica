@@ -13,6 +13,7 @@ import { projectArtFiles, projectFiles, type ProjectStart } from '../project/tem
 import { resolveArchetype } from '../project/archetype'
 import { GAME_PATH, parseGameSettings } from '../project/game'
 import { ArchetypePicker } from './ArchetypePicker'
+import { reportRejection } from '../report-rejection'
 
 async function isEmptyDir(handle: FileSystemDirectoryHandle): Promise<boolean> {
   for await (const _ of handle.entries()) return false
@@ -62,7 +63,19 @@ export function Home({
   const [picking, setPicking] = useState(false)
 
   useEffect(() => {
-    void listRecents().then(setRecents)
+    // A read that lands after this effect was cleaned up is stale.
+    let current = true
+    listRecents().then(
+      (list) => {
+        if (current) setRecents(list)
+      },
+      (error: unknown) => {
+        if (current) console.error(error)
+      },
+    )
+    return () => {
+      current = false
+    }
   }, [])
 
   const create = async (name: string, start: ProjectStart, archetypeId: string): Promise<void> => {
@@ -198,12 +211,12 @@ export function Home({
           <strong>Create project</strong>
           <span>Pick an archetype, a name and where to save it — Waica scaffolds a playable game inside.</span>
         </button>
-        <button className="home-card" onClick={() => void open()} disabled={!canFS || !!busy}>
+        <button className="home-card" onClick={() => reportRejection(open(), 'open project folder')} disabled={!canFS || !!busy}>
           <span className="home-card-icon">📂</span>
           <strong>Open project</strong>
           <span>A folder with a waica project (created here or with npm create waica).</span>
         </button>
-        <button className="home-card" onClick={() => void demo()} disabled={!!busy}>
+        <button className="home-card" onClick={() => reportRejection(demo(), 'open demo project')} disabled={!!busy}>
           <span className="home-card-icon">🎮</span>
           <strong>Try the demo</strong>
           <span>The full editor with an in-memory project — without touching your disk.</span>
@@ -226,7 +239,7 @@ export function Home({
               <button
                 className="home-recent-open"
                 disabled={!!busy}
-                onClick={() => void openRecent(recent)}
+                onClick={() => reportRejection(openRecent(recent), 'open recent')}
               >
                 📁 {recent.name}
               </button>
@@ -235,7 +248,7 @@ export function Home({
                 title="Delete the project folder from your disk — permanent, no Trash"
                 aria-label={`Delete ${recent.name} from disk`}
                 disabled={!!busy}
-                onClick={() => void deleteRecent(recent)}
+                onClick={() => reportRejection(deleteRecent(recent), 'delete recent')}
               >
                 🗑️
               </button>
@@ -244,7 +257,7 @@ export function Home({
                 title="Remove from recents (doesn't delete the folder)"
                 aria-label={`Remove ${recent.name} from recents`}
                 disabled={!!busy}
-                onClick={() => void forgetRecent(recent.name)}
+                onClick={() => reportRejection(forgetRecent(recent.name), 'forget recent')}
               >
                 ✕
               </button>
@@ -257,7 +270,7 @@ export function Home({
         <ArchetypePicker
           onPick={(id, name, start) => {
             setPicking(false)
-            void create(name, start, id)
+            reportRejection(create(name, start, id), 'create project')
           }}
           onClose={() => setPicking(false)}
         />

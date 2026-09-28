@@ -4,6 +4,7 @@ import { ensurePermission, saveRecent } from './fs/recents'
 import { clearSession, loadSession, saveSession, type StoredSession } from './fs/session'
 import { Home } from './home/Home'
 import { Editor } from './editor/Editor'
+import { reportRejection } from './report-rejection'
 
 export function App() {
   const [project, setProject] = useState<ProjectFS | null>(null)
@@ -16,7 +17,7 @@ export function App() {
   // permission, via the Home "continue" card when it needs a user gesture.
   useEffect(() => {
     let stale = false
-    void (async () => {
+    const reopen = async (): Promise<void> => {
       const session = await loadSession()
       if (stale) return
       if (session) {
@@ -26,18 +27,19 @@ export function App() {
           if ((await fs.readText(SCENE_PATH)) != null) {
             if (!stale) {
               setProject(fs)
-              void saveRecent(session.name, session.handle)
+              reportRejection(saveRecent(session.name, session.handle), 'save recent project')
             }
           } else {
             // The folder moved or lost its scene: forget it instead of opening broken.
-            void clearSession()
+            reportRejection(clearSession(), 'clear session')
           }
         } else if (!stale) {
           setResume(session)
         }
       }
       if (!stale) setChecked(true)
-    })()
+    }
+    reportRejection(reopen(), 'reopen last project')
     return () => {
       stale = true
     }
@@ -47,13 +49,13 @@ export function App() {
     setResume(null)
     setProject(fs)
     // Demo projects are in-memory: there is nothing to come back to.
-    if (fs instanceof RealFS) void saveSession(fs.name, fs.handle)
+    if (fs instanceof RealFS) reportRejection(saveSession(fs.name, fs.handle), 'save session')
   }
 
   const close = (): void => {
     setProject(null)
     // Leaving on purpose: the next visit starts at Home too.
-    void clearSession()
+    reportRejection(clearSession(), 'clear session')
   }
 
   // The folder is gone from disk: a session pointing at it would only offer a
@@ -61,7 +63,7 @@ export function App() {
   const forgetDeleted = (name: string): void => {
     if (resume?.name !== name) return
     setResume(null)
-    void clearSession()
+    reportRejection(clearSession(), 'clear session')
   }
 
   const resumeLast = async (): Promise<void> => {
@@ -71,10 +73,10 @@ export function App() {
     if ((await fs.readText(SCENE_PATH)) == null) {
       alert(`Could not find ${SCENE_PATH} in "${resume.name}" — the folder moved or changed.`)
       setResume(null)
-      void clearSession()
+      reportRejection(clearSession(), 'clear session')
       return
     }
-    void saveRecent(resume.name, resume.handle)
+    reportRejection(saveRecent(resume.name, resume.handle), 'save recent project')
     open(fs)
   }
 
@@ -85,7 +87,7 @@ export function App() {
     <Home
       onOpen={open}
       resume={resume}
-      onResume={() => void resumeLast()}
+      onResume={() => reportRejection(resumeLast(), 'resume last project')}
       onDeleted={forgetDeleted}
     />
   )

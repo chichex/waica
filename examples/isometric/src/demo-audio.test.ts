@@ -60,6 +60,12 @@ const SWING_URI = resolveAsset('waica:iso-sword-swing')
 const ORC_HURT_URI = resolveAsset('waica:iso-hit')
 const PLAYER_HURT_URI = resolveAsset('waica:iso-hurt')
 
+const PRELOADED_SOUNDS = ['waica:iso-sword-swing', 'waica:iso-hit', 'waica:iso-hurt', 'waica:iso-town-theme']
+
+function reportPreloadFailure(error: unknown): void {
+  console.error('[waica] audio preload failed:', error)
+}
+
 /** Fires an untracked, unbound key so it unlocks audio (CA-6) without also driving any game action. */
 function unlock(): void {
   window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyQ' }))
@@ -96,7 +102,7 @@ function makeDemo(backend: FakeAudioBackend) {
   // exactly: the music uri comes from the manifest field, not a hardcoded
   // literal, and is resolved internally by game.audio through the
   // registered scene catalog above — no manual resolveAsset step needed.
-  void game.audio.preload(['waica:iso-sword-swing', 'waica:iso-hit', 'waica:iso-hurt', 'waica:iso-town-theme'])
+  game.audio.preload(PRELOADED_SOUNDS).catch(reportPreloadFailure)
   const musicUri = ARCHETYPE.music
   if (!musicUri) throw new Error('expected the isometric archetype to declare music (G8)')
   const musicHandle = game.audio.play(musicUri, { channel: 'music', loop: true, scope: 'session' })

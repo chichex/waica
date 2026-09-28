@@ -37,7 +37,6 @@ const PENDING_MUST = new Set([
   '@typescript-eslint/no-unsafe-return',
   '@typescript-eslint/switch-exhaustiveness-check',
   '@typescript-eslint/no-unnecessary-type-parameters',
-  '@typescript-eslint/no-floating-promises',
   'react-hooks/exhaustive-deps',
   'react-hooks/immutability',
   'react-hooks/refs',

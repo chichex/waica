@@ -12,6 +12,7 @@ import {
   type TilemapGridSpec,
 } from '../tilemap-grid.js'
 import { Solid } from './solid.js'
+import { reportRejection } from '../report-rejection.js'
 
 /** One authorable cell map rendered as a single merged geometry. */
 export class Tilemap extends Component implements SolidSource {
@@ -253,11 +254,11 @@ export class Tilemap extends Component implements SolidSource {
     // happens if the texture was replaced or the component destroyed
     // meanwhile.
     const { texture, settled } = this.game.assets.texture(requested)
-    void settled.then((outcome) => {
+    reportRejection(settled.then((outcome) => {
       if (this.loadedTexture !== texture || this.texture !== requested) return
       if (outcome === 'loaded') this.rebuildGeometry()
       else this.dropFailedTexture()
-    })
+    }), 'tilemap texture settle')
     if (this.pixelArt) {
       texture.magFilter = THREE.NearestFilter
       texture.minFilter = THREE.NearestFilter

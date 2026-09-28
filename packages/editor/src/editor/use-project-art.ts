@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ProjectFS, TreeNode } from '../fs/project-fs'
+import { reportRejection } from '../report-rejection'
 
 export interface ArtItem {
   label: string
@@ -182,7 +183,7 @@ export function useProjectArt(
       }
       return { items, created }
     }
-    void load().then(({ items, created }) => {
+    reportRejection(load().then(({ items, created }) => {
       if (cancelled) {
         for (const url of created) URL.revokeObjectURL(url)
         return
@@ -190,7 +191,7 @@ export function useProjectArt(
       for (const url of owned.current) URL.revokeObjectURL(url)
       owned.current = created
       setArt(items)
-    })
+    }), 'load project art')
     return () => {
       cancelled = true
     }

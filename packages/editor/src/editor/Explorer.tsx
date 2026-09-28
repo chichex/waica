@@ -14,6 +14,7 @@ import {
   type ArtItem,
   type DroppedFile,
 } from './use-project-art'
+import { reportRejection } from '../report-rejection'
 
 /** What the center pane (and the inspector) is looking at. */
 export type ExplorerView =
@@ -457,7 +458,7 @@ export function Explorer({
               label: 'Delete',
               icon: '🗑',
               danger: true,
-              onClick: () => void deleteArt(item),
+              onClick: () => reportRejection(deleteArt(item), 'delete art'),
             },
           ])
         }
@@ -503,7 +504,7 @@ export function Explorer({
             label: 'Delete',
             icon: '🗑',
             danger: true,
-            onClick: () => void deleteArt(item),
+            onClick: () => reportRejection(deleteArt(item), 'delete art'),
           },
         ])
       }
@@ -1127,9 +1128,9 @@ export function Explorer({
           setDropping(false)
           const dataTransfer = e.dataTransfer
           setScanningArt(true)
-          void collectDroppedFiles(dataTransfer)
+          reportRejection(collectDroppedFiles(dataTransfer)
             .then((files) => onImportArt(files))
-            .finally(() => setScanningArt(false))
+            .finally(() => setScanningArt(false)), 'import dropped art')
         }}
       >
         <header className="ed-panel-head">
@@ -1149,7 +1150,7 @@ export function Explorer({
               file,
               relativePath: file.name,
             }))
-            void onImportArt(files)
+            reportRejection(onImportArt(files), 'import art')
             e.currentTarget.value = ''
           }}
         />

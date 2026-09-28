@@ -29,6 +29,7 @@ import {
   type ArtItem,
   type DroppedFile,
 } from './use-project-art'
+import { reportRejection } from '../report-rejection'
 
 type SliceKey = (typeof SLICE_KEYS)[number]
 
@@ -360,7 +361,7 @@ export function AnimationEditor({
                   e.preventDefault()
                   setDroppingSheet(false)
                   const dataTransfer = e.dataTransfer
-                  void collectDroppedFiles(dataTransfer).then(importSheet)
+                  reportRejection(collectDroppedFiles(dataTransfer).then(importSheet), 'import dropped sheet')
                 }}
               >
                 <div className="ed-hint">Drop a PNG spritesheet here, or pick one:</div>
@@ -383,7 +384,7 @@ export function AnimationEditor({
                       file,
                       relativePath: file.name,
                     }))
-                    void importSheet(files)
+                    reportRejection(importSheet(files), 'import sheet')
                     e.currentTarget.value = ''
                   }}
                 />

@@ -76,6 +76,7 @@ import { browserSoundPreview } from './sound-preview'
 import { loadWorkspace, saveWorkspace, type WorkspaceView } from './workspace'
 import { WriteScheduler } from './write-scheduler'
 import type { TilemapBrushSelection } from './tilemap-brush'
+import { reportRejection } from '../report-rejection'
 
 type SaveState = 'saved' | 'saving' | 'error'
 
@@ -253,7 +254,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   useEffect(() => {
     workspaceRestored.current = false
     let stale = false
-    void (async () => {
+    reportRejection((async () => {
       const [
         paths,
         prefabs,
@@ -341,7 +342,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
         if (saved.view && viewExists(saved.view)) setView(saved.view)
       }
       workspaceRestored.current = true
-    })()
+    })(), 'restore project and workspace')
     return () => {
       stale = true
     }
@@ -447,7 +448,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
     // screen (and stays editable, against its own path) until the next file
     // lands, so the Viewport is never unmounted mid-switch.
     setSceneFailed(false)
-    void fs.readText(path).then((text) => {
+    reportRejection(fs.readText(path).then((text) => {
       if (stale) return
       try {
         if (text == null) throw new Error('missing')
@@ -455,7 +456,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       } catch {
         setSceneFailed(true)
       }
-    })
+    }), 'open scene')
     return () => {
       stale = true
     }
@@ -1098,10 +1099,10 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       })
       if (view?.kind === 'prefab' && view.ref === ref) setView(null)
       // The file may never have landed (undoing a debounced create): ignore.
-      void fs
+      reportRejection(fs
         .deleteFile(prefabPath(ref))
         .catch(() => {})
-        .then(() => setSaveState('saved'))
+        .then(() => setSaveState('saved')), 'delete file')
     } else {
       setPrefabLib((lib) => ({ ...lib, [ref]: value }))
       savePrefab(fs, ref, value)
@@ -1121,10 +1122,10 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
         return next
       })
       if (view?.kind === 'ui' && view.name === name) setView(null)
-      void fs
+      reportRejection(fs
         .deleteFile(uiPath(name))
         .catch(() => {})
-        .then(() => setSaveState('saved'))
+        .then(() => setSaveState('saved')), 'delete file')
     } else {
       setUiLib((lib) => ({ ...lib, [name]: value }))
       saveUi(fs, name, value)
@@ -1234,7 +1235,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
       e.preventDefault()
       if (isDuplicate) duplicateRef.current()
       else if (isGroup) groupRef.current()
-      else void stepRef.current(isUndo ? 'undo' : 'redo')
+      else reportRejection(stepRef.current(isUndo ? 'undo' : 'redo'), 'undo or redo')
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -1699,7 +1700,8 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
           onClick={(e) => {
             // Drop focus so Space (jump) doesn't re-trigger the button.
             e.currentTarget.blur()
-            void (mode === 'edit' ? play() : stop())
+            if (mode === 'edit') reportRejection(play(), 'play')
+            else stop()
           }}
         >
           {mode === 'edit' ? '▶ Play' : '⏹ Stop'}
@@ -1760,7 +1762,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
               selectEntity(ops.CAMERA_NODE)
             }}
             onAddEntity={addEntity}
-            onCreateScene={() => void createScene()}
+            onCreateScene={() => reportRejection(createScene(), 'create scene')}
             onCreateFolder={createFolder}
             justCreatedFolder={justCreatedFolder}
             onRenameFolder={renameFolder}
@@ -1771,7 +1773,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             onOpenPrefab={(ref) => openView({ kind: 'prefab', ref })}
             onOpenScript={(name) => openView({ kind: 'script', name })}
             customComponents={customComponents}
-            onCreateComponent={() => void createComponentFile()}
+            onCreateComponent={() => reportRejection(createComponentFile(), 'create component file')}
             onOpenComponentFile={(path) => openView({ kind: 'componentFile', path })}
             stateFiles={stateFiles}
             roleFiles={roleFiles}
@@ -1782,8 +1784,8 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             onOpenControls={() => openView({ kind: 'controls' })}
             onOpenStats={() => openView({ kind: 'stats' })}
             onOpenGame={() => openView({ kind: 'game' })}
-            onDuplicateScene={(path) => void duplicateScene(path)}
-            onDeleteScene={(path) => void deleteScene(path)}
+            onDuplicateScene={(path) => reportRejection(duplicateScene(path), 'duplicate scene')}
+            onDeleteScene={(path) => reportRejection(deleteScene(path), 'delete scene')}
             onDuplicateEntity={duplicateEntity}
             onDeleteEntity={deleteEntity}
             onRenameEntity={renameEntity}
@@ -1792,13 +1794,13 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             onReorderEntities={reorderEntities}
             onCreatePrefab={createPrefab}
             onDuplicatePrefab={duplicatePrefab}
-            onRenamePrefab={(ref, name) => void renamePrefab(ref, name)}
-            onDeletePrefab={(ref) => void deletePrefab(ref)}
+            onRenamePrefab={(ref, name) => reportRejection(renamePrefab(ref, name), 'rename prefab')}
+            onDeletePrefab={(ref) => reportRejection(deletePrefab(ref), 'delete prefab')}
             onAddPrefabToScene={addPrefabToScene}
             onOpenUi={(name) => openView({ kind: 'ui', name })}
             onCreateUi={createUi}
             onDuplicateUi={duplicateUi}
-            onDeleteUi={(name) => void deleteUi(name)}
+            onDeleteUi={(name) => reportRejection(deleteUi(name), 'delete ui')}
             onToggleUiInScene={toggleUiInScene}
             onArtDeleted={(path) => {
               if (view?.kind === 'art' && view.path === path) setView(null)
@@ -2048,7 +2050,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
             roleFiles={roleFiles}
             onMachinePatch={entityMachinePatch}
             onPrefabMachinePatch={prefabMachinePatch}
-            onCreateRoleFile={(role) => void createRoleFile(role)}
+            onCreateRoleFile={(role) => reportRejection(createRoleFile(role), 'create role file')}
             onEditState={setStateTarget}
           />
         </aside>
@@ -2132,7 +2134,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
               clips={Object.keys((sprite?.props?.clips as Record<string, unknown>) ?? {})}
               inputActions={Object.keys(controls ?? {})}
               stateFiles={stateFiles}
-              onCreateFile={(state) => void createStateFile(machine.role, state)}
+              onCreateFile={(state) => reportRejection(createStateFile(machine.role, state), 'create state file')}
               onSave={(patch) => {
                 if (stateTarget.kind === 'prefab') prefabMachinePatch(stateTarget.ref, patch)
                 else entityMachinePatch(stateTarget.name, patch)

@@ -91,7 +91,9 @@ if (canvas.dataset.waica) {
   location.reload()
 } else {
   canvas.dataset.waica = 'mounted'
-  void main(canvas)
+  main(canvas).catch((error: unknown) => {
+    console.error('[waica] the game failed to start:', error)
+  })
 }
 
 async function main(canvas: HTMLCanvasElement): Promise<void> {
@@ -152,12 +154,14 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   // suspended so decoding emits nothing, and CA-9 has no other way to
   // decode early. Chrome logs its autoplay-policy notice for it; that is
   // cosmetic. Read this as deliberate, not as a CA-6 violation.
-  void game.audio.preload([
+  game.audio.preload([
     'src/art/waica-iso-sword-swing.ogg',
     'src/art/waica-iso-hit.ogg',
     'src/art/waica-iso-hurt.ogg',
     'waica:iso-town-theme',
-  ])
+  ]).catch((error: unknown) => {
+    console.error('[waica] audio preload failed:', error)
+  })
   if (ARCHETYPE.music) {
     game.audio.play(ARCHETYPE.music, { channel: 'music', loop: true, scope: 'session' })
   }

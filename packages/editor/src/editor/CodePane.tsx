@@ -3,6 +3,7 @@ import MonacoEditor from '@monaco-editor/react'
 import type { SceneJson } from '@waica/engine'
 import { SCENE_PATH, type ProjectFS } from '../fs/project-fs'
 import { WRITE_DELAY_MS } from './write-scheduler'
+import { reportRejection } from '../report-rejection'
 
 const LANGUAGES: Record<string, string> = {
   ts: 'typescript',
@@ -50,10 +51,21 @@ export function CodePane({
     if (!fs) return
     setValue(null)
     setDirty(false)
-    void fs.readText(path).then((text) => {
-      valueRef.current = text
-      setValue(text)
-    })
+    // Switching file before this read lands must not show the old file.
+    let current = true
+    fs.readText(path).then(
+      (text) => {
+        if (!current) return
+        valueRef.current = text
+        setValue(text)
+      },
+      (error: unknown) => {
+        if (current) console.error(error)
+      },
+    )
+    return () => {
+      current = false
+    }
   }, [fs, path, source])
 
   const save = async (): Promise<void> => {
@@ -85,7 +97,7 @@ export function CodePane({
   useEffect(() => {
     if (readOnly || source != null || !fs) return
     const flush = (): void => {
-      if (dirtyRef.current) void save()
+      if (dirtyRef.current) reportRejection(save(), 'save')
     }
     window.addEventListener('pagehide', flush)
     window.addEventListener('beforeunload', flush)
@@ -115,7 +127,7 @@ export function CodePane({
           {dirty ? ' •' : ''}
         </span>
         {!readOnly && (
-          <button className="ed-mini" onClick={() => void save()}>
+          <button className="ed-mini" onClick={() => reportRejection(save(), 'save')}>
             save ⌘S
           </button>
         )}
@@ -136,10 +148,10 @@ export function CodePane({
             setDirty(true)
             // Auto-save on the same clock as the rest of the editor; ⌘S lands it now.
             if (timer.current) clearTimeout(timer.current)
-            timer.current = setTimeout(() => void save(), WRITE_DELAY_MS)
+            timer.current = setTimeout(() => reportRejection(save(), 'save'), WRITE_DELAY_MS)
           }}
           onMount={(editor, monaco) => {
-            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => void save())
+            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => reportRejection(save(), 'save'))
           }}
           options={{ minimap: { enabled: false }, fontSize: 13, tabSize: 2, readOnly }}
         />

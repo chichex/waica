@@ -4,6 +4,7 @@ import { ClipPlayer, type ClipDef } from '../animation/clip-player.js'
 import { locateFrame, sheetCell, type SheetCell, type SheetDef } from '../animation/sheet.js'
 import type { YSortParticipant } from '../render-sort.js'
 import { spritePlacement } from '../sprite-placement.js'
+import { reportRejection } from '../report-rejection.js'
 
 const clampAnchor = (value: number): number => Math.min(1, Math.max(0, value))
 
@@ -222,11 +223,11 @@ export class AnimatedSprite extends Component implements YSortParticipant {
   private sheetTexture(url: string): THREE.Texture {
     if (!url) return new THREE.Texture()
     const { texture, settled } = this.game.assets.texture(url)
-    void settled.then((outcome) => {
+    reportRejection(settled.then((outcome) => {
       if (!this.texs.includes(texture)) return
       if (outcome === 'failed') this.failedSheets.add(texture)
       this.applyFrame()
-    })
+    }), 'sheet texture settle')
     return texture
   }
 

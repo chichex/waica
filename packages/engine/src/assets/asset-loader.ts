@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { ThreeTextureBackend, type TextureBackend } from './texture-backend.js'
+import { reportRejection } from '../report-rejection.js'
 
 /** `game.assets.status`: a fresh snapshot of the cache's counters, cumulative for the Game. */
 export interface AssetStatus {
@@ -99,9 +100,9 @@ export class AssetLoader {
     if (entry.outcome === null) {
       // Chained here, before the consumer chains its own continuation on
       // `settled`, so the clone is uploadable by the time that one runs.
-      void entry.settled.then((outcome) => {
+      reportRejection(entry.settled.then((outcome) => {
         if (outcome === 'loaded') texture.version = entry.base.version
-      })
+      }), 'texture upload')
     }
     return { texture, settled: entry.settled }
   }

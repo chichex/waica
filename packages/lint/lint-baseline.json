@@ -1,6 +1,5 @@
 {
   "examples/isometric/src/demo-audio.test.ts": {
-    "@typescript-eslint/no-floating-promises": 1,
     "@typescript-eslint/no-non-null-assertion": 3,
     "waica/soft-max-lines-per-function": 1
   },
@@ -25,7 +24,6 @@
     "waica/soft-max-lines-per-function": 2
   },
   "examples/isometric/src/main.ts": {
-    "@typescript-eslint/no-floating-promises": 2,
     "no-restricted-syntax": 1
   },
   "examples/isometric/src/preload-matches-playback.test.ts": {
@@ -44,11 +42,9 @@
     "waica/soft-max-lines-per-function": 2
   },
   "examples/platformer/src/main.ts": {
-    "@typescript-eslint/no-floating-promises": 1,
     "no-restricted-syntax": 1
   },
   "examples/topdown/src/main.ts": {
-    "@typescript-eslint/no-floating-promises": 1,
     "no-restricted-syntax": 1
   },
   "packages/archetype-isometric/src/art.test.ts": {
@@ -305,9 +301,6 @@
   "packages/behaviors/src/topdown-player-states.ts": {
     "@typescript-eslint/unbound-method": 1
   },
-  "packages/cli/src/cli.ts": {
-    "@typescript-eslint/no-floating-promises": 1
-  },
   "packages/cli/src/esm-imports.test.ts": {
     "max-depth": 1
   },
@@ -322,19 +315,16 @@
     "waica/soft-max-lines-per-function": 1
   },
   "packages/cli/src/server.ts": {
-    "@typescript-eslint/no-floating-promises": 1,
     "@typescript-eslint/switch-exhaustiveness-check": 1,
     "complexity": 1,
     "max-params": 2
   },
   "packages/editor/src/App.tsx": {
-    "@typescript-eslint/no-floating-promises": 9,
     "max-depth": 1,
     "max-lines-per-function": 1,
     "waica/soft-max-lines-per-function": 1
   },
   "packages/editor/src/editor/AnimationEditor.tsx": {
-    "@typescript-eslint/no-floating-promises": 2,
     "@typescript-eslint/no-non-null-assertion": 6,
     "@typescript-eslint/no-unnecessary-type-assertion": 2,
     "@typescript-eslint/unbound-method": 11,
@@ -357,7 +347,6 @@
     "waica/soft-max-lines-per-function": 1
   },
   "packages/editor/src/editor/CodePane.tsx": {
-    "@typescript-eslint/no-floating-promises": 5,
     "@typescript-eslint/unbound-method": 3,
     "complexity": 2,
     "max-lines-per-function": 1,
@@ -371,7 +360,6 @@
     "waica/soft-max-lines-per-function": 1
   },
   "packages/editor/src/editor/Editor.tsx": {
-    "@typescript-eslint/no-floating-promises": 15,
     "@typescript-eslint/no-non-null-assertion": 5,
     "@typescript-eslint/switch-exhaustiveness-check": 2,
     "@typescript-eslint/unbound-method": 10,
@@ -387,7 +375,6 @@
     "waica/soft-max-lines-per-function": 3
   },
   "packages/editor/src/editor/Explorer.tsx": {
-    "@typescript-eslint/no-floating-promises": 4,
     "@typescript-eslint/no-non-null-assertion": 1,
     "@typescript-eslint/unbound-method": 48,
     "complexity": 5,
@@ -402,7 +389,6 @@
   },
   "packages/editor/src/editor/Inspector.tsx": {
     "@typescript-eslint/no-base-to-string": 1,
-    "@typescript-eslint/no-floating-promises": 2,
     "@typescript-eslint/no-non-null-assertion": 10,
     "@typescript-eslint/no-unnecessary-type-assertion": 1,
     "@typescript-eslint/unbound-method": 71,
@@ -553,7 +539,6 @@
     "waica/soft-max-lines-per-function": 1
   },
   "packages/editor/src/editor/use-project-art.ts": {
-    "@typescript-eslint/no-floating-promises": 1,
     "max-lines-per-function": 1,
     "waica/soft-max-lines-per-function": 1
   },
@@ -613,7 +598,6 @@
     "waica/soft-max-lines-per-function": 1
   },
   "packages/editor/src/home/Home.tsx": {
-    "@typescript-eslint/no-floating-promises": 7,
     "@typescript-eslint/unbound-method": 3,
     "max-lines-per-function": 1,
     "waica/soft-max-lines-per-function": 1
@@ -724,12 +708,8 @@
     "@typescript-eslint/no-unused-vars": 2
   },
   "packages/engine/src/assets/asset-loader.test.ts": {
-    "@typescript-eslint/no-floating-promises": 6,
     "max-lines-per-function": 1,
     "waica/soft-max-lines-per-function": 3
-  },
-  "packages/engine/src/assets/asset-loader.ts": {
-    "@typescript-eslint/no-floating-promises": 1
   },
   "packages/engine/src/assets/game-assets.test.ts": {
     "@typescript-eslint/consistent-type-imports": 1,
@@ -761,7 +741,6 @@
     "@typescript-eslint/require-await": 1
   },
   "packages/engine/src/audio/web-audio-backend.ts": {
-    "@typescript-eslint/no-floating-promises": 3,
     "@typescript-eslint/no-non-null-assertion": 2
   },
   "packages/engine/src/authoring-defaults.ts": {
@@ -829,7 +808,6 @@
     "waica/soft-max-lines-per-function": 2
   },
   "packages/engine/src/components/animated-sprite.ts": {
-    "@typescript-eslint/no-floating-promises": 1,
     "complexity": 1,
     "waica/soft-max-lines-per-function": 1
   },
@@ -847,9 +825,6 @@
     "@typescript-eslint/no-non-null-assertion": 2,
     "waica/soft-max-lines-per-function": 2
   },
-  "packages/engine/src/components/sprite.ts": {
-    "@typescript-eslint/no-floating-promises": 1
-  },
   "packages/engine/src/components/tilemap.test.ts": {
     "@typescript-eslint/consistent-type-imports": 1,
     "@typescript-eslint/no-non-null-assertion": 1,
@@ -858,7 +833,6 @@
     "waica/soft-max-lines-per-function": 4
   },
   "packages/engine/src/components/tilemap.ts": {
-    "@typescript-eslint/no-floating-promises": 1,
     "complexity": 1,
     "max-lines-per-function": 1,
     "waica/soft-max-lines": 1,
@@ -1190,14 +1164,11 @@
     "waica/soft-max-lines-per-function": 4
   },
   "packages/mcp/src/project-component-runner.ts": {
-    "@typescript-eslint/no-floating-promises": 1,
     "complexity": 2,
     "no-restricted-syntax": 1,
-    "waica/soft-max-lines": 1,
     "waica/soft-max-lines-per-function": 2
   },
   "packages/mcp/src/runtime-browser.ts": {
-    "@typescript-eslint/no-floating-promises": 1,
     "@typescript-eslint/no-redundant-type-constituents": 1,
     "@typescript-eslint/no-unnecessary-type-assertion": 2,
     "@typescript-eslint/require-await": 1,
@@ -1250,13 +1221,12 @@
   },
   "packages/mcp/src/runtime-session-manager.ts": {
     "@typescript-eslint/no-base-to-string": 1,
-    "@typescript-eslint/no-floating-promises": 2,
     "@typescript-eslint/no-unnecessary-type-assertion": 1,
-    "@typescript-eslint/no-unused-vars": 2,
+    "@typescript-eslint/no-unused-vars": 1,
     "complexity": 1,
     "max-lines-per-function": 1,
     "waica/soft-max-lines": 1,
-    "waica/soft-max-lines-per-function": 2
+    "waica/soft-max-lines-per-function": 1
   },
   "packages/mcp/src/scaffolds.test.ts": {
     "max-lines-per-function": 2,
@@ -1288,7 +1258,6 @@
     "waica/soft-max-lines-per-function": 4
   },
   "packages/mcp/src/server.ts": {
-    "@typescript-eslint/no-floating-promises": 1,
     "@typescript-eslint/no-unnecessary-type-assertion": 1,
     "@typescript-eslint/require-await": 1,
     "complexity": 2,
