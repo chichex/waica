@@ -14,9 +14,16 @@ const repoRoot = new URL('../../', import.meta.url).pathname
 
 const SOURCE_TS = ['packages/*/src/**/*.{ts,tsx}', 'examples/*/src/**/*.ts']
 const SCRIPTS = ['scripts/**/*.mjs']
-// Test code: unit tests plus the two scripted harnesses behind `pnpm test:e2e`
-// and `pnpm test:dist` (Ajustes: size and complexity are warn-only in tests).
-const TESTS = ['**/*.test.ts', '**/*.test.tsx', 'scripts/runtime-e2e.mjs', 'scripts/test-*.mjs']
+// Test code: unit tests, their `test-*.ts` support modules (excluded from
+// builds), and the two scripted harnesses behind `pnpm test:e2e` and
+// `pnpm test:dist` (Ajustes: size and complexity are warn-only in tests).
+const TESTS = [
+  '**/*.test.ts',
+  '**/*.test.tsx',
+  '**/test-*.ts',
+  'scripts/runtime-e2e.mjs',
+  'scripts/test-*.mjs',
+]
 const EDITOR = ['packages/editor/src/**/*.{ts,tsx}']
 const EDITOR_JSX = ['packages/editor/src/**/*.tsx']
 
@@ -28,14 +35,12 @@ const COUNT = { skipBlankLines: true, skipComments: true }
 const PENDING_MUST = new Set([
   'max-lines-per-function',
   'max-lines',
-  'no-restricted-syntax',
   '@typescript-eslint/no-non-null-assertion',
   '@typescript-eslint/no-unsafe-assignment',
   '@typescript-eslint/no-unsafe-argument',
   '@typescript-eslint/no-unsafe-call',
   '@typescript-eslint/no-unsafe-member-access',
   '@typescript-eslint/no-unsafe-return',
-  '@typescript-eslint/switch-exhaustiveness-check',
   '@typescript-eslint/no-unnecessary-type-parameters',
   'react-hooks/exhaustive-deps',
   'react-hooks/immutability',
@@ -154,6 +159,13 @@ const doubleAssertion = {
     'A double assertion through `unknown` hides an unchecked cast: narrow the value, or use a named helper whose single cast is commented.',
 }
 
+const uncheckedJsonParse = {
+  selector:
+    "TSAsExpression[typeAnnotation.type!='TSUnknownKeyword'][expression.type='CallExpression'][expression.callee.object.name='JSON'][expression.callee.property.name='parse']",
+  message:
+    'JSON.parse returns unchecked data: type it as unknown and narrow it with a guard before use.',
+}
+
 export default tseslint.config(
   { ignores: ['**/dist/**', '**/node_modules/**', '**/*.d.ts', '**/.vite/**'] },
   {
@@ -183,7 +195,7 @@ export default tseslint.config(
     rules: {
       ...sizeRules,
       ...typeScriptMustRules,
-      'no-restricted-syntax': [must('no-restricted-syntax'), doubleAssertion],
+      'no-restricted-syntax': [must('no-restricted-syntax'), doubleAssertion, uncheckedJsonParse],
     },
   },
   {

@@ -9,7 +9,7 @@ import {
 } from '@waica/engine'
 
 /** Shared velocity, collision and provider behavior for square-grid motors. */
-export abstract class GridMotor<Facing extends string>
+export abstract class GridMotor
   extends Component
   implements CameraVelocityProvider, AnimationFacingProvider
 {
@@ -36,7 +36,8 @@ export abstract class GridMotor<Facing extends string>
 
   vx = 0
   vy = 0
-  abstract facing: Facing
+  /** Each motor narrows this to its own facing vocabulary. */
+  abstract facing: string
 
   /** The scene camera reads follow velocity through this explicit seam. */
   getCameraVelocity(): CameraVelocity {

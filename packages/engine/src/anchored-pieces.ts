@@ -412,7 +412,7 @@ function animationStart(instance: Instance, animation: Animation, firstSeen: num
   const target = effect && 'target' in effect ? effect.target : null
   if (typeof name === 'string' && target instanceof Element) {
     let byName = instance.named.get(target)
-    if (!byName) instance.named.set(target, (byName = new Map()))
+    if (!byName) instance.named.set(target, (byName = new Map<string, number>()))
     const start = byName.get(name) ?? firstSeen
     byName.set(name, start)
     return start

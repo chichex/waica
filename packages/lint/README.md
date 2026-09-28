@@ -50,8 +50,8 @@ config to check the severity.
 | L98 | MUST | `@typescript-eslint/no-unsafe-call` | `warn` | `packages/engine/src/game.ts` | `error` once JSON is validated |
 | L98 | MUST | `@typescript-eslint/no-unsafe-member-access` | `warn` | `packages/engine/src/game.ts` | `error` once JSON is validated |
 | L98 | MUST | `@typescript-eslint/no-unsafe-return` | `warn` | `packages/engine/src/game.ts` | `error` once JSON is validated |
-| L99 | MUST | `no-restricted-syntax` | `warn` | `packages/engine/src/game.ts` | forbids `as unknown as` outside tests; `error` once the casts are named |
-| L106 | MUST | `@typescript-eslint/switch-exhaustiveness-check` | `warn` | `packages/engine/src/game.ts` | a `default` does not count as exhaustive; `error` once the switches are fixed |
+| L99 | MUST | `no-restricted-syntax` | `error` | `packages/engine/src/game.ts` | forbids `as unknown as` and `JSON.parse(...) as T` (L97, L117) outside tests |
+| L106 | MUST | `@typescript-eslint/switch-exhaustiveness-check` | `error` | `packages/engine/src/game.ts` | a `default` does not count as exhaustive for a union |
 | L111 | MUST | `@typescript-eslint/no-unnecessary-type-parameters` | `warn` | `packages/engine/src/game.ts` | `error` once the generics are fixed |
 | L112 | SHOULD | `@typescript-eslint/unified-signatures` | `warn` | `packages/engine/src/game.ts` | |
 | L124 | MUST | `@typescript-eslint/no-floating-promises` | `error` | `packages/engine/src/game.ts` | `ignoreVoid: false` (L125) |

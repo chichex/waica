@@ -65,8 +65,11 @@ function registeredClass(
   return Object.hasOwn(registry, componentName) ? registry[componentName] : undefined
 }
 
-function updates(Class: ComponentClass | undefined): boolean {
-  return typeof Class?.prototype.onUpdate === 'function'
+/** Whether instances of `Class` run each frame (its prototype defines onUpdate). */
+export function implementsOnUpdate(Class: ComponentClass | undefined): boolean {
+  if (!Class) return false
+  const prototype: unknown = Reflect.get(Class, 'prototype')
+  return typeof prototype === 'object' && prototype !== null && typeof Reflect.get(prototype, 'onUpdate') === 'function'
 }
 
 function updateCycles(
@@ -123,7 +126,7 @@ export function resolveComponentUpdateSchedule(
 ): ComponentUpdateScheduleResult {
   const present = new Set(componentNames)
   const nodes = [...present]
-    .filter((name) => updates(registeredClass(registry, name)))
+    .filter((name) => implementsOnUpdate(registeredClass(registry, name)))
     .sort(codeUnitCompare)
   const outgoing = new Map(nodes.map((name) => [name, new Set<string>()]))
   const indegree = new Map(nodes.map((name) => [name, 0]))
@@ -145,7 +148,7 @@ export function resolveComponentUpdateSchedule(
 
   for (const declarer of [...present].sort(codeUnitCompare)) {
     const Class = registeredClass(registry, declarer)
-    if (Class?.updateAfter !== undefined && !updates(Class)) {
+    if (Class?.updateAfter !== undefined && !implementsOnUpdate(Class)) {
       issues.push({
         code: 'invalid-update-constraint',
         reason: 'passive-declarer',

@@ -13,11 +13,12 @@ export interface CliArgs {
 
 export function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = { port: DEFAULT_PORT, open: true, help: false, version: false }
-  for (let i = 0; i < argv.length; i++) {
-    const flag = argv[i]
+  const rest = [...argv]
+  for (let flag = rest.shift(); flag !== undefined; flag = rest.shift()) {
+    // argv is runtime input: the default case rejects any unknown flag.
     switch (flag) {
       case '--port': {
-        const port = Number(argv[++i])
+        const port = Number(rest.shift())
         if (!Number.isInteger(port) || port < 1 || port > 65535) {
           throw new Error('--port expects a number between 1 and 65535')
         }

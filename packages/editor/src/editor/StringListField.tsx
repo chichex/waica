@@ -45,7 +45,7 @@ export function StringListField({
   onChange(value: unknown[]): void
 }) {
   const diagnosticId = `${useId().replaceAll(':', '')}-${param}-diagnostics`
-  const entries = Array.isArray(value) ? value : null
+  const entries: unknown[] | null = Array.isArray(value) ? value : null
   const fieldDiagnostics = diagnostics.filter(
     (diagnostic) => diagnostic.entry === undefined,
   )
