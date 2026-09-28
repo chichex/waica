@@ -743,7 +743,7 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
       game.dispose()
       gameRef.current = null
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the Game is rebuilt only on a structural epoch or an edit/play switch; every other input is read live through refs
   }, [epoch, mode])
 
   // Opening a different scene FILE: load it over the SAME Game (ADR 0011)
@@ -771,7 +771,7 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
       game.camera.position.y = cam.current.y
       game.setViewHeight(cam.current.view)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the scene path only, so an ordinary edit (a new SceneJson) is not mistaken for opening another scene
   }, [scenePath])
 
   const applyLiveProp = (

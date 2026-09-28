@@ -1,0 +1,26 @@
+{
+  "name": "@waica/lint",
+  "version": "0.0.0",
+  "description": "Private ESLint toolchain for the waica monorepo; never published",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "lint": "node src/run-lint.ts",
+    "typecheck": "node ../../node_modules/typescript/bin/tsc --noEmit"
+  },
+  "devDependencies": {
+    "@eslint-community/eslint-plugin-eslint-comments": "4.8.1",
+    "@eslint/js": "9.39.5",
+    "@types/node": "^24.13.3",
+    "eslint": "9.39.5",
+    "eslint-plugin-jsx-a11y": "6.10.2",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.12.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.1"
+  }
+}

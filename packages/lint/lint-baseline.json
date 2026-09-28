@@ -1,0 +1,1352 @@
+{
+  "examples/isometric/src/demo-audio.test.ts": {
+    "@typescript-eslint/no-floating-promises": 1,
+    "@typescript-eslint/no-non-null-assertion": 3,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "examples/isometric/src/demo-combat.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 9,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "examples/isometric/src/demo-point-and-click.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 17,
+    "@typescript-eslint/no-unsafe-assignment": 1,
+    "@typescript-eslint/no-unsafe-member-access": 2,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "examples/isometric/src/demo-scene-swap.test.ts": {
+    "@typescript-eslint/no-unused-vars": 1
+  },
+  "examples/isometric/src/example-art-and-sound-sync.test.ts": {
+    "complexity": 1,
+    "max-depth": 2,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "examples/isometric/src/main.ts": {
+    "@typescript-eslint/no-floating-promises": 2,
+    "no-restricted-syntax": 1
+  },
+  "examples/isometric/src/preload-matches-playback.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 2,
+    "max-depth": 1
+  },
+  "examples/platformer/src/components/projectile.test.ts": {
+    "waica/soft-max-lines-per-function": 1
+  },
+  "examples/platformer/src/components/projectile.ts": {
+    "@typescript-eslint/no-unused-vars": 1
+  },
+  "examples/platformer/src/gun.test.ts": {
+    "@typescript-eslint/no-unused-vars": 1,
+    "max-lines-per-function": 2,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "examples/platformer/src/main.ts": {
+    "@typescript-eslint/no-floating-promises": 1,
+    "no-restricted-syntax": 1
+  },
+  "examples/topdown/src/main.ts": {
+    "@typescript-eslint/no-floating-promises": 1,
+    "no-restricted-syntax": 1
+  },
+  "packages/archetype-isometric/src/art.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 45,
+    "max-depth": 1,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/archetype-isometric/src/manifest.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 3,
+    "@typescript-eslint/no-unused-vars": 2,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/archetype-isometric/src/package.test.ts": {
+    "@typescript-eslint/no-unsafe-assignment": 3,
+    "@typescript-eslint/no-unsafe-member-access": 1
+  },
+  "packages/archetype-isometric/src/prefabs.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 2,
+    "@typescript-eslint/no-unnecessary-type-assertion": 1,
+    "@typescript-eslint/no-unsafe-assignment": 3,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/archetype-isometric/src/prefabs.ts": {
+    "complexity": 1
+  },
+  "packages/archetype-isometric/src/registry-data.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 3
+  },
+  "packages/archetype-isometric/src/scene-default.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 11,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/archetype-isometric/src/update-schedules.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 1
+  },
+  "packages/archetype-platformer/src/index.ts": {
+    "@typescript-eslint/consistent-type-imports": 1
+  },
+  "packages/archetype-platformer/src/manifest.test.ts": {
+    "@typescript-eslint/no-unused-vars": 2
+  },
+  "packages/archetype-platformer/src/prefabs.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 2,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/archetype-platformer/src/registry-data.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 1
+  },
+  "packages/archetype-platformer/src/update-schedules.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 1
+  },
+  "packages/archetype-topdown/src/art.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 2,
+    "complexity": 1,
+    "max-depth": 1
+  },
+  "packages/archetype-topdown/src/manifest.test.ts": {
+    "@typescript-eslint/no-unused-vars": 2
+  },
+  "packages/archetype-topdown/src/prefabs.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 2,
+    "@typescript-eslint/no-unnecessary-type-assertion": 1,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/archetype-topdown/src/registry-data.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 1
+  },
+  "packages/archetype-topdown/src/scene-default.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 4,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/archetype-topdown/src/update-schedules.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 1
+  },
+  "packages/behaviors/src/click-to-move.test.ts": {
+    "max-params": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/behaviors/src/click-to-move.ts": {
+    "@typescript-eslint/no-non-null-assertion": 3,
+    "complexity": 1,
+    "max-params": 6
+  },
+  "packages/behaviors/src/collectible.ts": {
+    "@typescript-eslint/no-unused-vars": 1
+  },
+  "packages/behaviors/src/facing.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 4
+  },
+  "packages/behaviors/src/grid-motor.ts": {
+    "@typescript-eslint/no-unnecessary-type-parameters": 1
+  },
+  "packages/behaviors/src/grid-player-role.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 2,
+    "@typescript-eslint/unbound-method": 1,
+    "max-lines-per-function": 1,
+    "max-params": 1,
+    "waica/soft-max-lines-per-function": 3
+  },
+  "packages/behaviors/src/grid-player-role.ts": {
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/behaviors/src/hazard-damage.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 1,
+    "@typescript-eslint/no-unnecessary-type-assertion": 1,
+    "@typescript-eslint/unbound-method": 6,
+    "max-params": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/behaviors/src/hazard.ts": {
+    "max-params": 1
+  },
+  "packages/behaviors/src/health-anchored-pieces.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 2,
+    "@typescript-eslint/no-unsafe-member-access": 1,
+    "max-lines-per-function": 2,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/behaviors/src/health.test.ts": {
+    "@typescript-eslint/no-unnecessary-type-assertion": 2,
+    "@typescript-eslint/unbound-method": 34,
+    "max-lines": 1,
+    "max-lines-per-function": 3,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 5
+  },
+  "packages/behaviors/src/interactable-anchored-pieces.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 4,
+    "@typescript-eslint/no-unsafe-member-access": 1,
+    "@typescript-eslint/no-unsafe-return": 1,
+    "max-lines-per-function": 2,
+    "max-params": 1,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 3
+  },
+  "packages/behaviors/src/interactable.test.ts": {
+    "@typescript-eslint/no-unsafe-assignment": 1,
+    "complexity": 1,
+    "max-lines-per-function": 2,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/behaviors/src/interactable.ts": {
+    "max-params": 1
+  },
+  "packages/behaviors/src/iso-motor.test.ts": {
+    "@typescript-eslint/unbound-method": 3,
+    "max-params": 2
+  },
+  "packages/behaviors/src/iso-player-states.test.ts": {
+    "@typescript-eslint/unbound-method": 6,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/behaviors/src/iso-player-states.ts": {
+    "@typescript-eslint/unbound-method": 1
+  },
+  "packages/behaviors/src/lifetime.test.ts": {
+    "@typescript-eslint/no-unsafe-assignment": 4,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/behaviors/src/melee-attack.test.ts": {
+    "@typescript-eslint/no-unnecessary-type-assertion": 1,
+    "@typescript-eslint/unbound-method": 10,
+    "max-lines-per-function": 1,
+    "max-params": 3,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/behaviors/src/navigation-grid.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 2,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/behaviors/src/navigation-grid.ts": {
+    "max-depth": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/behaviors/src/out-of-bounds.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 3,
+    "@typescript-eslint/no-unnecessary-type-assertion": 1,
+    "@typescript-eslint/unbound-method": 7,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/behaviors/src/pathfinding.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 12,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/behaviors/src/pathfinding.ts": {
+    "@typescript-eslint/no-non-null-assertion": 4,
+    "complexity": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/behaviors/src/patrol.test.ts": {
+    "@typescript-eslint/no-unnecessary-type-assertion": 1,
+    "max-lines-per-function": 2,
+    "max-params": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/behaviors/src/platformer-motor.test.ts": {
+    "@typescript-eslint/unbound-method": 5,
+    "max-params": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/behaviors/src/player-death.test.ts": {
+    "@typescript-eslint/unbound-method": 1,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/behaviors/src/player-identity.test.ts": {
+    "@typescript-eslint/no-unnecessary-type-assertion": 1,
+    "@typescript-eslint/unbound-method": 5,
+    "max-lines-per-function": 1,
+    "max-params": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/behaviors/src/player-states.test.ts": {
+    "@typescript-eslint/unbound-method": 1
+  },
+  "packages/behaviors/src/respawnable.test.ts": {
+    "@typescript-eslint/no-unnecessary-type-assertion": 1,
+    "@typescript-eslint/unbound-method": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/behaviors/src/scene-transition.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 22,
+    "@typescript-eslint/no-unnecessary-type-assertion": 1,
+    "@typescript-eslint/unbound-method": 6,
+    "max-lines-per-function": 2,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/behaviors/src/scene-transition.ts": {
+    "@typescript-eslint/no-unused-vars": 2
+  },
+  "packages/behaviors/src/stock-pieces.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/behaviors/src/topdown-motor.test.ts": {
+    "@typescript-eslint/unbound-method": 4,
+    "max-params": 2,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/behaviors/src/topdown-player-states.test.ts": {
+    "@typescript-eslint/unbound-method": 4,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/behaviors/src/topdown-player-states.ts": {
+    "@typescript-eslint/unbound-method": 1
+  },
+  "packages/cli/src/cli.ts": {
+    "@typescript-eslint/no-floating-promises": 1
+  },
+  "packages/cli/src/esm-imports.test.ts": {
+    "max-depth": 1
+  },
+  "packages/cli/src/package.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 1,
+    "@typescript-eslint/no-unsafe-assignment": 3,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/cli/src/server.test.ts": {
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/cli/src/server.ts": {
+    "@typescript-eslint/no-floating-promises": 1,
+    "@typescript-eslint/switch-exhaustiveness-check": 1,
+    "complexity": 1,
+    "max-params": 2
+  },
+  "packages/editor/src/App.tsx": {
+    "@typescript-eslint/no-floating-promises": 9,
+    "max-depth": 1,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/AnimationEditor.tsx": {
+    "@typescript-eslint/no-floating-promises": 2,
+    "@typescript-eslint/no-non-null-assertion": 6,
+    "@typescript-eslint/no-unnecessary-type-assertion": 2,
+    "@typescript-eslint/unbound-method": 11,
+    "complexity": 3,
+    "jsx-a11y/click-events-have-key-events": 2,
+    "jsx-a11y/label-has-associated-control": 1,
+    "jsx-a11y/no-static-element-interactions": 3,
+    "max-lines": 1,
+    "max-lines-per-function": 2,
+    "react-hooks/set-state-in-effect": 1,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 4
+  },
+  "packages/editor/src/editor/ArtPicker.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 2
+  },
+  "packages/editor/src/editor/ArtPicker.tsx": {
+    "@typescript-eslint/unbound-method": 1,
+    "jsx-a11y/no-autofocus": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/CodePane.tsx": {
+    "@typescript-eslint/no-floating-promises": 5,
+    "@typescript-eslint/unbound-method": 3,
+    "complexity": 2,
+    "max-lines-per-function": 1,
+    "react-hooks/exhaustive-deps": 1,
+    "react-hooks/set-state-in-effect": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/ContextMenu.tsx": {
+    "@typescript-eslint/unbound-method": 1,
+    "jsx-a11y/no-static-element-interactions": 2,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/Editor.tsx": {
+    "@typescript-eslint/no-floating-promises": 15,
+    "@typescript-eslint/no-non-null-assertion": 5,
+    "@typescript-eslint/switch-exhaustiveness-check": 2,
+    "@typescript-eslint/unbound-method": 10,
+    "complexity": 13,
+    "max-depth": 1,
+    "max-lines": 1,
+    "max-lines-per-function": 3,
+    "max-params": 7,
+    "no-restricted-syntax": 1,
+    "react-hooks/refs": 7,
+    "react-hooks/set-state-in-effect": 1,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 3
+  },
+  "packages/editor/src/editor/Explorer.tsx": {
+    "@typescript-eslint/no-floating-promises": 4,
+    "@typescript-eslint/no-non-null-assertion": 1,
+    "@typescript-eslint/unbound-method": 48,
+    "complexity": 5,
+    "jsx-a11y/no-autofocus": 1,
+    "jsx-a11y/no-static-element-interactions": 1,
+    "max-lines": 1,
+    "max-lines-per-function": 6,
+    "react-hooks/immutability": 1,
+    "react-hooks/set-state-in-effect": 1,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 8
+  },
+  "packages/editor/src/editor/Inspector.tsx": {
+    "@typescript-eslint/no-base-to-string": 1,
+    "@typescript-eslint/no-floating-promises": 2,
+    "@typescript-eslint/no-non-null-assertion": 10,
+    "@typescript-eslint/no-unnecessary-type-assertion": 1,
+    "@typescript-eslint/unbound-method": 71,
+    "complexity": 6,
+    "jsx-a11y/click-events-have-key-events": 1,
+    "jsx-a11y/no-static-element-interactions": 1,
+    "max-lines": 1,
+    "max-lines-per-function": 11,
+    "max-params": 1,
+    "react-hooks/set-state-in-effect": 1,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 17
+  },
+  "packages/editor/src/editor/NumberField.tsx": {
+    "@typescript-eslint/unbound-method": 1
+  },
+  "packages/editor/src/editor/ProjectPane.tsx": {
+    "@typescript-eslint/unbound-method": 4,
+    "jsx-a11y/label-has-associated-control": 3,
+    "max-lines-per-function": 3,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 3
+  },
+  "packages/editor/src/editor/StateMachinePanel.tsx": {
+    "@typescript-eslint/unbound-method": 9,
+    "complexity": 3,
+    "jsx-a11y/no-autofocus": 2,
+    "jsx-a11y/no-static-element-interactions": 2,
+    "max-lines-per-function": 4,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 4
+  },
+  "packages/editor/src/editor/StringListField.tsx": {
+    "@typescript-eslint/no-unsafe-assignment": 2,
+    "@typescript-eslint/unbound-method": 1,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/TilemapCard.tsx": {
+    "@typescript-eslint/unbound-method": 5,
+    "max-lines-per-function": 1,
+    "max-params": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/UiPane.tsx": {
+    "@typescript-eslint/unbound-method": 1,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/Viewport.tsx": {
+    "@typescript-eslint/no-non-null-assertion": 7,
+    "@typescript-eslint/unbound-method": 13,
+    "complexity": 7,
+    "max-depth": 6,
+    "max-lines": 1,
+    "max-lines-per-function": 6,
+    "max-params": 6,
+    "no-restricted-syntax": 3,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 7
+  },
+  "packages/editor/src/editor/appearance-bounds.test.ts": {
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/box-math.ts": {
+    "max-params": 2
+  },
+  "packages/editor/src/editor/explorer-sound-library.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 13,
+    "@typescript-eslint/unbound-method": 2,
+    "max-lines-per-function": 2,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/editor/src/editor/grid.ts": {
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/inspector-appearance-drop.test.ts": {
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/editor/src/editor/inspector-sound-ref.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/editor/src/editor/inspector-string-list.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 13,
+    "@typescript-eslint/unbound-method": 1,
+    "max-lines-per-function": 2,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 4
+  },
+  "packages/editor/src/editor/inspector-ui-ref.test.ts": {
+    "@typescript-eslint/require-await": 5,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/editor/src/editor/play-runner.ts": {
+    "@typescript-eslint/require-await": 1
+  },
+  "packages/editor/src/editor/ref-targets.test.ts": {
+    "@typescript-eslint/no-unnecessary-type-assertion": 2,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/scene-render-inspector.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 2,
+    "@typescript-eslint/no-unnecessary-type-assertion": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/script-sources.test.ts": {
+    "max-params": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/sheet-detect.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 14,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/sheet-detect.ts": {
+    "@typescript-eslint/no-non-null-assertion": 13,
+    "complexity": 2,
+    "max-depth": 4,
+    "max-params": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/sound-preview.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 8,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/tilemap-brush.ts": {
+    "max-params": 2
+  },
+  "packages/editor/src/editor/ui-preview.test.ts": {
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/ui-preview.ts": {
+    "max-params": 1
+  },
+  "packages/editor/src/editor/update-schedule-inspector.test.ts": {
+    "@typescript-eslint/require-await": 5,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/editor/src/editor/use-project-art.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 1,
+    "@typescript-eslint/require-await": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/use-project-art.ts": {
+    "@typescript-eslint/no-floating-promises": 1,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/viewport-play-music.test.tsx": {
+    "@typescript-eslint/no-non-null-assertion": 13,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/viewport-scene-swap.test.tsx": {
+    "@typescript-eslint/no-non-null-assertion": 19,
+    "@typescript-eslint/unbound-method": 1,
+    "max-lines-per-function": 1,
+    "max-params": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/viewport-space.ts": {
+    "max-params": 1
+  },
+  "packages/editor/src/editor/workspace.test.ts": {
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/editor/workspace.ts": {
+    "complexity": 1
+  },
+  "packages/editor/src/editor/write-scheduler.test.ts": {
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/fs/db.ts": {
+    "@typescript-eslint/no-unnecessary-type-assertion": 1
+  },
+  "packages/editor/src/fs/delete-project.test.ts": {
+    "@typescript-eslint/require-await": 6,
+    "@typescript-eslint/unbound-method": 2,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/fs/project-fs.ts": {
+    "@typescript-eslint/no-unnecessary-type-assertion": 1
+  },
+  "packages/editor/src/fs/recents.ts": {
+    "@typescript-eslint/no-unnecessary-type-assertion": 3
+  },
+  "packages/editor/src/fs/session.ts": {
+    "@typescript-eslint/no-unnecessary-type-assertion": 3
+  },
+  "packages/editor/src/history/history.test.ts": {
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/home/ArchetypePicker.tsx": {
+    "@typescript-eslint/unbound-method": 2,
+    "jsx-a11y/click-events-have-key-events": 2,
+    "jsx-a11y/no-autofocus": 1,
+    "jsx-a11y/no-static-element-interactions": 2,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/home/Home.tsx": {
+    "@typescript-eslint/no-floating-promises": 7,
+    "@typescript-eslint/unbound-method": 3,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/monaco-types.ts": {
+    "@typescript-eslint/no-unnecessary-type-assertion": 2
+  },
+  "packages/editor/src/project/chassis.test.ts": {
+    "max-lines-per-function": 2,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 3
+  },
+  "packages/editor/src/project/chassis.ts": {
+    "complexity": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/project/clips.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 1,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/project/clips.ts": {
+    "complexity": 2
+  },
+  "packages/editor/src/project/components.test.ts": {
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/project/editor-settings.ts": {
+    "complexity": 1
+  },
+  "packages/editor/src/project/game.test.ts": {
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/project/game.ts": {
+    "complexity": 1
+  },
+  "packages/editor/src/project/play-code.test.ts": {
+    "@typescript-eslint/require-await": 13,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/project/play-code.ts": {
+    "max-depth": 3,
+    "max-lines-per-function": 1,
+    "max-params": 4,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/project/states.ts": {
+    "complexity": 1,
+    "max-params": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/project/template.test.ts": {
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/project/template.ts": {
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/editor/src/scene/ops.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 2,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/editor/src/scene/ops.ts": {
+    "@typescript-eslint/no-non-null-assertion": 3,
+    "@typescript-eslint/no-unnecessary-type-assertion": 2,
+    "@typescript-eslint/no-unused-vars": 5,
+    "complexity": 1,
+    "max-params": 4,
+    "waica/soft-max-lines": 1
+  },
+  "packages/engine/src/aabb.ts": {
+    "max-params": 1
+  },
+  "packages/engine/src/anchored-pieces-game.test.ts": {
+    "@typescript-eslint/consistent-type-imports": 1,
+    "@typescript-eslint/no-non-null-assertion": 19,
+    "max-lines-per-function": 3,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 3
+  },
+  "packages/engine/src/anchored-pieces.test.ts": {
+    "@typescript-eslint/consistent-type-imports": 2,
+    "@typescript-eslint/no-non-null-assertion": 14,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/engine/src/anchored-pieces.ts": {
+    "@typescript-eslint/no-this-alias": 1,
+    "@typescript-eslint/no-unsafe-argument": 1,
+    "complexity": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/animation/directional.test.ts": {
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/animation/directional.ts": {
+    "@typescript-eslint/no-empty-object-type": 1,
+    "@typescript-eslint/no-unused-vars": 1,
+    "max-params": 2
+  },
+  "packages/engine/src/animation/sheet.ts": {
+    "@typescript-eslint/no-non-null-assertion": 2,
+    "max-params": 1
+  },
+  "packages/engine/src/archetype.ts": {
+    "@typescript-eslint/no-empty-object-type": 13,
+    "@typescript-eslint/no-unused-vars": 2
+  },
+  "packages/engine/src/assets/asset-loader.test.ts": {
+    "@typescript-eslint/no-floating-promises": 6,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 3
+  },
+  "packages/engine/src/assets/asset-loader.ts": {
+    "@typescript-eslint/no-floating-promises": 1
+  },
+  "packages/engine/src/assets/game-assets.test.ts": {
+    "@typescript-eslint/consistent-type-imports": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/assets/test-helpers.ts": {
+    "@typescript-eslint/no-unnecessary-type-assertion": 1
+  },
+  "packages/engine/src/assets/texture-backend.ts": {
+    "@typescript-eslint/prefer-promise-reject-errors": 1
+  },
+  "packages/engine/src/audio/audio-subsystem.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 1,
+    "max-lines-per-function": 3,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 4
+  },
+  "packages/engine/src/audio/audio-subsystem.ts": {
+    "@typescript-eslint/no-this-alias": 1
+  },
+  "packages/engine/src/audio/game-audio.test.ts": {
+    "@typescript-eslint/consistent-type-imports": 1,
+    "@typescript-eslint/no-non-null-assertion": 2,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 3
+  },
+  "packages/engine/src/audio/test-helpers.ts": {
+    "@typescript-eslint/require-await": 1
+  },
+  "packages/engine/src/audio/web-audio-backend.ts": {
+    "@typescript-eslint/no-floating-promises": 3,
+    "@typescript-eslint/no-non-null-assertion": 2
+  },
+  "packages/engine/src/authoring-defaults.ts": {
+    "@typescript-eslint/no-unsafe-assignment": 3,
+    "complexity": 1,
+    "no-restricted-syntax": 1
+  },
+  "packages/engine/src/camera-effects.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 12,
+    "@typescript-eslint/no-unnecessary-type-assertion": 1,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/camera-effects.ts": {
+    "@typescript-eslint/no-non-null-assertion": 1,
+    "waica/soft-max-lines": 1
+  },
+  "packages/engine/src/camera.test.ts": {
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/camera.ts": {
+    "complexity": 1,
+    "max-params": 1
+  },
+  "packages/engine/src/collision-dispatch.test.ts": {
+    "@typescript-eslint/consistent-type-imports": 1,
+    "max-lines-per-function": 1,
+    "max-params": 1,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/engine/src/collision-dispatch.ts": {
+    "complexity": 1
+  },
+  "packages/engine/src/collision-shape.test.ts": {
+    "max-lines-per-function": 1,
+    "max-params": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/collision-shape.ts": {
+    "@typescript-eslint/no-non-null-assertion": 8,
+    "max-params": 1
+  },
+  "packages/engine/src/component-registry.ts": {
+    "no-restricted-syntax": 1
+  },
+  "packages/engine/src/component-update-schedule.test.ts": {
+    "@typescript-eslint/no-unsafe-assignment": 6,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/component-update-schedule.ts": {
+    "@typescript-eslint/no-non-null-assertion": 9,
+    "@typescript-eslint/no-unsafe-member-access": 1,
+    "complexity": 1,
+    "max-depth": 1,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/components/animated-sprite.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 1,
+    "@typescript-eslint/no-unnecessary-type-assertion": 1,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/engine/src/components/animated-sprite.ts": {
+    "@typescript-eslint/no-floating-promises": 1,
+    "complexity": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/components/dynamic-body.test.ts": {
+    "max-lines-per-function": 2,
+    "max-params": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/engine/src/components/dynamic-body.ts": {
+    "@typescript-eslint/consistent-type-imports": 1,
+    "complexity": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/components/sprite.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 2,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/engine/src/components/sprite.ts": {
+    "@typescript-eslint/no-floating-promises": 1
+  },
+  "packages/engine/src/components/tilemap.test.ts": {
+    "@typescript-eslint/consistent-type-imports": 1,
+    "@typescript-eslint/no-non-null-assertion": 1,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 4
+  },
+  "packages/engine/src/components/tilemap.ts": {
+    "@typescript-eslint/no-floating-promises": 1,
+    "complexity": 1,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/entity.ts": {
+    "@typescript-eslint/no-non-null-assertion": 1
+  },
+  "packages/engine/src/game-camera-effects.test.ts": {
+    "@typescript-eslint/consistent-type-imports": 1,
+    "@typescript-eslint/no-non-null-assertion": 10,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/game-fixed-step.test.ts": {
+    "@typescript-eslint/consistent-type-imports": 2,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/engine/src/game-param-overrides.test.ts": {
+    "@typescript-eslint/unbound-method": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/engine/src/game-time-wiring.test.ts": {
+    "@typescript-eslint/consistent-type-imports": 1,
+    "@typescript-eslint/no-non-null-assertion": 2,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/game-time.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 1,
+    "max-lines": 1,
+    "max-lines-per-function": 3,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 7
+  },
+  "packages/engine/src/game-time.ts": {
+    "@typescript-eslint/no-this-alias": 1,
+    "complexity": 1,
+    "waica/soft-max-lines": 1
+  },
+  "packages/engine/src/game-update-schedule.test.ts": {
+    "@typescript-eslint/consistent-type-imports": 2,
+    "@typescript-eslint/no-unused-vars": 2,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/game.test.ts": {
+    "@typescript-eslint/consistent-type-imports": 1,
+    "@typescript-eslint/no-non-null-assertion": 7,
+    "max-lines": 1,
+    "max-lines-per-function": 3,
+    "max-params": 1,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 6
+  },
+  "packages/engine/src/game.ts": {
+    "@typescript-eslint/no-non-null-assertion": 3,
+    "@typescript-eslint/no-unsafe-member-access": 1,
+    "complexity": 1,
+    "max-depth": 1,
+    "no-restricted-syntax": 3,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/engine/src/input.test.ts": {
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/pointer.test.ts": {
+    "@typescript-eslint/consistent-type-imports": 1,
+    "@typescript-eslint/no-non-null-assertion": 15,
+    "max-lines-per-function": 1,
+    "max-params": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/engine/src/pointer.ts": {
+    "@typescript-eslint/no-non-null-assertion": 4,
+    "complexity": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/projection-game.test.ts": {
+    "@typescript-eslint/consistent-type-imports": 1,
+    "@typescript-eslint/no-non-null-assertion": 6
+  },
+  "packages/engine/src/projection.test.ts": {
+    "@typescript-eslint/no-unsafe-argument": 1,
+    "max-params": 1
+  },
+  "packages/engine/src/render-sort.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 8,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/render-sort.ts": {
+    "@typescript-eslint/no-non-null-assertion": 3
+  },
+  "packages/engine/src/runtime-bridge.test.ts": {
+    "@typescript-eslint/consistent-type-imports": 1,
+    "@typescript-eslint/no-non-null-assertion": 25,
+    "@typescript-eslint/no-unsafe-assignment": 6,
+    "max-lines": 1,
+    "max-lines-per-function": 2,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 5
+  },
+  "packages/engine/src/runtime-bridge.ts": {
+    "complexity": 1,
+    "max-lines-per-function": 1,
+    "max-params": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/runtime-inspection.test.ts": {
+    "@typescript-eslint/consistent-type-imports": 1,
+    "@typescript-eslint/no-non-null-assertion": 40,
+    "max-lines-per-function": 2,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 4
+  },
+  "packages/engine/src/runtime-inspection.ts": {
+    "@typescript-eslint/no-unsafe-assignment": 1,
+    "complexity": 2,
+    "max-lines-per-function": 2,
+    "max-params": 2,
+    "no-restricted-syntax": 2,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 3
+  },
+  "packages/engine/src/scene.test.ts": {
+    "@typescript-eslint/consistent-type-imports": 1,
+    "@typescript-eslint/no-non-null-assertion": 4,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/scene.ts": {
+    "@typescript-eslint/no-unnecessary-type-assertion": 1
+  },
+  "packages/engine/src/solid-axis.test.ts": {
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/solid-axis.ts": {
+    "@typescript-eslint/consistent-type-imports": 1,
+    "@typescript-eslint/unbound-method": 2,
+    "complexity": 1,
+    "max-depth": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/spatial-broadphase.test.ts": {
+    "@typescript-eslint/no-unused-vars": 1,
+    "max-lines-per-function": 2,
+    "waica/soft-max-lines-per-function": 3
+  },
+  "packages/engine/src/spatial-broadphase.ts": {
+    "@typescript-eslint/consistent-type-imports": 1,
+    "@typescript-eslint/no-non-null-assertion": 5,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/spatial-query-geometry.ts": {
+    "@typescript-eslint/no-non-null-assertion": 12,
+    "complexity": 2,
+    "max-lines-per-function": 1,
+    "max-params": 5,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 3
+  },
+  "packages/engine/src/spatial-query-ray.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 27,
+    "max-lines-per-function": 3,
+    "max-params": 1,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 3
+  },
+  "packages/engine/src/spatial-query-types.test.ts": {
+    "@typescript-eslint/consistent-type-imports": 2,
+    "@typescript-eslint/no-non-null-assertion": 14,
+    "@typescript-eslint/no-unnecessary-type-parameters": 2,
+    "@typescript-eslint/no-unused-vars": 2,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/spatial-query.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 4,
+    "max-lines-per-function": 3,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 4
+  },
+  "packages/engine/src/spatial-query.ts": {
+    "@typescript-eslint/consistent-type-imports": 2,
+    "@typescript-eslint/no-unnecessary-type-assertion": 2,
+    "complexity": 2,
+    "max-params": 1,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/sprite-placement.test.ts": {
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/state/state-machine-runtime.test.ts": {
+    "@typescript-eslint/no-unsafe-assignment": 14,
+    "@typescript-eslint/no-unsafe-call": 2,
+    "@typescript-eslint/no-unsafe-member-access": 2,
+    "@typescript-eslint/unbound-method": 2,
+    "max-lines-per-function": 2,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/engine/src/state/state-machine.test.ts": {
+    "@typescript-eslint/unbound-method": 2
+  },
+  "packages/engine/src/state/state-machine.ts": {
+    "@typescript-eslint/unbound-method": 1
+  },
+  "packages/engine/src/stats.test.ts": {
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/engine/src/tilemap-grid.ts": {
+    "max-params": 1
+  },
+  "packages/engine/src/ui-bindings.ts": {
+    "complexity": 1
+  },
+  "packages/engine/src/ui.test.ts": {
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/lint/src/config.test.ts": {
+    "max-params": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/mcp/src/archetype-conformance.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 6,
+    "complexity": 1,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/mcp/src/archetypes.ts": {
+    "complexity": 2,
+    "max-params": 1
+  },
+  "packages/mcp/src/collision-category-validation.test.ts": {
+    "max-lines-per-function": 2,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/mcp/src/collision-category-validation.ts": {
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/mcp/src/create-project.test.ts": {
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/mcp/src/create-project.ts": {
+    "complexity": 1,
+    "max-params": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/mcp/src/introspection.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 1,
+    "@typescript-eslint/no-unsafe-assignment": 9,
+    "@typescript-eslint/no-unused-vars": 1,
+    "max-lines-per-function": 3,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 5
+  },
+  "packages/mcp/src/introspection.ts": {
+    "@typescript-eslint/no-unnecessary-type-assertion": 1,
+    "@typescript-eslint/no-unsafe-member-access": 1,
+    "complexity": 1,
+    "max-lines-per-function": 3,
+    "max-params": 1,
+    "no-restricted-syntax": 1,
+    "waica/soft-max-lines-per-function": 3
+  },
+  "packages/mcp/src/package-resolver.test.ts": {
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/mcp/src/package-resolver.ts": {
+    "@typescript-eslint/no-unsafe-return": 1,
+    "complexity": 2,
+    "max-depth": 1,
+    "max-params": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/mcp/src/package.test.ts": {
+    "@typescript-eslint/no-unsafe-assignment": 2,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/mcp/src/param-reference-resolution.test.ts": {
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/mcp/src/param-reference-resolution.ts": {
+    "complexity": 1,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/mcp/src/param-reference-validation.test.ts": {
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/mcp/src/project-component-loader.test.ts": {
+    "@typescript-eslint/no-unsafe-assignment": 3,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/mcp/src/project-component-loader.ts": {
+    "@typescript-eslint/no-non-null-assertion": 1,
+    "@typescript-eslint/no-unnecessary-type-assertion": 1,
+    "@typescript-eslint/prefer-promise-reject-errors": 1,
+    "complexity": 5,
+    "max-lines": 1,
+    "max-lines-per-function": 3,
+    "no-restricted-syntax": 1,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 6
+  },
+  "packages/mcp/src/project-component-process.test.ts": {
+    "@typescript-eslint/no-unnecessary-type-assertion": 1,
+    "@typescript-eslint/no-unsafe-assignment": 3,
+    "@typescript-eslint/require-await": 1,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 4
+  },
+  "packages/mcp/src/project-component-runner.ts": {
+    "@typescript-eslint/no-floating-promises": 1,
+    "complexity": 2,
+    "no-restricted-syntax": 1,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/mcp/src/runtime-browser.ts": {
+    "@typescript-eslint/no-floating-promises": 1,
+    "@typescript-eslint/no-redundant-type-constituents": 1,
+    "@typescript-eslint/no-unnecessary-type-assertion": 2,
+    "@typescript-eslint/require-await": 1,
+    "complexity": 1,
+    "max-lines-per-function": 1,
+    "max-params": 2,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 4
+  },
+  "packages/mcp/src/runtime-dev-server.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 1,
+    "@typescript-eslint/no-unsafe-assignment": 3,
+    "@typescript-eslint/require-await": 1,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/mcp/src/runtime-dev-server.ts": {
+    "complexity": 1,
+    "max-lines-per-function": 1,
+    "max-params": 3,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/mcp/src/runtime-docs.test.ts": {
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/mcp/src/runtime-preflight.test.ts": {
+    "@typescript-eslint/no-unsafe-assignment": 4,
+    "@typescript-eslint/require-await": 8,
+    "max-lines-per-function": 1,
+    "max-params": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/mcp/src/runtime-preflight.ts": {
+    "@typescript-eslint/no-non-null-assertion": 2,
+    "@typescript-eslint/no-unnecessary-type-assertion": 1,
+    "complexity": 1,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/mcp/src/runtime-session-manager.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 2,
+    "@typescript-eslint/no-unsafe-assignment": 5,
+    "@typescript-eslint/no-unused-vars": 1,
+    "@typescript-eslint/require-await": 59,
+    "max-lines-per-function": 3,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 6
+  },
+  "packages/mcp/src/runtime-session-manager.ts": {
+    "@typescript-eslint/no-base-to-string": 1,
+    "@typescript-eslint/no-floating-promises": 2,
+    "@typescript-eslint/no-unnecessary-type-assertion": 1,
+    "@typescript-eslint/no-unused-vars": 2,
+    "complexity": 1,
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/mcp/src/scaffolds.test.ts": {
+    "max-lines-per-function": 2,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/mcp/src/scaffolds.ts": {
+    "complexity": 2,
+    "max-lines-per-function": 1,
+    "max-params": 2,
+    "waica/soft-max-lines-per-function": 2
+  },
+  "packages/mcp/src/scene-transition-validation.test.ts": {
+    "max-lines-per-function": 1,
+    "waica/soft-max-lines-per-function": 4
+  },
+  "packages/mcp/src/scene-transition-validation.ts": {
+    "@typescript-eslint/no-unnecessary-type-assertion": 1,
+    "complexity": 1,
+    "max-params": 2
+  },
+  "packages/mcp/src/server.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 2,
+    "@typescript-eslint/no-unsafe-assignment": 3,
+    "@typescript-eslint/require-await": 33,
+    "complexity": 1,
+    "max-lines": 1,
+    "max-lines-per-function": 3,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 4
+  },
+  "packages/mcp/src/server.ts": {
+    "@typescript-eslint/no-floating-promises": 1,
+    "@typescript-eslint/no-unnecessary-type-assertion": 1,
+    "@typescript-eslint/require-await": 1,
+    "complexity": 2,
+    "max-lines": 1,
+    "max-lines-per-function": 2,
+    "max-params": 3,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 3
+  },
+  "packages/mcp/src/ui-binding-validation.test.ts": {
+    "waica/soft-max-lines-per-function": 1
+  },
+  "packages/mcp/src/ui-binding-validation.ts": {
+    "max-params": 1
+  },
+  "packages/mcp/src/validation.test.ts": {
+    "@typescript-eslint/no-unsafe-assignment": 10,
+    "max-lines": 1,
+    "max-lines-per-function": 5,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 6
+  },
+  "packages/mcp/src/validation.ts": {
+    "@typescript-eslint/no-redundant-type-constituents": 1,
+    "complexity": 4,
+    "max-depth": 9,
+    "max-lines": 1,
+    "max-lines-per-function": 3,
+    "max-params": 8,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 3
+  },
+  "packages/mcp/src/workspace-runtime.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": 7
+  },
+  "packages/mcp/src/workspace-runtime.ts": {
+    "@typescript-eslint/no-unused-vars": 1
+  },
+  "scripts/generate-sprites.mjs": {
+    "max-params": 1
+  },
+  "scripts/published-manifest.mjs": {
+    "no-unused-vars": 2
+  },
+  "scripts/runtime-e2e.mjs": {
+    "complexity": 3,
+    "max-lines": 1,
+    "max-lines-per-function": 10,
+    "max-params": 2,
+    "no-undef": 4,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 10
+  },
+  "scripts/test-dist.mjs": {
+    "complexity": 1,
+    "max-lines": 1,
+    "max-params": 1,
+    "waica/soft-max-lines": 1,
+    "waica/soft-max-lines-per-function": 1
+  }
+}
