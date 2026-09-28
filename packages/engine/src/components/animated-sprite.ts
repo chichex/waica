@@ -12,9 +12,10 @@ const clampAnchor = (value: number): number => Math.min(1, Math.max(0, value))
  * top-level texture/cols/rows (or explicit cells); extraSheets append after
  * it, and clip frames index the sheets consecutively (sheet 0 owns 0..n0-1,
  * sheet 1 the next n1, …). Each instance owns its own clones of the cached
- * sheets (game.assets, ADR 0019) to animate UVs independently. On sheets with explicit cells the frames vary in pixel size,
- * so the quad rescales per frame, anchored bottom-center — width/height size
- * the sheet's largest frame and smaller ones keep their feet planted.
+ * sheets (game.assets, ADR 0019) to animate UVs independently. On sheets
+ * with explicit cells the frames vary in pixel size, so the quad rescales
+ * per frame, anchored bottom-center — width/height size the sheet's largest
+ * frame and smaller ones keep their feet planted.
  */
 export class AnimatedSprite extends Component implements YSortParticipant {
   static override componentName = 'AnimatedSprite'

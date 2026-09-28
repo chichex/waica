@@ -15,7 +15,7 @@ export interface RuntimeAssetStatus {
   failed: number
 }
 
-/** The readiness probe's cadence (runtime-browser.ts), reused so both waits feel the same. */
+/** Polling cadence shared with the readiness probe (runtime-browser.ts imports it), so both waits feel the same. */
 export const ASSETS_POLL_INTERVAL_MS = 25
 
 export type AssetsWait =
@@ -48,13 +48,11 @@ export async function waitForAssetsReady(
   timeoutMs: number,
 ): Promise<AssetsWait> {
   const deadline = Date.now() + timeoutMs
-  let last: RuntimeAssetStatus | undefined
   for (;;) {
     const metadata = await read()
     const assets = runtimeAssetStatus(metadata.assets)
     if (!assets || assets.pending === 0) return { ok: true, metadata }
-    last = assets
-    if (Date.now() >= deadline) return { ok: false, assets: last }
+    if (Date.now() >= deadline) return { ok: false, assets }
     await delay(ASSETS_POLL_INTERVAL_MS)
   }
 }

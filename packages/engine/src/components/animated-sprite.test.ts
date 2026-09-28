@@ -2,7 +2,7 @@
 import * as THREE from 'three'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AssetLoader } from '../assets/asset-loader'
-import { FakeTextureBackend } from '../assets/test-helpers'
+import { FakeTextureBackend, flush } from '../assets/test-helpers'
 import type { Entity } from '../entity'
 import type { Game } from '../game'
 import { AnimatedSprite } from './animated-sprite'
@@ -51,7 +51,7 @@ function assetsStub(size = { width: 64, height: 64 }) {
   return { assets: { texture }, handles }
 }
 
-function mountWith(sprite: AnimatedSprite, game: unknown): Mesh {
+function mount(sprite: AnimatedSprite, game: unknown = {}): Mesh {
   const added: unknown[] = []
   sprite.entity = { node: { add: (child: unknown) => added.push(child) } } as unknown as Entity
   sprite.game = game as Game
@@ -59,24 +59,11 @@ function mountWith(sprite: AnimatedSprite, game: unknown): Mesh {
   return added[0] as Mesh
 }
 
-const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
-
 afterEach(() => {
   vi.restoreAllMocks()
 })
 
 describe('AnimatedSprite quad sync', () => {
-  const mount = (sprite: AnimatedSprite) => {
-    const added: unknown[] = []
-    sprite.entity = { node: { add: (child: unknown) => added.push(child) } } as unknown as Entity
-    sprite.game = {} as unknown as Game
-    sprite.onReady()
-    return added[0] as {
-      position: { x: number; y: number; toArray(): number[] }
-      scale: { toArray(): number[] }
-    }
-  }
-
   it('pins the default-anchor quad at its offsets with its declared size', () => {
     const sprite = new AnimatedSprite()
     sprite.width = 2
@@ -144,7 +131,7 @@ describe('AnimatedSprite sheets through game.assets (CA-5)', () => {
     sprite.clips = { idle: { frames: [0], fps: 1 } }
     sprite.initialClip = 'idle'
 
-    const mesh = mountWith(sprite, { assets })
+    const mesh = mount(sprite, { assets })
 
     expect(assets.texture.mock.calls).toEqual([['/hero.png'], ['/hero-extra.png']])
     expect(mesh.material.map).toBe(handles[0]?.clone)
@@ -166,7 +153,7 @@ describe('AnimatedSprite sheets through game.assets (CA-5)', () => {
     sprite.spacingX = 2
     sprite.clips = { idle: { frames: [0], fps: 1 } }
     sprite.initialClip = 'idle'
-    mountWith(sprite, { assets })
+    mount(sprite, { assets })
     handles[0]?.settle('loaded')
     await flush()
 
@@ -177,7 +164,7 @@ describe('AnimatedSprite sheets through game.assets (CA-5)', () => {
     second.spacingX = 2
     second.clips = { idle: { frames: [0], fps: 1 } }
     second.initialClip = 'idle'
-    mountWith(second, { assets })
+    mount(second, { assets })
     // The shared Source already carries the image; the settlement still fires and re-applies.
     handles[1]?.settle('loaded')
     await flush()
@@ -194,7 +181,7 @@ describe('AnimatedSprite sheets through game.assets (CA-5)', () => {
     sprite.spacingX = 2
     sprite.clips = { idle: { frames: [0], fps: 1 } }
     sprite.initialClip = 'idle'
-    mountWith(sprite, { assets })
+    mount(sprite, { assets })
     const handle = handles[0]!
     const cloneDispose = vi.spyOn(handle.clone, 'dispose')
     const baseDispose = vi.spyOn(handle.base, 'dispose')
@@ -212,7 +199,7 @@ describe('AnimatedSprite sheets through game.assets (CA-5)', () => {
     const { assets } = assetsStub()
     const sprite = new AnimatedSprite()
 
-    const mesh = mountWith(sprite, { assets })
+    const mesh = mount(sprite, { assets })
 
     expect(assets.texture).not.toHaveBeenCalled()
     expect(mesh.material.map).toBeInstanceOf(THREE.Texture)
@@ -235,7 +222,7 @@ describe('AnimatedSprite failure rule (CA-4)', () => {
     sprite.clips = { idle: { frames: [0, 2], fps: 1 } }
     sprite.initialClip = 'idle'
 
-    const mesh = mountWith(sprite, { assets })
+    const mesh = mount(sprite, { assets })
     const failed = mesh.material.map
     expect(failed).toBeInstanceOf(THREE.Texture)
 

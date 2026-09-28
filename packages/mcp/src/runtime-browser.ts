@@ -10,7 +10,7 @@ import type {
   RuntimeDevServer,
   RuntimeLifecycleHandlers,
 } from './runtime-session-manager.js'
-import { runtimeAssetStatus } from './runtime-assets.js'
+import { ASSETS_POLL_INTERVAL_MS, runtimeAssetStatus } from './runtime-assets.js'
 import type { RuntimePreflightResult } from './runtime-preflight.js'
 import { RuntimeToolError, type RuntimeControlInput } from './runtime-service.js'
 
@@ -352,7 +352,7 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
           this.diagnostics(),
         )
       }
-      await delay(25)
+      await delay(ASSETS_POLL_INTERVAL_MS)
     }
     const diagnostics = this.diagnostics()
     if (this.browserErrors.length > 0) {

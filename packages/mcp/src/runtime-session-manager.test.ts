@@ -532,7 +532,7 @@ describe('Assets Ready over the Run Session (CA-10)', () => {
 
   it('fails structurally, naming the last assets numbers, when the wait outlives the session timeout', async () => {
     const stuckAtStart = assetsBrowser([{ pending: 1, loaded: 6, failed: 0 }])
-    const failing = new RuntimeSessionManager(assetsAdapters(stuckAtStart.browser, 1_000))
+    const failing = new RuntimeSessionManager(assetsAdapters(stuckAtStart.browser, 100))
     await expect(failing.start({ projectPath: '/assets' })).rejects.toMatchObject({
       body: {
         code: 'runtime-start-failed',
@@ -547,7 +547,7 @@ describe('Assets Ready over the Run Session (CA-10)', () => {
       { pending: 0, loaded: 7, failed: 0 },
       { pending: 1, loaded: 7, failed: 0 },
     ])
-    const manager = new RuntimeSessionManager(assetsAdapters(stuckLater.browser, 1_000))
+    const manager = new RuntimeSessionManager(assetsAdapters(stuckLater.browser, 100))
     await manager.start({ projectPath: '/assets' })
     await expect(manager.captureScreenshot('/assets')).rejects.toMatchObject({
       body: {
