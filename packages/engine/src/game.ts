@@ -13,6 +13,7 @@ import {
   type ResolvedSceneCamera,
   type SceneCameraJson,
 } from './camera.js'
+import { advanceCameraEffects, CameraEffects, layoutCameraEffects } from './camera-effects.js'
 import type { Component, ComponentClass } from './component.js'
 import { resolveComponentUpdateSchedule } from './component-update-schedule.js'
 import { Entity } from './entity.js'
@@ -123,6 +124,11 @@ export class Game {
    * (ADR 0011): `unloadScene()` never touches it. See ADR 0019.
    */
   readonly assets: AssetLoader
+  /**
+   * Shake, Fade and Flash, beside `camera` and never written into it
+   * (ADR 0020). A Fade survives `unloadScene()`; a Shake or Flash does not.
+   */
+  readonly cameraEffects: CameraEffects
   /** Simulated scheduling: `after`, `every`, `tween`, `now`. See ADR 0017. */
   readonly time = new GameTime()
   /** Registry retained by loadScene for runtime prefab spawning. */
@@ -202,6 +208,11 @@ export class Game {
       // catalog is registered at call time, which outlives every scene.
       resolveAsset: (uri) => this.sceneCatalog?.registry.resolveAsset?.(uri) ?? uri,
     })
+    this.cameraEffects = new CameraEffects({
+      host: () => canvas.parentElement ?? document.body,
+      // One screen pixel in world units: the shake snaps to it (never the base).
+      pixel: () => (this.resolution ? this.viewHeight / this.resolution.height : null),
+    })
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this.scene.background = new THREE.Color(background)
@@ -267,6 +278,7 @@ export class Game {
     // Scene-scoped timers/tweens die here too (ADR 0017): before entities are
     // destroyed below, so an owner's own destroy() cancellation is a no-op.
     this.time.cancelSceneScoped()
+    this.cameraEffects.unloadScene()
     // An explicit unload means "no scene": a swap queued earlier this frame
     // would otherwise flush next frame and resurrect one.
     this.pendingSceneLoad = null
@@ -469,6 +481,7 @@ export class Game {
     this.resizeObserver.disconnect()
     this.ui.dispose()
     this.audio.dispose()
+    this.cameraEffects.dispose()
     // Cancels both scopes, including session-scoped work no entity owns
     // (entity.destroy() below only ever reaches owned work) — ADR 0017.
     this.time.cancelAll()
@@ -580,6 +593,7 @@ export class Game {
     }
     this.dispatchCollisions()
     this.updateSceneCamera(SIMULATION_STEP)
+    advanceCameraEffects(this.cameraEffects)
     this.finishStep()
   }
 
@@ -640,15 +654,27 @@ export class Game {
     }
     if (this.renderSort === 'y') this.applyYSort()
     this.ui.setActive(this.simulate)
-    anchoredPiecesOf(this.ui).place()
-    if (this.resolution) {
-      // Letterbox bars: clear the whole canvas, then render inside the scissor.
-      this.renderer.setScissorTest(false)
-      this.renderer.setClearColor(0x000000, 1)
-      this.renderer.clear(true, false, false)
-      this.renderer.setScissorTest(true)
+    // The shake offset exists only while drawing (ADR 0020): Anchored Pieces
+    // and the render see the drawn center, then the base comes back exactly,
+    // so follow smoothing never starts from its own jitter.
+    const { x, y } = this.camera.position
+    const { shake } = this.cameraEffects.state
+    this.camera.position.x = x + shake.x
+    this.camera.position.y = y + shake.y
+    try {
+      anchoredPiecesOf(this.ui).place()
+      if (this.resolution) {
+        // Letterbox bars: clear the whole canvas, then render inside the scissor.
+        this.renderer.setScissorTest(false)
+        this.renderer.setClearColor(0x000000, 1)
+        this.renderer.clear(true, false, false)
+        this.renderer.setScissorTest(true)
+      }
+      this.renderer.render(this.scene, this.camera)
+    } finally {
+      this.camera.position.x = x
+      this.camera.position.y = y
     }
-    this.renderer.render(this.scene, this.camera)
   }
 
   private componentUpdateSchedule(entity: Entity): Component[] | null {
@@ -772,5 +798,6 @@ export class Game {
     this.camera.top = halfH
     this.camera.bottom = -halfH
     this.camera.updateProjectionMatrix()
+    layoutCameraEffects(this.cameraEffects, gameViewport(w, h, this.resolution))
   }
 }

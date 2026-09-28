@@ -34,6 +34,16 @@ export { spritePlacement } from './sprite-placement.js'
 export type { SpritePlacement, SpritePlacementInput } from './sprite-placement.js'
 export { CAMERA_DEFAULTS, isCameraVelocityProvider, resolveSceneCamera, stepSceneCamera } from './camera.js'
 export { SIMULATION_STEP, SIMULATION_TIME_EPSILON } from './fixed-step.js'
+export { CameraEffects } from './camera-effects.js'
+export type {
+  CameraEffectColor,
+  CameraEffectHandle,
+  CameraEffectsOptions,
+  CameraEffectsState,
+  FadeOptions,
+  FlashOptions,
+  ShakeOptions,
+} from './camera-effects.js'
 export { GameTime, advanceGameTime } from './game-time.js'
 export type { EasingName, TimerHandle, TimerOptions, TweenOptions } from './game-time.js'
 export type {
