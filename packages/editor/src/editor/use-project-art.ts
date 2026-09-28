@@ -141,6 +141,33 @@ export function buildArtTree(art: ArtItem[]): ArtFolder {
   return root
 }
 
+/** Every image and sound under src/art and public, each behind a fresh object URL. */
+async function scanProjectArt(fs: ProjectFS): Promise<{ items: ArtItem[]; created: string[] }> {
+  const created: string[] = []
+  const tree = await fs.tree()
+  const roots = [findDir(findDir(tree, 'src')?.children, 'art'), findDir(tree, 'public')]
+  const files: Array<{ node: TreeNode; kind: ArtItem['kind'] }> = []
+  const walk = (nodes?: TreeNode[]): void => {
+    for (const node of nodes ?? []) {
+      if (node.kind === 'dir') walk(node.children)
+      else if (IMAGE_RE.test(node.name)) files.push({ node, kind: 'image' })
+      else if (AUDIO_RE.test(node.name)) files.push({ node, kind: 'sound' })
+    }
+  }
+  for (const root of roots) walk(root?.children)
+  const items: ArtItem[] = []
+  for (const { node: file, kind } of files) {
+    const bytes = await fs.readFile(file.path)
+    if (!bytes) continue
+    const type =
+      kind === 'sound' ? 'audio/ogg' : /\.png$/i.test(file.name) ? 'image/png' : 'image/jpeg'
+    const url = URL.createObjectURL(new Blob([bytes], { type }))
+    created.push(url)
+    items.push({ label: file.name, url, uri: file.path, path: file.path, kind })
+  }
+  return { items, created }
+}
+
 /**
  * The project's image library, shared by the Explorer panel, the viewport
  * registry (texture resolution) and the animation editor.
@@ -152,41 +179,13 @@ export function useProjectArt(
   const [library, setLibrary] = useState<{ art: ArtItem[]; loads: number }>({ art: [], loads: 0 })
   const art = library.art
   const [artEpoch, setArtEpoch] = useState(0)
-  const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(
-    null,
-  )
   // Object URLs backing the current `art`: revoked only AFTER a fresh batch
   // is committed, so images never break mid-scan.
   const owned = useRef<string[]>([])
 
   useEffect(() => {
     let cancelled = false
-    const load = async (): Promise<{ items: ArtItem[]; created: string[] }> => {
-      const created: string[] = []
-      const tree = await fs.tree()
-      const roots = [findDir(findDir(tree, 'src')?.children, 'art'), findDir(tree, 'public')]
-      const files: Array<{ node: TreeNode; kind: ArtItem['kind'] }> = []
-      const walk = (nodes?: TreeNode[]): void => {
-        for (const node of nodes ?? []) {
-          if (node.kind === 'dir') walk(node.children)
-          else if (IMAGE_RE.test(node.name)) files.push({ node, kind: 'image' })
-          else if (AUDIO_RE.test(node.name)) files.push({ node, kind: 'sound' })
-        }
-      }
-      for (const root of roots) walk(root?.children)
-      const items: ArtItem[] = []
-      for (const { node: file, kind } of files) {
-        const bytes = await fs.readFile(file.path)
-        if (!bytes) continue
-        const type =
-          kind === 'sound' ? 'audio/ogg' : /\.png$/i.test(file.name) ? 'image/png' : 'image/jpeg'
-        const url = URL.createObjectURL(new Blob([bytes], { type }))
-        created.push(url)
-        items.push({ label: file.name, url, uri: file.path, path: file.path, kind })
-      }
-      return { items, created }
-    }
-    reportRejection(load().then(({ items, created }) => {
+    reportRejection(scanProjectArt(fs).then(({ items, created }) => {
       if (cancelled) {
         for (const url of created) URL.revokeObjectURL(url)
         return
@@ -208,7 +207,24 @@ export function useProjectArt(
   )
 
   const refresh = useCallback((): void => setArtEpoch((e) => e + 1), [])
+  const { importArt, importProgress } = useArtImport(fs, refresh)
 
+  const urlFor = useCallback(
+    (uri: string): string => art.find((a) => a.uri === uri)?.url ?? resolveArchetypeAsset(uri),
+    [art, resolveArchetypeAsset],
+  )
+
+  return { art, loads: library.loads, refresh, importArt, urlFor, importProgress }
+}
+
+/** Writes dropped images and sounds to src/art, reporting progress, then re-scans. */
+function useArtImport(
+  fs: ProjectFS,
+  rescan: () => void,
+): Pick<ProjectArt, 'importArt' | 'importProgress'> {
+  const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(
+    null,
+  )
   const importArt = useCallback(
     async (files: DroppedFile[]): Promise<void> => {
       const importable = files.filter(
@@ -222,16 +238,10 @@ export function useProjectArt(
         done += 1
         setImportProgress({ done, total: importable.length })
       }
-      setArtEpoch((e) => e + 1)
+      rescan()
       setImportProgress(null)
     },
-    [fs],
+    [fs, rescan],
   )
-
-  const urlFor = useCallback(
-    (uri: string): string => art.find((a) => a.uri === uri)?.url ?? resolveArchetypeAsset(uri),
-    [art, resolveArchetypeAsset],
-  )
-
-  return { art, loads: library.loads, refresh, importArt, urlFor, importProgress }
+  return { importArt, importProgress }
 }
