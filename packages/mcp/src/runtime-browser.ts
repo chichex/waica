@@ -108,6 +108,82 @@ function runtimeError(
   })
 }
 
+type BridgeOperation = 'inspect' | 'control' | 'metadata'
+
+/** What the page reports for one Runtime Bridge call, as JSON-safe data. */
+interface BridgeResponse {
+  ok: boolean
+  value?: Record<string, unknown>
+  error?: {
+    code: string
+    stage: string
+    message: string
+    availableActions?: unknown[]
+    availableScenes?: unknown[]
+  }
+}
+
+/**
+ * Serialized by Playwright and run inside the Project page: calls the live
+ * Game's Runtime Bridge and turns a thrown bridge error into data. It must
+ * reference nothing outside its own body.
+ */
+function callLiveBridge(request: {
+  operation: BridgeOperation
+  argument: Record<string, unknown>
+}): BridgeResponse {
+  type Bridge = {
+    metadata(): Record<string, unknown>
+    inspect(filters?: Record<string, unknown>): Record<string, unknown>
+    control(request: Record<string, unknown>): Record<string, unknown>
+  }
+  const { operation, argument } = request
+  const hook = (globalThis as Record<PropertyKey, unknown>)[
+    Symbol.for('@waica/runtime-bridge/v1')
+  ] as BrowserBridgeActivation | undefined
+  if (!hook?.current || hook.failure) {
+    return {
+      ok: false,
+      error: {
+        code: 'runtime-invalid-state',
+        stage: 'game',
+        message: hook?.failure?.message ?? 'No live Game is registered.',
+      },
+    }
+  }
+  try {
+    const bridge = hook.current as Bridge
+    const value = operation === 'inspect'
+      ? bridge.inspect(argument)
+      : operation === 'control'
+        ? bridge.control(argument)
+        : bridge.metadata()
+    return { ok: true, value }
+  } catch (error) {
+    const detail = error as {
+      code?: unknown
+      stage?: unknown
+      message?: unknown
+      availableActions?: unknown
+      availableScenes?: unknown
+    }
+    return {
+      ok: false,
+      error: {
+        code: typeof detail.code === 'string' ? detail.code : 'runtime-operation-failed',
+        stage: typeof detail.stage === 'string' ? detail.stage : 'control',
+        message: typeof detail.message === 'string' ? detail.message : String(error),
+        ...(Array.isArray(detail.availableActions)
+          ? { availableActions: detail.availableActions }
+          : {}),
+        ...(Array.isArray(detail.availableScenes)
+          ? { availableScenes: detail.availableScenes }
+          : {}),
+      },
+    }
+  }
+}
+
 async function readinessProbe(page: Page): Promise<ReadinessProbe> {
   return page.evaluate(() => {
     type Bridge = {
@@ -375,74 +451,11 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
   }
 
   private async invokeBridge(
-    operation: 'inspect' | 'control' | 'metadata',
+    operation: BridgeOperation,
     argument: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
     this.assertOperational()
-    const response = await this.page.evaluate(
-      ({ operation, argument }) => {
-        type Bridge = {
-          metadata(): Record<string, unknown>
-          inspect(filters?: Record<string, unknown>): Record<string, unknown>
-          control(request: Record<string, unknown>): Record<string, unknown>
-        }
-        const hook = (globalThis as Record<PropertyKey, unknown>)[
-          Symbol.for('@waica/runtime-bridge/v1')
-        ] as BrowserBridgeActivation | undefined
-        if (!hook?.current || hook.failure) {
-          return {
-            ok: false,
-            error: {
-              code: 'runtime-invalid-state',
-              stage: 'game',
-              message: hook?.failure?.message ?? 'No live Game is registered.',
-            },
-          }
-        }
-        try {
-          const bridge = hook.current as Bridge
-          const value = operation === 'inspect'
-            ? bridge.inspect(argument)
-            : operation === 'control'
-              ? bridge.control(argument)
-              : bridge.metadata()
-          return { ok: true, value }
-        } catch (error) {
-          const detail = error as {
-            code?: unknown
-            stage?: unknown
-            message?: unknown
-            availableActions?: unknown
-            availableScenes?: unknown
-          }
-          return {
-            ok: false,
-            error: {
-              code: typeof detail.code === 'string' ? detail.code : 'runtime-operation-failed',
-              stage: typeof detail.stage === 'string' ? detail.stage : 'control',
-              message: typeof detail.message === 'string' ? detail.message : String(error),
-              ...(Array.isArray(detail.availableActions)
-                ? { availableActions: detail.availableActions }
-                : {}),
-              ...(Array.isArray(detail.availableScenes)
-                ? { availableScenes: detail.availableScenes }
-                : {}),
-            },
-          }
-        }
-      },
-      { operation, argument },
-    ) as {
-      ok: boolean
-      value?: Record<string, unknown>
-      error?: {
-        code: string
-        stage: string
-        message: string
-        availableActions?: string[]
-        availableScenes?: string[]
-      }
-    }
+    const response = await this.page.evaluate(callLiveBridge, { operation, argument })
     if (response.ok && response.value) return response.value
     const error = response.error ?? {
       code: 'runtime-operation-failed',
