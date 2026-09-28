@@ -1,5 +1,6 @@
 import {
   authoringDefaults,
+  type ArchetypeManifest,
   type ComponentClass,
   type RoleDefinition,
   type SceneComponentJson,
@@ -46,15 +47,50 @@ function moduleDeclaresComponent(
   })
 }
 
-function sourcePackage(
-  Class: ComponentClass,
-  engineModule: Record<string, unknown>,
-  behaviorModule: Record<string, unknown>,
-  archetypePackage: string,
-): string {
-  if (moduleDeclaresComponent(engineModule, Class)) return '@waica/engine'
-  if (moduleDeclaresComponent(behaviorModule, Class)) return '@waica/behaviors'
-  return archetypePackage
+/** The modules a component can come from, to name the package that declares it. */
+interface ComponentSources {
+  engineModule: Record<string, unknown>
+  behaviorModule: Record<string, unknown>
+  archetypePackage: string
+}
+
+function sourcePackage(Class: ComponentClass, sources: ComponentSources): string {
+  if (moduleDeclaresComponent(sources.engineModule, Class)) return '@waica/engine'
+  if (moduleDeclaresComponent(sources.behaviorModule, Class)) return '@waica/behaviors'
+  return sources.archetypePackage
+}
+
+function describeComponent(Class: ComponentClass, sources: ComponentSources): ComponentDescription {
+  const description: ComponentDescription = {
+    componentName: Class.componentName,
+    params: (Class.params ?? {}) as Record<string, unknown>,
+    defaults: authoringDefaults(Class),
+    updates: prototypeDefines(Class, 'onUpdate'),
+    updateAfter: [...(Class.updateAfter ?? [])],
+    sourcePackage: sourcePackage(Class, sources),
+  }
+  if (Object.hasOwn(Class, 'displayName') && typeof Class.displayName === 'string') {
+    description.displayName = Class.displayName
+  }
+  return description
+}
+
+/** Project-owned component, role and state files, listed but never validated. */
+async function projectOwnedCode(
+  projectPath: string,
+): Promise<Array<{ path: string; validated: false }>> {
+  return (
+    await Promise.all(
+      ['components', 'roles', 'states'].map(async (directory) =>
+        (await directFiles(path.join(projectPath, 'src', directory), '.ts')).map((file) => ({
+          path: `src/${directory}/${file}`,
+          validated: false as const,
+        })),
+      ),
+    )
+  )
+    .flat()
+    .sort((a, b) => a.path.localeCompare(b.path))
 }
 
 export async function listComponents(projectPath: string): Promise<{
@@ -79,37 +115,14 @@ export async function listComponents(projectPath: string): Promise<{
     ),
   ])
   const active = pickArchetype(archetypes, activeId, projectPath)
-  const components = Object.values(active.manifest.registry.components).map((Class) => {
-    const description: ComponentDescription = {
-      componentName: Class.componentName,
-      params: (Class.params ?? {}) as Record<string, unknown>,
-      defaults: authoringDefaults(Class),
-      updates: prototypeDefines(Class, 'onUpdate'),
-      updateAfter: [...(Class.updateAfter ?? [])],
-      sourcePackage: sourcePackage(
-        Class,
-        engine.module,
-        behaviors.module,
-        active.packageName,
-      ),
-    }
-    if (Object.hasOwn(Class, 'displayName') && typeof Class.displayName === 'string') {
-      description.displayName = Class.displayName
-    }
-    return description
-  })
-  const projectOwned = (
-    await Promise.all(
-      ['components', 'roles', 'states'].map(async (directory) =>
-        (await directFiles(path.join(projectPath, 'src', directory), '.ts')).map((file) => ({
-          path: `src/${directory}/${file}`,
-          validated: false as const,
-        })),
-      ),
-    )
+  const components = Object.values(active.manifest.registry.components).map((Class) =>
+    describeComponent(Class, {
+      engineModule: engine.module,
+      behaviorModule: behaviors.module,
+      archetypePackage: active.packageName,
+    }),
   )
-    .flat()
-    .sort((a, b) => a.path.localeCompare(b.path))
+  const projectOwned = await projectOwnedCode(projectPath)
   const provenance = provenanceRows([engine, behaviors, ...archetypes.map((entry) => entry.loaded)])
   return {
     components,
@@ -143,6 +156,32 @@ function roleDescription(name: string, role: RoleDefinition): Record<string, unk
   }
 }
 
+function archetypeDescription(
+  manifest: ArchetypeManifest,
+): Record<string, unknown> & { id: string; label: string } {
+  return {
+    id: manifest.id,
+    label: manifest.label,
+    palette: manifest.palette.map((template) => ({
+      name: template.label,
+      components: paletteComponents(template, manifest.prefabs),
+    })),
+    prefabs: Object.entries(manifest.prefabs).map(([ref, prefab]) => ({
+      ref,
+      type: prefab.type,
+      components: componentNames(prefab.components),
+    })),
+    roles: Object.entries(manifest.bundle.roles).map(([name, role]) =>
+      roleDescription(name, role),
+    ),
+    bindings: manifest.bindings,
+    actionLabels: manifest.actionLabels,
+    ui: Object.keys(manifest.registry.ui ?? {}).sort(),
+    art: manifest.art,
+    entityIcons: manifest.entityIcons,
+  }
+}
+
 export async function describeArchetype(
   projectPath: string,
   requestedId?: string,
@@ -172,28 +211,7 @@ export async function describeArchetype(
   const selected = requestedId
     ? pickArchetype(available, requestedId, projectPath)
     : active
-  const manifest = selected.manifest
-  const archetype = {
-    id: manifest.id,
-    label: manifest.label,
-    palette: manifest.palette.map((template) => ({
-      name: template.label,
-      components: paletteComponents(template, manifest.prefabs),
-    })),
-    prefabs: Object.entries(manifest.prefabs).map(([ref, prefab]) => ({
-      ref,
-      type: prefab.type,
-      components: componentNames(prefab.components),
-    })),
-    roles: Object.entries(manifest.bundle.roles).map(([name, role]) =>
-      roleDescription(name, role),
-    ),
-    bindings: manifest.bindings,
-    actionLabels: manifest.actionLabels,
-    ui: Object.keys(manifest.registry.ui ?? {}).sort(),
-    art: manifest.art,
-    entityIcons: manifest.entityIcons,
-  }
+  const archetype = archetypeDescription(selected.manifest)
   const installedArchetypes = available
     .filter((entry) => entry.manifest.id !== active.manifest.id)
     .map((entry) => ({
@@ -224,10 +242,41 @@ async function tolerantJson(file: string): Promise<Record<string, unknown>> {
   }
 }
 
+type PrefabSummary = { ref: string; type: 'character' | 'object' | 'tile' }
+
+async function projectPrefabs(projectPath: string): Promise<PrefabSummary[]> {
+  const prefabs: PrefabSummary[] = []
+  for (const [directory, type] of [
+    ['characters', 'character'],
+    ['objects', 'object'],
+    ['tiles', 'tile'],
+  ] as const) {
+    const suffix = `.${type}.json`
+    for (const file of await directFiles(path.join(projectPath, 'src', directory), suffix)) {
+      prefabs.push({ ref: `${directory}/${file.slice(0, -suffix.length)}`, type })
+    }
+  }
+  return prefabs
+}
+
+/** controls.json bindings sorted by action, keeping only string-list entries. */
+function stringListBindings(bindings: unknown): Record<string, string[]> {
+  const rawBindings =
+    bindings && typeof bindings === 'object' ? (bindings as Record<string, unknown>) : {}
+  const controls: Record<string, string[]> = {}
+  for (const action of Object.keys(rawBindings).sort()) {
+    const value = rawBindings[action]
+    if (Array.isArray(value) && value.every((entry) => typeof entry === 'string')) {
+      controls[action] = value
+    }
+  }
+  return controls
+}
+
 export async function projectSummary(projectPath: string): Promise<{
   archetype: string | null
   scenes: string[]
-  prefabs: Array<{ ref: string; type: 'character' | 'object' | 'tile' }>
+  prefabs: PrefabSummary[]
   components: string[]
   roles: string[]
   states: string[]
@@ -244,32 +293,12 @@ export async function projectSummary(projectPath: string): Promise<{
     tolerantJson(path.join(projectPath, 'src/stats.json')),
     tolerantJson(path.join(projectPath, 'src/controls.json')),
   ])
-  const prefabs: Array<{ ref: string; type: 'character' | 'object' | 'tile' }> = []
-  for (const [directory, type] of [
-    ['characters', 'character'],
-    ['objects', 'object'],
-    ['tiles', 'tile'],
-  ] as const) {
-    const suffix = `.${type}.json`
-    for (const file of await directFiles(path.join(projectPath, 'src', directory), suffix)) {
-      prefabs.push({ ref: `${directory}/${file.slice(0, -suffix.length)}`, type })
-    }
-  }
+  const prefabs = await projectPrefabs(projectPath)
   const rawStats =
     statsFile.stats && typeof statsFile.stats === 'object'
       ? (statsFile.stats as Record<string, unknown>)
       : {}
-  const rawBindings =
-    controlsFile.bindings && typeof controlsFile.bindings === 'object'
-      ? (controlsFile.bindings as Record<string, unknown>)
-      : {}
-  const controls: Record<string, string[]> = {}
-  for (const action of Object.keys(rawBindings).sort()) {
-    const value = rawBindings[action]
-    if (Array.isArray(value) && value.every((entry) => typeof entry === 'string')) {
-      controls[action] = value
-    }
-  }
+  const controls = stringListBindings(controlsFile.bindings)
   return {
     archetype: typeof game.archetype === 'string' ? game.archetype : null,
     scenes: await directFiles(path.join(projectPath, 'src/scenes'), '.scene.json'),
