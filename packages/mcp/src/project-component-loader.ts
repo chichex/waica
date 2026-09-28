@@ -29,6 +29,8 @@ const FALLBACK_PACKAGE_DIRECTORIES: ReadonlyArray<readonly [string, string]> = [
   ...KNOWN_ARCHETYPES.map(({ packageName, directory }) => [packageName, directory] as const),
 ]
 const execFileAsync = promisify(execFile)
+/** A checkout fallback `tsc` compile that has not finished in two minutes is killed. */
+const FALLBACK_COMPILE_TIMEOUT_MS = 120_000
 let sourceFallbackEntries: Promise<Record<string, string>> | undefined
 
 export type ComponentLoadFailureCode =
@@ -370,7 +372,7 @@ async function compileSourceFallbacks(packagesRoot: string): Promise<Record<stri
               '--declaration',
               'false',
             ],
-            { cwd: repositoryRoot },
+            { cwd: repositoryRoot, timeout: FALLBACK_COMPILE_TIMEOUT_MS },
           ),
           copyFile(
             path.join(sourceRoot, 'package.json'),

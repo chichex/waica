@@ -1,9 +1,11 @@
-import { realpath, rm, symlink } from 'node:fs/promises'
+import { chmod, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, stubPackage, tempDir, writeTree } from './test-helpers.js'
 import {
+  COMMAND_PROBE_TIMEOUT_MS,
+  commandAvailable,
   preflightRuntimeProject,
   type RuntimePreflightAdapters,
 } from './runtime-preflight.js'
@@ -230,3 +232,38 @@ describe('Runtime Project preflight', () => {
     ).rejects.toMatchObject({ body: { stage: 'browser' } })
   })
 })
+
+describe('package manager probe', () => {
+  it('gives up on a hanging `<pm> --version` within the probe deadline and kills it', async () => {
+    const directory = await tempDir('waica-hanging-pm-')
+    roots.push(directory)
+    const pidFile = path.join(directory, 'pid')
+    const command = path.join(directory, 'hanging-pm')
+    await writeFile(command, `#!/bin/sh\necho $$ > "${pidFile}"\nexec sleep 30\n`)
+    await chmod(command, 0o755)
+
+    const started = Date.now()
+    await expect(commandAvailable(command, 1_500)).resolves.toBe(false)
+    expect(Date.now() - started).toBeLessThan(4_000)
+
+    const pid = Number((await readFile(pidFile, 'utf8')).trim())
+    await expect.poll(() => processAlive(pid), { timeout: 2_000 }).toBe(false)
+  })
+
+  it('still reports a manager that answers in time', async () => {
+    await expect(commandAvailable(process.execPath, 5_000)).resolves.toBe(true)
+  })
+
+  it('bounds the default probe at five seconds', () => {
+    expect(COMMAND_PROBE_TIMEOUT_MS).toBe(5_000)
+  })
+})
+
+function processAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch {
+    return false
+  }
+}

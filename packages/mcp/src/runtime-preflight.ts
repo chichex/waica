@@ -59,17 +59,39 @@ async function exists(file: string): Promise<boolean> {
   }
 }
 
-async function defaultCommandAvailable(command: string): Promise<boolean> {
+/** How long `<pm> --version` may take before the manager counts as unavailable. */
+export const COMMAND_PROBE_TIMEOUT_MS = 5_000
+
+/**
+ * Whether `command --version` starts and exits within `timeoutMs`. A probe
+ * that outlives its deadline is killed and reports the command unavailable,
+ * so a hanging package manager cannot stall `start_project`.
+ */
+export function commandAvailable(
+  command: string,
+  timeoutMs: number = COMMAND_PROBE_TIMEOUT_MS,
+): Promise<boolean> {
   return new Promise((resolve) => {
     const child = spawn(command, ['--version'], { stdio: 'ignore' })
-    child.once('error', (error) => {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') resolve(false)
-      else resolve(false)
+    const deadline = setTimeout(() => {
+      child.kill('SIGKILL')
+      resolve(false)
+    }, timeoutMs)
+    child.once('error', () => {
+      clearTimeout(deadline)
+      resolve(false)
     })
     child.once('spawn', () => {
-      child.once('close', () => resolve(true))
+      child.once('close', () => {
+        clearTimeout(deadline)
+        resolve(true)
+      })
     })
   })
+}
+
+function defaultCommandAvailable(command: string): Promise<boolean> {
+  return commandAvailable(command)
 }
 
 const MAC_BROWSERS = [

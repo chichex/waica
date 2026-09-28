@@ -287,6 +287,23 @@ export const mode = Mode.On
     ])
   })
 
+  it('classifies by Node error code, not by the wording of a project error', async () => {
+    const project = await makeModuleProject({
+      'src/components/wording.ts': `
+throw new Error('TypeScript enum is not supported in strip-only mode (said the project)')
+`,
+    })
+
+    const result = await loadProjectComponents(project)
+
+    expect(result.failures).toEqual([
+      expect.objectContaining({
+        code: 'component-load-failed',
+        file: 'src/components/wording.ts',
+      }),
+    ])
+  })
+
   it('does not classify a genuine defect as unsupported just because the file also contains an "@" line', async () => {
     // Regression: the old fallback classified ANY load error as
     // component-load-unsupported whenever any line of the file started with

@@ -178,24 +178,17 @@ function errorChain(error: unknown): Error[] {
   return errors
 }
 
+/**
+ * Whether Node's own loader refused the module (a file type or TypeScript
+ * syntax strip-only mode cannot run), decided by the documented error code
+ * anywhere in the cause chain — never by message wording, which a project
+ * error can imitate and Node may reword.
+ */
 function unsupportedByNode(error: unknown): boolean {
-  for (const candidate of errorChain(error)) {
+  return errorChain(error).some((candidate) => {
     const code = (candidate as NodeJS.ErrnoException).code
-    if (
-      code === 'ERR_UNKNOWN_FILE_EXTENSION' ||
-      code === 'ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX'
-    ) {
-      return true
-    }
-    if (
-      /not supported in strip-only mode|unsupported TypeScript syntax|unknown file extension/i.test(
-        candidate.message,
-      )
-    ) {
-      return true
-    }
-  }
-  return false
+    return code === 'ERR_UNKNOWN_FILE_EXTENSION' || code === 'ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX'
+  })
 }
 
 function causeText(error: unknown): string {
@@ -333,5 +326,10 @@ if (!process.send) {
 process.send({ kind: 'project-entry-ready', version: PROTOCOL_VERSION })
 process.once('message', (message) => {
   if (!validRequest(message)) process.exit(1)
-  void execute(message)
+  // execute() reports every project failure over IPC; reaching this catch
+  // means the IPC channel itself failed, so the parent sees a crashed child.
+  execute(message).catch((error: unknown) => {
+    process.stderr.write(`waica project runner: ${error instanceof Error ? error.message : String(error)}\n`)
+    process.exitCode = 1
+  })
 })
