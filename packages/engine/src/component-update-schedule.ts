@@ -131,20 +131,23 @@ function updateCycles(
   return cycles.sort((left, right) => codeUnitCompare(firstMember(left), firstMember(right)))
 }
 
-/**
- * Resolves one entity's deterministic component update schedule without
- * constructing components or mutating either input.
- */
-export function resolveComponentUpdateSchedule(
+/** The onUpdate components of one entity and the updateAfter edges between them. */
+interface UpdateGraph {
+  readonly nodes: readonly string[]
+  /** Target → the components that update after it. */
+  readonly outgoing: Map<string, Set<string>>
+  readonly indegree: Map<string, number>
+}
+
+/** What one entity's component names resolve against. */
+interface ScheduleScope {
+  readonly present: ReadonlySet<string>
+  readonly registry: ComponentUpdateRegistry
+}
+
+function duplicateComponentIssues(
   componentNames: readonly string[],
-  registry: ComponentUpdateRegistry,
-): ComponentUpdateScheduleResult {
-  const present = new Set(componentNames)
-  const nodes = [...present]
-    .filter((name) => implementsOnUpdate(registeredClass(registry, name)))
-    .sort(codeUnitCompare)
-  const outgoing = new Map(nodes.map((name) => [name, new Set<string>()]))
-  const indegree = new Map(nodes.map((name) => [name, 0]))
+): ComponentUpdateScheduleIssue[] {
   const issues: ComponentUpdateScheduleIssue[] = []
   const counts = new Map<string, number>()
   for (const name of componentNames) counts.set(name, (counts.get(name) ?? 0) + 1)
@@ -160,7 +163,11 @@ export function resolveComponentUpdateSchedule(
       cause: `Component "${componentName}" appears ${count} times on the same entity; component identity must be unique.`,
     })
   }
+  return issues
+}
 
+function passiveDeclarerIssues({ present, registry }: ScheduleScope): ComponentUpdateScheduleIssue[] {
+  const issues: ComponentUpdateScheduleIssue[] = []
   for (const declarer of [...present].sort(codeUnitCompare)) {
     const Class = registeredClass(registry, declarer)
     if (Class?.updateAfter !== undefined && !implementsOnUpdate(Class)) {
@@ -173,61 +180,73 @@ export function resolveComponentUpdateSchedule(
       })
     }
   }
+  return issues
+}
 
-  for (const declarer of nodes) {
-    const Class = registeredClass(registry, declarer)
+/** Adds every valid updateAfter edge to the graph and returns the constraints that are not. */
+function linkUpdateConstraints(graph: UpdateGraph, scope: ScheduleScope): ComponentUpdateScheduleIssue[] {
+  const issues: ComponentUpdateScheduleIssue[] = []
+  for (const declarer of graph.nodes) {
+    const Class = registeredClass(scope.registry, declarer)
     for (const target of new Set(Class?.updateAfter ?? [])) {
-      if (!present.has(target)) {
-        if (!registeredClass(registry, target)) {
-          issues.push({
-            code: 'invalid-update-constraint',
-            reason: 'unknown-target',
-            declarer,
-            target,
-            componentNames: [declarer, target],
-            cause: `Component "${declarer}" declares updateAfter target "${target}", which is neither present nor registered.`,
-          })
-        }
+      const verdict = constraintVerdict({ declarer, target }, graph, scope)
+      if (verdict === 'ignore') continue
+      if (verdict !== 'link') {
+        issues.push(verdict)
         continue
       }
-      if (target === declarer) {
-        issues.push({
-          code: 'invalid-update-constraint',
-          reason: 'self-edge',
-          declarer,
-          target,
-          componentNames: [declarer],
-          cause: `Component "${declarer}" cannot declare itself in updateAfter.`,
-        })
-        continue
-      }
-      const readers = outgoing.get(target)
-      if (!readers) {
-        issues.push({
-          code: 'invalid-update-constraint',
-          reason: 'passive-target',
-          declarer,
-          target,
-          componentNames: [declarer, target],
-          cause: `Component "${declarer}" declares updateAfter target "${target}", but "${target}" does not implement onUpdate.`,
-        })
-        continue
-      }
-      if (readers.has(declarer)) continue
+      const readers = graph.outgoing.get(target)
+      if (!readers || readers.has(declarer)) continue
       readers.add(declarer)
-      indegree.set(declarer, (indegree.get(declarer) ?? 0) + 1)
+      graph.indegree.set(declarer, (graph.indegree.get(declarer) ?? 0) + 1)
     }
   }
+  return issues
+}
 
-  for (const componentNames of updateCycles(nodes, outgoing)) {
-    issues.push({
-      code: 'component-update-cycle',
-      componentNames,
-      cause: `Component update cycle among ${componentNames.map((name) => `"${name}"`).join(', ')}.`,
-    })
+/**
+ * Whether `declarer` may update after `target`: an edge to link, a
+ * registered-but-absent target to ignore, or the invalid-constraint issue.
+ */
+function constraintVerdict(
+  { declarer, target }: { declarer: string; target: string },
+  graph: UpdateGraph,
+  { present, registry }: ScheduleScope,
+): ComponentUpdateScheduleIssue | 'link' | 'ignore' {
+  if (!present.has(target)) {
+    if (registeredClass(registry, target)) return 'ignore'
+    return {
+      code: 'invalid-update-constraint',
+      reason: 'unknown-target',
+      declarer,
+      target,
+      componentNames: [declarer, target],
+      cause: `Component "${declarer}" declares updateAfter target "${target}", which is neither present nor registered.`,
+    }
   }
-  if (issues.length > 0) return { ok: false, issues }
+  if (target === declarer) {
+    return {
+      code: 'invalid-update-constraint',
+      reason: 'self-edge',
+      declarer,
+      target,
+      componentNames: [declarer],
+      cause: `Component "${declarer}" cannot declare itself in updateAfter.`,
+    }
+  }
+  if (graph.outgoing.has(target)) return 'link'
+  return {
+    code: 'invalid-update-constraint',
+    reason: 'passive-target',
+    declarer,
+    target,
+    componentNames: [declarer, target],
+    cause: `Component "${declarer}" declares updateAfter target "${target}", but "${target}" does not implement onUpdate.`,
+  }
+}
 
+/** Kahn's order over the graph, always taking the code-unit-smallest ready component first. */
+function updateOrder({ nodes, outgoing, indegree }: UpdateGraph): string[] {
   const ready = nodes.filter((name) => indegree.get(name) === 0)
   const order: string[] = []
   ready.sort(codeUnitCompare)
@@ -242,6 +261,39 @@ export function resolveComponentUpdateSchedule(
     ready.sort(codeUnitCompare)
     next = ready.shift()
   }
+  return order
+}
 
-  return { ok: true, order, issues: [] }
+/**
+ * Resolves one entity's deterministic component update schedule without
+ * constructing components or mutating either input.
+ */
+export function resolveComponentUpdateSchedule(
+  componentNames: readonly string[],
+  registry: ComponentUpdateRegistry,
+): ComponentUpdateScheduleResult {
+  const present = new Set(componentNames)
+  const scope: ScheduleScope = { present, registry }
+  const nodes = [...present]
+    .filter((name) => implementsOnUpdate(registeredClass(registry, name)))
+    .sort(codeUnitCompare)
+  const graph: UpdateGraph = {
+    nodes,
+    outgoing: new Map(nodes.map((name) => [name, new Set<string>()])),
+    indegree: new Map(nodes.map((name) => [name, 0])),
+  }
+  const issues = [
+    ...duplicateComponentIssues(componentNames),
+    ...passiveDeclarerIssues(scope),
+    ...linkUpdateConstraints(graph, scope),
+  ]
+  for (const cycle of updateCycles(nodes, graph.outgoing)) {
+    issues.push({
+      code: 'component-update-cycle',
+      componentNames: cycle,
+      cause: `Component update cycle among ${cycle.map((name) => `"${name}"`).join(', ')}.`,
+    })
+  }
+  if (issues.length > 0) return { ok: false, issues }
+  return { ok: true, order: updateOrder(graph), issues: [] }
 }
