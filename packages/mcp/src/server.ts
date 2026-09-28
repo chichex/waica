@@ -41,6 +41,7 @@ import {
 import { createDefaultRuntimeSessionManager } from './runtime-session-manager.js'
 import { ProjectComponentLoader } from './project-component-loader.js'
 import { validateProject } from './validation.js'
+import { validateRuntimeArguments } from './runtime-arguments.js'
 import { objectRecord } from './component-metadata.js'
 
 const PROJECT_PATH = {
@@ -301,187 +302,6 @@ function invalidRuntimeInput(
   })
 }
 
-function assertOnlyRuntimeFields(
-  name: string,
-  args: Record<string, unknown>,
-  allowed: readonly string[],
-  projectPath: string,
-): void {
-  const extras = Object.keys(args).filter((key) => !allowed.includes(key))
-  if (extras.length > 0) {
-    invalidRuntimeInput(name, projectPath, `Unexpected properties: ${extras.sort().join(', ')}.`)
-  }
-}
-
-function assertStringArray(
-  name: string,
-  args: Record<string, unknown>,
-  field: string,
-  projectPath: string,
-): void {
-  const value = args[field]
-  if (value !== undefined && (!Array.isArray(value) || value.some((entry) => typeof entry !== 'string'))) {
-    invalidRuntimeInput(name, projectPath, `${field} must be an array of strings.`)
-  }
-}
-
-function validateRuntimeArguments(
-  name: string,
-  args: Record<string, unknown>,
-  projectPath: string,
-): void {
-  switch (name) {
-    case 'start_project': {
-      assertOnlyRuntimeFields(
-        name,
-        args,
-        ['project_path', 'browser_executable_path', 'headless', 'viewport', 'timeout_ms'],
-        projectPath,
-      )
-      if (
-        args.browser_executable_path !== undefined &&
-        (typeof args.browser_executable_path !== 'string' || args.browser_executable_path.length === 0)
-      ) {
-        invalidRuntimeInput(name, projectPath, 'browser_executable_path must be a nonempty string.')
-      }
-      if (args.headless !== undefined && typeof args.headless !== 'boolean') {
-        invalidRuntimeInput(name, projectPath, 'headless must be a boolean.')
-      }
-      if (args.timeout_ms !== undefined) {
-        const timeout = args.timeout_ms
-        if (typeof timeout !== 'number' || !Number.isInteger(timeout) || timeout < 1_000 || timeout > 120_000) {
-          invalidRuntimeInput(name, projectPath, 'timeout_ms must be an integer from 1,000 through 120,000.')
-        }
-      }
-      if (args.viewport !== undefined) {
-        if (!args.viewport || typeof args.viewport !== 'object' || Array.isArray(args.viewport)) {
-          invalidRuntimeInput(name, projectPath, 'viewport must contain width and height.')
-        }
-        const viewport = args.viewport as Record<string, unknown>
-        const keys = Object.keys(viewport)
-        if (
-          keys.some((key) => key !== 'width' && key !== 'height') ||
-          keys.length !== 2 ||
-          typeof viewport.width !== 'number' ||
-          typeof viewport.height !== 'number' ||
-          !Number.isInteger(viewport.width) ||
-          !Number.isInteger(viewport.height) ||
-          viewport.width <= 0 ||
-          viewport.height <= 0 ||
-          viewport.width * viewport.height > 1_000_000
-        ) {
-          invalidRuntimeInput(
-            name,
-            projectPath,
-            'viewport width and height must be positive integers totaling at most 1,000,000 pixels.',
-          )
-        }
-      }
-      return
-    }
-    case 'stop_project':
-    case 'capture_screenshot':
-      assertOnlyRuntimeFields(name, args, ['project_path'], projectPath)
-      return
-    case 'inspect_runtime':
-      assertOnlyRuntimeFields(
-        name,
-        args,
-        ['project_path', 'entity_ids', 'entity_names', 'component_types'],
-        projectPath,
-      )
-      assertStringArray(name, args, 'entity_ids', projectPath)
-      assertStringArray(name, args, 'entity_names', projectPath)
-      assertStringArray(name, args, 'component_types', projectPath)
-      return
-    case 'control_runtime': {
-      // Named before the generic extras check, but only for `step`: a
-      // pre-ADR-0014 caller stepping by dt is told what replaced it, not just
-      // that the key is unexpected. Every other operation never accepted dt
-      // either, so it falls through to the generic "unexpected properties"
-      // message below instead of this step-specific one.
-      if (args.dt !== undefined && args.operation === 'step') {
-        invalidRuntimeInput(
-          name,
-          projectPath,
-          'dt is not accepted: step advances whole Simulation Steps of 1/60 s each; pass frames (1 through 600) instead.',
-        )
-      }
-      assertOnlyRuntimeFields(
-        name,
-        args,
-        ['project_path', 'operation', 'action', 'frames', 'x', 'y', 'scene'],
-        projectPath,
-      )
-      const operation = args.operation
-      if (
-        !['press', 'hold', 'release', 'pause', 'resume', 'step', 'click', 'scene'].includes(
-          String(operation),
-        )
-      ) {
-        invalidRuntimeInput(name, projectPath, 'operation is not a supported runtime control operation.')
-      }
-      if (operation === 'press' || operation === 'hold' || operation === 'release') {
-        if (typeof args.action !== 'string' || args.action.length === 0) {
-          invalidRuntimeInput(name, projectPath, `${operation} requires a nonempty action.`)
-        }
-        if (
-          args.frames !== undefined ||
-          args.x !== undefined ||
-          args.y !== undefined ||
-          args.scene !== undefined
-        ) {
-          invalidRuntimeInput(name, projectPath, `${operation} does not accept frames, x, y or scene.`)
-        }
-      } else if (operation === 'pause' || operation === 'resume') {
-        if (
-          args.action !== undefined ||
-          args.frames !== undefined ||
-          args.x !== undefined ||
-          args.y !== undefined ||
-          args.scene !== undefined
-        ) {
-          invalidRuntimeInput(name, projectPath, `${operation} accepts no additional fields.`)
-        }
-      } else if (operation === 'click') {
-        if (args.action !== undefined || args.frames !== undefined || args.scene !== undefined) {
-          invalidRuntimeInput(name, projectPath, 'click does not accept action, frames or scene.')
-        }
-        if (typeof args.x !== 'number' || !Number.isFinite(args.x)) {
-          invalidRuntimeInput(name, projectPath, 'click requires a finite x.')
-        }
-        if (typeof args.y !== 'number' || !Number.isFinite(args.y)) {
-          invalidRuntimeInput(name, projectPath, 'click requires a finite y.')
-        }
-      } else if (operation === 'scene') {
-        if (
-          args.action !== undefined ||
-          args.frames !== undefined ||
-          args.x !== undefined ||
-          args.y !== undefined
-        ) {
-          invalidRuntimeInput(name, projectPath, 'scene does not accept action, frames, x or y.')
-        }
-        if (typeof args.scene !== 'string' || args.scene.length === 0) {
-          invalidRuntimeInput(name, projectPath, 'scene requires a nonempty scene name.')
-        }
-      } else {
-        if (args.action !== undefined) invalidRuntimeInput(name, projectPath, 'step does not accept action.')
-        if (args.x !== undefined || args.y !== undefined || args.scene !== undefined) {
-          invalidRuntimeInput(name, projectPath, 'step does not accept x, y or scene.')
-        }
-        if (
-          args.frames !== undefined &&
-          (typeof args.frames !== 'number' || !Number.isInteger(args.frames) || args.frames < 1 || args.frames > 600)
-        ) {
-          invalidRuntimeInput(name, projectPath, 'frames must be an integer from 1 through 600.')
-        }
-      }
-      return
-    }
-  }
-}
-
 async function execute(
   name: string,
   args: Record<string, unknown>,
@@ -506,7 +326,10 @@ async function execute(
         projectPath,
       })
     }
-    validateRuntimeArguments(name, args, projectPath)
+    const tool = TOOLS.find((candidate) => candidate.name === name)
+    if (tool) {
+      validateRuntimeArguments(tool, args, (message) => invalidRuntimeInput(name, projectPath, message))
+    }
   } else {
     assertAbsoluteProjectPath(projectPath)
   }

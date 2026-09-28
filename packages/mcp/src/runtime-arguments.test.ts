@@ -202,14 +202,17 @@ const INVALID_CONTROL_STAGE: InvalidCase[] = [
   ]),
 ]
 
-describe('runtime tool arguments (CA-32)', () => {
-  it.each(VALID)('%s accepts %j and hands the Run Session service its typed input', async (tool, args, method, input) => {
+describe('valid runtime tool arguments (CA-32)', () => {
+  const cases = VALID.map(([tool, args, method, input]) => ({ tool, args, method, input }))
+  it.each(cases)('$tool accepts $args and hands the Run Session service its typed input', async (row) => {
     calls.length = 0
-    const response = await call(tool, { project_path: GAME, ...args })
+    const response = await call(row.tool, { project_path: GAME, ...row.args })
     expect(response.isError).toBe(false)
-    expect(calls).toEqual([{ method, input }])
+    expect(calls).toEqual([{ method: row.method, input: row.input }])
   })
+})
 
+describe('invalid runtime tool arguments (CA-32)', () => {
   it.each(INVALID_PROJECT_STAGE)('%s rejects %j at the project stage', async (tool, args, message) => {
     calls.length = 0
     const response = await call(tool, { project_path: GAME, ...args })
@@ -229,7 +232,9 @@ describe('runtime tool arguments (CA-32)', () => {
     })
     expect(calls).toEqual([])
   })
+})
 
+describe('runtime tool project_path (CA-32)', () => {
   it.each(['start_project', 'stop_project', 'inspect_runtime', 'control_runtime', 'capture_screenshot'])(
     '%s requires a nonempty absolute project_path before any other argument',
     async (tool) => {
