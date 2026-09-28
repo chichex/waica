@@ -129,17 +129,15 @@ class OwnedRuntimeDevServer implements RuntimeDevServer {
   private stopped = false
   private exitHandler: ((detail: Record<string, unknown>) => void) | undefined
 
+  private readonly child: ChildProcess
+
   constructor(
     readonly url: string,
-    private readonly child: ChildProcess,
-    private readonly stdout: ByteTail,
-    private readonly stderr: ByteTail,
-    private readonly graceMs: number,
-    private readonly forceWaitMs: number,
-    private readonly command: string,
-    private readonly args: string[],
+    private readonly script: DevScript,
+    private readonly stopTimings: { graceMs: number; forceWaitMs: number },
   ) {
-    child.once('exit', () => {
+    this.child = script.child
+    this.child.once('exit', () => {
       if (!this.stopping) this.exitHandler?.(this.diagnostics())
     })
   }
@@ -149,36 +147,24 @@ class OwnedRuntimeDevServer implements RuntimeDevServer {
   }
 
   diagnostics(): Record<string, unknown> {
-    return {
-      command: this.command,
-      args: this.args,
-      stdout: this.stdout.text(),
-      stderr: this.stderr.text(),
-      exitCode: this.child.exitCode,
-      signal: this.child.signalCode,
-    }
+    return scriptDiagnostics(this.script)
   }
 
   async stop(): Promise<void> {
     if (this.stopped) return
     this.stopping = true
-    await terminateGroup(this.child, this.graceMs, this.forceWaitMs)
-    if (!(await waitForClosedPort(this.url, this.forceWaitMs))) {
+    const { graceMs, forceWaitMs } = this.stopTimings
+    await terminateGroup(this.child, graceMs, forceWaitMs)
+    if (!(await waitForClosedPort(this.url, forceWaitMs))) {
       throw new Error(`loopback port remained open after process cleanup: ${this.url}`)
     }
     this.stopped = true
   }
 }
 
-function diagnostics(
-  child: ChildProcess,
-  stdout: ByteTail,
-  stderr: ByteTail,
-  command: string,
-  args: string[],
-): Record<string, unknown> {
+function scriptDiagnostics({ preflight, args, child, stdout, stderr }: DevScript): Record<string, unknown> {
   return {
-    command,
+    command: preflight.command,
     args,
     stdout: stdout.text(),
     stderr: stderr.text(),
@@ -187,12 +173,27 @@ function diagnostics(
   }
 }
 
+/** A spawned Project dev script with its bounded output tails. */
+interface DevScript {
+  readonly preflight: RuntimePreflightResult
+  readonly args: string[]
+  readonly child: ChildProcess
+  readonly stdout: ByteTail
+  readonly stderr: ByteTail
+}
+
 async function startAttempt(
   preflight: RuntimePreflightResult,
   args: string[],
   expectedPort: number | undefined,
   options: RuntimeDevServerOptions,
 ): Promise<RuntimeDevServer> {
+  const script = await spawnDevScript(preflight, args)
+  return awaitLoopbackServer(script, expectedPort, options)
+}
+
+/** Spawns the dev script in its own process group and waits for the spawn to succeed or fail. */
+async function spawnDevScript(preflight: RuntimePreflightResult, args: string[]): Promise<DevScript> {
   const stdout = new ByteTail()
   const stderr = new ByteTail()
   let child: ChildProcess
@@ -229,12 +230,27 @@ async function startAttempt(
       diagnostics: { command: preflight.command, args, stdout: stdout.text(), stderr: stderr.text() },
     })
   }
+  return { preflight, args, child, stdout, stderr }
+}
 
+/**
+ * Polls the dev script's output for a loopback URL until its page answers,
+ * within the preflight timeout; any other ending terminates the script's
+ * process group before it is reported.
+ */
+async function awaitLoopbackServer(
+  script: DevScript,
+  expectedPort: number | undefined,
+  options: RuntimeDevServerOptions,
+): Promise<RuntimeDevServer> {
+  const { preflight, child, stdout, stderr } = script
+  const graceMs = options.graceMs ?? 2_000
+  const forceWaitMs = options.forceWaitMs ?? 2_000
   const deadline = Date.now() + preflight.timeoutMs
   let parsedUrl: string | undefined
   while (Date.now() <= deadline) {
     if (options.signal?.aborted) {
-      await terminateGroup(child, options.graceMs ?? 2_000, options.forceWaitMs ?? 2_000)
+      await terminateGroup(child, graceMs, forceWaitMs)
       throw options.signal.reason
     }
     if (child.exitCode !== null || child.signalCode !== null) break
@@ -243,33 +259,24 @@ async function startAttempt(
       const reportedPort = Number(match[1])
       parsedUrl = `http://127.0.0.1:${reportedPort}/`
       if (expectedPort !== undefined && reportedPort !== expectedPort) {
-        await terminateGroup(child, options.graceMs ?? 2_000, options.forceWaitMs ?? 2_000)
+        await terminateGroup(child, graceMs, forceWaitMs)
         throw new RuntimeToolError({
           code: 'runtime-start-failed',
           stage: 'dev-server',
           message: `Project dev script did not forward the required --port ${expectedPort}; it reported ${parsedUrl}.`,
           projectPath: preflight.projectPath,
-          diagnostics: diagnostics(child, stdout, stderr, preflight.command, args),
+          diagnostics: scriptDiagnostics(script),
         })
       }
       if (await probe(parsedUrl)) {
-        return new OwnedRuntimeDevServer(
-          parsedUrl,
-          child,
-          stdout,
-          stderr,
-          options.graceMs ?? 2_000,
-          options.forceWaitMs ?? 2_000,
-          preflight.command,
-          args,
-        )
+        return new OwnedRuntimeDevServer(parsedUrl, script, { graceMs, forceWaitMs })
       }
     }
     await delay(20)
   }
 
-  const detail = diagnostics(child, stdout, stderr, preflight.command, args)
-  await terminateGroup(child, options.graceMs ?? 2_000, options.forceWaitMs ?? 2_000)
+  const detail = scriptDiagnostics(script)
+  await terminateGroup(child, graceMs, forceWaitMs)
   throw new RuntimeToolError({
     code: 'runtime-start-failed',
     stage: 'dev-server',
