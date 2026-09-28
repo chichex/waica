@@ -328,6 +328,41 @@ describe('SceneTransition with a fade (issue #74 CA-15)', () => {
     game.dispose()
   })
 
+  it('an overlap that persists through the swap step does not re-arm the door and cancel a later fade (PR #98 review)', () => {
+    const game = makeRealGame(doorScene({ fadeSeconds: 0.25 }))
+    const load = vi.spyOn(game, 'loadSceneByName')
+    frame(game)
+    const player = game.find('Player')!
+
+    door(game).onCollide?.(player)
+    // The outgoing fade takes 15 steps (0.25s / (1/60)). Run all of them:
+    // by the 15th, the swap timer has decided to swap and reset
+    // `_fadingOut`, but `loadSceneByName` only queued the swap — it applies
+    // at the start of the next frame (game.ts's loadSceneByName contract).
+    for (let n = 0; n < 15; n += 1) frame(game)
+    expect(game.sceneName).toBe('main')
+    expect(game.cameraEffects.state.fade.opacity).toBe(1)
+
+    // The door is still alive and the player still overlaps it: the rest of
+    // this step's dispatchCollisions would call onCollide again.
+    door(game).onCollide?.(player)
+
+    // The queued swap applies here.
+    frame(game)
+    expect(game.sceneName).toBe('cave')
+    expect(load).toHaveBeenCalledTimes(1)
+
+    // The incoming scene starts its own outgoing fade within fadeSeconds of
+    // the swap (e.g. its own door) and it must run to completion, not get
+    // cancelled by an orphaned 'clear' from the re-fire above.
+    game.cameraEffects.fade({ to: '#00ff00', seconds: 0.25 })
+    for (let n = 0; n < 60; n += 1) frame(game)
+
+    expect(game.cameraEffects.state.fade.color).toBe('#00ff00')
+    expect(game.cameraEffects.state.fade.opacity).toBe(1)
+    game.dispose()
+  })
+
   it('the door being destroyed mid-fade does not leave the fade stuck at opacity 1 (issue #74 review)', () => {
     const game = makeRealGame(doorScene({ fadeSeconds: 0.25 }))
     frame(game)

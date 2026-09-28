@@ -89,14 +89,24 @@ export class SceneTransition extends Component {
         if (this.entity.alive && game.sceneName === sceneAtFadeStart) {
           game.loadSceneByName(this.scene)
         }
-        this._fadingOut = false
-        // Session-scoped, zero-delay: fires at the start of the next step,
-        // after the queued swap has applied, so the clear runs in the
-        // incoming scene (or, if the swap was skipped, uncovers whichever
-        // scene ended up live).
-        game.time.after(0, () => game.cameraEffects.fade({ to: 'clear', seconds: fadeSeconds }), {
-          scope: 'session',
-        })
+        // `_fadingOut` stays true here (PR #98 review): loadSceneByName
+        // above only *queues* the swap mid-frame, it doesn't apply it until
+        // the next frame. Dropping the guard now would let the rest of
+        // this same step's dispatchCollisions re-fire on the door, still
+        // alive and still overlapped, in the outgoing scene — a second
+        // fire() that schedules an orphan timer whose 'clear' lands in the
+        // new scene and cancels whatever legitimate fade is running there.
+        // Reset it only in the zero-delay follow-up below, once the queued
+        // swap has applied and the door has died with its scene (or, if
+        // the swap was skipped, once there is nothing left to re-arm).
+        game.time.after(
+          0,
+          () => {
+            this._fadingOut = false
+            game.cameraEffects.fade({ to: 'clear', seconds: fadeSeconds })
+          },
+          { scope: 'session' },
+        )
       },
       { scope: 'session' },
     )
