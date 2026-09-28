@@ -302,126 +302,148 @@ function invalidRuntimeInput(
   })
 }
 
+/** What a tool call runs against besides its own arguments. */
+interface ToolContext {
+  readonly runtime: RuntimeService
+  readonly signal: AbortSignal
+  readonly componentLoader: ProjectComponentLoader
+}
+
+type ToolOutput = Record<string, unknown> | RuntimeScreenshotResult
+
 async function execute(
   name: string,
   args: Record<string, unknown>,
-  runtime: RuntimeService,
-  signal: AbortSignal,
-  componentLoader: ProjectComponentLoader,
-): Promise<Record<string, unknown> | RuntimeScreenshotResult> {
+  context: ToolContext,
+): Promise<ToolOutput> {
+  const projectPath = checkedProjectPath(name, args)
+  return RUNTIME_TOOL_NAMES.has(name)
+    ? executeRuntimeTool(name, args, { projectPath, context })
+    : executeProjectTool(name, args, { projectPath, context })
+}
+
+/**
+ * The call's absolute project_path, checked at the dispatch boundary so every
+ * tool has byte-identical stdio-cwd semantics, including create_project.
+ * Runtime tools also have their remaining arguments checked here, before any
+ * Run Session work starts.
+ */
+function checkedProjectPath(name: string, args: Record<string, unknown>): string {
   const isRuntimeTool = RUNTIME_TOOL_NAMES.has(name)
   const rawProjectPath = args.project_path
   if (isRuntimeTool && (typeof rawProjectPath !== 'string' || rawProjectPath.length === 0)) {
     invalidRuntimeInput(name, '', 'project_path must be a nonempty absolute path.')
   }
   const projectPath = requiredString(args, 'project_path')
-  // Keep this at the dispatch boundary so every tool has byte-identical
-  // stdio-cwd semantics, including create_project.
-  if (isRuntimeTool) {
-    if (!path.isAbsolute(projectPath)) {
-      throw new RuntimeToolError({
-        code: 'runtime-prerequisite-missing',
-        stage: 'project',
-        message: ABSOLUTE_PATH_MESSAGE,
-        projectPath,
-      })
-    }
-    const tool = TOOLS.find((candidate) => candidate.name === name)
-    if (tool) {
-      validateRuntimeArguments(tool, args, (message) => invalidRuntimeInput(name, projectPath, message))
-    }
-  } else {
+  if (!isRuntimeTool) {
     assertAbsoluteProjectPath(projectPath)
+    return projectPath
   }
+  if (!path.isAbsolute(projectPath)) {
+    throw new RuntimeToolError({
+      code: 'runtime-prerequisite-missing',
+      stage: 'project',
+      message: ABSOLUTE_PATH_MESSAGE,
+      projectPath,
+    })
+  }
+  const tool = TOOLS.find((candidate) => candidate.name === name)
+  if (tool) {
+    validateRuntimeArguments(tool, args, (message) => invalidRuntimeInput(name, projectPath, message))
+  }
+  return projectPath
+}
+
+interface ToolTarget {
+  readonly projectPath: string
+  readonly context: ToolContext
+}
+
+/** File-oriented creation, introspection, validation and scaffold tools. */
+async function executeProjectTool(
+  name: string,
+  args: Record<string, unknown>,
+  { projectPath, context }: ToolTarget,
+): Promise<Record<string, unknown>> {
+  const optionalString = (field: string): string | undefined =>
+    args[field] === undefined ? undefined : requiredString(args, field, projectPath)
   switch (name) {
-    case 'create_project': {
-      const start = args.start === undefined ? 'demo' : requiredString(args, 'start', projectPath)
-      if (start !== 'demo' && start !== 'blank') {
-        throw new WaicaToolError({
-          code: 'invalid-input',
-          message: 'start must be "demo" or "blank".',
-          projectPath,
-        })
-      }
-      const archetype =
-        args.archetype === undefined
-          ? DEFAULT_ARCHETYPE_ID
-          : requiredString(args, 'archetype', projectPath)
-      if (!knownArchetype(archetype)) {
-        throw new WaicaToolError({
-          code: 'unknown-archetype',
-          message: `Unknown archetype "${archetype}"; available: ${knownArchetypeIds().join(', ')}.`,
-          projectPath,
-        })
-      }
-      return { ...(await createProject(projectPath, start, archetype)) }
-    }
+    case 'create_project':
+      return createProjectFromArguments(projectPath, optionalString)
     case 'list_components':
       return listComponents(projectPath)
     case 'describe_archetype':
-      return describeArchetype(
-        projectPath,
-        args.archetype === undefined ? undefined : requiredString(args, 'archetype', projectPath),
-      )
+      return describeArchetype(projectPath, optionalString('archetype'))
     case 'project_summary':
       return projectSummary(projectPath)
     case 'validate_project':
-      return validateProject(projectPath, { signal, componentLoader })
-    case 'scaffold_component': {
-      const check = await requireWaicaProject(projectPath)
-      return {
-        ...(await scaffoldComponent(projectPath, requiredString(args, 'name', projectPath))),
-        notes: check.notes,
-        provenance: [],
-        warnings: [],
-      }
-    }
-    case 'scaffold_prefab': {
-      const check = await requireWaicaProject(projectPath)
-      return {
-        ...(await scaffoldPrefab(
-          projectPath,
-          requiredString(args, 'name', projectPath),
-          requiredString(args, 'type', projectPath),
-          args.role === undefined ? undefined : requiredString(args, 'role', projectPath),
-          args.identity === undefined ? undefined : requiredString(args, 'identity', projectPath),
-        )),
-        notes: check.notes,
-        provenance: [],
-        warnings: [],
-      }
-    }
-    case 'scaffold_role': {
-      const check = await requireWaicaProject(projectPath)
-      return {
-        ...(await scaffoldRole(projectPath, requiredString(args, 'role', projectPath))),
-        notes: check.notes,
-        provenance: [],
-        warnings: [],
-      }
-    }
-    case 'scaffold_state': {
-      const check = await requireWaicaProject(projectPath)
-      return {
-        ...(await scaffoldState(
-          projectPath,
-          requiredString(args, 'role', projectPath),
-          requiredString(args, 'state', projectPath),
-        )),
-        notes: check.notes,
-        provenance: [],
-        warnings: [],
-      }
-    }
-    case 'scaffold_ui': {
-      const check = await requireWaicaProject(projectPath)
-      return {
-        ...(await scaffoldUi(projectPath, requiredString(args, 'name', projectPath))),
-        notes: check.notes,
-        provenance: [],
-        warnings: [],
-      }
-    }
+      return validateProject(projectPath, {
+        signal: context.signal,
+        componentLoader: context.componentLoader,
+      })
+    default:
+      return executeScaffoldTool(name, args, projectPath)
+  }
+}
+
+/** Reads start, then archetype, each checked before the next is read. */
+async function createProjectFromArguments(
+  projectPath: string,
+  optionalString: (field: string) => string | undefined,
+): Promise<Record<string, unknown>> {
+  const start = optionalString('start') ?? 'demo'
+  if (start !== 'demo' && start !== 'blank') {
+    throw new WaicaToolError({
+      code: 'invalid-input',
+      message: 'start must be "demo" or "blank".',
+      projectPath,
+    })
+  }
+  const archetype = optionalString('archetype') ?? DEFAULT_ARCHETYPE_ID
+  if (!knownArchetype(archetype)) {
+    throw new WaicaToolError({
+      code: 'unknown-archetype',
+      message: `Unknown archetype "${archetype}"; available: ${knownArchetypeIds().join(', ')}.`,
+      projectPath,
+    })
+  }
+  return { ...(await createProject(projectPath, start, archetype)) }
+}
+
+/** Scaffold tools write a starter into an existing Waica Project. */
+async function executeScaffoldTool(
+  name: string,
+  args: Record<string, unknown>,
+  projectPath: string,
+): Promise<Record<string, unknown>> {
+  const field = (key: string): string => requiredString(args, key, projectPath)
+  const optionalField = (key: string): string | undefined =>
+    args[key] === undefined ? undefined : field(key)
+  const scaffolds = new Map<string, () => Promise<object>>([
+    ['scaffold_component', () => scaffoldComponent(projectPath, field('name'))],
+    [
+      'scaffold_prefab',
+      () => scaffoldPrefab(projectPath, field('name'), field('type'), optionalField('role'), optionalField('identity')),
+    ],
+    ['scaffold_role', () => scaffoldRole(projectPath, field('role'))],
+    ['scaffold_state', () => scaffoldState(projectPath, field('role'), field('state'))],
+    ['scaffold_ui', () => scaffoldUi(projectPath, field('name'))],
+  ])
+  const scaffold = scaffolds.get(name)
+  if (scaffold === undefined) {
+    throw new WaicaToolError({ code: 'unknown-tool', message: `Unknown tool "${name}".`, projectPath })
+  }
+  const check = await requireWaicaProject(projectPath)
+  return { ...(await scaffold()), notes: check.notes, provenance: [], warnings: [] }
+}
+
+/** Browser-backed Run Session tools, with arguments already validated. */
+function executeRuntimeTool(
+  name: string,
+  args: Record<string, unknown>,
+  { projectPath, context: { runtime, signal } }: ToolTarget,
+): Promise<ToolOutput> {
+  switch (name) {
     case 'start_project':
       return runtime.start({
         projectPath,
@@ -455,14 +477,8 @@ async function execute(
         ...(typeof args.y === 'number' ? { y: args.y } : {}),
         ...(typeof args.scene === 'string' ? { scene: args.scene } : {}),
       } as RuntimeControlInput, { signal })
-    case 'capture_screenshot':
-      return runtime.captureScreenshot(projectPath, { signal })
     default:
-      throw new WaicaToolError({
-        code: 'unknown-tool',
-        message: `Unknown tool "${name}".`,
-        projectPath,
-      })
+      return runtime.captureScreenshot(projectPath, { signal })
   }
 }
 
@@ -576,13 +592,11 @@ export function createWaicaMcpServer(options: WaicaMcpServerOptions = {}): Serve
   server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     const args = (request.params.arguments ?? {}) as Record<string, unknown>
     try {
-      const executed = await execute(
-        request.params.name,
-        args,
+      const executed = await execute(request.params.name, args, {
         runtime,
-        extra.signal,
+        signal: extra.signal,
         componentLoader,
-      )
+      })
       return request.params.name === 'capture_screenshot'
         ? screenshotResult(executed as RuntimeScreenshotResult)
         : result(executed as Record<string, unknown>)
