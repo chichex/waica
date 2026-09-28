@@ -1,0 +1,74 @@
+import type { ArchetypeManifest, ComponentClass, ParamSpec } from '@waica/engine'
+
+export type FindingSeverity = 'error' | 'warning' | 'info'
+
+export type FindingCode =
+  | 'unknown-component'
+  | 'broken-prefab-ref'
+  | 'override-key-not-in-prefab'
+  | 'missing-clip'
+  | 'missing-sound'
+  | 'dangling-transition-target'
+  | 'unreachable-state'
+  | 'no-state-code'
+  | 'input-action-unbound'
+  | 'undeclared-stat'
+  | 'unknown-ui-piece'
+  | 'camera-follow-unknown-entity'
+  | 'unknown-scene-transition-target'
+  | 'scene-transition-missing-interactable'
+  | 'unparseable-json'
+  | 'component-load-failed'
+  | 'component-load-unsupported'
+  | 'duplicate-component'
+  | 'invalid-update-constraint'
+  | 'component-update-cycle'
+  | 'invalid-collision-layer'
+  | 'invalid-collision-mask'
+  | 'duplicate-collision-mask-entry'
+
+export interface ValidationFinding {
+  severity: FindingSeverity
+  code: FindingCode
+  message: string
+  file: string
+  ref?: string
+}
+
+export interface ComponentMetadata {
+  Class: ComponentClass
+  params: Record<string, ParamSpec>
+  defaults: Record<string, unknown>
+  sourceFile?: string
+}
+
+/** Everything validate_project knows about the Project while it checks its files. */
+export interface ValidationContext {
+  findings: ValidationFinding[]
+  manifest: ArchetypeManifest
+  knownComponents: Set<string>
+  projectComponents: Set<string>
+  componentMetadata: Map<string, ComponentMetadata>
+  componentRegistry: Record<string, ComponentClass>
+  reportedClassConstraints: Set<string>
+  prefabRefs: Set<string>
+  declaredStats: Set<string>
+  stateFiles: Set<string>
+  roleStateSources: Map<string, string[]>
+  bindings: Record<string, string[]>
+  soundRefs: ReadonlySet<string>
+  uiPieces: ReadonlySet<string>
+  /** The stock Anchored Pieces, plus pieces a component names through a `ref: 'ui'` param. */
+  anchoredPieces: Set<string>
+}
+
+export function add(
+  context: Pick<ValidationContext, 'findings'>,
+  severity: FindingSeverity,
+  code: FindingCode,
+  message: string,
+  file: string,
+  ref?: string,
+): void {
+  context.findings.push({ severity, code, message, file, ...(ref ? { ref } : {}) })
+}
