@@ -102,6 +102,15 @@ export type ParamOverrides = Record<
   Record<string, Record<string, number | boolean | string | string[]>>
 >
 
+/** Maps a resolved update order back to the entity's components; the order only names components it was built from. */
+function componentsInOrder(order: readonly string[], byName: ReadonlyMap<string, Component>): Component[] {
+  return order.map((name) => {
+    const component = byName.get(name)
+    if (!component) throw new Error(`Component update schedule names "${name}", which is not on the entity`)
+    return component
+  })
+}
+
 /**
  * Engine core: loop, unified 2D/3D three scene, orthographic camera,
  * entities with components, and input. See DESIGN.md.
@@ -642,7 +651,11 @@ export class Game {
       }
     }
     const z = ySortZ(entries)
-    for (const [index, participant] of participants.entries()) participant.setSortZ(z[index]!)
+    for (const [index, participant] of participants.entries()) {
+      const sortZ = z[index]
+      if (sortZ === undefined) throw new Error(`ySortZ returned no z for y-sort participant ${index}`)
+      participant.setSortZ(sortZ)
+    }
   }
 
   private renderSurface(): void {
@@ -701,7 +714,7 @@ export class Game {
     // when nothing about this entity's components changed since last time.
     const cached = this.updateScheduleCache.get(entity)
     if (cached && cached.signature === signature) {
-      return cached.order.map((name) => byName.get(name)!)
+      return componentsInOrder(cached.order, byName)
     }
 
     const registry: Record<string, ComponentClass> = {
@@ -725,7 +738,7 @@ export class Game {
     }
     this.invalidUpdateCompositions.delete(entity)
     this.updateScheduleCache.set(entity, { signature, order: result.order })
-    return result.order.map((name) => byName.get(name)!)
+    return componentsInOrder(result.order, byName)
   }
 
   private updateSceneCamera(dt: number): void {

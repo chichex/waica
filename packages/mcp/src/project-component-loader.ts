@@ -597,7 +597,10 @@ export class ProjectComponentLoader {
         closeObservedResolve()
       }
       const onAbort = (): void => {
-        aborted ??= cancellationReason(input.signal!)
+        const { signal } = input
+        // Invariant: this listener is only ever registered on input.signal.
+        if (!signal) throw new Error('Project component abort listener fired without an abort signal')
+        aborted ??= cancellationReason(signal)
         forceTerminate()
       }
       if (input.signal) input.signal.addEventListener('abort', onAbort, { once: true })

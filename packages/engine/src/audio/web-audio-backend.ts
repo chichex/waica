@@ -125,11 +125,12 @@ export class WebAudioBackend implements AudioBackend {
   private ensureChannelGain(channel: string): GainNode {
     const existing = this.channelGains.get(channel)
     if (existing) return existing
-    // Safe: only called once ensureContext() has already produced a context.
-    const context = this.context!
+    const { context, masterGain } = this
+    // Invariant: only called once ensureContext() has produced the context and master gain.
+    if (!context || !masterGain) throw new Error('ensureChannelGain called before ensureContext')
     const gain = context.createGain()
     gain.gain.value = this.effectiveChannelGain(channel)
-    gain.connect(this.masterGain!)
+    gain.connect(masterGain)
     this.channelGains.set(channel, gain)
     return gain
   }

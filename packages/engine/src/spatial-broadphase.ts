@@ -88,6 +88,20 @@ function eachCell(range: CellRange, visit: (key: string) => void): void {
   }
 }
 
+/** The value of the indexed entry at `index`; buckets and overflow only hold indices into `entries`. */
+function entryValue<T>(entries: readonly SpatialEntry<T>[], index: number): T {
+  const entry = entries[index]
+  if (!entry) throw new Error(`Spatial broadphase has no entry at index ${index}`)
+  return entry.value
+}
+
+/** The entry index stored at `position` of a bucket that is iterated within its bounds. */
+function indexAt(bucket: readonly number[], position: number): number {
+  const index = bucket[position]
+  if (index === undefined) throw new Error(`Spatial broadphase bucket has no index at position ${position}`)
+  return index
+}
+
 /**
  * Package-internal fresh uniform grid. Bodies above the fixed occupancy cap
  * remain in an overflow bucket and are conservatively visible everywhere.
@@ -133,7 +147,7 @@ export function createSpatialBroadphase<T>(
       })
       return [...selected]
         .sort((a, b) => a - b)
-        .map((index) => entries[index]!.value)
+        .map((index) => entryValue(entries, index))
     },
     pairs() {
       const pairKeys = new Set<number>()
@@ -147,7 +161,7 @@ export function createSpatialBroadphase<T>(
       for (const bucket of buckets.values()) {
         for (let left = 0; left < bucket.length; left += 1) {
           for (let right = left + 1; right < bucket.length; right += 1) {
-            addPair(bucket[left]!, bucket[right]!)
+            addPair(indexAt(bucket, left), indexAt(bucket, right))
           }
         }
       }
@@ -160,8 +174,8 @@ export function createSpatialBroadphase<T>(
         .map((key): readonly [number, number] => [Math.floor(key / width), key % width])
         .sort(([a1, a2], [b1, b2]) => a1 - b1 || a2 - b2)
         .map(([first, second]) => [
-          entries[first]!.value,
-          entries[second]!.value,
+          entryValue(entries, first),
+          entryValue(entries, second),
         ] as const)
     },
   }

@@ -39,6 +39,13 @@ function stepCost(dc: number, dr: number): number {
   return dc !== 0 && dr !== 0 ? Math.SQRT2 : 1
 }
 
+/** The best known cost of a cell A* has already scored (every open or current cell has one). */
+function scoreOf(gScore: ReadonlyMap<string, number>, cellKey: string): number {
+  const score = gScore.get(cellKey)
+  if (score === undefined) throw new Error(`A* has no score for cell ${cellKey}`)
+  return score
+}
+
 /** Octile distance: admissible heuristic for 8-way movement with unit/√2 costs. */
 function octile(a: GridCell, b: GridCell): number {
   const dx = Math.abs(a.column - b.column)
@@ -55,8 +62,7 @@ export function reachableCells(grid: NavigationGrid, start: GridCell): GridCell[
   if (!grid.isWalkable(start)) return []
   const visited = new Map<string, GridCell>([[key(start), start]])
   const queue: GridCell[] = [start]
-  while (queue.length > 0) {
-    const current = queue.shift()!
+  for (let current = queue.shift(); current !== undefined; current = queue.shift()) {
     for (const next of neighbors(grid, current)) {
       const k = key(next)
       if (visited.has(k)) continue
@@ -88,7 +94,7 @@ export function findPath(grid: NavigationGrid, start: GridCell, goal: GridCell):
     let current: GridCell | undefined
     let bestF = Infinity
     for (const [k, cell] of open) {
-      const f = gScore.get(k)! + octile(cell, goal)
+      const f = scoreOf(gScore, k) + octile(cell, goal)
       if (f < bestF) {
         bestF = f
         currentKey = k
@@ -99,8 +105,7 @@ export function findPath(grid: NavigationGrid, start: GridCell, goal: GridCell):
     if (currentKey === goalKey) {
       const path: GridCell[] = [current]
       let trace = currentKey
-      while (cameFrom.has(trace)) {
-        const previous = cameFrom.get(trace)!
+      for (let previous = cameFrom.get(trace); previous; previous = cameFrom.get(trace)) {
         path.unshift(previous)
         trace = key(previous)
       }
@@ -109,7 +114,7 @@ export function findPath(grid: NavigationGrid, start: GridCell, goal: GridCell):
     }
     open.delete(currentKey)
     closed.add(currentKey)
-    const currentG = gScore.get(currentKey)!
+    const currentG = scoreOf(gScore, currentKey)
     for (const next of neighbors(grid, current)) {
       const nextKey = key(next)
       if (closed.has(nextKey)) continue

@@ -59,10 +59,12 @@ export function locateFrame(
   frame: number,
 ): { sheet: number; frame: number } {
   let rest = Math.max(0, Math.floor(frame))
-  for (let i = 0; i < sheets.length; i++) {
-    const count = sheetFrameCount(sheets[i]!)
+  let i = 0
+  for (const sheet of sheets) {
+    const count = sheetFrameCount(sheet)
     if (rest < count || i === sheets.length - 1) return { sheet: i, frame: Math.min(rest, count - 1) }
     rest -= count
+    i++
   }
   return { sheet: 0, frame: 0 }
 }
@@ -85,7 +87,10 @@ export function sheetCell(
 ): SheetCell {
   if (params.cells?.length) {
     const index = Math.min(Math.max(0, Math.floor(frame)), params.cells.length - 1)
-    return params.cells[index]!
+    const cell = params.cells[index]
+    // Invariant: the index is clamped into a non-empty cells array.
+    if (!cell) throw new Error(`sheetCell: missing cell at clamped index ${index}`)
+    return cell
   }
   const c = Math.max(1, Math.floor(cols))
   const r = Math.max(1, Math.floor(rows))

@@ -29,6 +29,13 @@ export function isYSortParticipant(value: unknown): value is YSortParticipant {
   )
 }
 
+/** The Y of the entry at `index`, which `ySortZ` only reads for indices it grouped from `entries`. */
+function entryY(entries: readonly YSortEntry[], index: number): number {
+  const entry = entries[index]
+  if (!entry) throw new Error(`ySortZ has no entry at index ${index}`)
+  return entry.y
+}
+
 /**
  * Z per entry under y-sort. Each layer keeps its 0.01 band; within a band,
  * lower Y gets a higher z (renders in front), and exact Y ties keep input
@@ -45,14 +52,13 @@ export function ySortZ(entries: readonly YSortEntry[]): number[] {
     if (group) group.push(index)
     else byLayer.set(entry.layer, [index])
   }
-  const layers = [...byLayer.keys()].sort((a, b) => a - b)
+  const layers = [...byLayer].sort(([a], [b]) => a - b)
   const z = new Array<number>(entries.length)
-  for (const [i, layer] of layers.entries()) {
-    const indices = byLayer.get(layer)!
-    const next = layers[i + 1]
+  for (const [i, [layer, indices]] of layers.entries()) {
+    const next = layers[i + 1]?.[0]
     const width = next === undefined ? 0.01 : Math.min(0.01, (next - layer) * 0.01)
     // Stable sort: back-to-front is descending Y, ties keep input order.
-    const ordered = [...indices].sort((a, b) => entries[b]!.y - entries[a]!.y)
+    const ordered = [...indices].sort((a, b) => entryY(entries, b) - entryY(entries, a))
     const step = width / (ordered.length + 1)
     for (const [rank, index] of ordered.entries()) {
       z[index] = layer * 0.01 + (rank + 1) * step

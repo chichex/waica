@@ -72,6 +72,20 @@ export function implementsOnUpdate(Class: ComponentClass | undefined): boolean {
   return typeof prototype === 'object' && prototype !== null && typeof Reflect.get(prototype, 'onUpdate') === 'function'
 }
 
+/** Reads a Tarjan bookkeeping entry that the traversal has already recorded. */
+function recorded(map: ReadonlyMap<string, number>, node: string, what: string): number {
+  const value = map.get(node)
+  if (value === undefined) throw new Error(`Component update cycle search has no ${what} for "${node}"`)
+  return value
+}
+
+/** The first member of a strongly connected group, which always has at least two members. */
+function firstMember(group: readonly string[]): string {
+  const [first] = group
+  if (first === undefined) throw new Error('Component update cycle group is empty')
+  return first
+}
+
 function updateCycles(
   nodes: readonly string[],
   outgoing: ReadonlyMap<string, ReadonlySet<string>>,
@@ -93,19 +107,20 @@ function updateCycles(
     for (const dependent of [...(outgoing.get(node) ?? [])].sort(codeUnitCompare)) {
       if (!indices.has(dependent)) {
         visit(dependent)
-        lowLinks.set(node, Math.min(lowLinks.get(node)!, lowLinks.get(dependent)!))
+        lowLinks.set(node, Math.min(recorded(lowLinks, node, 'low link'), recorded(lowLinks, dependent, 'low link')))
       } else if (onStack.has(dependent)) {
-        lowLinks.set(node, Math.min(lowLinks.get(node)!, indices.get(dependent)!))
+        lowLinks.set(node, Math.min(recorded(lowLinks, node, 'low link'), recorded(indices, dependent, 'index')))
       }
     }
 
     if (lowLinks.get(node) !== indices.get(node)) return
     const group: string[] = []
-    while (stack.length > 0) {
-      const member = stack.pop()!
+    let member = stack.pop()
+    while (member !== undefined) {
       onStack.delete(member)
       group.push(member)
       if (member === node) break
+      member = stack.pop()
     }
     if (group.length > 1) cycles.push(group.sort(codeUnitCompare))
   }
@@ -113,7 +128,7 @@ function updateCycles(
   for (const node of nodes) {
     if (!indices.has(node)) visit(node)
   }
-  return cycles.sort((left, right) => codeUnitCompare(left[0]!, right[0]!))
+  return cycles.sort((left, right) => codeUnitCompare(firstMember(left), firstMember(right)))
 }
 
 /**
@@ -186,7 +201,8 @@ export function resolveComponentUpdateSchedule(
         })
         continue
       }
-      if (!outgoing.has(target)) {
+      const readers = outgoing.get(target)
+      if (!readers) {
         issues.push({
           code: 'invalid-update-constraint',
           reason: 'passive-target',
@@ -197,7 +213,6 @@ export function resolveComponentUpdateSchedule(
         })
         continue
       }
-      const readers = outgoing.get(target)!
       if (readers.has(declarer)) continue
       readers.add(declarer)
       indegree.set(declarer, (indegree.get(declarer) ?? 0) + 1)
@@ -215,15 +230,17 @@ export function resolveComponentUpdateSchedule(
 
   const ready = nodes.filter((name) => indegree.get(name) === 0)
   const order: string[] = []
-  while (ready.length > 0) {
-    ready.sort(codeUnitCompare)
-    const next = ready.shift()!
+  ready.sort(codeUnitCompare)
+  let next = ready.shift()
+  while (next !== undefined) {
     order.push(next)
     for (const dependent of [...(outgoing.get(next) ?? [])].sort(codeUnitCompare)) {
       const remaining = (indegree.get(dependent) ?? 0) - 1
       indegree.set(dependent, remaining)
       if (remaining === 0) ready.push(dependent)
     }
+    ready.sort(codeUnitCompare)
+    next = ready.shift()
   }
 
   return { ok: true, order, issues: [] }

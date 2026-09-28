@@ -158,7 +158,12 @@ async function projectViewport(
   projectPath: string,
   explicit?: { width: number; height: number },
 ): Promise<{ width: number; height: number }> {
-  if (explicit) return validateViewport(projectPath, explicit, 'explicit')!
+  if (explicit) {
+    const viewport = validateViewport(projectPath, explicit, 'explicit')
+    // validateViewport throws for every invalid explicit object, so only a non-object yields null.
+    if (!viewport) throw runtimeError(projectPath, 'project', 'viewport must be an object with width and height.')
+    return viewport
+  }
   try {
     const game = objectRecord(JSON.parse(await readFile(path.join(projectPath, 'src/game.json'), 'utf8')))
     return validateViewport(projectPath, game.resolution, 'project') ?? { width: 640, height: 360 }
@@ -262,7 +267,10 @@ async function verifyDependencies(
       )
     }
   }
-  const engineRoot = await packageRootFromEntry(entries.get('@waica/engine')!, '@waica/engine')
+  const engineEntry = entries.get('@waica/engine')
+  // Invariant: @waica/engine is a declared name, and every declared name resolved above or threw.
+  if (engineEntry === undefined) throw runtimeError(projectPath, 'dependencies', 'Project dependency @waica/engine did not resolve.')
+  const engineRoot = await packageRootFromEntry(engineEntry, '@waica/engine')
   const engineManifest = objectRecord(JSON.parse(await readFile(path.join(engineRoot, 'package.json'), 'utf8')))
   if (typeof engineManifest.version !== 'string' || engineManifest.version.length === 0) {
     throw runtimeError(projectPath, 'dependencies', 'Installed @waica/engine has no valid version.')
