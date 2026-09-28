@@ -17,6 +17,7 @@ import {
 } from '../project/states'
 import type { CharacterIdentity } from '../project/chassis'
 import { MissingOption, missingOptionClass } from './missing-option'
+import { ModalBackdrop } from './ModalBackdrop'
 
 /** Whose StateMachine a state edit applies to (mirrors AnimTarget). */
 export type StateTarget =
@@ -312,12 +313,7 @@ export function StateEditorModal({
   }
 
   return (
-    <div
-      className="ed-modal-backdrop"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onCancel()
-      }}
-    >
+    <ModalBackdrop onDismiss={onCancel}>
       <div className="ed-modal ed-modal-state">
         <header className="ed-modal-head">
           <span>
@@ -497,7 +493,7 @@ export function StateEditorModal({
           </button>
         </footer>
       </div>
-    </div>
+    </ModalBackdrop>
   )
 }
 
@@ -564,12 +560,7 @@ export function RolePickerModal({
   )
 
   return (
-    <div
-      className="ed-modal-backdrop"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onCancel()
-      }}
-    >
+    <ModalBackdrop onDismiss={onCancel}>
       <div className="ed-modal ed-modal-role">
         <header className="ed-modal-head">
           <span>New character — what is it?</span>
@@ -614,6 +605,7 @@ export function RolePickerModal({
                 {movement === null ? (
                   <input
                     type="text"
+                    // eslint-disable-next-line jsx-a11y/no-autofocus -- choosing "custom" reveals this field; focus follows the choice
                     autoFocus
                     placeholder="your role name…"
                     value={customRole}
@@ -639,6 +631,7 @@ export function RolePickerModal({
             {identity === 'custom' ? (
               <input
                 type="text"
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- choosing "custom" reveals this field; focus follows the choice
                 autoFocus
                 placeholder="your role name…"
                 value={customRole}
@@ -670,6 +663,6 @@ export function RolePickerModal({
           </button>
         </footer>
       </div>
-    </div>
+    </ModalBackdrop>
   )
 }

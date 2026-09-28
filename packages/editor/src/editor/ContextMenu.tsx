@@ -46,8 +46,10 @@ export function ContextMenu({ menu, onClose }: { menu: MenuState; onClose(): voi
   }, [onClose])
 
   return (
+    // Clicking outside is a pointer shortcut; Escape and every entry close it too.
     <div
       className="ed-ctx-backdrop"
+      role="presentation"
       onMouseDown={onClose}
       onContextMenu={(e) => {
         e.preventDefault()
@@ -57,29 +59,36 @@ export function ContextMenu({ menu, onClose }: { menu: MenuState; onClose(): voi
       <div
         ref={ref}
         className="ed-ctx"
+        role="menu"
+        tabIndex={-1}
         style={{ left: pos.x, top: pos.y }}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        {menu.entries.map((entry, i) =>
-          entry === 'sep' ? (
-            <div key={i} className="ed-ctx-sep" />
-          ) : (
-            <button
-              key={i}
-              className={`ed-ctx-item ${entry.danger ? 'is-danger' : ''}`}
-              disabled={entry.disabled}
-              title={entry.title}
-              onClick={() => {
-                onClose()
-                entry.onClick()
-              }}
-            >
-              <span className="ed-ctx-ico">{entry.icon ?? ''}</span>
-              {entry.label}
-            </button>
-          ),
-        )}
+        {menu.entries.map((entry, i) => (
+          <ContextMenuEntry key={i} entry={entry} onClose={onClose} />
+        ))}
       </div>
     </div>
+  )
+}
+
+/** One entry: a divider, or an item that closes the menu before running. */
+function ContextMenuEntry({ entry, onClose }: { entry: MenuEntry; onClose: () => void }) {
+  if (entry === 'sep') return <div className="ed-ctx-sep" role="separator" />
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      className={`ed-ctx-item ${entry.danger ? 'is-danger' : ''}`}
+      disabled={entry.disabled}
+      title={entry.title}
+      onClick={() => {
+        onClose()
+        entry.onClick()
+      }}
+    >
+      <span className="ed-ctx-ico">{entry.icon ?? ''}</span>
+      {entry.label}
+    </button>
   )
 }

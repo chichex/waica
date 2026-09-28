@@ -950,10 +950,15 @@ button.ed-crumb:hover {
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
   margin-top: 6px;
   padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
 }
 
@@ -1071,6 +1076,18 @@ button.ed-crumb:hover {
   box-sizing: border-box;
   cursor: pointer;
   user-select: none;
+}
+
+/* The frame toggle fills its cell box and inherits the cell's look. */
+.ed-sheet-cell-toggle {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: inherit;
 }
 
 .ed-sheet-cells.is-editing .ed-sheet-cellbox {

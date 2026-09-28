@@ -456,7 +456,7 @@ function ViewportVisibilityButton({
 }
 
 /** Sentinel option value: switches a ref row from the picker to free text. */
-const CUSTOM_REF_OPTION = ' waica-custom-ref'
+const CUSTOM_REF_OPTION = '\u0000waica-custom-ref'
 
 /**
  * A typed-reference param: a picker over the project's known targets (with
@@ -1004,21 +1004,21 @@ const ANIMATION_KEYS = new Set([
 
 /** An image URL's natural pixel size, once it loads (null while pending). */
 function useImageDims(url: string | null): [number, number] | null {
-  const [dims, setDims] = useState<[number, number] | null>(null)
+  // Keyed by the url they were measured for: another url reads as pending.
+  const [measured, setMeasured] = useState<{ url: string; dims: [number, number] } | null>(null)
   useEffect(() => {
-    setDims(null)
     if (!url) return
     let cancelled = false
     const img = new Image()
     img.onload = () => {
-      if (!cancelled) setDims([img.naturalWidth, img.naturalHeight])
+      if (!cancelled) setMeasured({ url, dims: [img.naturalWidth, img.naturalHeight] })
     }
     img.src = url
     return () => {
       cancelled = true
     }
   }, [url])
-  return dims
+  return measured && measured.url === url ? measured.dims : null
 }
 
 function AppearanceSection({
@@ -1223,7 +1223,8 @@ function AppearanceSection({
         <>
           {kind === 'image' && (
             <>
-              <div
+              <button
+                type="button"
                 className={`ed-appear-preview ${dropping ? 'is-dropping' : ''}`}
                 title="Click to change the image — or drop a new one on it"
                 onClick={() => setPicking(true)}
@@ -1236,7 +1237,7 @@ function AppearanceSection({
                     <i className="ed-dot" title="overridden on this instance" />
                   )}
                 </span>
-              </div>
+              </button>
               {onToggleAnimated && (
                 <label className="ed-row">
                   <span>animated</span>

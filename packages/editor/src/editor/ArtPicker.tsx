@@ -55,6 +55,7 @@ export function ArtSearchGrid({
           type="search"
           placeholder="Search art…"
           value={query}
+          // eslint-disable-next-line jsx-a11y/no-autofocus -- the picker was just opened by the user; focus moves into it (WAI-ARIA dialog pattern)
           autoFocus
           onChange={(e) => setQuery(e.target.value)}
         />

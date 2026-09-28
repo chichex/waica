@@ -30,6 +30,7 @@ import {
   type DroppedFile,
 } from './use-project-art'
 import { reportRejection } from '../report-rejection'
+import { ModalBackdrop } from './ModalBackdrop'
 
 type SliceKey = (typeof SLICE_KEYS)[number]
 
@@ -108,7 +109,6 @@ export function AnimationEditor({
     if (!playing || !clip || clip.frames.length === 0) return
     const player = new ClipPlayer()
     player.set(clip)
-    setPreviewFrame(player.advance(0))
     let raf = 0
     let last = performance.now()
     const tick = (now: number): void => {
@@ -116,7 +116,12 @@ export function AnimationEditor({
       last = now
       raf = requestAnimationFrame(tick)
     }
-    raf = requestAnimationFrame(tick)
+    // The clip restarts on the first animation frame, then advances per frame.
+    raf = requestAnimationFrame((now) => {
+      setPreviewFrame(player.advance(0))
+      last = now
+      raf = requestAnimationFrame(tick)
+    })
     return () => cancelAnimationFrame(raf)
   }, [playing, clip])
 
@@ -331,12 +336,7 @@ export function AnimationEditor({
   const showPicker = picking !== null || !draft.texture
 
   return (
-    <div
-      className="ed-modal-backdrop"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onCancel()
-      }}
-    >
+    <ModalBackdrop onDismiss={onCancel}>
       <div className="ed-modal">
         <header className="ed-modal-head">
           <span>Animation — {title}</span>
@@ -428,10 +428,11 @@ export function AnimationEditor({
           <div className="ed-modal-right">
             <header className="ed-sec-head">Clips</header>
             {Object.entries(draft.clips).map(([name, c]) => (
+              // Moving into any of a clip's fields (keyboard or pointer) selects it.
               <div
                 key={name}
                 className={`ed-clip ${selectedClip === name ? 'is-active' : ''}`}
-                onClick={() => setSelectedClip(name)}
+                onFocus={() => setSelectedClip(name)}
               >
                 <div className="ed-clip-row">
                   <input
@@ -563,7 +564,7 @@ export function AnimationEditor({
           </button>
         </footer>
       </div>
-    </div>
+    </ModalBackdrop>
   )
 }
 
@@ -961,13 +962,21 @@ function SheetPane({
                           : `frame ${base + i} — select a clip first`
                     }
                     onPointerDown={(e) => startMove(e, i)}
-                    onClick={() => {
-                      if (!editing) onToggleFrame(base + i)
-                    }}
                   >
-                    {base + i}
+                    {!editing && (
+                      // Filling the cell: a keyboard-operable frame toggle.
+                      <button
+                        type="button"
+                        className="ed-sheet-cell-toggle"
+                        aria-pressed={clipFrames.includes(base + i)}
+                        onClick={() => onToggleFrame(base + i)}
+                      >
+                        {base + i}
+                      </button>
+                    )}
                     {editing && (
                       <>
+                        {base + i}
                         <button
                           className="ed-cell-delete"
                           title="Delete cell"
@@ -997,6 +1006,8 @@ function SheetPane({
               {Array.from({ length: count }, (_, i) => (
                 <button
                   key={i}
+                  type="button"
+                  aria-pressed={clipFrames.includes(base + i)}
                   className={`ed-sheet-cell ${clipFrames.includes(base + i) ? 'is-on' : ''}`}
                   title={
                     selectedClip

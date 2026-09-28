@@ -35,14 +35,6 @@ const COUNT = { skipBlankLines: true, skipComments: true }
 const PENDING_MUST = new Set([
   'max-lines-per-function',
   'max-lines',
-  'react-hooks/exhaustive-deps',
-  'react-hooks/immutability',
-  'react-hooks/refs',
-  'react-hooks/set-state-in-effect',
-  'jsx-a11y/click-events-have-key-events',
-  'jsx-a11y/no-static-element-interactions',
-  'jsx-a11y/no-autofocus',
-  'jsx-a11y/label-has-associated-control',
 ])
 
 /** Severity for a rule a MUST policy line names. */
@@ -204,7 +196,14 @@ export default tseslint.config(
     files: EDITOR_JSX,
     plugins: { 'jsx-a11y': jsxA11y },
     languageOptions: jsxA11y.flatConfigs.recommended.languageOptions,
-    rules: asMust(jsxA11y.flatConfigs.recommended.rules),
+    rules: {
+      ...asMust(jsxA11y.flatConfigs.recommended.rules),
+      // NumberField renders a native <input>; a label wrapping it is associated.
+      'jsx-a11y/label-has-associated-control': [
+        must('jsx-a11y/label-has-associated-control'),
+        { controlComponents: ['NumberField'], assert: 'either' },
+      ],
+    },
   },
   {
     files: TESTS,

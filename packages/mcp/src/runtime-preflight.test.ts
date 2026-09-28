@@ -1,7 +1,8 @@
+import { spawnSync } from 'node:child_process'
 import { chmod, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { cleanup, stubPackage, tempDir, writeTree } from './test-helpers.js'
 import {
   COMMAND_PROBE_TIMEOUT_MS,
@@ -235,13 +236,27 @@ describe('Runtime Project preflight', () => {
 })
 
 describe('package manager probe', () => {
+  const hanging = { directory: '', command: '', pidFile: '' }
+
+  // A fake package manager whose `--version` never exits. It is executed once
+  // here with `warm`, which exits at once: the first exec of a fresh script
+  // can be slow on macOS, and that latency must not eat the probe deadline.
+  beforeAll(async () => {
+    hanging.directory = await tempDir('waica-hanging-pm-')
+    hanging.pidFile = path.join(hanging.directory, 'pid')
+    hanging.command = path.join(hanging.directory, 'hanging-pm')
+    await writeFile(
+      hanging.command,
+      `#!/bin/sh\n[ "$1" = warm ] && exit 0\necho $$ > "${hanging.pidFile}"\nexec sleep 30\n`,
+    )
+    await chmod(hanging.command, 0o755)
+    spawnSync(hanging.command, ['warm'], { timeout: 30_000 })
+  }, 60_000)
+
+  afterAll(async () => cleanup(hanging.directory))
+
   it('gives up on a hanging `<pm> --version` within the probe deadline and kills it', async () => {
-    const directory = await tempDir('waica-hanging-pm-')
-    roots.push(directory)
-    const pidFile = path.join(directory, 'pid')
-    const command = path.join(directory, 'hanging-pm')
-    await writeFile(command, `#!/bin/sh\necho $$ > "${pidFile}"\nexec sleep 30\n`)
-    await chmod(command, 0o755)
+    const { command, pidFile } = hanging
 
     const started = Date.now()
     await expect(commandAvailable(command, 1_500)).resolves.toBe(false)

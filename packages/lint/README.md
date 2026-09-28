@@ -60,14 +60,14 @@ config to check the severity.
 | L138 | SHOULD | `@typescript-eslint/require-await` | `warn` | `packages/engine/src/game.ts` | stands for every `recommendedTypeChecked` rule no policy line names |
 | L140 | MUST | `@typescript-eslint/ban-ts-comment` | `error` | `packages/engine/src/game.ts` | `@ts-expect-error` allowed with a description |
 | L183 | MUST | `react-hooks/purity` | `error` | `packages/editor/src/editor/Viewport.tsx` | |
-| L183 | MUST | `react-hooks/refs` | `warn` | `packages/editor/src/editor/Viewport.tsx` | `error` once render stops writing refs |
-| L184 | MUST | `react-hooks/immutability` | `warn` | `packages/editor/src/editor/Viewport.tsx` | `error` once the React fixes land |
+| L183 | MUST | `react-hooks/refs` | `error` | `packages/editor/src/editor/Viewport.tsx` | |
+| L184 | MUST | `react-hooks/immutability` | `error` | `packages/editor/src/editor/Viewport.tsx` | |
 | L186 | MUST | `react-hooks/rules-of-hooks` | `error` | `packages/editor/src/editor/Viewport.tsx` | |
-| L187 | MUST | `react-hooks/set-state-in-effect` | `warn` | `packages/editor/src/editor/Viewport.tsx` | stands for the rest of the recommended preset; `error` once the React fixes land |
-| L203 | MUST | `react-hooks/exhaustive-deps` | `warn` | `packages/editor/src/editor/Viewport.tsx` | `error` once the React fixes land |
+| L187 | MUST | `react-hooks/set-state-in-effect` | `error` | `packages/editor/src/editor/Viewport.tsx` | stands for the rest of the recommended preset |
+| L203 | MUST | `react-hooks/exhaustive-deps` | `error` | `packages/editor/src/editor/Viewport.tsx` | |
 | L210 | MUST | `react-hooks/static-components` | `error` | `packages/editor/src/editor/Viewport.tsx` | |
-| L224 | MUST | `jsx-a11y/click-events-have-key-events` | `warn` | `packages/editor/src/editor/Inspector.tsx` | `error` once the controls are semantic |
-| L224 | MUST | `jsx-a11y/no-static-element-interactions` | `warn` | `packages/editor/src/editor/Inspector.tsx` | `error` once the controls are semantic |
+| L224 | MUST | `jsx-a11y/click-events-have-key-events` | `error` | `packages/editor/src/editor/Inspector.tsx` | |
+| L224 | MUST | `jsx-a11y/no-static-element-interactions` | `error` | `packages/editor/src/editor/Inspector.tsx` | |
 | L224 | MUST | `jsx-a11y/alt-text` | `error` | `packages/editor/src/editor/Inspector.tsx` | stands for the rest of the recommended preset |
 
 Size and complexity rules are `warn` in test code (`*.test.ts(x)`,

@@ -46,8 +46,15 @@ export function ArchetypePicker({
   }
 
   return (
-    <div className="picker-backdrop" onClick={onClose}>
-      <div className="picker" onClick={(e) => e.stopPropagation()}>
+    // Clicking outside is a pointer shortcut; the ✕ button closes it too.
+    <div
+      className="picker-backdrop"
+      role="presentation"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div className="picker" role="dialog" aria-modal="true" aria-label="New project">
         <header className="picker-head">
           <strong>
             {chosen ? `New project — ${chosen.icon} ${chosen.label}` : 'New project — pick an archetype'}
@@ -62,6 +69,7 @@ export function ArchetypePicker({
             <label>
               What's your game called?
               <input
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- the name step was just opened by picking an archetype; focus moves into its only field
                 autoFocus
                 type="text"
                 value={name}

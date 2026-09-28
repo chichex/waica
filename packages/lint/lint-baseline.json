@@ -256,31 +256,23 @@
   "packages/editor/src/editor/AnimationEditor.tsx": {
     "@typescript-eslint/unbound-method": 11,
     "complexity": 3,
-    "jsx-a11y/click-events-have-key-events": 2,
-    "jsx-a11y/label-has-associated-control": 1,
-    "jsx-a11y/no-static-element-interactions": 3,
     "max-lines": 1,
     "max-lines-per-function": 2,
-    "react-hooks/set-state-in-effect": 1,
     "waica/soft-max-lines": 1,
     "waica/soft-max-lines-per-function": 4
   },
   "packages/editor/src/editor/ArtPicker.tsx": {
     "@typescript-eslint/unbound-method": 1,
-    "jsx-a11y/no-autofocus": 1,
     "waica/soft-max-lines-per-function": 1
   },
   "packages/editor/src/editor/CodePane.tsx": {
     "@typescript-eslint/unbound-method": 3,
     "complexity": 2,
     "max-lines-per-function": 1,
-    "react-hooks/exhaustive-deps": 1,
-    "react-hooks/set-state-in-effect": 1,
     "waica/soft-max-lines-per-function": 1
   },
   "packages/editor/src/editor/ContextMenu.tsx": {
     "@typescript-eslint/unbound-method": 1,
-    "jsx-a11y/no-static-element-interactions": 2,
     "waica/soft-max-lines-per-function": 1
   },
   "packages/editor/src/editor/Editor.tsx": {
@@ -290,20 +282,14 @@
     "max-lines": 1,
     "max-lines-per-function": 3,
     "max-params": 7,
-    "react-hooks/refs": 7,
-    "react-hooks/set-state-in-effect": 1,
     "waica/soft-max-lines": 1,
     "waica/soft-max-lines-per-function": 3
   },
   "packages/editor/src/editor/Explorer.tsx": {
     "@typescript-eslint/unbound-method": 48,
     "complexity": 5,
-    "jsx-a11y/no-autofocus": 1,
-    "jsx-a11y/no-static-element-interactions": 1,
     "max-lines": 1,
     "max-lines-per-function": 6,
-    "react-hooks/immutability": 1,
-    "react-hooks/set-state-in-effect": 1,
     "waica/soft-max-lines": 1,
     "waica/soft-max-lines-per-function": 8
   },
@@ -312,12 +298,9 @@
     "@typescript-eslint/no-unnecessary-type-assertion": 1,
     "@typescript-eslint/unbound-method": 71,
     "complexity": 6,
-    "jsx-a11y/click-events-have-key-events": 1,
-    "jsx-a11y/no-static-element-interactions": 1,
     "max-lines": 1,
     "max-lines-per-function": 11,
     "max-params": 1,
-    "react-hooks/set-state-in-effect": 1,
     "waica/soft-max-lines": 1,
     "waica/soft-max-lines-per-function": 17
   },
@@ -326,7 +309,6 @@
   },
   "packages/editor/src/editor/ProjectPane.tsx": {
     "@typescript-eslint/unbound-method": 4,
-    "jsx-a11y/label-has-associated-control": 3,
     "max-lines-per-function": 3,
     "waica/soft-max-lines": 1,
     "waica/soft-max-lines-per-function": 3
@@ -334,8 +316,6 @@
   "packages/editor/src/editor/StateMachinePanel.tsx": {
     "@typescript-eslint/unbound-method": 9,
     "complexity": 3,
-    "jsx-a11y/no-autofocus": 2,
-    "jsx-a11y/no-static-element-interactions": 2,
     "max-lines-per-function": 4,
     "waica/soft-max-lines": 1,
     "waica/soft-max-lines-per-function": 4
@@ -353,7 +333,6 @@
   },
   "packages/editor/src/editor/UiPane.tsx": {
     "@typescript-eslint/unbound-method": 1,
-    "max-lines-per-function": 1,
     "waica/soft-max-lines-per-function": 1
   },
   "packages/editor/src/editor/Viewport.tsx": {
@@ -497,9 +476,6 @@
   },
   "packages/editor/src/home/ArchetypePicker.tsx": {
     "@typescript-eslint/unbound-method": 2,
-    "jsx-a11y/click-events-have-key-events": 2,
-    "jsx-a11y/no-autofocus": 1,
-    "jsx-a11y/no-static-element-interactions": 2,
     "max-lines-per-function": 1,
     "waica/soft-max-lines-per-function": 1
   },
