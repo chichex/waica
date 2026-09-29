@@ -44,6 +44,13 @@ describe('loadPrefabLib', () => {
     }
   })
 
+  it('skips malformed files', async () => {
+    const fs = new MemFS('t', { 'src/characters/slime.character.json': '{oops' })
+    expect(await loadPrefabLib(fs)).toEqual({})
+  })
+})
+
+describe('loadPrefabLib: what the game accepts', () => {
   // The game imports every *.character|object|tile.json and only reads its
   // `components`, so a file the editor dropped could still spawn in the game.
   it('keeps a prefab the game loads even when its marker or kind is missing', async () => {
@@ -62,11 +69,6 @@ describe('loadPrefabLib', () => {
 
   it('skips a prefab file without a component list', async () => {
     const fs = new MemFS('t', { 'src/objects/empty.object.json': JSON.stringify({ waicaPrefab: 1 }) })
-    expect(await loadPrefabLib(fs)).toEqual({})
-  })
-
-  it('skips malformed files', async () => {
-    const fs = new MemFS('t', { 'src/characters/slime.character.json': '{oops' })
     expect(await loadPrefabLib(fs)).toEqual({})
   })
 })

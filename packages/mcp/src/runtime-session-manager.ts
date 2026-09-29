@@ -188,34 +188,29 @@ export class RuntimeSessionManager implements RuntimeService {
    * abort cancels the startup itself, which then rejects with that reason
    * after releasing what it spawned.
    */
-  private waitForStart(pending: PendingStart, signal: AbortSignal): Promise<RuntimeSession> {
+  private async waitForStart(pending: PendingStart, signal: AbortSignal): Promise<RuntimeSession> {
     pending.waiters += 1
-    return new Promise<RuntimeSession>((resolve, reject) => {
-      let waiting = true
-      const leave = (): boolean => {
-        if (!waiting) return false
-        waiting = false
-        signal.removeEventListener('abort', onAbort)
-        pending.waiters -= 1
-        return true
-      }
-      const onAbort = (): void => {
-        leave()
-        if (pending.waiters === 0) pending.controller.abort(signal.reason)
-        else reject(signal.reason)
-      }
-      pending.promise.then(
-        (session) => {
-          if (leave()) resolve(session)
-        },
-        (error: unknown) => {
-          leave()
-          reject(error)
-        },
-      )
-      signal.addEventListener('abort', onAbort, { once: true })
-      if (signal.aborted) onAbort()
+    let abandon = (): void => {}
+    const abandoned = new Promise<undefined>((resolve) => {
+      abandon = () => resolve(undefined)
     })
+    signal.addEventListener('abort', abandon, { once: true })
+    if (signal.aborted) abandon()
+    let session: RuntimeSession | undefined
+    try {
+      session = await Promise.race([pending.promise, abandoned])
+    } finally {
+      signal.removeEventListener('abort', abandon)
+      pending.waiters -= 1
+    }
+    if (session) return session
+    if (pending.waiters === 0) {
+      pending.controller.abort(signal.reason)
+      await pending.promise
+    }
+    signal.throwIfAborted()
+    // Only an abort settles `abandoned`, so the line above has already thrown.
+    return pending.promise
   }
 
   async stop(projectPath: string): Promise<Record<string, unknown>> {

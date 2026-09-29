@@ -34,4 +34,16 @@ describe('useSceneFolders', () => {
     act(() => result.current.setAll(['A', 'B']))
     expect([...result.current.expanded].sort()).toEqual(['A', 'B'])
   })
+
+  it('does not bring a scene\'s open folders back when the user returns to it', () => {
+    const { result, rerender } = renderHook(({ path }) => useSceneFolders(path), {
+      initialProps: { path: 'src/scenes/a.scene.json' },
+      reactStrictMode: true,
+    })
+    act(() => result.current.open('Enemies'))
+
+    rerender({ path: 'src/scenes/b.scene.json' })
+    rerender({ path: 'src/scenes/a.scene.json' })
+    expect([...result.current.expanded]).toEqual([])
+  })
 })

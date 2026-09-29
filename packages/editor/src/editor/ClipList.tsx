@@ -57,8 +57,13 @@ interface ClipRowProps {
 /** One clip: name (renamed on blur), fps, loop, delete, and its frames as removable chips. */
 function ClipRow({ name, clip, active, frameCount, editor }: ClipRowProps) {
   return (
-    // Moving into any of a clip's fields (keyboard or pointer) selects it.
-    <div className={`ed-clip ${active ? 'is-active' : ''}`} onFocus={() => editor.setSelectedClip(name)}>
+    // Moving into any of a clip's fields (keyboard) or pressing anywhere on
+    // its row (pointer) selects it.
+    <div
+      className={`ed-clip ${active ? 'is-active' : ''}`}
+      onFocus={() => editor.setSelectedClip(name)}
+      onPointerDown={() => editor.setSelectedClip(name)}
+    >
       <div className="ed-clip-row">
         <input
           className="ed-clip-name"

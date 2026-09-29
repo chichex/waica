@@ -13,13 +13,15 @@ export interface SceneFolders {
 /**
  * Expanded scene folders, owned per scene file: another scene is another
  * tree, so it starts with every folder shut. The set is keyed by the scene
- * path it belongs to and derived during render — no effect resets it.
+ * path it belongs to; a change of scene resets it during render (no effect), so
+ * returning to an earlier scene finds its folders shut again.
  */
 export function useSceneFolders(scenePath: string | null): SceneFolders {
   const [state, setState] = useState<{ scene: string | null; open: ReadonlySet<string> }>({
     scene: scenePath,
     open: NONE,
   })
+  if (state.scene !== scenePath) setState({ scene: scenePath, open: NONE })
   const expanded = state.scene === scenePath ? state.open : NONE
   const update = (change: (current: ReadonlySet<string>) => ReadonlySet<string>): void => {
     setState((previous) => ({

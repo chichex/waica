@@ -131,6 +131,20 @@ describe('AnimationEditor (characterization): clip list', () => {
   })
 })
 
+describe('AnimationEditor: selecting a clip', () => {
+  it('selects a clip when its row padding is clicked, so sheet frames go to it', async () => {
+    const user = userEvent.setup()
+    const spies = renderEditor(SHEET)
+    // 'walk' starts selected; clicking the padding of the 'run' row (no field) moves the selection.
+    await user.click(defined(clipNameField('run').closest('.ed-clip')))
+    await user.click(screen.getByRole('button', { name: '0', pressed: false }))
+
+    const next = await save(spies)
+    expect(next.clips.run?.frames).toEqual([1, 0])
+    expect(next.clips.walk?.frames).toEqual([0, 1])
+  })
+})
+
 describe('AnimationEditor (characterization): preview, contract and closing', () => {
   it('toggles the preview between play and pause', async () => {
     const user = userEvent.setup()
