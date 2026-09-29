@@ -30,7 +30,7 @@
     "@waica/archetype-topdown": "workspace:^",
     "@waica/behaviors": "workspace:^",
     "@waica/engine": "workspace:^",
-    "playwright-core": "^1.62.1"
+    "playwright-core": "^1.63.0"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
