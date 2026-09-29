@@ -18,6 +18,7 @@ import {
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
+import { stdioRpc } from './stdio-rpc.mjs'
 
 const execFileAsync = promisify(execFile)
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
@@ -294,45 +295,6 @@ async function assertUrlClosed(url) {
       return true
     }
   }, 5_000, `closed port ${url}`)
-}
-
-/**
- * Minimal JSON-RPC over the stdio of a raw `waica mcp` child, so the leg can
- * signal the process itself and read its exit code (the SDK client transport
- * owns its child and hides both).
- */
-function stdioRpc(child) {
-  let buffer = ''
-  let nextId = 1
-  const pending = new Map()
-  child.stdout.setEncoding('utf8')
-  child.stdout.on('data', (chunk) => {
-    buffer += chunk
-    let newline
-    while ((newline = buffer.indexOf('\n')) >= 0) {
-      const line = buffer.slice(0, newline)
-      buffer = buffer.slice(newline + 1)
-      if (!line.trim()) continue
-      const message = JSON.parse(line)
-      const waiter = pending.get(message.id)
-      if (!waiter) continue
-      pending.delete(message.id)
-      if (message.error) waiter.reject(new Error(JSON.stringify(message.error)))
-      else waiter.resolve(message.result)
-    }
-  })
-  const send = (message) => child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', ...message })}\n`)
-  return {
-    request(method, params) {
-      const id = nextId++
-      const answered = new Promise((resolve, reject) => pending.set(id, { resolve, reject }))
-      send({ id, method, params })
-      return answered
-    },
-    notify(method, params = {}) {
-      send({ method, params })
-    },
-  }
 }
 
 /** Starts a Run Session over a fresh raw `waica mcp` child and returns its URL. */

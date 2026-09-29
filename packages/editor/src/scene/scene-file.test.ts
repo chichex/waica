@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { InvalidSceneFileError, isPrefabJson, isSceneJson, parseSceneJson } from './scene-file'
+import { migrateScene } from './ops'
+import { InvalidSceneFileError, isPrefabJson, parseSceneJson } from './scene-file'
 
 const VALID_SCENE = {
   waicaScene: 3,
@@ -28,37 +29,29 @@ describe('parseSceneJson', () => {
   it.each([
     ['entities missing', { waicaScene: 3 }, 'entities must be an array'],
     ['entities not an array', { waicaScene: 3, entities: {} }, 'entities must be an array'],
-    ['an unnamed entity', { waicaScene: 3, entities: [{}] }, 'entities[0].name must be a string'],
-    ['an unknown version', { waicaScene: 9, entities: [] }, 'waicaScene must be 1, 2 or 3'],
+    ['an entity that is not an object', { waicaScene: 3, entities: [{ name: 'A' }, 7] }, 'entities[1] must be an object'],
     ['not an object', [], 'a scene file must hold a JSON object'],
   ])('rejects a scene with %s before migrating it', (_label, scene, reason) => {
     expect(() => parseSceneJson(JSON.stringify(scene))).toThrow(new InvalidSceneFileError(reason))
   })
 
+  it.each([
+    ['no version marker', { entities: [{ name: 'A' }] }],
+    ['a version the editor does not know', { waicaScene: 9, entities: [{ name: 'A' }] }],
+    ['a three-component position', { waicaScene: 3, entities: [{ name: 'A', position: [1, 2, 3] }] }],
+    ['a component without props object', { waicaScene: 3, entities: [{ name: 'A', components: [{ type: 'Sprite', props: 'x' }] }] }],
+    ['an unnamed entity', { waicaScene: 3, entities: [{}] }],
+  ])('opens a scene the game still loads: %s', (_label, scene) => {
+    expect(parseSceneJson(JSON.stringify(scene))).toEqual(scene)
+  })
+
+  it('lets migrateScene handle an entity whose prefab is not a string, as the game loads it', () => {
+    const scene = parseSceneJson('{"waicaScene":3,"entities":[{"name":"A","prefab":7}]}')
+    expect(migrateScene(scene)).toBe(scene)
+  })
+
   it('keeps invalid JSON a syntax error', () => {
     expect(() => parseSceneJson('{')).toThrow(SyntaxError)
-  })
-})
-
-describe('isSceneJson', () => {
-  it.each([
-    ['a bad position', { name: 'A', position: [1] }],
-    ['a component without a type', { name: 'A', components: [{ props: {} }] }],
-    ['overrides that are not objects', { name: 'A', overrides: { Motor: 3 } }],
-    ['a non-string prefab', { name: 'A', prefab: 7 }],
-    ['a non-string folder', { name: 'A', folder: true }],
-  ])('rejects an entity with %s', (_label, entity) => {
-    expect(isSceneJson({ waicaScene: 3, entities: [entity] })).toBe(false)
-  })
-
-  it.each([
-    ['a camera zoom that is not a number', { camera: { zoom: 'far' } }],
-    ['camera limits missing an edge', { camera: { limits: { minX: 0, maxX: 1, minY: 0 } } }],
-    ['an unknown render sort', { render: { sort: 'x' } }],
-    ['ui names that are not strings', { ui: [1] }],
-    ['folders that are not strings', { folders: [null] }],
-  ])('rejects a scene with %s', (_label, extra) => {
-    expect(isSceneJson({ waicaScene: 3, entities: [], ...extra })).toBe(false)
   })
 })
 

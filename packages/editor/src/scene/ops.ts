@@ -47,7 +47,8 @@ export function setRenderProp(scene: SceneJson, key: string, value: unknown): Sc
  * rewrite reaches disk with the scene's next commit.
  */
 export function migrateScene(scene: SceneJson): SceneJson {
-  const isLegacyUi = (e: SceneEntityJson): boolean => e.prefab?.startsWith('ui/') ?? false
+  const isLegacyUi = (e: SceneEntityJson): boolean =>
+    typeof e.prefab === 'string' && e.prefab.startsWith('ui/')
   const legacy = scene.entities.filter(isLegacyUi)
   if (legacy.length === 0) return scene
   const ui = [...(scene.ui ?? [])]
