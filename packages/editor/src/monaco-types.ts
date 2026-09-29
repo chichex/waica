@@ -22,12 +22,12 @@ const PACKAGES: Record<string, Record<string, string>> = {
   }) as Record<string, string>,
 }
 
-const defaults = monaco.languages.typescript.typescriptDefaults
+const defaults = monaco.typescript.typescriptDefaults
 
 defaults.setCompilerOptions({
-  target: monaco.languages.typescript.ScriptTarget.ESNext,
-  module: monaco.languages.typescript.ModuleKind.ESNext,
-  moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+  target: monaco.typescript.ScriptTarget.ESNext,
+  module: monaco.typescript.ModuleKind.ESNext,
+  moduleResolution: monaco.typescript.ModuleResolutionKind.NodeJs,
   allowNonTsExtensions: true,
   strict: true,
 })

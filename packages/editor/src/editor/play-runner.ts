@@ -50,7 +50,7 @@ async function tsWorkerFor(uri: monaco.Uri): Promise<{
 }> {
   for (let attempt = 0; ; attempt++) {
     try {
-      return await (await monaco.languages.typescript.getTypeScriptWorker())(uri)
+      return await (await monaco.typescript.getTypeScriptWorker())(uri)
     } catch (error) {
       if (attempt >= 20) throw error
       await new Promise((resolve) => setTimeout(resolve, 150))
