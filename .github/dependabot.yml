@@ -4,6 +4,11 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      # react and react-dom must stay on the same version; separate PRs each
+      # fail on the mismatch, so they (and their types) move as one.
+      react:
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
     ignore:
       # The lint toolchain stays on ESLint 9 until eslint-plugin-jsx-a11y
       # supports ESLint 10 (see packages/lint/README.md); the two
