@@ -87,7 +87,7 @@ jobs:
       # tiene git en el allowlist, así que la historia completa era overhead puro
       # (12s de checkout en dale-que-sale). El ejemplo oficial del action también
       # usa profundidad 1.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: refs/pull/${{ inputs.pr }}/head
 
