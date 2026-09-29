@@ -74,3 +74,32 @@ describe('AnimationEditor frame and clip controls (CA-25)', () => {
     expect(savedClips(onSave).walk?.frames).toEqual([0])
   })
 })
+
+describe('AnimationEditor clip row selection', () => {
+  it('keeps the selected clip when a different clip is deleted', async () => {
+    const user = userEvent.setup()
+    const onSave = renderEditor()
+
+    const [, deleteRun] = screen.getAllByTitle('Delete clip')
+    if (!deleteRun) throw new Error('missing the run clip delete button')
+    await user.click(deleteRun)
+    await user.click(screen.getByRole('button', { name: '1', pressed: false }))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(savedClips(onSave).run).toBeUndefined()
+    expect(savedClips(onSave).walk?.frames).toEqual([0, 1])
+  })
+
+  it('selects a clip when its row padding is pressed', async () => {
+    const user = userEvent.setup()
+    const onSave = renderEditor()
+
+    const runRow = screen.getByDisplayValue('run').closest('.ed-clip')
+    if (!runRow) throw new Error('missing the run clip row')
+    await user.pointer({ keys: '[MouseLeft]', target: runRow })
+    await user.click(screen.getByRole('button', { name: '1', pressed: false }))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(savedClips(onSave).run?.frames).toEqual([1])
+  })
+})

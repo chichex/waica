@@ -50,11 +50,21 @@ export function useProjectRestore(
   const workspaceRestored = useRef(false)
   const onLoaded = useEffectEvent((project: LoadedProject) => handlers.onLoaded(project))
   const onFailed = useEffectEvent((message: string) => handlers.onFailed(message))
+  /**
+   * The latest load. Loading project code mutates process-wide state (Monaco
+   * shadow models keyed by path, the previous run's module URLs), so a run
+   * starts only after the one before it settled, and one already cancelled
+   * by then (StrictMode's setup, cleanup, setup) never starts at all.
+   */
+  const lastLoad = useRef<Promise<void>>(Promise.resolve())
 
   useEffect(() => {
     workspaceRestored.current = false
     let stale = false
-    reportRejection((async () => {
+    const previous = lastLoad.current
+    const load = (async () => {
+      await previous
+      if (stale) return
       const result = await readProject(fs)
       if (stale) return
       if (!result.ok) {
@@ -66,7 +76,10 @@ export function useProjectRestore(
       }
       onLoaded(result.project)
       workspaceRestored.current = true
-    })(), 'restore project and workspace')
+    })()
+    // A rejected load is reported below; the next one must still start.
+    lastLoad.current = load.catch(() => {})
+    reportRejection(load, 'restore project and workspace')
     return () => {
       stale = true
     }

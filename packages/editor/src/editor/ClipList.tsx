@@ -56,13 +56,18 @@ interface ClipRowProps {
 
 /** One clip: name (renamed on blur), fps, loop, delete, and its frames as removable chips. */
 function ClipRow({ name, clip, active, frameCount, editor }: ClipRowProps) {
+  // The row's own buttons (delete, frame chips) act on the clip without
+  // selecting it: deleting a clip must not first select the one it removes.
+  const selectUnlessButton = (target: EventTarget) => {
+    if (!(target instanceof Element && target.closest('button'))) editor.setSelectedClip(name)
+  }
   return (
     // Moving into any of a clip's fields (keyboard) or pressing anywhere on
     // its row (pointer) selects it.
     <div
       className={`ed-clip ${active ? 'is-active' : ''}`}
-      onFocus={() => editor.setSelectedClip(name)}
-      onPointerDown={() => editor.setSelectedClip(name)}
+      onFocus={(e) => selectUnlessButton(e.target)}
+      onPointerDown={(e) => selectUnlessButton(e.target)}
     >
       <div className="ed-clip-row">
         <input

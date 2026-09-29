@@ -119,7 +119,7 @@ const isNumber = (value: unknown): boolean => typeof value === 'number'
 const isPoint = (value: unknown): boolean =>
   Array.isArray(value) && value.length === 2 && value.every(isNumber)
 
-/** How each optional LiveBox field must look when a component has it. */
+/** How each optional LiveBox field must look when a component has it (null counts as absent, as serialized scenes leave it). */
 const LIVE_BOX_OPTIONAL: Record<Exclude<keyof LiveBox, 'width' | 'height'>, (value: unknown) => boolean> = {
   offsetX: isNumber,
   offsetY: isNumber,
@@ -138,7 +138,7 @@ function isLiveBox(component: Component): component is Component & LiveBox {
   return (
     isNumber(read('width')) &&
     isNumber(read('height')) &&
-    Object.entries(LIVE_BOX_OPTIONAL).every(([key, check]) => read(key) === undefined || check(read(key)))
+    Object.entries(LIVE_BOX_OPTIONAL).every(([key, check]) => read(key) == null || check(read(key)))
   )
 }
 
