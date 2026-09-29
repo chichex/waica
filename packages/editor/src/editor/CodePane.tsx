@@ -1,5 +1,6 @@
 import MonacoEditor from '@monaco-editor/react'
 import type { SceneJson } from '@waica/engine'
+import { KeyCode, KeyMod } from 'monaco-editor'
 import type { ProjectFS } from '../fs/project-fs'
 import { reportRejection } from '../report-rejection'
 import { useCodeBuffer } from './use-code-buffer'
@@ -55,8 +56,8 @@ export function CodePane({
           theme="vs-dark"
           value={value}
           onChange={(next) => buffer.edit(next ?? '')}
-          onMount={(editor, monaco) => {
-            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, save)
+          onMount={(editor) => {
+            editor.addCommand(KeyMod.CtrlCmd | KeyCode.KeyS, save)
           }}
           options={{ minimap: { enabled: false }, fontSize: 13, tabSize: 2, readOnly }}
         />
