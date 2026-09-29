@@ -82,6 +82,22 @@ describe('componentClassOf', () => {
     expect(componentClassOf(new Probe()).componentName).toBe('Probe')
   })
 
+  it('accepts a component built from a second copy of the engine', async () => {
+    vi.resetModules()
+    const other = await import('./component')
+    expect(other.Component).not.toBe(Component)
+    class Copy extends other.Component {
+      static override componentName = 'Copy'
+    }
+    expect(componentClassOf(new Copy())).toBe(Copy)
+  })
+
+  it('rejects an instance whose class declares no component name', () => {
+    class Probe extends Component {}
+    class Nameless {}
+    expect(() => componentClassOf(Object.assign(new Probe(), { constructor: Nameless }))).toThrow(TypeError)
+  })
+
   it('recognises Component subclasses and nothing else', () => {
     class Probe extends Component {
       static override componentName = 'Probe'

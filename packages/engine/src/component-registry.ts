@@ -14,14 +14,21 @@ export function isComponentClass(value: unknown): value is ComponentClass {
 /**
  * The class a live component was constructed from. TypeScript types
  * `constructor` as Function; this narrows it for real instead of asserting.
- * Internal: not re-exported from the package entry.
+ * It checks the shape (a constructor with a static componentName), not
+ * `instanceof Component`, so a project that resolves a second copy of
+ * @waica/engine keeps working. Internal: not re-exported from the package entry.
  */
 export function componentClassOf(component: Component): ComponentClass {
   const Class: unknown = component.constructor
-  if (!isComponentClass(Class)) {
+  if (!hasComponentName(Class)) {
     throw new TypeError('a component was not constructed from a Component class')
   }
   return Class
+}
+
+/** A constructor carrying the static componentName every Component class declares. */
+function hasComponentName(value: unknown): value is ComponentClass {
+  return typeof value === 'function' && typeof Reflect.get(value, 'componentName') === 'string'
 }
 
 /**

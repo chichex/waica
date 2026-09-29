@@ -49,9 +49,12 @@ describe('runCli', () => {
     expect(exit.exitCode).toBeUndefined()
   })
 
-  it('is how the waica binary runs main', async () => {
+  it('is how the waica binary runs main, without a top-level await', async () => {
     const source = await readFile(path.join(import.meta.dirname, 'cli.ts'), 'utf8')
-    expect(source).toMatch(/await runCli\(main\)/)
+    expect(source).toMatch(/^runCli\(main\)/m)
+    // A top-level await on a prompt that never settles (Ctrl+D) makes Node
+    // exit 13 with a warning instead of 0.
+    expect(source).not.toMatch(/^await /m)
     expect(source).not.toMatch(/void main\(\)/)
   })
 })

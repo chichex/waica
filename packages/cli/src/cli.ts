@@ -233,4 +233,8 @@ async function main(): Promise<void> {
   if (args.open) openBrowser(url)
 }
 
-await runCli(main)
+// runCli reports its own failures. Not awaited on purpose: a top-level await on
+// a prompt that never settles (Ctrl+D) would exit 13 instead of 0.
+runCli(main).catch(() => {
+  process.exitCode = 1
+})
