@@ -30,7 +30,7 @@
   },
   "dependencies": {
     "@types/three": "^0.185.1",
-    "three": "^0.185.1"
+    "three": "^0.186.1"
   },
   "devDependencies": {
     "vitest": "^4.1.10"
