@@ -52,7 +52,7 @@ function isComponent(value: unknown): boolean {
   return isJsonObject(value) && isString(value.type) && optional(value, 'props', isJsonObject)
 }
 
-function isComponentList(value: unknown): boolean {
+function isComponentList(value: unknown): value is PrefabJson['components'] {
   return Array.isArray(value) && value.every(isComponent)
 }
 
@@ -110,6 +110,18 @@ export function isPrefabJson(value: unknown): value is PrefabJson {
     PREFAB_KINDS.includes(value.type) &&
     isComponentList(value.components)
   )
+}
+
+/**
+ * The prefab in a prefab file, as the game accepts it: the game imports the
+ * file and reads only its `components`. A missing marker or an unknown kind
+ * is filled from the file's category, so the editor lists what the game loads.
+ */
+export function readPrefabFile(value: unknown, category: PrefabJson['type']): PrefabJson | null {
+  if (!isJsonObject(value) || !isComponentList(value.components)) return null
+  const { type } = value
+  const kind = type === 'character' || type === 'object' || type === 'tile' ? type : category
+  return { ...value, waicaPrefab: 1, type: kind, components: value.components }
 }
 
 /**
