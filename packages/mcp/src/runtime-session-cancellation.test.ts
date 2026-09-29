@@ -89,7 +89,10 @@ it('hands the signal to the dev server and browser starts', async () => {
   })
   const controller = new AbortController()
   await sessions.start({ projectPath: '/game' }, { signal: controller.signal })
-  expect(seen).toEqual([controller.signal, controller.signal])
+  // Both stages share the startup's signal, which is not the caller's own.
+  expect(seen[0]).toBeDefined()
+  expect(seen[1]).toBe(seen[0])
+  expect(seen[0]?.aborted).toBe(false)
   await sessions.close()
 })
 
@@ -177,5 +180,70 @@ it('stops waiting for Assets Ready on abort and leaves the session active', asyn
   expect(Date.now() - started).toBeLessThan(1_000)
   expect(polls).toBe(3)
   await expect(sessions.inspect({ projectPath: '/game' })).resolves.toMatchObject({ frame: 0 })
+  await sessions.close()
+})
+
+function gatedBrowserStart(): {
+  release: () => void
+  adapters: Partial<RuntimeSessionAdapters>
+  signals: AbortSignal[]
+} {
+  let release: () => void = () => {}
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const signals: AbortSignal[] = []
+  return {
+    release,
+    signals,
+    adapters: {
+      startBrowser: async (_checked, _dev, signal) => {
+        if (signal) signals.push(signal)
+        await gate
+        return browser()
+      },
+    },
+  }
+}
+
+it('lets a concurrent caller reuse the startup when the first caller cancels', async () => {
+  const gated = gatedBrowserStart()
+  const sessions = manager(gated.adapters)
+  const first = new AbortController()
+  const reason = abortReason()
+
+  const a = sessions.start({ projectPath: '/game' }, { signal: first.signal })
+  const b = sessions.start({ projectPath: '/game' })
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  first.abort(reason)
+  await expect(a).rejects.toBe(reason)
+  gated.release()
+
+  await expect(b).resolves.toMatchObject({ reused: true })
+  await expect(sessions.inspect({ projectPath: '/game' })).resolves.toMatchObject({ frame: 0 })
+  await sessions.close()
+})
+
+it('aborts the shared startup once every waiting caller has cancelled', async () => {
+  const gated = gatedBrowserStart()
+  const sessions = manager(gated.adapters)
+  const first = new AbortController()
+  const second = new AbortController()
+  const reason = abortReason()
+
+  const a = sessions.start({ projectPath: '/game' }, { signal: first.signal })
+  const b = sessions.start({ projectPath: '/game' }, { signal: second.signal })
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  first.abort(reason)
+  await expect(a).rejects.toBe(reason)
+  expect(gated.signals[0]?.aborted).toBe(false)
+  second.abort(reason)
+  gated.release()
+
+  await expect(b).rejects.toBe(reason)
+  expect(gated.signals[0]?.aborted).toBe(true)
+  await expect(sessions.inspect({ projectPath: '/game' })).rejects.toMatchObject({
+    body: { code: 'runtime-not-running' },
+  })
   await sessions.close()
 })

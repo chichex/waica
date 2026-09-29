@@ -108,6 +108,9 @@ export function resolveParamReference(
   check: ParamReferenceCheck,
   context: ParamReferenceResolutionContext,
 ): ParamReferenceFinding | undefined {
+  // A ref kind this validator does not know is ignored, as the switch it
+  // replaced did; `check.ref` comes from a spec that may be newer.
+  if (!Object.hasOwn(REFERENCE_RULES, check.ref)) return undefined
   const rule = REFERENCE_RULES[check.ref]
   if (rule.resolves(check, context)) return undefined
   const { componentType, param, value } = check

@@ -104,6 +104,12 @@ interface RuntimeSession {
   cleanup?: Promise<void>
 }
 
+interface PendingStart {
+  readonly promise: Promise<RuntimeSession>
+  readonly controller: AbortController
+  waiters: number
+}
+
 /** Stands in for an absent caller signal, so every check is unconditional. */
 const NEVER_ABORTED = new AbortController().signal
 
@@ -117,7 +123,7 @@ function waitsForAssets(session: RuntimeSession): boolean {
 
 export class RuntimeSessionManager implements RuntimeService {
   private readonly sessions = new Map<string, RuntimeSession>()
-  private readonly starts = new Map<string, Promise<RuntimeSession>>()
+  private readonly starts = new Map<string, PendingStart>()
   private closing = false
 
   constructor(private readonly adapters: RuntimeSessionAdapters) {}
@@ -149,23 +155,73 @@ export class RuntimeSessionManager implements RuntimeService {
       return this.startResult(current, true)
     }
     const concurrent = this.starts.get(canonical)
-    if (concurrent) return this.startResult(await concurrent, true)
+    if (concurrent) return this.startResult(await this.waitForStart(concurrent, signal), true)
 
-    const creation = this.createCheckedSession({ ...input, projectPath: canonical }, signal)
-    this.starts.set(canonical, creation)
-    try {
-      const session = await creation
-      this.sessions.set(canonical, session)
-      return this.startResult(session, false)
-    } finally {
-      this.starts.delete(canonical)
-    }
+    const pending = this.beginStart(canonical, { ...input, projectPath: canonical })
+    return this.startResult(await this.waitForStart(pending, signal), false)
+  }
+
+  /**
+   * The startup belongs to no single caller: it is aborted through its own
+   * controller, and only once the last caller waiting on it has cancelled.
+   */
+  private beginStart(canonical: string, input: StartRuntimeInput): PendingStart {
+    const controller = new AbortController()
+    const promise = this.createCheckedSession(input, controller.signal).then(
+      (session) => {
+        this.sessions.set(canonical, session)
+        this.starts.delete(canonical)
+        return session
+      },
+      (error: unknown) => {
+        this.starts.delete(canonical)
+        throw error
+      },
+    )
+    const pending: PendingStart = { promise, controller, waiters: 0 }
+    this.starts.set(canonical, pending)
+    return pending
+  }
+
+  /**
+   * A caller's abort abandons only that caller's wait. The last waiter to
+   * abort cancels the startup itself, which then rejects with that reason
+   * after releasing what it spawned.
+   */
+  private waitForStart(pending: PendingStart, signal: AbortSignal): Promise<RuntimeSession> {
+    pending.waiters += 1
+    return new Promise<RuntimeSession>((resolve, reject) => {
+      let waiting = true
+      const leave = (): boolean => {
+        if (!waiting) return false
+        waiting = false
+        signal.removeEventListener('abort', onAbort)
+        pending.waiters -= 1
+        return true
+      }
+      const onAbort = (): void => {
+        leave()
+        if (pending.waiters === 0) pending.controller.abort(signal.reason)
+        else reject(signal.reason)
+      }
+      pending.promise.then(
+        (session) => {
+          if (leave()) resolve(session)
+        },
+        (error: unknown) => {
+          leave()
+          reject(error)
+        },
+      )
+      signal.addEventListener('abort', onAbort, { once: true })
+      if (signal.aborted) onAbort()
+    })
   }
 
   async stop(projectPath: string): Promise<Record<string, unknown>> {
     const canonical = await this.adapters.canonicalize(projectPath)
     const starting = this.starts.get(canonical)
-    if (starting) await starting.catch(() => {})
+    if (starting) await starting.promise.catch(() => {})
     const session = this.sessions.get(canonical)
     if (!session) return { projectPath: canonical, stopped: false }
     try {
@@ -264,7 +320,7 @@ export class RuntimeSessionManager implements RuntimeService {
   async close(): Promise<void> {
     if (this.closing) return
     this.closing = true
-    await Promise.allSettled([...this.starts.values()])
+    await Promise.allSettled([...this.starts.values()].map((pending) => pending.promise))
     const sessions = [...this.sessions.values()]
     const results = await Promise.allSettled(sessions.map((session) => this.cleanupSession(session)))
     this.sessions.clear()
