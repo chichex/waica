@@ -136,13 +136,16 @@ describe('Runtime Project preflight', () => {
     'reports an actionable prerequisite error for invalid Project setup %#',
     async (manifest, files, stage, message) => {
       const project = await runtimeProject(manifest, files)
+      // Resolved before the call: awaiting inside the matcher argument would
+      // leave the preflight rejection without a handler until realpath settles.
+      const projectPath = await realpath(project)
 
       await expect(preflightRuntimeProject({ projectPath: project }, adapters())).rejects.toMatchObject({
         body: {
           code: 'runtime-prerequisite-missing',
           stage,
           message: match.stringMatching(message),
-          projectPath: await realpath(project),
+          projectPath,
         },
       })
     },
