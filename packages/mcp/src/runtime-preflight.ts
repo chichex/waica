@@ -60,8 +60,13 @@ async function exists(file: string): Promise<boolean> {
   }
 }
 
-/** How long `<pm> --version` may take before the manager counts as unavailable. */
-export const COMMAND_PROBE_TIMEOUT_MS = 5_000
+/**
+ * How long `<pm> --version` may take before the manager counts as unavailable.
+ * A corepack shim downloads the pinned manager on its first run, which can take
+ * tens of seconds on a slow network; a genuinely hung manager still cannot
+ * stall `start_project` beyond a minute.
+ */
+export const COMMAND_PROBE_TIMEOUT_MS = 60_000
 
 /**
  * Whether `command --version` starts and exits within `timeoutMs`. A probe

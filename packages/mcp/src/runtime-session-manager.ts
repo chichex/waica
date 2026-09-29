@@ -155,6 +155,12 @@ export class RuntimeSessionManager implements RuntimeService {
       return this.startResult(current, true)
     }
     const concurrent = this.starts.get(canonical)
+    if (concurrent?.controller.signal.aborted) {
+      // Its last waiter left: it is releasing what it spawned and will reject
+      // with that caller's reason, so wait it out and start over.
+      await concurrent.promise.catch(() => {})
+      return this.start(input, { signal })
+    }
     if (concurrent) return this.startResult(await this.waitForStart(concurrent, signal), true)
 
     const pending = this.beginStart(canonical, { ...input, projectPath: canonical })

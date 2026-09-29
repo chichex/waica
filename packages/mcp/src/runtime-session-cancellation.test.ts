@@ -247,3 +247,38 @@ it('aborts the shared startup once every waiting caller has cancelled', async ()
   })
   await sessions.close()
 })
+
+it('does not let a fresh start join a startup its last waiter already aborted', async () => {
+  const stops: string[] = []
+  let release: () => void = () => {}
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  let devStarts = 0
+  const sessions = manager({
+    // The first dev server start ignores the signal and hangs on the gate.
+    startDevServer: async () => {
+      devStarts += 1
+      if (devStarts === 1) await gate
+      return devServer(stops)
+    },
+  })
+  const caller = new AbortController()
+  const reason = abortReason()
+  const first = sessions.start({ projectPath: '/game' }, { signal: caller.signal })
+  const firstSettled = first.then(
+    () => undefined,
+    (error: unknown) => error,
+  )
+  await expect.poll(() => devStarts).toBe(1)
+  caller.abort(reason)
+  // Let the abort reach the startup: its last waiter is gone.
+  await new Promise((resolve) => setTimeout(resolve, 10))
+
+  const fresh = sessions.start({ projectPath: '/game' })
+  release()
+
+  expect(await firstSettled).toBe(reason)
+  await expect(fresh).resolves.toMatchObject({ reused: false })
+  await sessions.close()
+})

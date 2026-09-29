@@ -618,8 +618,13 @@ export function createWaicaMcpServer(options: WaicaMcpServerOptions = {}): Serve
   }
   const closeProtocol = server.close.bind(server)
   server.close = async () => {
-    await cleanupResources()
-    await closeProtocol()
+    // A failed cleanup is still reported, but the transport must close
+    // either way or the process would stay alive on its open stdin.
+    try {
+      await cleanupResources()
+    } finally {
+      await closeProtocol()
+    }
   }
   return server
 }

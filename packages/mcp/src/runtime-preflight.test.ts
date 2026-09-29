@@ -270,8 +270,8 @@ describe('package manager probe', () => {
     await expect(commandAvailable(process.execPath, 5_000)).resolves.toBe(true)
   })
 
-  it('bounds the default probe at five seconds', () => {
-    expect(COMMAND_PROBE_TIMEOUT_MS).toBe(5_000)
+  it('bounds the default probe at sixty seconds, enough for a corepack first download', () => {
+    expect(COMMAND_PROBE_TIMEOUT_MS).toBe(60_000)
   })
 })
 

@@ -216,6 +216,25 @@ describe('MCP server', () => {
     expect(closed).toBe(1)
   })
 
+  it('still closes the protocol when Run Session cleanup fails, and reports the failure', async () => {
+    const failing = (): Promise<never> => Promise.reject(new Error('cleanup exploded'))
+    const runtime: RuntimeService = {
+      start: failing,
+      stop: failing,
+      inspect: failing,
+      control: failing,
+      captureScreenshot: failing,
+      close: failing,
+    }
+    const pair = await connectedPair(runtime)
+    let clientSawClose = false
+    pair.client.onclose = () => {
+      clientSawClose = true
+    }
+    await expect(pair.server.close()).rejects.toThrow('cleanup exploded')
+    await expect.poll(() => clientSawClose).toBe(true)
+  })
+
   it('rejects invalid runtime arguments before calling the Run Session service', async () => {
     let calls = 0
     const called = async (): Promise<Record<string, unknown>> => {
