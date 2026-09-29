@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, createElement } from 'react'
+import { act, createElement, StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { describe, expect, it } from 'vitest'
 import { MemFS } from '../fs/project-fs'
@@ -10,6 +10,7 @@ import {
   type ArtItem,
   type ProjectArt,
 } from './use-project-art'
+import { defined } from '../../../engine/src/test-support'
 
 /** Mounts useProjectArt over a real MemFS and hands back its live return value. */
 async function mountProjectArt(fs: MemFS): Promise<{ art(): ProjectArt; unmount(): void }> {
@@ -21,10 +22,10 @@ async function mountProjectArt(fs: MemFS): Promise<{ art(): ProjectArt; unmount(
   const host = document.createElement('div')
   const root = createRoot(host)
   await act(async () => {
-    root.render(createElement(Harness))
+    root.render(createElement(StrictMode, null, createElement(Harness)))
   })
   return {
-    art: () => latest!,
+    art: () => defined(latest),
     unmount: () => root.unmount(),
   }
 }
@@ -213,6 +214,27 @@ describe('useProjectArt (CA-17)', () => {
     expect(mounted.art().art.map((i) => i.uri)).toEqual(['src/art/swing.ogg'])
     expect(mounted.art().art[0]?.kind).toBe('sound')
 
+    mounted.unmount()
+  })
+})
+
+describe('useProjectArt load count', () => {
+  it('counts every committed scan, so the stage can rebind textures to fresh art', async () => {
+    const fs = new MemFS('demo', {})
+    await fs.writeFile('src/art/hero.png', new Uint8Array([1, 2, 3]))
+    const mounted = await mountProjectArt(fs)
+    const afterMount = mounted.art().loads
+    expect(afterMount).toBeGreaterThanOrEqual(1)
+    expect(mounted.art().art.map((item) => item.label)).toEqual(['hero.png'])
+
+    await act(async () => {
+      mounted.art().refresh()
+      await Promise.resolve()
+    })
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    expect(mounted.art().loads).toBe(afterMount + 1)
     mounted.unmount()
   })
 })

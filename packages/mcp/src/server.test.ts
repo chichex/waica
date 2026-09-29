@@ -7,6 +7,7 @@ import { cleanup, makeProject, tempDir } from './test-helpers.js'
 import { ProjectComponentLoader } from './project-component-loader.js'
 import { createWaicaMcpServer } from './server.js'
 import type { RuntimeService } from './runtime-service.js'
+import { defined, match } from '../../engine/src/test-support.js'
 
 const STATIC_TOOL_NAMES = [
   'create_project',
@@ -152,7 +153,7 @@ describe('MCP server', () => {
       // CA-8: `step` advances whole 1/60 s Simulation Steps — no `dt` anywhere
       // in the schema (not as a property, not in any branch's guard), only
       // the optional `frames`, and the description says so.
-      const control = byName.get('control_runtime')!
+      const control = defined(byName.get('control_runtime'))
       expect(control.inputSchema.properties).not.toHaveProperty('dt')
       expect(control.inputSchema.properties).toHaveProperty('frames')
       expect(JSON.stringify(control.inputSchema)).not.toContain('"dt"')
@@ -213,6 +214,25 @@ describe('MCP server', () => {
       await pair.close()
     }
     expect(closed).toBe(1)
+  })
+
+  it('still closes the protocol when Run Session cleanup fails, and reports the failure', async () => {
+    const failing = (): Promise<never> => Promise.reject(new Error('cleanup exploded'))
+    const runtime: RuntimeService = {
+      start: failing,
+      stop: failing,
+      inspect: failing,
+      control: failing,
+      captureScreenshot: failing,
+      close: failing,
+    }
+    const pair = await connectedPair(runtime)
+    let clientSawClose = false
+    pair.client.onclose = () => {
+      clientSawClose = true
+    }
+    await expect(pair.server.close()).rejects.toThrow('cleanup exploded')
+    await expect.poll(() => clientSawClose).toBe(true)
   })
 
   it('rejects invalid runtime arguments before calling the Run Session service', async () => {
@@ -282,7 +302,7 @@ describe('MCP server', () => {
         expect(jsonResult(response)).toMatchObject({
           error: {
             code: 'runtime-operation-failed',
-            message: expect.any(String),
+            message: match.any(String),
             projectPath: '/game',
           },
         })
@@ -331,7 +351,7 @@ describe('MCP server', () => {
         error: {
           code: 'runtime-operation-failed',
           stage: 'control',
-          message: expect.stringMatching(/frames/),
+          message: match.stringMatching(/frames/),
           projectPath: '/game',
         },
       })
@@ -434,6 +454,52 @@ describe('MCP server', () => {
     }
   })
 
+  it.each([
+    ['start_project', {}],
+    ['inspect_runtime', {}],
+    ['control_runtime', { operation: 'step' }],
+    ['capture_screenshot', {}],
+  ] as const)('hands the host cancellation signal to %s', async (tool, extra) => {
+    const seen: AbortSignal[] = []
+    const cancellable = (options?: { signal?: AbortSignal }): Promise<never> => {
+      const signal = options?.signal
+      if (!signal) return Promise.reject(new Error('no signal reached the Run Session service'))
+      seen.push(signal)
+      return new Promise((_resolve, reject) => {
+        const abort = (): void => reject(new Error('aborted', { cause: signal.reason }))
+        signal.addEventListener('abort', abort, { once: true })
+      })
+    }
+    const runtime: RuntimeService = {
+      start: (_input, options) => cancellable(options),
+      stop: () => Promise.resolve({}),
+      inspect: (_input, options) => cancellable(options),
+      control: (_input, options) => cancellable(options),
+      captureScreenshot: (_projectPath, options) => cancellable(options),
+      close: () => Promise.resolve(),
+    }
+    const pair = await connectedPair(runtime)
+    try {
+      const controller = new AbortController()
+      const outcome = pair.client
+        .callTool(
+          { name: tool, arguments: { project_path: '/abs/game', ...extra } },
+          undefined,
+          { signal: controller.signal, timeout: 3_000 },
+        )
+        .then(
+          () => 'resolved',
+          () => 'rejected',
+        )
+      await expect.poll(() => seen.length).toBe(1)
+      controller.abort(new Error('host cancelled'))
+      expect(await outcome).toBe('rejected')
+      await expect.poll(() => seen[0]?.aborted).toBe(true)
+    } finally {
+      await pair.close()
+    }
+  })
+
   it('keeps unexpected runtime-service failures inside the stable runtime error contract', async () => {
     const runtime: RuntimeService = {
       start: async () => { throw new Error('adapter boom') },
@@ -512,7 +578,7 @@ setInterval(() => {}, 1_000)
         expect(jsonResult(response)).toEqual({
           error: {
             code: 'tool-error',
-            message: expect.stringMatching(/runner|handshake/i),
+            message: match.stringMatching(/runner|handshake/i),
             projectPath: project,
           },
           provenance: [],
@@ -589,7 +655,7 @@ export class Later { static componentName = 'Later' }
           (error: unknown) => ({ error }),
         )
       const [cancelRow] = await waitForLines(starts, 1)
-      const cancelledPid = Number(cancelRow!.split(':')[1])
+      const cancelledPid = Number(defined(cancelRow).split(':')[1])
 
       const completing = pair.client.callTool(
         { name: 'validate_project', arguments: { project_path: project } },

@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act } from 'react'
+import { act, createElement, StrictMode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -41,6 +41,7 @@ vi.mock(
 
 import type { SceneJson, SceneRegistry } from '@waica/engine'
 import { Viewport, type ViewportHandle } from './Viewport'
+import { defined } from '../../../engine/src/test-support'
 
 class ResizeObserverStub {
   observe(): void {}
@@ -77,7 +78,7 @@ function render(root: Root, box: HandleBox, scene: SceneJson, options: RenderOpt
   } = options
   act(() => {
     root.render(
-      <Viewport
+      createElement(StrictMode, null, <Viewport
         ref={(instance) => {
           box.current = instance
         }}
@@ -90,7 +91,7 @@ function render(root: Root, box: HandleBox, scene: SceneJson, options: RenderOpt
         selected={selected}
         onSelect={onSelect}
         onMoved={() => {}}
-      />,
+      />),
     )
   })
 }
@@ -116,16 +117,16 @@ describe('Viewport scene swap (CA-19)', () => {
   it('loads the incoming scene over the same Game, the outgoing entities gone', () => {
     const box: HandleBox = { current: null }
     render(root, box, SCENE_A)
-    const game = box.current!.game()!
+    const game = defined(defined(box.current).game())
     expect(game.find('A')).toBeDefined()
     expect(game.find('B')).toBeUndefined()
 
     render(root, box, SCENE_B, { scenePath: PATH_B })
 
-    const sameGame = box.current!.game()
+    const sameGame = defined(box.current).game()
     expect(sameGame).toBe(game)
-    expect(sameGame!.find('A')).toBeUndefined()
-    expect(sameGame!.find('B')).toBeDefined()
+    expect(defined(sameGame).find('A')).toBeUndefined()
+    expect(defined(sameGame).find('B')).toBeDefined()
   })
 
   it('clears the selection on a scene swap', () => {
@@ -142,7 +143,7 @@ describe('Viewport scene swap (CA-19)', () => {
     const box: HandleBox = { current: null }
     const onSelect = vi.fn()
     render(root, box, SCENE_A, { selected: 'A', onSelect })
-    const game = box.current!.game()!
+    const game = defined(defined(box.current).game())
     const entity = game.find('A')
 
     // What every edit looks like: ops.* are pure, so a drag or a prop tweak
@@ -151,7 +152,7 @@ describe('Viewport scene swap (CA-19)', () => {
     const edited: SceneJson = { waicaScene: 3, entities: [{ name: 'A', position: [5, 0] }] }
     render(root, box, edited, { selected: 'A', onSelect })
 
-    expect(box.current!.game()).toBe(game)
+    expect(defined(box.current).game()).toBe(game)
     expect(game.find('A')).toBe(entity)
     expect(onSelect).not.toHaveBeenCalled()
   })
@@ -160,7 +161,7 @@ describe('Viewport scene swap (CA-19)', () => {
     const box: HandleBox = { current: null }
     render(root, box, SCENE_A, { sceneCatalog: { a: SCENE_A, b: SCENE_B } })
 
-    const game = box.current!.game()!
+    const game = defined(defined(box.current).game())
     expect(game.availableScenes).toEqual(['a', 'b'])
     expect(game.loadSceneByName('b')).toBe(true)
     expect(game.find('B')).toBeDefined()
@@ -169,7 +170,7 @@ describe('Viewport scene swap (CA-19)', () => {
   it('preserves the editor pan across a scene swap', () => {
     const box: HandleBox = { current: null }
     render(root, box, SCENE_A)
-    const game = box.current!.game()!
+    const game = defined(defined(box.current).game())
     // Pan the live camera and let the per-frame loop (game.onUpdate) sync it
     // into the editor's own cam ref, exactly as a real drag would.
     game.camera.position.x = 42
@@ -187,13 +188,13 @@ describe('Viewport scene swap (CA-19)', () => {
     const box: HandleBox = { current: null }
     const onSelect = vi.fn()
     render(root, box, SCENE_A, { selected: 'A', onSelect })
-    const game = box.current!.game()!
+    const game = defined(defined(box.current).game())
 
     // Same scene reference, same epoch/mode: a re-render carrying unrelated
     // prop churn must not touch the live entities or fire onSelect.
     render(root, box, SCENE_A, { selected: 'A', onSelect })
 
-    expect(box.current!.game()).toBe(game)
+    expect(defined(box.current).game()).toBe(game)
     expect(game.find('A')).toBeDefined()
     expect(onSelect).not.toHaveBeenCalled()
   })
@@ -201,20 +202,20 @@ describe('Viewport scene swap (CA-19)', () => {
   it('recreates the Game when epoch changes, even with the same scene reference', () => {
     const box: HandleBox = { current: null }
     render(root, box, SCENE_A)
-    const game = box.current!.game()
+    const game = defined(box.current).game()
 
     render(root, box, SCENE_A, { epoch: 2 })
 
-    expect(box.current!.game()).not.toBe(game)
+    expect(defined(box.current).game()).not.toBe(game)
   })
 
   it('recreates the Game on a mode change', () => {
     const box: HandleBox = { current: null }
     render(root, box, SCENE_A, { mode: 'edit' })
-    const game = box.current!.game()
+    const game = defined(box.current).game()
 
     render(root, box, SCENE_A, { mode: 'play' })
 
-    expect(box.current!.game()).not.toBe(game)
+    expect(defined(box.current).game()).not.toBe(game)
   })
 })

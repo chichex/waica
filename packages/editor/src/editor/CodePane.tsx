@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
 import MonacoEditor from '@monaco-editor/react'
 import type { SceneJson } from '@waica/engine'
-import { SCENE_PATH, type ProjectFS } from '../fs/project-fs'
-import { WRITE_DELAY_MS } from './write-scheduler'
+import type { ProjectFS } from '../fs/project-fs'
+import { reportRejection } from '../report-rejection'
+import { useCodeBuffer } from './use-code-buffer'
 
 const LANGUAGES: Record<string, string> = {
   ts: 'typescript',
@@ -24,7 +24,10 @@ export function CodePane({
   onSceneSaved,
 }: {
   fs?: ProjectFS
-  /** Display path; also the file to load/save when no `source` is given. */
+  /**
+   * Display path; also the file to load/save when no `source` is given. A
+   * pane stays on its first file: render a new one (key it by path) per file.
+   */
   path: string
   /** Inline source: skips fs loading and disables saving. */
   source?: string
@@ -33,93 +36,14 @@ export function CodePane({
   onSaved?(path: string): void | Promise<void>
   onSceneSaved?(scene: SceneJson): void
 }) {
-  const [value, setValue] = useState<string | null>(source ?? null)
-  const [dirty, setDirty] = useState(false)
-  const valueRef = useRef<string | null>(source ?? null)
-  const dirtyRef = useRef(false)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    dirtyRef.current = false
-    if (source != null) {
-      valueRef.current = source
-      setValue(source)
-      setDirty(false)
-      return
-    }
-    if (!fs) return
-    setValue(null)
-    setDirty(false)
-    void fs.readText(path).then((text) => {
-      valueRef.current = text
-      setValue(text)
-    })
-  }, [fs, path, source])
-
-  const save = async (): Promise<void> => {
-    if (timer.current) {
-      clearTimeout(timer.current)
-      timer.current = null
-    }
-    const current = valueRef.current
-    if (readOnly || source != null || !fs || current == null) return
-    await fs.writeText(path, current)
-    await onSaved?.(path)
-    // Typing during the write keeps the buffer dirty for the next round.
-    if (valueRef.current === current) {
-      dirtyRef.current = false
-      setDirty(false)
-    }
-    if (path === SCENE_PATH) {
-      try {
-        onSceneSaved?.(JSON.parse(current) as SceneJson)
-      } catch {
-        // Invalid JSON: it stays saved on disk, the live scene is untouched.
-      }
-    }
-  }
-
-  // A dirty buffer lands when the pane unmounts (switching files, closing the
-  // project) and when the tab hides or closes — editing is saving, like
-  // everywhere else in the editor.
-  useEffect(() => {
-    if (readOnly || source != null || !fs) return
-    const flush = (): void => {
-      if (dirtyRef.current) void save()
-    }
-    window.addEventListener('pagehide', flush)
-    window.addEventListener('beforeunload', flush)
-    return () => {
-      window.removeEventListener('pagehide', flush)
-      window.removeEventListener('beforeunload', flush)
-      flush()
-    }
-    // save() closes over these same props; refs carry the live buffer.
-  }, [fs, path, source, readOnly])
+  const buffer = useCodeBuffer({ fs, path, source, readOnly, onSaved, onSceneSaved })
+  const { value } = buffer
+  const save = (): void => reportRejection(buffer.save(), 'save')
 
   const ext = path.split('.').pop() ?? ''
-  const slash = path.lastIndexOf('/')
-  const dir = slash === -1 ? '' : path.slice(0, slash)
-  const file = path.slice(slash + 1)
   return (
     <div className="ed-code">
-      <header className="ed-code-head">
-        {onBack && (
-          <button className="ed-mini" onClick={onBack}>
-            ◀ viewport
-          </button>
-        )}
-        <span className="ed-code-path">
-          {dir && `${dir} / `}
-          <b>{file}</b>
-          {dirty ? ' •' : ''}
-        </span>
-        {!readOnly && (
-          <button className="ed-mini" onClick={() => void save()}>
-            save ⌘S
-          </button>
-        )}
-      </header>
+      <CodePaneHeader path={path} dirty={buffer.dirty} onBack={onBack} onSave={readOnly ? undefined : save} />
       {value == null ? (
         <div className="ed-hint ed-pad">…</div>
       ) : (
@@ -130,20 +54,50 @@ export function CodePane({
           language={LANGUAGES[ext] ?? 'plaintext'}
           theme="vs-dark"
           value={value}
-          onChange={(next) => {
-            valueRef.current = next ?? ''
-            dirtyRef.current = true
-            setDirty(true)
-            // Auto-save on the same clock as the rest of the editor; ⌘S lands it now.
-            if (timer.current) clearTimeout(timer.current)
-            timer.current = setTimeout(() => void save(), WRITE_DELAY_MS)
-          }}
+          onChange={(next) => buffer.edit(next ?? '')}
           onMount={(editor, monaco) => {
-            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => void save())
+            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, save)
           }}
           options={{ minimap: { enabled: false }, fontSize: 13, tabSize: 2, readOnly }}
         />
       )}
     </div>
+  )
+}
+
+/** The pane's header: the way back, the file's folder and name (• while dirty), and save. */
+function CodePaneHeader({
+  path,
+  dirty,
+  onBack,
+  onSave,
+}: {
+  path: string
+  dirty: boolean
+  onBack?: () => void
+  /** Absent for read-only panes. */
+  onSave?: () => void
+}) {
+  const slash = path.lastIndexOf('/')
+  const dir = slash === -1 ? '' : path.slice(0, slash)
+  const file = path.slice(slash + 1)
+  return (
+    <header className="ed-code-head">
+      {onBack && (
+        <button className="ed-mini" onClick={onBack}>
+          ◀ viewport
+        </button>
+      )}
+      <span className="ed-code-path">
+        {dir && `${dir} / `}
+        <b>{file}</b>
+        {dirty ? ' •' : ''}
+      </span>
+      {onSave && (
+        <button className="ed-mini" onClick={onSave}>
+          save ⌘S
+        </button>
+      )}
+    </header>
   )
 }

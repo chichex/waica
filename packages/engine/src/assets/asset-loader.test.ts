@@ -96,7 +96,7 @@ describe('AssetLoader status and ready() (CA-3)', () => {
   it('resolves at once with nothing pending and does not cover a request made afterwards', async () => {
     const { loader, backend } = make()
     let resolved = false
-    void loader.ready().then(() => {
+    const first = loader.ready().then(() => {
       resolved = true
     })
     await flush()
@@ -105,7 +105,7 @@ describe('AssetLoader status and ready() (CA-3)', () => {
     backend.hold('/after.png')
     loader.texture('/after.png')
     let second = false
-    void loader.ready().then(() => {
+    const later = loader.ready().then(() => {
       second = true
     })
     await flush()
@@ -114,6 +114,7 @@ describe('AssetLoader status and ready() (CA-3)', () => {
     backend.release('/after.png')
     await flush()
     expect(second).toBe(true)
+    await Promise.all([first, later])
   })
 
   it('waits for a URL requested while waiting and resolves every concurrent caller', async () => {
@@ -122,8 +123,8 @@ describe('AssetLoader status and ready() (CA-3)', () => {
     backend.hold('/second.png')
     loader.texture('/first.png')
     const outcomes: string[] = []
-    void loader.ready().then(() => outcomes.push('one'))
-    void loader.ready().then(() => outcomes.push('two'))
+    const one = loader.ready().then(() => outcomes.push('one'))
+    const two = loader.ready().then(() => outcomes.push('two'))
 
     loader.texture('/second.png')
     backend.release('/first.png')
@@ -134,6 +135,7 @@ describe('AssetLoader status and ready() (CA-3)', () => {
     backend.release('/second.png')
     await flush()
     expect(outcomes.sort()).toEqual(['one', 'two'])
+    await Promise.all([one, two])
   })
 
   it('resolves after the settled continuations a consumer chained before waiting', async () => {
@@ -141,13 +143,14 @@ describe('AssetLoader status and ready() (CA-3)', () => {
     backend.hold('/tiles.png')
     const order: string[] = []
     const handle = loader.texture('/tiles.png')
-    void handle.settled.then(() => order.push('consumer'))
-    void loader.ready().then(() => order.push('ready'))
+    const consumer = handle.settled.then(() => order.push('consumer'))
+    const ready = loader.ready().then(() => order.push('ready'))
 
     backend.release('/tiles.png')
     await flush()
 
     expect(order).toEqual(['consumer', 'ready'])
+    await Promise.all([consumer, ready])
   })
 })
 

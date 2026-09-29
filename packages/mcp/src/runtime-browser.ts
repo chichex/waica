@@ -10,7 +10,7 @@ import type {
   RuntimeDevServer,
   RuntimeLifecycleHandlers,
 } from './runtime-session-manager.js'
-import { ASSETS_POLL_INTERVAL_MS, runtimeAssetStatus } from './runtime-assets.js'
+import { ASSETS_POLL_INTERVAL_MS, abortableDelay, runtimeAssetStatus } from './runtime-assets.js'
 import type { RuntimePreflightResult } from './runtime-preflight.js'
 import { RuntimeToolError, type RuntimeControlInput } from './runtime-service.js'
 
@@ -108,8 +108,80 @@ function runtimeError(
   })
 }
 
-function delay(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds))
+type BridgeOperation = 'inspect' | 'control' | 'metadata'
+
+/** What the page reports for one Runtime Bridge call, as JSON-safe data. */
+interface BridgeResponse {
+  ok: boolean
+  value?: Record<string, unknown>
+  error?: {
+    code: string
+    stage: string
+    message: string
+    availableActions?: unknown[]
+    availableScenes?: unknown[]
+  }
+}
+
+/**
+ * Serialized by Playwright and run inside the Project page: calls the live
+ * Game's Runtime Bridge and turns a thrown bridge error into data. It must
+ * reference nothing outside its own body.
+ */
+function callLiveBridge(request: {
+  operation: BridgeOperation
+  argument: Record<string, unknown>
+}): BridgeResponse {
+  type Bridge = {
+    metadata(): Record<string, unknown>
+    inspect(filters?: Record<string, unknown>): Record<string, unknown>
+    control(request: Record<string, unknown>): Record<string, unknown>
+  }
+  const { operation, argument } = request
+  const hook = (globalThis as Record<PropertyKey, unknown>)[
+    Symbol.for('@waica/runtime-bridge/v1')
+  ] as BrowserBridgeActivation | undefined
+  if (!hook?.current || hook.failure) {
+    return {
+      ok: false,
+      error: {
+        code: 'runtime-invalid-state',
+        stage: 'game',
+        message: hook?.failure?.message ?? 'No live Game is registered.',
+      },
+    }
+  }
+  try {
+    const bridge = hook.current as Bridge
+    const value = operation === 'inspect'
+      ? bridge.inspect(argument)
+      : operation === 'control'
+        ? bridge.control(argument)
+        : bridge.metadata()
+    return { ok: true, value }
+  } catch (error) {
+    const detail = error as {
+      code?: unknown
+      stage?: unknown
+      message?: unknown
+      availableActions?: unknown
+      availableScenes?: unknown
+    }
+    return {
+      ok: false,
+      error: {
+        code: typeof detail.code === 'string' ? detail.code : 'runtime-operation-failed',
+        stage: typeof detail.stage === 'string' ? detail.stage : 'control',
+        message: typeof detail.message === 'string' ? detail.message : String(error),
+        ...(Array.isArray(detail.availableActions)
+          ? { availableActions: detail.availableActions }
+          : {}),
+        ...(Array.isArray(detail.availableScenes)
+          ? { availableScenes: detail.availableScenes }
+          : {}),
+      },
+    }
+  }
 }
 
 async function readinessProbe(page: Page): Promise<ReadinessProbe> {
@@ -201,6 +273,7 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
     private readonly browser: Browser,
     private readonly context: BrowserContext,
     private readonly page: Page,
+    private readonly signal?: AbortSignal,
   ) {
     const recordError = (detail: unknown): void => {
       this.browserErrors.push(boundedMessage(detail))
@@ -224,7 +297,7 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
         !this.reloading &&
         !this.closed
       ) {
-        void this.handleReload()
+        this.handleReload().catch((error: unknown) => this.lifecycle.failed(error))
       }
     })
   }
@@ -243,7 +316,9 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
         this.diagnostics(),
       )
     }
-    this.readyValue = await this.waitForReady()
+    // Only the initial readiness belongs to the start call; reloads later in
+    // the session are not cancelled by it.
+    this.readyValue = await this.waitForReady(this.signal)
     this.initialReady = true
   }
 
@@ -328,9 +403,10 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
     this.lifecycle = handlers
   }
 
-  private async waitForReady(): Promise<RuntimeBridgeReady> {
+  private async waitForReady(signal?: AbortSignal): Promise<RuntimeBridgeReady> {
     const deadline = Date.now() + this.preflight.timeoutMs
     while (Date.now() <= deadline) {
+      signal?.throwIfAborted()
       if (this.closed || this.page.isClosed()) {
         throw runtimeError(
           this.preflight,
@@ -352,7 +428,7 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
           this.diagnostics(),
         )
       }
-      await delay(ASSETS_POLL_INTERVAL_MS)
+      await abortableDelay(ASSETS_POLL_INTERVAL_MS, signal)
     }
     const diagnostics = this.diagnostics()
     if (this.browserErrors.length > 0) {
@@ -375,74 +451,11 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
   }
 
   private async invokeBridge(
-    operation: 'inspect' | 'control' | 'metadata',
+    operation: BridgeOperation,
     argument: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
     this.assertOperational()
-    const response = await this.page.evaluate(
-      ({ operation, argument }) => {
-        type Bridge = {
-          metadata(): Record<string, unknown>
-          inspect(filters?: Record<string, unknown>): Record<string, unknown>
-          control(request: Record<string, unknown>): Record<string, unknown>
-        }
-        const hook = (globalThis as Record<PropertyKey, unknown>)[
-          Symbol.for('@waica/runtime-bridge/v1')
-        ] as BrowserBridgeActivation | undefined
-        if (!hook?.current || hook.failure) {
-          return {
-            ok: false,
-            error: {
-              code: 'runtime-invalid-state',
-              stage: 'game',
-              message: hook?.failure?.message ?? 'No live Game is registered.',
-            },
-          }
-        }
-        try {
-          const bridge = hook.current as Bridge
-          const value = operation === 'inspect'
-            ? bridge.inspect(argument)
-            : operation === 'control'
-              ? bridge.control(argument)
-              : bridge.metadata()
-          return { ok: true, value }
-        } catch (error) {
-          const detail = error as {
-            code?: unknown
-            stage?: unknown
-            message?: unknown
-            availableActions?: unknown
-            availableScenes?: unknown
-          }
-          return {
-            ok: false,
-            error: {
-              code: typeof detail.code === 'string' ? detail.code : 'runtime-operation-failed',
-              stage: typeof detail.stage === 'string' ? detail.stage : 'control',
-              message: typeof detail.message === 'string' ? detail.message : String(error),
-              ...(Array.isArray(detail.availableActions)
-                ? { availableActions: detail.availableActions }
-                : {}),
-              ...(Array.isArray(detail.availableScenes)
-                ? { availableScenes: detail.availableScenes }
-                : {}),
-            },
-          }
-        }
-      },
-      { operation, argument },
-    ) as {
-      ok: boolean
-      value?: Record<string, unknown>
-      error?: {
-        code: string
-        stage: string
-        message: string
-        availableActions?: string[]
-        availableScenes?: string[]
-      }
-    }
+    const response = await this.page.evaluate(callLiveBridge, { operation, argument })
     if (response.ok && response.value) return response.value
     const error = response.error ?? {
       code: 'runtime-operation-failed',
@@ -502,6 +515,7 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
 export async function startRuntimeBrowser(
   preflight: RuntimePreflightResult,
   devServer: RuntimeDevServer,
+  signal?: AbortSignal,
 ): Promise<RuntimeBrowser> {
   let browser: Browser | undefined
   let context: BrowserContext | undefined
@@ -516,12 +530,14 @@ export async function startRuntimeBrowser(
     })
     await context.addInitScript(installRuntimeBridgeActivation)
     const page = await context.newPage()
-    const runtime = new PlaywrightRuntimeBrowser(preflight, devServer, browser, context, page)
+    signal?.throwIfAborted()
+    const runtime = new PlaywrightRuntimeBrowser(preflight, devServer, browser, context, page, signal)
     await runtime.initialize()
     return runtime
   } catch (error) {
     await context?.close().catch(() => {})
     await browser?.close().catch(() => {})
+    if (signal?.aborted) throw signal.reason
     if (error instanceof RuntimeToolError) throw error
     throw runtimeError(
       preflight,

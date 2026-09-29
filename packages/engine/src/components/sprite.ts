@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { Component } from '../component.js'
 import type { YSortParticipant } from '../render-sort.js'
 import { spritePlacement } from '../sprite-placement.js'
+import { reportRejection } from '../report-rejection.js'
 
 const clampAnchor = (value: number): number => Math.min(1, Math.max(0, value))
 
@@ -130,9 +131,9 @@ export class Sprite extends Component implements YSortParticipant {
       }
       material.map = texture
       material.color.set(0xffffff)
-      void settled.then((outcome) => {
+      reportRejection(settled.then((outcome) => {
         if (outcome === 'failed') this.dropFailedTexture(texture)
-      })
+      }), 'sprite texture settle')
     }
     this.mesh = new THREE.Mesh(this.createGeometry(), material)
     this.mesh.position.z = this.layer * 0.01

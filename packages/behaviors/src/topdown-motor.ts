@@ -8,7 +8,7 @@ export type TopDownFacing = 'n' | 's' | 'e' | 'w'
  * step(). Eight-direction input is normalized so diagonals match cardinal
  * speed; movement has no gravity and resolves each axis against Solids.
  */
-export class TopDownMotor extends GridMotor<TopDownFacing> {
+export class TopDownMotor extends GridMotor {
   static override componentName = 'TopDownMotor'
 
   /** Four-direction facing; starts looking at the camera. */

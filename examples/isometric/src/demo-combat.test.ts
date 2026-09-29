@@ -42,6 +42,7 @@ import { Health, IsoMotor, Patrol } from '@waica/behaviors'
 import { ARCHETYPE, ISOMETRIC_SCENE } from '@waica/archetype-isometric'
 import controls from './controls.json'
 import stats from './stats.json'
+import { defined } from '../../../packages/engine/src/test-support'
 
 class ResizeObserverStub {
   observe(): void {}
@@ -88,7 +89,7 @@ function makeDemo() {
 }
 
 function machineOf(entity: Entity): StateMachine {
-  return entity.get(StateMachine)!
+  return defined(entity.get(StateMachine))
 }
 
 beforeEach(() => {
@@ -114,8 +115,8 @@ describe('the isometric demo, as shipped', () => {
 
   it('lets the player kill the orc with two sword strikes', () => {
     const demo = makeDemo()
-    const orcHealth = demo.orc.get(Health)!
-    const motor = demo.player.get(IsoMotor)!
+    const orcHealth = defined(demo.orc.get(Health))
+    const motor = defined(demo.player.get(IsoMotor))
     // Stand screen-west of the orc — logical (−x, +y) — out of contact range,
     // and face it.
     const faceOrc = () => {
@@ -127,11 +128,11 @@ describe('the isometric demo, as shipped', () => {
     demo.press('attack')
     demo.frame()
     expect(machineOf(demo.player).current).toBe('attack')
-    expect(demo.player.get(AnimatedSprite)!.current).toBe('attack-e')
+    expect(defined(demo.player.get(AnimatedSprite)).current).toBe('attack-e')
     expect(orcHealth.current).toBe(1)
     demo.frame()
     expect(machineOf(demo.orc).current).toBe('hurt')
-    expect(demo.player.get(Health)!.current).toBe(3)
+    expect(defined(demo.player.get(Health)).current).toBe(3)
 
     demo.frames(0.4)
     expect(machineOf(demo.player).current).toBe('idle')
@@ -150,7 +151,7 @@ describe('the isometric demo, as shipped', () => {
 
   it('makes an orc touch visible: a heart lost, a stun, a shove and a blink', () => {
     const demo = makeDemo()
-    const health = demo.player.get(Health)!
+    const health = defined(demo.player.get(Health))
     // Overlapping the orc from its −x side.
     demo.player.position.set(demo.orc.position.x - 0.5, demo.orc.position.y, 0)
 
@@ -160,7 +161,7 @@ describe('the isometric demo, as shipped', () => {
     demo.frame()
     expect(machineOf(demo.player).current).toBe('hurt')
     expect(health.blinking).toBe(true)
-    expect(demo.player.get(AnimatedSprite)!.current).toMatch(/^hurt-/)
+    expect(defined(demo.player.get(AnimatedSprite)).current).toMatch(/^hurt-/)
     const struckAt = demo.player.position.x
 
     demo.frames(0.3)
@@ -173,8 +174,8 @@ describe('the isometric demo, as shipped', () => {
 
   it('shows the orc walking where it goes: south-east down its rail, north-west back', () => {
     const demo = makeDemo()
-    const sprite = demo.orc.get(AnimatedSprite)!
-    const patrol = demo.orc.get(Patrol)!
+    const sprite = defined(demo.orc.get(AnimatedSprite))
+    const patrol = defined(demo.orc.get(Patrol))
     const start = demo.orc.position.x
 
     demo.frame()

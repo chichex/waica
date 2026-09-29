@@ -12,6 +12,7 @@ import readmeMd from '../../template/README.md?raw'
 import gitignore from '../../template/_gitignore?raw'
 import { archetypePackageName, resolveArchetype, type ArchetypeManifest } from './archetype'
 import enginePackage from '../../../engine/package.json'
+import { readJsonObject } from '../json-object'
 
 // The @waica/* range a fresh project depends on, read from the engine rather
 // than written down here: the published libraries move in lockstep, so the
@@ -85,6 +86,13 @@ export function projectArtFiles(
 }
 
 /** Files for a fresh waica project, resolved from the picked archetype. */
+/** A bundled template JSON file; a non-object means the template itself is broken. */
+function templateObject(text: string, file: string): Record<string, unknown> {
+  const json = readJsonObject(text)
+  if (!json) throw new Error(`the project template's ${file} is not a JSON object`)
+  return json
+}
+
 export function projectFiles(
   name: string,
   start: ProjectStart = 'demo',
@@ -92,9 +100,9 @@ export function projectFiles(
 ): Record<string, string> {
   const archetype = resolveArchetype(archetypeId)
   const scene = start === 'demo' ? archetype.scene : archetype.blankScene
-  const game = { ...(JSON.parse(gameJson) as Record<string, unknown>), archetype: archetype.id }
+  const game = { ...templateObject(gameJson, 'game.json'), archetype: archetype.id }
   const controls = {
-    ...(JSON.parse(controlsJson) as Record<string, unknown>),
+    ...templateObject(controlsJson, 'controls.json'),
     bindings: archetype.bindings,
   }
   const archetypePackage = archetypePackageName(archetype.id)

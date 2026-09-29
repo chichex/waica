@@ -45,6 +45,7 @@ import { ClickToMove } from './click-to-move'
 import { INTERACTABLE_UI, Interactable } from './interactable'
 import { IsoMotor } from './iso-motor'
 import { ISO_PLAYER_ROLE, ISO_PLAYER_STATE_GRAPH } from './iso-player-states'
+import { defined, returnedValue } from '../../engine/src/test-support'
 
 class ResizeObserverStub {
   observe(): void {}
@@ -106,8 +107,8 @@ function makeHarness({ pieces = [], bindings = { interact: ['KeyE', 'Space'] } }
   document.body.append(canvas)
   const game = new Game({ canvas, bindings })
   games.push(game)
-  game.ui.define('npc-line', INTERACTABLE_UI['npc-line']!)
-  for (const piece of pieces) game.ui.define(piece, INTERACTABLE_UI[piece]!)
+  game.ui.define('npc-line', defined(INTERACTABLE_UI['npc-line']))
+  for (const piece of pieces) game.ui.define(piece, defined(INTERACTABLE_UI[piece]))
   const player = game.spawn('Player')
   player.add(IsoMotor)
   player.add(ClickToMove)
@@ -117,7 +118,7 @@ function makeHarness({ pieces = [], bindings = { interact: ['KeyE', 'Space'] } }
     states: structuredClone(ISO_PLAYER_STATE_GRAPH.states),
   })
   game.start()
-  const bridge = registered[0]!
+  const bridge = defined(registered[0])
   const step = (frames = 1): void => {
     bridge.control({ operation: 'step', frames })
   }
@@ -217,7 +218,7 @@ describe('Interactable speech bubble (issue #72, CA-11)', () => {
     harness.interact()
 
     expect(pieces(harness, 'npc-bubble')).toHaveLength(1)
-    expect(attach.mock.results.map((result) => result.value.alive)).toEqual([false, true])
+    expect(attach.mock.results.map((result) => returnedValue(result).alive)).toEqual([false, true])
     expect(listener.heard).toEqual(['Player', 'Player'])
   })
 
@@ -271,7 +272,7 @@ describe('ClickToMove arrival at an NPC (issue #72, CA-11, grill S8)', () => {
     harness.click(0, 1) // on the Villager's sprite box
     harness.step()
 
-    expect(harness.player.get(ClickToMove)!.order).toBeNull() // arrived: one trigger per arrival
+    expect(defined(harness.player.get(ClickToMove)).order).toBeNull() // arrived: one trigger per arrival
     expect(harness.anchored()).toEqual([
       { piece: 'npc-bubble', entity: 'Villager', x: 320, y: 101, clipped: false, values: { line: LINE } },
     ])

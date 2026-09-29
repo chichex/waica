@@ -37,6 +37,7 @@ import {
 } from '@waica/engine'
 import { Interactable } from './interactable'
 import { SceneTransition } from './scene-transition'
+import { defined } from '../../engine/src/test-support'
 
 interface StubEntity extends Entity {
   addStub(component: Component): void
@@ -220,7 +221,7 @@ function frame(game: Game): void {
 }
 
 function door(game: Game): SceneTransition {
-  return game.find('Door')!.get(SceneTransition)!
+  return defined(defined(game.find('Door')).get(SceneTransition))
 }
 
 describe('SceneTransition with a fade (issue #74 CA-15)', () => {
@@ -238,7 +239,7 @@ describe('SceneTransition with a fade (issue #74 CA-15)', () => {
     const game = makeRealGame(doorScene({}))
     frame(game)
 
-    door(game).onCollide?.(game.find('Player')!)
+    door(game).onCollide?.(defined(game.find('Player')))
 
     expect(game.sceneName).toBe('cave')
     expect(game.cameraEffects.state.fade.opacity).toBe(0)
@@ -252,7 +253,7 @@ describe('SceneTransition with a fade (issue #74 CA-15)', () => {
     game.onUpdate(() => (simulated += 1))
     frame(game)
     frame(game)
-    const player = game.find('Player')!
+    const player = defined(game.find('Player'))
 
     door(game).onCollide?.(player)
 
@@ -266,17 +267,17 @@ describe('SceneTransition with a fade (issue #74 CA-15)', () => {
 
     // Outgoing: 15 steps of a rising fade to the authored color, still "main".
     for (let n = 1; n <= 14; n += 1) {
-      expect(seen[n - 1]!.scene).toBe('main')
-      expect(seen[n - 1]!.opacity).toBeCloseTo(n / 15, 12)
+      expect(defined(seen[n - 1]).scene).toBe('main')
+      expect(defined(seen[n - 1]).opacity).toBeCloseTo(n / 15, 12)
     }
     expect(seen[14]).toEqual({ scene: 'main', opacity: 1 })
     expect(game.cameraEffects.state.fade.color).toBe('#ff0000')
     // The swap, then 15 steps of clearing in "cave".
     for (let n = 16; n <= 30; n += 1) {
-      expect(seen[n - 1]!.scene).toBe('cave')
-      expect(seen[n - 1]!.opacity).toBeCloseTo((30 - n) / 15, 12)
+      expect(defined(seen[n - 1]).scene).toBe('cave')
+      expect(defined(seen[n - 1]).opacity).toBeCloseTo((30 - n) / 15, 12)
     }
-    expect(seen[29]!.opacity).toBe(0)
+    expect(defined(seen[29]).opacity).toBe(0)
     expect(load).toHaveBeenCalledTimes(1)
     expect(load).toHaveBeenCalledWith('cave')
     // Simulation never froze.
@@ -286,11 +287,11 @@ describe('SceneTransition with a fade (issue #74 CA-15)', () => {
 
   it('defaults fadeColor to black and fires the same way from an interaction', () => {
     const main = doorScene({ fadeSeconds: 0.1, trigger: 'interact' })
-    main.entities[0]!.components!.unshift({ type: 'Interactable' })
+    defined(defined(main.entities[0]).components).unshift({ type: 'Interactable' })
     const game = makeRealGame(main)
     frame(game)
 
-    door(game).onInteract?.(game.find('Player')!)
+    door(game).onInteract?.(defined(game.find('Player')))
     frame(game)
 
     expect(game.sceneName).toBe('main')
@@ -306,7 +307,7 @@ describe('SceneTransition with a fade (issue #74 CA-15)', () => {
       town: { waicaScene: 3, entities: [{ name: 'Mayor' }] },
     })
     frame(game)
-    const player = game.find('Player')!
+    const player = defined(game.find('Player'))
 
     door(game).onCollide?.(player)
     for (let n = 0; n < 5; n += 1) frame(game)
@@ -332,7 +333,7 @@ describe('SceneTransition with a fade (issue #74 CA-15)', () => {
     const game = makeRealGame(doorScene({ fadeSeconds: 0.25 }))
     const load = vi.spyOn(game, 'loadSceneByName')
     frame(game)
-    const player = game.find('Player')!
+    const player = defined(game.find('Player'))
 
     door(game).onCollide?.(player)
     // The outgoing fade takes 15 steps (0.25s / (1/60)). Run all of them:
@@ -375,9 +376,9 @@ describe('SceneTransition with a fade (issue #74 CA-15)', () => {
     const game = makeRealGame(main, { town: { waicaScene: 3, entities: [{ name: 'Mayor' }] } })
     const load = vi.spyOn(game, 'loadSceneByName')
     frame(game)
-    const player = game.find('Player')!
-    const doorA = game.find('DoorA')!.get(SceneTransition)!
-    const doorB = game.find('DoorB')!.get(SceneTransition)!
+    const player = defined(game.find('Player'))
+    const doorA = defined(defined(game.find('DoorA')).get(SceneTransition))
+    const doorB = defined(defined(game.find('DoorB')).get(SceneTransition))
 
     doorA.onCollide?.(player)
     // The player walks from A onto B partway through A's outgoing fade,
@@ -409,7 +410,7 @@ describe('SceneTransition with a fade (issue #74 CA-15)', () => {
     const game = makeRealGame(doorScene({ fadeSeconds: 0.25 }))
     const load = vi.spyOn(game, 'loadSceneByName')
     frame(game)
-    const player = game.find('Player')!
+    const player = defined(game.find('Player'))
 
     door(game).onCollide?.(player)
     for (let n = 0; n < 5; n += 1) frame(game)
@@ -433,7 +434,7 @@ describe('SceneTransition with a fade (issue #74 CA-15)', () => {
   it('the door being destroyed mid-fade does not leave the fade stuck at opacity 1 (issue #74 review)', () => {
     const game = makeRealGame(doorScene({ fadeSeconds: 0.25 }))
     frame(game)
-    const player = game.find('Player')!
+    const player = defined(game.find('Player'))
 
     door(game).onCollide?.(player)
     for (let n = 0; n < 5; n += 1) frame(game)
@@ -441,7 +442,7 @@ describe('SceneTransition with a fade (issue #74 CA-15)', () => {
     expect(game.cameraEffects.state.fade.opacity).toBeLessThan(1)
 
     // The door entity itself is destroyed mid-fade (e.g. a hard reset script).
-    game.find('Door')!.destroy()
+    defined(game.find('Door')).destroy()
 
     for (let n = 0; n < 40; n += 1) frame(game)
 

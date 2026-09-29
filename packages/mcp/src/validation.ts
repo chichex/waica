@@ -1,26 +1,18 @@
-import {
-  resolveComponentUpdateSchedule,
-  type ArchetypeManifest,
-  type ComponentClass,
-  type ComponentUpdateScheduleIssue,
-  type ParamSpec,
-  type PrefabJson,
-  type SceneComponentJson,
-  type SceneEntityJson,
-  type SceneJson,
-  type StateJson,
-} from '@waica/engine'
+import type { ComponentClass, PrefabJson, SceneJson } from '@waica/engine'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { discoverArchetypes, pickArchetype } from './archetypes.js'
-import { isPlayableClip } from './clip-resolution.js'
 import { collisionCategoryFindings } from './collision-category-validation.js'
-import { classDefaults, objectRecord } from './component-metadata.js'
+import { objectRecord } from './component-metadata.js'
 import {
-  isBoundAction,
-  projectSoundRefs,
-  resolveParamReference,
-} from './param-reference-resolution.js'
+  checkComponent,
+  classMetadata,
+  componentList,
+  validateComponentClassUpdateContracts,
+  validateComponentUpdateSchedule,
+  validateParamReferences,
+} from './component-validation.js'
+import { projectSoundRefs } from './param-reference-resolution.js'
 import {
   PackageResolver,
   mixedSourceWarnings,
@@ -32,80 +24,30 @@ import {
   type ProjectComponentLoader,
 } from './project-component-loader.js'
 import { directFiles, requireWaicaProject } from './project-path.js'
-import { validateEntitySceneTransition, validatePrefabSceneTransition } from './scene-transition-validation.js'
+import { validatePrefabSceneTransition } from './scene-transition-validation.js'
+import { validateScene } from './scene-validation.js'
+import { projectRoleStateSources, validateStateMachines } from './state-machine-validation.js'
 import { stockAnchoredPieces, uiBindingFindings } from './ui-binding-validation.js'
+import {
+  add,
+  type ComponentMetadata,
+  type ValidationContext,
+  type ValidationFinding,
+} from './validation-context.js'
 
-export type FindingSeverity = 'error' | 'warning' | 'info'
+export type { FindingCode, FindingSeverity, ValidationFinding } from './validation-context.js'
 
-export type FindingCode =
-  | 'unknown-component'
-  | 'broken-prefab-ref'
-  | 'override-key-not-in-prefab'
-  | 'missing-clip'
-  | 'missing-sound'
-  | 'dangling-transition-target'
-  | 'unreachable-state'
-  | 'no-state-code'
-  | 'input-action-unbound'
-  | 'undeclared-stat'
-  | 'unknown-ui-piece'
-  | 'camera-follow-unknown-entity'
-  | 'unknown-scene-transition-target'
-  | 'scene-transition-missing-interactable'
-  | 'unparseable-json'
-  | 'component-load-failed'
-  | 'component-load-unsupported'
-  | 'duplicate-component'
-  | 'invalid-update-constraint'
-  | 'component-update-cycle'
-  | 'invalid-collision-layer'
-  | 'invalid-collision-mask'
-  | 'duplicate-collision-mask-entry'
+const PARAMS_FILE = 'public/waica.params.json'
+const FIXED_PATHS = [
+  'package.json',
+  'src/game.json',
+  'src/controls.json',
+  'src/stats.json',
+  PARAMS_FILE,
+]
 
-export interface ValidationFinding {
-  severity: FindingSeverity
-  code: FindingCode
-  message: string
-  file: string
-  ref?: string
-}
-
-interface ComponentMetadata {
-  Class: ComponentClass
-  params: Record<string, ParamSpec>
-  defaults: Record<string, unknown>
-  sourceFile?: string
-}
-
-interface ValidationContext {
-  findings: ValidationFinding[]
-  manifest: ArchetypeManifest
-  knownComponents: Set<string>
-  projectComponents: Set<string>
-  componentMetadata: Map<string, ComponentMetadata>
-  componentRegistry: Record<string, ComponentClass>
-  reportedClassConstraints: Set<string>
-  prefabRefs: Set<string>
-  declaredStats: Set<string>
-  stateFiles: Set<string>
-  roleStateSources: Map<string, string[]>
-  bindings: Record<string, string[]>
-  soundRefs: ReadonlySet<string>
-  uiPieces: ReadonlySet<string>
-  /** The stock Anchored Pieces, plus pieces a component names through a `ref: 'ui'` param. */
-  anchoredPieces: Set<string>
-}
-
-function add(
-  context: Pick<ValidationContext, 'findings'>,
-  severity: FindingSeverity,
-  code: FindingCode,
-  message: string,
-  file: string,
-  ref?: string,
-): void {
-  context.findings.push({ severity, code, message, file, ...(ref ? { ref } : {}) })
-}
+const SCENE_TRANSITION_NOTE =
+  'The shipped runtime boots on src/scenes/main.scene.json and registers every scene under src/scenes/ in a catalog; a SceneTransition or control_runtime operation:"scene" can load any of them by name.'
 
 async function parseJson(
   projectPath: string,
@@ -141,330 +83,6 @@ async function projectComponentCandidates(projectPath: string): Promise<Set<stri
   return names
 }
 
-function checkComponent(
-  component: SceneComponentJson,
-  file: string,
-  ref: string | undefined,
-  context: ValidationContext,
-): void {
-  if (context.knownComponents.has(component.type)) return
-  if (context.projectComponents.has(component.type)) {
-    add(
-      context,
-      'info',
-      'unknown-component',
-      `Component "${component.type}" is project-owned, not validated.`,
-      file,
-      ref,
-    )
-    return
-  }
-  add(
-    context,
-    'error',
-    'unknown-component',
-    `Unknown component "${component.type}".`,
-    file,
-    ref,
-  )
-}
-
-function componentList(value: unknown): SceneComponentJson[] {
-  if (!Array.isArray(value)) return []
-  return value.filter(
-    (entry): entry is SceneComponentJson =>
-      !!entry && typeof entry === 'object' && typeof (entry as { type?: unknown }).type === 'string',
-  )
-}
-
-function classMetadata(Class: ComponentClass): ComponentMetadata {
-  // A throwing constructor has no observable defaults, matching list_components.
-  return { Class, params: Class.params ?? {}, defaults: classDefaults(Class) }
-}
-
-/** Clip names declared by the sibling AnimatedSprite, or undefined when there is none (no animation contract to check). */
-function siblingClips(siblings: SceneComponentJson[]): Set<string> | undefined {
-  const animated = siblings.find((component) => component.type === 'AnimatedSprite')
-  return animated ? new Set(Object.keys(objectRecord(animated.props?.clips))) : undefined
-}
-
-interface ParamReferenceEntry {
-  component: SceneComponentJson
-  /**
-   * Restricts the check to these param names. Used when re-validating a
-   * scene-overridden component so the untouched params it inherited from
-   * the prefab do not repeat the prefab-level finding a second time under
-   * the scene file. Undefined means "check every declared ref param",
-   * which is correct for prefab components and inline scene components —
-   * neither was already validated elsewhere.
-   */
-  only?: ReadonlySet<string>
-}
-
-function validateParamReferences(
-  entries: ParamReferenceEntry[],
-  siblings: SceneComponentJson[],
-  file: string,
-  context: ValidationContext,
-): void {
-  const clips = siblingClips(siblings)
-  for (const { component, only } of entries) {
-    const metadata = context.componentMetadata.get(component.type)
-    if (!metadata) continue
-    const props = objectRecord(component.props)
-    for (const [param, spec] of Object.entries(metadata.params)) {
-      if (only && !only.has(param)) continue
-      if (!spec.ref || spec.options !== undefined) continue
-      const value = Object.hasOwn(props, param) ? props[param] : metadata.defaults[param]
-      if (typeof value !== 'string' || value === '') continue
-      if (spec.ref === 'ui') context.anchoredPieces.add(value)
-      const field = `${component.type}.${param}`
-      const finding = resolveParamReference(
-        { componentType: component.type, param, ref: spec.ref, value, clips, file, field },
-        {
-          prefabRefs: context.prefabRefs,
-          animation: context.manifest.animation,
-          bindings: context.bindings,
-          declaredStats: context.declaredStats,
-          soundRefs: context.soundRefs,
-          uiPieces: context.uiPieces,
-        },
-      )
-      if (finding) context.findings.push(finding)
-    }
-  }
-}
-
-function machineStates(component: SceneComponentJson): Record<string, StateJson> {
-  return objectRecord(component.props?.states) as Record<string, StateJson>
-}
-
-function escapedRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-async function projectRoleStateSources(projectPath: string): Promise<Map<string, string[]>> {
-  const sources = new Map<string, string[]>()
-  for (const file of await directFiles(path.join(projectPath, 'src/roles'), '.ts')) {
-    const source = await readFile(path.join(projectPath, 'src/roles', file), 'utf8')
-    for (const match of source.matchAll(/\bdefine(?:Role|States)\s*\(\s*(['"])([^'"]+)\1/g)) {
-      const role = match[2]
-      if (!role) continue
-      sources.set(role, [...(sources.get(role) ?? []), source.slice(match.index)])
-    }
-  }
-  return sources
-}
-
-function roleSourceHasState(source: string, state: string): boolean {
-  const statesMarkers = [...source.matchAll(/\bstates\s*:/g)]
-  const candidate = statesMarkers.at(-1)
-  const registration = candidate ? source.slice(candidate.index) : source
-  return new RegExp(`\\b${escapedRegex(state)}\\s*:`).test(registration)
-}
-
-/** Mirrors flat state files and textually recognizes project role registrations. */
-function stateCodeExists(
-  role: string,
-  state: string,
-  context: ValidationContext,
-): boolean {
-  const roleStates = context.manifest.bundle.roles[role]?.states
-  const logicStates = context.manifest.bundle.logicSets?.[role]
-  return (
-    (!!roleStates && Object.hasOwn(roleStates, state)) ||
-    (!!logicStates && Object.hasOwn(logicStates, state)) ||
-    context.stateFiles.has(state) ||
-    (context.roleStateSources.get(role) ?? []).some((source) =>
-      roleSourceHasState(source, state),
-    )
-  )
-}
-
-function validateStateMachines(
-  components: SceneComponentJson[],
-  file: string,
-  ref: string | undefined,
-  context: ValidationContext,
-): void {
-  const clips = siblingClips(components)
-  for (const machine of components.filter((component) => component.type === 'StateMachine')) {
-    const states = machineStates(machine)
-    const realNames = Object.keys(states).filter((name) => name !== '*')
-    const role = typeof machine.props?.role === 'string' ? machine.props.role : ''
-    const initial =
-      typeof machine.props?.initial === 'string' && machine.props.initial
-        ? machine.props.initial
-        : (realNames[0] ?? '')
-    for (const name of realNames) {
-      const definition = objectRecord(states[name]) as StateJson
-      const explicitClip = typeof definition.clip === 'string' ? definition.clip : undefined
-      const clip = explicitClip ?? name
-      // No "empty means none" special case here: the runtime looks up
-      // `this.states[state]?.clip ?? state`, and '' survives that nullish
-      // coalesce, so an explicit empty clip is looked up literally and must
-      // be validated like any other explicit value (unlike Collectible.stat,
-      // which the runtime genuinely treats as unset).
-      if (clips && !isPlayableClip(clips, clip, context.manifest.animation)) {
-        add(
-          context,
-          explicitClip === undefined ? 'warning' : 'error',
-          'missing-clip',
-          `State "${name}" uses missing animation clip "${clip}".`,
-          file,
-          explicitClip === undefined ? (ref ?? name) : `StateMachine.states.${name}.clip`,
-        )
-      }
-      const transitions = Array.isArray(definition.transitions) ? definition.transitions : []
-      for (const transition of transitions) {
-        if (!transition || typeof transition !== 'object') continue
-        const to = (transition as { to?: unknown }).to
-        const on = (transition as { on?: unknown }).on
-        if (typeof to === 'string' && to !== '*' && !Object.hasOwn(states, to)) {
-          add(
-            context,
-            'warning',
-            'dangling-transition-target',
-            `State "${name}" transitions to missing state "${to}".`,
-            file,
-            ref ?? name,
-          )
-        }
-        if (typeof on === 'string' && on.startsWith('input:')) {
-          const action = on.slice('input:'.length)
-          if (!isBoundAction(context.bindings, action)) {
-            add(
-              context,
-              'warning',
-              'input-action-unbound',
-              `Input action "${action}" has no bindings.`,
-              file,
-              action,
-            )
-          }
-        }
-      }
-      if (name !== initial) {
-        const reachable = Object.values(states).some((candidate) =>
-          (Array.isArray(candidate?.transitions) ? candidate.transitions : []).some(
-            (transition) => transition?.to === name,
-          ),
-        )
-        if (!reachable) {
-          add(
-            context,
-            'warning',
-            'unreachable-state',
-            `Nothing transitions to state "${name}" and it is not initial.`,
-            file,
-            ref ?? name,
-          )
-        }
-      }
-      if (!stateCodeExists(role, name, context)) {
-        add(
-          context,
-          'info',
-          'no-state-code',
-          `State "${name}" has no built-in code, project role registration or src/states/${name}.ts.`,
-          file,
-          ref ?? name,
-        )
-      }
-    }
-  }
-}
-
-type LooseSceneEntity = Omit<Partial<SceneEntityJson>, 'name'> & { name?: unknown }
-
-function resolvedEntityComponents(
-  entity: LooseSceneEntity,
-  prefab?: PrefabJson,
-): SceneComponentJson[] {
-  const overrides = objectRecord(entity.overrides)
-  const inherited = componentList(prefab?.components).map((component) => ({
-    type: component.type,
-    props: {
-      ...objectRecord(component.props),
-      ...objectRecord(overrides[component.type]),
-    },
-  }))
-  return [...inherited, ...componentList(entity.components)]
-}
-
-function componentUpdateIssueKey(issue: ComponentUpdateScheduleIssue): string {
-  switch (issue.code) {
-    case 'duplicate-component':
-      return `${issue.code}:${issue.componentName}:${issue.count}`
-    case 'invalid-update-constraint':
-      return `${issue.code}:${issue.reason}:${issue.declarer}:${issue.target ?? ''}`
-    case 'component-update-cycle':
-      return `${issue.code}:${issue.componentNames.join('\0')}`
-  }
-}
-
-function componentUpdateIssues(
-  components: readonly SceneComponentJson[],
-  context: ValidationContext,
-): ComponentUpdateScheduleIssue[] {
-  const result = resolveComponentUpdateSchedule(
-    components.map((component) => component.type),
-    context.componentRegistry,
-  )
-  return result.ok ? [] : [...result.issues]
-}
-
-function addComponentUpdateFinding(
-  issue: ComponentUpdateScheduleIssue,
-  file: string,
-  ref: string | undefined,
-  context: ValidationContext,
-): void {
-  let findingFile = file
-  let findingRef = ref
-  if (issue.code === 'invalid-update-constraint') {
-    const source = context.componentMetadata.get(issue.declarer)?.sourceFile
-    if (source) {
-      const key = `${source}:${componentUpdateIssueKey(issue)}`
-      if (context.reportedClassConstraints.has(key)) return
-      context.reportedClassConstraints.add(key)
-      findingFile = source
-      findingRef = issue.declarer
-    }
-  }
-  add(context, 'error', issue.code, issue.cause, findingFile, findingRef)
-}
-
-function validateComponentUpdateSchedule(
-  components: readonly SceneComponentJson[],
-  file: string,
-  ref: string | undefined,
-  context: ValidationContext,
-  inheritedIssues: ReadonlySet<string> = new Set(),
-): void {
-  for (const issue of componentUpdateIssues(components, context)) {
-    if (inheritedIssues.has(componentUpdateIssueKey(issue))) continue
-    addComponentUpdateFinding(issue, file, ref, context)
-  }
-}
-
-function validateComponentClassUpdateContracts(context: ValidationContext): void {
-  for (const componentName of Object.keys(context.componentRegistry).sort()) {
-    const metadata = context.componentMetadata.get(componentName)
-    const result = resolveComponentUpdateSchedule([componentName], context.componentRegistry)
-    if (result.ok) continue
-    for (const issue of result.issues) {
-      if (issue.code !== 'invalid-update-constraint') continue
-      addComponentUpdateFinding(
-        issue,
-        metadata?.sourceFile ?? 'package.json',
-        componentName,
-        context,
-      )
-    }
-  }
-}
-
 function validatePrefab(
   prefab: PrefabJson,
   file: string,
@@ -488,226 +106,129 @@ function validatePrefab(
   validateComponentUpdateSchedule(components, file, ref, context)
 }
 
-function validateScene(
-  scene: SceneJson,
-  file: string,
-  prefabs: ReadonlyMap<string, PrefabJson>,
-  uiNames: ReadonlySet<string>,
-  knownScenes: ReadonlySet<string>,
-  context: ValidationContext,
-): void {
-  const rawEntities: unknown[] = Array.isArray(scene.entities) ? scene.entities : []
-  const entities = rawEntities
-    .map((entity, index) => ({ entity, index }))
-    .filter(
-      (entry): entry is { entity: LooseSceneEntity; index: number } =>
-        !!entry.entity && typeof entry.entity === 'object' && !Array.isArray(entry.entity),
-    )
-  const entityNames = new Set(
-    entities
-      .map(({ entity }) => (typeof entity.name === 'string' ? entity.name : ''))
-      .filter(Boolean),
-  )
-  const follow = scene.camera?.follow
-  if (typeof follow === 'string' && follow && !entityNames.has(follow)) {
-    add(
-      context,
-      'warning',
-      'camera-follow-unknown-entity',
-      `Camera follows unknown entity "${follow}".`,
-      file,
-      follow,
-    )
-  }
-  for (const ui of Array.isArray(scene.ui) ? scene.ui : []) {
-    if (typeof ui === 'string' && !uiNames.has(ui)) {
-      add(context, 'warning', 'unknown-ui-piece', `Unknown UI piece "${ui}".`, file, ui)
-    }
-  }
-  for (const { entity, index } of entities) {
-    const entityRef =
-      typeof entity.name === 'string' && entity.name ? entity.name : `entity[${index}]`
-    const inline = componentList(entity.components)
-    for (const component of inline) {
-      checkComponent(component, file, entityRef, context)
-      if (component.type === 'Hitbox') {
-        context.findings.push(...collisionCategoryFindings(component.props, file, entityRef))
-      }
-    }
-    context.findings.push(
-      ...validateEntitySceneTransition(entity, entityRef, file, prefabs, knownScenes),
-    )
-    const prefabRef = typeof entity.prefab === 'string' ? entity.prefab : undefined
-    const overrides = objectRecord(entity.overrides)
-    let prefab: PrefabJson | undefined
-    if (prefabRef) {
-      prefab = prefabs.get(prefabRef)
-      if (!prefab) {
-        add(
-          context,
-          'error',
-          'broken-prefab-ref',
-          `Entity "${entityRef}" references missing prefab "${prefabRef}".`,
-          file,
-          prefabRef,
-        )
-      } else {
-        const componentTypes = new Set(
-          componentList(prefab.components).map((component) => component.type),
-        )
-        for (const override of Object.keys(overrides)) {
-          if (!componentTypes.has(override)) {
-            add(
-              context,
-              'warning',
-              'override-key-not-in-prefab',
-              `Override "${override}" is not a component in prefab "${prefabRef}".`,
-              file,
-              prefabRef,
-            )
-          }
-        }
-      }
-    }
-    // Lazily resolved: only computed when a consumer below actually needs
-    // the merged prefab+override component list (an override that changes a
-    // ref param, a clip-context change, an inline ref:clip lookup that needs
-    // the effective sibling AnimatedSprite, or state-machine revalidation).
-    // A plain "prefab: ref" entity with no overrides and no inline
-    // components never pays for building it (restores the pre-typed-refs
-    // laziness that only ran this for state-behavior changes).
-    let cachedEffectiveComponents: SceneComponentJson[] | undefined
-    const effectiveComponents = (): SceneComponentJson[] => {
-      cachedEffectiveComponents ??= resolvedEntityComponents(entity, prefab)
-      return cachedEffectiveComponents
-    }
-    const hasRefKind = (type: string, kind: NonNullable<ParamSpec['ref']>): boolean =>
-      Object.values(context.componentMetadata.get(type)?.params ?? {}).some(
-        (spec) => spec.ref === kind && spec.options === undefined,
-      )
-
-    // Undefined scope means "check every declared ref param" — correct for
-    // inline components (never validated elsewhere) and for a component a
-    // clip-context change forces a full recheck of. A Set scopes the check
-    // to only the override's changed params, so a prefab-level finding for
-    // a param the override never touched is not reported a second time
-    // under the scene file.
-    const referenceScopes = new Map<SceneComponentJson, ReadonlySet<string> | undefined>()
-    for (const component of inline) referenceScopes.set(component, undefined)
-
-    const inlineTypes = new Set(inline.map((component) => component.type))
-    for (const [type, rawPatch] of Object.entries(overrides)) {
-      const patch = objectRecord(rawPatch)
-      if (type === 'Hitbox') {
-        context.findings.push(...collisionCategoryFindings(patch, file, entityRef))
-      }
-      if (inlineTypes.has(type)) continue
-      const metadata = context.componentMetadata.get(type)
-      const changedRefParams = new Set(
-        Object.entries(metadata?.params ?? {})
-          .filter(
-            ([param, spec]) =>
-              spec.ref !== undefined && spec.options === undefined && Object.hasOwn(patch, param),
-          )
-          .map(([param]) => param),
-      )
-      if (changedRefParams.size === 0) continue
-      const effective = effectiveComponents().find((component) => component.type === type)
-      if (effective && !referenceScopes.has(effective)) referenceScopes.set(effective, changedRefParams)
-    }
-    const changesClipContext =
-      inline.some((component) => component.type === 'AnimatedSprite') ||
-      Object.hasOwn(overrides, 'AnimatedSprite')
-    if (changesClipContext) {
-      for (const component of effectiveComponents()) {
-        // A clip-context change can affect params this component didn't
-        // itself change, so this always widens to a full check rather than
-        // narrowing an already-scoped entry from the override loop above.
-        if (hasRefKind(component.type, 'clip')) referenceScopes.set(component, undefined)
-      }
-    }
-    const needsSiblings =
-      cachedEffectiveComponents !== undefined ||
-      [...referenceScopes.keys()].some((component) => hasRefKind(component.type, 'clip'))
-    validateParamReferences(
-      [...referenceScopes.entries()].map(([component, only]) => ({ component, only })),
-      needsSiblings ? effectiveComponents() : [...referenceScopes.keys()],
-      file,
-      context,
-    )
-
-    // Re-evaluate inherited state behavior only when this entity actually
-    // changes a StateMachine or AnimatedSprite. Unrelated overrides keep the
-    // prefab-level finding as the single source of truth.
-    const stateTypes = new Set(['StateMachine', 'AnimatedSprite'])
-    const changesStateBehavior =
-      inline.some((component) => stateTypes.has(component.type)) ||
-      Object.keys(overrides).some((type) => stateTypes.has(type))
-    if (changesStateBehavior) {
-      validateStateMachines(effectiveComponents(), file, entityRef, context)
-    }
-
-    // A plain prefab instance inherits the prefab-level result already emitted
-    // above. Inline components create a new effective composition; report only
-    // the issues they introduce, not every inherited issue again.
-    if (inline.length > 0) {
-      const inheritedIssues = new Set(
-        componentUpdateIssues(componentList(prefab?.components), context).map(
-          componentUpdateIssueKey,
-        ),
-      )
-      validateComponentUpdateSchedule(
-        effectiveComponents(),
-        file,
-        entityRef,
-        context,
-        inheritedIssues,
-      )
-    }
-  }
-}
-
 export interface ValidateProjectOptions {
   signal?: AbortSignal
   componentLoader?: ProjectComponentLoader
 }
 
-export async function validateProject(
-  projectPath: string,
-  options: ValidateProjectOptions = {},
-): Promise<{
+export type ProjectValidationReport = {
   findings: ValidationFinding[]
   summary: { errors: number; warnings: number; infos: number }
   ok: boolean
   notes: string[]
   provenance: Provenance[]
   warnings: string[]
-}> {
+}
+
+/** The package, archetype and project-code sources validate_project loads up front. */
+type LoadedSources = Awaited<ReturnType<typeof loadSources>>
+
+interface PrefabFile {
+  prefab: PrefabJson
+  relative: string
+  ref: string
+}
+
+export async function validateProject(
+  projectPath: string,
+  options: ValidateProjectOptions = {},
+): Promise<ProjectValidationReport> {
   options.signal?.throwIfAborted()
   const check = await requireWaicaProject(projectPath)
   const findings: ValidationFinding[] = []
-  const fixedPaths = [
-    'package.json',
-    'src/game.json',
-    'src/controls.json',
-    'src/stats.json',
-    'public/waica.params.json',
-  ]
   const fixed = new Map<string, unknown>()
-  for (const relative of fixedPaths) {
+  for (const relative of FIXED_PATHS) {
     fixed.set(relative, await parseJson(projectPath, relative, findings))
   }
+  const activeId = activeArchetypeId(fixed, findings)
+  const sources = await loadSources(projectPath, activeId, options)
+  reportComponentLoadFailures(sources.loadedProjectComponents.failures, findings)
+  const manifest = pickArchetype(sources.archetypes, activeId, projectPath).manifest
+
+  // Every scene name the Project declares (a file's stem), so a
+  // SceneTransition's target can be checked before any prefab or scene is
+  // itself validated — CA-16.
+  const sceneFiles = await directFiles(path.join(projectPath, 'src/scenes'), '.scene.json')
+  const knownScenes = new Set(sceneFiles.map((file) => file.slice(0, -'.scene.json'.length)))
+  const prefabFiles = await readPrefabFiles(projectPath, findings)
+  const prefabs = new Map(prefabFiles.map(({ ref, prefab }) => [ref, prefab]))
+  const uiFiles = await directFiles(path.join(projectPath, 'src/ui'), '.html')
+  const context = await validationContext(projectPath, {
+    findings,
+    fixed,
+    manifest,
+    sources,
+    prefabRefs: new Set(prefabs.keys()),
+    uiPieces: new Set(uiFiles.map((file) => file.slice(0, -'.html'.length))),
+  })
+
+  validateComponentClassUpdateContracts(context)
+  for (const { prefab, relative, ref } of prefabFiles) {
+    validatePrefab(prefab, relative, ref, context)
+    findings.push(...validatePrefabSceneTransition(prefab, relative, ref, knownScenes))
+  }
+
+  // The UI binding scan must see the ref: 'ui' params of scenes too, so it
+  // runs after them, but its findings keep their place before the scenes'.
+  const uiBindingsAt = findings.length
+  for (const file of sceneFiles) {
+    const relative = `src/scenes/${file}`
+    const parsed = await parseJson(projectPath, relative, findings)
+    if (!parsed || typeof parsed !== 'object') continue
+    validateScene(parsed as SceneJson, {
+      file: relative,
+      prefabs,
+      uiNames: context.uiPieces,
+      knownScenes,
+      context,
+    })
+  }
+  findings.splice(
+    uiBindingsAt,
+    0,
+    ...(await uiBindingFindings(projectPath, uiFiles, context.declaredStats, context.anchoredPieces)),
+  )
+  validateParamsFile(fixed.get(PARAMS_FILE), context)
+  return validationReport(findings, sources, check.notes)
+}
+
+function reportComponentLoadFailures(
+  failures: LoadedSources['loadedProjectComponents']['failures'],
+  findings: ValidationFinding[],
+): void {
+  for (const failure of failures) {
+    add(
+      { findings },
+      // component-load-unsupported means Node's strip-only loader cannot run
+      // code that can still be perfectly valid in the project's Vite/browser
+      // toolchain (asset imports, TS enums, an old Node host) — that is not a
+      // project defect, so it must not flip a healthy project to ok:false.
+      failure.code === 'component-load-unsupported' ? 'info' : 'error',
+      failure.code,
+      `Cannot execute project module: ${failure.message}`,
+      failure.file,
+    )
+  }
+}
+
+/** The archetype src/game.json names; platformer when game.json exists but cannot be parsed. */
+function activeArchetypeId(
+  fixed: ReadonlyMap<string, unknown>,
+  findings: readonly ValidationFinding[],
+): string | null {
   const game = objectRecord(fixed.get('src/game.json'))
+  if (typeof game.archetype === 'string' && game.archetype) return game.archetype
   const gameWasUnparseable = findings.some(
     (finding) => finding.code === 'unparseable-json' && finding.file === 'src/game.json',
   )
-  const activeId =
-    typeof game.archetype === 'string' && game.archetype
-      ? game.archetype
-      : gameWasUnparseable
-        ? 'platformer'
-        : null
+  return gameWasUnparseable ? 'platformer' : null
+}
 
+async function loadSources(
+  projectPath: string,
+  activeId: string | null,
+  options: ValidateProjectOptions,
+) {
   const resolver = new PackageResolver(projectPath)
   const discoveryWarnings: string[] = []
   const [
@@ -732,33 +253,34 @@ export async function validateProject(
       ? options.componentLoader.load(projectPath, resolver, { signal: options.signal })
       : loadProjectComponents(projectPath, resolver, { signal: options.signal }),
   ])
-  for (const failure of loadedProjectComponents.failures) {
-    add(
-      { findings },
-      // component-load-unsupported means Node's strip-only loader cannot run
-      // code that can still be perfectly valid in the project's Vite/browser
-      // toolchain (asset imports, TS enums, an old Node host) — that is not a
-      // project defect, so it must not flip a healthy project to ok:false.
-      failure.code === 'component-load-unsupported' ? 'info' : 'error',
-      failure.code,
-      `Cannot execute project module: ${failure.message}`,
-      failure.file,
-    )
+  return {
+    engine,
+    behaviors,
+    archetypes,
+    projectComponents,
+    roleStateSources,
+    loadedProjectComponents,
+    discoveryWarnings,
   }
-  const manifest = pickArchetype(archetypes, activeId, projectPath).manifest
-  const controls = objectRecord(objectRecord(fixed.get('src/controls.json')).bindings)
-  // Bound/unbound is decided from controls.json alone: the shipped runtime
-  // installs exactly controls.json's bindings (template main.ts passes
-  // controls.bindings raw; engine DEFAULT_BINDINGS is {}), so an action an
-  // archetype defines by default but controls.json drops is genuinely
-  // unbound at runtime even though discoverArchetypes never guarantees
-  // manifest.bindings exists (only manifest.id is validated).
-  const bindings: Record<string, string[]> = {}
-  for (const [name, value] of Object.entries(controls)) {
-    if (Array.isArray(value) && value.every((entry) => typeof entry === 'string')) {
-      bindings[name] = value
-    }
-  }
+}
+
+/**
+ * The validation context: component registry and metadata (archetype plus
+ * loaded project components), bindings, state files, stats and sound refs,
+ * alongside the prefab refs and UI pieces the Project declares.
+ */
+async function validationContext(
+  projectPath: string,
+  inputs: {
+    findings: ValidationFinding[]
+    fixed: ReadonlyMap<string, unknown>
+    manifest: ValidationContext['manifest']
+    sources: LoadedSources
+    prefabRefs: Set<string>
+    uiPieces: ReadonlySet<string>
+  },
+): Promise<ValidationContext> {
+  const { findings, fixed, manifest, sources } = inputs
   const stateFiles = new Set(
     (await directFiles(path.join(projectPath, 'src/states'), '.ts')).map((file) =>
       file.slice(0, -'.ts'.length),
@@ -771,6 +293,49 @@ export async function validateProject(
   // archetype's own declared sound art plus whatever actually lives under
   // the project's src/art/ (see param-reference-resolution.ts).
   const soundRefs = await projectSoundRefs(projectPath, manifest.art)
+  const { componentRegistry, componentMetadata } = componentCatalog(manifest, sources)
+  return {
+    findings,
+    manifest,
+    knownComponents: new Set(Object.keys(manifest.registry.components)),
+    projectComponents: sources.projectComponents,
+    componentMetadata,
+    componentRegistry,
+    reportedClassConstraints: new Set(),
+    prefabRefs: inputs.prefabRefs,
+    declaredStats,
+    stateFiles,
+    roleStateSources: sources.roleStateSources,
+    bindings: controlBindings(fixed.get('src/controls.json')),
+    soundRefs,
+    uiPieces: inputs.uiPieces,
+    anchoredPieces: new Set(stockAnchoredPieces(sources.behaviors.module)),
+  }
+}
+
+/**
+ * Bound/unbound is decided from controls.json alone: the shipped runtime
+ * installs exactly controls.json's bindings (template main.ts passes
+ * controls.bindings raw; engine DEFAULT_BINDINGS is {}), so an action an
+ * archetype defines by default but controls.json drops is genuinely unbound
+ * at runtime even though discoverArchetypes never guarantees
+ * manifest.bindings exists (only manifest.id is validated).
+ */
+function controlBindings(controlsJson: unknown): Record<string, string[]> {
+  const bindings: Record<string, string[]> = {}
+  for (const [name, value] of Object.entries(objectRecord(objectRecord(controlsJson).bindings))) {
+    if (Array.isArray(value) && value.every((entry) => typeof entry === 'string')) {
+      bindings[name] = value
+    }
+  }
+  return bindings
+}
+
+/** Archetype components plus the project components that loaded, which also join projectComponents. */
+function componentCatalog(
+  manifest: ValidationContext['manifest'],
+  sources: LoadedSources,
+): Pick<ValidationContext, 'componentRegistry' | 'componentMetadata'> {
   const componentRegistry: Record<string, ComponentClass> = {
     ...manifest.registry.components,
   }
@@ -780,7 +345,7 @@ export async function validateProject(
       classMetadata(Class),
     ]),
   )
-  for (const [name, description] of Object.entries(loadedProjectComponents.components)) {
+  for (const [name, description] of Object.entries(sources.loadedProjectComponents.components)) {
     componentRegistry[name] = description.Class
     componentMetadata.set(name, {
       Class: description.Class,
@@ -788,19 +353,20 @@ export async function validateProject(
       defaults: description.defaults,
       sourceFile: description.file,
     })
-    projectComponents.add(name)
+    sources.projectComponents.add(name)
   }
+  return { componentRegistry, componentMetadata }
+}
 
-  // Every scene name the Project declares (a file's stem), so a
-  // SceneTransition's target can be checked before any prefab or scene is
-  // itself validated — CA-16.
-  const sceneFiles = await directFiles(path.join(projectPath, 'src/scenes'), '.scene.json')
-  const knownScenes = new Set(sceneFiles.map((file) => file.slice(0, -'.scene.json'.length)))
-
-  // Reconstruct the complete ref set before validating any prefab, so a
-  // lexically earlier file can refer to one discovered later in the tree.
-  const prefabs = new Map<string, PrefabJson>()
-  const prefabFiles: Array<{ prefab: PrefabJson; relative: string; ref: string }> = []
+/**
+ * Every parseable prefab file, read before any is validated so a lexically
+ * earlier file can refer to one discovered later in the tree.
+ */
+async function readPrefabFiles(
+  projectPath: string,
+  findings: ValidationFinding[],
+): Promise<PrefabFile[]> {
+  const prefabFiles: PrefabFile[] = []
   for (const [directory, type] of [
     ['characters', 'character'],
     ['objects', 'object'],
@@ -812,78 +378,44 @@ export async function validateProject(
       const parsed = await parseJson(projectPath, relative, findings)
       if (!parsed || typeof parsed !== 'object') continue
       const ref = `${directory}/${file.slice(0, -suffix.length)}`
-      const prefab = parsed as PrefabJson
-      prefabs.set(ref, prefab)
-      prefabFiles.push({ prefab, relative, ref })
+      prefabFiles.push({ prefab: parsed as PrefabJson, relative, ref })
     }
   }
-  const uiFiles = await directFiles(path.join(projectPath, 'src/ui'), '.html')
-  const uiNames = new Set(uiFiles.map((file) => file.slice(0, -'.html'.length)))
-  const context: ValidationContext = {
-    findings,
-    manifest,
-    knownComponents: new Set(Object.keys(manifest.registry.components)),
-    projectComponents,
-    componentMetadata,
-    componentRegistry,
-    reportedClassConstraints: new Set(),
-    prefabRefs: new Set(prefabs.keys()),
-    declaredStats,
-    stateFiles,
-    roleStateSources,
-    bindings,
-    soundRefs,
-    uiPieces: uiNames,
-    anchoredPieces: new Set(stockAnchoredPieces(behaviors.module)),
-  }
-  validateComponentClassUpdateContracts(context)
-  for (const { prefab, relative, ref } of prefabFiles) {
-    validatePrefab(prefab, relative, ref, context)
-    findings.push(...validatePrefabSceneTransition(prefab, relative, ref, knownScenes))
-  }
+  return prefabFiles
+}
 
-  // The UI binding scan must see the ref: 'ui' params of scenes too, so it
-  // runs after them, but its findings keep their place before the scenes'.
-  const uiBindingsAt = findings.length
-  for (const file of sceneFiles) {
-    const relative = `src/scenes/${file}`
-    const parsed = await parseJson(projectPath, relative, findings)
-    if (!parsed || typeof parsed !== 'object') continue
-    validateScene(parsed as SceneJson, relative, prefabs, uiNames, knownScenes, context)
-  }
-  findings.splice(
-    uiBindingsAt,
-    0,
-    ...(await uiBindingFindings(projectPath, uiFiles, declaredStats, context.anchoredPieces)),
-  )
-
-  const params = objectRecord(fixed.get('public/waica.params.json'))
-  for (const [entity, rawComponents] of Object.entries(params)) {
+function validateParamsFile(paramsJson: unknown, context: ValidationContext): void {
+  for (const [entity, rawComponents] of Object.entries(objectRecord(paramsJson))) {
     for (const [component, rawProps] of Object.entries(objectRecord(rawComponents))) {
-      checkComponent({ type: component }, 'public/waica.params.json', entity, context)
+      checkComponent({ type: component }, PARAMS_FILE, entity, context)
       if (component === 'Hitbox') {
-        findings.push(
-          ...collisionCategoryFindings(rawProps, 'public/waica.params.json', entity),
-        )
+        context.findings.push(...collisionCategoryFindings(rawProps, PARAMS_FILE, entity))
       }
     }
   }
+}
 
+function validationReport(
+  findings: ValidationFinding[],
+  sources: LoadedSources,
+  projectNotes: readonly string[],
+): ProjectValidationReport {
   const summary = {
     errors: findings.filter((finding) => finding.severity === 'error').length,
     warnings: findings.filter((finding) => finding.severity === 'warning').length,
     infos: findings.filter((finding) => finding.severity === 'info').length,
   }
-  const provenance = provenanceRows([engine, behaviors, ...archetypes.map((entry) => entry.loaded)])
+  const provenance = provenanceRows([
+    sources.engine,
+    sources.behaviors,
+    ...sources.archetypes.map((entry) => entry.loaded),
+  ])
   return {
     findings,
     summary,
     ok: summary.errors === 0,
-    notes: [
-      ...check.notes,
-      'The shipped runtime boots on src/scenes/main.scene.json and registers every scene under src/scenes/ in a catalog; a SceneTransition or control_runtime operation:"scene" can load any of them by name.',
-    ],
+    notes: [...projectNotes, SCENE_TRANSITION_NOTE],
     provenance,
-    warnings: [...discoveryWarnings, ...mixedSourceWarnings(provenance)],
+    warnings: [...sources.discoveryWarnings, ...mixedSourceWarnings(provenance)],
   }
 }

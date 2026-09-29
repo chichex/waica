@@ -104,7 +104,10 @@ interface Layer {
   element: HTMLDivElement | null
 }
 
-const COLORS: Record<string, string> = { black: '#000000', white: '#ffffff' }
+const COLORS: ReadonlyMap<string, string> = new Map([
+  ['black', '#000000'],
+  ['white', '#ffffff'],
+])
 /** Above the UI overlay (`ui.ts`, z-index 9000): a Fade covers the HUD too. */
 const FADE_Z = 9001
 const FLASH_Z = 9002
@@ -114,7 +117,8 @@ const LAYOUT = Symbol('waica.cameraEffects.layout')
 
 function normalizeColor(value: unknown): string | null {
   if (typeof value !== 'string') return null
-  if (Object.prototype.hasOwnProperty.call(COLORS, value)) return COLORS[value]!
+  const named = COLORS.get(value)
+  if (named !== undefined) return named
   return /^#[0-9a-fA-F]{6}$/.test(value) ? value.toLowerCase() : null
 }
 

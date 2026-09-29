@@ -9,6 +9,7 @@ import {
   PROJECT_COMPONENT_DEADLINE_MS,
   PROJECT_COMPONENT_PROTOCOL_VERSION,
 } from './project-component-loader.js'
+import { match } from '../../engine/src/test-support.js'
 
 const roots: string[] = []
 afterEach(async () => cleanup(...roots.splice(0)))
@@ -90,11 +91,11 @@ ${healthyComponent('AfterTimeout')}
     expect(result.failures).toEqual([
       expect.objectContaining({
         file: 'src/components/a-hang.ts',
-        message: expect.stringMatching(/250 ms.*close was observed/s),
+        message: match.stringMatching(/250 ms.*close was observed/s),
       }),
       expect.objectContaining({
         file: 'src/components/b-hang.ts',
-        message: expect.stringMatching(/250 ms.*close was observed/s),
+        message: match.stringMatching(/250 ms.*close was observed/s),
       }),
     ])
     expect(result.components.AfterTimeout).toBeDefined()
@@ -161,7 +162,7 @@ export class ${name} {
       expect.objectContaining({
         code: 'component-load-failed',
         file: 'src/components/target.ts',
-        message: expect.stringMatching(/missing\.js|cannot find/i),
+        message: match.stringMatching(/missing\.js|cannot find/i),
       }),
     ])
   })

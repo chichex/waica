@@ -38,6 +38,7 @@ import {
   type SpatialQuery,
   type SpatialQueryFilter,
 } from './index'
+import { defined } from './test-support'
 
 class RequiredA extends Component {}
 class RequiredB extends Component {}
@@ -47,8 +48,11 @@ class TaggedEntity extends Entity {
 
 const body: CollisionBody = { x: 0, y: 0, width: 1, height: 1 }
 
+// The standard exact type-equality check: its phantom T is the point.
 type Equal<X, Y> =
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- the phantom T of the type-equality check
   (<T>() => T extends X ? 1 : 2) extends
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- the phantom T of the type-equality check
   (<T>() => T extends Y ? 1 : 2)
     ? true
     : false
@@ -71,12 +75,12 @@ function proveQueryTypes(query: SpatialQuery): void {
   expectTypeOf(point).toEqualTypeOf<EntityWith<typeof required>[]>()
   expectTypeOf(nearest).toEqualTypeOf<EntityWith<typeof required> | null>()
   expectTypeOf(ray).toEqualTypeOf<RayHit<EntityWith<typeof required>> | null>()
-  expectTypeOf(area[0]!.get(RequiredA)).toEqualTypeOf<RequiredA>()
-  expectTypeOf(area[0]!.get(RequiredB)).toEqualTypeOf<RequiredB>()
-  expectTypeOf(point[0]!.get(RequiredA)).toEqualTypeOf<RequiredA>()
-  expectTypeOf(nearest!.get(RequiredB)).toEqualTypeOf<RequiredB>()
-  expectTypeOf(ray!.entity.get(RequiredA)).toEqualTypeOf<RequiredA>()
-  expectTypeOf(ray!.solid).toEqualTypeOf<Solid>()
+  expectTypeOf(defined(area[0]).get(RequiredA)).toEqualTypeOf<RequiredA>()
+  expectTypeOf(defined(area[0]).get(RequiredB)).toEqualTypeOf<RequiredB>()
+  expectTypeOf(defined(point[0]).get(RequiredA)).toEqualTypeOf<RequiredA>()
+  expectTypeOf(defined(nearest).get(RequiredB)).toEqualTypeOf<RequiredB>()
+  expectTypeOf(defined(ray).entity.get(RequiredA)).toEqualTypeOf<RequiredA>()
+  expectTypeOf(defined(ray).solid).toEqualTypeOf<Solid>()
 
   const guarded = query.area(body, {
     with: [RequiredA] as const,
@@ -86,8 +90,8 @@ function proveQueryTypes(query: SpatialQuery): void {
   expectTypeOf(guarded).toEqualTypeOf<
     Array<EntityWith<readonly [typeof RequiredA]> & TaggedEntity>
   >()
-  expectTypeOf(guarded[0]!.get(RequiredA)).toEqualTypeOf<RequiredA>()
-  expectTypeOf(guarded[0]!.tag).toEqualTypeOf<'tagged'>()
+  expectTypeOf(defined(guarded[0]).get(RequiredA)).toEqualTypeOf<RequiredA>()
+  expectTypeOf(defined(guarded[0]).tag).toEqualTypeOf<'tagged'>()
 
   const guardedPoint = query.point(0, 0, {
     with: [RequiredA] as const,
@@ -116,22 +120,22 @@ function proveQueryTypes(query: SpatialQuery): void {
   expectTypeOf(guardedRay).toEqualTypeOf<
     RayHit<EntityWith<readonly [typeof RequiredA]> & TaggedEntity> | null
   >()
-  expectTypeOf(guardedPoint[0]!.get(RequiredA)).toEqualTypeOf<RequiredA>()
-  expectTypeOf(guardedNearest!.tag).toEqualTypeOf<'tagged'>()
-  expectTypeOf(guardedRay!.entity.tag).toEqualTypeOf<'tagged'>()
+  expectTypeOf(defined(guardedPoint[0]).get(RequiredA)).toEqualTypeOf<RequiredA>()
+  expectTypeOf(defined(guardedNearest).tag).toEqualTypeOf<'tagged'>()
+  expectTypeOf(defined(guardedRay).entity.tag).toEqualTypeOf<'tagged'>()
 
   const booleanWhere = query.point(0, 0, {
     with: [RequiredA] as const,
     where: (entity) => entity.name.length > 0,
   })
-  expectTypeOf(booleanWhere[0]!.get(RequiredA)).toEqualTypeOf<RequiredA>()
+  expectTypeOf(defined(booleanWhere[0]).get(RequiredA)).toEqualTypeOf<RequiredA>()
 
   const reusable: SpatialQueryFilter<readonly [typeof RequiredA]> = {
     with: [RequiredA] as const,
     without: [RequiredB],
     where: (entity) => entity.get(RequiredA) instanceof RequiredA,
   }
-  expectTypeOf(query.area(body, reusable)[0]!.get(RequiredA)).toEqualTypeOf<RequiredA>()
+  expectTypeOf(defined(query.area(body, reusable)[0]).get(RequiredA)).toEqualTypeOf<RequiredA>()
 
   const nearestFilter: NearestSpatialQueryFilter<readonly [typeof RequiredA]> = {
     with: [RequiredA] as const,
@@ -142,7 +146,7 @@ function proveQueryTypes(query: SpatialQuery): void {
       return context.distance <= 5
     },
   }
-  expectTypeOf(query.nearest(0, 0, nearestFilter)!.get(RequiredA)).toEqualTypeOf<RequiredA>()
+  expectTypeOf(defined(query.nearest(0, 0, nearestFilter)).get(RequiredA)).toEqualTypeOf<RequiredA>()
 
   expectTypeOf(query.area(body)).toEqualTypeOf<Entity[]>()
   expectTypeOf(query.point(0, 0)).toEqualTypeOf<Entity[]>()

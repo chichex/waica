@@ -7,6 +7,7 @@ import {
   RuntimeToolError,
   type StartRuntimeInput,
 } from './runtime-service.js'
+import { objectRecord } from './component-metadata.js'
 
 export type RuntimePackageManager = 'npm' | 'pnpm' | 'yarn' | 'bun'
 const RUNTIME_PORT_ARGUMENT = '__WAICA_RUNTIME_PORT__'
@@ -59,17 +60,44 @@ async function exists(file: string): Promise<boolean> {
   }
 }
 
-async function defaultCommandAvailable(command: string): Promise<boolean> {
+/**
+ * How long `<pm> --version` may take before the manager counts as unavailable.
+ * A corepack shim downloads the pinned manager on its first run, which can take
+ * tens of seconds on a slow network; a genuinely hung manager still cannot
+ * stall `start_project` beyond a minute.
+ */
+export const COMMAND_PROBE_TIMEOUT_MS = 60_000
+
+/**
+ * Whether `command --version` starts and exits within `timeoutMs`. A probe
+ * that outlives its deadline is killed and reports the command unavailable,
+ * so a hanging package manager cannot stall `start_project`.
+ */
+export function commandAvailable(
+  command: string,
+  timeoutMs: number = COMMAND_PROBE_TIMEOUT_MS,
+): Promise<boolean> {
   return new Promise((resolve) => {
     const child = spawn(command, ['--version'], { stdio: 'ignore' })
-    child.once('error', (error) => {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') resolve(false)
-      else resolve(false)
+    const deadline = setTimeout(() => {
+      child.kill('SIGKILL')
+      resolve(false)
+    }, timeoutMs)
+    child.once('error', () => {
+      clearTimeout(deadline)
+      resolve(false)
     })
     child.once('spawn', () => {
-      child.once('close', () => resolve(true))
+      child.once('close', () => {
+        clearTimeout(deadline)
+        resolve(true)
+      })
     })
   })
+}
+
+function defaultCommandAvailable(command: string): Promise<boolean> {
+  return commandAvailable(command)
 }
 
 const MAC_BROWSERS = [
@@ -135,11 +163,14 @@ async function projectViewport(
   projectPath: string,
   explicit?: { width: number; height: number },
 ): Promise<{ width: number; height: number }> {
-  if (explicit) return validateViewport(projectPath, explicit, 'explicit')!
+  if (explicit) {
+    const viewport = validateViewport(projectPath, explicit, 'explicit')
+    // validateViewport throws for every invalid explicit object, so only a non-object yields null.
+    if (!viewport) throw runtimeError(projectPath, 'project', 'viewport must be an object with width and height.')
+    return viewport
+  }
   try {
-    const game = JSON.parse(await readFile(path.join(projectPath, 'src/game.json'), 'utf8')) as {
-      resolution?: unknown
-    }
+    const game = objectRecord(JSON.parse(await readFile(path.join(projectPath, 'src/game.json'), 'utf8')))
     return validateViewport(projectPath, game.resolution, 'project') ?? { width: 640, height: 360 }
   } catch {
     return { width: 640, height: 360 }
@@ -202,9 +233,7 @@ function devArgs(manager: RuntimePackageManager): string[] {
 async function packageRootFromEntry(entry: string, packageName: string): Promise<string> {
   for (let current = path.dirname(entry); ; current = path.dirname(current)) {
     try {
-      const manifest = JSON.parse(await readFile(path.join(current, 'package.json'), 'utf8')) as {
-        name?: unknown
-      }
+      const manifest = objectRecord(JSON.parse(await readFile(path.join(current, 'package.json'), 'utf8')))
       if (manifest.name === packageName) return current
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
@@ -243,43 +272,44 @@ async function verifyDependencies(
       )
     }
   }
-  const engineRoot = await packageRootFromEntry(entries.get('@waica/engine')!, '@waica/engine')
-  const engineManifest = JSON.parse(await readFile(path.join(engineRoot, 'package.json'), 'utf8')) as {
-    version?: unknown
-  }
+  const engineEntry = entries.get('@waica/engine')
+  // Invariant: @waica/engine is a declared name, and every declared name resolved above or threw.
+  if (engineEntry === undefined) throw runtimeError(projectPath, 'dependencies', 'Project dependency @waica/engine did not resolve.')
+  const engineRoot = await packageRootFromEntry(engineEntry, '@waica/engine')
+  const engineManifest = objectRecord(JSON.parse(await readFile(path.join(engineRoot, 'package.json'), 'utf8')))
   if (typeof engineManifest.version !== 'string' || engineManifest.version.length === 0) {
     throw runtimeError(projectPath, 'dependencies', 'Installed @waica/engine has no valid version.')
   }
   return { package: '@waica/engine', version: engineManifest.version, source: 'project' }
 }
 
-export async function preflightRuntimeProject(
-  input: StartRuntimeInput,
-  adapters: RuntimePreflightAdapters = DEFAULT_RUNTIME_PREFLIGHT_ADAPTERS,
-): Promise<RuntimePreflightResult> {
-  if (adapters.platform === 'win32') {
+function assertSupportedHost(platform: NodeJS.Platform, projectPath: string): void {
+  if (platform === 'win32') {
     throw new RuntimeToolError({
       code: 'runtime-unsupported-host',
       stage: 'project',
       message: 'Run Sessions support macOS and Linux; Windows is not supported in this MVP.',
-      projectPath: input.projectPath,
+      projectPath,
     })
   }
-  if (adapters.platform !== 'darwin' && adapters.platform !== 'linux') {
+  if (platform !== 'darwin' && platform !== 'linux') {
     throw new RuntimeToolError({
       code: 'runtime-unsupported-host',
       stage: 'project',
-      message: `Run Sessions do not support host platform ${adapters.platform}.`,
-      projectPath: input.projectPath,
+      message: `Run Sessions do not support host platform ${platform}.`,
+      projectPath,
     })
   }
+}
 
+/** The real path of an accessible directory that looks like a Waica Project. */
+async function waicaProjectRoot(requestedPath: string): Promise<string> {
   let projectPath: string
   try {
-    projectPath = await realpath(input.projectPath)
+    projectPath = await realpath(requestedPath)
   } catch (error) {
     throw runtimeError(
-      input.projectPath,
+      requestedPath,
       'project',
       `Project path is not accessible: ${error instanceof Error ? error.message : String(error)}`,
     )
@@ -295,7 +325,11 @@ export async function preflightRuntimeProject(
       'Not a Waica Project: expected src/game.json or src/scenes/main.scene.json.',
     )
   }
+  return projectPath
+}
 
+/** The Project's package.json, which must declare a nonempty scripts.dev. */
+async function runnableProjectManifest(projectPath: string): Promise<ProjectManifest> {
   let manifest: ProjectManifest
   try {
     const parsed = JSON.parse(await readFile(path.join(projectPath, 'package.json'), 'utf8')) as unknown
@@ -312,6 +346,16 @@ export async function preflightRuntimeProject(
   if (typeof dev !== 'string' || dev.trim().length === 0) {
     throw runtimeError(projectPath, 'project', 'package.json scripts.dev must be a nonempty string.')
   }
+  return manifest
+}
+
+export async function preflightRuntimeProject(
+  input: StartRuntimeInput,
+  adapters: RuntimePreflightAdapters = DEFAULT_RUNTIME_PREFLIGHT_ADAPTERS,
+): Promise<RuntimePreflightResult> {
+  assertSupportedHost(adapters.platform, input.projectPath)
+  const projectPath = await waicaProjectRoot(input.projectPath)
+  const manifest = await runnableProjectManifest(projectPath)
 
   const packageManager = await selectPackageManager(projectPath, manifest)
   if (!(await adapters.commandAvailable(packageManager))) {

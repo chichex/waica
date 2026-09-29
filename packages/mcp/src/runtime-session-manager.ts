@@ -9,6 +9,7 @@ import {
 } from './runtime-preflight.js'
 import {
   RuntimeToolError,
+  type RuntimeCallOptions,
   type RuntimeControlInput,
   type RuntimeInspectInput,
   type RuntimeScreenshotResult,
@@ -66,10 +67,15 @@ export interface RuntimeBrowser {
 export interface RuntimeSessionAdapters {
   canonicalize(projectPath: string): Promise<string>
   preflight(input: StartRuntimeInput): Promise<RuntimePreflightResult>
-  startDevServer(preflight: RuntimePreflightResult): Promise<RuntimeDevServer>
+  /** `signal` cancels the start; the adapter must release what it spawned. */
+  startDevServer(
+    preflight: RuntimePreflightResult,
+    signal?: AbortSignal,
+  ): Promise<RuntimeDevServer>
   startBrowser(
     preflight: RuntimePreflightResult,
     devServer: RuntimeDevServer,
+    signal?: AbortSignal,
   ): Promise<RuntimeBrowser>
 }
 
@@ -98,6 +104,15 @@ interface RuntimeSession {
   cleanup?: Promise<void>
 }
 
+interface PendingStart {
+  readonly promise: Promise<RuntimeSession>
+  readonly controller: AbortController
+  waiters: number
+}
+
+/** Stands in for an absent caller signal, so every check is unconditional. */
+const NEVER_ABORTED = new AbortController().signal
+
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
@@ -108,12 +123,16 @@ function waitsForAssets(session: RuntimeSession): boolean {
 
 export class RuntimeSessionManager implements RuntimeService {
   private readonly sessions = new Map<string, RuntimeSession>()
-  private readonly starts = new Map<string, Promise<RuntimeSession>>()
+  private readonly starts = new Map<string, PendingStart>()
   private closing = false
 
   constructor(private readonly adapters: RuntimeSessionAdapters) {}
 
-  async start(input: StartRuntimeInput): Promise<StartProjectResult> {
+  async start(
+    input: StartRuntimeInput,
+    { signal = NEVER_ABORTED }: RuntimeCallOptions = {},
+  ): Promise<StartProjectResult> {
+    signal.throwIfAborted()
     if (this.closing) {
       throw new RuntimeToolError({
         code: 'runtime-invalid-state',
@@ -136,23 +155,74 @@ export class RuntimeSessionManager implements RuntimeService {
       return this.startResult(current, true)
     }
     const concurrent = this.starts.get(canonical)
-    if (concurrent) return this.startResult(await concurrent, true)
-
-    const creation = this.createCheckedSession({ ...input, projectPath: canonical })
-    this.starts.set(canonical, creation)
-    try {
-      const session = await creation
-      this.sessions.set(canonical, session)
-      return this.startResult(session, false)
-    } finally {
-      this.starts.delete(canonical)
+    if (concurrent?.controller.signal.aborted) {
+      // Its last waiter left: it is releasing what it spawned and will reject
+      // with that caller's reason, so wait it out and start over.
+      await concurrent.promise.catch(() => {})
+      return this.start(input, { signal })
     }
+    if (concurrent) return this.startResult(await this.waitForStart(concurrent, signal), true)
+
+    const pending = this.beginStart(canonical, { ...input, projectPath: canonical })
+    return this.startResult(await this.waitForStart(pending, signal), false)
+  }
+
+  /**
+   * The startup belongs to no single caller: it is aborted through its own
+   * controller, and only once the last caller waiting on it has cancelled.
+   */
+  private beginStart(canonical: string, input: StartRuntimeInput): PendingStart {
+    const controller = new AbortController()
+    const promise = this.createCheckedSession(input, controller.signal).then(
+      (session) => {
+        this.sessions.set(canonical, session)
+        this.starts.delete(canonical)
+        return session
+      },
+      (error: unknown) => {
+        this.starts.delete(canonical)
+        throw error
+      },
+    )
+    const pending: PendingStart = { promise, controller, waiters: 0 }
+    this.starts.set(canonical, pending)
+    return pending
+  }
+
+  /**
+   * A caller's abort abandons only that caller's wait. The last waiter to
+   * abort cancels the startup itself, which then rejects with that reason
+   * after releasing what it spawned.
+   */
+  private async waitForStart(pending: PendingStart, signal: AbortSignal): Promise<RuntimeSession> {
+    pending.waiters += 1
+    let abandon = (): void => {}
+    const abandoned = new Promise<undefined>((resolve) => {
+      abandon = () => resolve(undefined)
+    })
+    signal.addEventListener('abort', abandon, { once: true })
+    if (signal.aborted) abandon()
+    let session: RuntimeSession | undefined
+    try {
+      session = await Promise.race([pending.promise, abandoned])
+    } finally {
+      signal.removeEventListener('abort', abandon)
+      pending.waiters -= 1
+    }
+    if (session) return session
+    if (pending.waiters === 0) {
+      pending.controller.abort(signal.reason)
+      await pending.promise
+    }
+    signal.throwIfAborted()
+    // Only an abort settles `abandoned`, so the line above has already thrown.
+    return pending.promise
   }
 
   async stop(projectPath: string): Promise<Record<string, unknown>> {
     const canonical = await this.adapters.canonicalize(projectPath)
     const starting = this.starts.get(canonical)
-    if (starting) await starting.catch(() => {})
+    if (starting) await starting.promise.catch(() => {})
     const session = this.sessions.get(canonical)
     if (!session) return { projectPath: canonical, stopped: false }
     try {
@@ -163,21 +233,104 @@ export class RuntimeSessionManager implements RuntimeService {
     return { projectPath: canonical, stopped: true }
   }
 
-  async inspect(input: RuntimeInspectInput): Promise<Record<string, unknown>> {
+  async inspect(
+    input: RuntimeInspectInput,
+    { signal = NEVER_ABORTED }: RuntimeCallOptions = {},
+  ): Promise<Record<string, unknown>> {
     const session = await this.requireSession(input.projectPath)
+    signal.throwIfAborted()
     const inspected = await session.browser.inspect({
       ...(input.entityIds ? { entityIds: input.entityIds } : {}),
       ...(input.entityNames ? { entityNames: input.entityNames } : {}),
       ...(input.componentTypes ? { componentTypes: input.componentTypes } : {}),
     })
+    signal.throwIfAborted()
     return {
       ...this.sharedMetadata(session, inspected),
       snapshot: (inspected.snapshot as Record<string, unknown> | undefined) ?? inspected,
     }
   }
 
-  async control(input: RuntimeControlInput): Promise<Record<string, unknown>> {
+  async control(
+    input: RuntimeControlInput,
+    { signal = NEVER_ABORTED }: RuntimeCallOptions = {},
+  ): Promise<Record<string, unknown>> {
     const session = await this.requireSession(input.projectPath)
+    signal.throwIfAborted()
+    this.assertControlSupported(session, input)
+    const { projectPath: _projectPath, ...request } = input
+    let controlled = await session.browser.control(request)
+    signal.throwIfAborted()
+    if (input.operation === 'scene' && waitsForAssets(session)) {
+      // The swap spawned synchronously; its art is still arriving. Wait for
+      // Assets Ready before answering, so the result's numbers are settled.
+      const wait = await waitForAssetsReady(
+        () => session.browser.metadata(),
+        session.preflight.timeoutMs,
+        signal,
+      )
+      if (!wait.ok) {
+        throw new RuntimeToolError({
+          code: 'runtime-operation-failed',
+          stage: 'control',
+          message: `Scene "${input.scene}" loaded, but its assets did not settle within ${session.preflight.timeoutMs} ms.`,
+          projectPath: session.preflight.projectPath,
+          diagnostics: { assets: wait.assets },
+        })
+      }
+      controlled = { ...controlled, ...wait.metadata }
+    }
+    return { ...this.sharedMetadata(session, controlled), heldActions: controlled.heldActions ?? [] }
+  }
+
+  async captureScreenshot(
+    projectPath: string,
+    { signal = NEVER_ABORTED }: RuntimeCallOptions = {},
+  ): Promise<RuntimeScreenshotResult> {
+    const session = await this.requireSession(projectPath)
+    signal.throwIfAborted()
+    // The capture reads the bridge once, right before its PNG, so a settled
+    // session pays one round trip per screenshot. Only when that read shows
+    // art still arriving does the session wait for Assets Ready and capture
+    // again — a structured failure rather than a half-textured capture
+    // (ADR 0019).
+    let screenshot = await session.browser.captureScreenshot()
+    signal.throwIfAborted()
+    if (waitsForAssets(session) && (runtimeAssetStatus(screenshot.assets)?.pending ?? 0) > 0) {
+      const wait = await waitForAssetsReady(
+        () => session.browser.metadata(),
+        session.preflight.timeoutMs,
+        signal,
+      )
+      if (!wait.ok) {
+        throw new RuntimeToolError({
+          code: 'runtime-operation-failed',
+          stage: 'game',
+          message: `The Game's assets did not settle within ${session.preflight.timeoutMs} ms; not capturing a half-textured screenshot.`,
+          projectPath: session.preflight.projectPath,
+          diagnostics: { assets: wait.assets },
+        })
+      }
+      screenshot = await session.browser.captureScreenshot()
+      signal.throwIfAborted()
+    }
+    const { data, ...metadata } = screenshot
+    return { metadata: this.sharedMetadata(session, metadata), data }
+  }
+
+  async close(): Promise<void> {
+    if (this.closing) return
+    this.closing = true
+    await Promise.allSettled([...this.starts.values()].map((pending) => pending.promise))
+    const sessions = [...this.sessions.values()]
+    const results = await Promise.allSettled(sessions.map((session) => this.cleanupSession(session)))
+    this.sessions.clear()
+    const failed = results.find((result): result is PromiseRejectedResult => result.status === 'rejected')
+    if (failed) throw failed.reason
+  }
+
+  /** Refuses an operation the Project's engine build cannot run. */
+  private assertControlSupported(session: RuntimeSession, input: RuntimeControlInput): void {
     if (input.operation === 'click' && !session.ready.capabilities.includes('click')) {
       throw new RuntimeToolError({
         code: 'runtime-incompatible',
@@ -202,100 +355,34 @@ export class RuntimeSessionManager implements RuntimeService {
         diagnostics: { engineVersion: session.ready.engineVersion },
       })
     }
-    const { projectPath: _projectPath, ...request } = input
-    let controlled = await session.browser.control(request)
-    if (input.operation === 'scene' && waitsForAssets(session)) {
-      // The swap spawned synchronously; its art is still arriving. Wait for
-      // Assets Ready before answering, so the result's numbers are settled.
-      const wait = await waitForAssetsReady(() => session.browser.metadata(), session.preflight.timeoutMs)
-      if (!wait.ok) {
-        throw new RuntimeToolError({
-          code: 'runtime-operation-failed',
-          stage: 'control',
-          message: `Scene "${input.scene}" loaded, but its assets did not settle within ${session.preflight.timeoutMs} ms.`,
-          projectPath: session.preflight.projectPath,
-          diagnostics: { assets: wait.assets },
-        })
-      }
-      controlled = { ...controlled, ...wait.metadata }
-    }
-    return { ...this.sharedMetadata(session, controlled), heldActions: controlled.heldActions ?? [] }
   }
 
-  async captureScreenshot(projectPath: string): Promise<RuntimeScreenshotResult> {
-    const session = await this.requireSession(projectPath)
-    // The capture reads the bridge once, right before its PNG, so a settled
-    // session pays one round trip per screenshot. Only when that read shows
-    // art still arriving does the session wait for Assets Ready and capture
-    // again — a structured failure rather than a half-textured capture
-    // (ADR 0019).
-    let screenshot = await session.browser.captureScreenshot()
-    if (waitsForAssets(session) && (runtimeAssetStatus(screenshot.assets)?.pending ?? 0) > 0) {
-      const wait = await waitForAssetsReady(() => session.browser.metadata(), session.preflight.timeoutMs)
-      if (!wait.ok) {
-        throw new RuntimeToolError({
-          code: 'runtime-operation-failed',
-          stage: 'game',
-          message: `The Game's assets did not settle within ${session.preflight.timeoutMs} ms; not capturing a half-textured screenshot.`,
-          projectPath: session.preflight.projectPath,
-          diagnostics: { assets: wait.assets },
-        })
-      }
-      screenshot = await session.browser.captureScreenshot()
-    }
-    const { data, ...metadata } = screenshot
-    return { metadata: this.sharedMetadata(session, metadata), data }
-  }
-
-  async close(): Promise<void> {
-    if (this.closing) return
-    this.closing = true
-    await Promise.allSettled([...this.starts.values()])
-    const sessions = [...this.sessions.values()]
-    const results = await Promise.allSettled(sessions.map((session) => this.cleanupSession(session)))
-    this.sessions.clear()
-    const failed = results.find((result): result is PromiseRejectedResult => result.status === 'rejected')
-    if (failed) throw failed.reason
-  }
-
-  private async createCheckedSession(input: StartRuntimeInput): Promise<RuntimeSession> {
+  private async createCheckedSession(
+    input: StartRuntimeInput,
+    signal: AbortSignal,
+  ): Promise<RuntimeSession> {
     const preflight = await this.adapters.preflight(input)
-    return this.createSession(preflight)
+    signal.throwIfAborted()
+    return this.createSession(preflight, signal)
   }
 
-  private async createSession(preflight: RuntimePreflightResult): Promise<RuntimeSession> {
+  /**
+   * Starts the dev server, browser and bridge. The signal is checked after
+   * every stage and handed to both adapters; an abort closes whatever already
+   * started and rejects with the signal's reason, so no session is kept.
+   */
+  private async createSession(
+    preflight: RuntimePreflightResult,
+    signal: AbortSignal,
+  ): Promise<RuntimeSession> {
     let devServer: RuntimeDevServer | undefined
     let browser: RuntimeBrowser | undefined
     try {
-      devServer = await this.adapters.startDevServer(preflight)
-      browser = await this.adapters.startBrowser(preflight, devServer)
-      let ready = await browser.ready()
-      if (ready.bridgeVersion !== 1) {
-        throw new RuntimeToolError({
-          code: 'runtime-incompatible',
-          stage: 'bridge',
-          message: `The Project engine does not provide Runtime Bridge protocol 1; upgrade @waica/engine to at least ${preflight.engine.version}.`,
-          projectPath: preflight.projectPath,
-          diagnostics: { minimumEngineVersion: preflight.engine.version },
-        })
-      }
-      if (ready.capabilities.includes('assets')) {
-        // Readiness is Assets Ready too (ADR 0019): the Game registered at
-        // frame 0, and its scene's images still have to arrive.
-        const live = browser
-        const wait = await waitForAssetsReady(() => live.metadata(), preflight.timeoutMs)
-        if (!wait.ok) {
-          throw new RuntimeToolError({
-            code: 'runtime-start-failed',
-            stage: 'game',
-            message: `The Game registered, but its assets did not settle within ${preflight.timeoutMs} ms.`,
-            projectPath: preflight.projectPath,
-            diagnostics: { ...devServer.diagnostics(), assets: wait.assets },
-          })
-        }
-        const assets = runtimeAssetStatus(wait.metadata.assets)
-        if (assets) ready = { ...ready, assets }
-      }
+      devServer = await this.adapters.startDevServer(preflight, signal)
+      signal.throwIfAborted()
+      browser = await this.adapters.startBrowser(preflight, devServer, signal)
+      signal.throwIfAborted()
+      const ready = await bridgeReadiness(preflight, { devServer, browser }, signal)
       const session: RuntimeSession = {
         preflight,
         devServer,
@@ -303,27 +390,12 @@ export class RuntimeSessionManager implements RuntimeService {
         state: 'active',
         ready,
       }
-      devServer.setExitHandler?.((detail) => {
-        void this.failSession(session, new Error(`Project dev process exited: ${JSON.stringify(detail)}`))
-      })
-      browser.setLifecycleHandlers({
-        reloading: () => {
-          if (session.state === 'active') session.state = 'reloading'
-        },
-        reloaded: (nextReady) => {
-          if (session.state !== 'stopped') {
-            session.ready = nextReady
-            session.state = 'active'
-          }
-        },
-        failed: (error) => {
-          void this.failSession(session, error)
-        },
-      })
+      this.watchSessionLifecycle(session)
       return session
     } catch (error) {
       await browser?.close().catch(() => {})
       await devServer?.stop().catch(() => {})
+      signal.throwIfAborted()
       if (error instanceof RuntimeToolError) throw error
       throw new RuntimeToolError({
         code: 'runtime-start-failed',
@@ -333,6 +405,27 @@ export class RuntimeSessionManager implements RuntimeService {
         diagnostics: devServer?.diagnostics(),
       })
     }
+  }
+
+  /** Tracks reloads and fails the session when its dev server or page dies. */
+  private watchSessionLifecycle(session: RuntimeSession): void {
+    session.devServer.setExitHandler?.(() => {
+      this.failSession(session)
+    })
+    session.browser.setLifecycleHandlers({
+      reloading: () => {
+        if (session.state === 'active') session.state = 'reloading'
+      },
+      reloaded: (nextReady) => {
+        if (session.state !== 'stopped') {
+          session.ready = nextReady
+          session.state = 'active'
+        }
+      },
+      failed: () => {
+        this.failSession(session)
+      },
+    })
   }
 
   private async startResult(
@@ -423,9 +516,14 @@ export class RuntimeSessionManager implements RuntimeService {
     }
   }
 
-  private async failSession(session: RuntimeSession, _error: unknown): Promise<void> {
+  /**
+   * Drops a session whose dev process or page died. Its cleanup runs in the
+   * background; a cleanup failure is already folded into the session's own
+   * cleanup promise, so nothing is left unobserved here.
+   */
+  private failSession(session: RuntimeSession): void {
     this.sessions.delete(session.preflight.projectPath)
-    await this.cleanupSession(session).catch(() => {})
+    this.cleanupSession(session).catch(() => {})
   }
 }
 
@@ -445,7 +543,44 @@ export function createDefaultRuntimeSessionManager(): RuntimeSessionManager {
       }
     },
     preflight: preflightRuntimeProject,
-    startDevServer: startRuntimeDevServer,
+    startDevServer: (preflight, signal) => startRuntimeDevServer(preflight, signal ? { signal } : {}),
     startBrowser: startRuntimeBrowser,
   })
+}
+
+/**
+ * The page's Runtime Bridge readiness: protocol 1 required, and — when the
+ * engine reports asset status — Assets Ready too (ADR 0019): the Game
+ * registered at frame 0, and its scene's images still have to arrive.
+ */
+async function bridgeReadiness(
+  preflight: RuntimePreflightResult,
+  started: { devServer: RuntimeDevServer; browser: RuntimeBrowser },
+  signal: AbortSignal,
+): Promise<RuntimeSession['ready']> {
+  const { devServer, browser } = started
+  const ready = await browser.ready()
+  signal.throwIfAborted()
+  if (ready.bridgeVersion !== 1) {
+    throw new RuntimeToolError({
+      code: 'runtime-incompatible',
+      stage: 'bridge',
+      message: `The Project engine does not provide Runtime Bridge protocol 1; upgrade @waica/engine to at least ${preflight.engine.version}.`,
+      projectPath: preflight.projectPath,
+      diagnostics: { minimumEngineVersion: preflight.engine.version },
+    })
+  }
+  if (!ready.capabilities.includes('assets')) return ready
+  const wait = await waitForAssetsReady(() => browser.metadata(), preflight.timeoutMs, signal)
+  if (!wait.ok) {
+    throw new RuntimeToolError({
+      code: 'runtime-start-failed',
+      stage: 'game',
+      message: `The Game registered, but its assets did not settle within ${preflight.timeoutMs} ms.`,
+      projectPath: preflight.projectPath,
+      diagnostics: { ...devServer.diagnostics(), assets: wait.assets },
+    })
+  }
+  const assets = runtimeAssetStatus(wait.metadata.assets)
+  return assets ? { ...ready, assets } : ready
 }

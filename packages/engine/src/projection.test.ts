@@ -37,7 +37,8 @@ describe('screenInputToLogical', () => {
 
   it('keeps zero and short vectors unchanged in magnitude, and normalizes long ones', () => {
     expect(screenInputToLogical(0, 0)).toEqual({ x: 0, y: 0 })
-    expect(Math.hypot(...Object.values(screenInputToLogical(0.25, 0)))).toBeCloseTo(0.25, 12)
+    const short = screenInputToLogical(0.25, 0)
+    expect(Math.hypot(short.x, short.y)).toBeCloseTo(0.25, 12)
     expect(screenInputToLogical(2, 0)).toEqual(screenInputToLogical(1, 0))
   })
 

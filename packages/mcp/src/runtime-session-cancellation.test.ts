@@ -1,0 +1,284 @@
+import { expect, it } from 'vitest'
+import type { RuntimePreflightResult } from './runtime-preflight.js'
+import {
+  RuntimeSessionManager,
+  type RuntimeBridgeReady,
+  type RuntimeBrowser,
+  type RuntimeDevServer,
+  type RuntimeSessionAdapters,
+} from './runtime-session-manager.js'
+
+// CA-13 (issue #100): the host's cancellation signal reaches every stage of
+// a Run Session call, and an aborted call leaves no half-registered session.
+
+const ready: RuntimeBridgeReady = {
+  engineVersion: '0.5.0',
+  bridgeVersion: 1,
+  mode: 'paused',
+  frame: 0,
+  simulationTime: 0,
+  capabilities: ['click', 'scene'],
+  initialSnapshot: { entities: [] },
+}
+
+function preflight(projectPath: string): RuntimePreflightResult {
+  return {
+    projectPath,
+    packageManager: 'npm',
+    command: 'npm',
+    args: ['run', 'dev'],
+    viewport: { width: 640, height: 360 },
+    timeoutMs: 30_000,
+    headless: true,
+    browserExecutablePath: '/chrome',
+    engine: { package: '@waica/engine', version: '0.5.0', source: 'project' },
+  }
+}
+
+function browser(overrides: Partial<RuntimeBrowser> = {}): RuntimeBrowser {
+  return {
+    ready: () => Promise.resolve(ready),
+    metadata: () => Promise.resolve({ ...ready }),
+    inspect: () => Promise.resolve({ ...ready, snapshot: ready.initialSnapshot }),
+    control: () => Promise.resolve({ ...ready, heldActions: [] }),
+    captureScreenshot: () => Promise.resolve({ ...ready, data: 'png' }),
+    close: () => Promise.resolve(),
+    setLifecycleHandlers: () => {},
+    ...overrides,
+  }
+}
+
+function devServer(stops: string[] = []): RuntimeDevServer {
+  return {
+    url: 'http://127.0.0.1:43123/',
+    stop: () => {
+      stops.push('dev-server')
+      return Promise.resolve()
+    },
+    diagnostics: () => ({}),
+  }
+}
+
+function manager(adapters: Partial<RuntimeSessionAdapters> = {}): RuntimeSessionManager {
+  return new RuntimeSessionManager({
+    canonicalize: (projectPath) => Promise.resolve(projectPath),
+    preflight: ({ projectPath }) => Promise.resolve(preflight(projectPath)),
+    startDevServer: () => Promise.resolve(devServer()),
+    startBrowser: () => Promise.resolve(browser()),
+    ...adapters,
+  })
+}
+
+function abortReason(): Error {
+  const reason = new Error('host cancelled')
+  reason.name = 'AbortError'
+  return reason
+}
+
+it('hands the signal to the dev server and browser starts', async () => {
+  const seen: (AbortSignal | undefined)[] = []
+  const sessions = manager({
+    startDevServer: (_checked, signal) => {
+      seen.push(signal)
+      return Promise.resolve(devServer())
+    },
+    startBrowser: (_checked, _dev, signal) => {
+      seen.push(signal)
+      return Promise.resolve(browser())
+    },
+  })
+  const controller = new AbortController()
+  await sessions.start({ projectPath: '/game' }, { signal: controller.signal })
+  // Both stages share the startup's signal, which is not the caller's own.
+  expect(seen[0]).toBeDefined()
+  expect(seen[1]).toBe(seen[0])
+  expect(seen[0]?.aborted).toBe(false)
+  await sessions.close()
+})
+
+it('rejects with the abort reason, closes what it opened and keeps no session', async () => {
+  const stops: string[] = []
+  const controller = new AbortController()
+  const reason = abortReason()
+  // The host cancels while the browser starts; this adapter ignores the
+  // signal and hands back a live browser the manager must close.
+  let cancelNext = true
+  const sessions = manager({
+    startDevServer: () => Promise.resolve(devServer(stops)),
+    startBrowser: () => {
+      if (cancelNext) controller.abort(reason)
+      cancelNext = false
+      return Promise.resolve(
+        browser({
+          close: () => {
+            stops.push('browser')
+            return Promise.resolve()
+          },
+        }),
+      )
+    },
+  })
+  await expect(sessions.start({ projectPath: '/game' }, { signal: controller.signal })).rejects.toBe(reason)
+  expect(stops.sort()).toEqual(['browser', 'dev-server'])
+  await expect(sessions.inspect({ projectPath: '/game' })).rejects.toMatchObject({
+    body: { code: 'runtime-not-running' },
+  })
+  await expect(sessions.start({ projectPath: '/game' })).resolves.toMatchObject({ reused: false })
+  await sessions.close()
+})
+it('rejects inspect, control and screenshot on an aborted signal without touching the browser', async () => {
+  let browserCalls = 0
+  const counted = <T,>(value: T) => () => {
+    browserCalls += 1
+    return Promise.resolve(value)
+  }
+  const sessions = manager({
+    startBrowser: () =>
+      Promise.resolve(
+        browser({
+          inspect: counted({ ...ready, snapshot: ready.initialSnapshot }),
+          control: counted({ ...ready, heldActions: [] }),
+          captureScreenshot: counted({ ...ready, data: 'png' }),
+        }),
+      ),
+  })
+  await sessions.start({ projectPath: '/game' })
+  const reason = abortReason()
+  const signal = AbortSignal.abort(reason)
+
+  await expect(sessions.inspect({ projectPath: '/game' }, { signal })).rejects.toBe(reason)
+  await expect(sessions.control({ projectPath: '/game', operation: 'step' }, { signal })).rejects.toBe(reason)
+  await expect(sessions.captureScreenshot('/game', { signal })).rejects.toBe(reason)
+  expect(browserCalls).toBe(0)
+  await expect(sessions.inspect({ projectPath: '/game' })).resolves.toMatchObject({ frame: 0 })
+  await sessions.close()
+})
+
+it('stops waiting for Assets Ready on abort and leaves the session active', async () => {
+  const withAssets = { ...ready, capabilities: ['scene', 'assets'] }
+  const controller = new AbortController()
+  const reason = abortReason()
+  let polls = 0
+  const metadata = (): Promise<Record<string, unknown>> => {
+    polls += 1
+    // Settled at readiness; the scene swap below leaves art pending.
+    const pending = polls === 1 ? 0 : 1
+    if (polls === 3) controller.abort(reason)
+    return Promise.resolve({ ...withAssets, assets: { pending, loaded: 0, failed: 0 } })
+  }
+  const sessions = manager({
+    startBrowser: () => Promise.resolve(browser({ ready: () => Promise.resolve(withAssets), metadata })),
+  })
+  await sessions.start({ projectPath: '/game' })
+
+  const started = Date.now()
+  const swap = sessions.control(
+    { projectPath: '/game', operation: 'scene', scene: 'level-2' },
+    { signal: controller.signal },
+  )
+  await expect(swap).rejects.toBe(reason)
+  expect(Date.now() - started).toBeLessThan(1_000)
+  expect(polls).toBe(3)
+  await expect(sessions.inspect({ projectPath: '/game' })).resolves.toMatchObject({ frame: 0 })
+  await sessions.close()
+})
+
+function gatedBrowserStart(): {
+  release: () => void
+  adapters: Partial<RuntimeSessionAdapters>
+  signals: AbortSignal[]
+} {
+  let release: () => void = () => {}
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const signals: AbortSignal[] = []
+  return {
+    release,
+    signals,
+    adapters: {
+      startBrowser: async (_checked, _dev, signal) => {
+        if (signal) signals.push(signal)
+        await gate
+        return browser()
+      },
+    },
+  }
+}
+
+it('lets a concurrent caller reuse the startup when the first caller cancels', async () => {
+  const gated = gatedBrowserStart()
+  const sessions = manager(gated.adapters)
+  const first = new AbortController()
+  const reason = abortReason()
+
+  const a = sessions.start({ projectPath: '/game' }, { signal: first.signal })
+  const b = sessions.start({ projectPath: '/game' })
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  first.abort(reason)
+  await expect(a).rejects.toBe(reason)
+  gated.release()
+
+  await expect(b).resolves.toMatchObject({ reused: true })
+  await expect(sessions.inspect({ projectPath: '/game' })).resolves.toMatchObject({ frame: 0 })
+  await sessions.close()
+})
+
+it('aborts the shared startup once every waiting caller has cancelled', async () => {
+  const gated = gatedBrowserStart()
+  const sessions = manager(gated.adapters)
+  const first = new AbortController()
+  const second = new AbortController()
+  const reason = abortReason()
+
+  const a = sessions.start({ projectPath: '/game' }, { signal: first.signal })
+  const b = sessions.start({ projectPath: '/game' }, { signal: second.signal })
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  first.abort(reason)
+  await expect(a).rejects.toBe(reason)
+  expect(gated.signals[0]?.aborted).toBe(false)
+  second.abort(reason)
+  gated.release()
+
+  await expect(b).rejects.toBe(reason)
+  expect(gated.signals[0]?.aborted).toBe(true)
+  await expect(sessions.inspect({ projectPath: '/game' })).rejects.toMatchObject({
+    body: { code: 'runtime-not-running' },
+  })
+  await sessions.close()
+})
+
+it('does not let a fresh start join a startup its last waiter already aborted', async () => {
+  const stops: string[] = []
+  let release: () => void = () => {}
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  let devStarts = 0
+  const sessions = manager({
+    // The first dev server start ignores the signal and hangs on the gate.
+    startDevServer: async () => {
+      devStarts += 1
+      if (devStarts === 1) await gate
+      return devServer(stops)
+    },
+  })
+  const caller = new AbortController()
+  const reason = abortReason()
+  const first = sessions.start({ projectPath: '/game' }, { signal: caller.signal })
+  const firstSettled = first.then(
+    () => undefined,
+    (error: unknown) => error,
+  )
+  await expect.poll(() => devStarts).toBe(1)
+  caller.abort(reason)
+  // Let the abort reach the startup: its last waiter is gone.
+  await new Promise((resolve) => setTimeout(resolve, 10))
+
+  const fresh = sessions.start({ projectPath: '/game' })
+  release()
+
+  expect(await firstSettled).toBe(reason)
+  await expect(fresh).resolves.toMatchObject({ reused: false })
+  await sessions.close()
+})

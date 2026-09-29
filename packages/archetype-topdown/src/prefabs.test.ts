@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { TOPDOWN_PREFABS } from './prefabs.js'
 import { TOPDOWN_REGISTRY_DATA } from './registry-data.js'
+import { defined } from '../../engine/src/test-support'
 
 function componentTypes(ref: string): string[] {
-  return TOPDOWN_PREFABS[ref]!.components.map((component) => component.type)
+  return defined(TOPDOWN_PREFABS[ref]).components.map((component) => component.type)
 }
 
 function props(ref: string, type: string): Record<string, unknown> {
-  const component = TOPDOWN_PREFABS[ref]!.components.find((c) => c.type === type)
+  const component = defined(TOPDOWN_PREFABS[ref]).components.find((c) => c.type === type)
   return (component?.props ?? {}) as Record<string, unknown>
 }
 

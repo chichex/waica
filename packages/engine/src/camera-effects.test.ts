@@ -6,6 +6,7 @@ import {
   layoutCameraEffects,
   type CameraEffectHandle,
 } from './camera-effects'
+import { defined } from './test-support'
 
 /** One screen pixel at viewHeight 10 on a 360-pixel-high fixed resolution. */
 const PIXEL = 10 / 360
@@ -89,9 +90,9 @@ describe('shake amplitude and decay (CA-3)', () => {
     let compared = 0
     for (let index = 0; index < 29; index += 1) {
       const t = (index + 1) / 30
-      if (Math.abs(a[index]!.x) < 1e-6) continue
+      if (Math.abs(defined(a[index]).x) < 1e-6) continue
       // Same step, same jitter; only the envelope differs.
-      expect(b[index]!.x / a[index]!.x).toBeCloseTo((1 - t * t) / (1 - t), 9)
+      expect(defined(b[index]).x / defined(a[index]).x).toBeCloseTo((1 - t * t) / (1 - t), 9)
       compared += 1
     }
     expect(compared).toBeGreaterThan(20)
@@ -163,12 +164,12 @@ describe('overlapping shakes (CA-7)', () => {
       const n = index + 1
       const strongAmp = Math.max(0, 1 - n / 30)
       const weakAmp = 0.4 * (1 - n / 60)
-      const reference = strongAmp >= weakAmp ? strongRef[index]! : weakRef[index]!
+      const reference = strongAmp >= weakAmp ? defined(strongRef[index]) : defined(weakRef[index])
       const referenceAmp = strongAmp >= weakAmp ? strongAmp : weakAmp
       const expectedAmp = Math.max(strongAmp, weakAmp)
-      expect(Math.abs(combined[index]!.x)).toBeLessThanOrEqual(expectedAmp + 1e-12)
+      expect(Math.abs(defined(combined[index]).x)).toBeLessThanOrEqual(expectedAmp + 1e-12)
       if (Math.abs(reference.x) < 1e-6) continue
-      expect(combined[index]!.x / reference.x).toBeCloseTo(expectedAmp / referenceAmp, 9)
+      expect(defined(combined[index]).x / reference.x).toBeCloseTo(expectedAmp / referenceAmp, 9)
       compared += 1
     }
     expect(compared).toBeGreaterThan(40)
@@ -316,8 +317,8 @@ describe('flash (CA-9)', () => {
     expect(effects.state.fade.opacity).toBeCloseTo(20 / 30, 12)
     expect(effects.state.flash.color).toBe('#ff0000')
     const layers = [...host.querySelectorAll<HTMLElement>('[data-waica-camera-effect]')]
-    const fade = layers.find((layer) => layer.dataset.waicaCameraEffect === 'fade')!
-    const flash = layers.find((layer) => layer.dataset.waicaCameraEffect === 'flash')!
+    const fade = defined(layers.find((layer) => layer.dataset.waicaCameraEffect === 'fade'))
+    const flash = defined(layers.find((layer) => layer.dataset.waicaCameraEffect === 'flash'))
     expect(Number(flash.style.zIndex)).toBeGreaterThan(Number(fade.style.zIndex))
   })
 })
@@ -347,7 +348,7 @@ describe('invalid arguments (CA-10)', () => {
     const handle = call(effects)
 
     expect(warn).toHaveBeenCalledTimes(1)
-    expect(String(warn.mock.calls[0]![0])).toMatch(/^\[waica\] /)
+    expect(String(defined(warn.mock.calls[0])[0])).toMatch(/^\[waica\] /)
     expect(await settled(handle)).toBe(false)
     expect(effects.state).toEqual(before)
     expect(await settled(running)).toBeUndefined()
@@ -407,7 +408,7 @@ describe('layers (CA-13)', () => {
     effects.fade({ to: 'white', seconds: 0.5 })
     step(effects, 3)
 
-    const fade = host.querySelector<HTMLElement>('[data-waica-camera-effect="fade"]')!
+    const fade = defined(host.querySelector<HTMLElement>('[data-waica-camera-effect="fade"]'))
     expect(fade.style.position).toBe('absolute')
     expect(fade.style.pointerEvents).toBe('none')
     expect(Number(fade.style.zIndex)).toBeGreaterThan(9000)
@@ -428,7 +429,7 @@ describe('layers (CA-13)', () => {
       '225px',
     ])
 
-    const flash = host.querySelector<HTMLElement>('[data-waica-camera-effect="flash"]')!
+    const flash = defined(host.querySelector<HTMLElement>('[data-waica-camera-effect="flash"]'))
     expect(flash.style.display).toBe('none')
     effects.fade({ to: 'clear', seconds: 0 })
     step(effects)

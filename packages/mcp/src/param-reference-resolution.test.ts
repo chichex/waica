@@ -36,6 +36,14 @@ function check(
 }
 
 describe('resolveParamReference', () => {
+  it('ignores a ref kind it does not know instead of throwing', () => {
+    // A spec authored against a newer engine may name a kind this validator lacks.
+    for (const ref of ['future-kind', 'constructor', 'toString']) {
+      const unknown = check({ ref: ref as Parameters<typeof resolveParamReference>[0]['ref'], value: 'x' })
+      expect(resolveParamReference(unknown, BASE_CONTEXT)).toBeUndefined()
+    }
+  })
+
   it('accepts a prefab ref that exists and flags one that does not', () => {
     expect(
       resolveParamReference(check({ ref: 'prefab', value: 'objects/target' }), BASE_CONTEXT),

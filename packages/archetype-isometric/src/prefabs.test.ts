@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { ISOMETRIC_PREFABS } from './prefabs'
 import { ISOMETRIC_REGISTRY_DATA } from './registry-data'
+import { defined, match } from '../../engine/src/test-support'
 
 function componentTypes(ref: string): string[] {
-  return ISOMETRIC_PREFABS[ref]!.components.map((component) => component.type)
+  return defined(ISOMETRIC_PREFABS[ref]).components.map((component) => component.type)
 }
 
 function props(ref: string, type: string): Record<string, unknown> {
-  const component = ISOMETRIC_PREFABS[ref]!.components.find((candidate) => candidate.type === type)
+  const component = defined(ISOMETRIC_PREFABS[ref]).components.find((candidate) => candidate.type === type)
   return (component?.props ?? {}) as Record<string, unknown>
 }
 
@@ -84,7 +85,7 @@ describe('the isometric prefabs express the genre model', () => {
     })
     expect(props('characters/orc', 'StateMachine')).toMatchObject({
       role: 'patroller',
-      states: expect.objectContaining({ hurt: expect.anything(), dead: expect.anything() }),
+      states: match.objectContaining({ hurt: match.anything(), dead: match.anything() }),
     })
   })
 

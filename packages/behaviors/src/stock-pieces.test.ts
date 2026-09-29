@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { GameTime, GameUi, Stats, THREE, type Entity } from '@waica/engine'
 // The package entry on purpose: these pieces are public surface (CA-20).
 import { ANCHORED_UI_PIECES, HEALTH_UI, INTERACTABLE_UI } from './index.js'
+import { defined } from '../../engine/src/test-support'
 
 /** The four Anchored Pieces the behaviors ship (issue #72, CA-18). */
 function anchoredStockPieces(): Record<string, string | undefined> {
@@ -26,7 +27,7 @@ function anchorEntity(): Entity {
 
 /** What a player reads: the instance's text, without its <style>. */
 function visibleText(element: HTMLElement | null): string {
-  const copy = element!.cloneNode(true) as HTMLElement
+  const copy = defined(element).cloneNode(true) as HTMLElement
   for (const style of copy.querySelectorAll('style')) style.remove()
   return (copy.textContent ?? '').replace(/\s+/g, ' ').trim()
 }

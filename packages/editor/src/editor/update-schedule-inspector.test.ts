@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
-import { act, createElement, type ComponentProps } from 'react'
-import { createRoot } from 'react-dom/client'
+import { cleanup, render, screen, within } from '@testing-library/react'
+import { type ComponentProps, createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Component, type ComponentClass, type PrefabJson, type SceneEntityJson } from '@waica/engine'
 import { MemFS } from '../fs/project-fs'
 import { ArchetypeContext, resolveArchetype, type ArchetypeManifest } from '../project/archetype'
@@ -134,12 +134,25 @@ function renderInspector(
   )
 }
 
-function componentCard(name: string): Element {
-  const card = [...document.querySelectorAll('.ed-comp')].find(
-    (candidate) => candidate.querySelector('.ed-comp-head > span')?.textContent === name,
-  )
-  if (!card) throw new Error(`missing component card ${name}`)
-  return card
+const UPDATE_BADGE = /^update (\d+|varies)$/
+const UPDATE_AFTER = /^after: /
+
+/**
+ * The header of a component card (or native section) found by the title it
+ * shows; its update annotations render next to that title.
+ */
+function cardHeader(title: string): HTMLElement {
+  const header = screen.getByText(title).parentElement
+  if (!header) throw new Error(`missing card header ${title}`)
+  return header
+}
+
+function updateBadge(title: string): HTMLElement | null {
+  return within(cardHeader(title)).queryByText(UPDATE_BADGE)
+}
+
+function updateAfter(title: string): HTMLElement | null {
+  return within(cardHeader(title)).queryByText(UPDATE_AFTER)
 }
 
 function entity(name: string, types: string[]): SceneEntityJson {
@@ -151,6 +164,8 @@ beforeEach(() => {
   storage.clear()
   vi.stubGlobal('localStorage', localStorageStub)
 })
+
+afterEach(cleanup)
 
 describe('Inspector component update visibility', () => {
   it.each(['entity', 'prefab'] as const)(
@@ -169,16 +184,10 @@ describe('Inspector component update visibility', () => {
 
       renderInspector(selection, kind === 'prefab' ? { 'objects/hero': prefab } : {})
 
-      expect(componentCard('AlphaProducer').querySelector('.ed-update-badge')?.textContent).toBe(
-        'update 1',
-      )
-      expect(componentCard('BetaConsumer').querySelector('.ed-update-badge')?.textContent).toBe(
-        'update 2',
-      )
-      expect(componentCard('BetaConsumer').querySelector('.ed-update-after')?.textContent).toBe(
-        'after: AlphaProducer',
-      )
-      expect(componentCard('PassiveCard').querySelector('.ed-update-badge')).toBeNull()
+      expect(updateBadge('AlphaProducer')?.textContent).toBe('update 1')
+      expect(updateBadge('BetaConsumer')?.textContent).toBe('update 2')
+      expect(updateAfter('BetaConsumer')?.textContent).toBe('after: AlphaProducer')
+      expect(updateBadge('PassiveCard')).toBeNull()
       expect(document.querySelector('[draggable]')).toBeNull()
     },
   )
@@ -198,15 +207,10 @@ describe('Inspector component update visibility', () => {
       'characters/hero': prefab,
     })
 
-    const appearance = [...document.querySelectorAll('.ed-sec-head')].find(
-      (header) => header.firstElementChild?.textContent === 'Appearance',
-    )
-    expect(appearance?.querySelector('.ed-update-badge')?.textContent).toBe('update 2')
-    expect(appearance?.querySelector('.ed-update-after')?.textContent).toBe(
-      'after: StateMachine',
-    )
-    expect(componentCard('Role').querySelector('.ed-update-badge')?.textContent).toBe('update 1')
-    expect(componentCard('Health').querySelector('.ed-update-badge')?.textContent).toBe('update 3')
+    expect(updateBadge('Appearance')?.textContent).toBe('update 2')
+    expect(updateAfter('Appearance')?.textContent).toBe('after: StateMachine')
+    expect(updateBadge('Role')?.textContent).toBe('update 1')
+    expect(updateBadge('Health')?.textContent).toBe('update 3')
   })
 
   it('shows one actionable owner-specific error and no positions for an invalid composition', () => {
@@ -216,9 +220,9 @@ describe('Inspector component update visibility', () => {
       entity: entity('Broken hero', ['AlphaProducer', 'BrokenConsumer']),
     })
 
-    const error = document.querySelector('.ed-update-error')
+    const error = screen.queryByText(/Broken hero.*BrokenConsumer.*MissingProducer/)
     expect(error?.textContent).toMatch(/Broken hero.*BrokenConsumer.*MissingProducer/)
-    expect(document.querySelector('.ed-update-badge')).toBeNull()
+    expect(screen.queryAllByText(UPDATE_BADGE)).toHaveLength(0)
   })
 
   it('keeps Play enabled for a loaded scene with an invalid component schedule', async () => {
@@ -241,22 +245,13 @@ describe('Inspector component update visibility', () => {
       }),
     })
     saveWorkspace(fs.name, scenePath, { kind: 'scene', path: scenePath })
-    const host = document.createElement('div')
-    document.body.append(host)
-    const root = createRoot(host)
+    render(createElement(Editor, { fs, onClose: vi.fn() }), { reactStrictMode: true })
 
-    await act(async () => {
-      root.render(createElement(Editor, { fs, onClose: vi.fn() }))
-    })
     await vi.waitFor(() => {
-      const play = [...host.querySelectorAll('button')].find((button) =>
-        button.textContent?.includes('Play'),
-      )
+      const play = screen.queryAllByRole<HTMLButtonElement>('button', { name: /Play/ })[0]
       expect(play).toBeDefined()
       expect(play?.disabled).toBe(false)
     })
-
-    await act(async () => root.unmount())
   })
 
   it('shows concrete multi-selection positions when all agree and update varies when they differ', () => {
@@ -264,21 +259,13 @@ describe('Inspector component update visibility', () => {
     const same = entity('Same', ['AlphaProducer', 'BetaConsumer'])
     renderInspector({ kind: 'multi', sceneName: 'main', entities: [first, same] })
 
-    expect(componentCard('AlphaProducer').querySelector('.ed-update-badge')?.textContent).toBe(
-      'update 1',
-    )
-    expect(componentCard('BetaConsumer').querySelector('.ed-update-badge')?.textContent).toBe(
-      'update 2',
-    )
+    expect(updateBadge('AlphaProducer')?.textContent).toBe('update 1')
+    expect(updateBadge('BetaConsumer')?.textContent).toBe('update 2')
 
     const shifted = entity('Shifted', ['AardvarkUpdate', 'AlphaProducer', 'BetaConsumer'])
     renderInspector({ kind: 'multi', sceneName: 'main', entities: [first, shifted] })
 
-    expect(componentCard('AlphaProducer').querySelector('.ed-update-badge')?.textContent).toBe(
-      'update varies',
-    )
-    expect(componentCard('BetaConsumer').querySelector('.ed-update-badge')?.textContent).toBe(
-      'update varies',
-    )
+    expect(updateBadge('AlphaProducer')?.textContent).toBe('update varies')
+    expect(updateBadge('BetaConsumer')?.textContent).toBe('update varies')
   })
 })

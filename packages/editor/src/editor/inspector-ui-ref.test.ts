@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
-import { act, createElement, type ComponentProps } from 'react'
-import { createRoot } from 'react-dom/client'
+import { cleanup, render, screen, within } from '@testing-library/react'
+import { type ComponentProps, createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PrefabJson } from '@waica/engine'
 import { MemFS } from '../fs/project-fs'
 import { ArchetypeContext, resolveArchetype } from '../project/archetype'
@@ -89,19 +89,17 @@ function renderMarkup(props: ComponentProps<typeof Inspector>): void {
   )
 }
 
-function rowNamed(label: string, root: ParentNode = document): Element {
-  const row = [...root.querySelectorAll('.ed-row')].find((r) =>
-    r.textContent?.startsWith(label),
-  )
-  if (!row) throw new Error(`missing row "${label}"`)
-  return row
+/** The picker (a combobox) the Inspector labels with a param's display name. */
+function pickerNamed(label: string): HTMLElement {
+  const control = screen.getByLabelText(label)
+  expect(control).toBeInstanceOf(HTMLSelectElement)
+  return control
 }
 
 /** The values a ref picker offers, without its "none" and "Custom…" entries. */
-function pickerChoices(row: Element): string[] {
-  const select = row.querySelector('select')
-  if (!select) throw new Error('row is not a picker')
-  return [...select.querySelectorAll('option')]
+function pickerChoices(picker: HTMLElement): string[] {
+  return within(picker)
+    .getAllByRole('option')
     .filter((option) => option.getAttribute('value') !== '' && option.textContent !== 'Custom…')
     .map((option) => option.getAttribute('value') ?? '')
 }
@@ -126,6 +124,8 @@ beforeEach(() => {
   vi.stubGlobal('localStorage', localStorageStub)
 })
 
+afterEach(cleanup)
+
 describe('Inspector ui ref picker (CA-17)', () => {
   it("renders Health's damageNumber and healthBar as pickers listing only the project's UI pieces", () => {
     const art: ArtItem[] = [
@@ -147,12 +147,12 @@ describe('Inspector ui ref picker (CA-17)', () => {
       }),
     )
 
-    expect(pickerChoices(rowNamed('Damage number'))).toEqual([
+    expect(pickerChoices(pickerNamed('Damage number'))).toEqual([
       'damage-number',
       'health-bar',
       'npc-line',
     ])
-    expect(pickerChoices(rowNamed('Health bar'))).toEqual([
+    expect(pickerChoices(pickerNamed('Health bar'))).toEqual([
       'damage-number',
       'health-bar',
       'npc-line',
@@ -168,9 +168,8 @@ describe('Inspector ui ref picker (CA-17)', () => {
     )
 
     for (const label of ['Damage number', 'Health bar']) {
-      const row = rowNamed(label)
-      expect(pickerChoices(row)).toEqual([])
-      expect(row.querySelector('input[type="text"]')).toBeNull()
+      expect(pickerChoices(pickerNamed(label))).toEqual([])
+      expect(screen.queryByRole('textbox', { name: label })).toBeNull()
     }
   })
 
@@ -188,20 +187,13 @@ describe('Inspector ui ref picker (CA-17)', () => {
       'src/ui/damage-number.html': '<div></div>',
     })
     saveWorkspace(fs.name, 'src/scenes/main.scene.json', { kind: 'prefab', ref: 'characters/hero' })
-    const host = document.createElement('div')
-    document.body.append(host)
-    const root = createRoot(host)
+    render(createElement(Editor, { fs, onClose: vi.fn() }), { reactStrictMode: true })
 
-    await act(async () => {
-      root.render(createElement(Editor, { fs, onClose: vi.fn() }))
-    })
     await vi.waitFor(() => {
-      expect(pickerChoices(rowNamed('Damage number', host))).toEqual([
+      expect(pickerChoices(pickerNamed('Damage number'))).toEqual([
         'damage-number',
         'health-bar',
       ])
     })
-
-    await act(async () => root.unmount())
   })
 })

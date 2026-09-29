@@ -10,7 +10,7 @@ export type IsoFacing = ScreenFacing
  * shared GridMotor integrates and collides in logical square-grid space.
  * State code owns the frame; this component has no onUpdate of its own.
  */
-export class IsoMotor extends GridMotor<IsoFacing> {
+export class IsoMotor extends GridMotor {
   static override componentName = 'IsoMotor'
 
   override facing: IsoFacing = 's'

@@ -26,11 +26,18 @@ interface EventGroup {
   readonly normals: ReadonlyArray<Readonly<{ edgeOrder: number; normal: CollisionPoint }>>
 }
 
+/** The item at an `index` the caller already bounded to `items.length`. */
+function itemAt<T>(items: readonly T[], index: number): T {
+  const item = items[index]
+  if (item === undefined) throw new Error(`Spatial query geometry has no item at index ${index} of ${items.length}`)
+  return item
+}
+
 function signedArea(points: readonly CollisionPoint[]): number {
   let twiceArea = 0
   for (let index = 0; index < points.length; index += 1) {
-    const point = points[index]!
-    const next = points[(index + 1) % points.length]!
+    const point = itemAt(points, index)
+    const next = itemAt(points, (index + 1) % points.length)
     twiceArea += point[0] * next[1] - next[0] * point[1]
   }
   return twiceArea / 2
@@ -87,8 +94,8 @@ function polygonPointLocation(
     index < polygon.length;
     previous = index, index += 1
   ) {
-    const a = polygon[index]!
-    const b = polygon[previous]!
+    const a = itemAt(polygon, index)
+    const b = itemAt(polygon, previous)
     if (pointOnSegment(point, a, b)) return 'boundary'
     const crosses =
       (a[1] > point[1]) !== (b[1] > point[1]) &&
@@ -200,12 +207,13 @@ function groupEvents(events: readonly EdgeEvent[]): EventGroup[] {
     normals: Array<{ edgeOrder: number; normal: CollisionPoint }>
   }> = []
   for (const event of sorted) {
-    const current = groups.at(-1)
+    let current = groups.at(-1)
     if (!current || Math.abs(event.distance - current.distance) > SPATIAL_QUERY_EPSILON) {
-      groups.push({ distance: event.distance, normals: [] })
+      current = { distance: event.distance, normals: [] }
+      groups.push(current)
     }
     if (event.normal) {
-      groups.at(-1)!.normals.push({ edgeOrder: event.edgeOrder, normal: event.normal })
+      current.normals.push({ edgeOrder: event.edgeOrder, normal: event.normal })
     }
   }
   return groups.map((group) => ({
@@ -247,6 +255,39 @@ function selectVertexNormal(
   return selected
 }
 
+/** Every edge's ray events, for each edge with a usable outward normal. */
+function polygonEdgeEvents(
+  polygon: readonly CollisionPoint[],
+  winding: 1 | -1,
+  ray: { origin: CollisionPoint; direction: CollisionPoint; maxDistance: number },
+): EdgeEvent[] {
+  const events: EdgeEvent[] = []
+  for (let index = 0; index < polygon.length; index += 1) {
+    const a = itemAt(polygon, index)
+    const b = itemAt(polygon, (index + 1) % polygon.length)
+    const normal = edgeNormal(a, b, winding)
+    if (!normal) continue
+    events.push(...edgeEvents(ray.origin, ray.direction, ray.maxDistance, a, b, normal, index))
+  }
+  return events
+}
+
+/**
+ * Whether the ray enters or leaves the polygon at an event group, from where
+ * it was just before and just after it. A ray starting on the boundary and
+ * heading inside counts as entering.
+ */
+function boundaryCrossing(
+  distance: number,
+  before: PointLocation,
+  after: PointLocation,
+): 'entry' | 'exit' | null {
+  if ((before === 'outside' || (distance === 0 && before === 'boundary')) && after === 'inside') {
+    return 'entry'
+  }
+  return before === 'inside' && after === 'outside' ? 'exit' : null
+}
+
 function polygonRay(
   body: CollisionBody,
   origin: CollisionPoint,
@@ -258,16 +299,7 @@ function polygonRay(
   const area = signedArea(polygon)
   if (Math.abs(area) <= SPATIAL_QUERY_EPSILON) return null
   const winding = area > 0 ? 1 : -1
-  const events: EdgeEvent[] = []
-  for (let index = 0; index < polygon.length; index += 1) {
-    const a = polygon[index]!
-    const b = polygon[(index + 1) % polygon.length]!
-    const normal = edgeNormal(a, b, winding)
-    if (!normal) continue
-    events.push(...edgeEvents(origin, direction, maxDistance, a, b, normal, index))
-  }
-
-  const groups = groupEvents(events)
+  const groups = groupEvents(polygonEdgeEvents(polygon, winding, { origin, direction, maxDistance }))
   const originLocation = polygonPointLocation(polygon, origin)
   const scale = Math.max(Math.abs(body.width), Math.abs(body.height), 1)
   const terminalProbe = Math.max(
@@ -275,7 +307,7 @@ function polygonRay(
     Math.min(scale * 1e-6, 1e-3),
   )
   for (let index = 0; index < groups.length; index += 1) {
-    const group = groups[index]!
+    const group = itemAt(groups, index)
     if (group.distance > maxDistance + SPATIAL_QUERY_EPSILON) break
     const previous = groups[index - 1]
     const next = groups[index + 1]
@@ -297,16 +329,7 @@ function polygonRay(
         next ? (group.distance + next.distance) / 2 : group.distance + terminalProbe,
       ),
     )
-    let crossing: 'entry' | 'exit' | null = null
-    if (
-      (beforeLocation === 'outside' ||
-        (group.distance === 0 && beforeLocation === 'boundary')) &&
-      afterLocation === 'inside'
-    ) {
-      crossing = 'entry'
-    } else if (beforeLocation === 'inside' && afterLocation === 'outside') {
-      crossing = 'exit'
-    }
+    const crossing = boundaryCrossing(group.distance, beforeLocation, afterLocation)
     if (!crossing) continue
     const normal = selectVertexNormal(group.normals, direction, crossing)
     if (!normal) continue
@@ -374,14 +397,12 @@ function ellipseRay(
   ) {
     return null
   }
-  const roots = [
-    (closestParameter - halfChordParameter) / directionScale,
-    (closestParameter + halfChordParameter) / directionScale,
-  ]
-  const rawDistance = roots[0]! >= -SPATIAL_QUERY_EPSILON
-    ? roots[0]!
-    : roots[1]! > SPATIAL_QUERY_EPSILON
-      ? roots[1]!
+  const nearRoot = (closestParameter - halfChordParameter) / directionScale
+  const farRoot = (closestParameter + halfChordParameter) / directionScale
+  const rawDistance = nearRoot >= -SPATIAL_QUERY_EPSILON
+    ? nearRoot
+    : farRoot > SPATIAL_QUERY_EPSILON
+      ? farRoot
       : undefined
   if (rawDistance === undefined || !inRayRange(rawDistance, maxDistance)) return null
   const distance = snappedDistance(rawDistance, maxDistance)

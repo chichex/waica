@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { PLATFORMER_PREFABS } from './prefabs.js'
 import { PLATFORMER_REGISTRY_DATA } from './registry-data.js'
+import { defined } from '../../engine/src/test-support'
 
 function componentTypes(ref: string): string[] {
-  return PLATFORMER_PREFABS[ref]!.components.map((component) => component.type)
+  return defined(PLATFORMER_PREFABS[ref]).components.map((component) => component.type)
 }
 
 function props(ref: string, type: string): Record<string, unknown> | undefined {
-  return PLATFORMER_PREFABS[ref]!.components.find((component) => component.type === type)?.props
+  return defined(PLATFORMER_PREFABS[ref]).components.find((component) => component.type === type)?.props
 }
 
 describe('the platformer prefabs express the damage model', () => {

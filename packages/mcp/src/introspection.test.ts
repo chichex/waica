@@ -7,6 +7,7 @@ import {
   listComponents,
   projectSummary,
 } from './introspection.js'
+import { defined, match } from '../../engine/src/test-support.js'
 
 const roots: string[] = []
 afterEach(async () => cleanup(...roots.splice(0)))
@@ -94,9 +95,9 @@ describe('listComponents', () => {
         Object.keys(component.defaults).some((key) => key.startsWith('_')),
       ),
     ).toBe(false)
-    const motorDefaults = result.components.find(
+    const motorDefaults = defined(result.components.find(
       (component) => component.componentName === 'PlatformerMotor',
-    )!.defaults
+    )).defaults
     expect(motorDefaults).toMatchObject({ moveSpeed: 9, hitboxWidth: 0.9, hitboxHeight: 0.95 })
     expect(motorDefaults).not.toHaveProperty('coyoteTimer')
     expect(motorDefaults).not.toHaveProperty('grounded')
@@ -218,23 +219,23 @@ describe('describeArchetype', () => {
     expect(result.archetype).toMatchObject({
       id: 'platformer',
       label: 'Platformer',
-      palette: expect.arrayContaining([
+      palette: match.arrayContaining([
         { name: 'player', components: ['AnimatedSprite', 'PlatformerMotor', 'StateMachine', 'Hitbox', 'Respawnable', 'Health', 'OutOfBounds'] },
       ]),
-      prefabs: expect.arrayContaining([
+      prefabs: match.arrayContaining([
         {
           ref: 'characters/player',
           type: 'character',
           components: ['AnimatedSprite', 'PlatformerMotor', 'StateMachine', 'Hitbox', 'Respawnable', 'Health', 'OutOfBounds'],
         },
       ]),
-      roles: expect.arrayContaining([
+      roles: match.arrayContaining([
         {
           name: 'player',
-          description: expect.any(String),
+          description: match.any(String),
           driver: 'PlatformerMotor',
-          signals: expect.objectContaining({ move: expect.any(String), land: expect.any(String) }),
-          graph: expect.objectContaining({ initial: 'idle', states: expect.any(Object) }),
+          signals: match.objectContaining({ move: match.any(String), land: match.any(String) }),
+          graph: match.objectContaining({ initial: 'idle', states: match.any(Object) }),
         },
       ]),
       bindings: {

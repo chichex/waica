@@ -1,12 +1,16 @@
-import { realpath, rm, symlink } from 'node:fs/promises'
+import { spawnSync } from 'node:child_process'
+import { chmod, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { cleanup, stubPackage, tempDir, writeTree } from './test-helpers.js'
 import {
+  COMMAND_PROBE_TIMEOUT_MS,
+  commandAvailable,
   preflightRuntimeProject,
   type RuntimePreflightAdapters,
 } from './runtime-preflight.js'
+import { match } from '../../engine/src/test-support.js'
 
 const roots: string[] = []
 afterEach(async () => cleanup(...roots.splice(0)))
@@ -137,7 +141,7 @@ describe('Runtime Project preflight', () => {
         body: {
           code: 'runtime-prerequisite-missing',
           stage,
-          message: expect.stringMatching(message),
+          message: match.stringMatching(message),
           projectPath: await realpath(project),
         },
       })
@@ -152,7 +156,7 @@ describe('Runtime Project preflight', () => {
       body: {
         code: 'runtime-prerequisite-missing',
         stage: 'project',
-        message: expect.stringMatching(/Waica Project/),
+        message: match.stringMatching(/Waica Project/),
       },
     })
   })
@@ -207,10 +211,10 @@ describe('Runtime Project preflight', () => {
         { projectPath: project, viewport: { width: 1_001, height: 1_000 } },
         adapters(),
       ),
-    ).rejects.toMatchObject({ body: { stage: 'project', message: expect.stringMatching(/viewport/) } })
+    ).rejects.toMatchObject({ body: { stage: 'project', message: match.stringMatching(/viewport/) } })
     await expect(
       preflightRuntimeProject({ projectPath: project, timeoutMs: 999 }, adapters()),
-    ).rejects.toMatchObject({ body: { stage: 'project', message: expect.stringMatching(/timeout_ms/) } })
+    ).rejects.toMatchObject({ body: { stage: 'project', message: match.stringMatching(/timeout_ms/) } })
   })
 
   it('fails when the selected manager or a system browser is unavailable', async () => {
@@ -230,3 +234,52 @@ describe('Runtime Project preflight', () => {
     ).rejects.toMatchObject({ body: { stage: 'browser' } })
   })
 })
+
+describe('package manager probe', () => {
+  const hanging = { directory: '', command: '', pidFile: '' }
+
+  // A fake package manager whose `--version` never exits. It is executed once
+  // here with `warm`, which exits at once: the first exec of a fresh script
+  // can be slow on macOS, and that latency must not eat the probe deadline.
+  beforeAll(async () => {
+    hanging.directory = await tempDir('waica-hanging-pm-')
+    hanging.pidFile = path.join(hanging.directory, 'pid')
+    hanging.command = path.join(hanging.directory, 'hanging-pm')
+    await writeFile(
+      hanging.command,
+      `#!/bin/sh\n[ "$1" = warm ] && exit 0\necho $$ > "${hanging.pidFile}"\nexec sleep 30\n`,
+    )
+    await chmod(hanging.command, 0o755)
+    spawnSync(hanging.command, ['warm'], { timeout: 30_000 })
+  }, 60_000)
+
+  afterAll(async () => cleanup(hanging.directory))
+
+  it('gives up on a hanging `<pm> --version` within the probe deadline and kills it', async () => {
+    const { command, pidFile } = hanging
+
+    const started = Date.now()
+    await expect(commandAvailable(command, 1_500)).resolves.toBe(false)
+    expect(Date.now() - started).toBeLessThan(4_000)
+
+    const pid = Number((await readFile(pidFile, 'utf8')).trim())
+    await expect.poll(() => processAlive(pid), { timeout: 2_000 }).toBe(false)
+  })
+
+  it('still reports a manager that answers in time', async () => {
+    await expect(commandAvailable(process.execPath, 5_000)).resolves.toBe(true)
+  })
+
+  it('bounds the default probe at sixty seconds, enough for a corepack first download', () => {
+    expect(COMMAND_PROBE_TIMEOUT_MS).toBe(60_000)
+  })
+})
+
+function processAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch {
+    return false
+  }
+}

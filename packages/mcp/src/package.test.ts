@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { access, readFile } from 'node:fs/promises'
 import path from 'node:path'
+import { match } from '../../engine/src/test-support.js'
 
 const packageRoot = path.resolve(import.meta.dirname, '..')
 
@@ -23,8 +24,8 @@ describe('@waica/mcp package contract', () => {
           'node ../../scripts/clean-dist.mjs && tsc -p tsconfig.build.json && node bundle-template.mjs',
       },
       dependencies: {
-        '@modelcontextprotocol/sdk': expect.stringMatching(/^\^1\./),
-        'playwright-core': expect.stringMatching(/^\^1\./),
+        '@modelcontextprotocol/sdk': match.stringMatching(/^\^1\./),
+        'playwright-core': match.stringMatching(/^\^1\./),
         '@waica/engine': 'workspace:^',
         '@waica/behaviors': 'workspace:^',
         '@waica/archetype-isometric': 'workspace:^',

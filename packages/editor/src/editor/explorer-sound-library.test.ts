@@ -1,11 +1,13 @@
 // @vitest-environment happy-dom
-import { act, createElement, type ComponentProps } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, render as renderUi, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { type ComponentProps, createElement } from 'react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MemFS } from '../fs/project-fs'
 import { ArchetypeContext, resolveArchetype } from '../project/archetype'
 import { Explorer } from './Explorer'
 import type { ArtItem } from './use-project-art'
+import { defined } from '../../../engine/src/test-support'
 
 /**
  * CA-17 (the library learns audio) and CA-18 (preview, editor-owned, disabled
@@ -38,7 +40,7 @@ function baseProps(
     fs: new MemFS('proj', {}),
     scenePaths: [],
     openScenePath: null,
-    justCreatedFolder: null,
+    sceneFolders: { expanded: new Set(), toggle: () => {}, open: () => {}, setAll: () => {} },
     scene: null,
     view: null,
     selected: null,
@@ -102,86 +104,80 @@ function baseProps(
   }
 }
 
+/** A sound row's preview toggle: it reads ▶ (preview) or ⏹ (stop). */
+const PREVIEW_CONTROL = /^[▶⏹]$/u
+
 describe('Explorer sound library (CA-17, CA-18)', () => {
-  let container: HTMLDivElement
-  let root: Root
-
-  beforeEach(() => {
-    document.body.innerHTML = ''
-    container = document.createElement('div')
-    document.body.append(container)
-    root = createRoot(container)
-  })
-
-  afterEach(() => {
-    act(() => root.unmount())
-  })
+  afterEach(cleanup)
 
   function render(props: ComponentProps<typeof Explorer>): void {
     const archetype = resolveArchetype('platformer')
-    act(() => {
-      root.render(
-        createElement(
-          ArchetypeContext.Provider,
-          { value: archetype },
-          createElement(Explorer, props),
-        ),
-      )
-    })
+    renderUi(
+      createElement(
+        ArchetypeContext.Provider,
+        { value: archetype },
+        createElement(Explorer, props),
+      ),
+      { reactStrictMode: true },
+    )
   }
 
   it('lists a sound alongside images, with exactly one preview control (the sound row)', () => {
     render(baseProps({ art: [SOUND, IMAGE] }))
 
-    expect(container.textContent).toContain('swing.ogg')
-    expect(container.textContent).toContain('hero.png')
-    expect(container.querySelectorAll('.ed-sound-play')).toHaveLength(1)
+    expect(screen.getByText('swing.ogg')).toBeDefined()
+    expect(screen.getByText('hero.png')).toBeDefined()
+    expect(screen.getAllByRole('button', { name: PREVIEW_CONTROL })).toHaveLength(1)
   })
 
-  it('invokes the injected preview entry point with the sound URL when clicked in edit mode', () => {
+  it('invokes the injected preview entry point with the sound URL when clicked in edit mode', async () => {
+    const user = userEvent.setup()
     const onPreviewSound = vi.fn()
     render(baseProps({ art: [SOUND], mode: 'edit', onPreviewSound }))
 
-    const button = container.querySelector<HTMLButtonElement>('.ed-sound-play')
+    const button = screen.queryByRole<HTMLButtonElement>('button', { name: PREVIEW_CONTROL })
     expect(button).not.toBeNull()
-    expect(button!.disabled).toBe(false)
+    expect(defined(button).disabled).toBe(false)
 
-    act(() => button!.click())
+    await user.click(defined(button))
 
     expect(onPreviewSound).toHaveBeenCalledExactlyOnceWith(SOUND)
   })
 
-  it('disables the preview control while the project is in play mode, and never invokes preview', () => {
+  it('disables the preview control while the project is in play mode, and never invokes preview', async () => {
+    const user = userEvent.setup()
     const onPreviewSound = vi.fn()
     render(baseProps({ art: [SOUND], mode: 'play', onPreviewSound }))
 
-    const button = container.querySelector<HTMLButtonElement>('.ed-sound-play')
+    const button = screen.queryByRole<HTMLButtonElement>('button', { name: PREVIEW_CONTROL })
     expect(button).not.toBeNull()
-    expect(button!.disabled).toBe(true)
+    expect(defined(button).disabled).toBe(true)
 
-    act(() => button!.click())
+    await user.click(defined(button))
 
     expect(onPreviewSound).not.toHaveBeenCalled()
   })
 
-  it('shows a stop control for the row currently previewing, and calls onStopPreview when clicked (review finding B)', () => {
+  it('shows a stop control for the row currently previewing, and calls onStopPreview when clicked (review finding B)', async () => {
+    const user = userEvent.setup()
     const onPreviewSound = vi.fn()
     const onStopPreview = vi.fn()
     render(
       baseProps({ art: [SOUND], previewingPath: SOUND.path, onPreviewSound, onStopPreview }),
     )
 
-    const button = container.querySelector<HTMLButtonElement>('.ed-sound-play')
+    const button = screen.queryByRole<HTMLButtonElement>('button', { name: PREVIEW_CONTROL })
     expect(button).not.toBeNull()
-    expect(button!.textContent).toBe('⏹')
+    expect(defined(button).textContent).toBe('⏹')
 
-    act(() => button!.click())
+    await user.click(defined(button))
 
     expect(onStopPreview).toHaveBeenCalledOnce()
     expect(onPreviewSound).not.toHaveBeenCalled()
   })
 
-  it('offers to play (not stop) a row that is not the one currently previewing', () => {
+  it('offers to play (not stop) a row that is not the one currently previewing', async () => {
+    const user = userEvent.setup()
     const other: ArtItem = { ...SOUND, label: 'hit.ogg', url: 'blob:hit', uri: 'src/art/hit.ogg', path: 'src/art/hit.ogg' }
     const onPreviewSound = vi.fn()
     const onStopPreview = vi.fn()
@@ -189,12 +185,11 @@ describe('Explorer sound library (CA-17, CA-18)', () => {
       baseProps({ art: [SOUND, other], previewingPath: SOUND.path, onPreviewSound, onStopPreview }),
     )
 
-    const buttons = container.querySelectorAll<HTMLButtonElement>('.ed-sound-play')
-    expect(buttons).toHaveLength(2)
-    const otherButton = [...buttons].find((b) => b.textContent === '▶')
-    expect(otherButton).not.toBeUndefined()
+    expect(screen.getAllByRole('button', { name: PREVIEW_CONTROL })).toHaveLength(2)
+    const otherButton = screen.queryByRole('button', { name: '▶' })
+    expect(otherButton).not.toBeNull()
 
-    act(() => otherButton!.click())
+    await user.click(defined(otherButton))
 
     expect(onPreviewSound).toHaveBeenCalledExactlyOnceWith(other)
     expect(onStopPreview).not.toHaveBeenCalled()
@@ -204,22 +199,24 @@ describe('Explorer sound library (CA-17, CA-18)', () => {
     'keeps the stop control on the previewing row after a re-scan changes every item\'s url ' +
       '(regression, finding 1): useProjectArt revokes and recreates every object URL on each ' +
       're-scan (use-project-art.ts ~179-192), so a url-keyed toggle loses the playing row',
-    () => {
+    async () => {
+      const user = userEvent.setup()
       const onStopPreview = vi.fn()
       const rescanned: ArtItem = { ...SOUND, url: 'blob:swing-after-rescan' }
       render(baseProps({ art: [rescanned], previewingPath: SOUND.path, onStopPreview }))
 
-      const button = container.querySelector<HTMLButtonElement>('.ed-sound-play')
+      const button = screen.queryByRole<HTMLButtonElement>('button', { name: PREVIEW_CONTROL })
       expect(button).not.toBeNull()
-      expect(button!.textContent).toBe('⏹')
+      expect(defined(button).textContent).toBe('⏹')
 
-      act(() => button!.click())
+      await user.click(defined(button))
 
       expect(onStopPreview).toHaveBeenCalledOnce()
     },
   )
 
-  it('stops the preview when the file being deleted is the one currently previewing (regression, finding 1)', () => {
+  it('stops the preview when the file being deleted is the one currently previewing (regression, finding 1)', async () => {
+    const user = userEvent.setup()
     const onStopPreview = vi.fn()
     const fs = new MemFS('proj', {})
     // happy-dom's window.confirm is undefined (not merely a stub), so
@@ -229,17 +226,13 @@ describe('Explorer sound library (CA-17, CA-18)', () => {
     try {
       render(baseProps({ fs, art: [SOUND], previewingPath: SOUND.path, onStopPreview }))
 
-      const row = container.querySelector('.ed-x-sound')
+      const row = screen.queryByText('swing.ogg')
       expect(row).not.toBeNull()
-      act(() => {
-        row!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
-      })
-      const deleteButton = [...container.querySelectorAll<HTMLButtonElement>('.ed-ctx-item')].find(
-        (b) => b.textContent?.includes('Delete'),
-      )
-      expect(deleteButton).not.toBeUndefined()
+      await user.pointer({ keys: '[MouseRight]', target: defined(row) })
+      const deleteButton = screen.queryByRole('menuitem', { name: /Delete/ })
+      expect(deleteButton).not.toBeNull()
 
-      act(() => deleteButton!.click())
+      await user.click(defined(deleteButton))
 
       expect(onStopPreview).toHaveBeenCalledOnce()
     } finally {
@@ -247,7 +240,8 @@ describe('Explorer sound library (CA-17, CA-18)', () => {
     }
   })
 
-  it('does not stop the preview when the file being deleted is a different one', () => {
+  it('does not stop the preview when the file being deleted is a different one', async () => {
+    const user = userEvent.setup()
     const onStopPreview = vi.fn()
     const other: ArtItem = { ...SOUND, label: 'hit.ogg', url: 'blob:hit', uri: 'src/art/hit.ogg', path: 'src/art/hit.ogg' }
     const fs = new MemFS('proj', {})
@@ -256,18 +250,13 @@ describe('Explorer sound library (CA-17, CA-18)', () => {
     try {
       render(baseProps({ fs, art: [SOUND, other], previewingPath: SOUND.path, onStopPreview }))
 
-      const rows = container.querySelectorAll('.ed-x-sound')
-      const otherRow = [...rows].find((r) => r.textContent?.includes('hit.ogg'))
-      expect(otherRow).not.toBeUndefined()
-      act(() => {
-        otherRow!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
-      })
-      const deleteButton = [...container.querySelectorAll<HTMLButtonElement>('.ed-ctx-item')].find(
-        (b) => b.textContent?.includes('Delete'),
-      )
-      expect(deleteButton).not.toBeUndefined()
+      const otherRow = screen.queryByText('hit.ogg')
+      expect(otherRow).not.toBeNull()
+      await user.pointer({ keys: '[MouseRight]', target: defined(otherRow) })
+      const deleteButton = screen.queryByRole('menuitem', { name: /Delete/ })
+      expect(deleteButton).not.toBeNull()
 
-      act(() => deleteButton!.click())
+      await user.click(defined(deleteButton))
 
       expect(onStopPreview).not.toHaveBeenCalled()
     } finally {

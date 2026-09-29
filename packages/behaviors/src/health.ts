@@ -137,7 +137,7 @@ export class Health extends Component {
    * the last source by name — projecting the whole Entity would drag its
    * scene node along and bury the numbers that matter.
    */
-  inspectState(): Record<string, unknown> {
+  override inspectState(): Record<string, unknown> {
     return {
       max: this.max,
       invulnerability: this.invulnerability,

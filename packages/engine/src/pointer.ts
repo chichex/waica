@@ -43,6 +43,12 @@ interface LetterboxRect {
   vh: number
 }
 
+interface PointerHit {
+  entity: Entity
+  layer: number
+  y: number
+}
+
 interface PointerSpriteBox {
   width: number
   height: number
@@ -164,7 +170,7 @@ export class Pointer {
    * width/height/offset/anchor box, not the momentary displayed frame.
    */
   private pickEntity(renderX: number, renderY: number): Entity | null {
-    const hits: { entity: Entity; layer: number; y: number }[] = []
+    const hits: PointerHit[] = []
     for (const entity of this.deps.entities) {
       if (!entity.alive) continue
       for (const component of entity.components) {
@@ -203,11 +209,31 @@ export class Pointer {
         }
       }
     }
-    if (hits.length === 0) return null
-    if (hits.length === 1) return hits[0]!.entity
-    const z = ySortZ(hits.map((h) => ({ layer: h.layer, y: h.y })))
-    let bestIndex = 0
-    for (let i = 1; i < hits.length; i += 1) if (z[i]! > z[bestIndex]!) bestIndex = i
-    return hits[bestIndex]!.entity
+    return frontMostHit(hits)
   }
+}
+
+/** The front-most hit under y-sort; on an exact z tie the earlier hit wins. */
+function frontMostHit(hits: readonly PointerHit[]): Entity | null {
+  const [first] = hits
+  if (!first) return null
+  if (hits.length === 1) return first.entity
+  const z = ySortZ(hits.map((h) => ({ layer: h.layer, y: h.y })))
+  let best = first
+  let bestZ = zOfHit(z, 0)
+  for (const [index, hit] of hits.entries()) {
+    const hitZ = zOfHit(z, index)
+    if (hitZ > bestZ) {
+      best = hit
+      bestZ = hitZ
+    }
+  }
+  return best.entity
+}
+
+/** `ySortZ` returns one z per entry, so every hit index has one. */
+function zOfHit(z: readonly number[], index: number): number {
+  const value = z[index]
+  if (value === undefined) throw new Error(`ySortZ returned no z for pointer hit ${index}`)
+  return value
 }

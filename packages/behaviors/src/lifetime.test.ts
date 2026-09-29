@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { SIMULATION_STEP, type Entity } from '@waica/engine'
 import { Lifetime } from './lifetime'
+import { match } from '../../engine/src/test-support'
 
 /** Stands in for a real Entity: destroy() is idempotent and flips `alive`. */
 function makeEntity(): { entity: Entity; destroy: ReturnType<typeof vi.fn> } {
@@ -65,10 +66,10 @@ describe('Lifetime', () => {
   it('declares seconds as an inspector-tunable parameter', () => {
     expect(Lifetime.componentName).toBe('Lifetime')
     expect(Lifetime.params.seconds).toMatchObject({
-      label: expect.any(String),
-      min: expect.any(Number),
-      max: expect.any(Number),
-      step: expect.any(Number),
+      label: match.any(String),
+      min: match.any(Number),
+      max: match.any(Number),
+      step: match.any(Number),
     })
   })
 })

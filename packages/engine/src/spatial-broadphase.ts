@@ -88,16 +88,33 @@ function eachCell(range: CellRange, visit: (key: string) => void): void {
   }
 }
 
-/**
- * Package-internal fresh uniform grid. Bodies above the fixed occupancy cap
- * remain in an overflow bucket and are conservatively visible everywhere.
- */
-export function createSpatialBroadphase<T>(
+/** The value of the indexed entry at `index`; buckets and overflow only hold indices into `entries`. */
+function entryValue<T>(entries: readonly SpatialEntry<T>[], index: number): T {
+  const entry = entries[index]
+  if (!entry) throw new Error(`Spatial broadphase has no entry at index ${index}`)
+  return entry.value
+}
+
+/** The entry index stored at `position` of a bucket that is iterated within its bounds. */
+function indexAt(bucket: readonly number[], position: number): number {
+  const index = bucket[position]
+  if (index === undefined) throw new Error(`Spatial broadphase bucket has no index at position ${position}`)
+  return index
+}
+
+/** Entry indices per occupied grid cell, plus the entries too large to bucket. */
+interface SpatialGrid {
+  readonly buckets: Map<string, number[]>
+  readonly overflow: number[]
+}
+
+/** The indexable sources in query order, each with the cell range it covers. */
+function spatialEntries<T>(
   sources: readonly SpatialBroadphaseSource<T>[],
   cellSize: number,
-  isIndexable: (body: CollisionBody) => boolean = usableCollisionBody,
-): SpatialBroadphase<T> {
-  const entries: SpatialEntry<T>[] = sources
+  isIndexable: (body: CollisionBody) => boolean,
+): SpatialEntry<T>[] {
+  return sources
     .map((source, serial): SpatialEntry<T> | null => {
       if (!isIndexable(source.body)) return null
       return {
@@ -108,6 +125,9 @@ export function createSpatialBroadphase<T>(
     })
     .filter((entry): entry is SpatialEntry<T> => entry !== null)
     .sort((a, b) => a.order - b.order || a.serial - b.serial)
+}
+
+function spatialGrid<T>(entries: readonly SpatialEntry<T>[]): SpatialGrid {
   const buckets = new Map<string, number[]>()
   const overflow: number[] = []
   for (const [index, entry] of entries.entries()) {
@@ -121,6 +141,51 @@ export function createSpatialBroadphase<T>(
       else buckets.set(key, [index])
     })
   }
+  return { buckets, overflow }
+}
+
+/** Distinct index pairs sharing a cell, or involving an overflow entry, in ascending order. */
+function candidatePairIndices(
+  grid: SpatialGrid,
+  entryCount: number,
+): Array<readonly [number, number]> {
+  const pairKeys = new Set<number>()
+  const width = entryCount
+  const addPair = (left: number, right: number): void => {
+    if (left === right) return
+    const first = Math.min(left, right)
+    const second = Math.max(left, right)
+    pairKeys.add(first * width + second)
+  }
+  for (const bucket of grid.buckets.values()) {
+    for (let left = 0; left < bucket.length; left += 1) {
+      for (let right = left + 1; right < bucket.length; right += 1) {
+        addPair(indexAt(bucket, left), indexAt(bucket, right))
+      }
+    }
+  }
+  for (const overflowIndex of grid.overflow) {
+    for (let index = 0; index < entryCount; index += 1) {
+      addPair(overflowIndex, index)
+    }
+  }
+  return [...pairKeys]
+    .map((key): readonly [number, number] => [Math.floor(key / width), key % width])
+    .sort(([a1, a2], [b1, b2]) => a1 - b1 || a2 - b2)
+}
+
+/**
+ * Package-internal fresh uniform grid. Bodies above the fixed occupancy cap
+ * remain in an overflow bucket and are conservatively visible everywhere.
+ */
+export function createSpatialBroadphase<T>(
+  sources: readonly SpatialBroadphaseSource<T>[],
+  cellSize: number,
+  isIndexable: (body: CollisionBody) => boolean = usableCollisionBody,
+): SpatialBroadphase<T> {
+  const entries = spatialEntries(sources, cellSize, isIndexable)
+  const grid = spatialGrid(entries)
+  const { buckets, overflow } = grid
 
   return {
     stats: { indexed: entries.length - overflow.length, overflow: overflow.length },
@@ -133,36 +198,13 @@ export function createSpatialBroadphase<T>(
       })
       return [...selected]
         .sort((a, b) => a - b)
-        .map((index) => entries[index]!.value)
+        .map((index) => entryValue(entries, index))
     },
     pairs() {
-      const pairKeys = new Set<number>()
-      const width = entries.length
-      const addPair = (left: number, right: number): void => {
-        if (left === right) return
-        const first = Math.min(left, right)
-        const second = Math.max(left, right)
-        pairKeys.add(first * width + second)
-      }
-      for (const bucket of buckets.values()) {
-        for (let left = 0; left < bucket.length; left += 1) {
-          for (let right = left + 1; right < bucket.length; right += 1) {
-            addPair(bucket[left]!, bucket[right]!)
-          }
-        }
-      }
-      for (const overflowIndex of overflow) {
-        for (let index = 0; index < entries.length; index += 1) {
-          addPair(overflowIndex, index)
-        }
-      }
-      return [...pairKeys]
-        .map((key): readonly [number, number] => [Math.floor(key / width), key % width])
-        .sort(([a1, a2], [b1, b2]) => a1 - b1 || a2 - b2)
-        .map(([first, second]) => [
-          entries[first]!.value,
-          entries[second]!.value,
-        ] as const)
+      return candidatePairIndices(grid, entries.length).map(([first, second]) => [
+        entryValue(entries, first),
+        entryValue(entries, second),
+      ] as const)
     },
   }
 }

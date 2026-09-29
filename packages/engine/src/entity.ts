@@ -27,12 +27,13 @@ export class Entity {
 
   /** Keeps identity scenes zero-copy while projected scenes own a logical transform. */
   setProjected(projected: boolean): void {
-    if (projected === (this.logicalPosition !== null)) return
+    const logical = this.logicalPosition
     if (projected) {
-      this.logicalPosition = this.node.position.clone()
+      if (logical === null) this.logicalPosition = this.node.position.clone()
       return
     }
-    this.node.position.copy(this.logicalPosition!)
+    if (logical === null) return
+    this.node.position.copy(logical)
     this.logicalPosition = null
   }
 

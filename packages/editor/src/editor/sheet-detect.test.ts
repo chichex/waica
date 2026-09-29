@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { detectCells, type AlphaMap } from './sheet-detect'
+import { defined } from '../../../engine/src/test-support'
 
 /** Builds an alpha map from ascii art: '#' is opaque, anything else clear. */
 function map(rows: string[]): AlphaMap {
-  const width = rows[0]!.length
+  const width = defined(rows[0]).length
   const height = rows.length
   const alpha = new Uint8Array(width * height)
   rows.forEach((row, y) => {
@@ -48,14 +49,14 @@ describe('detectCells', () => {
     expect(cells).toHaveLength(3)
     const [a, b, c] = cells
     expect(new Set(cells.map((cell) => `${cell.width}x${cell.height}`)).size).toBe(1)
-    expect(b!.x - a!.x).toBe(c!.x - b!.x)
+    expect(defined(b).x - defined(a).x).toBe(defined(c).x - defined(b).x)
     // Every frame's content stays inside its box.
-    expect(a!.x).toBeLessThanOrEqual(3)
-    expect(a!.x + a!.width).toBeGreaterThanOrEqual(7)
-    expect(b!.x).toBeLessThanOrEqual(14)
-    expect(b!.x + b!.width).toBeGreaterThanOrEqual(20)
-    expect(c!.x).toBeLessThanOrEqual(27)
-    expect(c!.x + c!.width).toBeGreaterThanOrEqual(31)
+    expect(defined(a).x).toBeLessThanOrEqual(3)
+    expect(defined(a).x + defined(a).width).toBeGreaterThanOrEqual(7)
+    expect(defined(b).x).toBeLessThanOrEqual(14)
+    expect(defined(b).x + defined(b).width).toBeGreaterThanOrEqual(20)
+    expect(defined(c).x).toBeLessThanOrEqual(27)
+    expect(defined(c).x + defined(c).width).toBeGreaterThanOrEqual(31)
   })
 
   it('keeps per-frame padded boxes when the pitch is not uniform (packed sheets)', () => {

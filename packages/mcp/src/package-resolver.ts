@@ -4,6 +4,7 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { KNOWN_ARCHETYPES } from './known-archetypes.js'
 import { workspacePackageRoot } from './workspace-runtime.js'
+import { isJsonObject, objectRecord } from './component-metadata.js'
 
 export type PackageSource = 'project' | 'bundled'
 
@@ -57,10 +58,8 @@ function specifierFor(packageName: string, subpath?: string): string {
 
 async function projectPackageJsonUsable(projectPath: string): Promise<boolean> {
   try {
-    const parsed = JSON.parse(
-      await readFile(path.join(projectPath, 'package.json'), 'utf8'),
-    ) as unknown
-    return !!parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+    const parsed: unknown = JSON.parse(await readFile(path.join(projectPath, 'package.json'), 'utf8'))
+    return isJsonObject(parsed)
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return true
     if (error instanceof SyntaxError) return false
@@ -69,9 +68,7 @@ async function projectPackageJsonUsable(projectPath: string): Promise<boolean> {
 }
 
 async function packageVersion(packageRoot: string): Promise<string> {
-  const manifest = JSON.parse(await readFile(path.join(packageRoot, 'package.json'), 'utf8')) as {
-    version?: unknown
-  }
+  const manifest = objectRecord(JSON.parse(await readFile(path.join(packageRoot, 'package.json'), 'utf8')))
   if (typeof manifest.version !== 'string') {
     throw new Error(`package at ${packageRoot} has no string version`)
   }
@@ -82,9 +79,7 @@ async function packageRootFromEntry(entry: string, packageName: string): Promise
   let current = path.dirname(entry)
   while (true) {
     try {
-      const manifest = JSON.parse(await readFile(path.join(current, 'package.json'), 'utf8')) as {
-        name?: unknown
-      }
+      const manifest = objectRecord(JSON.parse(await readFile(path.join(current, 'package.json'), 'utf8')))
       if (manifest.name === packageName) return current
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
@@ -147,7 +142,7 @@ async function loadBundledModule(
   const builtRelative = BUILT_ENTRY_BY_SPECIFIER[specifier]
   if (builtRelative) {
     const builtEntry = path.join(packageRoot, builtRelative)
-    if (await exists(builtEntry)) return import(pathToFileURL(builtEntry).href)
+    if (await exists(builtEntry)) return objectRecord(await import(pathToFileURL(builtEntry).href))
   }
   switch (specifier) {
     case '@waica/engine':

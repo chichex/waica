@@ -11,6 +11,13 @@ import controls from './controls.json'
 import stats from './stats.json'
 import settings from './game.json'
 
+declare global {
+  interface Window {
+    /** DEV only: the live Game, for browser-driven logical-state probes. */
+    __waica?: { game: Game }
+  }
+}
+
 // The project's scenes (src/scenes/*.scene.json). One live scene at a
 // time (ADR 0011): the catalog lets a SceneTransition or a role ask for
 // another by name — game.loadSceneByName('cave').
@@ -90,7 +97,9 @@ if (canvas.dataset.waica) {
   location.reload()
 } else {
   canvas.dataset.waica = 'mounted'
-  void main(canvas)
+  main(canvas).catch((error: unknown) => {
+    console.error('[waica] the game failed to start:', error)
+  })
 }
 
 async function main(canvas: HTMLCanvasElement): Promise<void> {
@@ -126,7 +135,7 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   await game.assets.ready()
 
   if (import.meta.env.DEV) {
-    ;(window as unknown as Record<string, unknown>).__waica = { game }
+    window.__waica = { game }
   }
 
   game.start()

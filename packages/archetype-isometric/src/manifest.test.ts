@@ -17,6 +17,7 @@ import {
 } from './registry'
 import { ISOMETRIC_REGISTRY_DATA } from './registry-data'
 import { ISOMETRIC_BLANK_SCENE, ISOMETRIC_CAVE_SCENE, ISOMETRIC_SCENE } from './scene-default'
+import { defined } from '../../engine/src/test-support'
 
 describe('isometric archetype manifest', () => {
   it('folds every public isometric piece into ARCHETYPE', () => {
@@ -95,9 +96,9 @@ describe('isometric archetype manifest', () => {
   })
 
   it('resolves the hero attack, hurt and death poses per facing, mirrored for the west', () => {
-    const hero = ISOMETRIC_PREFABS['characters/player']!.components.find(
+    const hero = defined(defined(ISOMETRIC_PREFABS['characters/player']).components.find(
       (component) => component.type === 'AnimatedSprite',
-    )!.props as { clips: Record<string, { loop?: boolean }> }
+    )).props as { clips: Record<string, { loop?: boolean }> }
     const clips = Object.keys(hero.clips)
     for (const state of ['attack', 'hurt', 'death']) {
       expect(resolveDirectionalClip(ISOMETRIC_ANIMATION, clips, state, 'e')).toEqual({
@@ -108,7 +109,7 @@ describe('isometric archetype manifest', () => {
         clip: `${state}-e`,
         flip: true,
       })
-      expect(hero.clips[`${state}-e`]!.loop, state).toBe(false)
+      expect(defined(hero.clips[`${state}-e`]).loop, state).toBe(false)
     }
   })
 

@@ -1,4 +1,5 @@
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
+import { installStdioShutdown } from './stdio-shutdown.js'
 import { prepareWorkspaceRuntime } from './workspace-runtime.js'
 
 /**
@@ -10,5 +11,6 @@ export async function startStdioServer(): Promise<void> {
   await prepareWorkspaceRuntime()
   const { createWaicaMcpServer } = await import('./server.js')
   const server = createWaicaMcpServer()
+  installStdioShutdown({ server, host: process, stdin: process.stdin })
   await server.connect(new StdioServerTransport())
 }

@@ -119,7 +119,12 @@ function waypointsToward(game: Game, mover: Entity, target: GridPoint): GridPoin
   const grid = buildNavigationGrid(game, [pointOf(mover), target], mover)
   const plan = planPath(grid, pointOf(mover), target)
   if (!plan) return []
-  return plan.cells.map((cell) => grid.cellCenter(cell)!)
+  return plan.cells.map((cell) => {
+    const center = grid.cellCenter(cell)
+    // Invariant: planPath only returns cells of the grid it planned on.
+    if (!center) throw new Error(`Planned cell (${cell.column}, ${cell.row}) is outside its navigation grid`)
+    return center
+  })
 }
 
 function spawnMarker(clickToMove: ClickToMove, game: Game, mover: Entity, at: GridPoint): void {
@@ -146,8 +151,7 @@ function spawnMarker(clickToMove: ClickToMove, game: Game, mover: Entity, at: Gr
 
 /** Consumes the leading waypoints already reached; returns the direction to what's left. */
 function followWaypoints(clickToMove: ClickToMove, mover: Entity, waypoints: GridPoint[]): GridPoint | null {
-  while (waypoints.length > 0) {
-    const next = waypoints[0]!
+  for (let next = waypoints[0]; next !== undefined; next = waypoints[0]) {
     const gap = distance(pointOf(mover), next)
     if (gap <= clickToMove.arrivalTolerance) {
       waypoints.shift()
@@ -220,7 +224,7 @@ function startOrder(clickToMove: ClickToMove, entity: Entity, game: Game, pick: 
     // An entity without Health/Interactable: fall through to a ground order.
   }
   const waypoints = waypointsToward(game, entity, pick.point)
-  const destination = waypoints.length > 0 ? waypoints[waypoints.length - 1]! : pick.point
+  const destination = waypoints.at(-1) ?? pick.point
   clickToMove.order = { kind: 'ground', waypoints, destination }
   spawnMarker(clickToMove, game, entity, destination)
 }

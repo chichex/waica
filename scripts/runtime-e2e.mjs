@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { createRequire } from 'node:module'
 import {
@@ -18,6 +18,7 @@ import {
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
+import { stdioRpc } from './stdio-rpc.mjs'
 
 const execFileAsync = promisify(execFile)
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
@@ -294,6 +295,63 @@ async function assertUrlClosed(url) {
       return true
     }
   }, 5_000, `closed port ${url}`)
+}
+
+/** Starts a Run Session over a fresh raw `waica mcp` child and returns its URL. */
+async function startOverRawStdio(child, { project, chrome }) {
+  const rpc = stdioRpc(child)
+  await rpc.request('initialize', {
+    protocolVersion: '2025-11-25',
+    capabilities: {},
+    clientInfo: { name: 'waica-signal-shutdown-e2e', version: '1.0.0' },
+  })
+  rpc.notify('notifications/initialized')
+  const start = await rpc.request('tools/call', {
+    name: 'start_project',
+    arguments: {
+      project_path: project,
+      browser_executable_path: chrome.executablePath,
+      timeout_ms: 15_000,
+    },
+  })
+  assert.equal(start.isError, undefined, `start_project failed: ${JSON.stringify(start)}`)
+  return start.structuredContent.url
+}
+
+/** Sends SIGTERM and resolves the exit, or `{ timedOut: true }` after 8 s. */
+async function signalAndWait(child, exited) {
+  const signalledAt = Date.now()
+  child.kill('SIGTERM')
+  const exit = await Promise.race([
+    exited,
+    new Promise((resolve) => setTimeout(() => resolve({ timedOut: true }), 8_000)),
+  ])
+  return { exit, shutdownMs: Date.now() - signalledAt }
+}
+
+/**
+ * CA-10 (issue #100): SIGTERM on the real stdio server closes its Run
+ * Session (dev server and browser) and exits 0 within the 5 s deadline.
+ */
+async function runSignalShutdownLeg({ root, cliPath, project, chrome }) {
+  const child = spawn(process.execPath, [cliPath, 'mcp'], { cwd: root, stdio: ['pipe', 'pipe', 'pipe'] })
+  let stderr = ''
+  child.stderr.on('data', (chunk) => {
+    stderr += chunk.toString()
+  })
+  const exited = new Promise((resolve) => child.once('exit', (code, signal) => resolve({ code, signal })))
+  try {
+    const url = await startOverRawStdio(child, { project, chrome })
+    const { exit, shutdownMs } = await signalAndWait(child, exited)
+    assert.deepEqual(exit, { code: 0, signal: null }, `SIGTERM must exit 0: ${JSON.stringify(exit)}`)
+    assert.ok(shutdownMs < 5_500, `shutdown took ${shutdownMs} ms, past the 5 s deadline`)
+    await assertUrlClosed(url)
+    return { signalShutdownMs: shutdownMs }
+  } catch (error) {
+    throw new Error(`${error.message}\nsignal-shutdown MCP stderr:\n${stderr}`, { cause: error })
+  } finally {
+    child.kill('SIGKILL')
+  }
 }
 
 function pngDimensions(data) {
@@ -1736,6 +1794,7 @@ export async function runRuntimeE2e({
   includeProjection = true,
   includeSceneSwap = true,
   includeSceneFade = true,
+  includeSignalShutdown = true,
 }) {
   if (process.platform === 'win32') {
     throw new Error('The browser e2e gate requires its supported macOS/Linux host, not Windows.')
@@ -1825,6 +1884,12 @@ export async function runRuntimeE2e({
         })
       : {}
     if (negative) await runNegativeReadiness({ client, fixture: negative, chrome })
+    let signalShutdownResult = {}
+    if (includeSignalShutdown) {
+      // Frees the happy fixture for a second, signalled server process.
+      await call(client, 'stop_project', { project_path: happy.project }, 10_000)
+      signalShutdownResult = await runSignalShutdownLeg({ root, cliPath, project: happy.project, chrome })
+    }
     const result = {
       label,
       chromeExecutable: chrome.executablePath,
@@ -1836,6 +1901,7 @@ export async function runRuntimeE2e({
       ...isometricResult,
       ...sceneSwapResult,
       ...sceneFadeResult,
+      ...signalShutdownResult,
     }
     console.log(`waica runtime e2e (${label}): ${JSON.stringify(result)}`)
     return result

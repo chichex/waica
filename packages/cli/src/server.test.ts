@@ -16,6 +16,7 @@ import {
   parseArgs,
   probeWaica,
   resolveFile,
+  selfUpdateInstall,
 } from './server.js'
 
 describe('parseArgs', () => {
@@ -206,40 +207,71 @@ describe('compareVersions', () => {
   })
 })
 
-describe('fetchLatestVersion', () => {
-  async function registryStub(handler: (res: ServerResponse) => void): Promise<{
-    url: string
-    close: () => Promise<unknown>
-  }> {
-    const server = createServer((_req, res) => handler(res))
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-    const address = server.address()
-    if (address === null || typeof address === 'string') throw new Error('no server port')
-    return {
-      url: `http://127.0.0.1:${address.port}/latest`,
-      close: () => new Promise((resolve) => server.close(resolve)),
-    }
+async function registryStub(handler: (res: ServerResponse) => void): Promise<{
+  url: string
+  close: () => Promise<unknown>
+}> {
+  const server = createServer((_req, res) => handler(res))
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const address = server.address()
+  if (address === null || typeof address === 'string') throw new Error('no server port')
+  return {
+    url: `http://127.0.0.1:${address.port}/latest`,
+    close: () => new Promise((resolve) => server.close(resolve)),
   }
+}
 
+describe('fetchLatestVersion', () => {
   it('returns the version the registry reports', async () => {
     const stub = await registryStub((res) => {
       res.writeHead(200, { 'content-type': 'application/json' })
       res.end(JSON.stringify({ name: '@waica/cli', version: '9.9.9' }))
     })
-    expect(await fetchLatestVersion(stub.url, 1000)).toBe('9.9.9')
+    expect(await fetchLatestVersion(stub.url, 1000)).toEqual({ status: 'ok', version: '9.9.9' })
     await stub.close()
   })
 
-  it('returns null on registry errors or bad payloads', async () => {
+  it('accepts prerelease versions', async () => {
+    const stub = await registryStub((res) => {
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ version: '1.2.3-rc.1' }))
+    })
+    expect(await fetchLatestVersion(stub.url, 1000)).toEqual({ status: 'ok', version: '1.2.3-rc.1' })
+    await stub.close()
+  })
+
+  it('reports the registry as unavailable on errors or payloads without a version', async () => {
     const failing = await registryStub((res) => res.writeHead(500).end())
-    expect(await fetchLatestVersion(failing.url, 1000)).toBeNull()
+    expect(await fetchLatestVersion(failing.url, 1000)).toEqual({ status: 'unavailable' })
     await failing.close()
 
     const garbage = await registryStub((res) => {
       res.writeHead(200, { 'content-type': 'application/json' }).end('{"nope":true}')
     })
-    expect(await fetchLatestVersion(garbage.url, 1000)).toBeNull()
+    expect(await fetchLatestVersion(garbage.url, 1000)).toEqual({ status: 'unavailable' })
     await garbage.close()
+  })
+
+})
+
+describe('fetchLatestVersion validation', () => {
+  it.each([
+    '1.0.0 && rm -rf ~',
+    '1.0.0; echo pwned',
+    'latest',
+    '1.0',
+    'v1.0.0',
+    '1.0.0-',
+    '1.0.0+build',
+  ])('rejects a registry version %j that is not a plain semantic version', async (version) => {
+    const stub = await registryStub((res) => {
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ version }))
+    })
+    const latest = await fetchLatestVersion(stub.url, 1000)
+    expect(latest).toMatchObject({ status: 'rejected' })
+    expect(latest.status === 'rejected' ? latest.reason : '').toContain(JSON.stringify(version))
+    await stub.close()
   })
 })
 
@@ -286,5 +318,19 @@ describe('listenOnFreePort', () => {
 
     await new Promise((resolve) => server.close(resolve))
     await new Promise((resolve) => taken.close(resolve))
+  })
+})
+
+describe('selfUpdateInstall', () => {
+  it('installs exactly the validated version with a bounded wait', () => {
+    expect(selfUpdateInstall('@waica/cli', '1.2.3', 'darwin')).toEqual({
+      command: 'npm',
+      args: ['install', '-g', '@waica/cli@1.2.3'],
+      options: { stdio: 'inherit', shell: false, timeout: 300_000 },
+    })
+  })
+
+  it('only goes through a shell on Windows, where npm is a .cmd shim', () => {
+    expect(selfUpdateInstall('@waica/cli', '1.2.3', 'win32').options.shell).toBe(true)
   })
 })

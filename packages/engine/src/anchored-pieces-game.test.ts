@@ -26,6 +26,7 @@ import type { AnchoredPieceHandle } from './anchored-pieces'
 import { Component } from './component'
 import { Game, type GameOptions } from './game'
 import { loadScene, type SceneJson, type SceneRegistry } from './scene'
+import { defined } from './test-support'
 
 class ResizeObserverStub {
   observe(): void {}
@@ -53,7 +54,7 @@ function frame(game: Game, steps = 1): void {
 }
 
 function shadowHost(handle: AnchoredPieceHandle): HTMLElement {
-  return (handle.element!.getRootNode() as ShadowRoot).host as HTMLElement
+  return (defined(handle.element).getRootNode() as ShadowRoot).host as HTMLElement
 }
 
 /** The shadow host's top-left corner, in CSS px inside the anchored layer. */
@@ -125,7 +126,7 @@ describe('Anchored Piece placement (CA-2)', () => {
       { waicaScene: 3, render: { projection: 'isometric' }, entities: [{ name: 'Orc', position: [2, 0] }] },
       { components: {} },
     )
-    const tag = game.ui.attach('tag', game.find('Orc')!, { offset: [0, 1] })
+    const tag = game.ui.attach('tag', defined(game.find('Orc')), { offset: [0, 1] })
 
     frame(game)
 
@@ -139,7 +140,7 @@ describe('Anchored Piece placement (CA-2)', () => {
 
     frame(game)
 
-    const layer = shadowHost(tag).parentElement!
+    const layer = defined(shadowHost(tag).parentElement)
     expect([layer.style.left, layer.style.top, layer.style.width, layer.style.height]).toEqual([
       '0px',
       '75px',
@@ -193,8 +194,8 @@ describe('while not simulating (CA-8)', () => {
     const orc = game.spawn('Orc')
     const tag = game.ui.attach('tag', orc, { offset: [0, 1] })
     frame(game)
-    const layer = shadowHost(tag).parentElement!
-    const overlay = layer.parentElement!
+    const layer = defined(shadowHost(tag).parentElement)
+    const overlay = defined(layer.parentElement)
     expect(overlay.style.display).toBe('')
 
     game.simulate = false
@@ -221,7 +222,7 @@ describe('--waica-unit (CA-3)', () => {
     const game = makeGame()
     const orc = game.spawn('Orc')
     const tags = [game.ui.attach('tag', orc), game.ui.attach('tag', orc)]
-    const layer = shadowHost(tags[0]!).parentElement!
+    const layer = defined(shadowHost(defined(tags[0])).parentElement)
 
     frame(game)
     expect(unitOf(layer)).toBe('60px')
@@ -239,7 +240,7 @@ describe('--waica-unit (CA-3)', () => {
 
     frame(game)
 
-    expect(unitOf(shadowHost(tag).parentElement!)).toBe('45px')
+    expect(unitOf(defined(shadowHost(tag).parentElement))).toBe('45px')
     expect(unitOf(shadowHost(tag))).toBe('')
   })
 })
@@ -268,7 +269,7 @@ describe('Anchored Piece lifetime (CA-5)', () => {
     let steps = 0
     let probeFiredOnStep: number | null = null
     class Striker extends Component {
-      onUpdate(): void {
+      override onUpdate(): void {
         steps += 1
         if (hit) return
         // Attached during step k = 1; seconds 0.8 is 48 steps of Game Time.
@@ -279,18 +280,18 @@ describe('Anchored Piece lifetime (CA-5)', () => {
     game.spawn('Orc').add(Striker)
 
     frame(game)
-    expect(hit!.alive).toBe(true)
+    expect(defined<AnchoredPieceHandle | null>(hit).alive).toBe(true)
     for (let step = 2; step <= 48; step += 1) frame(game)
     expect(steps).toBe(48)
-    expect(hit!.alive).toBe(true)
+    expect(defined<AnchoredPieceHandle | null>(hit).alive).toBe(true)
     expect(probeFiredOnStep).toBeNull()
 
     frame(game)
 
     // Removed at the start of step k + 48 = 49, in the same pass as the probe.
     expect(probeFiredOnStep).toBe(49)
-    expect(hit!.alive).toBe(false)
-    expect(hit!.element).toBeNull()
+    expect(defined<AnchoredPieceHandle | null>(hit).alive).toBe(false)
+    expect(defined<AnchoredPieceHandle | null>(hit).element).toBeNull()
   })
 
   it('never expires while the Game is not simulating', () => {
@@ -340,7 +341,7 @@ describe('Anchored Piece lifetime (CA-5)', () => {
       { waicaScene: 3, render: { projection: 'isometric' }, entities: [{ name: 'Orc', position: [2, 0] }] },
       REGISTRY,
     )
-    const orc = game.find('Orc')!
+    const orc = defined(game.find('Orc'))
     const hit = game.ui.attach('tag', orc, { seconds: 0.8, offset: [0, 1] })
     frame(game)
 
@@ -357,8 +358,8 @@ describe('Anchored Piece lifetime (CA-5)', () => {
   it('removes every instance, with or without seconds, on unloadScene() and on every scene load that unloads', () => {
     const game = makeGame()
     loadScene(game, scene('Orc'), REGISTRY)
-    const plain = game.ui.attach('tag', game.find('Orc')!)
-    const timed = game.ui.attach('tag', game.find('Orc')!, { seconds: 5 })
+    const plain = game.ui.attach('tag', defined(game.find('Orc')))
+    const timed = game.ui.attach('tag', defined(game.find('Orc')), { seconds: 5 })
 
     game.unloadScene()
 
@@ -367,7 +368,7 @@ describe('Anchored Piece lifetime (CA-5)', () => {
     expect(game.time.pending).toBe(0)
 
     loadScene(game, scene('Slime'), REGISTRY)
-    const slime = game.find('Slime')!
+    const slime = defined(game.find('Slime'))
     const lingering = game.ui.attach('tag', slime, { seconds: 5 })
     slime.destroy()
     expect(lingering.alive).toBe(true)
@@ -428,7 +429,7 @@ describe('CSS animations inside an instance follow Game Time', () => {
 
   /** happy-dom's ShadowRoot.getAnimations() is always []: stubs the browser's for one instance. */
   function stubAnimations(handle: AnchoredPieceHandle, animations: FakeAnimation[]): void {
-    const shadow = handle.element!.getRootNode() as ShadowRoot
+    const shadow = defined(handle.element).getRootNode() as ShadowRoot
     shadow.getAnimations = () => animations as unknown as Animation[]
   }
 
@@ -493,7 +494,7 @@ describe('CSS animations inside an instance follow Game Time', () => {
   it('resumes a named animation the browser re-creates after the overlay was hidden at its Game Time age, not from 0', () => {
     const game = makeGame()
     const hit = game.ui.attach('tag', game.spawn('Orc'), { seconds: 5 })
-    const target = hit.element!.querySelector('.tag')!
+    const target = defined(defined(hit.element).querySelector('.tag'))
     const animations: FakeAnimation[] = [new FakeCssAnimation('rise', target)]
     stubAnimations(hit, animations)
     for (let step = 1; step <= 12; step += 1) frame(game)

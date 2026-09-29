@@ -1,4 +1,5 @@
 import type { StatValue } from '@waica/engine'
+import { isJsonObject, readJsonObject } from '../json-object'
 
 /**
  * Project stats: named values the game tracks while playing (points, lives,
@@ -27,18 +28,14 @@ function isStatValue(value: unknown): value is StatValue {
  * bad JSON or junk entries all degrade to an empty declaration.
  */
 export function parseStats(text: string | null): ProjectStats {
-  if (!text) return {}
-  try {
-    const json = JSON.parse(text) as Partial<StatsJson>
-    const stats: ProjectStats = {}
-    for (const [name, value] of Object.entries(json.stats ?? {})) {
-      if (isStatValue(value)) stats[name] = value
-    }
-    return stats
-  } catch {
-    // hand-edited into invalid JSON: the game still runs, without declared stats
-    return {}
+  // Hand-edited into invalid JSON or junk: the game still runs, without declared stats.
+  const declared = text ? readJsonObject(text)?.stats : undefined
+  const stats: ProjectStats = {}
+  if (!isJsonObject(declared)) return stats
+  for (const [name, value] of Object.entries(declared)) {
+    if (isStatValue(value)) stats[name] = value
   }
+  return stats
 }
 
 export function serializeStats(stats: ProjectStats): string {

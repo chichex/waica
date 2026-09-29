@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { SIMULATION_STEP } from './fixed-step'
 import { GameTime, advanceGameTime, type TimerOptions } from './game-time'
+import { defined } from './test-support'
 
 function step(time: GameTime, times = 1): void {
   for (let i = 0; i < times; i += 1) advanceGameTime(time)
@@ -382,7 +383,7 @@ describe('GameTime invalid input (CA-8)', () => {
     expectInvalid(() => {
       handle = time.after(NaN, callback)
     })
-    expect(handle!.active).toBe(false)
+    expect(defined(handle).active).toBe(false)
     step(time, 100)
     expect(callback).not.toHaveBeenCalled()
   })

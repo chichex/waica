@@ -242,6 +242,23 @@ export async function scaffoldComponent(
   return { ...(await writeOnce(projectPath, componentFilePath(name), componentTemplate(name))), className }
 }
 
+/** The active archetype's definition of a character role. */
+async function characterRole(projectPath: string, roleName: string): Promise<RoleDefinition> {
+  const roles = await archetypeRoles(projectPath)
+  const definition = roles[roleName]
+  if (!definition) {
+    // Falling back to an empty graph would write a character that stands
+    // still in Play and says nothing about why.
+    throw new WaicaToolError({
+      code: 'unknown-role',
+      message: `Unknown role "${roleName}". Available roles: ${Object.keys(roles).sort().join(', ')}.`,
+      projectPath,
+      available: Object.keys(roles).sort(),
+    })
+  }
+  return definition
+}
+
 /**
  * A starter prefab of the given type, byte-identical to what the editor
  * writes for the same inputs — for roles the active archetype defines. The
@@ -288,23 +305,10 @@ export async function scaffoldPrefab(
       `role is required when identity is "${identity}": the "player" default only applies when identity is "player" or omitted.`,
     )
   }
-  let definition: RoleDefinition | undefined
   // Same default the editor's creation dialog starts from.
   const roleName = role ?? 'player'
-  if (prefabType === 'character') {
-    const roles = await archetypeRoles(projectPath)
-    definition = roles[roleName]
-    if (!definition) {
-      // Falling back to an empty graph would write a character that stands
-      // still in Play and says nothing about why.
-      throw new WaicaToolError({
-        code: 'unknown-role',
-        message: `Unknown role "${roleName}". Available roles: ${Object.keys(roles).sort().join(', ')}.`,
-        projectPath,
-        available: Object.keys(roles).sort(),
-      })
-    }
-  }
+  const definition =
+    prefabType === 'character' ? await characterRole(projectPath, roleName) : undefined
   const prefab: PrefabJson = {
     waicaPrefab: 1,
     type: prefabType,

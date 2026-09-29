@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { planWorkspaceRuntime } from './workspace-runtime'
+import { defined } from '../../engine/src/test-support.js'
 
 const ROOT = path.sep === '/' ? '/repo' : 'C:\\repo'
 
@@ -13,7 +14,7 @@ describe('planWorkspaceRuntime', () => {
   it('maps core and every built archetype when all dists exist', async () => {
     const plan = await planWorkspaceRuntime(ROOT, existsExcept())
     expect(plan).toBeDefined()
-    expect(Object.keys(plan!.mappings).sort()).toEqual([
+    expect(Object.keys(defined(plan).mappings).sort()).toEqual([
       '@waica/archetype-isometric',
       '@waica/archetype-isometric/manifest',
       '@waica/archetype-platformer',
@@ -23,14 +24,14 @@ describe('planWorkspaceRuntime', () => {
       '@waica/behaviors',
       '@waica/engine',
     ])
-    expect(plan!.parentPrefixes).toHaveLength(5)
-    expect(plan!.warnings).toEqual([])
+    expect(defined(plan).parentPrefixes).toHaveLength(5)
+    expect(defined(plan).warnings).toEqual([])
   })
 
   it('skips only the archetype whose dist is missing, with a warning', async () => {
     const plan = await planWorkspaceRuntime(ROOT, existsExcept('archetype-topdown'))
     expect(plan).toBeDefined()
-    expect(Object.keys(plan!.mappings).sort()).toEqual([
+    expect(Object.keys(defined(plan).mappings).sort()).toEqual([
       '@waica/archetype-isometric',
       '@waica/archetype-isometric/manifest',
       '@waica/archetype-platformer',
@@ -38,9 +39,9 @@ describe('planWorkspaceRuntime', () => {
       '@waica/behaviors',
       '@waica/engine',
     ])
-    expect(plan!.parentPrefixes).toHaveLength(4)
-    expect(plan!.warnings).toHaveLength(1)
-    expect(plan!.warnings[0]).toContain('@waica/archetype-topdown')
+    expect(defined(plan).parentPrefixes).toHaveLength(4)
+    expect(defined(plan).warnings).toHaveLength(1)
+    expect(defined(plan).warnings[0]).toContain('@waica/archetype-topdown')
   })
 
   it('installs nothing without the core engine and behaviors dists', async () => {

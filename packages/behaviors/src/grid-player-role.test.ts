@@ -16,6 +16,7 @@ import { ISO_PLAYER_ROLE, ISO_PLAYER_STATE_GRAPH } from './iso-player-states'
 import { MeleeAttack } from './melee-attack'
 import { Respawnable } from './respawnable'
 import { TOPDOWN_PLAYER_STATE_GRAPH } from './topdown-player-states'
+import { defined } from '../../engine/src/test-support'
 
 beforeEach(() => installArchetype({ roles: { player: ISO_PLAYER_ROLE } }))
 
@@ -138,9 +139,9 @@ describe('the shared grid player graph', () => {
       const edge = (from: string, e: ReturnType<typeof env>) =>
         [...(states[from]?.transitions ?? []), ...(states['*']?.transitions ?? [])].find((t) => {
           const [kind, arg] = t.on.split(':')
-          if (kind === 'input') return e.justPressed(arg!)
+          if (kind === 'input') return e.justPressed(defined(arg))
           if (kind === 'timer') return e.elapsed >= Number(arg)
-          return e.signals.has(arg!)
+          return e.signals.has(defined(arg))
         })
       expect(edge('idle', env(press('attack')))?.to).toBe('attack')
       expect(edge('walk', env(press('attack')))?.to).toBe('attack')

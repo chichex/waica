@@ -2,6 +2,7 @@ import { access, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { KNOWN_ARCHETYPES } from './known-archetypes.js'
+import { objectRecord } from './component-metadata.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const WORKSPACE_DIRECTORIES: Readonly<Record<string, string>> = {
@@ -40,9 +41,7 @@ async function findWorkspaceRoot(): Promise<string | undefined> {
 
 async function isPackageNamed(packageRoot: string, packageName: string): Promise<boolean> {
   try {
-    const manifest = JSON.parse(
-      await readFile(path.join(packageRoot, 'package.json'), 'utf8'),
-    ) as { name?: unknown }
+    const manifest = objectRecord(JSON.parse(await readFile(path.join(packageRoot, 'package.json'), 'utf8')))
     return manifest.name === packageName
   } catch {
     return false

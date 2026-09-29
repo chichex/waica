@@ -41,6 +41,8 @@ import {
 import { createDefaultRuntimeSessionManager } from './runtime-session-manager.js'
 import { ProjectComponentLoader } from './project-component-loader.js'
 import { validateProject } from './validation.js'
+import { validateRuntimeArguments } from './runtime-arguments.js'
+import { objectRecord } from './component-metadata.js'
 
 const PROJECT_PATH = {
   type: 'string',
@@ -300,304 +302,148 @@ function invalidRuntimeInput(
   })
 }
 
-function assertOnlyRuntimeFields(
-  name: string,
-  args: Record<string, unknown>,
-  allowed: readonly string[],
-  projectPath: string,
-): void {
-  const extras = Object.keys(args).filter((key) => !allowed.includes(key))
-  if (extras.length > 0) {
-    invalidRuntimeInput(name, projectPath, `Unexpected properties: ${extras.sort().join(', ')}.`)
-  }
+/** What a tool call runs against besides its own arguments. */
+interface ToolContext {
+  readonly runtime: RuntimeService
+  readonly signal: AbortSignal
+  readonly componentLoader: ProjectComponentLoader
 }
 
-function assertStringArray(
-  name: string,
-  args: Record<string, unknown>,
-  field: string,
-  projectPath: string,
-): void {
-  const value = args[field]
-  if (value !== undefined && (!Array.isArray(value) || value.some((entry) => typeof entry !== 'string'))) {
-    invalidRuntimeInput(name, projectPath, `${field} must be an array of strings.`)
-  }
-}
-
-function validateRuntimeArguments(
-  name: string,
-  args: Record<string, unknown>,
-  projectPath: string,
-): void {
-  switch (name) {
-    case 'start_project': {
-      assertOnlyRuntimeFields(
-        name,
-        args,
-        ['project_path', 'browser_executable_path', 'headless', 'viewport', 'timeout_ms'],
-        projectPath,
-      )
-      if (
-        args.browser_executable_path !== undefined &&
-        (typeof args.browser_executable_path !== 'string' || args.browser_executable_path.length === 0)
-      ) {
-        invalidRuntimeInput(name, projectPath, 'browser_executable_path must be a nonempty string.')
-      }
-      if (args.headless !== undefined && typeof args.headless !== 'boolean') {
-        invalidRuntimeInput(name, projectPath, 'headless must be a boolean.')
-      }
-      if (args.timeout_ms !== undefined) {
-        const timeout = args.timeout_ms
-        if (typeof timeout !== 'number' || !Number.isInteger(timeout) || timeout < 1_000 || timeout > 120_000) {
-          invalidRuntimeInput(name, projectPath, 'timeout_ms must be an integer from 1,000 through 120,000.')
-        }
-      }
-      if (args.viewport !== undefined) {
-        if (!args.viewport || typeof args.viewport !== 'object' || Array.isArray(args.viewport)) {
-          invalidRuntimeInput(name, projectPath, 'viewport must contain width and height.')
-        }
-        const viewport = args.viewport as Record<string, unknown>
-        const keys = Object.keys(viewport)
-        if (
-          keys.some((key) => key !== 'width' && key !== 'height') ||
-          keys.length !== 2 ||
-          typeof viewport.width !== 'number' ||
-          typeof viewport.height !== 'number' ||
-          !Number.isInteger(viewport.width) ||
-          !Number.isInteger(viewport.height) ||
-          viewport.width <= 0 ||
-          viewport.height <= 0 ||
-          viewport.width * viewport.height > 1_000_000
-        ) {
-          invalidRuntimeInput(
-            name,
-            projectPath,
-            'viewport width and height must be positive integers totaling at most 1,000,000 pixels.',
-          )
-        }
-      }
-      return
-    }
-    case 'stop_project':
-    case 'capture_screenshot':
-      assertOnlyRuntimeFields(name, args, ['project_path'], projectPath)
-      return
-    case 'inspect_runtime':
-      assertOnlyRuntimeFields(
-        name,
-        args,
-        ['project_path', 'entity_ids', 'entity_names', 'component_types'],
-        projectPath,
-      )
-      assertStringArray(name, args, 'entity_ids', projectPath)
-      assertStringArray(name, args, 'entity_names', projectPath)
-      assertStringArray(name, args, 'component_types', projectPath)
-      return
-    case 'control_runtime': {
-      // Named before the generic extras check, but only for `step`: a
-      // pre-ADR-0014 caller stepping by dt is told what replaced it, not just
-      // that the key is unexpected. Every other operation never accepted dt
-      // either, so it falls through to the generic "unexpected properties"
-      // message below instead of this step-specific one.
-      if (args.dt !== undefined && args.operation === 'step') {
-        invalidRuntimeInput(
-          name,
-          projectPath,
-          'dt is not accepted: step advances whole Simulation Steps of 1/60 s each; pass frames (1 through 600) instead.',
-        )
-      }
-      assertOnlyRuntimeFields(
-        name,
-        args,
-        ['project_path', 'operation', 'action', 'frames', 'x', 'y', 'scene'],
-        projectPath,
-      )
-      const operation = args.operation
-      if (
-        !['press', 'hold', 'release', 'pause', 'resume', 'step', 'click', 'scene'].includes(
-          String(operation),
-        )
-      ) {
-        invalidRuntimeInput(name, projectPath, 'operation is not a supported runtime control operation.')
-      }
-      if (operation === 'press' || operation === 'hold' || operation === 'release') {
-        if (typeof args.action !== 'string' || args.action.length === 0) {
-          invalidRuntimeInput(name, projectPath, `${operation} requires a nonempty action.`)
-        }
-        if (
-          args.frames !== undefined ||
-          args.x !== undefined ||
-          args.y !== undefined ||
-          args.scene !== undefined
-        ) {
-          invalidRuntimeInput(name, projectPath, `${operation} does not accept frames, x, y or scene.`)
-        }
-      } else if (operation === 'pause' || operation === 'resume') {
-        if (
-          args.action !== undefined ||
-          args.frames !== undefined ||
-          args.x !== undefined ||
-          args.y !== undefined ||
-          args.scene !== undefined
-        ) {
-          invalidRuntimeInput(name, projectPath, `${operation} accepts no additional fields.`)
-        }
-      } else if (operation === 'click') {
-        if (args.action !== undefined || args.frames !== undefined || args.scene !== undefined) {
-          invalidRuntimeInput(name, projectPath, 'click does not accept action, frames or scene.')
-        }
-        if (typeof args.x !== 'number' || !Number.isFinite(args.x)) {
-          invalidRuntimeInput(name, projectPath, 'click requires a finite x.')
-        }
-        if (typeof args.y !== 'number' || !Number.isFinite(args.y)) {
-          invalidRuntimeInput(name, projectPath, 'click requires a finite y.')
-        }
-      } else if (operation === 'scene') {
-        if (
-          args.action !== undefined ||
-          args.frames !== undefined ||
-          args.x !== undefined ||
-          args.y !== undefined
-        ) {
-          invalidRuntimeInput(name, projectPath, 'scene does not accept action, frames, x or y.')
-        }
-        if (typeof args.scene !== 'string' || args.scene.length === 0) {
-          invalidRuntimeInput(name, projectPath, 'scene requires a nonempty scene name.')
-        }
-      } else {
-        if (args.action !== undefined) invalidRuntimeInput(name, projectPath, 'step does not accept action.')
-        if (args.x !== undefined || args.y !== undefined || args.scene !== undefined) {
-          invalidRuntimeInput(name, projectPath, 'step does not accept x, y or scene.')
-        }
-        if (
-          args.frames !== undefined &&
-          (typeof args.frames !== 'number' || !Number.isInteger(args.frames) || args.frames < 1 || args.frames > 600)
-        ) {
-          invalidRuntimeInput(name, projectPath, 'frames must be an integer from 1 through 600.')
-        }
-      }
-      return
-    }
-  }
-}
+type ToolOutput = Record<string, unknown> | RuntimeScreenshotResult
 
 async function execute(
   name: string,
   args: Record<string, unknown>,
-  runtime: RuntimeService,
-  signal: AbortSignal,
-  componentLoader: ProjectComponentLoader,
-): Promise<Record<string, unknown> | RuntimeScreenshotResult> {
+  context: ToolContext,
+): Promise<ToolOutput> {
+  const projectPath = checkedProjectPath(name, args)
+  return RUNTIME_TOOL_NAMES.has(name)
+    ? executeRuntimeTool(name, args, { projectPath, context })
+    : executeProjectTool(name, args, { projectPath, context })
+}
+
+/**
+ * The call's absolute project_path, checked at the dispatch boundary so every
+ * tool has byte-identical stdio-cwd semantics, including create_project.
+ * Runtime tools also have their remaining arguments checked here, before any
+ * Run Session work starts.
+ */
+function checkedProjectPath(name: string, args: Record<string, unknown>): string {
   const isRuntimeTool = RUNTIME_TOOL_NAMES.has(name)
   const rawProjectPath = args.project_path
   if (isRuntimeTool && (typeof rawProjectPath !== 'string' || rawProjectPath.length === 0)) {
     invalidRuntimeInput(name, '', 'project_path must be a nonempty absolute path.')
   }
   const projectPath = requiredString(args, 'project_path')
-  // Keep this at the dispatch boundary so every tool has byte-identical
-  // stdio-cwd semantics, including create_project.
-  if (isRuntimeTool) {
-    if (!path.isAbsolute(projectPath)) {
-      throw new RuntimeToolError({
-        code: 'runtime-prerequisite-missing',
-        stage: 'project',
-        message: ABSOLUTE_PATH_MESSAGE,
-        projectPath,
-      })
-    }
-    validateRuntimeArguments(name, args, projectPath)
-  } else {
+  if (!isRuntimeTool) {
     assertAbsoluteProjectPath(projectPath)
+    return projectPath
   }
+  if (!path.isAbsolute(projectPath)) {
+    throw new RuntimeToolError({
+      code: 'runtime-prerequisite-missing',
+      stage: 'project',
+      message: ABSOLUTE_PATH_MESSAGE,
+      projectPath,
+    })
+  }
+  const tool = TOOLS.find((candidate) => candidate.name === name)
+  if (tool) {
+    validateRuntimeArguments(tool, args, (message) => invalidRuntimeInput(name, projectPath, message))
+  }
+  return projectPath
+}
+
+interface ToolTarget {
+  readonly projectPath: string
+  readonly context: ToolContext
+}
+
+/** File-oriented creation, introspection, validation and scaffold tools. */
+async function executeProjectTool(
+  name: string,
+  args: Record<string, unknown>,
+  { projectPath, context }: ToolTarget,
+): Promise<Record<string, unknown>> {
+  const optionalString = (field: string): string | undefined =>
+    args[field] === undefined ? undefined : requiredString(args, field, projectPath)
   switch (name) {
-    case 'create_project': {
-      const start = args.start === undefined ? 'demo' : requiredString(args, 'start', projectPath)
-      if (start !== 'demo' && start !== 'blank') {
-        throw new WaicaToolError({
-          code: 'invalid-input',
-          message: 'start must be "demo" or "blank".',
-          projectPath,
-        })
-      }
-      const archetype =
-        args.archetype === undefined
-          ? DEFAULT_ARCHETYPE_ID
-          : requiredString(args, 'archetype', projectPath)
-      if (!knownArchetype(archetype)) {
-        throw new WaicaToolError({
-          code: 'unknown-archetype',
-          message: `Unknown archetype "${archetype}"; available: ${knownArchetypeIds().join(', ')}.`,
-          projectPath,
-        })
-      }
-      return { ...(await createProject(projectPath, start, archetype)) }
-    }
+    case 'create_project':
+      return createProjectFromArguments(projectPath, optionalString)
     case 'list_components':
       return listComponents(projectPath)
     case 'describe_archetype':
-      return describeArchetype(
-        projectPath,
-        args.archetype === undefined ? undefined : requiredString(args, 'archetype', projectPath),
-      )
+      return describeArchetype(projectPath, optionalString('archetype'))
     case 'project_summary':
       return projectSummary(projectPath)
     case 'validate_project':
-      return validateProject(projectPath, { signal, componentLoader })
-    case 'scaffold_component': {
-      const check = await requireWaicaProject(projectPath)
-      return {
-        ...(await scaffoldComponent(projectPath, requiredString(args, 'name', projectPath))),
-        notes: check.notes,
-        provenance: [],
-        warnings: [],
-      }
-    }
-    case 'scaffold_prefab': {
-      const check = await requireWaicaProject(projectPath)
-      return {
-        ...(await scaffoldPrefab(
-          projectPath,
-          requiredString(args, 'name', projectPath),
-          requiredString(args, 'type', projectPath),
-          args.role === undefined ? undefined : requiredString(args, 'role', projectPath),
-          args.identity === undefined ? undefined : requiredString(args, 'identity', projectPath),
-        )),
-        notes: check.notes,
-        provenance: [],
-        warnings: [],
-      }
-    }
-    case 'scaffold_role': {
-      const check = await requireWaicaProject(projectPath)
-      return {
-        ...(await scaffoldRole(projectPath, requiredString(args, 'role', projectPath))),
-        notes: check.notes,
-        provenance: [],
-        warnings: [],
-      }
-    }
-    case 'scaffold_state': {
-      const check = await requireWaicaProject(projectPath)
-      return {
-        ...(await scaffoldState(
-          projectPath,
-          requiredString(args, 'role', projectPath),
-          requiredString(args, 'state', projectPath),
-        )),
-        notes: check.notes,
-        provenance: [],
-        warnings: [],
-      }
-    }
-    case 'scaffold_ui': {
-      const check = await requireWaicaProject(projectPath)
-      return {
-        ...(await scaffoldUi(projectPath, requiredString(args, 'name', projectPath))),
-        notes: check.notes,
-        provenance: [],
-        warnings: [],
-      }
-    }
+      return validateProject(projectPath, {
+        signal: context.signal,
+        componentLoader: context.componentLoader,
+      })
+    default:
+      return executeScaffoldTool(name, args, projectPath)
+  }
+}
+
+/** Reads start, then archetype, each checked before the next is read. */
+async function createProjectFromArguments(
+  projectPath: string,
+  optionalString: (field: string) => string | undefined,
+): Promise<Record<string, unknown>> {
+  const start = optionalString('start') ?? 'demo'
+  if (start !== 'demo' && start !== 'blank') {
+    throw new WaicaToolError({
+      code: 'invalid-input',
+      message: 'start must be "demo" or "blank".',
+      projectPath,
+    })
+  }
+  const archetype = optionalString('archetype') ?? DEFAULT_ARCHETYPE_ID
+  if (!knownArchetype(archetype)) {
+    throw new WaicaToolError({
+      code: 'unknown-archetype',
+      message: `Unknown archetype "${archetype}"; available: ${knownArchetypeIds().join(', ')}.`,
+      projectPath,
+    })
+  }
+  return { ...(await createProject(projectPath, start, archetype)) }
+}
+
+/** Scaffold tools write a starter into an existing Waica Project. */
+async function executeScaffoldTool(
+  name: string,
+  args: Record<string, unknown>,
+  projectPath: string,
+): Promise<Record<string, unknown>> {
+  const field = (key: string): string => requiredString(args, key, projectPath)
+  const optionalField = (key: string): string | undefined =>
+    args[key] === undefined ? undefined : field(key)
+  const scaffolds = new Map<string, () => Promise<object>>([
+    ['scaffold_component', () => scaffoldComponent(projectPath, field('name'))],
+    [
+      'scaffold_prefab',
+      () => scaffoldPrefab(projectPath, field('name'), field('type'), optionalField('role'), optionalField('identity')),
+    ],
+    ['scaffold_role', () => scaffoldRole(projectPath, field('role'))],
+    ['scaffold_state', () => scaffoldState(projectPath, field('role'), field('state'))],
+    ['scaffold_ui', () => scaffoldUi(projectPath, field('name'))],
+  ])
+  const scaffold = scaffolds.get(name)
+  if (scaffold === undefined) {
+    throw new WaicaToolError({ code: 'unknown-tool', message: `Unknown tool "${name}".`, projectPath })
+  }
+  const check = await requireWaicaProject(projectPath)
+  return { ...(await scaffold()), notes: check.notes, provenance: [], warnings: [] }
+}
+
+/** Browser-backed Run Session tools, with arguments already validated. */
+function executeRuntimeTool(
+  name: string,
+  args: Record<string, unknown>,
+  { projectPath, context: { runtime, signal } }: ToolTarget,
+): Promise<ToolOutput> {
+  switch (name) {
     case 'start_project':
       return runtime.start({
         projectPath,
@@ -609,7 +455,7 @@ async function execute(
           ? { viewport: args.viewport as { width: number; height: number } }
           : {}),
         ...(typeof args.timeout_ms === 'number' ? { timeoutMs: args.timeout_ms } : {}),
-      })
+      }, { signal })
     case 'stop_project':
       return runtime.stop(projectPath)
     case 'inspect_runtime':
@@ -620,7 +466,7 @@ async function execute(
         ...(Array.isArray(args.component_types)
           ? { componentTypes: args.component_types as string[] }
           : {}),
-      })
+      }, { signal })
     case 'control_runtime':
       return runtime.control({
         projectPath,
@@ -630,20 +476,15 @@ async function execute(
         ...(typeof args.x === 'number' ? { x: args.x } : {}),
         ...(typeof args.y === 'number' ? { y: args.y } : {}),
         ...(typeof args.scene === 'string' ? { scene: args.scene } : {}),
-      } as RuntimeControlInput)
-    case 'capture_screenshot':
-      return runtime.captureScreenshot(projectPath)
+      } as RuntimeControlInput, { signal })
     default:
-      throw new WaicaToolError({
-        code: 'unknown-tool',
-        message: `Unknown tool "${name}".`,
-        projectPath,
-      })
+      return runtime.captureScreenshot(projectPath, { signal })
   }
 }
 
+/** The payload as plain JSON data (drops undefined, functions and prototypes). */
 function jsonSafe(value: Record<string, unknown>): Record<string, unknown> {
-  return JSON.parse(JSON.stringify(value)) as Record<string, unknown>
+  return objectRecord(JSON.parse(JSON.stringify(value)))
 }
 
 function result(payload: Record<string, unknown>, isError = false): CallToolResult {
@@ -720,8 +561,8 @@ function shippedVersion(): string {
   for (;;) {
     const manifest = path.join(directory, 'package.json')
     if (existsSync(manifest)) {
-      const { version } = JSON.parse(readFileSync(manifest, 'utf8')) as { version?: string }
-      if (version) return version
+      const { version } = objectRecord(JSON.parse(readFileSync(manifest, 'utf8')))
+      if (typeof version === 'string' && version !== '') return version
     }
     const parent = path.dirname(directory)
     if (parent === directory) return '0.0.0'
@@ -751,13 +592,11 @@ export function createWaicaMcpServer(options: WaicaMcpServerOptions = {}): Serve
   server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     const args = (request.params.arguments ?? {}) as Record<string, unknown>
     try {
-      const executed = await execute(
-        request.params.name,
-        args,
+      const executed = await execute(request.params.name, args, {
         runtime,
-        extra.signal,
+        signal: extra.signal,
         componentLoader,
-      )
+      })
       return request.params.name === 'capture_screenshot'
         ? screenshotResult(executed as RuntimeScreenshotResult)
         : result(executed as Record<string, unknown>)
@@ -773,12 +612,19 @@ export function createWaicaMcpServer(options: WaicaMcpServerOptions = {}): Serve
     return cleanup
   }
   server.onclose = () => {
-    void cleanupResources()
+    cleanupResources().catch((error: unknown) => {
+      console.error(`waica-mcp: cleanup failed: ${error instanceof Error ? error.message : String(error)}`)
+    })
   }
   const closeProtocol = server.close.bind(server)
   server.close = async () => {
-    await cleanupResources()
-    await closeProtocol()
+    // A failed cleanup is still reported, but the transport must close
+    // either way or the process would stay alive on its open stdin.
+    try {
+      await cleanupResources()
+    } finally {
+      await closeProtocol()
+    }
   }
   return server
 }

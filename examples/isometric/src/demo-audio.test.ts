@@ -38,6 +38,7 @@ import { ARCHETYPE, ISOMETRIC_CAVE_SCENE, ISOMETRIC_SCENE } from '@waica/archety
 import { FakeAudioBackend, flush } from '../../../packages/engine/src/audio/test-helpers.js'
 import controls from './controls.json'
 import stats from './stats.json'
+import { defined } from '../../../packages/engine/src/test-support'
 
 class ResizeObserverStub {
   observe(): void {}
@@ -59,6 +60,12 @@ const MUSIC_URI = resolveAsset('waica:iso-town-theme')
 const SWING_URI = resolveAsset('waica:iso-sword-swing')
 const ORC_HURT_URI = resolveAsset('waica:iso-hit')
 const PLAYER_HURT_URI = resolveAsset('waica:iso-hurt')
+
+const PRELOADED_SOUNDS = ['waica:iso-sword-swing', 'waica:iso-hit', 'waica:iso-hurt', 'waica:iso-town-theme']
+
+function reportPreloadFailure(error: unknown): void {
+  console.error('[waica] audio preload failed:', error)
+}
 
 /** Fires an untracked, unbound key so it unlocks audio (CA-6) without also driving any game action. */
 function unlock(): void {
@@ -96,7 +103,7 @@ function makeDemo(backend: FakeAudioBackend) {
   // exactly: the music uri comes from the manifest field, not a hardcoded
   // literal, and is resolved internally by game.audio through the
   // registered scene catalog above — no manual resolveAsset step needed.
-  void game.audio.preload(['waica:iso-sword-swing', 'waica:iso-hit', 'waica:iso-hurt', 'waica:iso-town-theme'])
+  game.audio.preload(PRELOADED_SOUNDS).catch(reportPreloadFailure)
   const musicUri = ARCHETYPE.music
   if (!musicUri) throw new Error('expected the isometric archetype to declare music (G8)')
   const musicHandle = game.audio.play(musicUri, { channel: 'music', loop: true, scope: 'session' })
@@ -130,8 +137,8 @@ function makeDemo(backend: FakeAudioBackend) {
 async function triggerCombatSounds(demo: ReturnType<typeof makeDemo>): Promise<void> {
   const player = demo.find('Player')
   const orc = demo.find('Orc')
-  const motor = player.get(IsoMotor)!
-  const orcHealth = orc.get(Health)!
+  const motor = defined(player.get(IsoMotor))
+  const orcHealth = defined(orc.get(Health))
 
   // The real demo's first unlock comes from whatever key the player presses
   // first (movement, attack, ...) — always after boot, never before (CA-6).
@@ -154,7 +161,7 @@ async function triggerCombatSounds(demo: ReturnType<typeof makeDemo>): Promise<v
   player.position.set(currentOrc.position.x - 0.5, currentOrc.position.y, 0)
   demo.frame()
   await flush()
-  expect(player.get(Health)!.current).toBe(2) // took the orc's contact damage
+  expect(defined(player.get(Health)).current).toBe(2) // took the orc's contact damage
 }
 
 beforeEach(() => {

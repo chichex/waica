@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { TOPDOWN_ART } from './art'
 import { TOPDOWN_PREFABS } from './prefabs'
+import { defined } from '../../engine/src/test-support'
 
 /** PNG IHDR: width and height as big-endian u32 at byte offsets 16 and 20. */
 function pngSize(file: string): { width: number; height: number } {
@@ -14,7 +15,7 @@ function pngSize(file: string): { width: number; height: number } {
 function artFileFor(uri: string): string {
   const row = TOPDOWN_ART.find((art) => art.uri === uri)
   expect(row, uri).toBeDefined()
-  return row!.file
+  return defined(row).file
 }
 
 interface SpriteProps {
@@ -42,7 +43,7 @@ describe('topdown stock art', () => {
       for (const component of prefab.components) {
         if (component.type !== 'AnimatedSprite') continue
         const sprite = component.props as SpriteProps
-        const { width, height } = pngSize(artFileFor(sprite.texture!))
+        const { width, height } = pngSize(artFileFor(defined(sprite.texture)))
         const cols = sprite.cols ?? 1
         const rows = sprite.rows ?? 1
         // Multi-cell sheets carry transparent gutters between cells so

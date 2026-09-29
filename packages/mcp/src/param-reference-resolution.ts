@@ -47,72 +47,79 @@ export interface ParamReferenceFinding {
   ref: string
 }
 
+/** How one `ParamSpec.ref` kind resolves, and the finding an unresolved value produces. */
+interface ReferenceRule {
+  resolves: (check: ParamReferenceCheck, context: ParamReferenceResolutionContext) => boolean
+  severity: FindingSeverity
+  code: FindingCode
+  /** What the value fails to name, as in `references <target> "<value>"`. */
+  target: string
+  /** Closes the message; a plain period unless the finding needs a caveat. */
+  ending?: string
+}
+
+const REFERENCE_RULES: Record<NonNullable<ParamSpec['ref']>, ReferenceRule> = {
+  prefab: {
+    resolves: ({ value }, context) => context.prefabRefs.has(value),
+    severity: 'error',
+    code: 'broken-prefab-ref',
+    target: 'missing prefab',
+  },
+  clip: {
+    resolves: ({ value, clips }, context) => !clips || isPlayableClip(clips, value, context.animation),
+    severity: 'error',
+    code: 'missing-clip',
+    target: 'missing animation clip',
+  },
+  action: {
+    resolves: ({ value }, context) => isBoundAction(context.bindings, value),
+    // Consistent with the pre-existing state-transition check for the
+    // same condition: an unbound action is a real gap the agent should
+    // look at, but not one that flips ok:false.
+    severity: 'warning',
+    code: 'input-action-unbound',
+    target: 'unbound input action',
+  },
+  stat: {
+    resolves: ({ value }, context) => context.declaredStats.has(value),
+    severity: 'warning',
+    code: 'undeclared-stat',
+    target: 'undeclared stat',
+    ending: '; runtime writes may still create it.',
+  },
+  sound: {
+    resolves: ({ value }, context) => context.soundRefs.has(value),
+    severity: 'error',
+    code: 'missing-sound',
+    target: 'missing sound',
+  },
+  ui: {
+    resolves: ({ value }, context) => context.uiPieces.has(value),
+    // Same severity and code as an unknown entry in a scene's `ui` list:
+    // the Game only warns at runtime when a missing piece is attached.
+    severity: 'warning',
+    code: 'unknown-ui-piece',
+    target: 'unknown UI piece',
+  },
+}
+
 /** Resolves one declared ref param; returns undefined when the value is valid. */
 export function resolveParamReference(
   check: ParamReferenceCheck,
   context: ParamReferenceResolutionContext,
 ): ParamReferenceFinding | undefined {
-  const { componentType, param, ref, value, clips, file, field } = check
-  switch (ref) {
-    case 'prefab':
-      if (context.prefabRefs.has(value)) return undefined
-      return {
-        severity: 'error',
-        code: 'broken-prefab-ref',
-        message: `Component "${componentType}" param "${param}" references missing prefab "${value}".`,
-        file,
-        ref: field,
-      }
-    case 'clip':
-      if (!clips || isPlayableClip(clips, value, context.animation)) return undefined
-      return {
-        severity: 'error',
-        code: 'missing-clip',
-        message: `Component "${componentType}" param "${param}" references missing animation clip "${value}".`,
-        file,
-        ref: field,
-      }
-    case 'action':
-      if (isBoundAction(context.bindings, value)) return undefined
-      return {
-        // Consistent with the pre-existing state-transition check for the
-        // same condition: an unbound action is a real gap the agent should
-        // look at, but not one that flips ok:false.
-        severity: 'warning',
-        code: 'input-action-unbound',
-        message: `Component "${componentType}" param "${param}" references unbound input action "${value}".`,
-        file,
-        ref: field,
-      }
-    case 'stat':
-      if (context.declaredStats.has(value)) return undefined
-      return {
-        severity: 'warning',
-        code: 'undeclared-stat',
-        message: `Component "${componentType}" param "${param}" references undeclared stat "${value}"; runtime writes may still create it.`,
-        file,
-        ref: field,
-      }
-    case 'sound':
-      if (context.soundRefs.has(value)) return undefined
-      return {
-        severity: 'error',
-        code: 'missing-sound',
-        message: `Component "${componentType}" param "${param}" references missing sound "${value}".`,
-        file,
-        ref: field,
-      }
-    case 'ui':
-      if (context.uiPieces.has(value)) return undefined
-      return {
-        // Same severity and code as an unknown entry in a scene's `ui` list:
-        // the Game only warns at runtime when a missing piece is attached.
-        severity: 'warning',
-        code: 'unknown-ui-piece',
-        message: `Component "${componentType}" param "${param}" references unknown UI piece "${value}".`,
-        file,
-        ref: field,
-      }
+  // A ref kind this validator does not know is ignored, as the switch it
+  // replaced did; `check.ref` comes from a spec that may be newer.
+  if (!Object.hasOwn(REFERENCE_RULES, check.ref)) return undefined
+  const rule = REFERENCE_RULES[check.ref]
+  if (rule.resolves(check, context)) return undefined
+  const { componentType, param, value } = check
+  return {
+    severity: rule.severity,
+    code: rule.code,
+    message: `Component "${componentType}" param "${param}" references ${rule.target} "${value}"${rule.ending ?? '.'}`,
+    file: check.file,
+    ref: check.field,
   }
 }
 

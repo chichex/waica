@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { artDirOf, filterArt, groupArtByFolder } from './ArtPicker'
 import type { ArtItem } from './use-project-art'
+import { defined } from '../../../engine/src/test-support'
 
 function item(path: string): ArtItem {
-  const label = path.split('/').pop()!
+  const label = defined(path.split('/').pop())
   return { label, url: `blob:${label}`, uri: path, path, kind: 'image' }
 }
 
@@ -39,7 +40,7 @@ describe('groupArtByFolder', () => {
       item('src/art/Tiles/Hills_1.png'),
     ])
     expect(groups.map((g) => g.folder)).toEqual(['', 'Backdrops', 'Tiles'])
-    expect(groups[2]!.items.map((i) => i.label)).toEqual(['Hills_1.png', 'Hills_2.png'])
+    expect(defined(groups[2]).items.map((i) => i.label)).toEqual(['Hills_1.png', 'Hills_2.png'])
   })
 
   it('keeps same-named files apart in their own folders', () => {

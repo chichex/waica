@@ -35,12 +35,9 @@ interface GridPlayerRoleParts {
 const ATTACK_SECONDS = 0.3
 const HURT_SECONDS = 0.3
 
-/** Builds the common player graph and role around one genre-specific grid motor. */
-export function createGridPlayerRole<T extends PlayerMotor>(
-  Motor: ComponentClass<T>,
-  description: string,
-): GridPlayerRoleParts {
-  const graph: RoleGraph = {
+/** The common player graph; fresh per role so no two roles share a mutable graph. */
+function gridPlayerGraph(): RoleGraph {
+  return {
     initial: 'idle',
     states: {
       idle: {
@@ -80,8 +77,13 @@ export function createGridPlayerRole<T extends PlayerMotor>(
       },
     },
   }
+}
 
-  const update = (ctx: StateContext, dt: number): void => {
+/** The body update: keyboard input, else a live Move Order, then the motor step and move/stop signal. */
+function gridPlayerUpdate<T extends PlayerMotor>(
+  Motor: ComponentClass<T>,
+): (ctx: StateContext, dt: number) => void {
+  return (ctx, dt) => {
     const { entity, game, fsm } = ctx
     const motor = entity.get(Motor)
     if (!motor) return
@@ -107,6 +109,34 @@ export function createGridPlayerRole<T extends PlayerMotor>(
     motor.step(dt)
     fsm.signal(motor.speed() > motor.walkThreshold ? 'move' : 'stop')
   }
+}
+
+/** Sets the motor's knockback velocity away from the last damage source, else back from its facing. */
+function knockBack(
+  { entity, game }: Pick<StateContext, 'entity' | 'game'>,
+  motor: PlayerMotor,
+): void {
+  const source = entity.get(Health)?.lastDamageSource
+  const dx = source ? entity.position.x - source.position.x : 0
+  const dy = source ? entity.position.y - source.position.y : 0
+  const distance = Math.hypot(dx, dy)
+  let away = distance > 0 ? { x: dx / distance, y: dy / distance } : undefined
+  if (!away) {
+    // No source (or one standing on top of us): recoil from the facing.
+    const forward = logicalDirection(motor.facing, game.projection)
+    away = forward ? { x: -forward.x, y: -forward.y } : { x: 0, y: 0 }
+  }
+  motor.vx = away.x * motor.knockbackSpeed
+  motor.vy = away.y * motor.knockbackSpeed
+}
+
+/** Builds the common player graph and role around one genre-specific grid motor. */
+export function createGridPlayerRole<T extends PlayerMotor>(
+  Motor: ComponentClass<T>,
+  description: string,
+): GridPlayerRoleParts {
+  const graph = gridPlayerGraph()
+  const update = gridPlayerUpdate(Motor)
 
   const role: RoleDefinition = {
     description,
@@ -141,21 +171,9 @@ export function createGridPlayerRole<T extends PlayerMotor>(
         onUpdate() {},
       },
       hurt: {
-        onEnter({ entity, game }) {
-          const motor = entity.get(Motor)
-          if (!motor) return
-          const source = entity.get(Health)?.lastDamageSource
-          const dx = source ? entity.position.x - source.position.x : 0
-          const dy = source ? entity.position.y - source.position.y : 0
-          const distance = Math.hypot(dx, dy)
-          let away = distance > 0 ? { x: dx / distance, y: dy / distance } : undefined
-          if (!away) {
-            // No source (or one standing on top of us): recoil from the facing.
-            const forward = logicalDirection(motor.facing, game.projection)
-            away = forward ? { x: -forward.x, y: -forward.y } : { x: 0, y: 0 }
-          }
-          motor.vx = away.x * motor.knockbackSpeed
-          motor.vy = away.y * motor.knockbackSpeed
+        onEnter(ctx) {
+          const motor = ctx.entity.get(Motor)
+          if (motor) knockBack(ctx, motor)
         },
         // The shove resolves against Solids like any movement; no input.
         onUpdate({ entity }, dt) {

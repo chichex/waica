@@ -34,6 +34,7 @@ import { SIMULATION_STEP } from './fixed-step'
 import { Game } from './game'
 import { loadScene } from './scene'
 import { StateMachine } from './state/state-machine'
+import { defined } from './test-support'
 
 class ResizeObserverStub {
   observe(): void {}
@@ -227,7 +228,7 @@ describe('scene scope (CA-4)', () => {
       { waicaScene: 3, entities: [{ name: 'Incoming', components: [{ type: 'ScheduleOnReady' }] }] },
       { components: { ScheduleOnReady } },
     )
-    const probe = game.find('Incoming')!.get(ScheduleOnReady)!
+    const probe = defined(defined(game.find('Incoming')).get(ScheduleOnReady))
 
     step(6)
     expect(probe.ran).toBe(true)

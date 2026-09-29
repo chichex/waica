@@ -106,33 +106,53 @@ export function collisionOverlap(a: CollisionBody, b: CollisionBody): boolean {
 
   const verticesA = collisionVertices(a)
   const verticesB = collisionVertices(b)
-  for (let ai = 0; ai < verticesA.length; ai++) {
-    const a1 = verticesA[ai]!
-    const a2 = verticesA[(ai + 1) % verticesA.length]!
-    for (let bi = 0; bi < verticesB.length; bi++) {
-      const b1 = verticesB[bi]!
-      const b2 = verticesB[(bi + 1) % verticesB.length]!
-      if (segmentsCross(a1, a2, b1, b2)) return true
-    }
-  }
+  if (polygonEdgesCross(verticesA, verticesB)) return true
 
   return hasInteriorPoint(verticesA, verticesB) || hasInteriorPoint(verticesB, verticesA)
 }
 
-function hasInteriorPoint(points: CollisionPoint[], polygon: CollisionPoint[]): boolean {
-  for (let index = 0; index < points.length; index++) {
-    const point = points[index]!
-    if (pointInPolygon(point, polygon)) return true
-    const next = points[(index + 1) % points.length]!
-    if (pointInPolygon([(point[0] + next[0]) / 2, (point[1] + next[1]) / 2], polygon)) {
-      return true
-    }
+/** Whether any closed-polygon edge of `polygonA` properly crosses one of `polygonB`. */
+function polygonEdgesCross(polygonA: CollisionPoint[], polygonB: CollisionPoint[]): boolean {
+  let a1 = polygonA.at(-1)
+  if (a1 === undefined) return false
+  for (const a2 of polygonA) {
+    if (edgeCrossesPolygon(a1, a2, polygonB)) return true
+    a1 = a2
   }
+  return false
+}
+
+function edgeCrossesPolygon(a1: CollisionPoint, a2: CollisionPoint, polygon: CollisionPoint[]): boolean {
+  let b1 = polygon.at(-1)
+  if (b1 === undefined) return false
+  for (const b2 of polygon) {
+    if (segmentsCross(a1, a2, b1, b2)) return true
+    b1 = b2
+  }
+  return false
+}
+
+function hasInteriorPoint(points: CollisionPoint[], polygon: CollisionPoint[]): boolean {
+  if (hasVertexOrMidpointInside(points, polygon)) return true
   const center: CollisionPoint = [
     points.reduce((sum, [x]) => sum + x, 0) / points.length,
     points.reduce((sum, [, y]) => sum + y, 0) / points.length,
   ]
   return pointInPolygon(center, polygon)
+}
+
+/** Whether any vertex of `points`, or the midpoint of any of its closed-polygon edges, lies inside `polygon`. */
+function hasVertexOrMidpointInside(points: CollisionPoint[], polygon: CollisionPoint[]): boolean {
+  let previous = points.at(-1)
+  if (previous === undefined) return false
+  for (const point of points) {
+    if (pointInPolygon(point, polygon)) return true
+    if (pointInPolygon([(previous[0] + point[0]) / 2, (previous[1] + point[1]) / 2], polygon)) {
+      return true
+    }
+    previous = point
+  }
+  return false
 }
 
 function segmentsCross(
@@ -154,14 +174,15 @@ function cross(a: CollisionPoint, b: CollisionPoint, point: CollisionPoint): num
 
 function pointInPolygon(point: CollisionPoint, polygon: CollisionPoint[]): boolean {
   let inside = false
-  for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index++) {
-    const a = polygon[index]!
-    const b = polygon[previous]!
+  let b = polygon.at(-1)
+  if (b === undefined) return inside
+  for (const a of polygon) {
     if (pointOnSegment(point, a, b)) return false
     const crosses =
       (a[1] > point[1]) !== (b[1] > point[1]) &&
       point[0] < ((b[0] - a[0]) * (point[1] - a[1])) / (b[1] - a[1]) + a[0]
     if (crosses) inside = !inside
+    b = a
   }
   return inside
 }

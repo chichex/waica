@@ -24,6 +24,7 @@ vi.mock('three', async (importOriginal) => {
 
 import { Game, RUNTIME_BRIDGE_SYMBOL, type RuntimeBridge, type RuntimeBridgeActivation } from '../index.js'
 import { FakeAudioBackend, flush } from './test-helpers.js'
+import { defined } from '../test-support'
 
 class ResizeObserverStub {
   observe(): void {}
@@ -441,7 +442,7 @@ describe('CA-8 — positional audio', () => {
     const panLeft = backend.playbacks[1]?.setPanCalls.at(-1)
     expect(panRight).toBeGreaterThan(0)
     expect(panLeft).toBeLessThan(0)
-    expect(panRight).toBeCloseTo(-panLeft!, 5)
+    expect(panRight).toBeCloseTo(-defined(panLeft), 5)
     game.dispose()
   })
 
@@ -542,7 +543,7 @@ describe('CA-8 — positional audio', () => {
     runFrame(1)
     runFrame(1)
 
-    expect(backend.playbacks[0]?.setVolumeCalls).toHaveLength(setVolumeCallsWhenFadeStarted!)
+    expect(backend.playbacks[0]?.setVolumeCalls).toHaveLength(defined(setVolumeCallsWhenFadeStarted))
     expect(backend.playbacks[0]?.stops).toEqual([{ fadeMs: 500 }])
     expect(handle.playing).toBe(true)
     game.dispose()

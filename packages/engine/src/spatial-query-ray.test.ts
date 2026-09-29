@@ -13,6 +13,7 @@ import {
   createSpatialQuery,
   type SpatialQueryCandidateProviders,
 } from './spatial-query'
+import { defined } from './test-support'
 
 interface World {
   readonly game: Game
@@ -80,8 +81,8 @@ describe('SpatialQuery.ray input, sources, and ordering', () => {
     expect(hit?.entity).toBe(wall)
     expect(hit?.solid).toBe(solid)
     expect(hit?.distance).toBe(4)
-    expectVector(hit!.point, { x: 4, y: 0 })
-    expectVector(hit!.normal, { x: -1, y: 0 })
+    expectVector(defined(hit).point, { x: 4, y: 0 })
+    expectVector(defined(hit).normal, { x: -1, y: 0 })
     const snapped = world.game.query.ray(0, 0, 1, 0, 4 - 0.5e-9)
     expect(snapped?.distance).toBe(4 - 0.5e-9)
     expect(snapped?.point.x).toBe(4 - 0.5e-9)
@@ -97,7 +98,7 @@ describe('SpatialQuery.ray input, sources, and ordering', () => {
 
     expect(hit?.solid).toBe(solid)
     expect(hit?.distance).toBe(1)
-    expectVector(hit!.normal, { x: -1, y: 0 })
+    expectVector(defined(hit).normal, { x: -1, y: 0 })
   })
 
   it('keeps a zero-distance inward entry for a thin Solid', () => {
@@ -109,7 +110,7 @@ describe('SpatialQuery.ray input, sources, and ordering', () => {
 
     expect(hit?.solid).toBe(solid)
     expect(hit?.distance).toBe(0)
-    expectVector(hit!.normal, { x: -1, y: 0 })
+    expectVector(defined(hit).normal, { x: -1, y: 0 })
   })
 
   it('normalizes finite direction components without overflow or underflow', () => {
@@ -123,7 +124,7 @@ describe('SpatialQuery.ray input, sources, and ordering', () => {
       10,
     )
     expect(diagonal?.distance).toBeCloseTo(Math.hypot(4, 4), 10)
-    expectVector(diagonal!.point, { x: 4, y: 4 })
+    expectVector(defined(diagonal).point, { x: 4, y: 4 })
 
     const tinyWorld = makeWorld()
     tinyWorld.spawn('Tiny direction wall', 2, 0).add(Solid)
@@ -170,18 +171,18 @@ describe('SpatialQuery.ray input, sources, and ordering', () => {
       cells: [7],
       solidTiles: [7],
     })
-    const derived = tilemap.solids()[0]!
+    const derived = defined(tilemap.solids()[0])
 
     const hit = world.game.query.ray(-2, 1, 1, 0, 10, { with: [Tilemap] as const })
 
     expect(hit?.entity).toBe(map)
     expect(hit?.solid).toBe(derived)
     expect(hit?.distance).toBe(2)
-    expectVector(hit!.normal, { x: -1, y: 0 })
+    expectVector(defined(hit).normal, { x: -1, y: 0 })
     expect(world.game.query.ray(-2, 1, 1, 0, 10, { with: [Solid] })).toBeNull()
     tilemap.cells = [-1]
     expect(tilemap.solids()).not.toContain(derived)
-    expect(hit!.solid).toBe(derived)
+    expect(defined(hit).solid).toBe(derived)
   })
 
   it('keeps a direct Solid ahead of a source-derived Solid at the same distance', () => {
@@ -239,7 +240,7 @@ describe('SpatialQuery.ray input, sources, and ordering', () => {
     const wall = world.spawn('Wall', 3, 0)
     const solid = wall.add(Solid, { width: 2, height: 2 })
 
-    const hit = world.game.query.ray(0, 0, 1, 0, 10)!
+    const hit = defined(world.game.query.ray(0, 0, 1, 0, 10))
     world.spawn('Later and closer', 1.5, 0).add(Solid)
     wall.position.x = 20
     solid.width = 8
@@ -260,15 +261,15 @@ describe('SpatialQuery.ray polygon crossings', () => {
     const world = makeWorld()
     world.spawn('Box', 1, 0).add(Solid, { width: 2, height: 2 })
 
-    const entry = world.game.query.ray(-2, 0, 1, 0, 10)!
+    const entry = defined(world.game.query.ray(-2, 0, 1, 0, 10))
     expect(entry.distance).toBe(2)
     expectVector(entry.normal, { x: -1, y: 0 })
 
-    const exit = world.game.query.ray(1, 0, 1, 0, 10)!
+    const exit = defined(world.game.query.ray(1, 0, 1, 0, 10))
     expect(exit.distance).toBe(1)
     expectVector(exit.normal, { x: 1, y: 0 })
 
-    const boundaryIn = world.game.query.ray(0, 0, 1, 0, 0)!
+    const boundaryIn = defined(world.game.query.ray(0, 0, 1, 0, 0))
     expect(boundaryIn.distance).toBe(0)
     expectVector(boundaryIn.normal, { x: -1, y: 0 })
     expect(world.game.query.ray(0, 0, -1, 0, 10)).toBeNull()
@@ -292,8 +293,8 @@ describe('SpatialQuery.ray polygon crossings', () => {
 
     expect(outsideEntry?.distance).toBeCloseTo(2e-9, 15)
     expect(insideExit?.distance).toBeCloseTo(2e-9, 15)
-    expectVector(outsideEntry!.normal, { x: -1, y: 0 })
-    expectVector(insideExit!.normal, { x: -1, y: 0 })
+    expectVector(defined(outsideEntry).normal, { x: -1, y: 0 })
+    expectVector(defined(insideExit).normal, { x: -1, y: 0 })
   })
 
   it('uses Solid offsets, absolute dimensions, fallbacks, and logical projected positions', () => {
@@ -302,7 +303,7 @@ describe('SpatialQuery.ray polygon crossings', () => {
     projected.add(Solid, { offsetX: -2, width: -2, height: -2 })
     projected.setProjected(true)
     projected.node.position.set(100, 100, 0)
-    const projectedHit = projectedWorld.game.query.ray(0, 5, 1, 0, 10)!
+    const projectedHit = defined(projectedWorld.game.query.ray(0, 5, 1, 0, 10))
     expect(projectedHit.entity).toBe(projected)
     expect(projectedHit.distance).toBe(2)
 
@@ -346,7 +347,7 @@ describe('SpatialQuery.ray polygon crossings', () => {
       points: points.map((point) => [...point]),
     })
 
-    const hit = world.game.query.ray(-2, 0, 1, 0, 10)!
+    const hit = defined(world.game.query.ray(-2, 0, 1, 0, 10))
     expect(hit.distance).toBe(1)
     expectVector(hit.point, { x: -1, y: 0 })
     expectVector(hit.normal, { x: -1, y: 0 })
@@ -372,7 +373,7 @@ describe('SpatialQuery.ray polygon crossings', () => {
       points: reverse ? [...points].reverse() : points,
     })
 
-    const hit = world.game.query.ray(1, 3, 0, -1, 10)!
+    const hit = defined(world.game.query.ray(1, 3, 0, -1, 10))
     expect(hit.distance).toBeCloseTo(3.4, 10)
     expectVector(hit.point, { x: 1, y: -0.4 })
     expectVector(hit.normal, { x: 0, y: 1 })
@@ -382,11 +383,11 @@ describe('SpatialQuery.ray polygon crossings', () => {
     const world = makeWorld()
     world.spawn('Box').add(Solid, { width: 2, height: 2 })
 
-    const entry = world.game.query.ray(-2, -2.5, 1, 1.5, 10)!
+    const entry = defined(world.game.query.ray(-2, -2.5, 1, 1.5, 10))
     expectVector(entry.point, { x: -1, y: -1 })
     expectVector(entry.normal, { x: 0, y: -1 })
 
-    const exit = world.game.query.ray(0, -0.5, 1, 1.5, 10)!
+    const exit = defined(world.game.query.ray(0, -0.5, 1, 1.5, 10))
     expectVector(exit.point, { x: 1, y: 1 })
     expectVector(exit.normal, { x: 0, y: 1 })
   })
@@ -395,7 +396,7 @@ describe('SpatialQuery.ray polygon crossings', () => {
     const world = makeWorld()
     world.spawn('Box').add(Solid, { width: 2, height: 2 })
 
-    const hit = world.game.query.ray(-2, -2, 1, 1, 10)!
+    const hit = defined(world.game.query.ray(-2, -2, 1, 1, 10))
     expectVector(hit.point, { x: -1, y: -1 })
     expectVector(hit.normal, { x: 0, y: -1 })
   })
@@ -434,7 +435,7 @@ describe('SpatialQuery.ray analytic ellipses', () => {
     const world = makeWorld()
     world.spawn('Ellipse').add(Solid, { shape: 'circle', width: -4, height: -2 })
 
-    const hit = world.game.query.ray(-3, 0.5, 7, 0, 10)!
+    const hit = defined(world.game.query.ray(-3, 0.5, 7, 0, 10))
     const expectedX = -Math.sqrt(3)
     const gradientLength = Math.hypot(expectedX / 4, 0.5)
 
@@ -456,8 +457,8 @@ describe('SpatialQuery.ray analytic ellipses', () => {
 
     expect(hit?.entity).toBe(ellipse)
     expect(hit?.distance).toBe(1)
-    expectVector(hit!.point, { x: -1, y: 0 })
-    expectVector(hit!.normal, { x: -1, y: 0 })
+    expectVector(defined(hit).point, { x: -1, y: 0 })
+    expectVector(defined(hit).normal, { x: -1, y: 0 })
   })
 
   it.each([
@@ -476,8 +477,8 @@ describe('SpatialQuery.ray analytic ellipses', () => {
       const hit = world.game.query.ray(originX, 0, 1, 0, expectedDistance)
 
       expect(hit?.distance).toBe(expectedDistance)
-      expectVector(hit!.point, { x: centerX - diameter / 2, y: 0 })
-      expectVector(hit!.normal, { x: -1, y: 0 })
+      expectVector(defined(hit).point, { x: centerX - diameter / 2, y: 0 })
+      expectVector(defined(hit).normal, { x: -1, y: 0 })
     },
   )
 
@@ -495,10 +496,10 @@ describe('SpatialQuery.ray analytic ellipses', () => {
     const world = makeWorld()
     world.spawn('Ellipse').add(Solid, { shape: 'circle', width: 4, height: 2 })
 
-    const inward = world.game.query.ray(-2, 0, 1, 0, 0)!
+    const inward = defined(world.game.query.ray(-2, 0, 1, 0, 0))
     expect(inward.distance).toBe(0)
     expectVector(inward.normal, { x: -1, y: 0 })
-    const exit = world.game.query.ray(0, 0, 1, 0, 10)!
+    const exit = defined(world.game.query.ray(0, 0, 1, 0, 10))
     expect(exit.distance).toBe(2)
     expectVector(exit.normal, { x: 1, y: 0 })
     expect(world.game.query.ray(-2, 0, -1, 0, 10)).toBeNull()

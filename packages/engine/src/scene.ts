@@ -1,5 +1,5 @@
 import type { SceneCameraJson } from './camera.js'
-import type { ComponentClass } from './component.js'
+import type { Component, ComponentClass } from './component.js'
 import type { Entity } from './entity.js'
 import type { Game } from './game.js'
 
@@ -137,6 +137,44 @@ export function resolveEntityComponents(
 }
 
 /** Instantiates a scene entity into the game. */
+/**
+ * Every member Component declares, checked against the class by `satisfies`:
+ * adding a member without listing it here fails to compile.
+ */
+const COMPONENT_MEMBERS = {
+  entity: true,
+  game: true,
+  inspectState: true,
+  onReady: true,
+  onUpdate: true,
+  onProjectionChange: true,
+  onCollide: true,
+  onContact: true,
+  onInteract: true,
+  onDestroy: true,
+} satisfies Record<keyof Component, true>
+
+/**
+ * Scene props set none of Component's own members, so as far as the type
+ * system is concerned they are a Partial<Component> (their other keys are the
+ * subclass's public props, which Entity.add assigns).
+ */
+function isComponentProps(props: Record<string, unknown>): props is Record<string, unknown> & Partial<Component> {
+  return Object.keys(props).every((key) => !Object.hasOwn(COMPONENT_MEMBERS, key))
+}
+
+/** Scene JSON props with any Component member dropped and reported. */
+function sceneProps(props: Record<string, unknown>, type: string, entityName: string): Partial<Component> {
+  const dropped = Object.keys(props).filter((key) => Object.hasOwn(COMPONENT_MEMBERS, key))
+  const kept = Object.fromEntries(Object.entries(props).filter(([key]) => !dropped.includes(key)))
+  if (dropped.length > 0) {
+    console.warn(
+      `[waica] component "${type}" on "${entityName}" ignores scene props that name Component members: ${dropped.join(', ')}`,
+    )
+  }
+  return isComponentProps(kept) ? kept : {}
+}
+
 export function spawnFromJson(game: Game, json: SceneEntityJson, registry: SceneRegistry): Entity {
   const entity = game.spawn(json.name)
   if (json.position) entity.position.set(json.position[0], json.position[1], 0)
@@ -150,7 +188,7 @@ export function spawnFromJson(game: Game, json: SceneEntityJson, registry: Scene
     // code. A throwing constructor or onReady costs that one component —
     // never the rest of the scene, and never the editor hosting it.
     try {
-      entity.add(Class, resolveProps(comp.props, registry) as never)
+      entity.add(Class, sceneProps(resolveProps(comp.props, registry), comp.type, json.name))
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       console.error(`[waica] component "${comp.type}" failed on "${json.name}": ${message}`)

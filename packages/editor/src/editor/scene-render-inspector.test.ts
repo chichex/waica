@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { PrefabJson, SceneJson } from '@waica/engine'
 import { ArchetypeContext, resolveArchetype } from '../project/archetype'
 import { Inspector, type InspectorSelection } from './Inspector'
+import { defined } from '../../../engine/src/test-support'
 
 function props(selection: InspectorSelection): ComponentProps<typeof Inspector> {
   return {
@@ -92,13 +93,13 @@ describe('SceneInspector render toggles', () => {
     render({ kind: 'scene', name: 'main', scene: scene() })
     const toggle = document.querySelector<HTMLInputElement>('input[data-testid="ysort-toggle"]')
     expect(toggle).not.toBeNull()
-    expect(toggle!.checked).toBe(false)
+    expect(defined(toggle).checked).toBe(false)
   })
 
   it('shows the toggle checked when the scene sorts by Y', () => {
     render({ kind: 'scene', name: 'main', scene: scene({ sort: 'y' }) })
     const toggle = document.querySelector<HTMLInputElement>('input[data-testid="ysort-toggle"]')
-    expect(toggle!.checked).toBe(true)
+    expect(defined(toggle).checked).toBe(true)
   })
 
   it('shows isometric projection off by default and on when declared', () => {

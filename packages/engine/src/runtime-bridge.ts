@@ -167,42 +167,11 @@ export class EngineRuntimeBridge implements RuntimeBridge {
       case 'press':
       case 'hold':
       case 'release':
-        if (!this.host.injectAction(request.action, request.operation)) {
-          const available = this.host.availableActions()
-          throw new RuntimeBridgeOperationError(
-            'runtime-operation-failed',
-            `Unknown action "${request.action}". Available actions: ${available.join(', ') || '(none)'}.`,
-            available,
-          )
-        }
+        this.injectAction(request)
         break
-      case 'step': {
-        if (this.mode !== 'paused') {
-          throw new RuntimeBridgeOperationError(
-            'runtime-invalid-state',
-            'step is only available while the Runtime Bridge is paused.',
-          )
-        }
-        // A caller-chosen dt is rejected outright, never ignored: a pre-ADR-0014
-        // client that still sends one would otherwise believe it stepped by it.
-        if ('dt' in request) {
-          throw new RuntimeBridgeOperationError(
-            'runtime-operation-failed',
-            'step takes no dt: it advances whole Simulation Steps of 1/60 s each; pass frames (1 through 600) instead.',
-          )
-        }
-        const frames = request.frames ?? 1
-        if (!Number.isInteger(frames) || frames < 1 || frames > 600) {
-          throw new RuntimeBridgeOperationError(
-            'runtime-operation-failed',
-            'frames must be an integer from 1 through 600.',
-          )
-        }
-        for (let index = 0; index < frames; index += 1) {
-          this.host.step(() => this.advance())
-        }
+      case 'step':
+        this.step(request)
         break
-      }
       case 'click': {
         if (!Number.isFinite(request.x) || !Number.isFinite(request.y)) {
           throw new RuntimeBridgeOperationError(
@@ -213,18 +182,9 @@ export class EngineRuntimeBridge implements RuntimeBridge {
         this.host.click(request.x, request.y)
         break
       }
-      case 'scene': {
-        if (!this.host.loadScene(request.scene)) {
-          const available = this.host.availableScenes()
-          throw new RuntimeBridgeOperationError(
-            'runtime-operation-failed',
-            `Unknown scene "${request.scene}". Available scenes: ${available.join(', ') || '(none)'}.`,
-            undefined,
-            available,
-          )
-        }
+      case 'scene':
+        this.loadScene(request.scene)
         break
-      }
       default: {
         const unsupported: never = request
         throw new RuntimeBridgeOperationError(
@@ -234,6 +194,55 @@ export class EngineRuntimeBridge implements RuntimeBridge {
       }
     }
     return { ...this.metadata(), heldActions: this.host.heldActions() }
+  }
+
+  private injectAction(request: Extract<RuntimeControlRequest, { action: string }>): void {
+    if (this.host.injectAction(request.action, request.operation)) return
+    const available = this.host.availableActions()
+    throw new RuntimeBridgeOperationError(
+      'runtime-operation-failed',
+      `Unknown action "${request.action}". Available actions: ${available.join(', ') || '(none)'}.`,
+      available,
+    )
+  }
+
+  /** Advances whole Simulation Steps while paused. */
+  private step(request: Extract<RuntimeControlRequest, { operation: 'step' }>): void {
+    if (this.mode !== 'paused') {
+      throw new RuntimeBridgeOperationError(
+        'runtime-invalid-state',
+        'step is only available while the Runtime Bridge is paused.',
+      )
+    }
+    // A caller-chosen dt is rejected outright, never ignored: a pre-ADR-0014
+    // client that still sends one would otherwise believe it stepped by it.
+    if ('dt' in request) {
+      throw new RuntimeBridgeOperationError(
+        'runtime-operation-failed',
+        'step takes no dt: it advances whole Simulation Steps of 1/60 s each; pass frames (1 through 600) instead.',
+      )
+    }
+    const frames = request.frames ?? 1
+    if (!Number.isInteger(frames) || frames < 1 || frames > 600) {
+      throw new RuntimeBridgeOperationError(
+        'runtime-operation-failed',
+        'frames must be an integer from 1 through 600.',
+      )
+    }
+    for (let index = 0; index < frames; index += 1) {
+      this.host.step(() => this.advance())
+    }
+  }
+
+  private loadScene(scene: string): void {
+    if (this.host.loadScene(scene)) return
+    const available = this.host.availableScenes()
+    throw new RuntimeBridgeOperationError(
+      'runtime-operation-failed',
+      `Unknown scene "${scene}". Available scenes: ${available.join(', ') || '(none)'}.`,
+      undefined,
+      available,
+    )
   }
 
   /** Counts one Simulation Step, whoever ran it (paused stepping or real-time playback). */

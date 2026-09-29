@@ -18,6 +18,7 @@ import {
   sceneTree,
   uniqueFolderName,
 } from './ops'
+import { defined } from '../../../engine/src/test-support'
 
 describe('migrateScene', () => {
   it('turns legacy ui/* entities into ui list entries', () => {
@@ -157,8 +158,8 @@ describe('clearComponentOverride', () => {
   })
 
   it('countOverrides totals keys across components', () => {
-    expect(countOverrides(scene.entities[0]!)).toBe(3)
-    expect(countOverrides(scene.entities[1]!)).toBe(0)
+    expect(countOverrides(defined(scene.entities[0]))).toBe(3)
+    expect(countOverrides(defined(scene.entities[1]))).toBe(0)
   })
 
   it('clearAllOverrides drops the whole block and spares other entities', () => {

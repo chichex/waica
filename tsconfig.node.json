@@ -1,0 +1,8 @@
+{
+  // Base for the Node-run packages (packages/cli, packages/mcp): no DOM globals.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": ["node"]
+  }
+}

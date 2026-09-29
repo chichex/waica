@@ -12,6 +12,7 @@ import {
   Interactable,
   interactUpdate,
 } from './interactable'
+import { match } from '../../engine/src/test-support'
 
 interface WorldHarness {
   ctx: StateContext
@@ -113,7 +114,7 @@ describe('Interactable', () => {
     expect(nearest).toHaveBeenCalledWith(0, 0, {
       with: [Interactable],
       exclude: world.ctx.entity,
-      where: expect.any(Function),
+      where: match.any(Function),
     })
     expect(world.stats.set).toHaveBeenCalledWith('npcLine', 'Indexed NPC')
   })

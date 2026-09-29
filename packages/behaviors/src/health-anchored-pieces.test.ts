@@ -39,6 +39,7 @@ import {
 } from '@waica/engine'
 import { Health } from './health'
 import { HEALTH_UI } from './health-ui'
+import { defined, returnedValue } from '../../engine/src/test-support'
 
 class ResizeObserverStub {
   observe(): void {}
@@ -80,7 +81,7 @@ function makeHarness(): Harness {
   games.push(game)
   game.ui.defineAll(HEALTH_UI)
   game.start()
-  const bridge = registered[0]!
+  const bridge = defined(registered[0])
   const step = (frames = 1): void => {
     bridge.control({ operation: 'step', frames })
   }
@@ -261,7 +262,7 @@ describe('Health bar (issue #72, CA-15)', () => {
 
     // The same instance throughout, updated in place rather than re-attached.
     expect(attach.mock.calls.filter(([piece]) => piece === 'health-bar')).toHaveLength(1)
-    expect(attach.mock.results[0]!.value.alive).toBe(true)
+    expect(returnedValue(attach.mock.results[0]).alive).toBe(true)
   })
 
   it.each([

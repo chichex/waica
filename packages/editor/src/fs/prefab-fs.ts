@@ -1,5 +1,7 @@
 import type { PrefabJson } from '@waica/engine'
 import type { ProjectFS, TreeNode } from './project-fs'
+import { readJsonObject } from '../json-object'
+import { readPrefabFile } from '../scene/scene-file'
 
 /** Prefab directory under src/ -> prefab category (the file suffix). */
 export const PREFAB_DIRS = {
@@ -30,12 +32,11 @@ export async function loadPrefabLib(fs: ProjectFS): Promise<Record<string, Prefa
       const text = await fs.readText(file.path)
       if (text == null) continue
       const ref = `${dir}/${file.name.slice(0, -suffix.length)}`
-      try {
-        prefabs[ref] = JSON.parse(text) as PrefabJson
-      } catch {
-        // malformed prefab file: skip it — entities referencing it keep their
-        // own components and the Explorer simply won't list it.
-      }
+      // A file the game could not load (not JSON, no component list) is
+      // skipped: entities referencing it keep their own components and the
+      // Explorer simply won't list it.
+      const prefab = readPrefabFile(readJsonObject(text), cat)
+      if (prefab) prefabs[ref] = prefab
     }
   }
   return prefabs

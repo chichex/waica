@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { access, readFile } from 'node:fs/promises'
 import path from 'node:path'
+import { defined, match } from '../../engine/src/test-support.js'
 
 const packageRoot = path.resolve(import.meta.dirname, '..')
 
@@ -22,9 +23,9 @@ describe('@waica/cli package contract', () => {
         build: 'tsc -p tsconfig.build.json && node bundle-editor.mjs && node bundle-mcp.mjs',
       },
       dependencies: {
-        '@modelcontextprotocol/sdk': expect.stringMatching(/^\^1\./),
-        'playwright-core': expect.stringMatching(/^\^1\./),
-        three: expect.stringMatching(/^\^0\./),
+        '@modelcontextprotocol/sdk': match.stringMatching(/^\^1\./),
+        'playwright-core': match.stringMatching(/^\^1\./),
+        three: match.stringMatching(/^\^0\./),
       },
       devDependencies: {
         '@waica/editor': 'workspace:^',
@@ -94,7 +95,7 @@ describe('@waica/cli package contract', () => {
         return [directory, manifest.version] as const
       }),
     )
-    const [, release] = versions[0]!
+    const [, release] = defined(versions[0])
     expect(Object.fromEntries(versions)).toEqual(
       Object.fromEntries(packages.map((directory) => [directory, release])),
     )

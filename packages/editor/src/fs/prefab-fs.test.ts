@@ -49,3 +49,26 @@ describe('loadPrefabLib', () => {
     expect(await loadPrefabLib(fs)).toEqual({})
   })
 })
+
+describe('loadPrefabLib: what the game accepts', () => {
+  // The game imports every *.character|object|tile.json and only reads its
+  // `components`, so a file the editor dropped could still spawn in the game.
+  it('keeps a prefab the game loads even when its marker or kind is missing', async () => {
+    const fs = new MemFS('t', {
+      'src/characters/bare.character.json': JSON.stringify({ components: [{ type: 'Sprite' }] }),
+      'src/objects/odd.object.json': JSON.stringify({ waicaPrefab: 1, type: 'blob', components: [] }),
+    })
+    const prefabs = await loadPrefabLib(fs)
+    expect(prefabs['characters/bare']).toEqual({
+      waicaPrefab: 1,
+      type: 'character',
+      components: [{ type: 'Sprite' }],
+    })
+    expect(prefabs['objects/odd']).toEqual({ waicaPrefab: 1, type: 'object', components: [] })
+  })
+
+  it('skips a prefab file without a component list', async () => {
+    const fs = new MemFS('t', { 'src/objects/empty.object.json': JSON.stringify({ waicaPrefab: 1 }) })
+    expect(await loadPrefabLib(fs)).toEqual({})
+  })
+})
