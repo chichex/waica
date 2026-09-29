@@ -4,6 +4,14 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # The lint toolchain stays on ESLint 9 until eslint-plugin-jsx-a11y
+      # supports ESLint 10 (see packages/lint/README.md); the two
+      # must move together, so their majors are updated by hand.
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/js"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
