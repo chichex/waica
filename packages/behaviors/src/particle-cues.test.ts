@@ -34,6 +34,7 @@ import { DustTrail } from './dust-trail'
 import { Health } from './health'
 import { PlatformerMotor } from './platformer-motor'
 import { SwingSparks } from './swing-sparks'
+import { defined } from '../../engine/src/test-support'
 
 class ResizeObserverStub {
   observe(): void {}
@@ -141,22 +142,23 @@ describe('DamagePuff lifetime', () => {
   it('unsubscribes from the damage event when its entity is destroyed', () => {
     const game = makeGame()
     const subscribe = game.events.on.bind(game.events)
-    const unsubscribes: Array<ReturnType<typeof vi.fn>> = []
-    const on = vi.spyOn(game.events, 'on').mockImplementation((event, handler) => {
+    let damageOff: ReturnType<typeof vi.fn> | undefined
+    vi.spyOn(game.events, 'on').mockImplementation((event, handler) => {
       const off = vi.fn(subscribe(event, handler))
-      unsubscribes.push(off)
+      if (event === 'damage') damageOff = off
       return off
     })
     const smoke = game.spawn('Smoke')
     smoke.add(ParticleEmitter, BURST_ONLY)
     smoke.add(DamagePuff)
-    expect(on).toHaveBeenCalledWith('damage', expect.any(Function))
-    expect(unsubscribes.every((off) => off.mock.calls.length === 0)).toBe(true)
+    const off = defined(damageOff, "DamagePuff's damage subscription")
+    expect(off).not.toHaveBeenCalled()
 
     smoke.destroy()
 
-    expect(unsubscribes.some((off) => off.mock.calls.length === 1)).toBe(true)
+    expect(off).toHaveBeenCalledOnce()
   })
+
 })
 
 describe('DustTrail', () => {
