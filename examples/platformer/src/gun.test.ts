@@ -14,6 +14,7 @@ import {
 import { PLATFORMER_REGISTRY } from '@waica/archetype-platformer'
 import { PlatformerMotor } from '@waica/behaviors'
 import player from './characters/player.character.json'
+import { DustPuffs } from './components/dust-puffs'
 import { Gun } from './components/gun'
 import { Projectile } from './components/projectile'
 import bullet from './objects/bullet.object.json'
@@ -22,9 +23,12 @@ beforeEach(() => resetRegistries())
 
 describe('Gun update scheduling', () => {
   it('keeps the extended example prefabs valid under reversed component arrays', () => {
-    const registry = { ...PLATFORMER_REGISTRY.components, Gun, Projectile }
+    const registry = { ...PLATFORMER_REGISTRY.components, DustPuffs, Gun, Projectile }
     for (const [prefab, expected] of [
-      [player, ['StateMachine', 'AnimatedSprite', 'Gun', 'Health', 'OutOfBounds']],
+      [
+        player,
+        ['ParticleEmitter', 'StateMachine', 'AnimatedSprite', 'Gun', 'Health', 'OutOfBounds'],
+      ],
       [bullet, ['DynamicBody', 'Lifetime']],
     ] as const) {
       const names = prefab.components.map((component) => component.type)

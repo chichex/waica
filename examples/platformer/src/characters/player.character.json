@@ -162,6 +162,48 @@
     },
     {
       "type": "Gun"
+    },
+    {
+      "type": "ParticleEmitter",
+      "props": {
+        "rate": 0,
+        "lifetime": 0.4,
+        "positionSpread": [
+          0.3,
+          0.05
+        ],
+        "velocity": [
+          0,
+          -1.1
+        ],
+        "velocitySpread": [
+          2.2,
+          0.5
+        ],
+        "gravity": [
+          0,
+          2.4
+        ],
+        "space": "world",
+        "seed": 9,
+        "capacity": 48,
+        "width": 0.16,
+        "height": 0.16,
+        "startScale": 1,
+        "endScale": 2,
+        "startColor": 15127216,
+        "endColor": 10521712,
+        "startAlpha": 0.8,
+        "endAlpha": 0,
+        "layer": -1
+      }
+    },
+    {
+      "type": "DustPuffs",
+      "props": {
+        "jumpCount": 5,
+        "landCount": 12
+      }
     }
   ]
 }
