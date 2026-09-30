@@ -145,15 +145,15 @@
       "prefab": "objects/wind",
       "position": [
         8,
-        8
+        6
       ]
     },
     {
       "name": "HurtSmoke",
       "prefab": "objects/hurt-smoke",
       "position": [
-        0,
-        0
+        14,
+        14
       ]
     }
   ],

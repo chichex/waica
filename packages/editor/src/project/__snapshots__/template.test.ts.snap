@@ -3332,7 +3332,7 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
         "lifetime": 1.4,
         "positionSpread": [
           9,
-          9
+          10
         ],
         "velocity": [
           2.2,
@@ -3699,15 +3699,15 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
       "prefab": "objects/wind",
       "position": [
         8,
-        8
+        6
       ]
     },
     {
       "name": "HurtSmoke",
       "prefab": "objects/hurt-smoke",
       "position": [
-        0,
-        0
+        14,
+        14
       ]
     }
   ],

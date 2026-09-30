@@ -23,11 +23,11 @@ export const SWORD_SPARKS = {
   layer: 1,
 }
 
-/** Continuous wind streaks covering the 16x16 meadow when placed at its center. */
+/** Continuous wind streaks covering the whole 16x16 meadow from the scene's Wind position ([8, 6]). */
 const WIND = {
   rate: 22,
   lifetime: 1.4,
-  positionSpread: [9, 9],
+  positionSpread: [9, 10],
   velocity: [2.2, -2.2],
   velocitySpread: [0.4, 0.4],
   space: 'world',
