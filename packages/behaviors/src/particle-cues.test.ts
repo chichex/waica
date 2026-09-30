@@ -27,7 +27,7 @@ vi.mock(
   },
 )
 
-import { Game, ParticleEmitter, StateMachine, type Entity } from '@waica/engine'
+import { defineStates, Game, ParticleEmitter, resetRegistries, StateMachine, type Entity } from '@waica/engine'
 import { DamagePuff } from './damage-puff'
 import { DustPuffs } from './dust-puffs'
 import { DustTrail } from './dust-trail'
@@ -74,6 +74,7 @@ afterEach(() => {
   for (const game of games.splice(0)) game.dispose()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
+  resetRegistries()
 })
 
 describe('SwingSparks', () => {
@@ -187,7 +188,7 @@ function makeJumper() {
   const hero = makeGame().spawn('Hero')
   const motor = hero.add(PlatformerMotor)
   motor.grounded = true
-  const machine = addMachine(hero, ['idle', 'run', 'jump', 'fall', 'dead'], 'idle')
+  const machine = addMachine(hero, ['idle', 'run', 'jump', 'fall', 'dead', 'dash'], 'idle')
   const dust = hero.add(ParticleEmitter, BURST_ONLY)
   hero.add(DustPuffs, { jumpCount: 3, landCount: 8 })
   return { motor, machine, dust }
@@ -241,5 +242,36 @@ describe('DustPuffs landing', () => {
     machine.goto('dead')
 
     expect(dust.active).toBe(0)
+  })
+})
+
+describe('DustPuffs with project states', () => {
+  it('raises no takeoff puff for a jump entered in mid-air from a custom state (idle -> dash -> jump)', () => {
+    const { motor, machine, dust } = makeJumper()
+    machine.goto('dash')
+    motor.grounded = false
+
+    machine.goto('jump')
+
+    expect(dust.active).toBe(0)
+  })
+
+  it("keeps the role's own exit hooks running on the states it watches", () => {
+    const exited = vi.fn()
+    defineStates('dust-probe', { idle: { onExit: exited } })
+    const hero = makeGame().spawn('Hero')
+    hero.add(PlatformerMotor).grounded = true
+    const machine = hero.add(StateMachine, {
+      role: 'dust-probe',
+      initial: 'idle',
+      states: { idle: {}, jump: {} },
+    })
+    const dust = hero.add(ParticleEmitter, BURST_ONLY)
+    hero.add(DustPuffs, { jumpCount: 3 })
+
+    machine.goto('jump')
+
+    expect(exited).toHaveBeenCalledOnce()
+    expect(dust.active).toBe(3)
   })
 })
