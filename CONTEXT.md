@@ -130,6 +130,10 @@ _Avoid_: door, portal, warp, level change
 A temporary, screen-level alteration of what the scene camera shows, layered over its follow and limits without changing them: a **Shake** jitters the view and decays, a **Fade** carries the game view to or from a color and holds there, and a **Flash** is a Fade that returns to clear on its own. A Fade is session-scoped so it can cover a scene change; a Shake or Flash dies with its scene.
 _Avoid_: screen effect, post-processing, filter, transition
 
+**Particle Emitter**:
+An entity-owned source of short-lived 2D visual particles, produced continuously or in explicit bursts inside the scene. It is distinct from `Emitter`, the game's event bus.
+_Avoid_: Emitter, Particle System
+
 **Art**:
 Any asset file an archetype ships for its demo — sprite sheets, tiles and sounds alike — declared as a file, the `waica:*` URI that resolves to it, and which kind of asset it is. One catalog and one emission path into a project's `src/art/`; the kind travels as data, so a picker, a validator or an agent tells a sound from a sprite without parsing file names.
 _Avoid_: images, textures, sprites, graphics
