@@ -46,8 +46,18 @@ import controls from './controls.json'
 import stats from './stats.json'
 import { defined } from '../../../packages/engine/src/test-support'
 
-// The example's OWN files, globbed the way main.ts globs them: these tests
-// are about what `pnpm dev` plays, not the archetype's defaults.
+// The example's OWN scenes, prefabs and components: these tests are about
+// what `pnpm dev` plays, not the archetype's defaults. This is not a full
+// replay of main.ts. main.ts also imports ./roles/*.ts and ./states/*.ts,
+// lazily and after installArchetype(). Those files register state code as
+// an import side effect (defineStates), and installArchetype() starts with
+// resetRegistries(). An ES module runs once per test file, so any boot after
+// the first one would lose that registration. Re-running the modules
+// (vi.resetModules) would load a second @waica/engine, with its own classes
+// and registries. So this harness loads only ./components/*.ts. Those modules
+// just export classes and register nothing on import, so loading them
+// eagerly, before installArchetype(), is safe. No particle effect here
+// depends on project state code.
 const sceneFiles = import.meta.glob<SceneJson>('./scenes/*.scene.json', {
   eager: true,
   import: 'default',
@@ -75,7 +85,7 @@ class ResizeObserverStub {
 
 const DT = 1 / 60
 
-/** The shipped example, booted the way main.ts boots it, on its own scene and prefabs. */
+/** The shipped example on its own scene, prefabs and components (see above for what main.ts adds). */
 function makeDemo() {
   const canvas = document.createElement('canvas')
   Object.defineProperties(canvas, {
