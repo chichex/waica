@@ -28,6 +28,15 @@ describe('the topdown prefabs express the genre model', () => {
     })
   })
 
+  it('gives the player a walking-dust emitter that DustTrail switches on while walking', () => {
+    const types = componentTypes('characters/player')
+    expect(types.slice(-2)).toEqual(['ParticleEmitter', 'DustTrail'])
+    expect(types.indexOf('StateMachine')).toBeLessThan(types.indexOf('DustTrail'))
+    expect(props('characters/player', 'DustTrail')).toEqual({ state: 'walk' })
+    expect(props('characters/player', 'ParticleEmitter')).toMatchObject({ emitting: false, space: 'world' })
+    expect(Number(props('characters/player', 'ParticleEmitter')['rate'])).toBeGreaterThan(0)
+  })
+
   it('gives the player health and a spawn, but no fall-out-of-world plumbing', () => {
     expect(componentTypes('characters/player')).toContain('Respawnable')
     expect(props('characters/player', 'Health')).toMatchObject({ max: 3, invulnerability: 1 })

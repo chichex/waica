@@ -160,6 +160,7 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
   Lifetime: {
     seconds: 1,
   },
+  DustTrail: { state: 'walk' },
   ClickToMove: {
     arrivalTolerance: 0.2,
     markerWidth: 0.5,
@@ -179,7 +180,7 @@ describe('TOPDOWN_REGISTRY_DATA ui', () => {
 })
 
 describe('TOPDOWN_REGISTRY_DATA authoring defaults', () => {
-  it('covers exactly the 18 registered components', () => {
+  it('covers exactly the 19 registered components', () => {
     expect(Object.keys(TOPDOWN_REGISTRY_DATA.components).sort()).toEqual(
       Object.keys(EXPECTED_DEFAULTS).sort(),
     )

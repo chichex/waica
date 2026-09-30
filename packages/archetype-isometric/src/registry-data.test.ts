@@ -138,6 +138,8 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
   Health: { max: 3, invulnerability: 0, stat: '', hurtSound: '', damageNumber: '', healthBar: '' },
   Respawnable: {},
   Lifetime: { seconds: 1 },
+  SwingSparks: { state: 'attack', count: 14 },
+  DamagePuff: { count: 10 },
   SceneTransition: { scene: '', trigger: 'overlap', fadeSeconds: 0, fadeColor: 'black' },
   ClickToMove: {
     arrivalTolerance: 0.2,

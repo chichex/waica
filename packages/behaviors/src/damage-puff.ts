@@ -1,7 +1,7 @@
 import { Component, Entity, ParticleEmitter } from '@waica/engine'
 
 /**
- * Example project code: a puff from this entity's ParticleEmitter wherever
+ * A puff from this entity's ParticleEmitter wherever
  * damage lands. Health announces every accepted hit on `game.events` as
  * 'damage'; this moves its own (sprite-less) entity to the entity that took
  * it and bursts there. The emitter should be in `space: 'world'`, so the

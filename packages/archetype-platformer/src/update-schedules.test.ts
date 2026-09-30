@@ -5,7 +5,7 @@ import {
   StateMachine,
   resolveComponentUpdateSchedule,
 } from '@waica/engine'
-import { Health, Lifetime, OutOfBounds } from '@waica/behaviors'
+import { DustPuffs, Health, Lifetime, OutOfBounds } from '@waica/behaviors'
 import { PLATFORMER_PREFABS } from './prefabs'
 import { PLATFORMER_REGISTRY_DATA } from './registry-data'
 import { defined } from '../../engine/src/test-support'
@@ -28,12 +28,13 @@ describe('shipped component update schedules', () => {
 
     expect(DynamicBody.updateAfter).toBeUndefined()
     expect(Lifetime.updateAfter).toBeUndefined()
+    expect(DustPuffs.updateAfter).toBeUndefined()
     expect(StateMachine.updateAfter).toBeUndefined()
   })
 
   it('resolves every stock prefab without issues and independently of component-array order', () => {
     const expected: Record<string, string[]> = {
-      'characters/player': ['StateMachine', 'AnimatedSprite', 'Health', 'OutOfBounds'],
+      'characters/player': ['ParticleEmitter', 'StateMachine', 'AnimatedSprite', 'Health', 'OutOfBounds'],
       'characters/slime': ['StateMachine', 'AnimatedSprite', 'Health'],
       'objects/coin': ['AnimatedSprite'],
       'tiles/platform': [],

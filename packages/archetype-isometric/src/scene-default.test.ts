@@ -124,6 +124,21 @@ describe('ISOMETRIC_SCENE', () => {
     })
   })
 
+  it('places the wind so its spread covers the whole map, off the Player spawn', () => {
+    const map = groundTilemap()
+    const wind = defined(ISOMETRIC_SCENE.entities.find((entity) => entity.name === 'Wind'))
+    const player = defined(ISOMETRIC_SCENE.entities.find((entity) => entity.name === 'Player'))
+    const emitter = defined(defined(ISOMETRIC_PREFABS[defined(wind.prefab)]).components[0]).props
+    const [x, y] = defined(wind.position)
+    const [spreadX, spreadY] = defined(emitter)['positionSpread'] as [number, number]
+
+    expect(wind.position).not.toEqual(player.position)
+    expect(x - spreadX).toBeLessThanOrEqual(0)
+    expect(x + spreadX).toBeGreaterThanOrEqual(map.mapWidth * map.cellSize)
+    expect(y - spreadY).toBeLessThanOrEqual(0)
+    expect(y + spreadY).toBeGreaterThanOrEqual(map.mapHeight * map.cellSize)
+  })
+
   it('places occluders inside the playable map', () => {
     const map = groundTilemap()
     for (const entity of ISOMETRIC_SCENE.entities.filter((candidate) =>

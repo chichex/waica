@@ -51,7 +51,7 @@ describe('listComponents', () => {
 
     const result = await listComponents(project)
 
-    expect(result.components).toHaveLength(17)
+    expect(result.components).toHaveLength(18)
     expect(result.components.map((component) => component.componentName)).toEqual(
       expect.arrayContaining([
         'Sprite',
@@ -62,6 +62,7 @@ describe('listComponents', () => {
         'DynamicBody',
         'StateMachine',
         'PlatformerMotor',
+        'DustPuffs',
         'Collectible',
         'Patrol',
         'Chaser',
@@ -81,6 +82,7 @@ describe('listComponents', () => {
       { componentName: 'ParticleEmitter', displayName: 'Particle Emitter' },
       { componentName: 'StateMachine', displayName: 'State Machine' },
       { componentName: 'PlatformerMotor', displayName: 'Motor' },
+      { componentName: 'DustPuffs', displayName: 'Dust puffs' },
       { componentName: 'Respawnable', displayName: 'Respawn' },
       { componentName: 'OutOfBounds', displayName: 'Out of bounds' },
     ])
@@ -90,6 +92,14 @@ describe('listComponents', () => {
         range: { label: 'Sight range', min: 1, max: 30, step: 0.5 },
       },
       defaults: { mode: 'walker', range: 6, speed: 3, gravity: 42 },
+      sourcePackage: '@waica/behaviors',
+    })
+    expect(result.components.find((component) => component.componentName === 'DustPuffs')).toMatchObject({
+      params: {
+        jumpCount: { label: 'Jump puff', min: 0, max: 64, step: 1 },
+        landCount: { label: 'Landing burst', min: 0, max: 64, step: 1 },
+      },
+      defaults: { jumpCount: 5, landCount: 12 },
       sourcePackage: '@waica/behaviors',
     })
     expect(result.components.find((component) => component.componentName === 'Collectible')).toMatchObject({
@@ -183,7 +193,7 @@ describe('listComponents', () => {
       path: 'src/components/explodes.ts',
       validated: false,
     })
-    expect(result.components).toHaveLength(17)
+    expect(result.components).toHaveLength(18)
   })
 
   it('attributes mixed-source components by their stable package contract', async () => {
@@ -207,7 +217,7 @@ describe('listComponents', () => {
 
     const result = await listComponents(project)
 
-    expect(result.components).toHaveLength(17)
+    expect(result.components).toHaveLength(18)
     expect(result.warnings.join('\n')).toMatch(/package\.json.*parse|parse.*package\.json/i)
   })
 
@@ -247,6 +257,19 @@ module.exports.ARCHETYPE = {
   })
 })
 
+/** The stock platformer player prefab, dust emitter and its DustPuffs cue included. */
+const PLATFORMER_PLAYER_COMPONENTS = [
+  'AnimatedSprite',
+  'PlatformerMotor',
+  'StateMachine',
+  'Hitbox',
+  'Respawnable',
+  'Health',
+  'OutOfBounds',
+  'ParticleEmitter',
+  'DustPuffs',
+] as const
+
 describe('describeArchetype', () => {
   it('returns the fully enumerated active manifest schema', async () => {
     const project = await makeProject()
@@ -259,13 +282,16 @@ describe('describeArchetype', () => {
       id: 'platformer',
       label: 'Platformer',
       palette: match.arrayContaining([
-        { name: 'player', components: ['AnimatedSprite', 'PlatformerMotor', 'StateMachine', 'Hitbox', 'Respawnable', 'Health', 'OutOfBounds'] },
+        {
+          name: 'player',
+          components: [...PLATFORMER_PLAYER_COMPONENTS],
+        },
       ]),
       prefabs: match.arrayContaining([
         {
           ref: 'characters/player',
           type: 'character',
-          components: ['AnimatedSprite', 'PlatformerMotor', 'StateMachine', 'Hitbox', 'Respawnable', 'Health', 'OutOfBounds'],
+          components: [...PLATFORMER_PLAYER_COMPONENTS],
         },
       ]),
       roles: match.arrayContaining([

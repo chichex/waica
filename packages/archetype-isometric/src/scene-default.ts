@@ -61,6 +61,16 @@ export const ISOMETRIC_SCENE: SceneJson = {
     // isometric e2e leg exercises (CA-13) — a Door placed inside any of
     // those previously fired mid-test.
     { name: 'Door', prefab: 'objects/door', position: [2, 2] },
+    // Ambient wind over the whole meadow: thin translucent streaks drifting
+    // screen-right (logical [+x, -y]) in world space, on layer 0 so each
+    // streak y-sorts among the sprites (it can pass behind a tree). Placed
+    // two cells off the Player's spawn so the two editor markers never
+    // overlap; its spread still covers the whole map from here.
+    { name: 'Wind', prefab: 'objects/wind', position: [8, 6] },
+    // One hurt-smoke source for every Health in the scene: DamagePuff moves
+    // it to whoever takes damage and puffs there. Parked in the empty
+    // south corner until the first hit, clear of the Ground's origin marker.
+    { name: 'HurtSmoke', prefab: 'objects/hurt-smoke', position: [14, 14] },
   ],
   ui: ['crate-counter', 'health'],
 }
@@ -112,6 +122,12 @@ export const ISOMETRIC_CAVE_SCENE: SceneJson = {
       prefab: 'objects/door',
       position: [8, 2],
       overrides: { SceneTransition: { scene: 'main' } },
+    },
+    // An enclosed room has no wind: a few faint motes drift instead.
+    {
+      name: 'Dust',
+      prefab: 'objects/cave-dust',
+      position: [ISOMETRIC_CAVE_MAP_WIDTH / 2, ISOMETRIC_CAVE_MAP_HEIGHT / 2],
     },
   ],
   ui: ['health'],

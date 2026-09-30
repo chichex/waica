@@ -4,6 +4,7 @@ import {
   NPC_STATE_GRAPH,
   PATROLLER_STATE_GRAPH,
 } from '@waica/behaviors'
+import { ISOMETRIC_EFFECT_PREFABS, SWORD_SPARKS } from './effect-prefabs.js'
 
 const SHIPPED_DIRECTIONS = ['n', 'ne', 'e', 'se', 's'] as const
 /** One row per shipped facing: idle · walk×3 · attack×3 · hurt×2 · death×2. */
@@ -138,6 +139,11 @@ export const ISOMETRIC_PREFABS: Record<string, PrefabJson> = {
           markerHeight: 0.5,
         },
       },
+      // Sword sparks: a burst-only emitter SwingSparks fires on entering
+      // 'attack'. It draws on layer 1, over the y-sorted sprites, so the
+      // flash reads in front of the hero.
+      { type: 'ParticleEmitter', props: SWORD_SPARKS },
+      { type: 'SwingSparks', props: { state: 'attack', count: 18 } },
     ],
   },
   'characters/villager': {
@@ -256,6 +262,7 @@ export const ISOMETRIC_PREFABS: Record<string, PrefabJson> = {
       { type: 'Solid', props: { width: 0.8, height: 0.6 } },
     ],
   },
+  ...ISOMETRIC_EFFECT_PREFABS,
   'objects/door': {
     waicaPrefab: 1,
     type: 'object',

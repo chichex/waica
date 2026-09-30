@@ -142,92 +142,18 @@
     },
     {
       "name": "Wind",
+      "prefab": "objects/wind",
       "position": [
         8,
-        8
-      ],
-      "components": [
-        {
-          "type": "ParticleEmitter",
-          "props": {
-            "rate": 22,
-            "lifetime": 1.4,
-            "positionSpread": [
-              9,
-              9
-            ],
-            "velocity": [
-              2.2,
-              -2.2
-            ],
-            "velocitySpread": [
-              0.4,
-              0.4
-            ],
-            "space": "world",
-            "seed": 3,
-            "capacity": 64,
-            "width": 1.8,
-            "height": 0.06,
-            "startScale": 1,
-            "endScale": 1.6,
-            "startColor": 15267071,
-            "endColor": 15267071,
-            "startAlpha": 0.6,
-            "endAlpha": 0,
-            "layer": 0
-          }
-        }
+        6
       ]
     },
     {
       "name": "HurtSmoke",
+      "prefab": "objects/hurt-smoke",
       "position": [
-        0,
-        0
-      ],
-      "components": [
-        {
-          "type": "ParticleEmitter",
-          "props": {
-            "rate": 0,
-            "lifetime": 0.6,
-            "positionSpread": [
-              0.2,
-              0.2
-            ],
-            "velocity": [
-              -0.6,
-              -0.6
-            ],
-            "velocitySpread": [
-              0.8,
-              0.8
-            ],
-            "gravity": [
-              0.4,
-              0.4
-            ],
-            "space": "world",
-            "seed": 11,
-            "capacity": 64,
-            "width": 0.3,
-            "height": 0.3,
-            "startScale": 0.6,
-            "endScale": 1.8,
-            "startColor": 14540253,
-            "endColor": 7829367,
-            "startAlpha": 0.7,
-            "endAlpha": 0,
-            "layer": 1
-          }
-        },
-        {
-          "type": "DamagePuff",
-          "props": {
-            "count": 10
-          }
-        }
+        14,
+        14
       ]
     }
   ],

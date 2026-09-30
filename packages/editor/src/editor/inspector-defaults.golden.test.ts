@@ -12,6 +12,7 @@ import { componentDefaults, componentKeys } from './Inspector'
  * Issue #22 added Health and OutOfBounds and emptied Respawnable. The
  * isometric foundations spec intentionally adds anchorX/anchorY to both
  * appearance components; every other pre-existing row remains untouched.
+ * The archetype particle effects added DustPuffs, a new row.
  */
 const GOLDEN: Record<string, Record<string, unknown>> = {
   ParticleEmitter: {
@@ -80,13 +81,14 @@ const GOLDEN: Record<string, Record<string, unknown>> = {
   Respawnable: {},
   OutOfBounds: { minY: -12 },
   Lifetime: { seconds: 1 },
+  DustPuffs: { jumpCount: 5, landCount: 12 },
   SceneTransition: { scene: '', trigger: 'overlap', fadeSeconds: 0, fadeColor: 'black' },
 }
 
 describe('Inspector component rows (golden, behavior preservation)', () => {
   const archetype = resolveArchetype('platformer')
 
-  it('lists exactly the 17 platformer registry components in the golden', () => {
+  it('lists exactly the 18 platformer registry components in the golden', () => {
     expect(Object.keys(archetype.registry.components).sort()).toEqual(
       Object.keys(GOLDEN).sort(),
     )

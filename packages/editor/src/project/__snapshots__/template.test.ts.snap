@@ -616,6 +616,44 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
         "max": 3,
         "invulnerability": 1
       }
+    },
+    {
+      "type": "ParticleEmitter",
+      "props": {
+        "rate": 16,
+        "emitting": false,
+        "lifetime": 0.6,
+        "positionSpread": [
+          0.2,
+          0.08
+        ],
+        "velocity": [
+          0,
+          0.25
+        ],
+        "velocitySpread": [
+          0.35,
+          0.2
+        ],
+        "space": "world",
+        "seed": 13,
+        "capacity": 48,
+        "width": 0.16,
+        "height": 0.16,
+        "startScale": 0.8,
+        "endScale": 1.8,
+        "startColor": 14733224,
+        "endColor": 12101768,
+        "startAlpha": 0.45,
+        "endAlpha": 0,
+        "layer": -0.5
+      }
+    },
+    {
+      "type": "DustTrail",
+      "props": {
+        "state": "walk"
+      }
     }
   ]
 }
@@ -2622,6 +2660,49 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
         "markerWidth": 1,
         "markerHeight": 0.5
       }
+    },
+    {
+      "type": "ParticleEmitter",
+      "props": {
+        "rate": 0,
+        "lifetime": 0.3,
+        "positionSpread": [
+          0.25,
+          0.25
+        ],
+        "velocity": [
+          -1.8,
+          -1.8
+        ],
+        "velocitySpread": [
+          2.6,
+          2.6
+        ],
+        "gravity": [
+          3,
+          3
+        ],
+        "space": "world",
+        "seed": 7,
+        "capacity": 64,
+        "width": 0.16,
+        "height": 0.16,
+        "startScale": 1,
+        "endScale": 0.3,
+        "startColor": 16761370,
+        "endColor": 16726528,
+        "startAlpha": 1,
+        "endAlpha": 0,
+        "blend": "normal",
+        "layer": 1
+      }
+    },
+    {
+      "type": "SwingSparks",
+      "props": {
+        "state": "attack",
+        "count": 18
+      }
     }
   ]
 }
@@ -3038,6 +3119,44 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   game.start()
 }
 ",
+  "src/objects/cave-dust.object.json": "{
+  "waicaPrefab": 1,
+  "type": "object",
+  "components": [
+    {
+      "type": "ParticleEmitter",
+      "props": {
+        "rate": 5,
+        "lifetime": 3,
+        "positionSpread": [
+          4,
+          4
+        ],
+        "velocity": [
+          -0.1,
+          -0.1
+        ],
+        "velocitySpread": [
+          0.15,
+          0.15
+        ],
+        "space": "world",
+        "seed": 5,
+        "capacity": 32,
+        "width": 0.12,
+        "height": 0.12,
+        "startScale": 1,
+        "endScale": 0.5,
+        "startColor": 16773320,
+        "endColor": 16773320,
+        "startAlpha": 0.7,
+        "endAlpha": 0,
+        "layer": 0
+      }
+    }
+  ]
+}
+",
   "src/objects/crate.object.json": "{
   "waicaPrefab": 1,
   "type": "object",
@@ -3106,6 +3225,54 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   ]
 }
 ",
+  "src/objects/hurt-smoke.object.json": "{
+  "waicaPrefab": 1,
+  "type": "object",
+  "components": [
+    {
+      "type": "ParticleEmitter",
+      "props": {
+        "rate": 0,
+        "lifetime": 0.6,
+        "positionSpread": [
+          0.2,
+          0.2
+        ],
+        "velocity": [
+          -0.6,
+          -0.6
+        ],
+        "velocitySpread": [
+          0.8,
+          0.8
+        ],
+        "gravity": [
+          0.4,
+          0.4
+        ],
+        "space": "world",
+        "seed": 11,
+        "capacity": 64,
+        "width": 0.3,
+        "height": 0.3,
+        "startScale": 0.6,
+        "endScale": 1.8,
+        "startColor": 14540253,
+        "endColor": 7829367,
+        "startAlpha": 0.7,
+        "endAlpha": 0,
+        "layer": 1
+      }
+    },
+    {
+      "type": "DamagePuff",
+      "props": {
+        "count": 10
+      }
+    }
+  ]
+}
+",
   "src/objects/rock.object.json": "{
   "waicaPrefab": 1,
   "type": "object",
@@ -3149,6 +3316,44 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
       "props": {
         "width": 0.8,
         "height": 0.6
+      }
+    }
+  ]
+}
+",
+  "src/objects/wind.object.json": "{
+  "waicaPrefab": 1,
+  "type": "object",
+  "components": [
+    {
+      "type": "ParticleEmitter",
+      "props": {
+        "rate": 22,
+        "lifetime": 1.4,
+        "positionSpread": [
+          9,
+          10
+        ],
+        "velocity": [
+          2.2,
+          -2.2
+        ],
+        "velocitySpread": [
+          0.4,
+          0.4
+        ],
+        "space": "world",
+        "seed": 3,
+        "capacity": 64,
+        "width": 1.8,
+        "height": 0.06,
+        "startScale": 1,
+        "endScale": 1.6,
+        "startColor": 15267071,
+        "endColor": 15267071,
+        "startAlpha": 0.6,
+        "endAlpha": 0,
+        "layer": 0
       }
     }
   ]
@@ -3332,6 +3537,14 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
           "scene": "main"
         }
       }
+    },
+    {
+      "name": "Dust",
+      "prefab": "objects/cave-dust",
+      "position": [
+        5,
+        5
+      ]
     }
   ],
   "ui": [
@@ -3479,6 +3692,22 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
       "position": [
         2,
         2
+      ]
+    },
+    {
+      "name": "Wind",
+      "prefab": "objects/wind",
+      "position": [
+        8,
+        6
+      ]
+    },
+    {
+      "name": "HurtSmoke",
+      "prefab": "objects/hurt-smoke",
+      "position": [
+        14,
+        14
       ]
     }
   ],
@@ -4521,6 +4750,48 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
       "type": "OutOfBounds",
       "props": {
         "minY": -8
+      }
+    },
+    {
+      "type": "ParticleEmitter",
+      "props": {
+        "rate": 0,
+        "lifetime": 0.45,
+        "positionSpread": [
+          0.35,
+          0.05
+        ],
+        "velocity": [
+          0,
+          -2.2
+        ],
+        "velocitySpread": [
+          2.8,
+          0.4
+        ],
+        "gravity": [
+          0,
+          5
+        ],
+        "space": "world",
+        "seed": 9,
+        "capacity": 48,
+        "width": 0.18,
+        "height": 0.18,
+        "startScale": 1,
+        "endScale": 2,
+        "startColor": 15127216,
+        "endColor": 10521712,
+        "startAlpha": 0.8,
+        "endAlpha": 0,
+        "layer": -1
+      }
+    },
+    {
+      "type": "DustPuffs",
+      "props": {
+        "jumpCount": 5,
+        "landCount": 12
       }
     }
   ]

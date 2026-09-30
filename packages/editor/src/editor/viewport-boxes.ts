@@ -14,8 +14,16 @@ export const projectionOf = (scene: SceneJson): ViewportProjection =>
 export const logicalAt = (live: ViewportLive, [wx, wy]: CollisionPoint): [number, number] =>
   logicalPoint(projectionOf(live.scene), wx, wy)
 
-const roleForType = (type: string): EditorBoxRole =>
-  type === 'Sprite' || type === 'AnimatedSprite' ? 'appearance' : 'collision'
+/**
+ * The box role of a component type that owns an editor box (BOX_KINDS), or
+ * null for every other type. Other components may carry `width`/`height` for
+ * their own purposes: a ParticleEmitter's particle quad or a MeleeAttack's
+ * strike width. Those sizes say nothing about where the entity is, so they
+ * never shape its selection bounds. An entity with no box falls back to the
+ * 0.6 marker.
+ */
+const roleForType = (type: string): EditorBoxRole | null =>
+  BOX_KINDS.find((kind) => (kind.types as readonly string[]).includes(type))?.role ?? null
 
 /** The box fields a live component exposes, read without asserting its type. */
 function editorBoxOf(component: object): EditorBoxLike {
@@ -57,9 +65,10 @@ function projectedCollisionBox(bounds: EditorBoxBounds, projection: ViewportProj
 
 /** Render-space union used by both picking and selection gizmos. */
 export function entityBounds(entity: Entity, projection: ViewportProjection): EditorBoxBounds {
-  const components = entity.components.map((component) => {
+  const components = entity.components.flatMap((component) => {
     const type = (component.constructor as { componentName?: string }).componentName ?? ''
-    return { role: roleForType(type), box: editorBoxOf(component) }
+    const role = roleForType(type)
+    return role ? [{ role, box: editorBoxOf(component) }] : []
   })
   if (projection !== 'isometric') return editorEntityBounds(components)
   const boxes = components.flatMap(({ role, box }) => {

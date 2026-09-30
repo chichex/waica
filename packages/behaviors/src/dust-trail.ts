@@ -1,7 +1,7 @@
 import { Component, ParticleEmitter, StateMachine } from '@waica/engine'
 
 /**
- * Example project code: a soft dust trail while this entity walks. The
+ * A soft dust trail while this entity walks. The
  * ParticleEmitter on the same entity does the continuous emission (its
  * `rate` and dust look are authored in the prefab, with `emitting: false`);
  * this only switches `emitting` on when the StateMachine enters the walking

@@ -1,7 +1,7 @@
 import { Component, ParticleEmitter, StateMachine } from '@waica/engine'
 
 /**
- * Example project code: a burst of sparks from this entity's own
+ * A burst of sparks from this entity's own
  * ParticleEmitter each time its StateMachine enters the swing state. The
  * look (color, speed, lifetime) is authored on the emitter in the prefab;
  * this only decides when, and how many. It hooks the state's onEnter

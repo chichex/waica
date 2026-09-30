@@ -6,12 +6,14 @@ import {
 } from '@waica/engine'
 import {
   Chaser,
+  DamagePuff,
   Health,
   Interactable,
   IsoMotor,
   Lifetime,
   MeleeAttack,
   Patrol,
+  SwingSparks,
 } from '@waica/behaviors'
 import { ISOMETRIC_PREFABS } from './prefabs'
 import { ISOMETRIC_REGISTRY_DATA } from './registry-data'
@@ -39,17 +41,22 @@ describe('isometric component update schedules', () => {
     expect(Patrol.updateAfter).toBeUndefined()
     expect(Chaser.updateAfter).toBeUndefined()
     expect(MeleeAttack.updateAfter).toBeUndefined()
+    expect(SwingSparks.updateAfter).toBeUndefined()
+    expect(DamagePuff.updateAfter).toBeUndefined()
   })
 
   it('resolves every stock prefab without issues and independently of component-array order', () => {
     const expected: Record<string, string[]> = {
-      'characters/player': ['StateMachine', 'AnimatedSprite', 'Health'],
+      'characters/player': ['ParticleEmitter', 'StateMachine', 'AnimatedSprite', 'Health'],
       'characters/villager': ['StateMachine', 'AnimatedSprite'],
       'characters/orc': ['StateMachine', 'AnimatedSprite', 'Health'],
       'objects/crate': [],
       'objects/door': [],
       'objects/tree': [],
       'objects/rock': [],
+      'objects/wind': ['ParticleEmitter'],
+      'objects/hurt-smoke': ['ParticleEmitter'],
+      'objects/cave-dust': ['ParticleEmitter'],
       'tiles/ground': [],
     }
 

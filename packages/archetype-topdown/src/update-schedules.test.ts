@@ -4,7 +4,7 @@ import {
   StateMachine,
   resolveComponentUpdateSchedule,
 } from '@waica/engine'
-import { Health, Interactable, Lifetime, TopDownMotor } from '@waica/behaviors'
+import { DustTrail, Health, Interactable, Lifetime, TopDownMotor } from '@waica/behaviors'
 import { TOPDOWN_PREFABS } from './prefabs'
 import { TOPDOWN_REGISTRY_DATA } from './registry-data'
 import { defined } from '../../engine/src/test-support'
@@ -26,13 +26,14 @@ describe('shipped component update schedules', () => {
 
     expect(StateMachine.updateAfter).toBeUndefined()
     expect(Lifetime.updateAfter).toBeUndefined()
+    expect(DustTrail.updateAfter).toBeUndefined()
     expect(TopDownMotor.updateAfter).toBeUndefined()
     expect(Interactable.updateAfter).toBeUndefined()
   })
 
   it('resolves every stock prefab without issues and independently of component-array order', () => {
     const expected: Record<string, string[]> = {
-      'characters/player': ['StateMachine', 'AnimatedSprite', 'Health'],
+      'characters/player': ['ParticleEmitter', 'StateMachine', 'AnimatedSprite', 'Health'],
       'characters/villager': ['StateMachine', 'AnimatedSprite'],
       'characters/blob': ['StateMachine', 'AnimatedSprite'],
       'objects/potion': ['AnimatedSprite'],

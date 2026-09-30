@@ -3,7 +3,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, makeProject, tempDir } from './test-helpers.js'
+import { cleanup, jsonResult, makeProject, tempDir } from './test-helpers.js'
 import { ProjectComponentLoader } from './project-component-loader.js'
 import { createWaicaMcpServer } from './server.js'
 import type { RuntimeService } from './runtime-service.js'
@@ -102,13 +102,6 @@ async function waitForPidExit(pid: number): Promise<boolean> {
     await new Promise((resolve) => setTimeout(resolve, 10))
   }
   return false
-}
-
-function jsonResult(result: Awaited<ReturnType<Client['callTool']>>): Record<string, unknown> {
-  if ('toolResult' in result) throw new Error('unexpected task result')
-  const text = result.content.find((item) => item.type === 'text')
-  if (!text || text.type !== 'text') throw new Error('missing JSON text result')
-  return JSON.parse(text.text) as Record<string, unknown>
 }
 
 describe('MCP server', () => {

@@ -2,6 +2,28 @@ import type { PrefabJson } from '@waica/engine'
 import { NPC_STATE_GRAPH, TOPDOWN_PLAYER_STATE_GRAPH } from '@waica/behaviors'
 import { HERO_SPRITE } from './scene-default.js'
 
+/** The hero's walking dust: faint puffs left behind, drifting up and fading. */
+const WALK_DUST = {
+  rate: 16,
+  emitting: false,
+  lifetime: 0.6,
+  positionSpread: [0.2, 0.08],
+  velocity: [0, 0.25],
+  velocitySpread: [0.35, 0.2],
+  space: 'world',
+  seed: 13,
+  capacity: 48,
+  width: 0.16,
+  height: 0.16,
+  startScale: 0.8,
+  endScale: 1.8,
+  startColor: 0xe0cfa8,
+  endColor: 0xb8a888,
+  startAlpha: 0.45,
+  endAlpha: 0,
+  layer: -0.5,
+}
+
 /**
  * The archetype's reusable entity templates, keyed by ref ('tiles/tree').
  * Scenes reference these and override per-entity props; the palette derives
@@ -32,6 +54,11 @@ export const TOPDOWN_PREFABS: Record<string, PrefabJson> = {
       },
       { type: 'Respawnable' },
       { type: 'Health', props: { max: 3, invulnerability: 1 } },
+      // A soft dust trail: a continuous emitter authored with
+      // emitting: false, switched on by DustTrail only while walking.
+      // Layer -0.5 sits between the ground tiles and the characters.
+      { type: 'ParticleEmitter', props: WALK_DUST },
+      { type: 'DustTrail', props: { state: 'walk' } },
     ],
   },
   'characters/villager': {

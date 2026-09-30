@@ -137,6 +137,17 @@ A seeded Mulberry32 stream makes equivalent runs deterministic; `emit(count)` us
 
 Textures use the Game's shared `AssetLoader`; `pixelArt` chooses nearest or linear filtering, and `blend` selects normal or additive blending. All three are reactive authoring props. A failed or empty texture falls back to the flat colored quad. Batching keeps one draw submission but does not promise order-independent or globally exact alpha composition between meshes. `destroyMode: 'clear'` removes the batch with its owner; `'drain'` transfers it to scene scope, stops emission, and simulates it until empty. Scene unload and `game.dispose()` always clear drains.
 
+The three stock archetypes ship authored effects built on this component. In each case the emitter holds the look, and a small cue component from `@waica/behaviors` decides when it emits:
+
+| Cue | What it does | Archetype |
+| --- | --- | --- |
+| `SwingSparks` | Bursts `count` particles when the sibling `StateMachine` enters `state`. | isometric (player sword sparks) |
+| `DamagePuff` | Moves its entity to whatever `Health` reports on the `damage` event and bursts there. | isometric (`objects/hurt-smoke`) |
+| `DustPuffs` | Puffs on a ground takeoff into `jump` and bursts on any grounded exit from `jump` or `fall`. | platformer (player dust) |
+| `DustTrail` | Turns `emitting` on only while the machine is in `state`. | topdown (player walking dust) |
+
+The cues that hook a `StateMachine` must come after it and after the `ParticleEmitter` in the component list. The isometric demo also places plain emitter objects: `objects/wind` in the meadow and `objects/cave-dust` in the cave.
+
 `active`, `capacity`, and `emitting` are the only fields exposed by Runtime Snapshot. Particle arrays remain private. This first CPU implementation is intended for bounded 2D effects, not collision, per-particle scripting, GPU simulation, trails, rotation, or sub-emitters.
 
 ## Component lifecycle

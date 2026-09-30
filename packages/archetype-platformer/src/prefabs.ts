@@ -2,6 +2,28 @@ import type { PrefabJson } from '@waica/engine'
 import { PLAYER_STATE_GRAPH } from '@waica/behaviors'
 import { DOG_SPRITE } from './scene-default.js'
 
+/** The dog's jump and landing dust: pale, sinking toward the feet, then spreading sideways. */
+const GROUND_DUST = {
+  rate: 0,
+  lifetime: 0.45,
+  positionSpread: [0.35, 0.05],
+  velocity: [0, -2.2],
+  velocitySpread: [2.8, 0.4],
+  gravity: [0, 5],
+  space: 'world',
+  seed: 9,
+  capacity: 48,
+  width: 0.18,
+  height: 0.18,
+  startScale: 1,
+  endScale: 2,
+  startColor: 0xe6d2b0,
+  endColor: 0xa08c70,
+  startAlpha: 0.8,
+  endAlpha: 0,
+  layer: -1,
+}
+
 /**
  * The archetype's reusable entity templates, keyed by ref ('characters/slime').
  * Scenes reference these and override per-entity props; the palette derives
@@ -29,6 +51,12 @@ export const PLATFORMER_PREFABS: Record<string, PrefabJson> = {
       { type: 'Respawnable' },
       { type: 'Health', props: { max: 3, invulnerability: 1 } },
       { type: 'OutOfBounds', props: { minY: -8 } },
+      // Dust at the ground: a burst-only emitter DustPuffs fires on a
+      // ground takeoff and on every grounded landing. Layer -1 puts it
+      // behind the dog and under the ground tiles, so the puff rises from
+      // the floor instead of covering the body.
+      { type: 'ParticleEmitter', props: GROUND_DUST },
+      { type: 'DustPuffs', props: { jumpCount: 5, landCount: 12 } },
     ],
   },
   'characters/slime': {
