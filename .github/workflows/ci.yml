@@ -13,8 +13,12 @@ concurrency:
   group: ci-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+# The ladder runs as three parallel jobs (each with its own checkout, cached
+# pnpm/node setup and install). `verify` aggregates them so the required
+# status check keeps its name and is red unless all three succeeded.
 jobs:
-  verify:
+  checks:
+    name: typecheck + lint + test
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -41,13 +45,65 @@ jobs:
       - name: Unit and component tests
         run: pnpm test
 
+  dist:
+    name: test:dist + audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      # No version input: pnpm/action-setup reads the packageManager field
+      # from the root package.json.
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       # Fresh build plus packed-package checks, including a Chrome leg.
       - name: Published package shape
         run: pnpm test:dist
+
+      - name: Audit dependencies
+        run: pnpm audit --audit-level high
+
+  e2e:
+    name: test:e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      # No version input: pnpm/action-setup reads the packageManager field
+      # from the root package.json.
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       # Needs the runner's system Google Chrome; a missing browser is red.
       - name: Runtime browser e2e
         run: pnpm test:e2e
 
-      - name: Audit dependencies
-        run: pnpm audit --audit-level high
+  verify:
+    runs-on: ubuntu-latest
+    needs: [checks, dist, e2e]
+    if: always()
+    steps:
+      - name: All CI jobs succeeded
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "needs results: $RESULTS"
+          for result in $RESULTS; do
+            [ "$result" = success ] || exit 1
+          done
