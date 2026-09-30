@@ -31,6 +31,12 @@ export function particleMeshes(game: Game): ParticleMesh[] {
   )
 }
 
+export function particleMesh(game: Game): ParticleMesh {
+  const mesh = particleMeshes(game)[0]
+  if (!mesh) throw new Error('expected particle mesh')
+  return mesh
+}
+
 export function particleCenters(mesh: ParticleMesh): number[] {
   const positions = mesh.geometry.getAttribute('position')
   const result: number[] = []

@@ -122,6 +122,13 @@ export { GameUi } from './ui.js'
 export type { AnchoredPieceHandle, AttachOptions } from './anchored-pieces.js'
 export { Sprite } from './components/sprite.js'
 export { ParticleEmitter } from './components/particle-emitter.js'
+export type {
+  ParticleBlend,
+  ParticleDestroyMode,
+  ParticleOverflow,
+  ParticleSpace,
+  ParticleVector,
+} from './components/particle-emitter.js'
 export { Solid } from './components/solid.js'
 export { Hitbox } from './components/hitbox.js'
 export { DynamicBody } from './components/dynamic-body.js'

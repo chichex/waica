@@ -1,5 +1,5 @@
 import { useContext, useState } from 'react'
-import type { ArtItem, DroppedFile } from '../use-project-art'
+import { IMAGE_RE, type ArtItem, type DroppedFile } from '../use-project-art'
 import { NumberField } from '../NumberField'
 import { RefTargetsContext } from './ref-targets-context'
 import { TexturePicker, TexturePreview } from './TextureControls'
@@ -76,6 +76,18 @@ function OpenTexture({
   )
 }
 
+async function importTextureImage(
+  files: DroppedFile[],
+  onImport: (files: DroppedFile[]) => Promise<void>,
+  onChoose: (uri: string) => void,
+): Promise<void> {
+  const images = files.filter((file) => IMAGE_RE.test(file.file.name))
+  const image = images[0]
+  if (!image) return
+  await onImport(images)
+  onChoose(`src/art/${image.relativePath}`)
+}
+
 function EmptyTexture({ dropping, dragProps, onOpen }: {
   dropping: boolean
   dragProps: TextureDropProps
@@ -102,7 +114,10 @@ export function TextureParamRow({ name, value, onChange }: ParamKindRowProps) {
     onChange(next)
     setChoosing(false)
   }
-  const { dropping, dragProps } = useTextureDrop(art, choose, texture.onImport)
+  const importImage = (files: DroppedFile[]): Promise<void> => importTextureImage(
+    files, texture.onImport, choose,
+  )
+  const { dropping, dragProps } = useTextureDrop(art, choose, importImage)
   const control = choosing ? (
     <OpenTexture
       art={art}
@@ -111,7 +126,7 @@ export function TextureParamRow({ name, value, onChange }: ParamKindRowProps) {
       dragProps={dragProps}
       onChoose={choose}
       onKeep={() => setChoosing(false)}
-      onImport={texture.onImport}
+      onImport={importImage}
     />
   ) : uri ? (
     <TexturePreview
@@ -126,10 +141,5 @@ export function TextureParamRow({ name, value, onChange }: ParamKindRowProps) {
   ) : (
     <EmptyTexture dropping={dropping} dragProps={dragProps} onOpen={() => setChoosing(true)} />
   )
-  return (
-    <div className="ed-row">
-      {name}
-      <div>{control}</div>
-    </div>
-  )
+  return <div className="ed-row">{name}<div>{control}</div></div>
 }

@@ -89,6 +89,21 @@ it('keeps one fixed mesh, material and buffers until capacity changes (CA-8)', (
   game.dispose()
 })
 
+it('keeps transparent sort bounds aligned with the active particle depth (CA-8, CA-9)', () => {
+  const game = makeParticleGame()
+  const emitter = game.spawn('Sorted batch').add(ParticleEmitter)
+  emitter.emit(1)
+  const geometry = (particleMeshes(game)[0] as ParticleMesh).geometry
+  geometry.computeBoundingSphere()
+  expect(geometry.boundingSphere?.center.z).toBe(0)
+
+  emitter.layer = 2
+  expect(geometry.boundingSphere?.center.z).toBeCloseTo(0.02)
+  emitter.setSortZs([0.015])
+  expect(geometry.boundingSphere?.center.z).toBeCloseTo(0.015)
+  game.dispose()
+})
+
 it('reactively replaces filtering and blending without clearing particles (CA-10)', () => {
   const backend = new FakeTextureBackend()
   const game = makeParticleGame(backend)

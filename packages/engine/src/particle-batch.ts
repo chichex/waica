@@ -9,6 +9,7 @@ import {
   type ParticleSpawn,
 } from './particle-pool.js'
 import { projectIsometric } from './projection.js'
+import { refreshParticleSortBounds } from './particle-sort-bounds.js'
 import type { YSortEntry } from './render-sort.js'
 import type { SceneDrain } from './scene-drains.js'
 
@@ -164,6 +165,7 @@ export class ParticleBatch implements SceneDrain {
     for (let slot = 0; slot < this.active; slot += 1) {
       this.syncSlot({ positions, colors, slot, context })
     }
+    refreshParticleSortBounds(this.mesh.geometry, this.active, this._layer * 0.01)
     positions.needsUpdate = true
     colors.needsUpdate = true
     this.sortIndices()
@@ -182,6 +184,7 @@ export class ParticleBatch implements SceneDrain {
   setSortZ(z: number): void {
     const positions = this.mesh.geometry.getAttribute('position') as THREE.BufferAttribute
     for (let slot = 0; slot < this.active; slot += 1) this.writeSortZ(positions, slot, z)
+    refreshParticleSortBounds(this.mesh.geometry, this.active, this._layer * 0.01)
     positions.needsUpdate = true
     this.sortIndices()
   }
@@ -194,6 +197,7 @@ export class ParticleBatch implements SceneDrain {
       if (z === undefined) throw new Error(`ParticleBatch has no y-sort value for rank ${rank}`)
       this.writeSortZ(positions, slot, z)
     }
+    refreshParticleSortBounds(this.mesh.geometry, this.active, this._layer * 0.01)
     positions.needsUpdate = true
     this.sortIndices()
   }

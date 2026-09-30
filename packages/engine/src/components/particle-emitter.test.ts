@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 
 vi.mock('three', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>()
@@ -23,6 +23,13 @@ vi.mock('three', async (importOriginal) => {
 })
 
 import * as engine from '../index.js'
+import type {
+  ParticleBlend,
+  ParticleDestroyMode,
+  ParticleOverflow,
+  ParticleSpace,
+  ParticleVector,
+} from '../index.js'
 import { authoringDefaults } from '../authoring-defaults.js'
 import { SIMULATION_STEP } from '../fixed-step.js'
 import { ParticleEmitter } from './particle-emitter.js'
@@ -73,6 +80,14 @@ describe('ParticleEmitter public authoring API', () => {
     expect(engine.Emitter.name).toBe('Emitter')
   })
 
+  it('exports the ParticleEmitter property types from the package root (CA-1)', () => {
+    expectTypeOf<ParticleVector>().toEqualTypeOf<[number, number]>()
+    expectTypeOf<ParticleSpace>().toEqualTypeOf<'world' | 'local'>()
+    expectTypeOf<ParticleOverflow>().toEqualTypeOf<'recycle-oldest' | 'drop-new'>()
+    expectTypeOf<ParticleDestroyMode>().toEqualTypeOf<'clear' | 'drain'>()
+    expectTypeOf<ParticleBlend>().toEqualTypeOf<'normal' | 'additive'>()
+  })
+
   it('exposes only the confirmed authoring defaults and generic param metadata (CA-1)', () => {
     expect(authoringDefaults(ParticleEmitter)).toEqual(EXPECTED_DEFAULTS)
     expect(ParticleEmitter.params).toMatchObject({
@@ -92,82 +107,82 @@ describe('ParticleEmitter public authoring API', () => {
 })
 
 it('starts empty, accumulates continuous rate by Simulation Step, and lets bursts bypass pause (CA-2)', () => {
-    const game = makeGame()
-    const emitter = game.spawn('Smoke').add(ParticleEmitter, { rate: 30 })
+  const game = makeGame()
+  const emitter = game.spawn('Smoke').add(ParticleEmitter, { rate: 30 })
 
-    expect(emitter.inspectState?.()).toEqual({ active: 0, capacity: 256, emitting: true })
-    emitter.onUpdate?.(SIMULATION_STEP)
-    expect(emitter.inspectState?.()).toEqual({ active: 0, capacity: 256, emitting: true })
+  expect(emitter.inspectState?.()).toEqual({ active: 0, capacity: 256, emitting: true })
+  emitter.onUpdate?.(SIMULATION_STEP)
+  expect(emitter.inspectState?.()).toEqual({ active: 0, capacity: 256, emitting: true })
 
-    emitter.emitting = false
-    expect(emitter.emit(2)).toBe(2)
-    emitter.onUpdate?.(SIMULATION_STEP)
-    expect(emitter.active).toBe(2)
+  emitter.emitting = false
+  expect(emitter.emit(2)).toBe(2)
+  emitter.onUpdate?.(SIMULATION_STEP)
+  expect(emitter.active).toBe(2)
 
-    emitter.emitting = true
-    emitter.onUpdate?.(SIMULATION_STEP)
-    expect(emitter.active).toBe(3)
+  emitter.emitting = true
+  emitter.onUpdate?.(SIMULATION_STEP)
+  expect(emitter.active).toBe(3)
 
-    const sixty = game.spawn('Sparks').add(ParticleEmitter, { rate: 60 })
-    sixty.onUpdate?.(SIMULATION_STEP)
-    expect(sixty.active).toBe(1)
-    game.dispose()
-  })
+  const sixty = game.spawn('Sparks').add(ParticleEmitter, { rate: 60 })
+  sixty.onUpdate?.(SIMULATION_STEP)
+  expect(sixty.active).toBe(1)
+  game.dispose()
+})
 
-  it('samples deterministic Mulberry32 position spreads without Math.random (CA-3)', () => {
-    const random = vi.spyOn(Math, 'random')
-    const game = makeGame()
-    const props = { seed: 1, positionSpread: [2, 3] as [number, number] }
-    const first = game.spawn('First').add(ParticleEmitter, props)
-    const replay = game.spawn('Replay').add(ParticleEmitter, props)
-    const different = game.spawn('Different').add(ParticleEmitter, { ...props, seed: 2 })
-    // Three assigns UUIDs while constructing Object3D instances; particle sampling begins here.
-    random.mockClear()
+it('samples deterministic Mulberry32 position spreads without Math.random (CA-3)', () => {
+  const random = vi.spyOn(Math, 'random')
+  const game = makeGame()
+  const props = { seed: 1, positionSpread: [2, 3] as [number, number] }
+  const first = game.spawn('First').add(ParticleEmitter, props)
+  const replay = game.spawn('Replay').add(ParticleEmitter, props)
+  const different = game.spawn('Different').add(ParticleEmitter, { ...props, seed: 2 })
+  // Three assigns UUIDs while constructing Object3D instances; particle sampling begins here.
+  random.mockClear()
 
-    expect(first.emit(2)).toBe(2)
-    expect(replay.emit(2)).toBe(2)
-    expect(different.emit(2)).toBe(2)
+  expect(first.emit(2)).toBe(2)
+  expect(replay.emit(2)).toBe(2)
+  expect(different.emit(2)).toBe(2)
 
-    const meshes = particleMeshes(game)
-    expect(meshes).toHaveLength(3)
-    const firstCenters = centers(meshes[0] as ParticleMesh)
-    expect(firstCenters).toEqual(centers(meshes[1] as ParticleMesh))
-    expect(firstCenters).not.toEqual(centers(meshes[2] as ParticleMesh))
-    expect(firstCenters[0]).toBe(
-      (Math.fround(0.5082957624 - 0.5) + Math.fround(0.5082957624 + 0.5)) / 2,
-    )
-    expect(firstCenters[1]).toBe(
-      (Math.fround(-2.9835856729 - 0.5) + Math.fround(-2.9835856729 + 0.5)) / 2,
-    )
-    expect(random).not.toHaveBeenCalled()
-    game.dispose()
-  })
+  const meshes = particleMeshes(game)
+  expect(meshes).toHaveLength(3)
+  const firstCenters = centers(meshes[0] as ParticleMesh)
+  expect(firstCenters).toEqual(centers(meshes[1] as ParticleMesh))
+  expect(firstCenters).not.toEqual(centers(meshes[2] as ParticleMesh))
+  expect(firstCenters[0]).toBe(
+    (Math.fround(0.5082957624 - 0.5) + Math.fround(0.5082957624 + 0.5)) / 2,
+  )
+  expect(firstCenters[1]).toBe(
+    (Math.fround(-2.9835856729 - 0.5) + Math.fround(-2.9835856729 + 0.5)) / 2,
+  )
+  expect(random).not.toHaveBeenCalled()
+  game.dispose()
+})
 
-  it('restarts only future samples when seed changes and keeps the sequence on a no-op assignment (CA-3)', () => {
-    const game = makeGame()
-    const spread: [number, number] = [2, 3]
-    const changed = game.spawn('Changed').add(ParticleEmitter, { seed: 1, positionSpread: spread })
-    const fresh = game.spawn('Fresh').add(ParticleEmitter, { seed: 2, positionSpread: spread })
-    expect(changed.emit(1)).toBe(1)
-    changed.seed = 2
-    expect(changed.emit(1)).toBe(1)
-    expect(fresh.emit(1)).toBe(1)
+it('restarts only future samples when seed changes and keeps the sequence on a no-op assignment (CA-3)', () => {
+  const game = makeGame()
+  const spread: [number, number] = [2, 3]
+  const changed = game.spawn('Changed').add(ParticleEmitter, { seed: 1, positionSpread: spread })
+  const fresh = game.spawn('Fresh').add(ParticleEmitter, { seed: 2, positionSpread: spread })
+  expect(changed.emit(1)).toBe(1)
+  changed.seed = 2
+  expect(changed.emit(1)).toBe(1)
+  expect(fresh.emit(1)).toBe(1)
 
-    const [changedMesh, freshMesh] = particleMeshes(game)
-    expect(centers(changedMesh as ParticleMesh).slice(2)).toEqual(
-      centers(freshMesh as ParticleMesh),
-    )
+  const [changedMesh, freshMesh] = particleMeshes(game)
+  expect(centers(changedMesh as ParticleMesh).slice(2)).toEqual(
+    centers(freshMesh as ParticleMesh),
+  )
 
-    const noOp = game.spawn('NoOp').add(ParticleEmitter, { seed: 1, positionSpread: spread })
-    const uninterrupted = game.spawn('Uninterrupted').add(ParticleEmitter, { seed: 1, positionSpread: spread })
-    noOp.emit(1)
-    noOp.seed = 1
-    noOp.emit(1)
-    uninterrupted.emit(2)
-    const meshes = particleMeshes(game)
-    expect(centers(meshes[2] as ParticleMesh)).toEqual(centers(meshes[3] as ParticleMesh))
-    game.dispose()
-  })
+  const noOp = game.spawn('NoOp').add(ParticleEmitter, { seed: 1, positionSpread: spread })
+  const uninterrupted = game.spawn('Uninterrupted').add(ParticleEmitter, { seed: 1, positionSpread: spread })
+  noOp.emit(1)
+  noOp.seed = 1
+  noOp.emit(1)
+  uninterrupted.emit(2)
+  const meshes = particleMeshes(game)
+  expect(centers(meshes[2] as ParticleMesh)).toEqual(centers(meshes[3] as ParticleMesh))
+  game.dispose()
+})
 
 it('enforces fixed capacity and both overflow results (CA-4)', () => {
   const game = makeGame()
@@ -215,26 +230,26 @@ it('rebuilds only for normalized capacity changes without resetting samples (CA-
   game.dispose()
 })
 
-  it('consumes rejected continuous requests without carrying backlog (CA-2)', () => {
-    const game = makeGame()
-    const emitter = game.spawn('No backlog').add(ParticleEmitter, {
-      capacity: 1,
-      overflow: 'drop-new',
-      lifetime: 100,
-      rate: 2,
-    })
-
-    emitter.onUpdate?.(0.75)
-    expect(emitter.active).toBe(1)
-    emitter.onUpdate?.(0.25)
-    expect(emitter.active).toBe(1)
-    emitter.capacity = 2
-    emitter.onUpdate?.(0.25)
-    expect(emitter.active).toBe(0)
-    emitter.onUpdate?.(0.25)
-    expect(emitter.active).toBe(1)
-    game.dispose()
+it('consumes rejected continuous requests without carrying backlog (CA-2)', () => {
+  const game = makeGame()
+  const emitter = game.spawn('No backlog').add(ParticleEmitter, {
+    capacity: 1,
+    overflow: 'drop-new',
+    lifetime: 100,
+    rate: 2,
   })
+
+  emitter.onUpdate?.(0.75)
+  expect(emitter.active).toBe(1)
+  emitter.onUpdate?.(0.25)
+  expect(emitter.active).toBe(1)
+  emitter.capacity = 2
+  emitter.onUpdate?.(0.25)
+  expect(emitter.active).toBe(0)
+  emitter.onUpdate?.(0.25)
+  expect(emitter.active).toBe(1)
+  game.dispose()
+})
 
 it('rejects invalid counts and lifetimes without consuming samples (CA-4)', () => {
   const game = makeGame()

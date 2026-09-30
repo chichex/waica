@@ -1,6 +1,5 @@
 // @vitest-environment happy-dom
 import { Mesh, MeshBasicMaterial } from 'three'
-import type { BufferGeometry } from 'three'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 vi.mock('three', async (importOriginal) => {
@@ -27,26 +26,16 @@ vi.mock('three', async (importOriginal) => {
 import { ParticleEmitter } from './components/particle-emitter.js'
 import { Sprite } from './components/sprite.js'
 import { SIMULATION_STEP } from './fixed-step.js'
-import { Game } from './game.js'
+import type { Game } from './game.js'
 import { isYSortBatchParticipant } from './render-sort.js'
 import { loadScene } from './scene.js'
-
-class ResizeObserverStub {
-  observe(): void {}
-  disconnect(): void {}
-}
-
-type ParticleMesh = Mesh<BufferGeometry, MeshBasicMaterial>
-
-function makeGame(): Game {
-  const canvas = document.createElement('canvas')
-  Object.defineProperties(canvas, {
-    clientWidth: { value: 640 },
-    clientHeight: { value: 360 },
-  })
-  document.body.append(canvas)
-  return new Game({ canvas })
-}
+import {
+  installParticleTestDom,
+  makeParticleGame as makeGame,
+  particleCenters,
+  particleMesh,
+  particleMeshes,
+} from './components/test-particle-emitter.js'
 
 function runFrame(game: Game, steps: number): void {
   ;(game as unknown as { runFrame(steps: number): void }).runFrame(steps)
@@ -57,30 +46,7 @@ function renderWithoutSimulation(game: Game): void {
   runFrame(game, 0)
 }
 
-function particleMesh(game: Game): ParticleMesh {
-  const mesh = game.scene.children.find(
-    (child): child is ParticleMesh => child instanceof Mesh,
-  )
-  if (!mesh) throw new Error('expected particle mesh')
-  return mesh
-}
-
-function meshCenters(game: Game): Array<[number, number]> {
-  return game.scene.children
-    .filter((child): child is ParticleMesh => child instanceof Mesh)
-    .map((mesh) => {
-      const positions = mesh.geometry.getAttribute('position')
-      return [
-        (positions.getX(0) + positions.getX(1) + positions.getX(2) + positions.getX(3)) / 4,
-        (positions.getY(0) + positions.getY(1) + positions.getY(2) + positions.getY(3)) / 4,
-      ]
-    })
-}
-
-beforeEach(() => {
-  document.body.innerHTML = ''
-  vi.stubGlobal('ResizeObserver', ResizeObserverStub)
-})
+beforeEach(installParticleTestDom)
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -93,14 +59,14 @@ it('keeps world particles fixed and local particles translation-only under isome
   const localOwner = game.spawn('Local')
   localOwner.position.set(2, 1, 0)
   localOwner.add(ParticleEmitter, { space: 'local' }).emit(1)
-  expect(meshCenters(game)).toEqual([[1, -1.5], [1, -1.5]])
+  expect(particleMeshes(game).map(particleCenters)).toEqual([[1, -1.5], [1, -1.5]])
 
   worldOwner.position.set(4, 3, 0)
   localOwner.position.set(4, 3, 0)
   localOwner.scale.set(9, 7, 1)
   localOwner.node.rotation.z = Math.PI / 3
   renderWithoutSimulation(game)
-  expect(meshCenters(game)).toEqual([[1, -1.5], [1, -3.5]])
+  expect(particleMeshes(game).map(particleCenters)).toEqual([[1, -1.5], [1, -3.5]])
   game.dispose()
 })
 
@@ -177,7 +143,7 @@ it('transfers a drain batch to scene ownership until expiry (CA-11)', () => {
   emitter.emit(1)
   const mesh = particleMesh(game)
   const geometry = vi.spyOn(mesh.geometry, 'dispose')
-  const frozenCenter = meshCenters(game)[0]
+  const frozenCenter = particleCenters(mesh)
 
   entity.destroy()
   entity.position.set(100, 100, 0)
@@ -185,7 +151,7 @@ it('transfers a drain batch to scene ownership until expiry (CA-11)', () => {
   expect(emitter.emit(1)).toBe(0)
   expect(mesh.parent).toBe(game.scene)
   runFrame(game, 1)
-  expect(meshCenters(game)[0]).toEqual(frozenCenter)
+  expect(particleCenters(mesh)).toEqual(frozenCenter)
   expect(mesh.parent).toBe(game.scene)
   runFrame(game, 1)
   expect(mesh.parent).toBeNull()
