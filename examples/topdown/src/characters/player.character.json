@@ -155,6 +155,44 @@
         "max": 3,
         "invulnerability": 1
       }
+    },
+    {
+      "type": "ParticleEmitter",
+      "props": {
+        "rate": 16,
+        "emitting": false,
+        "lifetime": 0.6,
+        "positionSpread": [
+          0.2,
+          0.08
+        ],
+        "velocity": [
+          0,
+          0.25
+        ],
+        "velocitySpread": [
+          0.35,
+          0.2
+        ],
+        "space": "world",
+        "seed": 13,
+        "capacity": 48,
+        "width": 0.16,
+        "height": 0.16,
+        "startScale": 0.8,
+        "endScale": 1.8,
+        "startColor": 14733224,
+        "endColor": 12101768,
+        "startAlpha": 0.45,
+        "endAlpha": 0,
+        "layer": -0.5
+      }
+    },
+    {
+      "type": "DustTrail",
+      "props": {
+        "state": "walk"
+      }
     }
   ]
 }
