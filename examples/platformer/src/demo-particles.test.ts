@@ -41,6 +41,7 @@ import {
   type SceneJson,
 } from '@waica/engine'
 import { PLATFORMER_BUNDLE, PLATFORMER_REGISTRY } from '@waica/archetype-platformer'
+import { PlatformerMotor } from '@waica/behaviors'
 import controls from './controls.json'
 import stats from './stats.json'
 import { defined } from '../../../packages/engine/src/test-support'
@@ -128,7 +129,7 @@ function settle(demo: ReturnType<typeof makeDemo>): void {
   expect(demo.dust.active).toBe(0)
 }
 
-describe('the platformer demo kicks up dust', () => {
+describe('the platformer demo takeoff dust', () => {
   it('puffs a little dust under the player when it jumps', () => {
     const demo = makeDemo()
     settle(demo)
@@ -139,6 +140,34 @@ describe('the platformer demo kicks up dust', () => {
     expect(demo.dust.active).toBeGreaterThan(0)
   })
 
+  it('raises no dust when a stomp bounces the player back up in mid-air', () => {
+    const demo = makeDemo()
+    settle(demo)
+    const slime = defined(demo.game.find('Slime-1'), 'Slime-1')
+    demo.player.position.set(slime.position.x, slime.position.y + 2, 0)
+
+    demo.until('fall')
+    // fall -> jump on 'signal:rise': the stomp bounce, not a takeoff.
+    demo.until('jump')
+
+    expect(slime.alive).toBe(false)
+    expect(demo.dust.active).toBe(0)
+  })
+
+  it('leaves no dust while the player simply runs along the ground', () => {
+    const demo = makeDemo()
+    settle(demo)
+
+    expect(demo.game.input.injectAction('right', 'hold')).toBe(true)
+    demo.until('run')
+    demo.frames(0.3)
+    expect(demo.state()).toBe('run')
+
+    expect(demo.dust.active).toBe(0)
+  })
+})
+
+describe('the platformer demo landing dust', () => {
   it('bursts dust when the player lands after a fall, not while it is airborne', () => {
     const demo = makeDemo()
     settle(demo)
@@ -155,15 +184,29 @@ describe('the platformer demo kicks up dust', () => {
     expect(demo.dust.active).toBeGreaterThan(0)
   })
 
-  it('leaves no dust while the player simply runs along the ground', () => {
+  it('bursts dust when a jump lands straight on a ledge, without a fall in between', () => {
     const demo = makeDemo()
     settle(demo)
-
-    expect(demo.game.input.injectAction('right', 'hold')).toBe(true)
-    demo.until('run')
-    demo.frames(0.3)
-    expect(demo.state()).toBe('run')
-
+    const groundY = demo.player.position.y
+    const motor = defined(demo.player.get(PlatformerMotor))
+    expect(demo.game.input.injectAction('jump', 'press')).toBe(true)
+    demo.until('jump', DT)
+    // Keep the body rising in 'jump' until the takeoff puff has settled.
+    for (let t = 0; t < 1 && demo.dust.active > 0; t += DT) {
+      demo.player.position.y = groundY + 1
+      motor.vy = 5
+      demo.frame()
+    }
+    expect(demo.state()).toBe('jump')
     expect(demo.dust.active).toBe(0)
+
+    // The apex sits on the ledge: the first descending step grounds the body,
+    // so the graph takes jump -> idle on 'signal:land' and never visits 'fall'.
+    demo.player.position.y = groundY + 0.001
+    motor.vy = 0
+    demo.frame()
+
+    expect(demo.state()).toBe('idle')
+    expect(demo.dust.active).toBeGreaterThan(0)
   })
 })
