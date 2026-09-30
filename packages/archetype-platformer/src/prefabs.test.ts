@@ -36,9 +36,16 @@ describe('the platformer prefabs express the damage model', () => {
       'Respawnable',
       'Health',
       'OutOfBounds',
+      'ParticleEmitter',
+      'DustPuffs',
     ])
     expect(props('characters/player', 'Health')).toEqual({ max: 3, invulnerability: 1 })
     expect(props('characters/player', 'OutOfBounds')).toEqual({ minY: -8 })
+  })
+
+  it('gives the player a burst-only dust emitter that DustPuffs fires on takeoff and landing', () => {
+    expect(props('characters/player', 'DustPuffs')).toEqual({ jumpCount: 5, landCount: 12 })
+    expect(props('characters/player', 'ParticleEmitter')).toMatchObject({ rate: 0, space: 'world', layer: -1 })
   })
 
   it('leaves the player Respawnable with no orphan kill height', () => {

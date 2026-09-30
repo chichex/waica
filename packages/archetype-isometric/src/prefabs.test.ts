@@ -32,17 +32,38 @@ describe('the isometric prefabs express the genre model', () => {
     })
   })
 
-  it('ships exactly the declared cast, ground and occluding props', () => {
+  it('ships exactly the declared cast, ground, occluding props and particle effects', () => {
     expect(Object.keys(ISOMETRIC_PREFABS).sort()).toEqual([
       'characters/orc',
       'characters/player',
       'characters/villager',
+      'objects/cave-dust',
       'objects/crate',
       'objects/door',
+      'objects/hurt-smoke',
       'objects/rock',
       'objects/tree',
+      'objects/wind',
       'tiles/ground',
     ])
+  })
+
+  it('gives the player a sword-spark emitter that SwingSparks bursts on attack', () => {
+    const types = componentTypes('characters/player')
+    expect(types.slice(-2)).toEqual(['ParticleEmitter', 'SwingSparks'])
+    expect(types.indexOf('StateMachine')).toBeLessThan(types.indexOf('SwingSparks'))
+    expect(props('characters/player', 'SwingSparks')).toEqual({ state: 'attack', count: 18 })
+    expect(props('characters/player', 'ParticleEmitter')).toMatchObject({ rate: 0, space: 'world', layer: 1 })
+  })
+
+  it('ships the ambient and hurt effects as sprite-less emitter objects', () => {
+    expect(componentTypes('objects/wind')).toEqual(['ParticleEmitter'])
+    expect(props('objects/wind', 'ParticleEmitter')).toMatchObject({ space: 'world', layer: 0 })
+    expect(Number(props('objects/wind', 'ParticleEmitter')['rate'])).toBeGreaterThan(0)
+    expect(componentTypes('objects/hurt-smoke')).toEqual(['ParticleEmitter', 'DamagePuff'])
+    expect(props('objects/hurt-smoke', 'ParticleEmitter')).toMatchObject({ rate: 0, space: 'world' })
+    expect(componentTypes('objects/cave-dust')).toEqual(['ParticleEmitter'])
+    expect(Number(props('objects/cave-dust', 'ParticleEmitter')['rate'])).toBeGreaterThan(0)
   })
 
   it('drives the player with IsoMotor and no gravity plumbing', () => {

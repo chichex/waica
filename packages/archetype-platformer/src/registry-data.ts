@@ -12,6 +12,7 @@ import {
 import {
   Chaser,
   Collectible,
+  DustPuffs,
   Hazard,
   Health,
   Lifetime,
@@ -40,6 +41,7 @@ export const PLATFORMER_REGISTRY_DATA: SceneRegistry = {
     DynamicBody,
     StateMachine,
     PlatformerMotor,
+    DustPuffs,
     Collectible,
     Patrol,
     Chaser,

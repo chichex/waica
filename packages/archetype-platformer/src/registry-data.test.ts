@@ -158,6 +158,7 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
   Lifetime: {
     seconds: 1,
   },
+  DustPuffs: { jumpCount: 5, landCount: 12 },
   SceneTransition: { scene: '', trigger: 'overlap', fadeSeconds: 0, fadeColor: 'black' },
 }
 
@@ -175,7 +176,7 @@ describe('PLATFORMER_REGISTRY_DATA ui', () => {
 })
 
 describe('PLATFORMER_REGISTRY_DATA authoring defaults', () => {
-  it('covers exactly the 17 registered components', () => {
+  it('covers exactly the 18 registered components', () => {
     expect(Object.keys(PLATFORMER_REGISTRY_DATA.components).sort()).toEqual(
       Object.keys(EXPECTED_DEFAULTS).sort(),
     )

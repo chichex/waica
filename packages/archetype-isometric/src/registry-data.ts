@@ -13,6 +13,7 @@ import {
   Chaser,
   ClickToMove,
   Collectible,
+  DamagePuff,
   Hazard,
   Health,
   Interactable,
@@ -22,6 +23,7 @@ import {
   Patrol,
   Respawnable,
   SceneTransition,
+  SwingSparks,
 } from '@waica/behaviors'
 import { ISOMETRIC_ART } from './art.js'
 import { ISOMETRIC_PREFABS } from './prefabs.js'
@@ -42,6 +44,8 @@ export const ISOMETRIC_REGISTRY_DATA: SceneRegistry = {
     StateMachine,
     IsoMotor,
     MeleeAttack,
+    SwingSparks,
+    DamagePuff,
     Interactable,
     Collectible,
     Patrol,
@@ -65,6 +69,9 @@ const PALETTE_ICONS: Record<string, string> = {
   crate: '📦',
   tree: '🌳',
   rock: '🪨',
+  wind: '🌬️',
+  'hurt-smoke': '💨',
+  'cave-dust': '✨',
   ground: '💎',
 }
 
