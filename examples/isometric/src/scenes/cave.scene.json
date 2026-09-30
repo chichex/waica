@@ -187,7 +187,7 @@
         {
           "type": "ParticleEmitter",
           "props": {
-            "rate": 4,
+            "rate": 5,
             "lifetime": 3,
             "positionSpread": [
               4,
@@ -204,13 +204,13 @@
             "space": "world",
             "seed": 5,
             "capacity": 32,
-            "width": 0.06,
-            "height": 0.06,
+            "width": 0.12,
+            "height": 0.12,
             "startScale": 1,
             "endScale": 0.5,
-            "startColor": 14207136,
-            "endColor": 14207136,
-            "startAlpha": 0.45,
+            "startColor": 16773320,
+            "endColor": 16773320,
+            "startAlpha": 0.7,
             "endAlpha": 0,
             "layer": 0
           }

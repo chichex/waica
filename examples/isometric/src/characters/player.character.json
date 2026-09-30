@@ -340,29 +340,29 @@
           0.25
         ],
         "velocity": [
-          -1.2,
-          -1.2
+          -1.8,
+          -1.8
         ],
         "velocitySpread": [
-          3,
-          3
+          2.6,
+          2.6
         ],
         "gravity": [
-          2.5,
-          2.5
+          3,
+          3
         ],
         "space": "world",
         "seed": 7,
         "capacity": 64,
-        "width": 0.14,
-        "height": 0.14,
+        "width": 0.16,
+        "height": 0.16,
         "startScale": 1,
         "endScale": 0.3,
-        "startColor": 16774338,
-        "endColor": 16751150,
+        "startColor": 16761370,
+        "endColor": 16726528,
         "startAlpha": 1,
         "endAlpha": 0,
-        "blend": "additive",
+        "blend": "normal",
         "layer": 1
       }
     },
@@ -370,7 +370,7 @@
       "type": "SwingSparks",
       "props": {
         "state": "attack",
-        "count": 14
+        "count": 18
       }
     }
   ]
