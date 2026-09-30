@@ -2,15 +2,6 @@ import type { PrefabJson } from '@waica/engine'
 import { NPC_STATE_GRAPH, TOPDOWN_PLAYER_STATE_GRAPH } from '@waica/behaviors'
 import { HERO_SPRITE } from './scene-default.js'
 
-/**
- * The archetype's reusable entity templates, keyed by ref ('tiles/tree').
- * Scenes reference these and override per-entity props; the palette derives
- * its pieces from this catalog.
- *
- * Ground tiles draw on negative layers so the y-sort pass never weaves
- * them between characters: meadow (-2), then decor tiles (-1), then
- * everything that occludes at 0.
- */
 /** The hero's walking dust: faint puffs left behind, drifting up and fading. */
 const WALK_DUST = {
   rate: 16,
@@ -33,6 +24,15 @@ const WALK_DUST = {
   layer: -0.5,
 }
 
+/**
+ * The archetype's reusable entity templates, keyed by ref ('tiles/tree').
+ * Scenes reference these and override per-entity props; the palette derives
+ * its pieces from this catalog.
+ *
+ * Ground tiles draw on negative layers so the y-sort pass never weaves
+ * them between characters: meadow (-2), then decor tiles (-1), then
+ * everything that occludes at 0.
+ */
 export const TOPDOWN_PREFABS: Record<string, PrefabJson> = {
   'characters/player': {
     waicaPrefab: 1,
