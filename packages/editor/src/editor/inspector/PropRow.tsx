@@ -1,4 +1,4 @@
-import { useContext, useId } from 'react'
+import { useContext, useId, useState } from 'react'
 import type { ParamSpec } from '@waica/engine'
 import type { ParamDiagnostic } from '../collision-category-diagnostics'
 import { NumberField } from '../NumberField'
@@ -6,6 +6,8 @@ import { availableRefTargets, type RefTarget } from '../ref-targets'
 import { ParamDiagnosticMessages, StringListField } from '../StringListField'
 import { RefRow } from './RefRow'
 import { RefTargetsContext } from './ref-targets-context'
+import { TexturePicker, TexturePreview } from './TextureControls'
+import { useTextureDrop } from './use-texture-drop'
 
 /**
  * A row's name plus, while the prop is overridden on this instance, the
@@ -101,8 +103,9 @@ function NumberRow({
   spec,
   onChange,
 }: ValueRowProps<number> & { label: string; spec?: ParamSpec }) {
-  if (label === 'color') {
-    const hex = `#${Math.max(0, value).toString(16).padStart(6, '0')}`
+  if (spec?.kind === 'color' || label === 'color') {
+    const normalized = Math.max(0, Math.min(0xffffff, Math.round(value)))
+    const hex = `#${normalized.toString(16).padStart(6, '0')}`
     return (
       <label className="ed-row">
         {name}
@@ -179,6 +182,88 @@ function StringRow({
   )
 }
 
+function Vector2Row({
+  label,
+  name,
+  value,
+  onChange,
+}: ValueRowProps<unknown> & { label: string }) {
+  const pair = Array.isArray(value) ? value : []
+  const x = typeof pair[0] === 'number' && Number.isFinite(pair[0]) ? pair[0] : 0
+  const y = typeof pair[1] === 'number' && Number.isFinite(pair[1]) ? pair[1] : 0
+  return (
+    <div className="ed-row ed-row-xy">
+      {name}
+      <NumberField
+        aria-label={`${label} x`}
+        step={0.1}
+        value={x}
+        onChange={(text) => onChange([Number(text), y])}
+      />
+      <NumberField
+        aria-label={`${label} y`}
+        step={0.1}
+        value={y}
+        onChange={(text) => onChange([x, Number(text)])}
+      />
+    </div>
+  )
+}
+
+function TextureRow({ name, value, onChange }: ValueRowProps<unknown>) {
+  const [choosing, setChoosing] = useState(false)
+  const { texture } = useContext(RefTargetsContext)
+  const art = texture.art.filter((item) => item.kind === 'image')
+  const uri = typeof value === 'string' ? value : ''
+  const choose = (next: string): void => {
+    onChange(next)
+    setChoosing(false)
+  }
+  const { dropping, dragProps } = useTextureDrop(art, choose, texture.onImport)
+  return (
+    <div className="ed-row">
+      {name}
+      <div>
+        {choosing ? (
+          <>
+            <TexturePicker
+              art={art}
+              hasTexture={uri !== ''}
+              dropping={dropping}
+              dragProps={dragProps}
+              onPick={choose}
+              onKeep={() => setChoosing(false)}
+              onImport={texture.onImport}
+            />
+            <button className="ed-mini" type="button" onClick={() => choose('')}>
+              Clear image
+            </button>
+          </>
+        ) : uri ? (
+          <TexturePreview
+            texture={uri}
+            art={art}
+            urlFor={texture.urlFor}
+            overridden={false}
+            dropping={dropping}
+            dragProps={dragProps}
+            onChange={() => setChoosing(true)}
+          />
+        ) : (
+          <button
+            className={`ed-mini ${dropping ? 'is-dropping' : ''}`}
+            type="button"
+            onClick={() => setChoosing(true)}
+            {...dragProps}
+          >
+            Choose image…
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 /** Dispatches a plain param to the control its value's type calls for. */
 function ValueRow({
   label,
@@ -188,6 +273,12 @@ function ValueRow({
   referenceTargets,
   onChange,
 }: ValueRowProps<unknown> & { label: string; spec?: ParamSpec; referenceTargets?: RefTarget[] }) {
+  if (spec?.kind === 'vector2') {
+    return <Vector2Row label={spec.label ?? label} name={name} value={value} onChange={onChange} />
+  }
+  if (spec?.kind === 'texture') {
+    return <TextureRow name={name} value={value} onChange={onChange} />
+  }
   if (typeof value === 'boolean') {
     return (
       <label className="ed-row">

@@ -3,17 +3,23 @@ import type { InputBindings, PrefabJson, SceneComponentJson } from '@waica/engin
 import type { ProjectStats } from '../../project/stats'
 import { resolveComponents } from '../../scene/ops'
 import type { RefEntityContext, RefProjectState, RefTarget } from '../ref-targets'
-import type { ArtItem } from '../use-project-art'
+import type { ArtItem, DroppedFile } from '../use-project-art'
 import { intersectedClipComponents } from './component-meta'
 import type { InspectorSelection } from './inspector-props'
 
 export interface RefTargetContext {
   project: RefProjectState
   entity?: RefEntityContext
+  texture: {
+    art: readonly ArtItem[]
+    urlFor: (uri: string) => string
+    onImport: (files: DroppedFile[]) => Promise<void>
+  }
 }
 
 export const RefTargetsContext = createContext<RefTargetContext>({
   project: { prefabs: {}, stats: {}, actions: {}, sounds: [], uiPieces: [] },
+  texture: { art: [], urlFor: (uri) => uri, onImport: async () => {} },
 })
 
 /** The components whose values constrain the selection's typed references (e.g. its clips). */
@@ -38,6 +44,8 @@ export function referenceContextFor(project: {
   actions: InputBindings
   art: readonly ArtItem[]
   uiPieces?: readonly string[]
+  urlFor: (uri: string) => string
+  onImportArt: (files: DroppedFile[]) => Promise<void>
 }): RefTargetContext {
   const referenceComponents = referenceComponentsOf(project.selection, project.prefabs)
   const sounds: RefTarget[] = project.art
@@ -50,6 +58,11 @@ export function referenceContextFor(project: {
       actions: project.actions,
       sounds,
       uiPieces: project.uiPieces ?? [],
+    },
+    texture: {
+      art: project.art,
+      urlFor: project.urlFor,
+      onImport: project.onImportArt,
     },
     ...(referenceComponents ? { entity: { components: referenceComponents } } : {}),
   }
