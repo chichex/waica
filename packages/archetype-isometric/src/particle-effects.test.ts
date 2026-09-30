@@ -97,8 +97,11 @@ describe('the isometric archetype combat particles', () => {
 
     expect(demo.game.input.injectAction('attack', 'press')).toBe(true)
     demo.frame()
-
     expect(sparks.active).toBeGreaterThan(0)
+
+    // A short-lived flash: gone before the next swing could start.
+    demo.frames(1)
+    expect(sparks.active).toBe(0)
   })
 
   it('puffs hurt smoke where a strike lands on the orc', () => {
@@ -124,16 +127,39 @@ describe('the isometric archetype combat particles', () => {
   })
 })
 
+describe('the isometric archetype hurt smoke on the player', () => {
+  it('puffs hurt smoke where the orc touches the player', () => {
+    const demo = makeDemo()
+    const orc = demo.find('Orc')
+    const player = demo.find('Player')
+    const smoke = demo.emitter('HurtSmoke')
+    let hitAt: number[] = []
+    demo.game.events.on('damage', () => {
+      hitAt = [player.position.x, player.position.y]
+    })
+
+    player.position.set(orc.position.x - 0.5, orc.position.y, 0)
+    demo.frame()
+
+    expect(defined(player.get(Health)).current).toBe(2)
+    expect(smoke.active).toBeGreaterThan(0)
+    const smokeAt = demo.find('HurtSmoke').position
+    expect([smokeAt.x, smokeAt.y]).toEqual(hitAt)
+  })
+})
+
 describe('the isometric archetype ambience', () => {
   it('blows wind across the main scene continuously', () => {
     const demo = makeDemo()
     const wind = demo.emitter('Wind')
 
     demo.frames(1)
-    for (let second = 0; second < 3; second++) {
+    for (let second = 0; second < 5; second++) {
       expect(wind.active).toBeGreaterThan(0)
       demo.frames(1)
     }
+    expect(wind.emitting).toBe(true)
+    expect(wind.space).toBe('world')
   })
 
   it('keeps the cave windless, with drifting dust instead', () => {
