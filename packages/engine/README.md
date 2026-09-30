@@ -93,6 +93,52 @@ Invalid inputs fail closed without throwing: invalid `area` bodies and non-finit
 
 Area and point intentionally use the collision system's polygonally approximated circle/ellipse outline. Ray queries intersect circle-shaped Solids as analytic ellipses and return their exact outward unit normal. Collision Layers and Masks never filter `area` or `point`; use a query filter when category-like eligibility is needed.
 
+## CPU particle emitters
+
+`ParticleEmitter` is the authorable 2D particle component. It simulates a fixed-capacity CPU batch in fixed-step time and renders the whole effect with one mesh, one geometry, and one material. Its complete authoring surface and defaults are:
+
+| Props | Defaults |
+| --- | --- |
+| continuous | `rate: 0`, `emitting: true` |
+| lifetime and spawn | `lifetime: 1`, `positionSpread: [0, 0]` |
+| motion | `velocity: [0, 0]`, `velocitySpread: [0, 0]`, `gravity: [0, 0]` |
+| coordinates and random stream | `space: 'world'`, `seed: 1` |
+| storage | `capacity: 256`, `overflow: 'recycle-oldest'` |
+| ownership | `destroyMode: 'clear'` |
+| quad | `width: 1`, `height: 1`, `startScale: 1`, `endScale: 1` |
+| tint | `startColor: 0xffffff`, `endColor: 0xffffff`, `startAlpha: 1`, `endAlpha: 0` |
+| material | `texture: ''`, `pixelArt: false`, `blend: 'normal'` |
+| draw band | `layer: 0` |
+
+```ts
+import { ParticleEmitter } from '@waica/engine'
+
+const smoke = entity.add(ParticleEmitter, {
+  rate: 12,
+  lifetime: 0.8,
+  positionSpread: [0.4, 0.1],
+  velocity: [0, 2],
+  velocitySpread: [0.5, 0.5],
+  gravity: [0, -3],
+  startColor: 0xffffff,
+  endColor: 0x777777,
+  startAlpha: 0.8,
+  endAlpha: 0,
+  texture: 'art/smoke.png',
+  blend: 'additive',
+  capacity: 256,
+})
+smoke.emit(20) // deterministic burst; returns the accepted count
+```
+
+A seeded Mulberry32 stream makes equivalent runs deterministic; `emit(count)` uses the same stream as continuous `rate` emission. `overflow: 'recycle-oldest'` (the default) replaces the oldest live particles at capacity, while `'drop-new'` rejects new ones without sampling. Resizing `capacity` clears the batch but does not reset the stream; changing `seed` or remounting does.
+
+`space: 'world'` snapshots the entity's logical origin at spawn, while `'local'` keeps live particles attached to it. Logical simulation is projection-independent: orthographic and isometric scenes only change render projection. In `sort: 'y'` scenes every live particle contributes its own global depth entry alongside Sprites, AnimatedSprites, Tilemaps, and draining batches; equal-Y ties preserve spawn order.
+
+Textures use the Game's shared `AssetLoader`; `pixelArt` chooses nearest or linear filtering, and `blend` selects normal or additive blending. All three are reactive authoring props. A failed or empty texture falls back to the flat colored quad. Batching keeps one draw submission but does not promise order-independent or globally exact alpha composition between meshes. `destroyMode: 'clear'` removes the batch with its owner; `'drain'` transfers it to scene scope, stops emission, and simulates it until empty. Scene unload and `game.dispose()` always clear drains.
+
+`active`, `capacity`, and `emitting` are the only fields exposed by Runtime Snapshot. Particle arrays remain private. This first CPU implementation is intended for bounded 2D effects, not collision, per-particle scripting, GPU simulation, trails, rotation, or sub-emitters.
+
 ## Component lifecycle
 
 Waica keeps the lifecycle boundaries distinct:
