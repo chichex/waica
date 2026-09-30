@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ISOMETRIC_PREFABS } from './prefabs'
+import { ISOMETRIC_CAVE_MAP_HEIGHT, ISOMETRIC_CAVE_MAP_WIDTH, ISOMETRIC_PREFABS } from './prefabs'
 import { ISOMETRIC_REGISTRY_DATA } from './registry-data'
 import { defined, match } from '../../engine/src/test-support'
 
@@ -64,6 +64,11 @@ describe('the isometric prefabs express the genre model', () => {
     expect(props('objects/hurt-smoke', 'ParticleEmitter')).toMatchObject({ rate: 0, space: 'world' })
     expect(componentTypes('objects/cave-dust')).toEqual(['ParticleEmitter'])
     expect(Number(props('objects/cave-dust', 'ParticleEmitter')['rate'])).toBeGreaterThan(0)
+    // Placed at the cave's center, the motes stay inside its border ring.
+    expect(props('objects/cave-dust', 'ParticleEmitter')['positionSpread']).toEqual([
+      ISOMETRIC_CAVE_MAP_WIDTH / 2 - 1,
+      ISOMETRIC_CAVE_MAP_HEIGHT / 2 - 1,
+    ])
   })
 
   it('drives the player with IsoMotor and no gravity plumbing', () => {

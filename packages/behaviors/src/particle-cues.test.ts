@@ -134,12 +134,14 @@ describe('DamagePuff', () => {
     expect(puff.active).toBe(0)
     expect([smoke.position.x, smoke.position.y]).toEqual([0, 0])
   })
+})
 
+describe('DamagePuff lifetime', () => {
   it('unsubscribes from the damage event when its entity is destroyed', () => {
     const game = makeGame()
     const subscribe = game.events.on.bind(game.events)
     const unsubscribes: Array<ReturnType<typeof vi.fn>> = []
-    vi.spyOn(game.events, 'on').mockImplementation((event, handler) => {
+    const on = vi.spyOn(game.events, 'on').mockImplementation((event, handler) => {
       const off = vi.fn(subscribe(event, handler))
       unsubscribes.push(off)
       return off
@@ -147,7 +149,7 @@ describe('DamagePuff', () => {
     const smoke = game.spawn('Smoke')
     smoke.add(ParticleEmitter, BURST_ONLY)
     smoke.add(DamagePuff)
-    expect(game.events.on).toHaveBeenCalledWith('damage', expect.any(Function))
+    expect(on).toHaveBeenCalledWith('damage', expect.any(Function))
     expect(unsubscribes.every((off) => off.mock.calls.length === 0)).toBe(true)
 
     smoke.destroy()
