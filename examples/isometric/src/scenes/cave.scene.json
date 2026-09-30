@@ -176,6 +176,46 @@
           "scene": "main"
         }
       }
+    },
+    {
+      "name": "Dust",
+      "position": [
+        5,
+        5
+      ],
+      "components": [
+        {
+          "type": "ParticleEmitter",
+          "props": {
+            "rate": 4,
+            "lifetime": 3,
+            "positionSpread": [
+              4,
+              4
+            ],
+            "velocity": [
+              -0.1,
+              -0.1
+            ],
+            "velocitySpread": [
+              0.15,
+              0.15
+            ],
+            "space": "world",
+            "seed": 5,
+            "capacity": 32,
+            "width": 0.06,
+            "height": 0.06,
+            "startScale": 1,
+            "endScale": 0.5,
+            "startColor": 14207136,
+            "endColor": 14207136,
+            "startAlpha": 0.45,
+            "endAlpha": 0,
+            "layer": 0
+          }
+        }
+      ]
     }
   ],
   "ui": [

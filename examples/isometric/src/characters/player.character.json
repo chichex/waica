@@ -329,6 +329,49 @@
         "markerWidth": 1,
         "markerHeight": 0.5
       }
+    },
+    {
+      "type": "ParticleEmitter",
+      "props": {
+        "rate": 0,
+        "lifetime": 0.3,
+        "positionSpread": [
+          0.25,
+          0.25
+        ],
+        "velocity": [
+          -1.2,
+          -1.2
+        ],
+        "velocitySpread": [
+          3,
+          3
+        ],
+        "gravity": [
+          2.5,
+          2.5
+        ],
+        "space": "world",
+        "seed": 7,
+        "capacity": 64,
+        "width": 0.14,
+        "height": 0.14,
+        "startScale": 1,
+        "endScale": 0.3,
+        "startColor": 16774338,
+        "endColor": 16751150,
+        "startAlpha": 1,
+        "endAlpha": 0,
+        "blend": "additive",
+        "layer": 1
+      }
+    },
+    {
+      "type": "SwingSparks",
+      "props": {
+        "state": "attack",
+        "count": 14
+      }
     }
   ]
 }
