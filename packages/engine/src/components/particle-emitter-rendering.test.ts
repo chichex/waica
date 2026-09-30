@@ -147,6 +147,28 @@ it('ignores replaced settlements and falls back after a current texture failure 
   game.dispose()
 })
 
+it('does not let a late texture settlement resurrect a destroyed emitter (CA-10)', async () => {
+  const backend = new FakeTextureBackend()
+  backend.hold('/held.png')
+  const game = makeParticleGame(backend)
+  const entity = game.spawn('Destroyed texture')
+  entity.add(ParticleEmitter, { texture: '/held.png' })
+  const material = (particleMeshes(game)[0] as ParticleMesh).material
+  const texture = material.map
+  if (!texture) throw new Error('expected held texture clone')
+  const disposeTexture = vi.spyOn(texture, 'dispose')
+
+  entity.destroy()
+  expect(material.map).toBeNull()
+  expect(disposeTexture).toHaveBeenCalledTimes(1)
+  backend.release('/held.png')
+  await flush()
+
+  expect(material.map).toBeNull()
+  expect(disposeTexture).toHaveBeenCalledTimes(1)
+  game.dispose()
+})
+
 function changeFutureSpawnProps(emitter: ParticleEmitter): void {
   emitter.velocity = [100, 100]
   emitter.gravity = [100, 100]

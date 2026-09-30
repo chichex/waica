@@ -29,6 +29,7 @@ import { Sprite } from './components/sprite.js'
 import { SIMULATION_STEP } from './fixed-step.js'
 import { Game } from './game.js'
 import { isYSortBatchParticipant } from './render-sort.js'
+import { loadScene } from './scene.js'
 
 class ResizeObserverStub {
   observe(): void {}
@@ -208,4 +209,46 @@ it('disposes a paused drain immediately when its scene unloads (CA-11)', () => {
   expect(mesh.parent).toBeNull()
   expect(geometry).toHaveBeenCalledTimes(1)
   game.dispose()
+})
+
+it('disposes every drain when a new scene replaces the current one (CA-11)', () => {
+  const game = makeGame()
+  const registry = { components: { ParticleEmitter } }
+  loadScene(game, {
+    waicaScene: 3,
+    entities: [{
+      name: 'Scene drain',
+      components: [{ type: 'ParticleEmitter', props: { destroyMode: 'drain', lifetime: 10 } }],
+    }],
+  }, registry)
+  const entity = game.find('Scene drain')
+  const emitter = entity?.get(ParticleEmitter)
+  if (!entity || !emitter) throw new Error('expected loaded ParticleEmitter')
+  emitter.emit(1)
+  const mesh = particleMesh(game)
+  const geometry = vi.spyOn(mesh.geometry, 'dispose')
+  entity.destroy()
+
+  loadScene(game, { waicaScene: 3, entities: [] }, registry)
+
+  expect(mesh.parent).toBeNull()
+  expect(geometry).toHaveBeenCalledTimes(1)
+  game.dispose()
+})
+
+it('disposes every drain when the Game is disposed (CA-11)', () => {
+  const game = makeGame()
+  const entity = game.spawn('Game drain')
+  const emitter = entity.add(ParticleEmitter, { destroyMode: 'drain', lifetime: 10 })
+  emitter.emit(1)
+  const mesh = particleMesh(game)
+  const geometry = vi.spyOn(mesh.geometry, 'dispose')
+  const material = vi.spyOn(mesh.material, 'dispose')
+  entity.destroy()
+
+  game.dispose()
+
+  expect(mesh.parent).toBeNull()
+  expect(geometry).toHaveBeenCalledTimes(1)
+  expect(material).toHaveBeenCalledTimes(1)
 })
