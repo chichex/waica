@@ -20,12 +20,26 @@ export interface YSortParticipant {
   setSortZ(z: number): void
 }
 
+/** A single batched renderable that contributes one global y-sort entry per item. */
+export interface YSortBatchParticipant extends YSortParticipant {
+  ySortEntries(): readonly YSortEntry[]
+  setSortZs(values: readonly number[]): void
+}
+
 export function isYSortParticipant(value: unknown): value is YSortParticipant {
   return (
     typeof value === 'object' &&
     value !== null &&
     typeof (value as YSortParticipant).layer === 'number' &&
     typeof (value as YSortParticipant).setSortZ === 'function'
+  )
+}
+
+export function isYSortBatchParticipant(value: unknown): value is YSortBatchParticipant {
+  return (
+    isYSortParticipant(value) &&
+    typeof (value as YSortBatchParticipant).ySortEntries === 'function' &&
+    typeof (value as YSortBatchParticipant).setSortZs === 'function'
   )
 }
 

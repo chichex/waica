@@ -33,7 +33,14 @@ import {
 } from './runtime-bridge.js'
 import { RuntimeInspector } from './runtime-inspection.js'
 import { projectIsometric, unprojectIsometric } from './projection.js'
-import { isYSortParticipant, ySortZ, type YSortEntry, type YSortParticipant } from './render-sort.js'
+import {
+  isYSortBatchParticipant,
+  isYSortParticipant,
+  ySortZ,
+  type YSortBatchParticipant,
+  type YSortEntry,
+  type YSortParticipant,
+} from './render-sort.js'
 import {
   loadScene,
   registryEntry,
@@ -42,6 +49,7 @@ import {
   type SceneRegistry,
   type SceneRenderJson,
 } from './scene.js'
+import { sceneDrainsOf } from './scene-drains.js'
 import { createSpatialQuery, type SpatialQuery } from './spatial-query.js'
 import { Stats, type StatValue } from './stats.js'
 import { anchoredPiecesOf, GameUi } from './ui.js'
@@ -295,6 +303,8 @@ export class Game {
     // Entity.destroy() splices itself out of `this.entities` in place — the
     // Pointer holds that array by reference, so it must never be reassigned.
     for (const entity of [...this.entities]) entity.destroy()
+    // Drains transferred by the destruction cascade above are scene-scoped too.
+    sceneDrainsOf(this).clear()
     this.registry = null
     this.renderSort = null
     this.sceneProjection = null
@@ -496,6 +506,7 @@ export class Game {
     // (entity.destroy() below only ever reaches owned work) — ADR 0017.
     this.time.cancelAll()
     for (const entity of [...this.entities]) entity.destroy()
+    sceneDrainsOf(this).clear()
     // After the entities: their clones go with the cascade above, the
     // cached bases go here, exactly once (ADR 0019).
     this.assets.dispose()
@@ -596,6 +607,9 @@ export class Game {
    */
   private simulateStep(): void {
     advanceGameTime(this.time)
+    // Existing drains advance before entity updates, so one detached during
+    // this step begins on the next Simulation Step (ADR 0022).
+    sceneDrainsOf(this).advance(SIMULATION_STEP)
     for (const entity of [...this.entities]) {
       const schedule = this.componentUpdateSchedule(entity)
       if (!schedule) continue
@@ -640,21 +654,34 @@ export class Game {
 
   /** Under y-sort, re-derives every participant's z from layer band + entity Y. */
   private applyYSort(): void {
-    const participants: YSortParticipant[] = []
+    const singles: Array<{ participant: YSortParticipant; index: number }> = []
+    const batches: Array<{ participant: YSortBatchParticipant; start: number; count: number }> = []
     const entries: YSortEntry[] = []
     for (const entity of this.entities) {
       for (const component of entity.components) {
-        if (isYSortParticipant(component)) {
-          participants.push(component)
+        if (isYSortBatchParticipant(component)) {
+          const batchEntries = component.ySortEntries()
+          batches.push({ participant: component, start: entries.length, count: batchEntries.length })
+          entries.push(...batchEntries)
+        } else if (isYSortParticipant(component)) {
+          singles.push({ participant: component, index: entries.length })
           entries.push({ layer: component.layer, y: entity.node.position.y })
         }
       }
     }
+    for (const participant of sceneDrainsOf(this).participants()) {
+      const batchEntries = participant.ySortEntries()
+      batches.push({ participant, start: entries.length, count: batchEntries.length })
+      entries.push(...batchEntries)
+    }
     const z = ySortZ(entries)
-    for (const [index, participant] of participants.entries()) {
+    for (const { participant, index } of singles) {
       const sortZ = z[index]
       if (sortZ === undefined) throw new Error(`ySortZ returned no z for y-sort participant ${index}`)
       participant.setSortZ(sortZ)
+    }
+    for (const { participant, start, count } of batches) {
+      participant.setSortZs(z.slice(start, start + count))
     }
   }
 

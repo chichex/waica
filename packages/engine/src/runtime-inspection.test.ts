@@ -24,6 +24,7 @@ vi.mock('three', async (importOriginal) => {
 
 import {
   Game,
+  ParticleEmitter,
   RUNTIME_BRIDGE_SYMBOL,
   type RuntimeBridge,
   type RuntimeBridgeActivation,
@@ -68,6 +69,40 @@ beforeEach(() => {
 afterEach(() => {
   delete (globalThis as Record<PropertyKey, unknown>)[RUNTIME_BRIDGE_SYMBOL]
   vi.unstubAllGlobals()
+})
+
+describe('RuntimeSnapshot ParticleEmitter state (issue #73, CA-14)', () => {
+  it('projects only active, capacity and emitting, then drops the destroyed owner during drain', () => {
+    const { registered } = installActivation()
+    const game = makeGame()
+    const entity = game.spawn('Smoke')
+    const emitter = entity.add(ParticleEmitter, {
+      capacity: 3,
+      emitting: false,
+      destroyMode: 'drain',
+    })
+    emitter.emit(2)
+    game.start()
+
+    expect(defined(registered[0]).inspect({ component_types: ['ParticleEmitter'] }).entities)
+      .toMatchObject([
+        {
+          name: 'Smoke',
+          components: [{ type: 'ParticleEmitter', state: { active: 2, capacity: 3, emitting: false } }],
+        },
+      ])
+
+    emitter.capacity = 4
+    expect(defined(registered[0]).inspect().entities[0]?.components[0]?.state).toEqual({
+      active: 0,
+      capacity: 4,
+      emitting: false,
+    })
+    emitter.emit(1)
+    entity.destroy()
+    expect(defined(registered[0]).inspect().entities).toEqual([])
+    game.dispose()
+  })
 })
 
 describe('RuntimeSnapshot.scene (CA-9)', () => {
