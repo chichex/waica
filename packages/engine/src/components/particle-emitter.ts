@@ -135,7 +135,13 @@ export class ParticleEmitter extends Component implements YSortBatchParticipant 
 
   override onReady(): void {
     const capacity = Number.isFinite(this.capacity) ? Math.max(1, Math.floor(this.capacity)) : 256
-    this._batch = new ParticleBatch(capacity, this.seed, this.layer, this.blend, this.game.assets)
+    this._batch = new ParticleBatch({
+      capacity,
+      seed: this.seed,
+      layer: this.layer,
+      blend: this.blend,
+      assets: this.game.assets,
+    })
     this._batch.setTexture(this.texture, this.pixelArt)
     this.game.scene.add(this._batch.mesh)
     this._batch.sync(this.renderContext())
