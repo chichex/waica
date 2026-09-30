@@ -1,0 +1,37 @@
+{
+  "waicaPrefab": 1,
+  "type": "object",
+  "components": [
+    {
+      "type": "ParticleEmitter",
+      "props": {
+        "rate": 5,
+        "lifetime": 3,
+        "positionSpread": [
+          4,
+          4
+        ],
+        "velocity": [
+          -0.1,
+          -0.1
+        ],
+        "velocitySpread": [
+          0.15,
+          0.15
+        ],
+        "space": "world",
+        "seed": 5,
+        "capacity": 32,
+        "width": 0.12,
+        "height": 0.12,
+        "startScale": 1,
+        "endScale": 0.5,
+        "startColor": 16773320,
+        "endColor": 16773320,
+        "startAlpha": 0.7,
+        "endAlpha": 0,
+        "layer": 0
+      }
+    }
+  ]
+}

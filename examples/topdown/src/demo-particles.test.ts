@@ -47,7 +47,9 @@ import stats from './stats.json'
 import { defined } from '../../../packages/engine/src/test-support'
 
 // The example's OWN scenes, prefabs and components: these tests are about
-// what `pnpm dev:topdown` plays, not the archetype's defaults. This is not a full
+// what `pnpm dev:topdown` plays. The scenes and prefabs are the archetype's, copied here
+// by scripts/sync-scene.mjs, and the particle cue components come from the
+// archetype registry (@waica/behaviors). This is not a full
 // replay of main.ts. main.ts also imports ./roles/*.ts and ./states/*.ts,
 // lazily and after installArchetype(). Those files register state code as
 // an import side effect (defineStates), and installArchetype() starts with

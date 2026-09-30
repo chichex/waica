@@ -161,9 +161,6 @@
       }
     },
     {
-      "type": "Gun"
-    },
-    {
       "type": "ParticleEmitter",
       "props": {
         "rate": 0,
@@ -204,6 +201,9 @@
         "jumpCount": 5,
         "landCount": 12
       }
+    },
+    {
+      "type": "Gun"
     }
   ]
 }
