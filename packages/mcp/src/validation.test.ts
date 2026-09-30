@@ -325,6 +325,25 @@ export class CycleRight extends Component {
     expect(result.ok).toBe(true)
   })
 
+  it('recognizes ParticleEmitter as a stock component (issue #73, CA-13)', async () => {
+    const project = await makeProject({
+      'src/scenes/main.scene.json': JSON.stringify({
+        waicaScene: 3,
+        entities: [{ name: 'Smoke', components: [{ type: 'ParticleEmitter' }] }],
+      }),
+    })
+    roots.push(project)
+
+    const result = await validateProject(project)
+
+    expect(result.findings).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'unknown-component', ref: 'Smoke' }),
+      ]),
+    )
+    expect(result.ok).toBe(true)
+  })
+
   it.each(['constructor', 'toString', 'valueOf'])(
     'uses own-property binding semantics for the state-transition action %s',
     async (action) => {

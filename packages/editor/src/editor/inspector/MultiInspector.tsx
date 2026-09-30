@@ -80,8 +80,9 @@ function MultiComponentSection({ type, comps, names, archetype, onMultiProp }: M
   const valueOf = (comp: SceneComponentJson, key: string): unknown =>
     comp.props && Object.hasOwn(comp.props, key) ? comp.props[key] : defaults[key]
   const keys = [...new Set(comps.flatMap((c) => componentKeys(c, archetype)))].filter((key) => {
-    if (ANIMATION_KEYS.has(key) || key === 'texture') return false
-    if (specs[key]?.kind === 'string-list') return true
+    const paramKind = specs[key]?.kind
+    if ((ANIMATION_KEYS.has(key) || key === 'texture') && paramKind !== 'texture') return false
+    if (paramKind === 'string-list' || paramKind === 'vector2') return true
     const sample = comps.map((c) => valueOf(c, key)).find((v) => v !== undefined)
     const kind = typeof sample
     return kind === 'number' || kind === 'boolean' || kind === 'string'

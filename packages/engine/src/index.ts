@@ -26,8 +26,8 @@ export type {
   DirectionalFallback,
   ResolvedDirectionalClip,
 } from './animation/directional.js'
-export { isYSortParticipant, ySortZ } from './render-sort.js'
-export type { YSortEntry, YSortParticipant } from './render-sort.js'
+export { isYSortBatchParticipant, isYSortParticipant, ySortZ } from './render-sort.js'
+export type { YSortBatchParticipant, YSortEntry, YSortParticipant } from './render-sort.js'
 export { projectIsometric, screenInputToLogical, unprojectIsometric } from './projection.js'
 export type { ProjectedPoint } from './projection.js'
 export { spritePlacement } from './sprite-placement.js'
@@ -121,6 +121,14 @@ export type { StatValue } from './stats.js'
 export { GameUi } from './ui.js'
 export type { AnchoredPieceHandle, AttachOptions } from './anchored-pieces.js'
 export { Sprite } from './components/sprite.js'
+export { ParticleEmitter } from './components/particle-emitter.js'
+export type {
+  ParticleBlend,
+  ParticleDestroyMode,
+  ParticleOverflow,
+  ParticleSpace,
+  ParticleVector,
+} from './components/particle-emitter.js'
 export { Solid } from './components/solid.js'
 export { Hitbox } from './components/hitbox.js'
 export { DynamicBody } from './components/dynamic-body.js'

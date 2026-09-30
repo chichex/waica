@@ -283,6 +283,7 @@ try {
   assert.match(packedEngineTypes, /resolveComponentUpdateSchedule/)
   assert.match(packedEngineTypes, /ComponentUpdateScheduleResult/)
   assert.match(packedEngineTypes, /ComponentUpdateScheduleIssue/)
+  assert.match(packedEngineTypes, /ParticleEmitter/)
 
   const platformerSource = JSON.parse(
     await readFile(join(root, 'packages/archetype-platformer/package.json'), 'utf8'),
@@ -440,6 +441,7 @@ try {
     [
       "const enginePackage = await import('@waica/engine')",
       "if (typeof enginePackage.resolveComponentUpdateSchedule !== 'function') throw new Error('engine root has no schedule resolver')",
+      "if (enginePackage.ParticleEmitter?.componentName !== 'ParticleEmitter') throw new Error('engine root has no ParticleEmitter')",
       "class PackedProducer extends enginePackage.Component { static componentName = 'PackedProducer'; onUpdate() {} }",
       "class PackedConsumer extends enginePackage.Component { static componentName = 'PackedConsumer'; static updateAfter = ['PackedProducer']; onUpdate() {} }",
       "const packedSchedule = enginePackage.resolveComponentUpdateSchedule(['PackedConsumer', 'PackedProducer'], { PackedConsumer, PackedProducer })",
@@ -451,6 +453,7 @@ try {
       "if (nodePackage.ARCHETYPE?.id !== 'platformer') throw new Error('invalid Node-safe manifest')",
       "if ('artUrls' in nodePackage.ARCHETYPE) throw new Error('Node-safe manifest contains browser art URLs')",
       "if (nodePackage.ARCHETYPE.registry.resolveAsset?.('waica:dog') !== 'assets/waica-dog.png') throw new Error('Node-safe registry cannot resolve package assets')",
+      "if (rootPackage.ARCHETYPE.registry.components.ParticleEmitter?.componentName !== 'ParticleEmitter' || nodePackage.ARCHETYPE.registry.components.ParticleEmitter?.componentName !== 'ParticleEmitter') throw new Error('platformer package has no ParticleEmitter')",
       "const topdownRoot = await import('@waica/archetype-topdown')",
       "const topdownNode = await import('@waica/archetype-topdown/manifest')",
       "if (topdownRoot.ARCHETYPE?.id !== 'topdown') throw new Error('invalid topdown root manifest')",
@@ -458,6 +461,7 @@ try {
       "if ('artUrls' in topdownNode.ARCHETYPE) throw new Error('topdown Node-safe manifest contains browser art URLs')",
       "if (!topdownNode.ARCHETYPE.animation) throw new Error('topdown Node-safe manifest lost its animation contract')",
       "if (topdownNode.ARCHETYPE.registry.resolveAsset?.('waica:hero') !== 'assets/waica-hero.png') throw new Error('topdown Node-safe registry cannot resolve package assets')",
+      "if (topdownRoot.ARCHETYPE.registry.components.ParticleEmitter?.componentName !== 'ParticleEmitter' || topdownNode.ARCHETYPE.registry.components.ParticleEmitter?.componentName !== 'ParticleEmitter') throw new Error('topdown package has no ParticleEmitter')",
       "const isometricRoot = await import('@waica/archetype-isometric')",
       "const isometricNode = await import('@waica/archetype-isometric/manifest')",
       "if (isometricRoot.ARCHETYPE?.id !== 'isometric') throw new Error('invalid isometric root manifest')",
@@ -468,6 +472,7 @@ try {
       "if (isometricNode.ARCHETYPE.animation.fallbacks?.nw?.dir !== 'ne' || !isometricNode.ARCHETYPE.animation.fallbacks.nw.flip) throw new Error('isometric nw fallback is invalid')",
       "if (isometricNode.ARCHETYPE.animation.fallbacks?.sw?.dir !== 'se' || !isometricNode.ARCHETYPE.animation.fallbacks.sw.flip) throw new Error('isometric sw fallback is invalid')",
       "if (isometricNode.ARCHETYPE.registry.resolveAsset?.('waica:iso-hero') !== 'assets/waica-iso-hero.png') throw new Error('isometric Node-safe registry cannot resolve package assets')",
+      "if (isometricRoot.ARCHETYPE.registry.components.ParticleEmitter?.componentName !== 'ParticleEmitter' || isometricNode.ARCHETYPE.registry.components.ParticleEmitter?.componentName !== 'ParticleEmitter') throw new Error('isometric package has no ParticleEmitter')",
     ].join('\n'),
   )
   run(process.execPath, [probe], { cwd: sandbox })

@@ -4,6 +4,7 @@ import type { ParamDiagnostic } from '../collision-category-diagnostics'
 import { NumberField } from '../NumberField'
 import { availableRefTargets, type RefTarget } from '../ref-targets'
 import { ParamDiagnosticMessages, StringListField } from '../StringListField'
+import { Vector2ParamRow, TextureParamRow } from './param-kind-rows'
 import { RefRow } from './RefRow'
 import { RefTargetsContext } from './ref-targets-context'
 
@@ -93,6 +94,21 @@ function DiagnosedTextRow({
   )
 }
 
+function ColorRow({ name, value, onChange }: ValueRowProps<number>) {
+  const normalized = Math.max(0, Math.min(0xffffff, Math.round(value)))
+  const hex = `#${normalized.toString(16).padStart(6, '0')}`
+  return (
+    <label className="ed-row">
+      {name}
+      <input
+        type="color"
+        value={hex}
+        onChange={(event) => onChange(parseInt(event.target.value.slice(1), 16))}
+      />
+    </label>
+  )
+}
+
 /** A number param: a color picker for `color`, a slider when ranged, else a plain field. */
 function NumberRow({
   label,
@@ -101,18 +117,8 @@ function NumberRow({
   spec,
   onChange,
 }: ValueRowProps<number> & { label: string; spec?: ParamSpec }) {
-  if (label === 'color') {
-    const hex = `#${Math.max(0, value).toString(16).padStart(6, '0')}`
-    return (
-      <label className="ed-row">
-        {name}
-        <input
-          type="color"
-          value={hex}
-          onChange={(e) => onChange(parseInt(e.target.value.slice(1), 16))}
-        />
-      </label>
-    )
+  if (spec?.kind === 'color' || label === 'color') {
+    return <ColorRow name={name} value={value} onChange={onChange} />
   }
   if (spec?.min !== undefined && spec?.max !== undefined) {
     return (
@@ -188,6 +194,12 @@ function ValueRow({
   referenceTargets,
   onChange,
 }: ValueRowProps<unknown> & { label: string; spec?: ParamSpec; referenceTargets?: RefTarget[] }) {
+  if (spec?.kind === 'vector2') {
+    return <Vector2ParamRow label={spec.label ?? label} name={name} value={value} onChange={onChange} />
+  }
+  if (spec?.kind === 'texture') {
+    return <TextureParamRow name={name} value={value} onChange={onChange} />
+  }
   if (typeof value === 'boolean') {
     return (
       <label className="ed-row">

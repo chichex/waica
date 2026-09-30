@@ -14,6 +14,32 @@ import { componentDefaults, componentKeys } from './Inspector'
  * appearance components; every other pre-existing row remains untouched.
  */
 const GOLDEN: Record<string, Record<string, unknown>> = {
+  ParticleEmitter: {
+    rate: 0,
+    emitting: true,
+    lifetime: 1,
+    positionSpread: [0, 0],
+    velocity: [0, 0],
+    velocitySpread: [0, 0],
+    gravity: [0, 0],
+    space: 'world',
+    seed: 1,
+    capacity: 256,
+    overflow: 'recycle-oldest',
+    destroyMode: 'clear',
+    width: 1,
+    height: 1,
+    startScale: 1,
+    endScale: 1,
+    startColor: 0xffffff,
+    endColor: 0xffffff,
+    startAlpha: 1,
+    endAlpha: 0,
+    texture: '',
+    pixelArt: false,
+    blend: 'normal',
+    layer: 0,
+  },
   Sprite: { offsetX: 0, offsetY: 0, anchorX: 0.5, anchorY: 0.5, layer: 0 },
   AnimatedSprite: { offsetX: 0, offsetY: 0, anchorX: 0.5, anchorY: 0.5, layer: 0 },
   Solid: { offsetX: 0, offsetY: 0 },
@@ -60,7 +86,7 @@ const GOLDEN: Record<string, Record<string, unknown>> = {
 describe('Inspector component rows (golden, behavior preservation)', () => {
   const archetype = resolveArchetype('platformer')
 
-  it('lists exactly the 16 platformer registry components in the golden', () => {
+  it('lists exactly the 17 platformer registry components in the golden', () => {
     expect(Object.keys(archetype.registry.components).sort()).toEqual(
       Object.keys(GOLDEN).sort(),
     )

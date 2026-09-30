@@ -1,6 +1,7 @@
 import {
   AnimatedSprite,
   Hitbox,
+  ParticleEmitter,
   Solid,
   Sprite,
   StateMachine,
@@ -38,6 +39,7 @@ export const TOPDOWN_REGISTRY_DATA: SceneRegistry = {
   components: {
     Sprite,
     AnimatedSprite,
+    ParticleEmitter,
     Tilemap,
     Solid,
     Hitbox,

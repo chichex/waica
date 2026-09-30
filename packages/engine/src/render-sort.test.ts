@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { AnimatedSprite } from './components/animated-sprite'
 import { Sprite } from './components/sprite'
+import * as renderSort from './render-sort'
 import { isYSortParticipant, ySortZ } from './render-sort'
 import { defined } from './test-support'
 
@@ -66,6 +67,13 @@ describe('ySortZ', () => {
     expect(layer0[1]).toBeGreaterThan(defined(layer0[2]))
     expect(layer0[2]).toBeGreaterThan(defined(layer0[3]))
     expect(layer05[0]).toBeGreaterThan(defined(layer05[1]))
+  })
+})
+
+describe('batch y-sort seam', () => {
+  it('exports an additive batch guard without changing the singular seam (CA-9)', () => {
+    expect(renderSort).toHaveProperty('isYSortBatchParticipant')
+    expect(isYSortParticipant({ layer: 2, setSortZ() {} })).toBe(true)
   })
 })
 
