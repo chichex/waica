@@ -12,8 +12,35 @@ import { defined, match } from '../../engine/src/test-support.js'
 const roots: string[] = []
 afterEach(async () => cleanup(...roots.splice(0)))
 
+const EXPECTED_PARTICLE_DEFAULTS = {
+  rate: 0,
+  emitting: true,
+  lifetime: 1,
+  positionSpread: [0, 0],
+  velocity: [0, 0],
+  velocitySpread: [0, 0],
+  gravity: [0, 0],
+  space: 'world',
+  seed: 1,
+  capacity: 256,
+  overflow: 'recycle-oldest',
+  destroyMode: 'clear',
+  width: 1,
+  height: 1,
+  startScale: 1,
+  endScale: 1,
+  startColor: 0xffffff,
+  endColor: 0xffffff,
+  startAlpha: 1,
+  endAlpha: 0,
+  texture: '',
+  pixelArt: false,
+  blend: 'normal',
+  layer: 0,
+}
+
 describe('listComponents', () => {
-  it('describes all 16 platformer classes and only the four declared display names', async () => {
+  it('describes all 17 platformer classes and only the five declared display names', async () => {
     const project = await makeProject({
       'src/components/dash.ts': `export class Dash { static componentName = 'Dash' }\n`,
       'src/roles/guard.ts': `// project role\n`,
@@ -24,11 +51,12 @@ describe('listComponents', () => {
 
     const result = await listComponents(project)
 
-    expect(result.components).toHaveLength(16)
+    expect(result.components).toHaveLength(17)
     expect(result.components.map((component) => component.componentName)).toEqual(
       expect.arrayContaining([
         'Sprite',
         'AnimatedSprite',
+        'ParticleEmitter',
         'Solid',
         'Hitbox',
         'DynamicBody',
@@ -50,6 +78,7 @@ describe('listComponents', () => {
         .filter((component) => component.displayName !== undefined)
         .map(({ componentName, displayName }) => ({ componentName, displayName })),
     ).toEqual([
+      { componentName: 'ParticleEmitter', displayName: 'Particle Emitter' },
       { componentName: 'StateMachine', displayName: 'State Machine' },
       { componentName: 'PlatformerMotor', displayName: 'Motor' },
       { componentName: 'Respawnable', displayName: 'Respawn' },
@@ -81,6 +110,16 @@ describe('listComponents', () => {
     expect(result.components.find((component) => component.componentName === 'Sprite')).toMatchObject({
       sourcePackage: '@waica/engine',
       defaults: { color: 0xffffff, shape: 'rectangle', width: 1, height: 1 },
+    })
+    expect(result.components.find((component) => component.componentName === 'ParticleEmitter')).toMatchObject({
+      sourcePackage: '@waica/engine',
+      params: {
+        positionSpread: { label: 'Position spread', kind: 'vector2' },
+        startColor: { label: 'Start color', kind: 'color' },
+        texture: { label: 'Texture', kind: 'texture' },
+        blend: { label: 'Blend', options: ['normal', 'additive'] },
+      },
+      defaults: EXPECTED_PARTICLE_DEFAULTS,
     })
     expect(result.components.find((component) => component.componentName === 'Hitbox')).toMatchObject({
       params: {
@@ -144,7 +183,7 @@ describe('listComponents', () => {
       path: 'src/components/explodes.ts',
       validated: false,
     })
-    expect(result.components).toHaveLength(16)
+    expect(result.components).toHaveLength(17)
   })
 
   it('attributes mixed-source components by their stable package contract', async () => {
@@ -168,7 +207,7 @@ describe('listComponents', () => {
 
     const result = await listComponents(project)
 
-    expect(result.components).toHaveLength(16)
+    expect(result.components).toHaveLength(17)
     expect(result.warnings.join('\n')).toMatch(/package\.json.*parse|parse.*package\.json/i)
   })
 

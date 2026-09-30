@@ -12,6 +12,32 @@ const RECTANGLE_TRIANGLE = [
 
 /** Hand-written expected authoring surface per registry component — issue #21 CA-2. */
 const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
+  ParticleEmitter: {
+    rate: 0,
+    emitting: true,
+    lifetime: 1,
+    positionSpread: [0, 0],
+    velocity: [0, 0],
+    velocitySpread: [0, 0],
+    gravity: [0, 0],
+    space: 'world',
+    seed: 1,
+    capacity: 256,
+    overflow: 'recycle-oldest',
+    destroyMode: 'clear',
+    width: 1,
+    height: 1,
+    startScale: 1,
+    endScale: 1,
+    startColor: 0xffffff,
+    endColor: 0xffffff,
+    startAlpha: 1,
+    endAlpha: 0,
+    texture: '',
+    pixelArt: false,
+    blend: 'normal',
+    layer: 0,
+  },
   Sprite: {
     pixelArt: false,
     width: 1,
@@ -149,7 +175,7 @@ describe('PLATFORMER_REGISTRY_DATA ui', () => {
 })
 
 describe('PLATFORMER_REGISTRY_DATA authoring defaults', () => {
-  it('covers exactly the 16 registered components', () => {
+  it('covers exactly the 17 registered components', () => {
     expect(Object.keys(PLATFORMER_REGISTRY_DATA.components).sort()).toEqual(
       Object.keys(EXPECTED_DEFAULTS).sort(),
     )

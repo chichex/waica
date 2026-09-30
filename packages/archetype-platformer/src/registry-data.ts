@@ -2,6 +2,7 @@ import {
   AnimatedSprite,
   DynamicBody,
   Hitbox,
+  ParticleEmitter,
   Solid,
   Sprite,
   StateMachine,
@@ -33,6 +34,7 @@ export const PLATFORMER_REGISTRY_DATA: SceneRegistry = {
   components: {
     Sprite,
     AnimatedSprite,
+    ParticleEmitter,
     Solid,
     Hitbox,
     DynamicBody,
