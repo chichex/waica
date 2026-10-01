@@ -37,7 +37,7 @@ import {
   resetRegistries,
   type Entity,
 } from '@waica/engine'
-import { ClickToMove, Health } from '@waica/behaviors'
+import { ClickToMove, Health, IsoMotor } from '@waica/behaviors'
 import { ARCHETYPE, ISOMETRIC_SCENE } from '@waica/archetype-isometric'
 import controls from './controls.json'
 import stats from './stats.json'
@@ -151,6 +151,36 @@ describe('point-and-click for the isometric demo player (CA-4..CA-8)', () => {
 
     expect(clickToMove.order).toBeNull()
     expect(clickToMove.marker).toBeNull()
+  })
+
+  it('yields the order to any analog direction and drives the motor with its magnitude (issue #75 CA-10)', () => {
+    const demo = makeDemo()
+    const clickToMove = defined(demo.player.get(ClickToMove))
+    const motor = defined(demo.player.get(IsoMotor))
+    const run = vi.spyOn(motor, 'run')
+
+    demo.click(13, 13)
+    demo.frame()
+    expect(clickToMove.order).not.toBeNull()
+
+    demo.game.input.injectAction('right', 'hold', 0.5)
+    demo.frame()
+
+    expect(clickToMove.order).toBeNull()
+    expect(run).toHaveBeenLastCalledWith(0.5, 0, DT)
+  })
+
+  it('keeps the order driving while the direction is zero (issue #75 CA-10)', () => {
+    const demo = makeDemo()
+    const clickToMove = defined(demo.player.get(ClickToMove))
+
+    demo.click(13, 13)
+    demo.frame()
+    demo.game.input.injectAction('right', 'hold', 0.5)
+    demo.game.input.injectAction('left', 'hold', 0.5)
+    demo.frame()
+
+    expect(clickToMove.order).not.toBeNull()
   })
 
   it('walks to the villager and triggers its line without pressing interact', () => {

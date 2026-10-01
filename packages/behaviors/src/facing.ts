@@ -17,24 +17,19 @@ const FACING_VECTORS: Readonly<Record<ScreenFacing, ProjectedPoint>> = {
   nw: { x: -1, y: 1 },
 }
 
+/** Counter-clockwise from east, one per 45° sector of the input angle. */
+const FACINGS_BY_SECTOR: readonly ScreenFacing[] = ['e', 'ne', 'n', 'nw', 'w', 'sw', 's', 'se']
+
 /**
- * The eight-way facing a screen-relative input reads as — signs only, so a
- * tiny diagonal component still counts. Undefined for no input, which lets
- * the caller keep whatever it was facing.
+ * The eight-way facing a screen-relative input reads as: the 45° sector its
+ * angle falls in, so an almost-vertical stick faces `n`, not `ne`; every
+ * keyboard input (components in {-1, 0, 1}) lands on its sign pair exactly.
+ * Undefined for no input, which lets the caller keep whatever it was facing.
  */
 export function facingForInput(inputX: number, inputY: number): ScreenFacing | undefined {
   if (inputX === 0 && inputY === 0) return undefined
-  if (inputY > 0) {
-    if (inputX > 0) return 'ne'
-    if (inputX < 0) return 'nw'
-    return 'n'
-  }
-  if (inputY < 0) {
-    if (inputX > 0) return 'se'
-    if (inputX < 0) return 'sw'
-    return 's'
-  }
-  return inputX > 0 ? 'e' : 'w'
+  const sector = Math.round(Math.atan2(inputY, inputX) / (Math.PI / 4))
+  return FACINGS_BY_SECTOR[(sector + 8) % 8]
 }
 
 /** The screen sign pair behind a facing; undefined for a name the table lacks. */

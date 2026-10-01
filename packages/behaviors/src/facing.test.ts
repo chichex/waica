@@ -22,8 +22,26 @@ describe('facingForInput', () => {
     expect(facingForInput(0, 0)).toBeUndefined()
   })
 
-  it('only looks at the signs, not the magnitudes', () => {
-    expect(facingForInput(0.2, -0.9)).toBe('se')
+  it('reads every keyboard combination exactly as the eight sign pairs (issue #75 CA-11)', () => {
+    const expected: Record<string, string | undefined> = {
+      '-1,-1': 'sw', '-1,0': 'w', '-1,1': 'nw',
+      '0,-1': 's', '0,0': undefined, '0,1': 'n',
+      '1,-1': 'se', '1,0': 'e', '1,1': 'ne',
+    }
+    for (const x of [-1, 0, 1]) {
+      for (const y of [-1, 0, 1]) expect(facingForInput(x, y), `${x},${y}`).toBe(expected[`${x},${y}`])
+    }
+  })
+
+  it.each([
+    [0.05, 0.9, 'n'],
+    [0.2, -0.9, 's'],
+    [-0.9, 0.1, 'w'],
+    [0.5, 0.45, 'ne'],
+    [0.38, 0.92, 'n'], // 67.6°: just past the n/ne border at 67.5°
+    [0.39, 0.92, 'ne'], // 67.0°
+  ] as const)('reads analog input (%d, %d) by its 45° sector as %s (issue #75 CA-11)', (x, y, facing) => {
+    expect(facingForInput(x, y)).toBe(facing)
   })
 })
 
