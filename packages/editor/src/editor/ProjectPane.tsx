@@ -11,6 +11,7 @@ import {
 import type { GameSettings } from '../project/game'
 import type { ProjectStats } from '../project/stats'
 import { NumberField } from './NumberField'
+import { watchPadPress } from './pad-capture'
 
 /** Centered card hosting a project-wide editor (controls / stats / game) in the stage. */
 export function ProjectPane({
@@ -31,8 +32,8 @@ export function ProjectPane({
 }
 
 /**
- * Which action is waiting for its next key press, and the window listener
- * that records that key (Escape cancels) while one is.
+ * Which action is waiting for its next key or pad press, and the window
+ * listener plus pad reader that record it (Escape cancels) while one is.
  */
 function useKeyCapture(
   controls: ProjectControls,
@@ -42,20 +43,26 @@ function useKeyCapture(
   const [capturing, setCapturing] = useState<string | null>(null)
   useEffect(() => {
     if (!capturing) return
+    const record = (code: string): void => {
+      const codes = bindings[capturing] ?? []
+      if (!codes.includes(code)) {
+        onChange({ bindings: { ...bindings, [capturing]: [...codes, code] }, labels })
+      }
+      setCapturing(null)
+    }
     const onKey = (e: KeyboardEvent): void => {
       // Capture phase so the pressed key never leaks into the editor UI.
       e.preventDefault()
       e.stopPropagation()
-      if (e.code !== 'Escape') {
-        const codes = bindings[capturing] ?? []
-        if (!codes.includes(e.code)) {
-          onChange({ bindings: { ...bindings, [capturing]: [...codes, e.code] }, labels })
-        }
-      }
-      setCapturing(null)
+      if (e.code === 'Escape') setCapturing(null)
+      else record(e.code)
     }
     window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
+    const stopPad = watchPadPress(record)
+    return () => {
+      window.removeEventListener('keydown', onKey, true)
+      stopPad()
+    }
   }, [capturing, bindings, labels, onChange])
   return [capturing, setCapturing]
 }
