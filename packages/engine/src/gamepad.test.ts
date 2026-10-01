@@ -132,16 +132,16 @@ describe('GamepadSlot — player 1 (issue #75 CA-7)', () => {
   it('picks the first standard pad to connect and keeps it', () => {
     const slot = new GamepadSlot()
     const second = pad(1)
-    expect(slot.poll([null, second])?.id).toBe('pad-1')
+    expect(slot.poll([null, second]).pad?.id).toBe('pad-1')
 
     const first = pad(0)
-    expect(slot.poll([first, second])?.id).toBe('pad-1')
+    expect(slot.poll([first, second]).pad?.id).toBe('pad-1')
   })
 
   it('ignores non-standard pads entirely', () => {
     const slot = new GamepadSlot()
-    expect(slot.poll([pad(0, { mapping: '' })])).toBeNull()
-    expect(slot.poll([pad(0, { mapping: '' }), pad(1)])?.id).toBe('pad-1')
+    expect(slot.poll([pad(0, { mapping: '' })]).pad).toBeNull()
+    expect(slot.poll([pad(0, { mapping: '' }), pad(1)]).pad?.id).toBe('pad-1')
   })
 
   it('hands over to the next pad in connection order when the active one disconnects', () => {
@@ -150,20 +150,20 @@ describe('GamepadSlot — player 1 (issue #75 CA-7)', () => {
     slot.poll([null, pad(1), pad(2)])
     slot.poll([pad(0), pad(1), pad(2)])
 
-    expect(slot.poll([pad(0), pad(1), null])?.id).toBe('pad-1')
-    expect(slot.poll([pad(0), pad(1, { connected: false }), null])?.id).toBe('pad-0')
-    expect(slot.poll([null, null, null])).toBeNull()
+    expect(slot.poll([pad(0), pad(1), null]).pad?.id).toBe('pad-1')
+    expect(slot.poll([pad(0), pad(1, { connected: false }), null]).pad?.id).toBe('pad-0')
+    expect(slot.poll([null, null, null]).pad).toBeNull()
   })
 
-  it('reports whether the active pad changed on the last poll', () => {
+  it('reports in each poll whether it lost the pad that was active before it', () => {
     const slot = new GamepadSlot()
     slot.poll([pad(0), pad(1)])
-    expect(slot.poll([pad(0), pad(1)])?.id).toBe('pad-0')
-    expect(slot.lostActive).toBe(false)
+    const kept = slot.poll([pad(0), pad(1)])
+    expect(kept.pad?.id).toBe('pad-0')
+    expect(kept.lostActive).toBe(false)
 
-    slot.poll([null, pad(1)])
-    expect(slot.lostActive).toBe(true)
-    slot.poll([null, pad(1)])
-    expect(slot.lostActive).toBe(false)
+    expect(slot.poll([null, pad(1)]).lostActive).toBe(true)
+    expect(slot.poll([null, pad(1)]).lostActive).toBe(false)
+    expect(Object.keys(slot)).not.toContain('lostActive')
   })
 })

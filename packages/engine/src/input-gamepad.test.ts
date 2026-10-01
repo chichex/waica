@@ -159,6 +159,74 @@ describe('Input held threshold (issue #75 CA-5)', () => {
   })
 })
 
+describe('Input justPressed across keyboard and pad (issue #75 CA-5)', () => {
+  it('reports no press when a key joins a pad that already holds the Action', () => {
+    const pad = fakePad()
+    pads.state.pads = [pad]
+    const input = makeInput({ jump: ['Space', 'Gamepad:A'] })
+    pad.buttons[0] = { value: 1 }
+    step(input, () => undefined)
+
+    key('keydown', 'Space')
+    input.pollGamepad()
+    expect(input.held('jump')).toBe(true)
+    expect(input.justPressed('jump')).toBe(false)
+    input.endFrame()
+    key('keyup', 'Space')
+  })
+
+  it('reports no press when the pad joins a key that already holds the Action', () => {
+    const pad = fakePad()
+    pads.state.pads = [pad]
+    const input = makeInput({ jump: ['Space', 'Gamepad:A'] })
+    key('keydown', 'Space')
+    step(input, () => undefined)
+
+    pad.buttons[0] = { value: 1 }
+    input.pollGamepad()
+    expect(input.held('jump')).toBe(true)
+    expect(input.justPressed('jump')).toBe(false)
+    input.endFrame()
+    key('keyup', 'Space')
+  })
+
+  it('reports one consumable press when a key and the pad rise on the same step', () => {
+    const pad = fakePad()
+    pads.state.pads = [pad]
+    const input = makeInput({ jump: ['Space', 'Gamepad:A'] })
+
+    key('keydown', 'Space')
+    pad.buttons[0] = { value: 1 }
+    input.pollGamepad()
+    expect(input.justPressed('jump')).toBe(true)
+    expect(input.consumed('jump')).toBe(false)
+    input.consume('jump')
+    expect(input.consumed('jump')).toBe(true)
+    input.endFrame()
+
+    input.pollGamepad()
+    expect(input.justPressed('jump')).toBe(false)
+    expect(input.consumed('jump')).toBe(false)
+    key('keyup', 'Space')
+  })
+
+  it('reports a press again once every source was released at the end of a step', () => {
+    const pad = fakePad()
+    pads.state.pads = [pad]
+    const input = makeInput({ jump: ['Space', 'Gamepad:A'] })
+    pad.buttons[0] = { value: 1 }
+    step(input, () => undefined)
+    pad.buttons[0] = { value: 0 }
+    step(input, () => undefined)
+
+    key('keydown', 'Space')
+    key('keyup', 'Space')
+    input.pollGamepad()
+    expect(input.justPressed('jump')).toBe(true)
+    input.endFrame()
+  })
+})
+
 describe('Input pad polling (issue #75 CA-6)', () => {
   it('reads nothing until polled, then sees the state of that poll', () => {
     const pad = fakePad()

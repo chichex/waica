@@ -149,6 +149,38 @@ describe('Input injected values (issue #75 CA-12, CA-13)', () => {
     expect(input.value('right')).toBe(0)
   })
 
+  it.each([Number.NaN, 0, -0.5, 3, Number.POSITIVE_INFINITY])(
+    'rejects a hold at %s with a RangeError and leaves the state unchanged',
+    (value) => {
+      const input = makeInput({ right: ['KeyD'] })
+      input.injectAction('right', 'hold', 0.4)
+
+      expect(() => input.injectAction('right', 'hold', value)).toThrow(
+        new RangeError('value must be a finite number greater than 0 and at most 1.'),
+      )
+      expect(input.value('right')).toBeCloseTo(0.4)
+      expect(input.held('right')).toBe(false)
+      expect(input.justPressed('right')).toBe(false)
+    },
+  )
+
+  it('rejects a value on press or release, as the Runtime Bridge does', () => {
+    const input = makeInput({ jump: ['Space'], right: ['KeyD'] })
+    input.injectAction('right', 'hold')
+
+    expect(() => input.injectAction('jump', 'press', 0.3)).toThrow(
+      new RangeError('press does not accept a value; only hold does.'),
+    )
+    expect(() => input.injectAction('right', 'release', 1)).toThrow(
+      new RangeError('release does not accept a value; only hold does.'),
+    )
+    expect(input.held('jump')).toBe(false)
+    expect(input.justPressed('jump')).toBe(false)
+    expect(input.value('right')).toBe(1)
+    expect(input.injectAction('jump', 'press')).toBe(true)
+    expect(input.injectAction('right', 'hold', 1)).toBe(true)
+  })
+
   it('combines an injected hold with a key by the max', () => {
     const input = makeInput({ right: ['KeyD'] })
     input.injectAction('right', 'hold', 0.4)

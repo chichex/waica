@@ -21,6 +21,9 @@ export type GamepadControl =
 
 export const GAMEPAD_CODE_PREFIX = 'Gamepad:'
 
+/** An Action's source counts as held at this value or above (keys are always 1 while down). */
+export const ACTION_HELD_THRESHOLD = 0.5
+
 /** Radial dead zone used when `GameOptions.gamepadDeadZone` is absent or invalid. */
 export const DEFAULT_GAMEPAD_DEAD_ZONE = 0.2
 
@@ -116,6 +119,22 @@ export function connectedGamepads(): readonly (GamepadLike | null)[] {
   }
 }
 
+/** One poll of the player-1 slot: its pad, and whether the poll lost the pad that was active before it. */
+export interface GamepadSlotPoll {
+  pad: GamepadLike | null
+  lostActive: boolean
+}
+
+/**
+ * @internal Editor support (the controls panel's pad capture), not a stable
+ * API: each known code's value on the first connected standard pad at the
+ * default dead zone, or null when no such pad is present.
+ */
+export function firstStandardPadValues(): Map<string, number> | null {
+  const pad = connectedGamepads().find(isStandardPad)
+  return pad ? gamepadValues(pad, DEFAULT_GAMEPAD_DEAD_ZONE) : null
+}
+
 /**
  * Player 1's pad: the first `standard` pad to connect, sticky until it
  * disconnects; then the next one in connection order takes over. Order is
@@ -124,18 +143,18 @@ export function connectedGamepads(): readonly (GamepadLike | null)[] {
 export class GamepadSlot {
   private order: string[] = []
   private activeKey: string | null = null
-  /** True when the poll that just ran lost the pad that was active before it. */
-  lostActive = false
 
-  poll(pads: readonly (GamepadLike | null)[]): GamepadLike | null {
+  poll(pads: readonly (GamepadLike | null)[]): GamepadSlotPoll {
     const present = new Map<string, GamepadLike>()
     for (const pad of pads) if (isStandardPad(pad)) present.set(slotKey(pad), pad)
     this.order = this.order.filter((key) => present.has(key))
     for (const key of present.keys()) if (!this.order.includes(key)) this.order.push(key)
     const previous = this.activeKey
     this.activeKey = this.order[0] ?? null
-    this.lostActive = previous !== null && previous !== this.activeKey
-    return this.activeKey === null ? null : (present.get(this.activeKey) ?? null)
+    return {
+      pad: this.activeKey === null ? null : (present.get(this.activeKey) ?? null),
+      lostActive: previous !== null && previous !== this.activeKey,
+    }
   }
 }
 

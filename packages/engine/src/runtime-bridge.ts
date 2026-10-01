@@ -1,6 +1,7 @@
 import enginePackage from '../package.json' with { type: 'json' }
 import type { AssetStatus } from './assets/asset-loader.js'
 import { SIMULATION_STEP } from './fixed-step.js'
+import { checkInjectedValue } from './input.js'
 import type { RuntimeSnapshot, RuntimeSnapshotFilters } from './runtime-inspection.js'
 
 export const RUNTIME_BRIDGE_PROTOCOL_VERSION = 1 as const
@@ -210,8 +211,9 @@ export class EngineRuntimeBridge implements RuntimeBridge {
   }
 
   private injectAction(request: Extract<RuntimeControlRequest, { action: string }>): void {
-    const value = injectedValue(request)
-    if (this.host.injectAction(request.action, request.operation, value)) return
+    const checked = checkInjectedValue(request.operation, 'value' in request ? request.value : undefined)
+    if ('error' in checked) throw new RuntimeBridgeOperationError('runtime-operation-failed', checked.error)
+    if (this.host.injectAction(request.action, request.operation, checked.value)) return
     const available = this.host.availableActions()
     throw new RuntimeBridgeOperationError(
       'runtime-operation-failed',
@@ -269,23 +271,4 @@ export class EngineRuntimeBridge implements RuntimeBridge {
     this.registered = false
     this.activation.unregister(this)
   }
-}
-
-/** The value a `hold` injects (default 1); rejects any value elsewhere or outside (0, 1]. */
-function injectedValue(request: Extract<RuntimeControlRequest, { action: string }>): number {
-  const value: unknown = 'value' in request ? request.value : undefined
-  if (value === undefined) return 1
-  if (request.operation !== 'hold') {
-    throw new RuntimeBridgeOperationError(
-      'runtime-operation-failed',
-      `${request.operation} does not accept a value; only hold does.`,
-    )
-  }
-  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0 || value > 1) {
-    throw new RuntimeBridgeOperationError(
-      'runtime-operation-failed',
-      'value must be a finite number greater than 0 and at most 1.',
-    )
-  }
-  return value
 }

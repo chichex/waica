@@ -1,4 +1,5 @@
 import {
+  ACTION_HELD_THRESHOLD,
   connectedGamepads,
   GAMEPAD_CODE_PREFIX,
   gamepadControl,
@@ -16,8 +17,21 @@ export type InputBindings = Record<string, string[]>
 /** Neutral engine baseline; archetypes own their action vocabulary. */
 export const DEFAULT_BINDINGS: Readonly<InputBindings> = {}
 
-/** A source counts as held at this value or above (keys are always 1 while down). */
-const HELD_THRESHOLD = 0.5
+/** An injection's checked `value`, or why it is rejected. */
+export type InjectedValueCheck = { value: number | undefined } | { error: string }
+
+/**
+ * The injection value rule Input and the Runtime Bridge share: only `hold`
+ * takes a value, a finite number in (0, 1]; an absent value always passes.
+ */
+export function checkInjectedValue(operation: InjectedActionOperation, value: unknown): InjectedValueCheck {
+  if (value === undefined) return { value }
+  if (operation !== 'hold') return { error: `${operation} does not accept a value; only hold does.` }
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0 || value > 1) {
+    return { error: 'value must be a finite number greater than 0 and at most 1.' }
+  }
+  return { value }
+}
 
 export interface InputOptions {
   /** Radial stick dead zone in [0, 1); absent or invalid means 0.2. */
@@ -43,7 +57,8 @@ export class Input {
   private padValues = new Map<string, number>()
   /** Pad codes released while held: they count again only after dropping below the threshold. */
   private readonly disarmed = new Set<string>()
-  private readonly padJustDown = new Set<ActionName>()
+  /** Actions held when the last step closed: a press is a step that starts from none of them (CA-5). */
+  private heldAtStepEnd = new Set<ActionName>()
 
   /** Installs exactly the action map supplied by the active archetype/project. */
   constructor(bindings: Readonly<InputBindings> = DEFAULT_BINDINGS, options: InputOptions = {}) {
@@ -63,14 +78,19 @@ export class Input {
 
   /** Is the action held this frame (some source at 0.5 or above)? */
   held(action: ActionName): boolean {
-    return this.value(action) >= HELD_THRESHOLD
+    return this.value(action) >= ACTION_HELD_THRESHOLD
   }
 
-  /** Was the action pressed exactly this frame? */
+  /**
+   * Was the action pressed exactly this frame? True when no source held it
+   * as the last step closed and some source holds it now — or a key or an
+   * injection held it since, even if already released (a tap between steps).
+   */
   justPressed(action: ActionName): boolean {
+    if (this.heldAtStepEnd.has(action)) return false
     return (
+      this.held(action) ||
       this.injectedJustDown.has(action) ||
-      this.padJustDown.has(action) ||
       this.isActive(action, this.justDown)
     )
   }
@@ -119,8 +139,13 @@ export class Input {
    * Injects an action by semantic name; false means the action is not
    * installed. `hold` takes an optional value in (0, 1] (default 1) and is
    * one more source of the action: below 0.5 it moves it without holding it.
+   * A value outside (0, 1], or any value on `press`/`release`, throws a
+   * RangeError before anything changes (checkInjectedValue, the Runtime
+   * Bridge's rule).
    */
-  injectAction(action: ActionName, operation: InjectedActionOperation, value = 1): boolean {
+  injectAction(action: ActionName, operation: InjectedActionOperation, value?: number): boolean {
+    const checked = checkInjectedValue(operation, value)
+    if ('error' in checked) throw new RangeError(checked.error)
     if (!this.bindings.has(action)) return false
     if (operation === 'release') {
       this.injectedHolds.delete(action)
@@ -131,7 +156,7 @@ export class Input {
     if (operation === 'hold') {
       // A queued press becomes this persistent hold rather than a second edge.
       this.injectedPresses.delete(action)
-      this.injectedHolds.set(action, value)
+      this.injectedHolds.set(action, checked.value ?? 1)
     } else if (!wasHeld) {
       this.injectedPresses.add(action)
     }
@@ -146,22 +171,19 @@ export class Input {
 
   /**
    * Reads player 1's pad. The Game calls this once per Simulation Step,
-   * before component updates; a press edge is reported for every action
-   * the pad newly holds.
+   * before component updates.
    */
   pollGamepad(): void {
-    const pad = this.padSlot.poll(connectedGamepads())
-    if (this.padSlot.lostActive) this.releasePad()
-    const wasHeld = new Set(this.heldActions())
+    const { pad, lostActive } = this.padSlot.poll(connectedGamepads())
+    // No pad, none lost and no pad values: nothing can change (the common keyboard-only case).
+    if (!pad && !lostActive && this.padValues.size === 0) return
+    if (lostActive) this.releasePad()
     const raw = pad ? gamepadValues(pad, this.deadZone) : new Map<string, number>()
     for (const [code, value] of raw) {
-      if (value < HELD_THRESHOLD) this.disarmed.delete(code)
+      if (value < ACTION_HELD_THRESHOLD) this.disarmed.delete(code)
       else if (this.disarmed.has(code)) raw.set(code, 0)
     }
     this.padValues = raw
-    for (const action of this.heldActions()) {
-      if (!wasHeld.has(action)) this.padJustDown.add(action)
-    }
   }
 
   /**
@@ -183,9 +205,9 @@ export class Input {
   endFrame(): void {
     this.justDown.clear()
     this.injectedJustDown.clear()
-    this.padJustDown.clear()
     this.injectedPresses.clear()
     this.used.clear()
+    this.heldAtStepEnd = new Set(this.heldActions())
   }
 
   dispose(): void {
@@ -208,10 +230,9 @@ export class Input {
   /** Every pad source reads 0; the ones that were held stay released until they drop below the threshold. */
   private releasePad(): void {
     for (const [code, value] of this.padValues) {
-      if (value >= HELD_THRESHOLD) this.disarmed.add(code)
+      if (value >= ACTION_HELD_THRESHOLD) this.disarmed.add(code)
     }
     this.padValues = new Map()
-    this.padJustDown.clear()
   }
 
   private releaseAll = (): void => {

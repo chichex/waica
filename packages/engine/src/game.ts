@@ -204,10 +204,7 @@ export class Game {
     this.baseViewHeight = viewHeight
     this.viewHeight = viewHeight
     this.resolution = options.resolution ?? null
-    this.input = new Input(
-      options.bindings,
-      options.gamepadDeadZone === undefined ? {} : { gamepadDeadZone: options.gamepadDeadZone },
-    )
+    this.input = new Input(options.bindings, { gamepadDeadZone: options.gamepadDeadZone })
     this.query = createSpatialQuery(this)
     this.stats = new Stats(options.stats)
     this.ui = new GameUi(this.stats, () => canvas.parentElement ?? document.body)
