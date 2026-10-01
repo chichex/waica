@@ -1,9 +1,9 @@
 {
   "waicaControls": 1,
   "bindings": {
-    "left": ["ArrowLeft", "KeyA"],
-    "right": ["ArrowRight", "KeyD"],
-    "jump": ["Space", "ArrowUp", "KeyW"],
+    "left": ["ArrowLeft", "KeyA", "Gamepad:LeftStickLeft", "Gamepad:DPadLeft"],
+    "right": ["ArrowRight", "KeyD", "Gamepad:LeftStickRight", "Gamepad:DPadRight"],
+    "jump": ["Space", "ArrowUp", "KeyW", "Gamepad:A"],
     "dash": ["KeyE"],
     "shoot": ["KeyF"]
   }

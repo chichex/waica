@@ -117,9 +117,9 @@ it('resets the controls to the archetype defaults', async () => {
   await user.click(screen.getByRole('button', { name: '↺ Reset to defaults' }))
   expect(onChange).toHaveBeenLastCalledWith({
     bindings: {
-      left: ['ArrowLeft', 'KeyA'],
-      right: ['ArrowRight', 'KeyD'],
-      jump: ['Space', 'ArrowUp', 'KeyW'],
+      left: ['ArrowLeft', 'KeyA', 'Gamepad:LeftStickLeft', 'Gamepad:DPadLeft'],
+      right: ['ArrowRight', 'KeyD', 'Gamepad:LeftStickRight', 'Gamepad:DPadRight'],
+      jump: ['Space', 'ArrowUp', 'KeyW', 'Gamepad:A'],
     },
     labels: {},
   })

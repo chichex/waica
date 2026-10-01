@@ -182,6 +182,26 @@ describe('createProject', () => {
     expect(result.nextSteps).toContain('npm run dev')
   })
 
+  it.each([
+    ['platformer', { left: 'Gamepad:LeftStickLeft', right: 'Gamepad:DPadRight', jump: 'Gamepad:A' }],
+    ['topdown', { up: 'Gamepad:LeftStickUp', down: 'Gamepad:DPadDown', interact: 'Gamepad:A' }],
+    ['isometric', { left: 'Gamepad:DPadLeft', interact: 'Gamepad:A', attack: 'Gamepad:X' }],
+  ] as const)('binds the %s pad defaults in a new src/controls.json (issue #75 CA-14)', async (archetype, expected) => {
+    const parent = await tempDir()
+    roots.push(parent)
+    const target = path.join(parent, `pad-${archetype}`)
+
+    await createProject(target, 'blank', archetype)
+
+    const controls = await readJson<{ bindings: Record<string, string[]> }>(
+      path.join(target, 'src/controls.json'),
+    )
+    for (const [action, code] of Object.entries(expected)) {
+      expect(controls.bindings[action], action).toContain(code)
+    }
+    expect(controls.bindings.attack?.includes('Gamepad:X') ?? false).toBe(archetype === 'isometric')
+  })
+
   it('creates only the exact 12-file chassis for a blank start', async () => {
     const parent = await tempDir()
     roots.push(parent)

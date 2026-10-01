@@ -45,7 +45,7 @@ describe('parseControls', () => {
   it('never shares arrays with the archetype defaults', () => {
     const parsed = parseControls(null, PLATFORMER_BINDINGS)
     parsed.jump?.push('KeyZ')
-    expect(PLATFORMER_BINDINGS.jump).toEqual(['Space', 'ArrowUp', 'KeyW'])
+    expect(PLATFORMER_BINDINGS.jump).toEqual(['Space', 'ArrowUp', 'KeyW', 'Gamepad:A'])
   })
 })
 

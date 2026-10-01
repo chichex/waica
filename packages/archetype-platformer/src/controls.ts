@@ -1,10 +1,10 @@
 import type { InputBindings } from '@waica/engine'
 
-/** Platformer actions and the exact legacy keyboard defaults. */
+/** Platformer actions: the exact legacy keyboard defaults plus the left stick, D-pad and A (ADR 0023). */
 export const PLATFORMER_BINDINGS: Readonly<InputBindings> = {
-  left: ['ArrowLeft', 'KeyA'],
-  right: ['ArrowRight', 'KeyD'],
-  jump: ['Space', 'ArrowUp', 'KeyW'],
+  left: ['ArrowLeft', 'KeyA', 'Gamepad:LeftStickLeft', 'Gamepad:DPadLeft'],
+  right: ['ArrowRight', 'KeyD', 'Gamepad:LeftStickRight', 'Gamepad:DPadRight'],
+  jump: ['Space', 'ArrowUp', 'KeyW', 'Gamepad:A'],
 }
 
 /** Friendly labels shown by the editor's controls panel. */
