@@ -449,9 +449,10 @@ export class Game {
           step: (onStep) => this.runFrame(1, onStep),
           resume: (onStep) => this.resumeRuntime(onStep),
           pause: () => this.stop(),
-          injectAction: (action, operation) => this.input.injectAction(action, operation),
+          injectAction: (action, operation, value) => this.input.injectAction(action, operation, value),
           availableActions: () => this.input.availableActions(),
           heldActions: () => this.input.heldActions(),
+          actionValues: () => this.input.actionValues(),
           inspect: (metadata, filters) => inspector.snapshot(metadata, filters),
           click: (x, y) => {
             this.pointer.injectClick(x, y)

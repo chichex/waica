@@ -23,6 +23,9 @@ export type RuntimeMode = 'paused' | 'real-time'
  * operation and before a screenshot. `camera-effects` (issue #74, ADR 0020)
  * announces that every snapshot carries `camera: { shake, fade, flash }`
  * from `game.cameraEffects`; the `scene` operation stays a hard cut.
+ * `analog-actions` (issue #75, ADR 0023) announces that `hold` takes an
+ * optional `value` in (0, 1] and that every control result carries
+ * `actionValues` beside `heldActions`.
  */
 export const RUNTIME_BRIDGE_CAPABILITIES = [
   'click',
@@ -30,6 +33,7 @@ export const RUNTIME_BRIDGE_CAPABILITIES = [
   'fixed-step',
   'assets',
   'camera-effects',
+  'analog-actions',
 ] as const
 
 export interface RuntimeMetadata {
@@ -44,7 +48,9 @@ export interface RuntimeMetadata {
 }
 
 export type RuntimeControlRequest =
-  | { operation: 'press' | 'hold' | 'release'; action: string }
+  | { operation: 'press' | 'release'; action: string }
+  /** Holds at `value` in (0, 1]; without one, at 1. */
+  | { operation: 'hold'; action: string; value?: number }
   | { operation: 'pause' | 'resume' }
   /** Advances `frames` whole Simulation Steps (1/60 s each, ADR 0014); default 1. */
   | { operation: 'step'; frames?: number }
@@ -53,6 +59,8 @@ export type RuntimeControlRequest =
 
 export interface RuntimeControlResult extends RuntimeMetadata {
   heldActions: string[]
+  /** The value of each held action, in the same order as `heldActions`. */
+  actionValues: Record<string, number>
 }
 
 export class RuntimeBridgeOperationError extends Error {
@@ -108,9 +116,10 @@ export interface RuntimeBridgeHost {
   /** Starts clock-driven playback; `onStep` is told after every Simulation Step. */
   resume(onStep: () => void): void
   pause(): void
-  injectAction(action: string, operation: 'press' | 'hold' | 'release'): boolean
+  injectAction(action: string, operation: 'press' | 'hold' | 'release', value?: number): boolean
   availableActions(): string[]
   heldActions(): string[]
+  actionValues(): Record<string, number>
   inspect(metadata: RuntimeMetadata, filters?: RuntimeSnapshotFilters): RuntimeSnapshot
   click(x: number, y: number): void
   /** Resolves `name` through the registered catalog and loads it. */
@@ -193,11 +202,16 @@ export class EngineRuntimeBridge implements RuntimeBridge {
         )
       }
     }
-    return { ...this.metadata(), heldActions: this.host.heldActions() }
+    return {
+      ...this.metadata(),
+      heldActions: this.host.heldActions(),
+      actionValues: this.host.actionValues(),
+    }
   }
 
   private injectAction(request: Extract<RuntimeControlRequest, { action: string }>): void {
-    if (this.host.injectAction(request.action, request.operation)) return
+    const value = injectedValue(request)
+    if (this.host.injectAction(request.action, request.operation, value)) return
     const available = this.host.availableActions()
     throw new RuntimeBridgeOperationError(
       'runtime-operation-failed',
@@ -255,4 +269,23 @@ export class EngineRuntimeBridge implements RuntimeBridge {
     this.registered = false
     this.activation.unregister(this)
   }
+}
+
+/** The value a `hold` injects (default 1); rejects any value elsewhere or outside (0, 1]. */
+function injectedValue(request: Extract<RuntimeControlRequest, { action: string }>): number {
+  const value: unknown = 'value' in request ? request.value : undefined
+  if (value === undefined) return 1
+  if (request.operation !== 'hold') {
+    throw new RuntimeBridgeOperationError(
+      'runtime-operation-failed',
+      `${request.operation} does not accept a value; only hold does.`,
+    )
+  }
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0 || value > 1) {
+    throw new RuntimeBridgeOperationError(
+      'runtime-operation-failed',
+      'value must be a finite number greater than 0 and at most 1.',
+    )
+  }
+  return value
 }
