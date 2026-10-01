@@ -1,4 +1,4 @@
-import { connectedGamepads, DEFAULT_GAMEPAD_DEAD_ZONE, gamepadValues } from '@waica/engine'
+import { connectedGamepads, DEFAULT_GAMEPAD_DEAD_ZONE, gamepadValues, isStandardPad } from '@waica/engine'
 
 /** The engine's held threshold: a pad control counts as pressed at this value. */
 const PRESSED = 0.5
@@ -14,7 +14,7 @@ export function watchPadPress(onPress: (code: string) => void): () => void {
   let frame = requestAnimationFrame(read)
 
   function read(): void {
-    const pad = connectedGamepads().find((candidate) => candidate?.connected && candidate.mapping === 'standard')
+    const pad = connectedGamepads().find(isStandardPad)
     for (const [code, value] of pad ? gamepadValues(pad, DEFAULT_GAMEPAD_DEAD_ZONE) : []) {
       if (value < PRESSED) armed.add(code)
       else if (armed.has(code)) {

@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('three', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('three')>()
+  const actual = await importOriginal<Record<string, unknown>>()
   class WebGLRenderer {
     readonly domElement: HTMLCanvasElement
     constructor({ canvas }: { canvas: HTMLCanvasElement }) {
@@ -120,8 +120,9 @@ describe('Runtime Bridge analog hold (issue #75 CA-12)', () => {
   it.each(['press', 'release'] as const)('rejects a value on %s', (operation) => {
     const { bridge } = startBridge()
     const request = { operation, action: 'jump', value: 0.5 } as RuntimeControlRequest
+    expect(() => bridge.control(request)).toThrowError(`${operation} does not accept a value; only hold does.`)
     expect(() => bridge.control(request)).toThrowError(
-      expect.objectContaining({ code: 'runtime-operation-failed', message: expect.stringMatching(/value/) }),
+      expect.objectContaining({ code: 'runtime-operation-failed' }),
     )
     expect(bridge.control({ operation: 'pause' }).heldActions).toEqual([])
   })

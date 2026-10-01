@@ -61,6 +61,11 @@ function schema(
   }
 }
 
+
+/** A `oneOf` branch's `not` clause: the operation rejects each named field (read by runtime-arguments.ts). */
+function forbidding(...fields: string[]): { not: { anyOf: { required: string[] }[] } } {
+  return { not: { anyOf: fields.map((field) => ({ required: [field] })) } }
+}
 export const TOOLS: Tool[] = [
   {
     name: 'create_project',
@@ -230,68 +235,26 @@ export const TOOLS: Tool[] = [
       required: ['project_path', 'operation'],
       additionalProperties: false,
       oneOf: [
-        {
-          properties: { operation: { const: 'hold' } },
-          required: ['action'],
-          not: { anyOf: [{ required: ['frames'] }, { required: ['x'] }, { required: ['y'] }, { required: ['scene'] }] },
-        },
+        { properties: { operation: { const: 'hold' } }, required: ['action'], ...forbidding('frames', 'x', 'y', 'scene') },
         {
           properties: { operation: { enum: ['press', 'release'] } },
           required: ['action'],
-          not: {
-            anyOf: [
-              { required: ['frames'] },
-              { required: ['x'] },
-              { required: ['y'] },
-              { required: ['scene'] },
-              { required: ['value'] },
-            ],
-          },
+          ...forbidding('frames', 'x', 'y', 'scene', 'value'),
         },
         {
           properties: { operation: { enum: ['pause', 'resume'] } },
-          not: {
-            anyOf: [
-              { required: ['action'] },
-              { required: ['value'] },
-              { required: ['frames'] },
-              { required: ['x'] },
-              { required: ['y'] },
-              { required: ['scene'] },
-            ],
-          },
+          ...forbidding('action', 'value', 'frames', 'x', 'y', 'scene'),
         },
-        {
-          properties: { operation: { const: 'step' } },
-          not: {
-            anyOf: [
-              { required: ['action'] },
-              { required: ['x'] },
-              { required: ['y'] },
-              { required: ['scene'] },
-              { required: ['value'] },
-            ],
-          },
-        },
+        { properties: { operation: { const: 'step' } }, ...forbidding('action', 'x', 'y', 'scene', 'value') },
         {
           properties: { operation: { const: 'click' } },
           required: ['x', 'y'],
-          not: {
-            anyOf: [{ required: ['action'] }, { required: ['frames'] }, { required: ['scene'] }, { required: ['value'] }],
-          },
+          ...forbidding('action', 'frames', 'scene', 'value'),
         },
         {
           properties: { operation: { const: 'scene' } },
           required: ['scene'],
-          not: {
-            anyOf: [
-              { required: ['action'] },
-              { required: ['frames'] },
-              { required: ['x'] },
-              { required: ['y'] },
-              { required: ['value'] },
-            ],
-          },
+          ...forbidding('action', 'frames', 'x', 'y', 'value'),
         },
       ],
     },

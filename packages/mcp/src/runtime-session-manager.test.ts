@@ -370,11 +370,11 @@ describe('RuntimeSessionManager', () => {
     const requests: unknown[] = []
     const browser: RuntimeBrowser = {
       ...fakeBrowser(),
-      ready: async () => analogReady,
-      metadata: async () => ({ ...analogReady }),
-      control: async (request) => {
+      ready: () => Promise.resolve(analogReady),
+      metadata: () => Promise.resolve({ ...analogReady }),
+      control: (request) => {
         requests.push(request)
-        return { ...analogReady, heldActions: ['right'], actionValues: { right: 0.5 } }
+        return Promise.resolve({ ...analogReady, heldActions: ['right'], actionValues: { right: 0.5 } })
       },
     }
     const manager = new RuntimeSessionManager(singleBrowserAdapters('/analog', browser))
@@ -392,11 +392,11 @@ describe('RuntimeSessionManager', () => {
     let controlCalls = 0
     const browser: RuntimeBrowser = {
       ...fakeBrowser(),
-      ready: async () => oldEngineReady,
-      metadata: async () => ({ ...oldEngineReady }),
-      control: async () => {
+      ready: () => Promise.resolve(oldEngineReady),
+      metadata: () => Promise.resolve({ ...oldEngineReady }),
+      control: () => {
         controlCalls += 1
-        return { ...oldEngineReady, heldActions: ['right'] }
+        return Promise.resolve({ ...oldEngineReady, heldActions: ['right'] })
       },
     }
     const manager = new RuntimeSessionManager(singleBrowserAdapters('/old-analog', browser))
@@ -418,14 +418,15 @@ describe('RuntimeSessionManager', () => {
 
 function singleBrowserAdapters(projectPath: string, browser: RuntimeBrowser): RuntimeSessionAdapters {
   return {
-    canonicalize: async () => projectPath,
-    preflight: async () => preflight(projectPath),
-    startDevServer: async () => ({
-      url: 'http://127.0.0.1:41010/',
-      stop: async () => {},
-      diagnostics: () => ({}),
-    }),
-    startBrowser: async () => browser,
+    canonicalize: () => Promise.resolve(projectPath),
+    preflight: () => Promise.resolve(preflight(projectPath)),
+    startDevServer: () =>
+      Promise.resolve({
+        url: 'http://127.0.0.1:41010/',
+        stop: () => Promise.resolve(),
+        diagnostics: () => ({}),
+      }),
+    startBrowser: () => Promise.resolve(browser),
   }
 }
 

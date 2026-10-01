@@ -129,9 +129,7 @@ export class GamepadSlot {
 
   poll(pads: readonly (GamepadLike | null)[]): GamepadLike | null {
     const present = new Map<string, GamepadLike>()
-    for (const pad of pads) {
-      if (pad && pad.connected && pad.mapping === 'standard') present.set(slotKey(pad), pad)
-    }
+    for (const pad of pads) if (isStandardPad(pad)) present.set(slotKey(pad), pad)
     this.order = this.order.filter((key) => present.has(key))
     for (const key of present.keys()) if (!this.order.includes(key)) this.order.push(key)
     const previous = this.activeKey
@@ -139,6 +137,11 @@ export class GamepadSlot {
     this.lostActive = previous !== null && previous !== this.activeKey
     return this.activeKey === null ? null : (present.get(this.activeKey) ?? null)
   }
+}
+
+/** A connected pad with the W3C `standard` mapping; any other pad is ignored entirely. */
+export function isStandardPad(pad: GamepadLike | null | undefined): pad is GamepadLike {
+  return pad?.connected === true && pad.mapping === 'standard'
 }
 
 function slotKey(pad: GamepadLike): string {

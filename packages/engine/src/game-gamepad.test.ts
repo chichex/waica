@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const renderer = vi.hoisted(() => ({ loop: null as ((time: number) => void) | null }))
 
 vi.mock('three', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('three')>()
+  const actual = await importOriginal<Record<string, unknown>>()
   class WebGLRenderer {
     readonly domElement: HTMLCanvasElement
     constructor({ canvas }: { canvas: HTMLCanvasElement }) {

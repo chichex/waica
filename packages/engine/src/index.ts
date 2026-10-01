@@ -85,6 +85,7 @@ export {
   GAMEPAD_CODES,
   gamepadControl,
   gamepadValues,
+  isStandardPad,
   radialDeadZone,
 } from './gamepad.js'
 export type { GamepadControl, GamepadLike } from './gamepad.js'
