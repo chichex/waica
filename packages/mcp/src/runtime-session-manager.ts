@@ -121,6 +121,41 @@ function waitsForAssets(session: RuntimeSession): boolean {
   return session.ready.capabilities.includes('assets')
 }
 
+/**
+ * Control requests an older engine would silently mishandle (review finding
+ * #4): each needs the capability its Project's bridge reports, or the call
+ * is rejected as runtime-incompatible instead of no-opping.
+ */
+const CONTROL_REQUIREMENTS: readonly {
+  capability: string
+  feature: string
+  call: string
+  noun: string
+  applies: (input: RuntimeControlInput) => boolean
+}[] = [
+  {
+    capability: 'click',
+    feature: 'pointer input',
+    call: "operation:'click'",
+    noun: 'operation',
+    applies: (input) => input.operation === 'click',
+  },
+  {
+    capability: 'scene',
+    feature: 'scene loading',
+    call: "operation:'scene'",
+    noun: 'operation',
+    applies: (input) => input.operation === 'scene',
+  },
+  {
+    capability: 'analog-actions',
+    feature: 'analog action values',
+    call: "operation:'hold' with a value",
+    noun: 'capability',
+    applies: (input) => input.operation === 'hold' && input.value !== undefined,
+  },
+]
+
 export class RuntimeSessionManager implements RuntimeService {
   private readonly sessions = new Map<string, RuntimeSession>()
   private readonly starts = new Map<string, PendingStart>()
@@ -280,7 +315,12 @@ export class RuntimeSessionManager implements RuntimeService {
       }
       controlled = { ...controlled, ...wait.metadata }
     }
-    return { ...this.sharedMetadata(session, controlled), heldActions: controlled.heldActions ?? [] }
+    return {
+      ...this.sharedMetadata(session, controlled),
+      heldActions: controlled.heldActions ?? [],
+      // Absent from an engine without the analog-actions capability, like `assets`.
+      ...(controlled.actionValues === undefined ? {} : { actionValues: controlled.actionValues }),
+    }
   }
 
   async captureScreenshot(
@@ -331,30 +371,21 @@ export class RuntimeSessionManager implements RuntimeService {
 
   /** Refuses an operation the Project's engine build cannot run. */
   private assertControlSupported(session: RuntimeSession, input: RuntimeControlInput): void {
-    if (input.operation === 'click' && !session.ready.capabilities.includes('click')) {
-      throw new RuntimeToolError({
-        code: 'runtime-incompatible',
-        stage: 'control',
-        message:
-          "This Project's @waica/engine build does not support pointer input " +
-          "(control_runtime operation:'click'); upgrade @waica/engine to a version " +
-          'that ships the click Runtime Bridge operation.',
-        projectPath: session.preflight.projectPath,
-        diagnostics: { engineVersion: session.ready.engineVersion },
-      })
-    }
-    if (input.operation === 'scene' && !session.ready.capabilities.includes('scene')) {
-      throw new RuntimeToolError({
-        code: 'runtime-incompatible',
-        stage: 'control',
-        message:
-          "This Project's @waica/engine build does not support scene loading " +
-          "(control_runtime operation:'scene'); upgrade @waica/engine to a version " +
-          'that ships the scene Runtime Bridge operation.',
-        projectPath: session.preflight.projectPath,
-        diagnostics: { engineVersion: session.ready.engineVersion },
-      })
-    }
+    const missing = CONTROL_REQUIREMENTS.find(
+      (requirement) =>
+        requirement.applies(input) && !session.ready.capabilities.includes(requirement.capability),
+    )
+    if (!missing) return
+    throw new RuntimeToolError({
+      code: 'runtime-incompatible',
+      stage: 'control',
+      message:
+        `This Project's @waica/engine build does not support ${missing.feature} ` +
+        `(control_runtime ${missing.call}); upgrade @waica/engine to a version ` +
+        `that ships the ${missing.capability} Runtime Bridge ${missing.noun}.`,
+      projectPath: session.preflight.projectPath,
+      diagnostics: { engineVersion: session.ready.engineVersion },
+    })
   }
 
   private async createCheckedSession(

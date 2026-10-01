@@ -43,7 +43,13 @@ const REQUIRED_FIELD_NOUNS: Record<string, string> = { scene: 'scene name' }
  * Ignored unless the groups name exactly the fields the schema forbids.
  */
 const FORBIDDEN_FIELD_GROUPS: Record<string, readonly (readonly string[])[]> = {
-  step: [['action'], ['x', 'y', 'scene']],
+  step: [['action'], ['x', 'y', 'scene'], ['value']],
+  // `value` belongs to hold alone (issue #75); it is reported on its own so the
+  // older messages for the other fields stay exactly as hosts know them.
+  press: [['frames', 'x', 'y', 'scene'], ['value']],
+  release: [['frames', 'x', 'y', 'scene'], ['value']],
+  click: [['action', 'frames', 'scene'], ['value']],
+  scene: [['action', 'frames', 'x', 'y'], ['value']],
 }
 
 // Named before the generic unexpected-properties check, but only for `step`:
@@ -192,6 +198,7 @@ function objectConforms(value: Schema, schema: Schema): boolean {
 function withinBounds(value: number, schema: Schema): boolean {
   return (
     value >= numberOr(schema.minimum, Number.NEGATIVE_INFINITY) &&
+    value > numberOr(schema.exclusiveMinimum, Number.NEGATIVE_INFINITY) &&
     value <= numberOr(schema.maximum, Number.POSITIVE_INFINITY)
   )
 }
@@ -214,8 +221,11 @@ function typeMessage(name: string, schema: Schema): string {
 }
 
 function rangeText(schema: Schema): string {
-  const { minimum, maximum } = schema
+  const { minimum, maximum, exclusiveMinimum } = schema
   const format = (bound: number): string => NUMBER_FORMAT.format(bound)
+  if (typeof exclusiveMinimum === 'number' && typeof maximum === 'number') {
+    return ` greater than ${format(exclusiveMinimum)} and at most ${format(maximum)}`
+  }
   if (typeof minimum === 'number' && typeof maximum === 'number') {
     return ` from ${format(minimum)} through ${format(maximum)}`
   }
