@@ -58,6 +58,20 @@ it('lists each action with its keys and label', () => {
   expect(screen.getAllByTitle('Remove this action')).toHaveLength(2)
 })
 
+it('shows pad codes as readable chips (issue #75 CA-15)', () => {
+  const onChange = vi.fn<(next: ProjectControls) => void>()
+  renderUi(
+    <ControlsEditor
+      controls={{ bindings: { jump: ['Space', 'Gamepad:A', 'Gamepad:DPadUp', 'Gamepad:LeftStickLeft'] }, labels: {} }}
+      onChange={onChange}
+    />,
+  )
+
+  for (const name of ['Space ×', 'Gamepad A ×', 'D-pad ↑ ×', 'Left stick ← ×']) {
+    expect(screen.getByRole('button', { name })).toBeDefined()
+  }
+})
+
 it('removes a key, and an action together with its label', async () => {
   const user = userEvent.setup()
   const onChange = renderControls()
