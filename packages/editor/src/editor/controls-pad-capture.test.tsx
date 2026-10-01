@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { GamepadLike } from '@waica/engine'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArchetypeContext, resolveArchetype } from '../project/archetype'
 import type { ProjectControls } from '../project/controls'
 import { ControlsEditor } from './ProjectPane'
+import type { GamepadLike } from '../../../engine/src/gamepad'
 import { defined } from '../../../engine/src/test-support'
 
 /**
@@ -61,7 +61,8 @@ async function startCapture(): Promise<void> {
 beforeEach(() => {
   pad.axes = [0, 0, 0, 0]
   pad.buttons = Array.from({ length: 17 }, () => ({ value: 0 }))
-  getGamepads.mockClear()
+  getGamepads.mockReset()
+  getGamepads.mockImplementation(() => [pad])
   frames.clear()
   Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: getGamepads })
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
@@ -124,6 +125,20 @@ it('ignores a control already held when the capture began until it is pressed ag
   pad.buttons[0] = { value: 1 }
   animationFrame()
   expect(onChange).toHaveBeenLastCalledWith({ bindings: { jump: ['Space', 'Gamepad:A'] }, labels: {} })
+})
+
+it('captures the first press of a pad that was not present when the capture began', async () => {
+  getGamepads.mockImplementation(() => [])
+  const { onChange } = renderControls({ bindings: { jump: ['Space'] }, labels: {} })
+  await startCapture()
+
+  animationFrame()
+  pad.buttons[1] = { value: 1 }
+  getGamepads.mockImplementation(() => [pad])
+  animationFrame()
+
+  expect(onChange).toHaveBeenLastCalledWith({ bindings: { jump: ['Space', 'Gamepad:B'] }, labels: {} })
+  expect(screen.queryByRole('button', LISTENING)).toBeNull()
 })
 
 it('never duplicates a pad code the action already has, but still ends the capture', async () => {

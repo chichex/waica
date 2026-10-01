@@ -79,16 +79,12 @@ export type {
 export { Input, DEFAULT_BINDINGS } from './input.js'
 export type { ActionName, InjectedActionOperation, InputBindings, InputOptions } from './input.js'
 export {
-  connectedGamepads,
-  DEFAULT_GAMEPAD_DEAD_ZONE,
+  ACTION_HELD_THRESHOLD,
+  firstStandardPadValues,
   GAMEPAD_CODE_PREFIX,
-  GAMEPAD_CODES,
   gamepadControl,
-  gamepadValues,
-  isStandardPad,
-  radialDeadZone,
 } from './gamepad.js'
-export type { GamepadControl, GamepadLike } from './gamepad.js'
+export type { GamepadControl } from './gamepad.js'
 export { Pointer } from './pointer.js'
 export type { PointerCamera, PointerDeps, PointerPick, PointerResolution } from './pointer.js'
 export {
