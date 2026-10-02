@@ -127,8 +127,19 @@ and forbids pushing to `main` directly:
    `test:dist` builds from clean dists and is the only rung that proves the
    packed CLI still starts `waica mcp` over real stdio with its vendored
    `@waica` copies; a plain `pnpm build` does not.
-2. Branch `release-vX.Y.Z`, commit the bump, push,
-   `gh pr create`, `gh pr merge --merge --delete-branch`, `git pull`.
+   If `pnpm test` fails only in `packages/mcp` right after a merge
+   (`create-project`, `introspection`), suspect stale library `dist`s, not
+   the code: the MCP resolves archetypes through their built packages
+   (ADR 0001). `pnpm test:dist` rebuilds them; re-run `pnpm test` after it.
+2. Branch `release-vX.Y.Z`, commit the bump, push, `gh pr create`.
+3. Wait for the PR's CI. Branch protection on `main` requires its checks, so
+   an immediate `gh pr merge` fails with "the base branch policy prohibits
+   the merge". Never bypass it with `--admin`:
+
+   ```sh
+   gh pr checks <N> --watch --fail-fast
+   gh pr merge <N> --merge --delete-branch && git switch main && git pull --ff-only
+   ```
 
 ## 4. Tag and watch
 
@@ -167,9 +178,15 @@ failed **after** one package went out, do not retry the tag; bump and re-release
 
   ```sh
   for pkg in @waica/cli @waica/engine @waica/behaviors @waica/archetype-platformer @waica/archetype-topdown @waica/archetype-isometric; do
-    echo "$pkg $(npm view "$pkg" version)"
+    echo "$pkg $(npm view "$pkg" version --prefer-online)"
   done
   ```
+
+  A package can lag the workflow by minutes: on 0.22.0 `@waica/cli` showed
+  the old version for ~5 minutes after the log printed `+ @waica/cli@0.22.0`.
+  If the log shows the `+` line, it is registry propagation, not a failed
+  publish: poll `npm view <pkg>@X.Y.Z version --prefer-online` before the
+  smokes. Never re-tag over it.
 - Editor smoke, from a scratch directory (never the repo):
   `npx -y @waica/cli@latest --no-open --port 5401 &`, then
   `curl http://127.0.0.1:5401/__waica.json` → JSON reporting the new version.
