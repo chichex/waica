@@ -1,7 +1,7 @@
 /**
  * The benchmark sweep: every scenario id with the workload kind it runs and
- * its size. Static and animated sizes are sprite counts; churn sizes are
- * spawns per Simulation Step. One baseline file per id.
+ * its size. Static and animated sizes are sprite counts; churn and
+ * bullet-hell sizes are spawns per Simulation Step. One baseline file per id.
  */
 export const SCENARIOS = [
   'static-sprites-1000',
@@ -12,10 +12,13 @@ export const SCENARIOS = [
   'spawn-churn-200',
   'animated-sprites-500',
   'animated-sprites-2000',
+  'bullet-hell-10',
+  'bullet-hell-20',
+  'bullet-hell-40',
 ] as const
 export type ScenarioName = (typeof SCENARIOS)[number]
 
-export type ScenarioKind = 'static-sprites' | 'spawn-churn' | 'animated-sprites'
+export type ScenarioKind = 'static-sprites' | 'spawn-churn' | 'animated-sprites' | 'bullet-hell'
 
 export interface SweepEntry {
   kind: ScenarioKind
@@ -31,6 +34,9 @@ export const SWEEP: Record<ScenarioName, SweepEntry> = {
   'spawn-churn-200': { kind: 'spawn-churn', n: 200 },
   'animated-sprites-500': { kind: 'animated-sprites', n: 500 },
   'animated-sprites-2000': { kind: 'animated-sprites', n: 2000 },
+  'bullet-hell-10': { kind: 'bullet-hell', n: 10 },
+  'bullet-hell-20': { kind: 'bullet-hell', n: 20 },
+  'bullet-hell-40': { kind: 'bullet-hell', n: 40 },
 }
 
 /** The view the grid fills: the default 10-unit-high camera, 16:9, with a margin. */
