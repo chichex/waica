@@ -66,9 +66,14 @@ async function runInPage(browser: Browser, url: string, scenario: ScenarioName):
       // loop can hold the main thread past goto's 30 s 'load' timeout. Its
       // end is the result promise below, under SCENARIO_TIMEOUT_MS.
       await page.goto(`${url}?scenario=${scenario}`, { waitUntil: 'commit' })
-      const evaluated = page.evaluate(() => {
-        const api: BenchPageApi | undefined = window.__waicaBench
-        if (!api) throw new Error('bench: page entry did not load')
+      // After 'commit' the module may not have run yet: wait in the page for
+      // its entry point, then for the result.
+      const evaluated = page.evaluate(async () => {
+        let api: BenchPageApi | undefined = window.__waicaBench
+        while (!api) {
+          await new Promise((resolve) => setTimeout(resolve, 50))
+          api = window.__waicaBench
+        }
         return api.result
       })
       report = await withDeadline(evaluated, SCENARIO_TIMEOUT_MS, scenario)
