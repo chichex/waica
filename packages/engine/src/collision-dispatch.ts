@@ -11,30 +11,36 @@ export interface CollisionDispatchStats {
   readonly narrowphaseCalls: number
 }
 
-/** Game's package-internal trigger dispatch implementation. */
+/**
+ * Game's package-internal trigger dispatch implementation. Pairs come from a
+ * frozen grid; each pair is then checked live, cheapest reads first (liveness,
+ * masks, the snapshotted Hitbox still mounted). The checks have no side
+ * effects, so their order only changes how fast a pair is rejected.
+ */
 export function dispatchCollisions(game: Game): CollisionDispatchStats {
-  const pairs = createHitboxBroadphase(game).pairs()
+  let candidatePairs = 0
   let narrowphaseCalls = 0
-  for (const [first, second] of pairs) {
+  createHitboxBroadphase(game).forEachPair((first, second) => {
+    candidatePairs += 1
     const a = first.entity
     const b = second.entity
-    if (!a.alive || !b.alive) continue
-    if (a.get(Hitbox) !== first.hitbox || b.get(Hitbox) !== second.hitbox) continue
+    if (!a.alive || !b.alive) return
 
     const notifyA = collisionMaskTargets(first.hitbox.collidesWith, second.hitbox.layer)
     const notifyB = collisionMaskTargets(second.hitbox.collidesWith, first.hitbox.layer)
-    if (!notifyA && !notifyB) continue
+    if (!notifyA && !notifyB) return
+    if (a.get(Hitbox) !== first.hitbox || b.get(Hitbox) !== second.hitbox) return
 
     narrowphaseCalls += 1
-    if (!collisionOverlap(collisionBody(first.hitbox), collisionBody(second.hitbox))) continue
+    if (!collisionOverlap(collisionBody(first.hitbox), collisionBody(second.hitbox))) return
 
     if (notifyA) {
       for (const component of [...a.components]) component.onCollide?.(b)
     }
-    if (!a.alive || !b.alive) continue
+    if (!a.alive || !b.alive) return
     if (notifyB) {
       for (const component of [...b.components]) component.onCollide?.(a)
     }
-  }
-  return { candidatePairs: pairs.length, narrowphaseCalls }
+  })
+  return { candidatePairs, narrowphaseCalls }
 }

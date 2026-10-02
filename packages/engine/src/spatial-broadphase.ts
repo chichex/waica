@@ -10,6 +10,7 @@ import { Tilemap } from './components/tilemap.js'
 import type { Entity } from './entity.js'
 import type { Game } from './game.js'
 import { sceneSolids } from './scene-solids.js'
+import { forEachCandidatePair, type PairGrid } from './spatial-pairs.js'
 import { usableCollisionBody } from './spatial-query-geometry.js'
 
 const CELL_OCCUPANCY_CAP = 256
@@ -36,6 +37,12 @@ export interface SpatialBroadphase<T> {
   readonly stats: SpatialBroadphaseStats
   candidates(bounds: CollisionBounds): T[]
   pairs(): Array<readonly [T, T]>
+  /**
+   * Visits the same pairs as `pairs()`, in the same order, without building
+   * the list. The grid is frozen at creation, so callbacks that move, spawn
+   * or destroy entities do not change which pairs are visited.
+   */
+  forEachPair(visit: (first: T, second: T) => void): void
 }
 
 interface SpatialEntry<T> extends SpatialBroadphaseSource<T> {
@@ -95,17 +102,11 @@ function entryValue<T>(entries: readonly SpatialEntry<T>[], index: number): T {
   return entry.value
 }
 
-/** The entry index stored at `position` of a bucket that is iterated within its bounds. */
-function indexAt(bucket: readonly number[], position: number): number {
-  const index = bucket[position]
-  if (index === undefined) throw new Error(`Spatial broadphase bucket has no index at position ${position}`)
-  return index
-}
-
 /** Entry indices per occupied grid cell, plus the entries too large to bucket. */
-interface SpatialGrid {
+interface SpatialGrid extends PairGrid {
   readonly buckets: Map<string, number[]>
   readonly overflow: number[]
+  readonly entryBuckets: number[][][]
 }
 
 /** The indexable sources in query order, each with the cell range it covers. */
@@ -130,48 +131,25 @@ function spatialEntries<T>(
 function spatialGrid<T>(entries: readonly SpatialEntry<T>[]): SpatialGrid {
   const buckets = new Map<string, number[]>()
   const overflow: number[] = []
+  const entryBuckets: number[][][] = []
   for (const [index, entry] of entries.entries()) {
+    const own: number[][] = []
+    entryBuckets.push(own)
     if (!entry.range) {
       overflow.push(index)
       continue
     }
     eachCell(entry.range, (key) => {
-      const bucket = buckets.get(key)
-      if (bucket) bucket.push(index)
-      else buckets.set(key, [index])
+      let bucket = buckets.get(key)
+      if (!bucket) {
+        bucket = []
+        buckets.set(key, bucket)
+      }
+      bucket.push(index)
+      own.push(bucket)
     })
   }
-  return { buckets, overflow }
-}
-
-/** Distinct index pairs sharing a cell, or involving an overflow entry, in ascending order. */
-function candidatePairIndices(
-  grid: SpatialGrid,
-  entryCount: number,
-): Array<readonly [number, number]> {
-  const pairKeys = new Set<number>()
-  const width = entryCount
-  const addPair = (left: number, right: number): void => {
-    if (left === right) return
-    const first = Math.min(left, right)
-    const second = Math.max(left, right)
-    pairKeys.add(first * width + second)
-  }
-  for (const bucket of grid.buckets.values()) {
-    for (let left = 0; left < bucket.length; left += 1) {
-      for (let right = left + 1; right < bucket.length; right += 1) {
-        addPair(indexAt(bucket, left), indexAt(bucket, right))
-      }
-    }
-  }
-  for (const overflowIndex of grid.overflow) {
-    for (let index = 0; index < entryCount; index += 1) {
-      addPair(overflowIndex, index)
-    }
-  }
-  return [...pairKeys]
-    .map((key): readonly [number, number] => [Math.floor(key / width), key % width])
-    .sort(([a1, a2], [b1, b2]) => a1 - b1 || a2 - b2)
+  return { buckets, overflow, entryBuckets }
 }
 
 /**
@@ -186,6 +164,11 @@ export function createSpatialBroadphase<T>(
   const entries = spatialEntries(sources, cellSize, isIndexable)
   const grid = spatialGrid(entries)
   const { buckets, overflow } = grid
+  const forEachPair = (visit: (first: T, second: T) => void): void => {
+    forEachCandidatePair(grid, entries.length, (first, second) => {
+      visit(entryValue(entries, first), entryValue(entries, second))
+    })
+  }
 
   return {
     stats: { indexed: entries.length - overflow.length, overflow: overflow.length },
@@ -201,11 +184,11 @@ export function createSpatialBroadphase<T>(
         .map((index) => entryValue(entries, index))
     },
     pairs() {
-      return candidatePairIndices(grid, entries.length).map(([first, second]) => [
-        entryValue(entries, first),
-        entryValue(entries, second),
-      ] as const)
+      const result: Array<readonly [T, T]> = []
+      forEachPair((first, second) => result.push([first, second]))
+      return result
     },
+    forEachPair,
   }
 }
 
