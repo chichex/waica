@@ -10,6 +10,7 @@ import { GameTime } from './game-time.js'
 import {
   broadphaseCellSize,
   createSpatialBroadphase,
+  type SpatialBroadphase,
 } from './spatial-broadphase.js'
 import {
   createSpatialQuery,
@@ -45,6 +46,13 @@ function makeWorld(instrumentation?: SpatialQueryInstrumentation): World {
       return entity
     },
   }
+}
+
+/** Every pair a broadphase visits, in visit order. */
+function pairsOf<T>(broadphase: SpatialBroadphase<T>): Array<readonly [T, T]> {
+  const pairs: Array<readonly [T, T]> = []
+  broadphase.forEachPair((first, second) => pairs.push([first, second]))
+  return pairs
 }
 
 const LOCAL_BOUNDS: CollisionBounds = {
@@ -94,7 +102,7 @@ describe('package-internal uniform grid', () => {
       },
     ], 1)
     expect(aboveCap.stats).toEqual({ indexed: 2, overflow: 2 })
-    expect(aboveCap.pairs()).toEqual([
+    expect(pairsOf(aboveCap)).toEqual([
       ['overflow-a', 'overflow-b'],
       ['overflow-a', 'local-normal'],
       ['overflow-a', 'remote-normal'],
@@ -137,6 +145,54 @@ describe('package-internal uniform grid', () => {
     expect(broadphaseCellSize(world.game)).toBe(0.25)
     world.game.entities.find((entity) => entity.name === 'small')?.destroy()
     expect(broadphaseCellSize(world.game)).toBe(2)
+  })
+})
+
+/** Cell range of a body as the grid buckets it, or null when it overflows the 256-cell cap. */
+function referenceRange(body: { x: number; y: number; width: number; height: number }) {
+  const minX = Math.floor(body.x - body.width / 2)
+  const maxX = Math.floor(body.x + body.width / 2)
+  const minY = Math.floor(body.y - body.height / 2)
+  const maxY = Math.floor(body.y + body.height / 2)
+  const w = maxX - minX + 1
+  const h = maxY - minY + 1
+  return w > 256 || h > 256 || w * h > 256 ? null : { minX, maxX, minY, maxY }
+}
+
+describe('candidate pairs', () => {
+  it('lists every pair that shares a cell or involves an overflow body, once, in ascending query order', () => {
+    // Deterministic layout: dense clusters, multi-cell bodies, two overflow
+    // bodies, and query orders that differ from insertion order.
+    let seed = 7
+    const random = (): number => {
+      seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648
+      return seed / 2_147_483_648
+    }
+    const sources = Array.from({ length: 300 }, (_, index) => {
+      const overflow = index === 40 || index === 211
+      const size = overflow ? 300 : random() < 0.2 ? 1 + random() * 2.5 : 0.1 + random() * 0.3
+      return {
+        value: index,
+        order: (index * 37) % 300,
+        body: { x: random() * 12 - 6, y: random() * 8 - 4, width: size, height: overflow ? 0.5 : size },
+      }
+    })
+    const ordered = [...sources].sort((a, b) => a.order - b.order)
+    const expected: Array<readonly [number, number]> = []
+    for (const [i, left] of ordered.entries()) {
+      for (const right of ordered.slice(i + 1)) {
+        const a = referenceRange(left.body)
+        const b = referenceRange(right.body)
+        const share = !a || !b || (a.minX <= b.maxX && b.minX <= a.maxX && a.minY <= b.maxY && b.minY <= a.maxY)
+        if (share) expected.push([left.value, right.value])
+      }
+    }
+
+    const broadphase = createSpatialBroadphase(sources, 1)
+
+    expect(broadphase.stats.overflow).toBe(2)
+    expect(expected.length).toBeGreaterThan(1_000)
+    expect(pairsOf(broadphase)).toEqual(expected)
   })
 })
 
