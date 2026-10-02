@@ -122,9 +122,10 @@ function waitsForAssets(session: RuntimeSession): boolean {
 }
 
 /**
- * Control requests an older engine would silently mishandle (review finding
- * #4): each needs the capability its Project's bridge reports, or the call
- * is rejected as runtime-incompatible instead of no-opping.
+ * Control requests an older engine would silently mishandle (issue #75,
+ * deviation "Older engines"): each needs the capability its Project's
+ * bridge reports, or the call is rejected as runtime-incompatible instead
+ * of no-opping.
  */
 const CONTROL_REQUIREMENTS: readonly {
   capability: string

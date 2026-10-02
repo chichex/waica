@@ -61,11 +61,11 @@ function schema(
   }
 }
 
-
 /** A `oneOf` branch's `not` clause: the operation rejects each named field (read by runtime-arguments.ts). */
 function forbidding(...fields: string[]): { not: { anyOf: { required: string[] }[] } } {
   return { not: { anyOf: fields.map((field) => ({ required: [field] })) } }
 }
+
 export const TOOLS: Tool[] = [
   {
     name: 'create_project',

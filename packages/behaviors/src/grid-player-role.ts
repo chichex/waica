@@ -79,7 +79,7 @@ function gridPlayerGraph(): RoleGraph {
   }
 }
 
-/** The body update: keyboard input, else a live Move Order, then the motor step and move/stop signal. */
+/** The body update: directional input (keys or stick), else a live Move Order, then the motor step and move/stop signal. */
 function gridPlayerUpdate<T extends PlayerMotor>(
   Motor: ComponentClass<T>,
 ): (ctx: StateContext, dt: number) => void {
@@ -87,17 +87,17 @@ function gridPlayerUpdate<T extends PlayerMotor>(
     const { entity, game, fsm } = ctx
     const motor = entity.get(Motor)
     if (!motor) return
-    const keyboardX = game.input.axis('left', 'right')
-    const keyboardY = game.input.axis('down', 'up')
-    if (keyboardX !== 0 || keyboardY !== 0) {
-      // Keyboard movement always wins and cancels a live Move Order (CA-4).
+    const inputX = game.input.axis('left', 'right')
+    const inputY = game.input.axis('down', 'up')
+    if (inputX !== 0 || inputY !== 0) {
+      // Any directional input — keys or stick — wins and cancels a live Move Order (CA-4).
       entity.get(ClickToMove)?.cancel()
-      motor.run(keyboardX, keyboardY, dt)
+      motor.run(inputX, inputY, dt)
     } else {
       const driven = driveClickToMove(ctx, motor)
       if (driven) {
         // driveClickToMove answers in logical space; motor.run expects the
-        // same screen-relative input keyboard axes already are (IsoMotor
+        // same screen-relative input the directional axes already are (IsoMotor
         // converts internally, TopDownMotor's screen space is logical).
         const screenInput =
           game.projection === 'isometric' ? screenInputToLogical(driven.x, driven.y) : driven
