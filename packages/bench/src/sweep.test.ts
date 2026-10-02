@@ -14,6 +14,9 @@ describe('SWEEP', () => {
       'spawn-churn-200': { kind: 'spawn-churn', n: 200 },
       'animated-sprites-500': { kind: 'animated-sprites', n: 500 },
       'animated-sprites-2000': { kind: 'animated-sprites', n: 2000 },
+      'bullet-hell-10': { kind: 'bullet-hell', n: 10 },
+      'bullet-hell-20': { kind: 'bullet-hell', n: 20 },
+      'bullet-hell-40': { kind: 'bullet-hell', n: 40 },
     })
   })
 
