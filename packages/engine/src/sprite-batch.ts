@@ -81,28 +81,6 @@ function createMaterial(key: SpriteBatchKey, textures: SpriteBatchTextures): {
   return { material, settled }
 }
 
-/** One draw of a run: an instanced quad sized to the batch's capacity. */
-function createRunMesh(
-  base: THREE.BufferGeometry,
-  material: THREE.MeshBasicMaterial,
-  capacity: number,
-): THREE.InstancedMesh {
-  // Its own copy of the quad's attributes, so disposing one run never frees
-  // buffers another geometry still binds.
-  const geometry = base.clone()
-  const uv = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4)
-  geometry.setAttribute(INSTANCE_UV, uv.setUsage(THREE.DynamicDrawUsage))
-  const mesh = new THREE.InstancedMesh(geometry, material, capacity)
-  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
-  mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3)
-  mesh.instanceColor.setUsage(THREE.DynamicDrawUsage)
-  // Drawn in an explicit renderOrder; its instances are already in view space.
-  mesh.frustumCulled = false
-  mesh.matrixAutoUpdate = false
-  mesh.boundingSphere = new THREE.Sphere()
-  return mesh
-}
-
 /** Marks the first `count` items of an instance attribute for upload. */
 function upload(attribute: THREE.InstancedBufferAttribute, count: number): void {
   attribute.clearUpdateRanges()
@@ -122,19 +100,78 @@ export interface SpriteBatchInstance {
 }
 
 /**
+ * One pooled draw of a run: an instanced quad and its three typed instance
+ * attributes (view × world, tint, map UV transform), sized by the longest
+ * run it has drawn — 16 instances at first, doubling when a longer run
+ * needs it, never shrinking during the scene.
+ */
+export class SpriteRunMesh {
+  readonly mesh: THREE.InstancedMesh
+  private readonly colors: THREE.InstancedBufferAttribute
+  private readonly uvs: THREE.InstancedBufferAttribute
+
+  constructor(base: THREE.BufferGeometry, material: THREE.MeshBasicMaterial, capacity: number) {
+    // Its own copy of the quad's attributes, so disposing one run never frees
+    // buffers another geometry still binds.
+    const geometry = base.clone()
+    this.uvs = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4).setUsage(THREE.DynamicDrawUsage)
+    geometry.setAttribute(INSTANCE_UV, this.uvs)
+    this.mesh = new THREE.InstancedMesh(geometry, material, capacity)
+    this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+    this.colors = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3).setUsage(THREE.DynamicDrawUsage)
+    this.mesh.instanceColor = this.colors
+    // Drawn in an explicit renderOrder; its instances are already in view space.
+    this.mesh.frustumCulled = false
+    this.mesh.matrixAutoUpdate = false
+    this.mesh.boundingSphere = new THREE.Sphere()
+  }
+
+  get capacity(): number {
+    return this.mesh.instanceMatrix.count
+  }
+
+  /** Writes the sprite drawn `index`-th in this run. */
+  write(index: number, instance: SpriteBatchInstance): void {
+    instance.modelView.toArray(this.mesh.instanceMatrix.array, index * 16)
+    instance.color.toArray(this.colors.array, index * 3)
+    const uv = this.uvs.array
+    uv[index * 4] = instance.uvRepeat.x
+    uv[index * 4 + 1] = instance.uvRepeat.y
+    uv[index * 4 + 2] = instance.uvOffset.x
+    uv[index * 4 + 3] = instance.uvOffset.y
+  }
+
+  /** Draws the first `count` written instances and uploads only those. */
+  commit(count: number): void {
+    this.mesh.count = count
+    for (const attribute of [this.mesh.instanceMatrix, this.colors, this.uvs]) upload(attribute, count)
+  }
+
+  dispose(): void {
+    this.mesh.removeFromParent()
+    this.mesh.geometry.dispose()
+    this.mesh.dispose()
+  }
+}
+
+/**
  * A Sprite Batch's resources for one key (CONTEXT.md, ADR 0024): the shared
- * material, a slot per member, and the instanced meshes its runs draw
- * through. Instance buffers start at 16 slots, double when full, reuse freed
- * slots and never shrink during the scene (ADR 0011: released at unload).
+ * material, a slot per member, and the pooled run meshes its runs draw
+ * through — one per run of the key in a frame, each sized by its own run, so
+ * instance memory stays proportional to the sprites drawn. Released at
+ * unload (ADR 0011).
  */
 export class SpriteBatch {
   readonly material: THREE.MeshBasicMaterial
   /** When the key's texture settled; null for untextured and bare entries. */
   readonly settled: Promise<TextureOutcome> | null
+  // A slot reserves room in the key's capacity; it is not a position in any
+  // instance buffer, which a frame rewrites in draw order (CA-4 deviation).
   private readonly slots: boolean[] = []
   private readonly freeSlots: number[] = []
   private _capacity = INITIAL_SPRITE_BATCH_CAPACITY
-  private readonly runMeshes: THREE.InstancedMesh[] = []
+  private readonly runs: SpriteRunMesh[] = []
+  private runsDrawn = 0
 
   constructor(
     key: SpriteBatchKey,
@@ -146,7 +183,7 @@ export class SpriteBatch {
     this.settled = settled
   }
 
-  /** Slots the instance buffers hold; a run never draws more. */
+  /** The most members the key has held at once, rounded up to 16 × 2^n: no run is ever longer. */
   get capacity(): number {
     return this._capacity
   }
@@ -175,57 +212,43 @@ export class SpriteBatch {
     this.freeSlots.push(slot)
   }
 
-  /**
-   * The mesh drawing this frame's `runIndex`-th run of the key, written with
-   * `instances` in draw order. Meshes are pooled across frames and rebuilt
-   * only when the capacity grew past theirs.
-   */
-  drawRun(runIndex: number, instances: readonly SpriteBatchInstance[]): THREE.InstancedMesh {
-    const mesh = this.runMesh(runIndex)
-    const matrices = mesh.instanceMatrix
-    const colors = mesh.instanceColor ?? matrices
-    const uvs = mesh.geometry.getAttribute(INSTANCE_UV) as THREE.InstancedBufferAttribute
-    for (const [index, instance] of instances.entries()) {
-      instance.modelView.toArray(matrices.array, index * 16)
-      instance.color.toArray(colors.array, index * 3)
-      uvs.array[index * 4] = instance.uvRepeat.x
-      uvs.array[index * 4 + 1] = instance.uvRepeat.y
-      uvs.array[index * 4 + 2] = instance.uvOffset.x
-      uvs.array[index * 4 + 3] = instance.uvOffset.y
-    }
-    mesh.count = instances.length
-    for (const attribute of [matrices, colors, uvs]) upload(attribute, instances.length)
-    return mesh
+  /** Starts a frame: no run of the key drawn yet. */
+  beginFrame(): void {
+    this.runsDrawn = 0
   }
 
-  /** Every pooled run mesh, drawn this frame or not. */
-  get meshes(): readonly THREE.InstancedMesh[] {
-    return this.runMeshes
+  /**
+   * The pooled mesh for the key's next run this frame, holding at least
+   * `length` instances. A pooled mesh is rebuilt only when this run is longer
+   * than any it drew before, doubling from its size (16 at first).
+   */
+  nextRun(length: number): SpriteRunMesh {
+    const index = this.runsDrawn
+    this.runsDrawn += 1
+    const pooled = this.runs[index]
+    if (pooled && pooled.capacity >= length) return pooled
+    let capacity = pooled?.capacity ?? INITIAL_SPRITE_BATCH_CAPACITY
+    while (capacity < length) capacity *= 2
+    // Never past the key's reservation: a run cannot outnumber the members.
+    const run = new SpriteRunMesh(this.geometry, this.material, Math.min(capacity, Math.max(this._capacity, length)))
+    if (pooled) {
+      pooled.mesh.parent?.add(run.mesh)
+      pooled.dispose()
+    }
+    this.runs[index] = run
+    return run
+  }
+
+  /** Takes the pooled meshes no run used this frame out of the scene. */
+  detachUndrawn(): void {
+    for (let index = this.runsDrawn; index < this.runs.length; index += 1) this.runs[index]?.mesh.removeFromParent()
   }
 
   /** Releases every GPU-side object this batch created; its texture clone included. */
   dispose(): void {
-    for (const mesh of this.runMeshes) this.disposeRunMesh(mesh)
-    this.runMeshes.length = 0
+    for (const run of this.runs) run.dispose()
+    this.runs.length = 0
     this.material.map?.dispose()
     this.material.dispose()
-  }
-
-  private runMesh(runIndex: number): THREE.InstancedMesh {
-    const pooled = this.runMeshes[runIndex]
-    if (pooled && pooled.instanceMatrix.count >= this._capacity) return pooled
-    const mesh = createRunMesh(this.geometry, this.material, this._capacity)
-    if (pooled) {
-      pooled.parent?.add(mesh)
-      this.disposeRunMesh(pooled)
-    }
-    this.runMeshes[runIndex] = mesh
-    return mesh
-  }
-
-  private disposeRunMesh(mesh: THREE.InstancedMesh): void {
-    mesh.removeFromParent()
-    mesh.geometry.dispose()
-    mesh.dispose()
   }
 }

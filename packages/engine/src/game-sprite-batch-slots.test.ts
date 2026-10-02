@@ -132,3 +132,25 @@ for (const release of ['unloadScene', 'dispose'] as const) {
     if (release === 'unloadScene') game.dispose()
   })
 }
+
+it('sizes each run by its own length when one key draws as many interleaved runs (review: O(N) instance memory)', async () => {
+  const game = makeGame()
+  // 20 sprites of /a.png alternate in depth with 20 of /b.png: each key draws as 20 one-sprite runs.
+  for (let i = 0; i < 40; i += 1) {
+    game.spawn(`S${i}`).add(Sprite, { texture: i % 2 === 0 ? '/a.png' : '/b.png', layer: i * 0.1 })
+  }
+  await flush()
+  renderFrame(game)
+  const runs = runMeshes(game)
+  expect(runs).toHaveLength(40)
+  // One-sprite runs keep the 16-instance minimum, never the key's whole membership times its runs.
+  expect(runs.map((run) => run.instanceMatrix.count)).toEqual(Array.from({ length: 40 }, () => 16))
+  const geometries = new Set(runs.map((run) => run.geometry))
+
+  renderFrame(game)
+
+  // A frame with the same runs reuses every pooled mesh and geometry.
+  expect(new Set(runMeshes(game))).toEqual(new Set(runs))
+  expect(new Set(runMeshes(game).map((run) => run.geometry))).toEqual(geometries)
+  game.dispose()
+})

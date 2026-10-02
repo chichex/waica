@@ -287,25 +287,20 @@ export class SpriteBatches {
 
   private draw(steps: readonly FrameStep[], camera: THREE.Camera): () => void {
     const restores: Array<[THREE.Object3D, number]> = []
-    const runsSoFar = new Map<SpriteBatch, number>()
-    const drawn = new Set<THREE.InstancedMesh>()
+    for (const batch of this.batches.values()) batch.beginFrame()
     for (const [order, step] of steps.entries()) {
       if (step.kind === 'other') {
         restores.push([step.item.object, step.item.object.renderOrder])
         step.item.object.renderOrder = order
         continue
       }
-      const runIndex = runsSoFar.get(step.key) ?? 0
-      runsSoFar.set(step.key, runIndex + 1)
-      const instances = step.items.map(({ instance }) => this.placed(instance, camera))
-      const mesh = step.key.drawRun(runIndex, instances)
-      mesh.renderOrder = order
-      if (mesh.parent !== this.root) this.root.add(mesh)
-      drawn.add(mesh)
+      const run = step.key.nextRun(step.items.length)
+      for (const [index, { instance }] of step.items.entries()) run.write(index, this.placed(instance, camera))
+      run.commit(step.items.length)
+      run.mesh.renderOrder = order
+      if (run.mesh.parent !== this.root) this.root.add(run.mesh)
     }
-    for (const batch of this.batches.values()) {
-      for (const mesh of batch.meshes) if (!drawn.has(mesh)) mesh.removeFromParent()
-    }
+    for (const batch of this.batches.values()) batch.detachUndrawn()
     return () => {
       for (const [object, renderOrder] of restores) object.renderOrder = renderOrder
     }
