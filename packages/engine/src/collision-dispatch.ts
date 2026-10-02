@@ -13,9 +13,10 @@ export interface CollisionDispatchStats {
 
 /**
  * Game's package-internal trigger dispatch implementation. Pairs come from a
- * frozen grid; each pair is then checked live, cheapest reads first (liveness,
- * masks, the snapshotted Hitbox still mounted). The checks have no side
- * effects, so their order only changes how fast a pair is rejected.
+ * frozen grid; each pair is then checked live, most selective checks first
+ * (liveness, masks, then the snapshotted Hitbox still mounted). The checks
+ * have no side effects, so their order only changes how fast a pair is
+ * rejected.
  */
 export function dispatchCollisions(game: Game): CollisionDispatchStats {
   let candidatePairs = 0

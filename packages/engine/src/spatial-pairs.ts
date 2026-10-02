@@ -2,7 +2,7 @@
 export interface PairGrid {
   /** Entries too large to bucket, ascending; they pair with every other entry. */
   readonly overflow: readonly number[]
-  /** Per entry, the ascending buckets it was added to (empty for overflow entries). */
+  /** Per entry, the buckets it was added to, each ascending by entry index (empty for overflow entries). */
   readonly entryBuckets: readonly (readonly (readonly number[])[])[]
 }
 
@@ -16,8 +16,6 @@ interface PairWalk {
   readonly marked: Int32Array
   readonly neighbours: number[]
 }
-
-const NO_INDICES: readonly number[] = []
 
 /** The entry index stored at `position` of a bucket that is iterated within its bounds. */
 function indexAt(bucket: readonly number[], position: number): number {
@@ -62,14 +60,17 @@ function laterNeighbours(walk: PairWalk, buckets: readonly (readonly number[])[]
 /** The pairs of bucketed entry `first` with every later entry sharing a cell or overflowing. */
 function visitBucketedPairs(walk: PairWalk, first: number): void {
   const { grid, visit } = walk
-  const own = grid.entryBuckets[first] ?? []
-  const laterOverflow = grid.overflow.length === 0 ? NO_INDICES : grid.overflow.filter((index) => index > first)
+  const own = grid.entryBuckets[first]
+  if (!own) throw new Error(`Spatial broadphase has no buckets for entry ${first}`)
+  // Overflow is ascending, like a bucket: laterNeighbours takes only its later part.
+  const hasLaterOverflow = (grid.overflow.at(-1) ?? -1) > first
   const [only] = own
-  if (own.length === 1 && only && laterOverflow.length === 0) {
+  if (own.length === 1 && only && !hasLaterOverflow) {
     eachLater(only, first, (second) => visit(first, second))
     return
   }
-  for (const second of laterNeighbours(walk, [...own, laterOverflow], first)) visit(first, second)
+  const buckets = hasLaterOverflow ? [...own, grid.overflow] : own
+  for (const second of laterNeighbours(walk, buckets, first)) visit(first, second)
 }
 
 /**
@@ -79,7 +80,8 @@ function visitBucketedPairs(walk: PairWalk, first: number): void {
  * it, needs no deduplication or sort. Equivalent to collecting all pairs,
  * deduplicating and sorting them, without allocating per pair.
  */
-export function forEachCandidatePair(grid: PairGrid, entryCount: number, visit: PairVisitor): void {
+export function forEachCandidatePair(grid: PairGrid, visit: PairVisitor): void {
+  const entryCount = grid.entryBuckets.length
   const isOverflow = new Uint8Array(entryCount)
   for (const index of grid.overflow) isOverflow[index] = 1
   const walk: PairWalk = { grid, visit, marked: new Int32Array(entryCount).fill(-1), neighbours: [] }

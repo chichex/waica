@@ -10,6 +10,7 @@ import { GameTime } from './game-time.js'
 import {
   broadphaseCellSize,
   createSpatialBroadphase,
+  type SpatialBroadphase,
 } from './spatial-broadphase.js'
 import {
   createSpatialQuery,
@@ -45,6 +46,13 @@ function makeWorld(instrumentation?: SpatialQueryInstrumentation): World {
       return entity
     },
   }
+}
+
+/** Every pair a broadphase visits, in visit order. */
+function pairsOf<T>(broadphase: SpatialBroadphase<T>): Array<readonly [T, T]> {
+  const pairs: Array<readonly [T, T]> = []
+  broadphase.forEachPair((first, second) => pairs.push([first, second]))
+  return pairs
 }
 
 const LOCAL_BOUNDS: CollisionBounds = {
@@ -94,7 +102,7 @@ describe('package-internal uniform grid', () => {
       },
     ], 1)
     expect(aboveCap.stats).toEqual({ indexed: 2, overflow: 2 })
-    expect(aboveCap.pairs()).toEqual([
+    expect(pairsOf(aboveCap)).toEqual([
       ['overflow-a', 'overflow-b'],
       ['overflow-a', 'local-normal'],
       ['overflow-a', 'remote-normal'],
@@ -184,7 +192,7 @@ describe('candidate pairs', () => {
 
     expect(broadphase.stats.overflow).toBe(2)
     expect(expected.length).toBeGreaterThan(1_000)
-    expect(broadphase.pairs()).toEqual(expected)
+    expect(pairsOf(broadphase)).toEqual(expected)
   })
 })
 

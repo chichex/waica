@@ -36,11 +36,11 @@ export interface SpatialBroadphaseStats {
 export interface SpatialBroadphase<T> {
   readonly stats: SpatialBroadphaseStats
   candidates(bounds: CollisionBounds): T[]
-  pairs(): Array<readonly [T, T]>
   /**
-   * Visits the same pairs as `pairs()`, in the same order, without building
-   * the list. The grid is frozen at creation, so callbacks that move, spawn
-   * or destroy entities do not change which pairs are visited.
+   * Visits every distinct pair sharing a cell, or involving an overflow
+   * entry, once, in ascending query order. The grid is frozen at creation,
+   * so callbacks that move, spawn or destroy entities do not change which
+   * pairs are visited.
    */
   forEachPair(visit: (first: T, second: T) => void): void
 }
@@ -106,7 +106,6 @@ function entryValue<T>(entries: readonly SpatialEntry<T>[], index: number): T {
 interface SpatialGrid extends PairGrid {
   readonly buckets: Map<string, number[]>
   readonly overflow: number[]
-  readonly entryBuckets: number[][][]
 }
 
 /** The indexable sources in query order, each with the cell range it covers. */
@@ -164,11 +163,6 @@ export function createSpatialBroadphase<T>(
   const entries = spatialEntries(sources, cellSize, isIndexable)
   const grid = spatialGrid(entries)
   const { buckets, overflow } = grid
-  const forEachPair = (visit: (first: T, second: T) => void): void => {
-    forEachCandidatePair(grid, entries.length, (first, second) => {
-      visit(entryValue(entries, first), entryValue(entries, second))
-    })
-  }
 
   return {
     stats: { indexed: entries.length - overflow.length, overflow: overflow.length },
@@ -183,12 +177,11 @@ export function createSpatialBroadphase<T>(
         .sort((a, b) => a - b)
         .map((index) => entryValue(entries, index))
     },
-    pairs() {
-      const result: Array<readonly [T, T]> = []
-      forEachPair((first, second) => result.push([first, second]))
-      return result
+    forEachPair(visit) {
+      forEachCandidatePair(grid, (first, second) => {
+        visit(entryValue(entries, first), entryValue(entries, second))
+      })
     },
-    forEachPair,
   }
 }
 

@@ -8,8 +8,8 @@ export function validCollisionLayer(value: unknown): value is string {
 /** Package-internal exact directional interest check. */
 export function collisionMaskTargets(mask: unknown, targetLayer: unknown): boolean {
   if (!Array.isArray(mask)) return false
-  // The membership test is cheaper than the layer's syntax check, and it
-  // rejects most pairs of a dense scene first.
+  // Membership first: with explicit masks it rejects most pairs of a dense
+  // scene before the layer's syntax check runs. A '*' mask still checks it.
   const named = mask.some(
     (entry) => typeof entry === 'string' && (entry === '*' || entry === targetLayer),
   )
