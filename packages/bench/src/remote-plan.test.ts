@@ -106,6 +106,11 @@ describe('remoteRunScript', () => {
     expect(script.split('\n').at(-1)).toBe('pnpm bench')
   })
 
+  it('passes --gpu on to the host run, which picks the browser flags', () => {
+    const gpuScript = remoteRunScript({ sha: 'abc1234', repoUrl: 'https://github.com/chichex/waica.git', gpu: true })
+    expect(gpuScript.split('\n').at(-1)).toBe('pnpm bench --gpu')
+  })
+
   it('stops at the first failing command', () => {
     expect(script.startsWith('set -eu')).toBe(true)
   })

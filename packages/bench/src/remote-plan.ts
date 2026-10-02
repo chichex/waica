@@ -101,14 +101,16 @@ export function missingPrerequisites(report: PreflightReport): MissingPrerequisi
 export interface RemoteRun {
   sha: string
   repoUrl: string
+  /** Forwarded as `pnpm bench --gpu`: the host picks the browser flags. */
+  gpu?: boolean
 }
 
 /**
  * The shell script the host runs: clone or refresh, exact checkout, frozen
- * install, then a plain `pnpm bench` — --check and --update-baseline apply
- * locally to the results it streams back.
+ * install, then `pnpm bench` (plus --gpu when asked) — --check and
+ * --update-baseline apply locally to the results it streams back.
  */
-export function remoteRunScript({ sha, repoUrl }: RemoteRun): string {
+export function remoteRunScript({ sha, repoUrl, gpu = false }: RemoteRun): string {
   return [
     'set -eu',
     USER_BIN_PATH,
@@ -117,7 +119,7 @@ export function remoteRunScript({ sha, repoUrl }: RemoteRun): string {
     'git fetch --quiet origin',
     `git checkout --quiet --detach ${sha}`,
     'pnpm install --frozen-lockfile >&2',
-    'pnpm bench',
+    gpu ? 'pnpm bench --gpu' : 'pnpm bench',
   ].join('\n')
 }
 

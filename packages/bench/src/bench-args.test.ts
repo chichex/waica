@@ -1,18 +1,23 @@
 import { describe, expect, it } from 'vitest'
-import { benchHostRefusal, parseBenchArgs, parseRemoteArgs } from './bench-args.ts'
+import { benchHostRefusal, chromeLaunchArgs, parseBenchArgs, parseRemoteArgs } from './bench-args.ts'
 
 describe('parseBenchArgs', () => {
   it('defaults to a plain run', () => {
-    expect(parseBenchArgs([])).toEqual({ check: false, local: false, updateBaseline: false })
+    expect(parseBenchArgs([])).toEqual({ check: false, gpu: false, local: false, updateBaseline: false })
   })
 
   it('reads --check, --local and --update-baseline', () => {
     expect(parseBenchArgs(['--check', '--local'])).toEqual({
       check: true,
+      gpu: false,
       local: true,
       updateBaseline: false,
     })
     expect(parseBenchArgs(['--update-baseline']).updateBaseline).toBe(true)
+  })
+
+  it('reads --gpu', () => {
+    expect(parseBenchArgs(['--gpu']).gpu).toBe(true)
   })
 
   it('rejects unknown flags, including names inherited from Object.prototype', () => {
@@ -43,6 +48,10 @@ describe('benchHostRefusal', () => {
 })
 
 describe('parseRemoteArgs', () => {
+  it('accepts --gpu, which the host run receives', () => {
+    expect(parseRemoteArgs(['--gpu']).gpu).toBe(true)
+  })
+
   it('accepts --check and --update-baseline', () => {
     expect(parseRemoteArgs(['--check']).check).toBe(true)
     expect(parseRemoteArgs(['--update-baseline']).updateBaseline).toBe(true)
@@ -50,5 +59,18 @@ describe('parseRemoteArgs', () => {
 
   it('rejects --local, which has no effect on the remote host', () => {
     expect(() => parseRemoteArgs(['--local'])).toThrow(/--local/)
+  })
+})
+
+describe('chromeLaunchArgs', () => {
+  it('renders in software with SwiftShader by default', () => {
+    expect(chromeLaunchArgs(false)).toEqual(['--enable-unsafe-swiftshader'])
+  })
+
+  it('renders on the host GPU through ANGLE on Vulkan with --gpu', () => {
+    const args = chromeLaunchArgs(true)
+    expect(args).toContain('--use-angle=vulkan')
+    expect(args).toContain('--ignore-gpu-blocklist')
+    expect(args).not.toContain('--enable-unsafe-swiftshader')
   })
 })

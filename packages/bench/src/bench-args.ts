@@ -1,6 +1,8 @@
 export interface BenchArgs {
   /** Compare counters with the committed baselines and fail on any difference. */
   check: boolean
+  /** Render on the host's GPU (ANGLE on Vulkan) instead of SwiftShader. */
+  gpu: boolean
   /** Run on this machine even if it is macOS. */
   local: boolean
   /** Rewrite baselines/*.json from this run's results. */
@@ -9,12 +11,13 @@ export interface BenchArgs {
 
 const FLAGS: Record<string, keyof BenchArgs> = {
   '--check': 'check',
+  '--gpu': 'gpu',
   '--local': 'local',
   '--update-baseline': 'updateBaseline',
 }
 
 export function parseBenchArgs(argv: readonly string[]): BenchArgs {
-  const args: BenchArgs = { check: false, local: false, updateBaseline: false }
+  const args: BenchArgs = { check: false, gpu: false, local: false, updateBaseline: false }
   for (const flag of argv) {
     const key = Object.hasOwn(FLAGS, flag) ? FLAGS[flag] : undefined
     if (!key) throw new Error(`bench: unknown flag: ${flag}`)
@@ -45,4 +48,15 @@ export function benchHostRefusal(platform: string, args: BenchArgs): string | nu
     'bench: refusing to run on macOS — the benchmark runs on a Linux host.',
     'Run it remotely with `WAICA_BENCH_HOST=<host> pnpm bench:remote`, or pass --local to run here anyway.',
   ].join('\n')
+}
+
+/**
+ * Headless Chrome on a host with no display falls back to SwiftShader, a
+ * CPU renderer: the worst case. With --gpu, ANGLE on Vulkan reaches the
+ * host's GPU (verified on chichex-linux: an RTX 5070 Ti). The renderer each
+ * result records says which one actually ran.
+ */
+export function chromeLaunchArgs(gpu: boolean): string[] {
+  if (!gpu) return ['--enable-unsafe-swiftshader']
+  return ['--use-angle=vulkan', '--enable-features=Vulkan', '--ignore-gpu-blocklist', '--enable-gpu']
 }

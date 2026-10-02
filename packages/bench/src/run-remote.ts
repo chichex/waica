@@ -64,7 +64,7 @@ async function main(): Promise<void> {
   const host = resolveBenchHost(process.env)
   const sha = pushedCommit()
   await assertHostReady(host)
-  const script = remoteRunScript({ sha, repoUrl: httpsCloneUrl(git('remote', 'get-url', 'origin')) })
+  const script = remoteRunScript({ sha, repoUrl: httpsCloneUrl(git('remote', 'get-url', 'origin')), gpu: args.gpu })
   const { code, stdout } = await ssh(host, script)
   if (code !== 0) throw new Error(`bench:remote: the bench failed on ${host} (exit ${code})`)
   const results = parseScenarioResults(extractResults(stdout))

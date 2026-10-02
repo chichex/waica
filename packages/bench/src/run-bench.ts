@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium, type Browser } from 'playwright-core'
 import { build, preview, type PreviewServer } from 'vite'
 import { applyBaselineFlags } from './baseline-files.ts'
-import { benchHostRefusal, parseBenchArgs } from './bench-args.ts'
+import { benchHostRefusal, chromeLaunchArgs, parseBenchArgs } from './bench-args.ts'
 import { discoverChrome } from './chrome.ts'
 import type { BenchPageApi } from './page/bench-global.ts'
 import {
@@ -113,11 +113,11 @@ async function runEachScenario(browser: Browser, url: string, provenance: Proven
 }
 
 /** Each resource is released by its own finally, whichever later step fails. */
-async function runScenarios(host: NodeHost, executablePath: string): Promise<ScenarioResult[]> {
+async function runScenarios(host: NodeHost, executablePath: string, gpu: boolean): Promise<ScenarioResult[]> {
   const commit = commitSha()
   const server = await servePage()
   try {
-    const browser = await chromium.launch({ executablePath, headless: true, args: ['--enable-unsafe-swiftshader'] })
+    const browser = await chromium.launch({ executablePath, headless: true, args: chromeLaunchArgs(gpu) })
     try {
       return await runEachScenario(browser, serverUrl(server), { commit, host })
     } finally {
@@ -143,7 +143,7 @@ async function main(): Promise<void> {
   }
   const chrome = discoverChrome()
   const host: NodeHost = { platform: platform(), cpus: cpus().length, chrome: chrome.version }
-  const results = await runScenarios(host, chrome.executablePath)
+  const results = await runScenarios(host, chrome.executablePath, args.gpu)
   for (const result of results) process.stderr.write(`${summary(result)}\n`)
   process.stdout.write(`${RESULTS_MARKER}${JSON.stringify(results)}\n`)
   if (!applyBaselineFlags(results, args)) process.exitCode = 1
