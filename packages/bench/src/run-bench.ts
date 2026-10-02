@@ -62,7 +62,10 @@ async function runInPage(browser: Browser, url: string, scenario: ScenarioName):
     let report: PageScenarioReport
     let trace: string
     try {
-      await page.goto(`${url}?scenario=${scenario}`)
+      // Only wait for navigation to commit: the scenario's synchronous step
+      // loop can hold the main thread past goto's 30 s 'load' timeout. Its
+      // end is the result promise below, under SCENARIO_TIMEOUT_MS.
+      await page.goto(`${url}?scenario=${scenario}`, { waitUntil: 'commit' })
       const evaluated = page.evaluate(() => {
         const api: BenchPageApi | undefined = window.__waicaBench
         if (!api) throw new Error('bench: page entry did not load')
