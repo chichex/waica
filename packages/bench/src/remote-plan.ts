@@ -108,3 +108,9 @@ export function extractResults(stdout: string): unknown {
   if (!line) throw new Error('bench:remote: the host printed no results line')
   return JSON.parse(line.slice(RESULTS_MARKER.length)) as unknown
 }
+
+/** The anonymous HTTPS form of a GitHub remote, so the host needs no GitHub key. */
+export function httpsCloneUrl(remoteUrl: string): string {
+  const match = /^(?:ssh:\/\/)?git@github\.com[:/](.+?)(?:\.git)?$/.exec(remoteUrl)
+  return match ? `https://github.com/${match[1]}.git` : remoteUrl
+}

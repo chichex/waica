@@ -3,6 +3,7 @@ import {
   BENCH_CLONE_DIR,
   RESULTS_MARKER,
   extractResults,
+  httpsCloneUrl,
   missingPrerequisites,
   parsePreflight,
   remoteRunScript,
@@ -100,5 +101,16 @@ describe('extractResults', () => {
 
   it('fails when the bench printed no results', () => {
     expect(() => extractResults('building...\n')).toThrow(/no results/)
+  })
+})
+
+describe('httpsCloneUrl', () => {
+  it('turns GitHub SSH remotes into anonymous HTTPS clone URLs', () => {
+    expect(httpsCloneUrl('ssh://git@github.com/chichex/waica.git')).toBe('https://github.com/chichex/waica.git')
+    expect(httpsCloneUrl('git@github.com:chichex/waica.git')).toBe('https://github.com/chichex/waica.git')
+  })
+
+  it('keeps an HTTPS remote as is', () => {
+    expect(httpsCloneUrl('https://github.com/chichex/waica.git')).toBe('https://github.com/chichex/waica.git')
   })
 })
