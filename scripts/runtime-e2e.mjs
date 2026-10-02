@@ -381,34 +381,80 @@ async function samplePixel(playwright, executablePath, base64, x, y) {
   }
 }
 
+// The three functions below run in the page, serialized by page.evaluate:
+// the browser's own globals decode the PNGs, defined once per page.
+function installPngDecoder() {
+  globalThis.decodePng = async (base64) => {
+    const image = new globalThis.Image()
+    image.src = `data:image/png;base64,${base64}`
+    await image.decode()
+    const canvas = globalThis.document.createElement('canvas')
+    canvas.width = image.naturalWidth
+    canvas.height = image.naturalHeight
+    const context = canvas.getContext('2d')
+    if (!context) throw new Error('missing 2d context')
+    context.drawImage(image, 0, 0)
+    return context.getImageData(0, 0, canvas.width, canvas.height)
+  }
+}
+
+async function rangeInPage({ base64 }) {
+  const { data } = await globalThis.decodePng(base64)
+  const min = [255, 255, 255, 255]
+  const max = [0, 0, 0, 0]
+  for (let index = 0; index < data.length; index += 4) {
+    for (let channel = 0; channel < 4; channel += 1) {
+      min[channel] = Math.min(min[channel], data[index + channel])
+      max[channel] = Math.max(max[channel], data[index + channel])
+    }
+  }
+  return { min, max }
+}
+
+async function compareInPage({ left, right }) {
+  const a = await globalThis.decodePng(left)
+  const b = await globalThis.decodePng(right)
+  if (a.width !== b.width || a.height !== b.height) {
+    return { width: a.width, height: a.height, otherWidth: b.width, otherHeight: b.height, differing: -1 }
+  }
+  let differing = 0
+  let first = null
+  let varied = false
+  for (let index = 0; index < a.data.length; index += 4) {
+    if (!varied && a.data.subarray(index, index + 4).some((value, channel) => value !== a.data[channel])) varied = true
+    const leftPixel = [...a.data.subarray(index, index + 4)]
+    const rightPixel = [...b.data.subarray(index, index + 4)]
+    if (leftPixel.every((value, channel) => value === rightPixel[channel])) continue
+    differing += 1
+    if (!first) first = { x: (index / 4) % a.width, y: Math.floor(index / 4 / a.width), left: leftPixel, right: rightPixel }
+  }
+  return { width: a.width, height: a.height, differing, first, varied }
+}
+
+/**
+ * One headless page that decodes PNG screenshots to RGBA in place and
+ * answers questions about them, so several checks share one Chrome launch:
+ * `range` (per-channel min/max) and `compare` (pixel-by-pixel RGBA: how many
+ * differ, the first that does, whether the left one varies). Close it when done.
+ */
+async function openPngInspector(playwright, executablePath) {
+  const browser = await playwright.chromium.launch({ executablePath, headless: true })
+  const page = await browser.newPage({ viewport: { width: 320, height: 180 }, deviceScaleFactor: 1 })
+  await page.evaluate(installPngDecoder)
+  return {
+    range: (base64) => page.evaluate(rangeInPage, { base64 }),
+    compare: (left, right) => page.evaluate(compareInPage, { left, right }),
+    close: () => browser.close(),
+  }
+}
+
 /** Per-channel minimum and maximum over every pixel of a PNG screenshot. */
 async function pixelRange(playwright, executablePath, base64) {
-  const browser = await playwright.chromium.launch({ executablePath, headless: true })
+  const inspector = await openPngInspector(playwright, executablePath)
   try {
-    const page = await browser.newPage({ viewport: { width: 320, height: 180 }, deviceScaleFactor: 1 })
-    return await page.evaluate(async ({ base64 }) => {
-      const image = new Image()
-      image.src = `data:image/png;base64,${base64}`
-      await image.decode()
-      const canvas = document.createElement('canvas')
-      canvas.width = image.naturalWidth
-      canvas.height = image.naturalHeight
-      const context = canvas.getContext('2d')
-      if (!context) throw new Error('missing 2d context')
-      context.drawImage(image, 0, 0)
-      const data = context.getImageData(0, 0, canvas.width, canvas.height).data
-      const min = [255, 255, 255, 255]
-      const max = [0, 0, 0, 0]
-      for (let index = 0; index < data.length; index += 4) {
-        for (let channel = 0; channel < 4; channel += 1) {
-          min[channel] = Math.min(min[channel], data[index + channel])
-          max[channel] = Math.max(max[channel], data[index + channel])
-        }
-      }
-      return { min, max }
-    }, { base64 })
+    return await inspector.range(base64)
   } finally {
-    await browser.close()
+    await inspector.close()
   }
 }
 
@@ -1480,6 +1526,84 @@ async function runIsometricVillager({ client, project, inspectPlayer, hold, rele
   }
 }
 
+/** Creates a demo Project of `archetype` wired to the checkout's packages, ready for start_project. */
+async function makeDemoProject({ client, root, parent, viteBin, engineRoot, archetype, name }) {
+  const project = path.join(parent, name)
+  const created = await call(client, 'create_project', { project_path: project, start: 'demo', archetype })
+  assert.equal(created.isError, undefined, `create_project(${archetype}) failed: ${JSON.stringify(created)}`)
+  const manifestPath = path.join(project, 'package.json')
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+  manifest.scripts.dev = `node ${quoteForPackageScript(viteBin)}`
+  delete manifest.devDependencies
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+  await rm(path.join(project, 'vite.config.ts'), { force: true })
+  await materializeRuntimeDependencies(project, engineRoot)
+  for (const directory of ['behaviors', `archetype-${archetype}`]) {
+    await copyPackage(path.join(root, 'packages', directory), path.join(project, 'node_modules/@waica', directory))
+  }
+  return project
+}
+
+/** Starts the Project paused, steps it `frames` Simulation Steps, screenshots it and stops it. */
+async function frameScreenshot({ client, project, chrome, frames }) {
+  const start = await call(client, 'start_project', {
+    project_path: project,
+    browser_executable_path: chrome.executablePath,
+    timeout_ms: 15_000,
+  })
+  assert.equal(start.isError, undefined, `start_project failed: ${JSON.stringify(start)}`)
+  assert.equal(start.structuredContent.assets?.failed, 0, 'no demo texture may fail to load')
+  await call(client, 'control_runtime', { project_path: project, operation: 'step', frames })
+  const shot = assertScreenshot(await call(client, 'capture_screenshot', { project_path: project }), 'paused', {
+    width: 640,
+    height: 360,
+  })
+  const stopped = await call(client, 'stop_project', { project_path: project })
+  assert.equal(stopped.structuredContent.stopped, true)
+  await assertUrlClosed(start.structuredContent.url)
+  return shot
+}
+
+/**
+ * Issue #77 (CA-3): Sprite Batches draw the same picture as one mesh per
+ * sprite. Each archetype's demo "main" (topdown with y-sort, isometric with
+ * y-sort and projection) is captured at the same frame with batching on (the
+ * default) and with `render.batch: false`, and the two decoded screenshots
+ * must match pixel for pixel — no tolerance.
+ */
+async function runBatchParityLeg({ client, root, parent, chrome, viteBin, engineRoot, playwright }) {
+  const inspector = await openPngInspector(playwright, chrome.executablePath)
+  try {
+    return await compareBatchParity({ client, root, parent, chrome, viteBin, engineRoot, inspector })
+  } finally {
+    await inspector.close()
+  }
+}
+
+async function compareBatchParity({ client, root, parent, chrome, viteBin, engineRoot, inspector }) {
+  const differing = {}
+  for (const archetype of ['platformer', 'topdown', 'isometric']) {
+    const project = await makeDemoProject({
+      client, root, parent, viteBin, engineRoot, archetype, name: `waica-batch-${archetype}`,
+    })
+    const batched = await frameScreenshot({ client, project, chrome, frames: 13 })
+    const scenePath = path.join(project, 'src/scenes/main.scene.json')
+    const scene = JSON.parse(await readFile(scenePath, 'utf8'))
+    scene.render = { ...scene.render, batch: false }
+    await writeFile(scenePath, `${JSON.stringify(scene, null, 2)}\n`)
+    const unbatched = await frameScreenshot({ client, project, chrome, frames: 13 })
+    const compared = await inspector.compare(batched.image, unbatched.image)
+    assert.ok(compared.varied, `${archetype}: the batched screenshot must show a scene, not one flat color`)
+    assert.equal(
+      compared.differing,
+      0,
+      `${archetype}: batched and unbatched screenshots must be pixel-identical; ${JSON.stringify(compared)}`,
+    )
+    differing[archetype] = compared.differing
+  }
+  return { batchParityDifferingPixels: differing }
+}
+
 /**
  * CA-17/CA-18: a new leg beside runIsometricLeg, not folded into it, so a
  * scene-swap failure is diagnosable on its own — its own generated Project,
@@ -1492,31 +1616,9 @@ async function runIsometricVillager({ client, project, inspectPlayer, hold, rele
  * naming the available scenes, leaving the live scene untouched.
  */
 async function runSceneSwapLeg({ client, root, parent, chrome, viteBin, engineRoot }) {
-  const project = path.join(parent, 'waica-scene-swap')
-  const created = await call(client, 'create_project', {
-    project_path: project,
-    start: 'demo',
-    archetype: 'isometric',
+  const project = await makeDemoProject({
+    client, root, parent, viteBin, engineRoot, archetype: 'isometric', name: 'waica-scene-swap',
   })
-  assert.equal(
-    created.isError,
-    undefined,
-    `create_project(scene-swap) failed: ${JSON.stringify(created)}`,
-  )
-
-  const manifestPath = path.join(project, 'package.json')
-  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
-  manifest.scripts.dev = `node ${quoteForPackageScript(viteBin)}`
-  delete manifest.devDependencies
-  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
-  await rm(path.join(project, 'vite.config.ts'), { force: true })
-  await materializeRuntimeDependencies(project, engineRoot)
-  for (const directory of ['behaviors', 'archetype-isometric']) {
-    await copyPackage(
-      path.join(root, 'packages', directory),
-      path.join(project, 'node_modules/@waica', directory),
-    )
-  }
 
   const start = await call(client, 'start_project', {
     project_path: project,
@@ -1836,6 +1938,7 @@ export async function runRuntimeE2e({
   includeProjection = true,
   includeSceneSwap = true,
   includeSceneFade = true,
+  includeBatchParity = true,
   includeSignalShutdown = true,
 }) {
   if (process.platform === 'win32') {
@@ -1925,6 +2028,17 @@ export async function runRuntimeE2e({
           playwright,
         })
       : {}
+    const batchParityResult = includeBatchParity
+      ? await runBatchParityLeg({
+          client,
+          root,
+          parent: temporaryParent,
+          chrome,
+          viteBin,
+          engineRoot,
+          playwright,
+        })
+      : {}
     if (negative) await runNegativeReadiness({ client, fixture: negative, chrome })
     let signalShutdownResult = {}
     if (includeSignalShutdown) {
@@ -1943,6 +2057,7 @@ export async function runRuntimeE2e({
       ...isometricResult,
       ...sceneSwapResult,
       ...sceneFadeResult,
+      ...batchParityResult,
       ...signalShutdownResult,
     }
     console.log(`waica runtime e2e (${label}): ${JSON.stringify(result)}`)

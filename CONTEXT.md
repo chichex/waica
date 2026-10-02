@@ -149,3 +149,7 @@ _Avoid_: bus, track, group, layer
 **Assets Ready**:
 The state of a Game in which every texture requested so far — by a spawned component or by an explicit preload — has loaded, or has failed and been recorded. A host awaits it before its first frame and a Run Session waits for it before reporting ready or capturing a screenshot; a later spawn that requests new art leaves the state until that art settles.
 _Avoid_: loaded, preloaded, settled, scene ready
+
+**Sprite Batch**:
+A run of sprites that are consecutive in draw order and share a batch key — texture, pixel-art filtering and shape (and, for animated sprites, the sheet) — drawn together in a single call, each sprite one instance carrying its own placement, color and frame. Batching never changes what is drawn in front of what: sprites of another key in between start a new run. Every sprite batches by default; a scene opts out as a whole, falling back to one draw per sprite.
+_Avoid_: instanced mesh, sprite pool, atlas

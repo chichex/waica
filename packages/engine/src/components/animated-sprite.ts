@@ -5,6 +5,11 @@ import { locateFrame, sheetCell, type SheetCell, type SheetDef } from '../animat
 import type { YSortParticipant } from '../render-sort.js'
 import { spritePlacement } from '../sprite-placement.js'
 import { reportRejection } from '../report-rejection.js'
+import type { SpriteBatchKey } from '../sprite-batch.js'
+import { spriteBatchesOf, spriteInstanceOf } from '../sprite-batches.js'
+
+/** Where a frame on a failed sheet draws: the flat (white) untextured quad. */
+const UNTEXTURED: SpriteBatchKey = { texture: null, pixelArt: false, shape: 'rectangle' }
 
 const clampAnchor = (value: number): number => Math.min(1, Math.max(0, value))
 
@@ -148,7 +153,9 @@ export class AnimatedSprite extends Component implements YSortParticipant {
   private texs: THREE.Texture[] = []
   // Clones whose sheet failed to load: applyFrame never installs them (CA-4).
   private readonly failedSheets = new Set<THREE.Texture>()
-  private mesh?: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
+  // The drawn quad, or under Sprite Batches (ADR 0024) the hidden anchor of
+  // this sprite's instance, whose frame UV is read from the sheet clone.
+  private mesh?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
   private frame = 0
   // Current frame's quad scale relative to the sheet's largest cell: always
   // 1 on grid sheets, per-frame on cell sheets (frames vary in pixel size).
@@ -178,8 +185,16 @@ export class AnimatedSprite extends Component implements YSortParticipant {
       tex.repeat.set(1 / Math.max(1, sheet.cols), 1 / Math.max(1, sheet.rows))
       return tex
     })
-    const material = new THREE.MeshBasicMaterial({ map: this.texs[0], transparent: true })
-    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material)
+    const batches = spriteBatchesOf(this.game)
+    if (batches?.enabled) {
+      const instance = batches.attach(this.sheetKey(0))
+      instance.shownSheet = 0
+      instance.uvSource = this.texs[0] ?? instance.uvSource
+      this.mesh = instance.anchor
+    } else {
+      const material = new THREE.MeshBasicMaterial({ map: this.texs[0], transparent: true })
+      this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material)
+    }
     this.mesh.position.z = this.layer * 0.01
     this.syncQuad()
     this.entity.node.add(this.mesh)
@@ -201,9 +216,15 @@ export class AnimatedSprite extends Component implements YSortParticipant {
   }
 
   override onDestroy(): void {
-    this.mesh?.removeFromParent()
-    this.mesh?.geometry.dispose()
-    this.mesh?.material.dispose()
+    const instance = spriteInstanceOf(this.mesh)
+    if (instance) {
+      instance.release()
+    } else {
+      this.mesh?.removeFromParent()
+      this.mesh?.geometry.dispose()
+      this.mesh?.material.dispose()
+    }
+    this.mesh = undefined
     // Only this sprite's clones: the cached bases live with the Game.
     for (const tex of this.texs) tex.dispose()
     this.texs = []
@@ -229,6 +250,11 @@ export class AnimatedSprite extends Component implements YSortParticipant {
       this.applyFrame()
     }), 'sheet texture settle')
     return texture
+  }
+
+  /** The batch key of a sheet: its art, this sprite's filtering, a rectangle. */
+  private sheetKey(index: number): SpriteBatchKey {
+    return { texture: this.sheets[index]?.texture ?? '', pixelArt: this.pixelArt, shape: 'rectangle' }
   }
 
   private showFrame(index: number): void {
@@ -260,7 +286,16 @@ export class AnimatedSprite extends Component implements YSortParticipant {
     const sheet = this.sheets[located.sheet]
     const tex = this.texs[located.sheet]
     if (!sheet || !tex) return
-    if (this.mesh) {
+    const instance = spriteInstanceOf(this.mesh)
+    if (instance) {
+      const failed = this.failedSheets.has(tex)
+      if (instance.shownSheet !== located.sheet || instance.shownSheetFailed !== failed) {
+        instance.moveTo(failed ? UNTEXTURED : this.sheetKey(located.sheet))
+        instance.shownSheet = located.sheet
+        instance.shownSheetFailed = failed
+      }
+      instance.uvSource = tex
+    } else if (this.mesh) {
       const map = this.failedSheets.has(tex) ? null : tex
       if (this.mesh.material.map !== map) {
         this.mesh.material.map = map

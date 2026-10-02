@@ -50,6 +50,7 @@ import {
   type SceneRenderJson,
 } from './scene.js'
 import { sceneDrainsOf } from './scene-drains.js'
+import { createSpriteBatches, type SpriteBatches } from './sprite-batches.js'
 import { createSpatialQuery, type SpatialQuery } from './spatial-query.js'
 import { Stats, type StatValue } from './stats.js'
 import { anchoredPiecesOf, GameUi } from './ui.js'
@@ -163,6 +164,8 @@ export class Game {
   // TODO(H1): migrate to WebGPURenderer (three/webgpu) with automatic WebGL2 fallback.
   private readonly renderer: THREE.WebGLRenderer
   private readonly resizeObserver: ResizeObserver
+  /** Scene-scoped Sprite Batches (ADR 0024); `render.batch: false` opts a scene out. */
+  private readonly spriteBatches: SpriteBatches
   private readonly updateFns = new Set<UpdateFn>()
   private readonly invalidUpdateCompositions = new WeakMap<Entity, string>()
   /**
@@ -228,6 +231,7 @@ export class Game {
       // catalog is registered at call time, which outlives every scene.
       resolveAsset: (uri) => this.sceneCatalog?.registry.resolveAsset?.(uri) ?? uri,
     })
+    this.spriteBatches = createSpriteBatches(this, this.assets)
     this.cameraEffects = new CameraEffects({
       host: () => canvas.parentElement ?? document.body,
       // One screen pixel in world units: the shake snaps to it (never the base).
@@ -307,6 +311,8 @@ export class Game {
     for (const entity of [...this.entities]) entity.destroy()
     // Drains transferred by the destruction cascade above are scene-scoped too.
     sceneDrainsOf(this).clear()
+    // After the cascade freed every slot: the batches go with their scene.
+    this.spriteBatches.unload()
     this.registry = null
     this.renderSort = null
     this.sceneProjection = null
@@ -406,6 +412,7 @@ export class Game {
    */
   setSceneRender(json?: SceneRenderJson): void {
     this.renderSort = json?.sort === 'y' ? 'y' : null
+    this.spriteBatches.enabled = json?.batch !== false
     const projection = json?.projection === 'isometric' ? 'isometric' : null
     if (projection === this.sceneProjection) return
     this.sceneProjection = projection
@@ -510,6 +517,7 @@ export class Game {
     this.time.cancelAll()
     for (const entity of [...this.entities]) entity.destroy()
     sceneDrainsOf(this).clear()
+    this.spriteBatches.unload()
     // After the entities: their clones go with the cascade above, the
     // cached bases go here, exactly once (ADR 0019).
     this.assets.dispose()
@@ -715,7 +723,7 @@ export class Game {
         this.renderer.clear(true, false, false)
         this.renderer.setScissorTest(true)
       }
-      this.renderer.render(this.scene, this.camera)
+      this.spriteBatches.drawFrame(this.scene, this.camera, () => this.renderer.render(this.scene, this.camera))
     } finally {
       this.camera.position.x = x
       this.camera.position.y = y
