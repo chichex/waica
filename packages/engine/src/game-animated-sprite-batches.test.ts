@@ -28,6 +28,7 @@ vi.mock('three', async (importOriginal) => {
 import { FakeTextureBackend, flush } from './assets/test-helpers.js'
 import { AnimatedSprite } from './components/animated-sprite.js'
 import { loadScene } from './scene.js'
+import { SpriteBatches } from './sprite-batches.js'
 import { defined } from './test-support.js'
 import {
   animatedEntity,
@@ -162,5 +163,19 @@ it('moves to the circle entry when its shape changes (CA-5)', async () => {
 
   expect(onlyRun(game).geometry.getAttribute('position').count).not.toBe(rectangle)
   expect(defined(instances(game)[0]).color).toEqual(linear(0xff0000))
+  game.dispose()
+})
+
+it('skips the batch move on frames that stay on the same sheet (review: no per-step key allocation)', async () => {
+  const game = makeGame()
+  loadScene(game, scene([animatedEntity('Walker', {})]), REGISTRY)
+  await flush()
+  renderFrame(game)
+  const move = vi.spyOn(SpriteBatches.prototype, 'move')
+
+  playOneFrame(game)
+
+  expect(defined(instances(game)[0]).uv).toEqual([0.25, 0.5, 0.25, 0.5])
+  expect(move).not.toHaveBeenCalled()
   game.dispose()
 })

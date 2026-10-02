@@ -39,6 +39,12 @@ export class SpriteInstance implements SpriteBatchInstance {
   /** Identity until an AnimatedSprite points it at its current sheet's clone. */
   uvSource: SpriteUvSource = { offset: new THREE.Vector2(0, 0), repeat: new THREE.Vector2(1, 1) }
   readonly modelView = new THREE.Matrix4()
+  /**
+   * For an AnimatedSprite: the sheet its key was last chosen for and whether
+   * that sheet had failed, so a frame on the same sheet skips the move.
+   */
+  shownSheet = -1
+  shownSheetFailed = false
 
   constructor(
     readonly anchor: SpriteAnchor,
@@ -193,6 +199,8 @@ export class SpriteBatches {
   attach(key: SpriteBatchKey): SpriteInstance {
     const batch = this.batchFor(key)
     const anchor: SpriteAnchor = new THREE.Mesh(this.geometryFor(key.shape), batch.material)
+    // Never drawn and never read for visibility: a batched sprite shows or
+    // hides through its entity's node (README "Sprite Batches").
     anchor.visible = false
     const instance = new SpriteInstance(anchor, this, { key, batch, slot: batch.join() })
     anchors.set(anchor, instance)

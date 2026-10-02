@@ -159,6 +159,8 @@ The cues that hook a `StateMachine` must come after it and after the `ParticleEm
 - **Reusable slots and buffers.** A destroyed sprite's slot goes to the next spawn of its key. Each run draws through a pooled instance buffer sized by that run: 16 instances at first, doubling when a longer run needs it, never shrinking during the scene. A key drawn as several runs keeps one buffer per run, so instance memory stays proportional to the sprites drawn. Once the buffers have grown to a scene's longest runs (and as many runs as it ever splits into), spawning, destroying and reordering sprites allocates no GPU objects.
 - **Turning it off.** Scene JSON `"render": { "batch": false }` (the editor's **Sprite batching** toggle in the scene inspector) restores the per-sprite path: one mesh, one material and one draw call per sprite. Use it to rule batching out when a scene looks different than you expect, or while debugging draw order; the cost is one draw call per sprite, which is what dominates frame time with thousands of sprites.
 
+Under batching, the object a sprite adds to its entity is a hidden placement anchor that is never drawn. Hide or show a batched sprite through its entity (`entity.node.visible`, as `Health` blinking does); the anchor's own `visible` is not read, and setting it to true does not draw the sprite twice in a useful way — leave it alone, or use `render.batch: false` when code needs one real mesh per sprite.
+
 How much batching saves depends on how interleaved a scene is: one texture over the whole scene draws in one call, while a top-down scene that alternates many textures by y gains little. Runtime Snapshots are unchanged — batches are not entities, and sprites report the same state either way.
 
 ## Component lifecycle

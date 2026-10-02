@@ -188,6 +188,7 @@ export class AnimatedSprite extends Component implements YSortParticipant {
     const batches = spriteBatchesOf(this.game)
     if (batches?.enabled) {
       const instance = batches.attach(this.sheetKey(0))
+      instance.shownSheet = 0
       instance.uvSource = this.texs[0] ?? instance.uvSource
       this.mesh = instance.anchor
     } else {
@@ -287,7 +288,12 @@ export class AnimatedSprite extends Component implements YSortParticipant {
     if (!sheet || !tex) return
     const instance = spriteInstanceOf(this.mesh)
     if (instance) {
-      instance.moveTo(this.failedSheets.has(tex) ? UNTEXTURED : this.sheetKey(located.sheet))
+      const failed = this.failedSheets.has(tex)
+      if (instance.shownSheet !== located.sheet || instance.shownSheetFailed !== failed) {
+        instance.moveTo(failed ? UNTEXTURED : this.sheetKey(located.sheet))
+        instance.shownSheet = located.sheet
+        instance.shownSheetFailed = failed
+      }
       instance.uvSource = tex
     } else if (this.mesh) {
       const map = this.failedSheets.has(tex) ? null : tex

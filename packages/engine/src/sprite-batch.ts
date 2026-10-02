@@ -40,22 +40,35 @@ const INSTANCE_UV = 'instanceUv'
  * Shader hook shared by every batch material. The instance matrix already
  * holds view × world (three's own `modelViewMatrix` for that sprite, computed
  * the same way on the CPU), so the vertex shader skips `modelViewMatrix`; the
- * map's UV transform comes from the instance instead of `mapTransform`.
+ * map's UV transform comes from the instance instead of `mapTransform`. Every
+ * rewrite sits behind USE_INSTANCING: the hidden anchors share this material,
+ * and if one were ever drawn as a plain mesh it compiles three's own chunks.
  */
 function useInstanceTransforms(shader: THREE.WebGLProgramParametersWithUniforms): void {
   shader.vertexShader = shader.vertexShader
-    .replace('#include <common>', `#include <common>\nattribute vec4 ${INSTANCE_UV};`)
+    .replace('#include <common>', ['#include <common>', '#ifdef USE_INSTANCING', `  attribute vec4 ${INSTANCE_UV};`, '#endif'].join('\n'))
     .replace(
       '#include <uv_vertex>',
       [
-        '#ifdef USE_MAP',
-        `  vMapUv = ( mat3( ${INSTANCE_UV}.x, 0.0, 0.0, 0.0, ${INSTANCE_UV}.y, 0.0, ${INSTANCE_UV}.z, ${INSTANCE_UV}.w, 1.0 ) * vec3( MAP_UV, 1 ) ).xy;`,
+        '#ifdef USE_INSTANCING',
+        '  #ifdef USE_MAP',
+        `    vMapUv = ( mat3( ${INSTANCE_UV}.x, 0.0, 0.0, 0.0, ${INSTANCE_UV}.y, 0.0, ${INSTANCE_UV}.z, ${INSTANCE_UV}.w, 1.0 ) * vec3( MAP_UV, 1 ) ).xy;`,
+        '  #endif',
+        '#else',
+        '  #include <uv_vertex>',
         '#endif',
       ].join('\n'),
     )
     .replace(
       '#include <project_vertex>',
-      ['vec4 mvPosition = instanceMatrix * vec4( transformed, 1.0 );', 'gl_Position = projectionMatrix * mvPosition;'].join('\n'),
+      [
+        '#ifdef USE_INSTANCING',
+        '  vec4 mvPosition = instanceMatrix * vec4( transformed, 1.0 );',
+        '  gl_Position = projectionMatrix * mvPosition;',
+        '#else',
+        '  #include <project_vertex>',
+        '#endif',
+      ].join('\n'),
     )
 }
 
