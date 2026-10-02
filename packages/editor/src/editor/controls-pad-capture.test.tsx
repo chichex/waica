@@ -40,7 +40,7 @@ function animationFrame(): void {
   })
 }
 
-const LISTENING = { name: 'press a key… (Esc cancels)' }
+const LISTENING = { name: 'press a key or pad control… (Esc cancels)' }
 
 function renderControls(controls: ProjectControls) {
   const onChange = vi.fn<(next: ProjectControls) => void>()
@@ -54,7 +54,7 @@ function renderControls(controls: ProjectControls) {
 }
 
 async function startCapture(): Promise<void> {
-  await userEvent.setup().click(defined(screen.getAllByRole('button', { name: '+ key' })[0]))
+  await userEvent.setup().click(defined(screen.getAllByRole('button', { name: '+ key or pad' })[0]))
   expect(screen.getByRole('button', LISTENING)).toBeDefined()
 }
 

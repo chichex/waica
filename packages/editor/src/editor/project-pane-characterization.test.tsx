@@ -89,9 +89,10 @@ it('removes a key, and an action together with its label', async () => {
 it('captures the next key press for an action and ignores Escape', async () => {
   const user = userEvent.setup()
   const onChange = renderControls()
-  const listening = { name: 'press a key… (Esc cancels)' }
+  const listening = { name: 'press a key or pad control… (Esc cancels)' }
+  expect(screen.getByText('Keyboard & gamepad')).toBeDefined()
 
-  await user.click(defined(screen.getAllByRole('button', { name: '+ key' })[0]))
+  await user.click(defined(screen.getAllByRole('button', { name: '+ key or pad' })[0]))
   expect(screen.getByRole('button', listening)).toBeDefined()
   fireEvent.keyDown(window, { code: 'KeyJ' })
   expect(onChange).toHaveBeenLastCalledWith({
@@ -100,7 +101,7 @@ it('captures the next key press for an action and ignores Escape', async () => {
   })
   expect(screen.queryByRole('button', listening)).toBeNull()
 
-  await user.click(defined(screen.getAllByRole('button', { name: '+ key' })[0]))
+  await user.click(defined(screen.getAllByRole('button', { name: '+ key or pad' })[0]))
   fireEvent.keyDown(window, { code: 'Escape' })
   expect(onChange).toHaveBeenCalledTimes(1)
   expect(screen.queryByRole('button', listening)).toBeNull()

@@ -97,7 +97,7 @@ function ActionRow({ action, controls, listening, onChange, onToggleCapture }: A
           </button>
         ))}
         <button className={`ed-key-add ${listening ? 'is-listening' : ''}`} onClick={onToggleCapture}>
-          {listening ? 'press a key… (Esc cancels)' : '+ key'}
+          {listening ? 'press a key or pad control… (Esc cancels)' : '+ key or pad'}
         </button>
         {!(action in archetype.bindings) && (
           <button
@@ -197,7 +197,7 @@ export function ControlsEditor({ controls, onChange }: ControlsEditorProps) {
   return (
     <>
       <div className="ed-section">
-        <header className="ed-sec-head">Keyboard</header>
+        <header className="ed-sec-head">Keyboard &amp; gamepad</header>
         {Object.keys(bindings).map((action) => (
           <ActionRow
             key={action}
