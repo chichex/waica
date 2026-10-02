@@ -304,9 +304,10 @@ describe('describeArchetype', () => {
         },
       ]),
       bindings: {
-        left: ['ArrowLeft', 'KeyA'],
-        right: ['ArrowRight', 'KeyD'],
-        jump: ['Space', 'ArrowUp', 'KeyW'],
+        // Raw strings, pad codes included (issue #75 CA-14, CA-15).
+        left: ['ArrowLeft', 'KeyA', 'Gamepad:LeftStickLeft', 'Gamepad:DPadLeft'],
+        right: ['ArrowRight', 'KeyD', 'Gamepad:LeftStickRight', 'Gamepad:DPadRight'],
+        jump: ['Space', 'ArrowUp', 'KeyW', 'Gamepad:A'],
       },
       actionLabels: { left: 'Move left', right: 'Move right', jump: 'Jump' },
       ui: ['coin-counter', 'damage-number', 'health-bar'],

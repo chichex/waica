@@ -5,11 +5,11 @@ import {
 } from './controls'
 
 describe('platformer controls manifest', () => {
-  it('declares the legacy platformer key map exactly', () => {
+  it('declares the legacy platformer key map plus its pad sources exactly (issue #75 CA-14)', () => {
     expect(PLATFORMER_BINDINGS).toEqual({
-      left: ['ArrowLeft', 'KeyA'],
-      right: ['ArrowRight', 'KeyD'],
-      jump: ['Space', 'ArrowUp', 'KeyW'],
+      left: ['ArrowLeft', 'KeyA', 'Gamepad:LeftStickLeft', 'Gamepad:DPadLeft'],
+      right: ['ArrowRight', 'KeyD', 'Gamepad:LeftStickRight', 'Gamepad:DPadRight'],
+      jump: ['Space', 'ArrowUp', 'KeyW', 'Gamepad:A'],
     })
   })
 

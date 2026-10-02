@@ -101,6 +101,9 @@ const VALID: ValidCase[] = [
   ['control_runtime', { operation: 'press', action: 'jump' }, 'control', { projectPath: GAME, operation: 'press', action: 'jump' }],
   ['control_runtime', { operation: 'hold', action: 'left' }, 'control', { projectPath: GAME, operation: 'hold', action: 'left' }],
   ['control_runtime', { operation: 'release', action: 'left' }, 'control', { projectPath: GAME, operation: 'release', action: 'left' }],
+  // Issue #75 CA-12: hold alone takes an analog value in (0, 1].
+  ['control_runtime', { operation: 'hold', action: 'right', value: 0.5 }, 'control', { projectPath: GAME, operation: 'hold', action: 'right', value: 0.5 }],
+  ['control_runtime', { operation: 'hold', action: 'right', value: 1 }, 'control', { projectPath: GAME, operation: 'hold', action: 'right', value: 1 }],
   ['control_runtime', { operation: 'pause' }, 'control', { projectPath: GAME, operation: 'pause' }],
   ['control_runtime', { operation: 'resume' }, 'control', { projectPath: GAME, operation: 'resume' }],
   ['control_runtime', { operation: 'step' }, 'control', { projectPath: GAME, operation: 'step' }],
@@ -195,6 +198,25 @@ const INVALID_CONTROL_STAGE: InvalidCase[] = [
     { operation: 'step', [field]: 1 },
     'step does not accept x, y or scene.',
   ]),
+  // Issue #75 CA-12: value only on hold, only in (0, 1].
+  ...[0, -0.5, 1.5, '0.5', null].map((value): InvalidCase => [
+    'control_runtime',
+    { operation: 'hold', action: 'right', value },
+    'value must be a finite number greater than 0 and at most 1.',
+  ]),
+  ...['press', 'release'].map((operation): InvalidCase => [
+    'control_runtime',
+    { operation, action: 'right', value: 0.5 },
+    `${operation} does not accept value.`,
+  ]),
+  ...['pause', 'resume'].map((operation): InvalidCase => [
+    'control_runtime',
+    { operation, value: 0.5 },
+    `${operation} accepts no additional fields.`,
+  ]),
+  ['control_runtime', { operation: 'step', value: 0.5 }, 'step does not accept value.'],
+  ['control_runtime', { operation: 'click', x: 1, y: 2, value: 0.5 }, 'click does not accept value.'],
+  ['control_runtime', { operation: 'scene', scene: 'cave', value: 0.5 }, 'scene does not accept value.'],
   ...[0, 601, 1.5, '2'].map((frames): InvalidCase => [
     'control_runtime',
     { operation: 'step', frames },

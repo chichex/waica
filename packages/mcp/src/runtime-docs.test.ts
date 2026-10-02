@@ -73,6 +73,15 @@ describe('Runtime harness documentation', () => {
     expect(lifecycle).not.toMatch(/process\.platform\s*===?\s*['"]win32['"]/)
   })
 
+  it('documents the analog hold value and the reported actionValues (issue #75 CA-12, CA-13)', async () => {
+    const source = await text('packages/mcp/README.md')
+    expect(source).toMatch(/`hold`.*optional `value`.*\(0, 1\]/s)
+    expect(source).toMatch(/below 0\.5.*not held/is)
+    expect(source).toMatch(/`press`.*`release`.*reject.*`value`|`value`.*only.*`hold`/is)
+    expect(source).toContain('`actionValues`')
+    expect(source).toContain('`analog-actions`')
+  })
+
   it('marks the old exclusion superseded and records the observed browser gate', async () => {
     const [oldSpec, contract, context, bridgeAdr, deterministicAdr] = await Promise.all([
       text('.sdd/specs/waica-mcp.md'),

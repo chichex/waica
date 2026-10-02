@@ -77,7 +77,14 @@ export type {
   ValidComponentUpdateSchedule,
 } from './component-update-schedule.js'
 export { Input, DEFAULT_BINDINGS } from './input.js'
-export type { ActionName, InjectedActionOperation, InputBindings } from './input.js'
+export type { ActionName, InjectedActionOperation, InputBindings, InputOptions } from './input.js'
+export {
+  ACTION_HELD_THRESHOLD,
+  firstStandardPadValues,
+  GAMEPAD_CODE_PREFIX,
+  gamepadControl,
+} from './gamepad.js'
+export type { GamepadControl } from './gamepad.js'
 export { Pointer } from './pointer.js'
 export type { PointerCamera, PointerDeps, PointerPick, PointerResolution } from './pointer.js'
 export {

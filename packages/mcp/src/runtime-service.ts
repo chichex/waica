@@ -50,7 +50,9 @@ export interface RuntimeInspectInput {
 }
 
 export type RuntimeControlInput =
-  | { projectPath: string; operation: 'press' | 'hold' | 'release'; action: string }
+  | { projectPath: string; operation: 'press' | 'release'; action: string }
+  /** Holds at `value` in (0, 1]; without one, at 1 (issue #75). */
+  | { projectPath: string; operation: 'hold'; action: string; value?: number }
   | { projectPath: string; operation: 'pause' | 'resume' }
   /** Advances `frames` whole Simulation Steps of 1/60 s each (default 1); no `dt`. */
   | { projectPath: string; operation: 'step'; frames?: number }

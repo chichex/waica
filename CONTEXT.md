@@ -11,6 +11,10 @@ _Avoid_: template, genre pack
 **Archetype Manifest**:
 The standard object every archetype package exports as `ARCHETYPE`: id, label, default scenes, registry, palette, prefabs, art, entity icons, bindings, action labels and bundle. Browser entries enrich it with art URLs; Node tooling uses an asset-import-free entry whose registry points at package-relative assets.
 
+**Action**:
+A semantic input name an archetype declares (`left`, `jump`, `attack`) that behaviors read instead of any device. Every source bound to it — a key, a gamepad button, one half of a stick — contributes a value from 0 to 1; the action is held while any of its sources holds it, so letting go of one device never releases what another still holds.
+_Avoid_: key, button, control
+
 **Animation Contract**:
 An archetype's declaration of which animation clips a role's states require and how a missing clip resolves through fallbacks. Direction-aware archetypes resolve clips per state × facing, with mirroring as a declarable fallback.
 _Avoid_: clip list, animation set
@@ -103,7 +107,7 @@ An engine primitive that owns a map as one square lattice of logical cells on a 
 _Avoid_: tile layer, tile grid entities
 
 **Move Order**:
-The pointer-issued objective a grid player is currently pursuing: a logical point to reach or a live entity to engage (interact or attack). Each click replaces it; keyboard movement, arrival, or the target vanishing cancels it.
+The pointer-issued objective a grid player is currently pursuing: a logical point to reach or a live entity to engage (interact or attack). Each click replaces it; any directional movement input (keyboard or stick, past the dead zone), arrival, or the target vanishing cancels it.
 _Avoid_: destination, waypoint
 
 **Navigation Grid**:

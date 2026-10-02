@@ -85,23 +85,32 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
   "bindings": {
     "up": [
       "ArrowUp",
-      "KeyW"
+      "KeyW",
+      "Gamepad:LeftStickUp",
+      "Gamepad:DPadUp"
     ],
     "down": [
       "ArrowDown",
-      "KeyS"
+      "KeyS",
+      "Gamepad:LeftStickDown",
+      "Gamepad:DPadDown"
     ],
     "left": [
       "ArrowLeft",
-      "KeyA"
+      "KeyA",
+      "Gamepad:LeftStickLeft",
+      "Gamepad:DPadLeft"
     ],
     "right": [
       "ArrowRight",
-      "KeyD"
+      "KeyD",
+      "Gamepad:LeftStickRight",
+      "Gamepad:DPadRight"
     ],
     "interact": [
       "KeyE",
-      "Space"
+      "Space",
+      "Gamepad:A"
     ]
   }
 }
@@ -760,23 +769,32 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
   "bindings": {
     "up": [
       "ArrowUp",
-      "KeyW"
+      "KeyW",
+      "Gamepad:LeftStickUp",
+      "Gamepad:DPadUp"
     ],
     "down": [
       "ArrowDown",
-      "KeyS"
+      "KeyS",
+      "Gamepad:LeftStickDown",
+      "Gamepad:DPadDown"
     ],
     "left": [
       "ArrowLeft",
-      "KeyA"
+      "KeyA",
+      "Gamepad:LeftStickLeft",
+      "Gamepad:DPadLeft"
     ],
     "right": [
       "ArrowRight",
-      "KeyD"
+      "KeyD",
+      "Gamepad:LeftStickRight",
+      "Gamepad:DPadRight"
     ],
     "interact": [
       "KeyE",
-      "Space"
+      "Space",
+      "Gamepad:A"
     ]
   }
 }
@@ -1708,27 +1726,37 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
   "bindings": {
     "up": [
       "ArrowUp",
-      "KeyW"
+      "KeyW",
+      "Gamepad:LeftStickUp",
+      "Gamepad:DPadUp"
     ],
     "down": [
       "ArrowDown",
-      "KeyS"
+      "KeyS",
+      "Gamepad:LeftStickDown",
+      "Gamepad:DPadDown"
     ],
     "left": [
       "ArrowLeft",
-      "KeyA"
+      "KeyA",
+      "Gamepad:LeftStickLeft",
+      "Gamepad:DPadLeft"
     ],
     "right": [
       "ArrowRight",
-      "KeyD"
+      "KeyD",
+      "Gamepad:LeftStickRight",
+      "Gamepad:DPadRight"
     ],
     "interact": [
       "KeyE",
-      "Space"
+      "Space",
+      "Gamepad:A"
     ],
     "attack": [
       "KeyX",
-      "KeyJ"
+      "KeyJ",
+      "Gamepad:X"
     ]
   }
 }
@@ -2931,27 +2959,37 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
   "bindings": {
     "up": [
       "ArrowUp",
-      "KeyW"
+      "KeyW",
+      "Gamepad:LeftStickUp",
+      "Gamepad:DPadUp"
     ],
     "down": [
       "ArrowDown",
-      "KeyS"
+      "KeyS",
+      "Gamepad:LeftStickDown",
+      "Gamepad:DPadDown"
     ],
     "left": [
       "ArrowLeft",
-      "KeyA"
+      "KeyA",
+      "Gamepad:LeftStickLeft",
+      "Gamepad:DPadLeft"
     ],
     "right": [
       "ArrowRight",
-      "KeyD"
+      "KeyD",
+      "Gamepad:LeftStickRight",
+      "Gamepad:DPadRight"
     ],
     "interact": [
       "KeyE",
-      "Space"
+      "Space",
+      "Gamepad:A"
     ],
     "attack": [
       "KeyX",
-      "KeyJ"
+      "KeyJ",
+      "Gamepad:X"
     ]
   }
 }
@@ -4289,16 +4327,21 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
   "bindings": {
     "left": [
       "ArrowLeft",
-      "KeyA"
+      "KeyA",
+      "Gamepad:LeftStickLeft",
+      "Gamepad:DPadLeft"
     ],
     "right": [
       "ArrowRight",
-      "KeyD"
+      "KeyD",
+      "Gamepad:LeftStickRight",
+      "Gamepad:DPadRight"
     ],
     "jump": [
       "Space",
       "ArrowUp",
-      "KeyW"
+      "KeyW",
+      "Gamepad:A"
     ]
   }
 }
@@ -4875,16 +4918,21 @@ The \`dist/\` folder is ready to upload to itch.io or any static hosting.
   "bindings": {
     "left": [
       "ArrowLeft",
-      "KeyA"
+      "KeyA",
+      "Gamepad:LeftStickLeft",
+      "Gamepad:DPadLeft"
     ],
     "right": [
       "ArrowRight",
-      "KeyD"
+      "KeyD",
+      "Gamepad:LeftStickRight",
+      "Gamepad:DPadRight"
     ],
     "jump": [
       "Space",
       "ArrowUp",
-      "KeyW"
+      "KeyW",
+      "Gamepad:A"
     ]
   }
 }

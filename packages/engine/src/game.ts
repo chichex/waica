@@ -70,8 +70,10 @@ export interface GameOptions {
   viewHeight?: number
   /** Fixed resolution (from the project's game.json); absent = fill the canvas. */
   resolution?: GameResolution
-  /** Control overrides (action → key codes) on top of the defaults. */
+  /** Control overrides (action → key and `Gamepad:` codes) on top of the defaults. */
   bindings?: InputBindings
+  /** Radial stick dead zone of `game.input`, in [0, 1); absent or invalid means 0.2 (ADR 0023). */
+  gamepadDeadZone?: number
   /** Initial stat values (points, lives…) from the project's stats.json. */
   stats?: Record<string, StatValue>
   /**
@@ -202,7 +204,7 @@ export class Game {
     this.baseViewHeight = viewHeight
     this.viewHeight = viewHeight
     this.resolution = options.resolution ?? null
-    this.input = new Input(options.bindings)
+    this.input = new Input(options.bindings, { gamepadDeadZone: options.gamepadDeadZone })
     this.query = createSpatialQuery(this)
     this.stats = new Stats(options.stats)
     this.ui = new GameUi(this.stats, () => canvas.parentElement ?? document.body)
@@ -444,9 +446,10 @@ export class Game {
           step: (onStep) => this.runFrame(1, onStep),
           resume: (onStep) => this.resumeRuntime(onStep),
           pause: () => this.stop(),
-          injectAction: (action, operation) => this.input.injectAction(action, operation),
+          injectAction: (action, operation, value) => this.input.injectAction(action, operation, value),
           availableActions: () => this.input.availableActions(),
           heldActions: () => this.input.heldActions(),
+          actionValues: () => this.input.actionValues(),
           inspect: (metadata, filters) => inspector.snapshot(metadata, filters),
           click: (x, y) => {
             this.pointer.injectClick(x, y)
@@ -600,12 +603,13 @@ export class Game {
   }
 
   /**
-   * One Simulation Step: game.time's start-of-step pass (ADR 0017, CA-3)
-   * first, then the Component Update Schedule (ADR 0004) in full,
+   * One Simulation Step: the pad is read first (issue #75 CA-6), then
+   * game.time's start-of-step pass (ADR 0017, CA-3), then the Component Update Schedule (ADR 0004) in full,
    * collisions, the scene camera and the host's callbacks, every one of
    * them handed exactly SIMULATION_STEP (CA-1); then the input frame ends.
    */
   private simulateStep(): void {
+    this.input.pollGamepad()
     advanceGameTime(this.time)
     // Existing drains advance before entity updates, so one detached during
     // this step begins on the next Simulation Step (ADR 0022).

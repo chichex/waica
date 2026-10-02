@@ -763,10 +763,52 @@ async function runTopdownLeg({ client, root, parent, chrome, viteBin, engineRoot
   assert.equal(west.sprite.current, 'walk-e', 'west reuses the east clip via the contract fallback')
   assert.equal(west.sprite.flipX, true, 'the contract mirrors east art for west')
 
+  await runTopdownAnalogHold({ client, project, inspectPlayer, release })
+
   const stopped = await call(client, 'stop_project', { project_path: project })
   assert.equal(stopped.structuredContent.stopped, true)
   await assertUrlClosed(start.structuredContent.url)
   return { topdownUrl: start.structuredContent.url }
+}
+
+/**
+ * Issue #75 CA-17: an analog `hold` reaches the motor of a real generated
+ * Project. Each run reloads "main" so both start from the same spawn at
+ * rest; a hold at 0.5 must cover 0.4–0.6 of what the default hold covers in
+ * the same 60 Simulation Steps, and the control result reports its value.
+ */
+async function runTopdownAnalogHold({ client, project, inspectPlayer, release }) {
+  const displacement = async (value) => {
+    const reloaded = await call(client, 'control_runtime', {
+      project_path: project,
+      operation: 'scene',
+      scene: 'main',
+    })
+    assert.equal(reloaded.isError, undefined, `reloading main failed: ${JSON.stringify(reloaded)}`)
+    const start = await inspectPlayer()
+    const held = await call(client, 'control_runtime', {
+      project_path: project,
+      operation: 'hold',
+      action: 'right',
+      ...(value === undefined ? {} : { value }),
+    })
+    assert.equal(held.isError, undefined, `analog hold failed: ${JSON.stringify(held)}`)
+    await call(client, 'control_runtime', { project_path: project, operation: 'step', frames: 60 })
+    await release('right')
+    const end = await inspectPlayer()
+    return { distance: end.position.x - start.position.x, result: held.structuredContent }
+  }
+
+  const half = await displacement(0.5)
+  const full = await displacement(undefined)
+  assert.deepEqual(half.result.actionValues, { right: 0.5 }, 'the hold result must report right at 0.5')
+  assert.deepEqual(full.result.actionValues, { right: 1 }, 'a value-less hold is held at 1')
+  assert.ok(full.distance > 0, `the default hold must move the player east: ${full.distance}`)
+  const ratio = half.distance / full.distance
+  assert.ok(
+    ratio >= 0.4 && ratio <= 0.6,
+    `a hold at 0.5 must cover 0.4–0.6 of a full hold: ${half.distance} / ${full.distance} = ${ratio}`,
+  )
 }
 
 /**

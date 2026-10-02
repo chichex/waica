@@ -365,7 +365,70 @@ describe('RuntimeSessionManager', () => {
 
     await manager.close()
   })
+  it('relays actionValues beside heldActions (issue #75 CA-13)', async () => {
+    const analogReady = { ...ready, capabilities: ['click', 'analog-actions'] }
+    const requests: unknown[] = []
+    const browser: RuntimeBrowser = {
+      ...fakeBrowser(),
+      ready: () => Promise.resolve(analogReady),
+      metadata: () => Promise.resolve({ ...analogReady }),
+      control: (request) => {
+        requests.push(request)
+        return Promise.resolve({ ...analogReady, heldActions: ['right'], actionValues: { right: 0.5 } })
+      },
+    }
+    const manager = new RuntimeSessionManager(singleBrowserAdapters('/analog', browser))
+    await manager.start({ projectPath: '/analog' })
+
+    await expect(
+      manager.control({ projectPath: '/analog', operation: 'hold', action: 'right', value: 0.5 }),
+    ).resolves.toMatchObject({ heldActions: ['right'], actionValues: { right: 0.5 } })
+    expect(requests).toEqual([{ operation: 'hold', action: 'right', value: 0.5 }])
+    await manager.close()
+  })
+
+  it('rejects an analog hold on an engine without analog-actions instead of holding at 1 (issue #75 CA-12)', async () => {
+    const oldEngineReady = { ...ready, engineVersion: '0.21.0', capabilities: ['click', 'scene'] }
+    let controlCalls = 0
+    const browser: RuntimeBrowser = {
+      ...fakeBrowser(),
+      ready: () => Promise.resolve(oldEngineReady),
+      metadata: () => Promise.resolve({ ...oldEngineReady }),
+      control: () => {
+        controlCalls += 1
+        return Promise.resolve({ ...oldEngineReady, heldActions: ['right'] })
+      },
+    }
+    const manager = new RuntimeSessionManager(singleBrowserAdapters('/old-analog', browser))
+    await manager.start({ projectPath: '/old-analog' })
+
+    await expect(
+      manager.control({ projectPath: '/old-analog', operation: 'hold', action: 'right', value: 0.5 }),
+    ).rejects.toMatchObject({
+      body: { code: 'runtime-incompatible', stage: 'control', diagnostics: { engineVersion: '0.21.0' } },
+    })
+    expect(controlCalls).toBe(0)
+    await expect(
+      manager.control({ projectPath: '/old-analog', operation: 'hold', action: 'right' }),
+    ).resolves.toMatchObject({ heldActions: ['right'] })
+    expect(controlCalls).toBe(1)
+    await manager.close()
+  })
 })
+
+function singleBrowserAdapters(projectPath: string, browser: RuntimeBrowser): RuntimeSessionAdapters {
+  return {
+    canonicalize: () => Promise.resolve(projectPath),
+    preflight: () => Promise.resolve(preflight(projectPath)),
+    startDevServer: () =>
+      Promise.resolve({
+        url: 'http://127.0.0.1:41010/',
+        stop: () => Promise.resolve(),
+        diagnostics: () => ({}),
+      }),
+    startBrowser: () => Promise.resolve(browser),
+  }
+}
 
 interface AssetNumbers {
   pending: number

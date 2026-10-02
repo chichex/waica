@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { TOPDOWN_ACTION_LABELS, TOPDOWN_BINDINGS } from './controls'
 
 describe('topdown controls manifest', () => {
-  it('declares the four directions plus interact exactly', () => {
+  it('declares the four directions plus interact, keys and pad, exactly (issue #75 CA-14)', () => {
     expect(TOPDOWN_BINDINGS).toEqual({
-      up: ['ArrowUp', 'KeyW'],
-      down: ['ArrowDown', 'KeyS'],
-      left: ['ArrowLeft', 'KeyA'],
-      right: ['ArrowRight', 'KeyD'],
-      interact: ['KeyE', 'Space'],
+      up: ['ArrowUp', 'KeyW', 'Gamepad:LeftStickUp', 'Gamepad:DPadUp'],
+      down: ['ArrowDown', 'KeyS', 'Gamepad:LeftStickDown', 'Gamepad:DPadDown'],
+      left: ['ArrowLeft', 'KeyA', 'Gamepad:LeftStickLeft', 'Gamepad:DPadLeft'],
+      right: ['ArrowRight', 'KeyD', 'Gamepad:LeftStickRight', 'Gamepad:DPadRight'],
+      interact: ['KeyE', 'Space', 'Gamepad:A'],
     })
   })
 

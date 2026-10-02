@@ -45,7 +45,7 @@ describe('parseControls', () => {
   it('never shares arrays with the archetype defaults', () => {
     const parsed = parseControls(null, PLATFORMER_BINDINGS)
     parsed.jump?.push('KeyZ')
-    expect(PLATFORMER_BINDINGS.jump).toEqual(['Space', 'ArrowUp', 'KeyW'])
+    expect(PLATFORMER_BINDINGS.jump).toEqual(['Space', 'ArrowUp', 'KeyW', 'Gamepad:A'])
   })
 })
 
@@ -145,5 +145,20 @@ describe('keyLabel', () => {
     expect(keyLabel('Numpad5')).toBe('Num 5')
     expect(keyLabel('ShiftLeft')).toBe('Shift')
     expect(keyLabel('F5')).toBe('F5')
+  })
+
+  it('names pad codes readably (issue #75 CA-15)', () => {
+    expect(keyLabel('Gamepad:A')).toBe('Gamepad A')
+    expect(keyLabel('Gamepad:LT')).toBe('Gamepad LT')
+    expect(keyLabel('Gamepad:Start')).toBe('Gamepad Start')
+    expect(keyLabel('Gamepad:LeftStickLeft')).toBe('Left stick ←')
+    expect(keyLabel('Gamepad:RightStickUp')).toBe('Right stick ↑')
+    expect(keyLabel('Gamepad:DPadUp')).toBe('D-pad ↑')
+    expect(keyLabel('Gamepad:DPadRight')).toBe('D-pad →')
+    expect(keyLabel('Gamepad:LeftStick')).toBe('Left stick press')
+  })
+
+  it('shows an unknown pad code as written', () => {
+    expect(keyLabel('Gamepad:Turbo')).toBe('Gamepad:Turbo')
   })
 })

@@ -58,6 +58,20 @@ it('lists each action with its keys and label', () => {
   expect(screen.getAllByTitle('Remove this action')).toHaveLength(2)
 })
 
+it('shows pad codes as readable chips (issue #75 CA-15)', () => {
+  const onChange = vi.fn<(next: ProjectControls) => void>()
+  renderUi(
+    <ControlsEditor
+      controls={{ bindings: { jump: ['Space', 'Gamepad:A', 'Gamepad:DPadUp', 'Gamepad:LeftStickLeft'] }, labels: {} }}
+      onChange={onChange}
+    />,
+  )
+
+  for (const name of ['Space ×', 'Gamepad A ×', 'D-pad ↑ ×', 'Left stick ← ×']) {
+    expect(screen.getByRole('button', { name })).toBeDefined()
+  }
+})
+
 it('removes a key, and an action together with its label', async () => {
   const user = userEvent.setup()
   const onChange = renderControls()
@@ -75,9 +89,10 @@ it('removes a key, and an action together with its label', async () => {
 it('captures the next key press for an action and ignores Escape', async () => {
   const user = userEvent.setup()
   const onChange = renderControls()
-  const listening = { name: 'press a key… (Esc cancels)' }
+  const listening = { name: 'press a key or pad control… (Esc cancels)' }
+  expect(screen.getByText('Keyboard & gamepad')).toBeDefined()
 
-  await user.click(defined(screen.getAllByRole('button', { name: '+ key' })[0]))
+  await user.click(defined(screen.getAllByRole('button', { name: '+ key or pad' })[0]))
   expect(screen.getByRole('button', listening)).toBeDefined()
   fireEvent.keyDown(window, { code: 'KeyJ' })
   expect(onChange).toHaveBeenLastCalledWith({
@@ -86,7 +101,7 @@ it('captures the next key press for an action and ignores Escape', async () => {
   })
   expect(screen.queryByRole('button', listening)).toBeNull()
 
-  await user.click(defined(screen.getAllByRole('button', { name: '+ key' })[0]))
+  await user.click(defined(screen.getAllByRole('button', { name: '+ key or pad' })[0]))
   fireEvent.keyDown(window, { code: 'Escape' })
   expect(onChange).toHaveBeenCalledTimes(1)
   expect(screen.queryByRole('button', listening)).toBeNull()
@@ -117,9 +132,9 @@ it('resets the controls to the archetype defaults', async () => {
   await user.click(screen.getByRole('button', { name: '↺ Reset to defaults' }))
   expect(onChange).toHaveBeenLastCalledWith({
     bindings: {
-      left: ['ArrowLeft', 'KeyA'],
-      right: ['ArrowRight', 'KeyD'],
-      jump: ['Space', 'ArrowUp', 'KeyW'],
+      left: ['ArrowLeft', 'KeyA', 'Gamepad:LeftStickLeft', 'Gamepad:DPadLeft'],
+      right: ['ArrowRight', 'KeyD', 'Gamepad:LeftStickRight', 'Gamepad:DPadRight'],
+      jump: ['Space', 'ArrowUp', 'KeyW', 'Gamepad:A'],
     },
     labels: {},
   })

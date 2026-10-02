@@ -61,6 +61,11 @@ function schema(
   }
 }
 
+/** A `oneOf` branch's `not` clause: the operation rejects each named field (read by runtime-arguments.ts). */
+function forbidding(...fields: string[]): { not: { anyOf: { required: string[] }[] } } {
+  return { not: { anyOf: fields.map((field) => ({ required: [field] })) } }
+}
+
 export const TOOLS: Tool[] = [
   {
     name: 'create_project',
@@ -210,6 +215,7 @@ export const TOOLS: Tool[] = [
     name: 'control_runtime',
     description:
       'Inject a semantic action or a canvas click, or change deterministic frame control for a Run Session. ' +
+      '`hold` takes an optional analog `value` in (0, 1] (default 1; below 0.5 the action moves but is not held). ' +
       '`step` advances whole Simulation Steps of 1/60 s each (`frames`, 1-600, default 1); it does not accept a `dt`.',
     inputSchema: {
       type: 'object',
@@ -220,6 +226,7 @@ export const TOOLS: Tool[] = [
           enum: ['press', 'hold', 'release', 'pause', 'resume', 'step', 'click', 'scene'],
         },
         action: { type: 'string', minLength: 1 },
+        value: { type: 'number', exclusiveMinimum: 0, maximum: 1 },
         frames: { type: 'integer', minimum: 1, maximum: 600 },
         x: { type: 'number' },
         y: { type: 'number' },
@@ -228,36 +235,26 @@ export const TOOLS: Tool[] = [
       required: ['project_path', 'operation'],
       additionalProperties: false,
       oneOf: [
+        { properties: { operation: { const: 'hold' } }, required: ['action'], ...forbidding('frames', 'x', 'y', 'scene') },
         {
-          properties: { operation: { enum: ['press', 'hold', 'release'] } },
+          properties: { operation: { enum: ['press', 'release'] } },
           required: ['action'],
-          not: { anyOf: [{ required: ['frames'] }, { required: ['x'] }, { required: ['y'] }, { required: ['scene'] }] },
+          ...forbidding('frames', 'x', 'y', 'scene', 'value'),
         },
         {
           properties: { operation: { enum: ['pause', 'resume'] } },
-          not: {
-            anyOf: [
-              { required: ['action'] },
-              { required: ['frames'] },
-              { required: ['x'] },
-              { required: ['y'] },
-              { required: ['scene'] },
-            ],
-          },
+          ...forbidding('action', 'value', 'frames', 'x', 'y', 'scene'),
         },
-        {
-          properties: { operation: { const: 'step' } },
-          not: { anyOf: [{ required: ['action'] }, { required: ['x'] }, { required: ['y'] }, { required: ['scene'] }] },
-        },
+        { properties: { operation: { const: 'step' } }, ...forbidding('action', 'x', 'y', 'scene', 'value') },
         {
           properties: { operation: { const: 'click' } },
           required: ['x', 'y'],
-          not: { anyOf: [{ required: ['action'] }, { required: ['frames'] }, { required: ['scene'] }] },
+          ...forbidding('action', 'frames', 'scene', 'value'),
         },
         {
           properties: { operation: { const: 'scene' } },
           required: ['scene'],
-          not: { anyOf: [{ required: ['action'] }, { required: ['frames'] }, { required: ['x'] }, { required: ['y'] }] },
+          ...forbidding('action', 'frames', 'x', 'y', 'value'),
         },
       ],
     },
@@ -472,6 +469,7 @@ function executeRuntimeTool(
         projectPath,
         operation: requiredString(args, 'operation', projectPath),
         ...(typeof args.action === 'string' ? { action: args.action } : {}),
+        ...(typeof args.value === 'number' ? { value: args.value } : {}),
         ...(typeof args.frames === 'number' ? { frames: args.frames } : {}),
         ...(typeof args.x === 'number' ? { x: args.x } : {}),
         ...(typeof args.y === 'number' ? { y: args.y } : {}),

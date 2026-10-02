@@ -1,4 +1,4 @@
-import { DEFAULT_BINDINGS, type InputBindings } from '@waica/engine'
+import { DEFAULT_BINDINGS, GAMEPAD_CODE_PREFIX, gamepadControl, type InputBindings } from '@waica/engine'
 import { isJsonObject, readJsonObject } from '../json-object'
 
 /**
@@ -48,8 +48,28 @@ const KEY_LABELS: Record<string, string> = {
   MetaRight: 'Cmd (right)',
 }
 
-/** Friendly name for a KeyboardEvent.code ("KeyA" → "A", "ArrowLeft" → "←"). */
+const DIRECTION_ARROWS: Record<string, string> = { Up: '↑', Down: '↓', Left: '←', Right: '→' }
+
+/**
+ * Friendly name for a pad code ("Gamepad:A" → "Gamepad A", "Gamepad:DPadUp"
+ * → "D-pad ↑", "Gamepad:LeftStickLeft" → "Left stick ←"); undefined for a
+ * code the engine does not know, which then shows as written.
+ */
+function padLabel(code: string): string | undefined {
+  const control = gamepadControl(code)
+  if (!control) return undefined
+  const name = code.slice(GAMEPAD_CODE_PREFIX.length)
+  const stick = /^(Left|Right)Stick(Up|Down|Left|Right)?$/.exec(name)
+  if (stick) return `${stick[1]} stick ${stick[2] ? DIRECTION_ARROWS[stick[2]] : 'press'}`
+  const dpad = /^DPad(Up|Down|Left|Right)$/.exec(name)
+  if (dpad) return `D-pad ${DIRECTION_ARROWS[dpad[1] ?? '']}`
+  return `Gamepad ${name}`
+}
+
+/** Friendly name for a binding code ("KeyA" → "A", "ArrowLeft" → "←", "Gamepad:A" → "Gamepad A"). */
 export function keyLabel(code: string): string {
+  const pad = padLabel(code)
+  if (pad) return pad
   const named = KEY_LABELS[code]
   if (named) return named
   if (code.startsWith('Key')) return code.slice(3)
