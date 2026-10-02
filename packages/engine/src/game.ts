@@ -50,7 +50,7 @@ import {
   type SceneRenderJson,
 } from './scene.js'
 import { sceneDrainsOf } from './scene-drains.js'
-import { registerSpriteBatches, SpriteBatches } from './sprite-batches.js'
+import { createSpriteBatches, type SpriteBatches } from './sprite-batches.js'
 import { createSpatialQuery, type SpatialQuery } from './spatial-query.js'
 import { Stats, type StatValue } from './stats.js'
 import { anchoredPiecesOf, GameUi } from './ui.js'
@@ -231,8 +231,7 @@ export class Game {
       // catalog is registered at call time, which outlives every scene.
       resolveAsset: (uri) => this.sceneCatalog?.registry.resolveAsset?.(uri) ?? uri,
     })
-    this.spriteBatches = new SpriteBatches(this.assets)
-    registerSpriteBatches(this, this.spriteBatches)
+    this.spriteBatches = createSpriteBatches(this, this.assets)
     this.cameraEffects = new CameraEffects({
       host: () => canvas.parentElement ?? document.body,
       // One screen pixel in world units: the shake snaps to it (never the base).
@@ -715,7 +714,6 @@ export class Game {
     const { shake } = this.cameraEffects.state
     this.camera.position.x = x + shake.x
     this.camera.position.y = y + shake.y
-    let restoreDrawOrder = (): void => {}
     try {
       anchoredPiecesOf(this.ui).place()
       if (this.resolution) {
@@ -725,10 +723,8 @@ export class Game {
         this.renderer.clear(true, false, false)
         this.renderer.setScissorTest(true)
       }
-      restoreDrawOrder = this.spriteBatches.prepareFrame(this.scene, this.camera)
-      this.renderer.render(this.scene, this.camera)
+      this.spriteBatches.drawFrame(this.scene, this.camera, () => this.renderer.render(this.scene, this.camera))
     } finally {
-      restoreDrawOrder()
       this.camera.position.x = x
       this.camera.position.y = y
     }
