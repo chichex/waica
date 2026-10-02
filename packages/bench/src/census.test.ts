@@ -14,6 +14,7 @@ describe('census', () => {
       geometries: 0,
       materials: 0,
       textures: 0,
+      textureSources: 0,
     })
   })
 
@@ -41,6 +42,16 @@ describe('census visibility and textures', () => {
     group.add(quad())
     scene.add(hidden, group, quad())
     expect(census(scene)).toMatchObject({ meshes: 3, visibleMeshes: 1 })
+  })
+
+  it('counts Texture clones of one base once as a texture source', () => {
+    const scene = new THREE.Scene()
+    const base = new THREE.Texture()
+    scene.add(
+      quad(new THREE.MeshBasicMaterial({ map: base.clone() })),
+      quad(new THREE.MeshBasicMaterial({ map: base.clone() })),
+    )
+    expect(census(scene)).toMatchObject({ textures: 2, textureSources: 1 })
   })
 
   it('counts distinct textures across materials', () => {

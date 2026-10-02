@@ -8,10 +8,11 @@ import {
   type RuntimeBridgeActivation,
 } from '@waica/engine'
 import { CreationTracker, census } from '../census.ts'
-import { installDrawCounter } from '../draw-counter.ts'
+import { installDrawCounter, syncGpu } from '../draw-counter.ts'
 import type { PageScenarioReport, ScenarioName } from '../results.ts'
 import { LOOP_END_MARK, LOOP_START_MARK } from '../timings.ts'
-import { SCENARIO_PLANS } from './scenarios.ts'
+import { webglRenderer } from './renderer-probe.ts'
+import { planFor } from './scenarios.ts'
 
 /**
  * Installs the Runtime Bridge activation hook before the Game starts, so
@@ -44,7 +45,7 @@ function gameCanvas(): HTMLCanvasElement {
 
 /** Builds the scenario's Game, waits for Assets Ready and starts it paused. */
 async function startScenarioGame(name: ScenarioName): Promise<{ game: Game; steps: number }> {
-  const plan = SCENARIO_PLANS[name]()
+  const plan = planFor(name)
   const game = new Game({ canvas: gameCanvas() })
   await game.assets.preload(plan.textures)
   let step = 0
@@ -72,6 +73,7 @@ export async function runScenario(name: ScenarioName): Promise<PageScenarioRepor
     draws.reset()
     const started = performance.now()
     bridge().control({ operation: 'step' })
+    syncGpu(draws.lastContext)
     frameMs.push(performance.now() - started)
     tracker.observe(game.scene)
     for (const entity of game.entities) {
@@ -91,5 +93,5 @@ export async function runScenario(name: ScenarioName): Promise<PageScenarioRepor
   }
   game.dispose()
   draws.uninstall()
-  return { scenario: name, counters, frameMs }
+  return { scenario: name, renderer: webglRenderer(), counters, frameMs }
 }

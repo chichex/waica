@@ -4,9 +4,9 @@ import type { ScenarioResult } from './results.ts'
 
 function result(overrides: Partial<ScenarioResult['counters']> = {}, median = 1): ScenarioResult {
   return {
-    scenario: 'static-sprites',
+    scenario: 'static-sprites-1000',
     commit: 'abc1234',
-    host: { platform: 'linux', cpus: 8, chrome: 'Google Chrome 150' },
+    host: { platform: 'linux', cpus: 8, chrome: 'Google Chrome 150', renderer: 'ANGLE (SwiftShader)' },
     counters: {
       drawCalls: 1000,
       meshes: 1000,
@@ -14,13 +14,14 @@ function result(overrides: Partial<ScenarioResult['counters']> = {}, median = 1)
       geometries: 1000,
       materials: 1000,
       textures: 1000,
+      textureSources: 1,
       entitiesSpawned: 1000,
       entitiesDestroyed: 0,
       materialsCreated: 1000,
       geometriesCreated: 1000,
       ...overrides,
     },
-    timings: { frames: 60, medianMs: median, p95Ms: median * 2, gcPauses: null },
+    timings: { frames: 60, medianMs: median, p95Ms: median * 2, overBudget: false, gcPauses: null },
   }
 }
 
@@ -32,19 +33,19 @@ describe('compareCounters', () => {
   it('reports the scenario, counter, baseline and new value of each change', () => {
     const diffs = compareCounters(result(), result({ drawCalls: 1 }))
     expect(diffs).toEqual([
-      { scenario: 'static-sprites', counter: 'drawCalls', baseline: 1000, actual: 1 },
+      { scenario: 'static-sprites-1000', counter: 'drawCalls', baseline: 1000, actual: 1 },
     ])
-    expect(formatCounterDiffs(diffs)).toContain('static-sprites: drawCalls 1000 -> 1')
+    expect(formatCounterDiffs(diffs)).toContain('static-sprites-1000: drawCalls 1000 -> 1')
   })
 
   it('refuses to compare results of different scenarios', () => {
-    const other = { ...result(), scenario: 'spawn-churn' as const }
-    expect(() => compareCounters(result(), other)).toThrow(/static-sprites.*spawn-churn/)
+    const other = { ...result(), scenario: 'spawn-churn-10' as const }
+    expect(() => compareCounters(result(), other)).toThrow(/static-sprites-1000.*spawn-churn-10/)
   })
 
   it('ignores timings, commit and host', () => {
     const moved = { ...result({}, 99), commit: 'fff0000' }
-    moved.host = { platform: 'darwin', cpus: 1, chrome: 'other' }
+    moved.host = { platform: 'darwin', cpus: 1, chrome: 'other', renderer: 'other' }
     expect(compareCounters(result(), moved)).toEqual([])
   })
 })

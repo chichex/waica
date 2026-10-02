@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DRAW_ENTRY_POINTS, installDrawCounter } from './draw-counter.ts'
+import { DRAW_ENTRY_POINTS, installDrawCounter, syncGpu } from './draw-counter.ts'
 
 type FakePrototype = Record<string, (...args: unknown[]) => unknown>
 
@@ -65,5 +65,36 @@ describe('DrawCounter.uninstall', () => {
     expect(counter.calls).toBe(1)
     expect('drawElementsInstanced' in proto).toBe(false)
     counter.uninstall()
+  })
+})
+
+describe('DrawCounter.lastContext and syncGpu', () => {
+  it('remembers the context that issued the last draw', () => {
+    const proto = fakePrototype([])
+    const counter = installDrawCounter([proto])
+    expect(counter.lastContext).toBeNull()
+    // A real draw is a method call on the context, so `this` is the context.
+    const context = Object.create(proto) as FakePrototype
+    const draw = context.drawElements
+    if (!draw) throw new Error('missing drawElements')
+    draw.call(context)
+    expect(counter.lastContext).toBe(context)
+    counter.uninstall()
+  })
+
+  it('blocks on the GPU with one 1x1 readPixels on that context', () => {
+    const reads: unknown[][] = []
+    const context = {
+      RGBA: 6408,
+      UNSIGNED_BYTE: 5121,
+      readPixels: (...args: unknown[]) => reads.push(args),
+    }
+    syncGpu(context)
+    expect(reads).toHaveLength(1)
+    expect(reads[0]?.slice(0, 6)).toEqual([0, 0, 1, 1, 6408, 5121])
+  })
+
+  it('does nothing without a context', () => {
+    expect(() => syncGpu(null)).not.toThrow()
   })
 })

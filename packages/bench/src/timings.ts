@@ -1,7 +1,7 @@
 import type { GcPauses, ScenarioTimings } from './results.ts'
 
 /** Frame count, median and nearest-rank p95 of per-frame wall times. */
-export function summarizeFrames(frameMs: readonly number[]): Omit<ScenarioTimings, 'gcPauses'> {
+export function summarizeFrames(frameMs: readonly number[]): Omit<ScenarioTimings, 'gcPauses' | 'overBudget'> {
   if (frameMs.length === 0) return { frames: 0, medianMs: 0, p95Ms: 0 }
   const sorted = [...frameMs].sort((a, b) => a - b)
   const middle = sorted.length / 2
@@ -10,6 +10,18 @@ export function summarizeFrames(frameMs: readonly number[]): Omit<ScenarioTiming
     : (sorted[Math.floor(middle)] ?? 0)
   const p95 = sorted[Math.ceil(sorted.length * 0.95) - 1] ?? 0
   return { frames: sorted.length, medianMs: median, p95Ms: p95 }
+}
+
+/** One frame at 60 fps. */
+export const FRAME_BUDGET_MS = 1000 / 60
+
+/** A scenario is over budget when its p95 frame does not fit one 60 fps frame. */
+export function isOverBudget(p95Ms: number): boolean {
+  return p95Ms > FRAME_BUDGET_MS
+}
+
+export function frameVerdict(p95Ms: number): string {
+  return isOverBudget(p95Ms) ? 'OVER 16.6 ms' : 'within budget'
 }
 
 const GC_EVENTS = new Set(['MinorGC', 'MajorGC'])

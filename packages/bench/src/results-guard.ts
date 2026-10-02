@@ -28,6 +28,12 @@ function numberAt(fields: Fields, key: string, path: string): number {
   return value
 }
 
+function booleanAt(fields: Fields, key: string, path: string): boolean {
+  const value = fields[key]
+  if (typeof value !== 'boolean') throw new Error(`bench: invalid result: ${path}.${key} must be a boolean`)
+  return value
+}
+
 function stringAt(fields: Fields, key: string, path: string): string {
   const value = fields[key]
   if (typeof value !== 'string') throw new Error(`bench: invalid result: ${path}.${key} must be a string`)
@@ -44,6 +50,7 @@ function parseCounters(value: unknown): ScenarioCounters {
     geometries: counter('geometries'),
     materials: counter('materials'),
     textures: counter('textures'),
+    textureSources: counter('textureSources'),
     entitiesSpawned: counter('entitiesSpawned'),
     entitiesDestroyed: counter('entitiesDestroyed'),
     materialsCreated: counter('materialsCreated'),
@@ -63,6 +70,7 @@ function parseTimings(value: unknown): ScenarioTimings {
     frames: numberAt(fields, 'frames', 'timings'),
     medianMs: numberAt(fields, 'medianMs', 'timings'),
     p95Ms: numberAt(fields, 'p95Ms', 'timings'),
+    overBudget: booleanAt(fields, 'overBudget', 'timings'),
     gcPauses: parseGcPauses(fields.gcPauses),
   }
 }
@@ -73,6 +81,7 @@ function parseHost(value: unknown): BenchHost {
     platform: stringAt(fields, 'platform', 'host'),
     cpus: numberAt(fields, 'cpus', 'host'),
     chrome: stringAt(fields, 'chrome', 'host'),
+    renderer: stringAt(fields, 'renderer', 'host'),
   }
 }
 

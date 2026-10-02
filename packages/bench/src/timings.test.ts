@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { LOOP_END_MARK, LOOP_START_MARK, gcPausesFromTrace, summarizeFrames } from './timings.ts'
+import { FRAME_BUDGET_MS, LOOP_END_MARK, LOOP_START_MARK, frameVerdict, gcPausesFromTrace, isOverBudget, summarizeFrames } from './timings.ts'
 
 describe('summarizeFrames', () => {
   it('reports the frame count, median and p95', () => {
@@ -52,5 +52,18 @@ describe('gcPausesFromTrace', () => {
   it('returns null for an unreadable trace', () => {
     expect(gcPausesFromTrace('not json')).toBeNull()
     expect(gcPausesFromTrace('{}')).toBeNull()
+  })
+})
+
+describe('frame budget', () => {
+  it('is one 60 fps frame', () => {
+    expect(FRAME_BUDGET_MS).toBeCloseTo(16.667, 3)
+  })
+
+  it('is over budget only when p95 exceeds one frame', () => {
+    expect(isOverBudget(16.6)).toBe(false)
+    expect(isOverBudget(16.7)).toBe(true)
+    expect(frameVerdict(16.6)).toBe('within budget')
+    expect(frameVerdict(16.7)).toBe('OVER 16.6 ms')
   })
 })
