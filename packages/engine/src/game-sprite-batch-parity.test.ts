@@ -30,6 +30,8 @@ import { flush } from './assets/test-helpers.js'
 import { ParticleEmitter } from './components/particle-emitter.js'
 import { Tilemap } from './components/tilemap.js'
 import type { Game } from './game.js'
+import type { RuntimeMetadata } from './runtime-bridge.js'
+import { RuntimeInspector } from './runtime-inspection.js'
 import { loadScene, type SceneEntityJson, type SceneRenderJson } from './scene.js'
 import { defined } from './test-support.js'
 import {
@@ -166,4 +168,14 @@ it('leaves the scene untouched when no sprite batches (CA-6)', async () => {
   expect(updateMatrixWorld).not.toHaveBeenCalled()
   expect(game.scene.matrixWorldAutoUpdate).toBe(true)
   game.dispose()
+})
+
+it('reports the same Runtime Snapshot with and without batching (CA-3)', async () => {
+  const { batched, unbatched } = await twinGames({ sort: 'y' })
+  const metadata = { frame: 0 } as RuntimeMetadata
+  const entities = (game: Game): unknown => new RuntimeInspector(game).snapshot(metadata).entities
+
+  expect(entities(batched)).toEqual(entities(unbatched))
+  batched.dispose()
+  unbatched.dispose()
 })

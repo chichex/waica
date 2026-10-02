@@ -150,6 +150,17 @@ The cues that hook a `StateMachine` must come after it and after the `ParticleEm
 
 `active`, `capacity`, and `emitting` are the only fields exposed by Runtime Snapshot. Particle arrays remain private. This first CPU implementation is intended for bounded 2D effects, not collision, per-particle scripting, GPU simulation, trails, rotation, or sub-emitters.
 
+## Sprite Batches
+
+`Sprite` and `AnimatedSprite` are drawn through **Sprite Batches** by default (ADR 0024). Every frame, after y-sort, the engine orders everything it draws exactly as three would without batching — layer bands, then y-sort, then spawn order, with particle batches, tilemaps and any other mesh in between — and each run of consecutive sprites that share a batch key becomes one instanced draw call. The key is the art and how it is sampled: the texture (an `AnimatedSprite`'s current sheet), `pixelArt` and `shape`. Each sprite is one instance carrying its own placement, color, frame and flip, so tinting, resizing, re-anchoring or animating a sprite never creates a material, and what is drawn in front of what never changes.
+
+- **On by default.** A scene without a `render` block, or with `render.batch: true`, batches. Nothing to configure: sprites of one texture in a row draw in one call, a sprite of other art (or a particle batch, a tilemap) in between starts a new run.
+- **Shared art.** All live sprites of one key share one material and one texture clone, scene-scoped: released with the scene at `unloadScene()` and `game.dispose()`. A sprite whose texture fails moves alone to the untextured entry of its shape and keeps showing its `color`.
+- **Reusable slots.** Each batch's instance buffer starts at 16 sprites, doubles when full, reuses the slot of a destroyed sprite for the next spawn and never shrinks during the scene, so spawning and destroying sprites allocates no GPU objects once the buffer is big enough.
+- **Turning it off.** Scene JSON `"render": { "batch": false }` (the editor's **Sprite batching** toggle in the scene inspector) restores the per-sprite path: one mesh, one material and one draw call per sprite. Use it to rule batching out when a scene looks different than you expect, or while debugging draw order; the cost is one draw call per sprite, which is what dominates frame time with thousands of sprites.
+
+How much batching saves depends on how interleaved a scene is: one texture over the whole scene draws in one call, while a top-down scene that alternates many textures by y gains little. Runtime Snapshots are unchanged — batches are not entities, and sprites report the same state either way.
+
 ## Component lifecycle
 
 Waica keeps the lifecycle boundaries distinct:
