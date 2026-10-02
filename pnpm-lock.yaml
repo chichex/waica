@@ -111,6 +111,28 @@ importers:
         specifier: ^5.0.2
         version: 5.0.2(@types/node@26.6.3)(happy-dom@20.14.5)(vite@8.3.1(@types/node@26.6.3))
 
+  packages/bench:
+    dependencies:
+      '@types/three':
+        specifier: ^0.186.0
+        version: 0.186.0
+      '@waica/engine':
+        specifier: workspace:*
+        version: link:../engine
+      three:
+        specifier: ^0.186.1
+        version: 0.186.1
+    devDependencies:
+      '@types/node':
+        specifier: ^26.6.3
+        version: 26.6.3
+      playwright-core:
+        specifier: ^1.63.0
+        version: 1.63.0
+      vite:
+        specifier: ^8.3.1
+        version: 8.3.1(@types/node@26.6.3)
+
   packages/cli:
     dependencies:
       '@modelcontextprotocol/sdk':
