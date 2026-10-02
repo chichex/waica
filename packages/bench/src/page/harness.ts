@@ -10,6 +10,7 @@ import {
 import { CreationTracker, census } from '../census.ts'
 import { installDrawCounter } from '../draw-counter.ts'
 import type { PageScenarioReport, ScenarioName } from '../results.ts'
+import { LOOP_END_MARK, LOOP_START_MARK } from '../timings.ts'
 import { SCENARIO_PLANS } from './scenarios.ts'
 
 /**
@@ -60,21 +61,32 @@ export async function runScenario(name: ScenarioName): Promise<PageScenarioRepor
   const { game, steps } = await startScenarioGame(name)
   game.start()
   const tracker = new CreationTracker()
-  const seen = new Set<Entity>()
+  // Weak, so destroyed entities stay garbage — the harness must not keep
+  // alive what the GC numbers measure. Like CreationTracker, it sees an
+  // entity only if it is alive at the end of some step.
+  const seen = new WeakSet<Entity>()
+  let spawned = 0
   const frameMs: number[] = []
+  performance.mark(LOOP_START_MARK)
   for (let i = 0; i < steps; i++) {
     draws.reset()
     const started = performance.now()
     bridge().control({ operation: 'step' })
     frameMs.push(performance.now() - started)
     tracker.observe(game.scene)
-    for (const entity of game.entities) seen.add(entity)
+    for (const entity of game.entities) {
+      if (seen.has(entity)) continue
+      seen.add(entity)
+      spawned++
+    }
   }
+  performance.mark(LOOP_END_MARK)
   const counters = {
     drawCalls: draws.calls,
     ...census(game.scene),
-    entitiesSpawned: seen.size,
-    entitiesDestroyed: [...seen].filter((entity) => !entity.alive).length,
+    entitiesSpawned: spawned,
+    // Every entity seen and no longer live was destroyed.
+    entitiesDestroyed: spawned - game.entities.length,
     ...tracker.totals,
   }
   game.dispose()

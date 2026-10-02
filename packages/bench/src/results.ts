@@ -1,3 +1,6 @@
+/** Prefix of the single stdout line that carries a run's results JSON. */
+export const RESULTS_MARKER = 'WAICA_BENCH_RESULTS '
+
 /** The three benchmark scenarios, in run order. */
 export const SCENARIOS = ['static-sprites', 'spawn-churn', 'animated-sprites'] as const
 export type ScenarioName = (typeof SCENARIOS)[number]
@@ -28,7 +31,11 @@ export interface ScenarioTimings {
   /** Wall time of one stepped-and-rendered frame. */
   medianMs: number
   p95Ms: number
-  /** From a Chrome trace; null when the trace was unavailable. */
+  /**
+   * GC events from a Chrome trace inside the measured step loop only (between
+   * the timings.ts loop marks), so setup and teardown do not count; null when
+   * the trace or its marks were unavailable.
+   */
   gcPauses: GcPauses | null
 }
 

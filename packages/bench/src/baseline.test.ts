@@ -37,6 +37,11 @@ describe('compareCounters', () => {
     expect(formatCounterDiffs(diffs)).toContain('static-sprites: drawCalls 1000 -> 1')
   })
 
+  it('refuses to compare results of different scenarios', () => {
+    const other = { ...result(), scenario: 'spawn-churn' as const }
+    expect(() => compareCounters(result(), other)).toThrow(/static-sprites.*spawn-churn/)
+  })
+
   it('ignores timings, commit and host', () => {
     const moved = { ...result({}, 99), commit: 'fff0000' }
     moved.host = { platform: 'darwin', cpus: 1, chrome: 'other' }

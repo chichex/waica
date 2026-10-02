@@ -1,6 +1,11 @@
 import type * as THREE from 'three'
 
-/** What a rendered scene holds: meshes plus the distinct GPU resources they reference. */
+/**
+ * What a rendered scene holds: meshes plus the distinct three.js objects they
+ * reference, counted by identity. These are JS objects, not GPU uploads:
+ * Texture clones that share one Source (game.assets, ADR 0019) count once
+ * each here but upload one image.
+ */
 export interface SceneCensus {
   meshes: number
   /** Meshes whose whole ancestor chain is visible — the ones three may draw. */
@@ -38,7 +43,7 @@ function collectMeshes(root: THREE.Object3D): { mesh: THREE.Mesh; visible: boole
   return found
 }
 
-/** Counts meshes and the distinct (by identity) geometries, materials and textures they use. */
+/** Counts meshes and the distinct (by identity) geometry, material and Texture objects they use. */
 export function census(root: THREE.Object3D): SceneCensus {
   const meshes = collectMeshes(root)
   const geometries = new Set<THREE.BufferGeometry>()

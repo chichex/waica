@@ -4,19 +4,20 @@
 // --check and --update-baseline apply locally to the returned results.
 import { execFileSync, spawn } from 'node:child_process'
 import { applyBaselineFlags } from './baseline-files.ts'
-import { parseBenchArgs } from './bench-args.ts'
+import { parseRemoteArgs } from './bench-args.ts'
 import {
   PREFLIGHT_SCRIPT,
-  RESULTS_MARKER,
   extractResults,
   httpsCloneUrl,
   missingPrerequisites,
+  originBranches,
   parsePreflight,
   remoteRunScript,
   resolveBenchHost,
   unpushedRefusal,
 } from './remote-plan.ts'
 import { parseScenarioResults } from './results-guard.ts'
+import { RESULTS_MARKER } from './results.ts'
 
 function git(...args: string[]): string {
   return execFileSync('git', args, { encoding: 'utf8' }).trim()
@@ -43,7 +44,7 @@ function ssh(host: string, script: string): Promise<{ code: number; stdout: stri
 function pushedCommit(): string {
   const sha = git('rev-parse', 'HEAD')
   git('fetch', '--quiet', 'origin')
-  const branches = git('branch', '--remotes', '--contains', sha).split('\n').filter(Boolean)
+  const branches = originBranches(git('branch', '--remotes', '--contains', sha, '--list', 'origin/*'))
   const refusal = unpushedRefusal(sha.slice(0, 7), branches, git('rev-parse', '--abbrev-ref', 'HEAD'))
   if (refusal) throw new Error(refusal)
   return sha
@@ -59,11 +60,11 @@ async function assertHostReady(host: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const args = parseBenchArgs(process.argv.slice(2))
+  const args = parseRemoteArgs(process.argv.slice(2))
   const host = resolveBenchHost(process.env)
   const sha = pushedCommit()
   await assertHostReady(host)
-  const script = remoteRunScript({ sha, repoUrl: httpsCloneUrl(git('remote', 'get-url', 'origin')), benchArgs: [] })
+  const script = remoteRunScript({ sha, repoUrl: httpsCloneUrl(git('remote', 'get-url', 'origin')) })
   const { code, stdout } = await ssh(host, script)
   if (code !== 0) throw new Error(`bench:remote: the bench failed on ${host} (exit ${code})`)
   const results = parseScenarioResults(extractResults(stdout))

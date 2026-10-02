@@ -11,12 +11,20 @@ import { applyBaselineFlags } from './baseline-files.ts'
 import { benchHostRefusal, parseBenchArgs } from './bench-args.ts'
 import { discoverChrome } from './chrome.ts'
 import type { BenchPageApi } from './page/bench-global.ts'
-import { RESULTS_MARKER } from './remote-plan.ts'
-import { SCENARIOS, type BenchHost, type PageScenarioReport, type ScenarioName, type ScenarioResult } from './results.ts'
-import { gcPausesFromTrace, summarizeFrames } from './timings.ts'
+import {
+  RESULTS_MARKER,
+  SCENARIOS,
+  type BenchHost,
+  type PageScenarioReport,
+  type ScenarioName,
+  type ScenarioResult,
+} from './results.ts'
+import { LOOP_END_MARK, LOOP_START_MARK, gcPausesFromTrace, summarizeFrames } from './timings.ts'
 
 const packageRoot = fileURLToPath(new URL('../', import.meta.url))
-const GC_TRACE_CATEGORIES = ['devtools.timeline', 'v8', 'disabled-by-default-v8.gc']
+// GC events, plus the page's performance.mark loop bounds (blink.user_timing).
+const TRACE_CATEGORIES = ['devtools.timeline', 'v8', 'disabled-by-default-v8.gc', 'blink.user_timing']
+const LOOP_WINDOW = { start: LOOP_START_MARK, end: LOOP_END_MARK }
 
 async function servePage(): Promise<PreviewServer> {
   await build({ root: packageRoot, logLevel: 'warn', build: { emptyOutDir: true } })
@@ -29,17 +37,24 @@ function serverUrl(server: PreviewServer): string {
   return url
 }
 
-async function runInPage(browser: Browser, url: string, scenario: ScenarioName): Promise<{ report: PageScenarioReport; trace: string | null }> {
+async function runInPage(browser: Browser, url: string, scenario: ScenarioName): Promise<{ report: PageScenarioReport; trace: string }> {
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
-  await browser.startTracing(page, { categories: GC_TRACE_CATEGORIES })
   try {
-    await page.goto(`${url}?scenario=${scenario}`)
-    const report = await page.evaluate(() => {
-      const api: BenchPageApi | undefined = window.__waicaBench
-      if (!api) throw new Error('bench: page entry did not load')
-      return api.result
-    })
-    return { report, trace: (await browser.stopTracing()).toString('utf8') }
+    await browser.startTracing(page, { categories: TRACE_CATEGORIES })
+    let report: PageScenarioReport
+    let trace: string
+    try {
+      await page.goto(`${url}?scenario=${scenario}`)
+      report = await page.evaluate(() => {
+        const api: BenchPageApi | undefined = window.__waicaBench
+        if (!api) throw new Error('bench: page entry did not load')
+        return api.result
+      })
+    } finally {
+      // Stopped on every path, so a failed scenario never leaves tracing on.
+      trace = (await browser.stopTracing()).toString('utf8')
+    }
+    return { report, trace }
   } finally {
     await page.close()
   }
@@ -49,20 +64,31 @@ function commitSha(): string {
   return execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: packageRoot, encoding: 'utf8' }).trim()
 }
 
+/** Where a run's results come from: the measured commit and the host that ran it. */
+type Provenance = Pick<ScenarioResult, 'commit' | 'host'>
+
+async function runEachScenario(browser: Browser, url: string, provenance: Provenance): Promise<ScenarioResult[]> {
+  const results: ScenarioResult[] = []
+  for (const scenario of SCENARIOS) {
+    const { report, trace } = await runInPage(browser, url, scenario)
+    const timings = { ...summarizeFrames(report.frameMs), gcPauses: gcPausesFromTrace(trace, LOOP_WINDOW) }
+    results.push({ scenario, ...provenance, counters: report.counters, timings })
+  }
+  return results
+}
+
+/** Each resource is released by its own finally, whichever later step fails. */
 async function runScenarios(host: BenchHost, executablePath: string): Promise<ScenarioResult[]> {
-  const server = await servePage()
-  const browser = await chromium.launch({ executablePath, headless: true, args: ['--enable-unsafe-swiftshader'] })
   const commit = commitSha()
+  const server = await servePage()
   try {
-    const results: ScenarioResult[] = []
-    for (const scenario of SCENARIOS) {
-      const { report, trace } = await runInPage(browser, serverUrl(server), scenario)
-      const gcPauses = trace === null ? null : gcPausesFromTrace(trace)
-      results.push({ scenario, commit, host, counters: report.counters, timings: { ...summarizeFrames(report.frameMs), gcPauses } })
+    const browser = await chromium.launch({ executablePath, headless: true, args: ['--enable-unsafe-swiftshader'] })
+    try {
+      return await runEachScenario(browser, serverUrl(server), { commit, host })
+    } finally {
+      await browser.close()
     }
-    return results
   } finally {
-    await browser.close()
     await server.close()
   }
 }
@@ -88,4 +114,9 @@ async function main(): Promise<void> {
   if (!applyBaselineFlags(results, args)) process.exitCode = 1
 }
 
-await main()
+try {
+  await main()
+} catch (error) {
+  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`)
+  process.exitCode = 1
+}

@@ -16,10 +16,21 @@ const FLAGS: Record<string, keyof BenchArgs> = {
 export function parseBenchArgs(argv: readonly string[]): BenchArgs {
   const args: BenchArgs = { check: false, local: false, updateBaseline: false }
   for (const flag of argv) {
-    const key = FLAGS[flag]
+    const key = Object.hasOwn(FLAGS, flag) ? FLAGS[flag] : undefined
     if (!key) throw new Error(`bench: unknown flag: ${flag}`)
     args[key] = true
   }
+  if (args.updateBaseline && args.check) {
+    // Rewriting first and comparing after would always match.
+    throw new Error('bench: --update-baseline and --check cannot be combined')
+  }
+  return args
+}
+
+/** `bench:remote` flags: the same as `bench`, minus --local, which the remote run ignores. */
+export function parseRemoteArgs(argv: readonly string[]): BenchArgs {
+  const args = parseBenchArgs(argv)
+  if (args.local) throw new Error('bench:remote: --local has no effect on the remote host')
   return args
 }
 

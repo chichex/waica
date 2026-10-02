@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
+import { CHROME_CANDIDATES } from './chrome-candidates.ts'
+import { RESULTS_MARKER } from './results.ts'
 import {
   BENCH_CLONE_DIR,
   PREFLIGHT_SCRIPT,
-  RESULTS_MARKER,
   extractResults,
   httpsCloneUrl,
   missingPrerequisites,
+  originBranches,
   parsePreflight,
   remoteRunScript,
   resolveBenchHost,
@@ -35,7 +37,20 @@ describe('unpushedRefusal', () => {
   })
 })
 
+describe('originBranches', () => {
+  it('keeps only origin branches from `git branch --remotes --contains`', () => {
+    const output = '  origin/sdd/bench-baseline\n  upstream/main\n  origin/HEAD -> origin/main\n'
+    expect(originBranches(output)).toEqual(['origin/sdd/bench-baseline', 'origin/HEAD -> origin/main'])
+    expect(originBranches('  upstream/sdd/bench-baseline\n')).toEqual([])
+  })
+})
+
 describe('preflight', () => {
+  it('looks for Chrome at the same absolute paths the runner uses, not on PATH', () => {
+    for (const path of CHROME_CANDIDATES.linux) expect(PREFLIGHT_SCRIPT).toContain(path)
+    expect(PREFLIGHT_SCRIPT).not.toMatch(/command -v "\$b"/)
+  })
+
   it('names each missing prerequisite with its install command', () => {
     const report = parsePreflight([
       'git=git version 2.43.0',
@@ -73,7 +88,6 @@ describe('remoteRunScript', () => {
   const script = remoteRunScript({
     sha: 'abc1234',
     repoUrl: 'https://github.com/chichex/waica.git',
-    benchArgs: [],
   })
 
   it('works in the dedicated clone and never in ~/workspace/waica', () => {
@@ -86,6 +100,10 @@ describe('remoteRunScript', () => {
     expect(script).toContain('git checkout --quiet --detach abc1234')
     expect(script).toContain('pnpm install --frozen-lockfile')
     expect(script).toContain('pnpm bench')
+  })
+
+  it('runs the bench with no flags: --check and --update-baseline apply locally', () => {
+    expect(script.split('\n').at(-1)).toBe('pnpm bench')
   })
 
   it('stops at the first failing command', () => {

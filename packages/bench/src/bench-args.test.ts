@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { benchHostRefusal, parseBenchArgs } from './bench-args.ts'
+import { benchHostRefusal, parseBenchArgs, parseRemoteArgs } from './bench-args.ts'
 
 describe('parseBenchArgs', () => {
   it('defaults to a plain run', () => {
@@ -7,15 +7,22 @@ describe('parseBenchArgs', () => {
   })
 
   it('reads --check, --local and --update-baseline', () => {
-    expect(parseBenchArgs(['--check', '--local', '--update-baseline'])).toEqual({
+    expect(parseBenchArgs(['--check', '--local'])).toEqual({
       check: true,
       local: true,
-      updateBaseline: true,
+      updateBaseline: false,
     })
+    expect(parseBenchArgs(['--update-baseline']).updateBaseline).toBe(true)
   })
 
-  it('rejects unknown flags', () => {
+  it('rejects unknown flags, including names inherited from Object.prototype', () => {
     expect(() => parseBenchArgs(['--fast'])).toThrow(/unknown flag: --fast/)
+    expect(() => parseBenchArgs(['constructor'])).toThrow(/unknown flag: constructor/)
+    expect(() => parseBenchArgs(['toString'])).toThrow(/unknown flag: toString/)
+  })
+
+  it('rejects --update-baseline with --check, which could never fail', () => {
+    expect(() => parseBenchArgs(['--update-baseline', '--check'])).toThrow(/cannot be combined/)
   })
 })
 
@@ -32,5 +39,16 @@ describe('benchHostRefusal', () => {
 
   it('allows Linux', () => {
     expect(benchHostRefusal('linux', parseBenchArgs([]))).toBeNull()
+  })
+})
+
+describe('parseRemoteArgs', () => {
+  it('accepts --check and --update-baseline', () => {
+    expect(parseRemoteArgs(['--check']).check).toBe(true)
+    expect(parseRemoteArgs(['--update-baseline']).updateBaseline).toBe(true)
+  })
+
+  it('rejects --local, which has no effect on the remote host', () => {
+    expect(() => parseRemoteArgs(['--local'])).toThrow(/--local/)
   })
 })

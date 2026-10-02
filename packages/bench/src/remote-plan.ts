@@ -1,3 +1,6 @@
+import { CHROME_CANDIDATES } from './chrome-candidates.ts'
+import { RESULTS_MARKER } from './results.ts'
+
 /**
  * Pure pieces of `pnpm bench:remote`: what to run on the host and how to
  * read its answers. run-remote.ts owns the SSH and Git side effects.
@@ -5,8 +8,6 @@
 
 /** The dedicated clone on the host; the host's own checkouts are never touched. */
 export const BENCH_CLONE_DIR = '~/waica-bench'
-/** Prefix of the single stdout line that carries the results JSON. */
-export const RESULTS_MARKER = 'WAICA_BENCH_RESULTS '
 
 const PNPM_VERSION = '11.4.0'
 /**
@@ -26,6 +27,14 @@ export function resolveBenchHost(env: Readonly<Record<string, string | undefined
   return host
 }
 
+/** The `origin/*` lines of `git branch --remotes --contains`; other remotes do not count. */
+export function originBranches(gitOutput: string): string[] {
+  return gitOutput
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('origin/'))
+}
+
 /** Null when an origin branch contains `sha`; otherwise the message with the push command. */
 export function unpushedRefusal(
   sha: string,
@@ -43,8 +52,8 @@ export const PREFLIGHT_SCRIPT = [
   'echo "git=$(v git --version)"',
   'echo "node=$(v node --version)"',
   'echo "pnpm=$(v pnpm --version)"',
-  'c=missing; for b in google-chrome google-chrome-stable chromium chromium-browser; do',
-  '  if command -v "$b" >/dev/null 2>&1; then c=$("$b" --version 2>/dev/null); break; fi',
+  `c=missing; for b in ${CHROME_CANDIDATES.linux.join(' ')}; do`,
+  '  if [ -x "$b" ]; then c=$("$b" --version 2>/dev/null); break; fi',
   'done; echo "chrome=$c"',
 ].join('\n')
 
@@ -92,12 +101,14 @@ export function missingPrerequisites(report: PreflightReport): MissingPrerequisi
 export interface RemoteRun {
   sha: string
   repoUrl: string
-  benchArgs: readonly string[]
 }
 
-/** The shell script the host runs: clone or refresh, exact checkout, frozen install, bench. */
-export function remoteRunScript({ sha, repoUrl, benchArgs }: RemoteRun): string {
-  const args = benchArgs.length > 0 ? ` ${benchArgs.join(' ')}` : ''
+/**
+ * The shell script the host runs: clone or refresh, exact checkout, frozen
+ * install, then a plain `pnpm bench` — --check and --update-baseline apply
+ * locally to the results it streams back.
+ */
+export function remoteRunScript({ sha, repoUrl }: RemoteRun): string {
   return [
     'set -eu',
     USER_BIN_PATH,
@@ -106,7 +117,7 @@ export function remoteRunScript({ sha, repoUrl, benchArgs }: RemoteRun): string 
     'git fetch --quiet origin',
     `git checkout --quiet --detach ${sha}`,
     'pnpm install --frozen-lockfile >&2',
-    `pnpm bench${args}`,
+    'pnpm bench',
   ].join('\n')
 }
 
