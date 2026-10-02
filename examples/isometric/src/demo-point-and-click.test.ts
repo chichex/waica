@@ -183,6 +183,26 @@ describe('point-and-click for the isometric demo player (CA-4..CA-8)', () => {
     expect(clickToMove.order).not.toBeNull()
   })
 
+  it('faces a Move Order by the angle of its screen direction, not its signs (issue #75 CA-11)', () => {
+    const demo = makeDemo()
+    const motor = defined(demo.player.get(IsoMotor))
+    // A short step off the cell center makes the order's first direction
+    // almost straight down the screen, with a small rightward component.
+    demo.game.input.injectAction('right', 'hold')
+    demo.frames(4 * DT)
+    demo.game.input.injectAction('right', 'release')
+    demo.frames(30 * DT)
+    const run = vi.spyOn(motor, 'run')
+
+    demo.click(13, 13)
+    demo.frame()
+
+    const [x = 0, y = 0] = defined(run.mock.lastCall)
+    expect(x).toBeGreaterThan(0) // by signs alone this would face 'se'
+    expect(x).toBeLessThan(Math.abs(y) * Math.tan(Math.PI / 8))
+    expect(motor.facing).toBe('s')
+  })
+
   it('walks to the villager and triggers its line without pressing interact', () => {
     const demo = makeDemo()
     const clickToMove = defined(demo.player.get(ClickToMove))
