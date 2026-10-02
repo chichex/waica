@@ -163,7 +163,10 @@ describe('keep-all across scenes, disposed with the Game (CA-6)', () => {
   it('dispose() disposes every base exactly once, the clones through the entity cascade, and zeroes the status', async () => {
     const backend = new FakeTextureBackend()
     const game = makeGame(backend)
-    game.registerSceneCatalog({ scenes: { main: MAIN, cave: CAVE }, registry: REGISTRY })
+    // One clone per Sprite is the per-sprite path's contract: issue #77 keeps
+    // it behind `render.batch: false`; the batched default is pinned below.
+    const unbatched: SceneJson = { ...MAIN, render: { batch: false } }
+    game.registerSceneCatalog({ scenes: { main: unbatched, cave: CAVE }, registry: REGISTRY })
     game.loadSceneByName('main')
     await game.assets.ready()
     const clones = game.entities.map(
@@ -177,6 +180,33 @@ describe('keep-all across scenes, disposed with the Game (CA-6)', () => {
     const disposed = dispose.mock.instances as THREE.Texture[]
     // Five clones (one per Sprite) plus three bases (one per URL).
     expect(disposed).toHaveLength(8)
+    for (const clone of clones) expect(disposed.filter((texture) => texture === clone)).toHaveLength(1)
+    const bases = disposed.filter((texture) => !clones.includes(texture))
+    expect(bases).toHaveLength(3)
+    expect(new Set(bases.map((texture) => texture.source)).size).toBe(3)
+    expect(game.assets.status).toEqual({ pending: 0, loaded: 0, failed: 0 })
+  })
+
+  it('dispose() under Sprite Batches disposes one clone per key with its batch and every base exactly once', async () => {
+    const backend = new FakeTextureBackend()
+    const game = makeGame(backend)
+    game.registerSceneCatalog({ scenes: { main: MAIN, cave: CAVE }, registry: REGISTRY })
+    game.loadSceneByName('main')
+    await game.assets.ready()
+    const mapped = game.entities.map(
+      (entity) => (entity.node.children[0] as THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>).material.map,
+    )
+    // Five sprites over three keys (crate, tree, hero): one shared clone each.
+    const clones = [...new Set(mapped)]
+    expect(mapped).toHaveLength(5)
+    expect(clones).toHaveLength(3)
+    const dispose = vi.spyOn(THREE.Texture.prototype, 'dispose')
+
+    game.dispose()
+
+    const disposed = dispose.mock.instances as THREE.Texture[]
+    // Three clones (one per key) plus three bases (one per URL).
+    expect(disposed).toHaveLength(6)
     for (const clone of clones) expect(disposed.filter((texture) => texture === clone)).toHaveLength(1)
     const bases = disposed.filter((texture) => !clones.includes(texture))
     expect(bases).toHaveLength(3)

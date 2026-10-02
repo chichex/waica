@@ -3,6 +3,8 @@ import { Component } from '../component.js'
 import type { YSortParticipant } from '../render-sort.js'
 import { spritePlacement } from '../sprite-placement.js'
 import { reportRejection } from '../report-rejection.js'
+import type { SpriteBatchKey } from '../sprite-batch.js'
+import { spriteBatchesOf, spriteInstanceOf, type SpriteBatches } from '../sprite-batches.js'
 
 const clampAnchor = (value: number): number => Math.min(1, Math.max(0, value))
 
@@ -48,7 +50,9 @@ export class Sprite extends Component implements YSortParticipant {
   }
   set color(value: number) {
     this._color = value
-    this.mesh?.material.color.setHex(value)
+    const instance = spriteInstanceOf(this.mesh)
+    if (instance) instance.color.setHex(value)
+    else this.mesh?.material.color.setHex(value)
   }
 
   private _offsetX = 0
@@ -112,13 +116,30 @@ export class Sprite extends Component implements YSortParticipant {
   set shape(value: SpriteShape) {
     this._shape = value === 'circle' ? 'circle' : 'rectangle'
     if (!this.mesh) return
+    const instance = spriteInstanceOf(this.mesh)
+    if (instance) {
+      instance.moveTo({ ...instance.key, shape: this._shape })
+      return
+    }
     this.mesh.geometry.dispose()
     this.mesh.geometry = this.createGeometry()
   }
 
+  // The drawn quad, or under Sprite Batches (ADR 0024) the hidden anchor of
+  // this sprite's instance: the same placement either way.
   private mesh?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
 
   override onReady(): void {
+    const batches = spriteBatchesOf(this.game)
+    if (batches?.enabled) this.joinBatch(batches)
+    else this.buildMesh()
+    if (!this.mesh) return
+    this.mesh.position.z = this.layer * 0.01
+    this.syncQuad()
+    this.entity.node.add(this.mesh)
+  }
+
+  private buildMesh(): void {
     const material = new THREE.MeshBasicMaterial({ color: this.color, transparent: true })
     if (this.texture) {
       // Its own clone of the cached base (game.assets, ADR 0019): filters
@@ -136,12 +157,35 @@ export class Sprite extends Component implements YSortParticipant {
       }), 'sprite texture settle')
     }
     this.mesh = new THREE.Mesh(this.createGeometry(), material)
-    this.mesh.position.z = this.layer * 0.01
-    this.syncQuad()
-    this.entity.node.add(this.mesh)
+  }
+
+  /**
+   * One instance in the batch of this sprite's key, tinted like the material
+   * the per-sprite path would build: white over a texture, `color` without.
+   */
+  private joinBatch(batches: SpriteBatches): void {
+    const key: SpriteBatchKey = { texture: this.texture || null, pixelArt: this.pixelArt, shape: this._shape }
+    const instance = batches.attach(key)
+    instance.color.setHex(this.texture ? 0xffffff : this.color)
+    this.mesh = instance.anchor
+    const settled = batches.settled(key)
+    if (!settled) return
+    reportRejection(settled.then((outcome) => {
+      // CA-4's failure rule, copy-on-write: only this sprite leaves the
+      // shared entry, for the untextured one of its shape, with its color.
+      if (outcome !== 'failed' || spriteInstanceOf(this.mesh) !== instance) return
+      instance.moveTo({ ...instance.key, texture: null })
+      instance.color.setHex(this.color)
+    }), 'sprite texture settle')
   }
 
   override onDestroy(): void {
+    const instance = spriteInstanceOf(this.mesh)
+    if (instance) {
+      instance.release()
+      this.mesh = undefined
+      return
+    }
     this.mesh?.removeFromParent()
     this.mesh?.geometry.dispose()
     // Only this sprite's clone: the cached base lives with the Game.

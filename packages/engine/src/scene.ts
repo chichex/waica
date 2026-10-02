@@ -41,6 +41,16 @@ export interface SceneRenderJson {
   sort?: 'y'
   /** Logical positions are projected to the fixed 2:1 render lattice. */
   projection?: 'isometric'
+  /**
+   * Sprite Batches (ADR 0024). Absent or true: sprites that share art —
+   * same texture (an AnimatedSprite's current sheet), pixel-art filtering and
+   * shape — and sit next to each other in draw order are drawn together in
+   * one call, each one an instance with its own placement, color and frame;
+   * what is drawn in front of what never changes. false: one mesh, one
+   * material and one draw call per sprite, the pre-batching path — set it to
+   * rule batching out of a visual difference or while debugging draw order.
+   */
+  batch?: boolean
 }
 
 export interface SceneJson {
