@@ -1,0 +1,30 @@
+{
+  "scenario": "animated-sprites",
+  "commit": "799c76c",
+  "host": {
+    "platform": "linux",
+    "cpus": 8,
+    "chrome": "Google Chrome 150.0.7871.186"
+  },
+  "counters": {
+    "drawCalls": 500,
+    "meshes": 500,
+    "visibleMeshes": 500,
+    "geometries": 500,
+    "materials": 500,
+    "textures": 500,
+    "entitiesSpawned": 500,
+    "entitiesDestroyed": 0,
+    "materialsCreated": 500,
+    "geometriesCreated": 500
+  },
+  "timings": {
+    "frames": 60,
+    "medianMs": 1.100000023841858,
+    "p95Ms": 1.4000000953674316,
+    "gcPauses": {
+      "count": 23,
+      "totalMs": 7.837
+    }
+  }
+}

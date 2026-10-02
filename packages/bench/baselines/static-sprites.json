@@ -1,0 +1,30 @@
+{
+  "scenario": "static-sprites",
+  "commit": "799c76c",
+  "host": {
+    "platform": "linux",
+    "cpus": 8,
+    "chrome": "Google Chrome 150.0.7871.186"
+  },
+  "counters": {
+    "drawCalls": 1000,
+    "meshes": 1000,
+    "visibleMeshes": 1000,
+    "geometries": 1000,
+    "materials": 1000,
+    "textures": 1000,
+    "entitiesSpawned": 1000,
+    "entitiesDestroyed": 0,
+    "materialsCreated": 1000,
+    "geometriesCreated": 1000
+  },
+  "timings": {
+    "frames": 60,
+    "medianMs": 1.5,
+    "p95Ms": 1.9000000953674316,
+    "gcPauses": {
+      "count": 14,
+      "totalMs": 8.07
+    }
+  }
+}
