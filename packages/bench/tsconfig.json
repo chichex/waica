@@ -1,0 +1,14 @@
+{
+  // One program for both sides of the benchmark: the page modules (DOM, run
+  // by Vite in Chrome) and the Node runners that build and drive it. Like
+  // packages/mcp, `lib` is program-wide, so the DOM lib stays and the Node
+  // runners only use node: imports and `process`. No erasableSyntaxOnly:
+  // the program also checks the engine sources the page imports, which use
+  // parameter properties; the Node runners themselves stay erasable.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "allowImportingTsExtensions": true
+  },
+  "include": ["src"]
+}

@@ -1,0 +1,30 @@
+{
+  "scenario": "spawn-churn",
+  "commit": "8a87278",
+  "host": {
+    "platform": "linux",
+    "cpus": 8,
+    "chrome": "Google Chrome 150.0.7871.186"
+  },
+  "counters": {
+    "drawCalls": 300,
+    "meshes": 300,
+    "visibleMeshes": 300,
+    "geometries": 300,
+    "materials": 300,
+    "textures": 300,
+    "entitiesSpawned": 6000,
+    "entitiesDestroyed": 5700,
+    "materialsCreated": 6000,
+    "geometriesCreated": 6000
+  },
+  "timings": {
+    "frames": 600,
+    "medianMs": 0.6000000238418579,
+    "p95Ms": 1,
+    "gcPauses": {
+      "count": 27,
+      "totalMs": 13.454
+    }
+  }
+}

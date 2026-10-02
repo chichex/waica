@@ -14,7 +14,9 @@
     "test:dist": "pnpm build && node scripts/test-dist.mjs",
     "typecheck": "pnpm -r typecheck",
     "release": "node -e \"console.error('waica: releases are triggered by pushing a vX.Y.Z tag, which publishes all six packages in lockstep via OIDC. Publishing from here would skip the tag check and the trusted-publishing identity. See .claude/skills/publish/SKILL.md'); process.exit(1)\"",
-    "lint": "pnpm --filter @waica/lint lint"
+    "lint": "pnpm --filter @waica/lint lint",
+    "bench": "pnpm --filter @waica/bench bench",
+    "bench:remote": "pnpm --filter @waica/bench bench:remote"
   },
   "devDependencies": {
     "happy-dom": "^20.14.5",
