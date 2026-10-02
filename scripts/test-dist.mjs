@@ -752,6 +752,7 @@ try {
     includeIsometric: false,
     includeProjection: false,
     includeSceneSwap: false,
+    includeBatchParity: false,
     includeSceneFade: false,
   })
 
