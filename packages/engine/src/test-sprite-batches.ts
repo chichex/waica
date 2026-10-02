@@ -180,3 +180,39 @@ export function meshRecord(game: Game, mesh: BasicMesh): Omit<InstanceRecord, 'm
     uv: map ? [map.repeat.x, map.repeat.y, map.offset.x, map.offset.y].map(Math.fround) : [1, 1, 0, 0],
   }
 }
+
+/** The nearest ancestor Group's renderOrder: three's `groupOrder` for an object. */
+function groupOrderOf(object: THREE.Object3D): number {
+  for (let parent = object.parent; parent; parent = parent.parent) {
+    if ((parent as Partial<THREE.Group>).isGroup === true) return parent.renderOrder
+  }
+  return 0
+}
+
+/** Clip-space z of the object's bounding-sphere center, the depth three sorts transparent objects by. */
+function clipZ(game: Game, object: AnyMesh): number {
+  const own = object as { boundingSphere?: THREE.Sphere | null }
+  if (object.geometry.boundingSphere === null) object.geometry.computeBoundingSphere()
+  const center = (own.boundingSphere ?? object.geometry.boundingSphere)?.center ?? new THREE.Vector3()
+  const projScreen = new THREE.Matrix4().multiplyMatrices(game.camera.projectionMatrix, game.camera.matrixWorldInverse)
+  return new THREE.Vector4(center.x, center.y, center.z, 1).applyMatrix4(object.matrixWorld).applyMatrix4(projScreen).z
+}
+
+/**
+ * The order three would draw the scene's drawn transparent meshes in, by its
+ * documented transparent sort (groupOrder, renderOrder, farther z first, id),
+ * read at the moment of the render. Labels name what each mesh draws.
+ */
+export function transparentDrawOrder(game: Game, label: (mesh: AnyMesh) => string): string[] {
+  game.scene.updateMatrixWorld()
+  game.camera.updateMatrixWorld()
+  const keyed = drawnMeshes(game)
+    .filter((mesh) => (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).some((m) => m.transparent))
+    .map((mesh) => ({ mesh, groupOrder: groupOrderOf(mesh), renderOrder: mesh.renderOrder, z: clipZ(game, mesh), id: mesh.id }))
+  keyed.sort((a, b) =>
+    a.groupOrder !== b.groupOrder ? a.groupOrder - b.groupOrder
+      : a.renderOrder !== b.renderOrder ? a.renderOrder - b.renderOrder
+        : a.z !== b.z ? b.z - a.z : a.id - b.id,
+  )
+  return keyed.flatMap(({ mesh }) => label(mesh).split(','))
+}

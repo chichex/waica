@@ -10,7 +10,8 @@ import {
   type SpriteBatchShape,
   type SpriteBatchTextures,
 } from './sprite-batch.js'
-import { buildSpriteRuns, type DrawStep, type Drawable } from './sprite-runs.js'
+import { TransparentDrawCollector, type FrameDrawable } from './sprite-draw-collector.js'
+import { compareTransparentDraws, forEachSpriteRun, type SpriteRunVisitor } from './sprite-runs.js'
 
 /** Where an instance reads its map's UV transform: an AnimatedSprite's sheet clone. */
 export interface SpriteUvSource {
@@ -75,106 +76,13 @@ export class SpriteInstance implements SpriteBatchInstance {
   }
 }
 
-interface FrameDrawable extends Drawable<SpriteBatch> {
-  object: THREE.Object3D
-  instance: SpriteInstance | null
-}
-
-type FrameStep = DrawStep<SpriteBatch, FrameDrawable>
+type SpriteDrawable = FrameDrawable<SpriteBatch, SpriteInstance>
 
 const anchors = new WeakMap<THREE.Object3D, SpriteInstance>()
 
 /** The batch instance whose hidden anchor this is; undefined for an ordinary mesh. */
 export function spriteInstanceOf(object: THREE.Object3D | undefined): SpriteInstance | undefined {
   return object ? anchors.get(object) : undefined
-}
-
-function isRenderable(object: THREE.Object3D): object is THREE.Mesh | THREE.Line | THREE.Points | THREE.Sprite {
-  const flags = object as Partial<THREE.Mesh & THREE.Line & THREE.Points & THREE.Sprite>
-  return flags.isMesh === true || flags.isLine === true || flags.isPoints === true || flags.isSprite === true
-}
-
-/** Whether three files any of the object's materials in its transparent list. */
-function drawsTransparent(object: THREE.Mesh | THREE.Line | THREE.Points | THREE.Sprite): boolean {
-  const list = Array.isArray(object.material) ? object.material : [object.material]
-  return list.some((material) => {
-    const transmission = (material as { transmission?: number }).transmission ?? 0
-    return material.visible && material.transparent && transmission <= 0
-  })
-}
-
-/** The bounding-sphere center three sorts a mesh, line or points by: the object's own sphere if it has one. */
-function sortCenter(object: THREE.Object3D): THREE.Vector3 {
-  const own = object as { boundingSphere?: THREE.Sphere | null; computeBoundingSphere?: () => void }
-  if (own.boundingSphere === undefined) {
-    const geometry = (object as THREE.Mesh).geometry
-    if (geometry.boundingSphere === null) geometry.computeBoundingSphere()
-    return geometry.boundingSphere?.center ?? new THREE.Vector3()
-  }
-  if (own.boundingSphere === null) own.computeBoundingSphere?.()
-  return own.boundingSphere?.center ?? new THREE.Vector3()
-}
-
-/**
- * One frame's transparent drawables, collected the way WebGLRenderer's
- * projectObject walks the scene: visibility, camera layers, Group render
- * order, and the clip-space z it sorts by. Sprite anchors are hidden yet
- * collected; the batches' own run meshes are skipped.
- */
-class DrawableCollector {
-  readonly drawables: FrameDrawable[] = []
-  private readonly projScreen = new THREE.Matrix4()
-  private readonly point = new THREE.Vector4()
-
-  constructor(
-    private readonly camera: THREE.Camera,
-    private readonly live: ReadonlySet<SpriteInstance>,
-    private readonly skip: THREE.Object3D,
-  ) {
-    this.projScreen.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
-  }
-
-  visit(object: THREE.Object3D, groupOrder: number): void {
-    if (object === this.skip) return
-    const instance = anchors.get(object)
-    if (instance) {
-      if (this.live.has(instance) && object.layers.test(this.camera.layers)) this.push(object, groupOrder, instance)
-      return
-    }
-    if (!object.visible) return
-    const order = this.visitOwn(object, groupOrder)
-    for (const child of object.children) this.visit(child, order)
-  }
-
-  /** Files the object itself when three would draw it transparent; returns the group order for its children. */
-  private visitOwn(object: THREE.Object3D, groupOrder: number): number {
-    if (!object.layers.test(this.camera.layers)) return groupOrder
-    if ((object as Partial<THREE.Group>).isGroup === true) return object.renderOrder
-    if (isRenderable(object) && drawsTransparent(object)) this.push(object, groupOrder, null)
-    return groupOrder
-  }
-
-  private push(object: THREE.Object3D, groupOrder: number, instance: SpriteInstance | null): void {
-    this.drawables.push({
-      key: instance ? instance.seat.batch : null,
-      groupOrder,
-      renderOrder: object.renderOrder,
-      z: this.sortDepth(object),
-      id: object.id,
-      object,
-      instance,
-    })
-  }
-
-  /** The clip-space z three sorts the object by. */
-  private sortDepth(object: THREE.Object3D): number {
-    if ((object as Partial<THREE.Sprite>).isSprite === true) {
-      return this.point.setFromMatrixPosition(object.matrixWorld).applyMatrix4(this.projScreen).z
-    }
-    const center = sortCenter(object)
-    // Vector4.copy of a Vector3, as three does it: w becomes 1.
-    return this.point.set(center.x, center.y, center.z, 1).applyMatrix4(object.matrixWorld).applyMatrix4(this.projScreen).z
-  }
 }
 
 /**
@@ -190,9 +98,34 @@ export class SpriteBatches {
   private readonly geometries = new Map<SpriteBatchShape, THREE.BufferGeometry>()
   private readonly live = new Set<SpriteInstance>()
   private readonly root = new THREE.Group()
+  /** Under root, one Group per non-zero group order, so a run keeps its sprites' Group renderOrder. */
+  private readonly groups = new Map<number, THREE.Group>()
+  private readonly collector: TransparentDrawCollector<SpriteBatch, SpriteInstance>
+  // Per-frame state, reused every frame: the camera, the next renderOrder to
+  // pin, and the non-sprite renderables whose renderOrder is pinned.
+  private camera: THREE.Camera = new THREE.Camera()
+  private nextOrder = 0
+  private readonly pinned: THREE.Object3D[] = []
+  private readonly pinnedOrders: number[] = []
+  private pinnedScene: THREE.Scene | null = null
+  private sceneAutoUpdate = true
+  private readonly visitor: SpriteRunVisitor<SpriteBatch, SpriteDrawable> = {
+    run: (batch, start, end) => this.drawRun(batch, start, end),
+    other: (item) => this.pin(item.object),
+  }
 
   constructor(private readonly textures: SpriteBatchTextures) {
     this.root.name = 'waica:sprite-batches'
+    this.collector = new TransparentDrawCollector<SpriteBatch, SpriteInstance>(
+      {
+        instanceOf: (object) => {
+          const instance = anchors.get(object)
+          return instance && this.live.has(instance) ? instance : undefined
+        },
+        keyOf: (instance) => instance.seat.batch,
+      },
+      this.root,
+    )
   }
 
   /** A new batched sprite in the key's batch; the caller parents its hidden anchor. */
@@ -238,21 +171,23 @@ export class SpriteBatches {
   prepareFrame(scene: THREE.Scene, camera: THREE.Camera): () => void {
     if (this.live.size === 0) {
       this.root.removeFromParent()
-      return () => {}
+      return this.unpin
     }
     scene.updateMatrixWorld()
     camera.updateMatrixWorld()
-    const collector = new DrawableCollector(camera, this.live, this.root)
-    collector.visit(scene, 0)
-    const restore = this.draw(buildSpriteRuns(collector.drawables), camera)
+    this.collector.collect(scene, camera)
+    const drawables = this.collector.drawables.sort(compareTransparentDraws)
+    this.camera = camera
+    this.nextOrder = 0
+    for (const batch of this.batches.values()) batch.beginFrame()
+    forEachSpriteRun(drawables, this.visitor)
+    for (const batch of this.batches.values()) batch.detachUndrawn()
     if (this.root.parent !== scene) scene.add(this.root)
     // Matrices are current: three's own update would recompute the same.
-    const autoUpdate = scene.matrixWorldAutoUpdate
+    this.pinnedScene = scene
+    this.sceneAutoUpdate = scene.matrixWorldAutoUpdate
     scene.matrixWorldAutoUpdate = false
-    return () => {
-      scene.matrixWorldAutoUpdate = autoUpdate
-      restore()
-    }
+    return this.unpin
   }
 
   /** Runs `render` with this frame's runs drawn and the draw order pinned, then undoes the pin. */
@@ -272,6 +207,8 @@ export class SpriteBatches {
     this.batches.clear()
     for (const geometry of this.geometries.values()) geometry.dispose()
     this.geometries.clear()
+    for (const group of this.groups.values()) group.removeFromParent()
+    this.groups.clear()
     this.root.removeFromParent()
     this.enabled = true
   }
@@ -293,31 +230,51 @@ export class SpriteBatches {
     return created
   }
 
-  private draw(steps: readonly FrameStep[], camera: THREE.Camera): () => void {
-    const restores: Array<[THREE.Object3D, number]> = []
-    for (const batch of this.batches.values()) batch.beginFrame()
-    for (const [order, step] of steps.entries()) {
-      if (step.kind === 'other') {
-        restores.push([step.item.object, step.item.object.renderOrder])
-        step.item.object.renderOrder = order
-        continue
-      }
-      const run = step.key.nextRun(step.items.length)
-      for (const [index, { instance }] of step.items.entries()) run.write(index, this.placed(instance, camera))
-      run.commit(step.items.length)
-      run.mesh.renderOrder = order
-      if (run.mesh.parent !== this.root) this.root.add(run.mesh)
-    }
-    for (const batch of this.batches.values()) batch.detachUndrawn()
-    return () => {
-      for (const [object, renderOrder] of restores) object.renderOrder = renderOrder
-    }
+  /** Draws the frame's run `start`..`end` of `batch` through its next pooled run mesh, in its Group order. */
+  private drawRun(batch: SpriteBatch, start: number, end: number): void {
+    const drawables = this.collector.drawables
+    const run = batch.nextRun(end - start)
+    for (let index = start; index < end; index += 1) run.write(index - start, this.placed(drawables[index]?.instance))
+    run.commit(end - start)
+    run.mesh.renderOrder = this.nextOrder
+    this.nextOrder += 1
+    const group = this.groupFor(drawables[start]?.groupOrder ?? 0)
+    if (run.mesh.parent !== group) group.add(run.mesh)
+  }
+
+  /** Pins a non-sprite renderable's renderOrder to its place in the frame, until unpin. */
+  private pin(object: THREE.Object3D): void {
+    this.pinned.push(object)
+    this.pinnedOrders.push(object.renderOrder)
+    object.renderOrder = this.nextOrder
+    this.nextOrder += 1
+  }
+
+  /** After the render: every pinned renderOrder back, and the scene's own matrix updates. */
+  private readonly unpin = (): void => {
+    for (const [index, object] of this.pinned.entries()) object.renderOrder = this.pinnedOrders[index] ?? object.renderOrder
+    this.pinned.length = 0
+    this.pinnedOrders.length = 0
+    if (this.pinnedScene) this.pinnedScene.matrixWorldAutoUpdate = this.sceneAutoUpdate
+    this.pinnedScene = null
+  }
+
+  /** The Group a run of `groupOrder` hangs from: three reads its renderOrder as the run's group order. */
+  private groupFor(groupOrder: number): THREE.Object3D {
+    if (groupOrder === 0) return this.root
+    const existing = this.groups.get(groupOrder)
+    if (existing) return existing
+    const group = new THREE.Group()
+    group.renderOrder = groupOrder
+    this.root.add(group)
+    this.groups.set(groupOrder, group)
+    return group
   }
 
   /** The instance with its view × world computed exactly as three computes `modelViewMatrix`. */
-  private placed(instance: SpriteInstance | null, camera: THREE.Camera): SpriteInstance {
+  private placed(instance: SpriteInstance | null | undefined): SpriteInstance {
     if (!instance) throw new Error('a Sprite Batch run holds only sprites')
-    instance.modelView.multiplyMatrices(camera.matrixWorldInverse, instance.anchor.matrixWorld)
+    instance.modelView.multiplyMatrices(this.camera.matrixWorldInverse, instance.anchor.matrixWorld)
     return instance
   }
 }

@@ -86,3 +86,13 @@ it('respects layer bands and the y-sort order inside a band (CA-2)', () => {
 it('returns no steps for an empty frame (CA-2)', () => {
   expect(buildSpriteRuns([])).toEqual([])
 })
+
+it('ends a run where the group order changes, since a run draws under one Group order (CA-2, review)', () => {
+  const plain = sprite('plain', 'A', 0.5)
+  const grouped = { ...sprite('grouped', 'A', 0.9), groupOrder: 5 }
+  const steps = buildSpriteRuns<string, Named>([grouped, plain])
+  expect(steps.map((step) => (step.kind === 'run' ? [step.key, step.groupOrder] : null))).toEqual([
+    ['A', 0],
+    ['A', 5],
+  ])
+})

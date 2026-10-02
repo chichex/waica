@@ -28,6 +28,7 @@ vi.mock('three', async (importOriginal) => {
 
 import { flush } from './assets/test-helpers.js'
 import { ParticleEmitter } from './components/particle-emitter.js'
+import { Sprite } from './components/sprite.js'
 import { Tilemap } from './components/tilemap.js'
 import type { Game } from './game.js'
 import type { RuntimeMetadata } from './runtime-bridge.js'
@@ -47,7 +48,9 @@ import {
   scene,
   spriteEntity,
   stepFrame,
+  transparentDrawOrder,
   useSpriteBatchTestEnvironment,
+  type AnyMesh,
   type BasicMesh,
 } from './test-sprite-batches.js'
 
@@ -178,4 +181,66 @@ it('reports the same Runtime Snapshot with and without batching (CA-3)', async (
   expect(entities(batched)).toEqual(entities(unbatched))
   batched.dispose()
   unbatched.dispose()
+})
+
+/** What a drawn mesh shows: its entity's name, or for a run every sprite it draws (found by view-space x). */
+function labeller(game: Game): (mesh: AnyMesh) => string {
+  const byNode = (mesh: THREE.Object3D): string => game.entities.find((entity) => entity.node === mesh.parent)?.name ?? '?'
+  return (mesh) => {
+    if (!(mesh instanceof THREE.InstancedMesh)) return byNode(mesh)
+    const xs = Array.from({ length: mesh.count }, (_, i) => mesh.instanceMatrix.array[i * 16 + 12] ?? NaN)
+    return xs.map((x) => game.entities.find((entity) => entity.position.x === x)?.name ?? '?').join(',')
+  }
+}
+
+/** A same-key sprite in front (layer 3) under a plain node, then a tilemap and a sprite whose nodes set renderOrder 5. */
+function groupOrderScene(game: Game, render: SceneRenderJson): void {
+  loadScene(game, scene([spriteEntity('Front', { texture: '/a.png', layer: 3 }, [-3, 0])], render), REGISTRY)
+  const tiles = game.spawn('Tiles')
+  tiles.node.renderOrder = 5
+  tiles.add(Tilemap, { layer: 0, mapWidth: 1, mapHeight: 1, cells: [0] })
+  const lifted = game.spawn('Lifted')
+  lifted.position.set(3, 0, 0)
+  lifted.node.renderOrder = 5
+  lifted.add(Sprite, { texture: '/a.png', layer: 1 })
+}
+
+it("keeps the renderOrder of a sprite's ancestor Group, drawing in the same order as without batching (review)", async () => {
+  const orders = new Map<string, string[]>()
+  for (const render of [{}, { batch: false }]) {
+    const game = makeGame()
+    groupOrderScene(game, render)
+    await flush()
+    onRender(() => orders.set(JSON.stringify(render), transparentDrawOrder(game, labeller(game))))
+    renderFrame(game)
+    game.dispose()
+  }
+  // Group order 0 first, then the renderOrder-5 group: farther tilemap, then the sprite.
+  expect(orders.get('{"batch":false}')).toEqual(['Front', 'Tiles', 'Lifted'])
+  expect(orders.get('{}')).toEqual(['Front', 'Tiles', 'Lifted'])
+})
+
+it('writes no instance for an off-camera sprite and lets an off-camera renderable not split a run (review: frustum culling)', async () => {
+  const game = makeGame()
+  loadScene(
+    game,
+    scene([
+      spriteEntity('Near', { texture: '/a.png', layer: 0 }, [0, 0]),
+      spriteEntity('Gone', { texture: '/a.png', layer: 1 }, [1000, 0]),
+      spriteEntity('Also', { texture: '/a.png', layer: 2 }, [1, 0]),
+    ]),
+    REGISTRY,
+  )
+  const far = game.spawn('FarTiles')
+  far.position.set(-1000, 0, 0)
+  far.add(Tilemap, { layer: 1.5, mapWidth: 1, mapHeight: 1, cells: [0] })
+  await flush()
+
+  renderFrame(game)
+
+  const runs = runMeshes(game)
+  expect(runs).toHaveLength(1)
+  expect(defined(runs[0]).count).toBe(2)
+  expect(labeller(game)(defined(runs[0]))).toBe('Near,Also')
+  game.dispose()
 })
