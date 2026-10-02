@@ -9,6 +9,11 @@ export const BENCH_CLONE_DIR = '~/waica-bench'
 export const RESULTS_MARKER = 'WAICA_BENCH_RESULTS '
 
 const PNPM_VERSION = '11.4.0'
+/**
+ * Non-interactive SSH sessions skip the login profile, so a user-level
+ * install (npm --prefix ~/.local, no root) is only found if added here.
+ */
+const USER_BIN_PATH = 'export PATH="$HOME/.local/bin:$PATH"'
 const MIN_NODE: readonly [number, number] = [22, 18]
 
 export function resolveBenchHost(env: Readonly<Record<string, string | undefined>>): string {
@@ -33,6 +38,7 @@ export function unpushedRefusal(
 
 /** Prints one `tool=<version|missing>` line per prerequisite. */
 export const PREFLIGHT_SCRIPT = [
+  USER_BIN_PATH,
   'v() { if command -v "$1" >/dev/null 2>&1; then "$@" 2>/dev/null | head -n 1; else echo missing; fi; }',
   'echo "git=$(v git --version)"',
   'echo "node=$(v node --version)"',
@@ -68,7 +74,7 @@ export interface MissingPrerequisite {
 const INSTALL_HINTS: Record<string, string> = {
   git: 'install git with the host package manager',
   node: `install Node.js >= ${MIN_NODE.join('.')}`,
-  pnpm: `npm install -g pnpm@${PNPM_VERSION}`,
+  pnpm: `npm install -g --prefix ~/.local pnpm@${PNPM_VERSION}`,
   chrome: 'install google-chrome-stable',
 }
 
@@ -94,6 +100,7 @@ export function remoteRunScript({ sha, repoUrl, benchArgs }: RemoteRun): string 
   const args = benchArgs.length > 0 ? ` ${benchArgs.join(' ')}` : ''
   return [
     'set -eu',
+    USER_BIN_PATH,
     `if [ ! -d ${BENCH_CLONE_DIR}/.git ]; then git clone --quiet ${repoUrl} ${BENCH_CLONE_DIR}; fi`,
     `cd ${BENCH_CLONE_DIR}`,
     'git fetch --quiet origin',

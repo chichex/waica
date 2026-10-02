@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   BENCH_CLONE_DIR,
+  PREFLIGHT_SCRIPT,
   RESULTS_MARKER,
   extractResults,
   httpsCloneUrl,
@@ -44,7 +45,7 @@ describe('preflight', () => {
     ].join('\n'))
     const missing = missingPrerequisites(report)
     expect(missing).toEqual([
-      { tool: 'pnpm', install: 'npm install -g pnpm@11.4.0' },
+      { tool: 'pnpm', install: 'npm install -g --prefix ~/.local pnpm@11.4.0' },
     ])
   })
 
@@ -89,6 +90,11 @@ describe('remoteRunScript', () => {
 
   it('stops at the first failing command', () => {
     expect(script.startsWith('set -eu')).toBe(true)
+  })
+
+  it('finds user-level installs in ~/.local/bin, in the run and in the preflight', () => {
+    expect(script).toContain('export PATH="$HOME/.local/bin:$PATH"')
+    expect(PREFLIGHT_SCRIPT.startsWith('export PATH="$HOME/.local/bin:$PATH"')).toBe(true)
   })
 })
 
