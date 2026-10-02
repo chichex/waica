@@ -1,0 +1,33 @@
+{
+  "scenario": "animated-sprites-2000",
+  "commit": "d15d985",
+  "host": {
+    "platform": "linux",
+    "cpus": 8,
+    "chrome": "Google Chrome 150.0.7871.186",
+    "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+  },
+  "counters": {
+    "drawCalls": 2000,
+    "meshes": 2000,
+    "visibleMeshes": 2000,
+    "geometries": 2000,
+    "materials": 2000,
+    "textures": 2000,
+    "textureSources": 1,
+    "entitiesSpawned": 2000,
+    "entitiesDestroyed": 0,
+    "materialsCreated": 2000,
+    "geometriesCreated": 2000
+  },
+  "timings": {
+    "frames": 60,
+    "medianMs": 16.149999976158142,
+    "p95Ms": 19.59999990463257,
+    "overBudget": true,
+    "gcPauses": {
+      "count": 14,
+      "totalMs": 4.141
+    }
+  }
+}
