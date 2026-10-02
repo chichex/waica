@@ -186,10 +186,9 @@ describe('keep-all across scenes, disposed with the Game (CA-6)', () => {
     expect(new Set(bases.map((texture) => texture.source)).size).toBe(3)
     expect(game.assets.status).toEqual({ pending: 0, loaded: 0, failed: 0 })
   })
-
 })
 
-it('dispose() under Sprite Batches disposes one clone per key with its batch and every base exactly once (CA-6, issue #77)', async () => {
+it('dispose() under Sprite Batches disposes one clone per key with its batch and every base exactly once (issue #77 CA-1, CA-4)', async () => {
   const backend = new FakeTextureBackend()
   const game = makeGame(backend)
   game.registerSceneCatalog({ scenes: { main: MAIN, cave: CAVE }, registry: REGISTRY })
