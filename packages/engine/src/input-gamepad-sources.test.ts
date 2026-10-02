@@ -149,6 +149,17 @@ describe('Input injected values (issue #75 CA-12, CA-13)', () => {
     expect(input.value('right')).toBe(0)
   })
 
+  it('combines an injected hold with a key by the max', () => {
+    const input = makeInput({ right: ['KeyD'] })
+    input.injectAction('right', 'hold', 0.4)
+    key('keydown', 'KeyD')
+    expect(input.value('right')).toBe(1)
+    key('keyup', 'KeyD')
+    expect(input.value('right')).toBeCloseTo(0.4)
+  })
+})
+
+describe('Input.injectAction value check (issue #75 CA-12)', () => {
   it.each([Number.NaN, 0, -0.5, 3, Number.POSITIVE_INFINITY])(
     'rejects a hold at %s with a RangeError and leaves the state unchanged',
     (value) => {
@@ -179,14 +190,5 @@ describe('Input injected values (issue #75 CA-12, CA-13)', () => {
     expect(input.value('right')).toBe(1)
     expect(input.injectAction('jump', 'press')).toBe(true)
     expect(input.injectAction('right', 'hold', 1)).toBe(true)
-  })
-
-  it('combines an injected hold with a key by the max', () => {
-    const input = makeInput({ right: ['KeyD'] })
-    input.injectAction('right', 'hold', 0.4)
-    key('keydown', 'KeyD')
-    expect(input.value('right')).toBe(1)
-    key('keyup', 'KeyD')
-    expect(input.value('right')).toBeCloseTo(0.4)
   })
 })

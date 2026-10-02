@@ -159,7 +159,7 @@ describe('Input held threshold (issue #75 CA-5)', () => {
   })
 })
 
-describe('Input justPressed across keyboard and pad (issue #75 CA-5)', () => {
+describe('Input justPressed when a second source joins (issue #75 CA-5)', () => {
   it('reports no press when a key joins a pad that already holds the Action', () => {
     const pad = fakePad()
     pads.state.pads = [pad]
@@ -189,7 +189,9 @@ describe('Input justPressed across keyboard and pad (issue #75 CA-5)', () => {
     input.endFrame()
     key('keyup', 'Space')
   })
+})
 
+describe('Input justPressed from no held source (issue #75 CA-5)', () => {
   it('reports one consumable press when a key and the pad rise on the same step', () => {
     const pad = fakePad()
     pads.state.pads = [pad]
