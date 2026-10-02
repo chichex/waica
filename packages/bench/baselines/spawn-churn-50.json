@@ -1,0 +1,33 @@
+{
+  "scenario": "spawn-churn-50",
+  "commit": "d15d985",
+  "host": {
+    "platform": "linux",
+    "cpus": 8,
+    "chrome": "Google Chrome 150.0.7871.186",
+    "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+  },
+  "counters": {
+    "drawCalls": 1500,
+    "meshes": 1500,
+    "visibleMeshes": 1500,
+    "geometries": 1500,
+    "materials": 1500,
+    "textures": 1500,
+    "textureSources": 1,
+    "entitiesSpawned": 30000,
+    "entitiesDestroyed": 28500,
+    "materialsCreated": 30000,
+    "geometriesCreated": 30000
+  },
+  "timings": {
+    "frames": 600,
+    "medianMs": 13.899999976158142,
+    "p95Ms": 17.100000023841858,
+    "overBudget": true,
+    "gcPauses": {
+      "count": 66,
+      "totalMs": 106.876
+    }
+  }
+}

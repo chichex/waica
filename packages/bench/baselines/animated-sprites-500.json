@@ -1,10 +1,11 @@
 {
-  "scenario": "animated-sprites",
-  "commit": "8a87278",
+  "scenario": "animated-sprites-500",
+  "commit": "d15d985",
   "host": {
     "platform": "linux",
     "cpus": 8,
-    "chrome": "Google Chrome 150.0.7871.186"
+    "chrome": "Google Chrome 150.0.7871.186",
+    "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
   },
   "counters": {
     "drawCalls": 500,
@@ -13,6 +14,7 @@
     "geometries": 500,
     "materials": 500,
     "textures": 500,
+    "textureSources": 1,
     "entitiesSpawned": 500,
     "entitiesDestroyed": 0,
     "materialsCreated": 500,
@@ -20,11 +22,12 @@
   },
   "timings": {
     "frames": 60,
-    "medianMs": 1.100000023841858,
-    "p95Ms": 1.5,
+    "medianMs": 6.199999988079071,
+    "p95Ms": 7.200000047683716,
+    "overBudget": false,
     "gcPauses": {
       "count": 15,
-      "totalMs": 2.272
+      "totalMs": 2.505
     }
   }
 }

@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { parseScenarioResult, parseScenarioResults } from './results-guard.ts'
 
 const valid = {
-  scenario: 'spawn-churn',
+  scenario: 'spawn-churn-10',
   commit: 'abc1234',
-  host: { platform: 'linux', cpus: 8, chrome: 'Google Chrome 150' },
+  host: { platform: 'linux', cpus: 8, chrome: 'Google Chrome 150', renderer: 'ANGLE (SwiftShader)' },
   counters: {
     drawCalls: 300,
     meshes: 300,
@@ -12,12 +12,13 @@ const valid = {
     geometries: 300,
     materials: 300,
     textures: 300,
+    textureSources: 1,
     entitiesSpawned: 6000,
     entitiesDestroyed: 5700,
     materialsCreated: 6000,
     geometriesCreated: 6000,
   },
-  timings: { frames: 600, medianMs: 1.2, p95Ms: 2.5, gcPauses: { count: 3, totalMs: 4.5 } },
+  timings: { frames: 600, medianMs: 1.2, p95Ms: 2.5, overBudget: false, gcPauses: { count: 3, totalMs: 4.5 } },
 }
 
 describe('parseScenarioResult', () => {
@@ -36,6 +37,14 @@ describe('parseScenarioResult', () => {
     delete withoutDrawCalls.drawCalls
     expect(() => parseScenarioResult({ ...valid, counters: withoutDrawCalls })).toThrow(/counters.drawCalls/)
     expect(() => parseScenarioResult({ ...valid, counters: { ...valid.counters, meshes: '1' } })).toThrow(/counters.meshes/)
+  })
+
+  it('requires the WebGL renderer, textureSources and the budget verdict', () => {
+    const hostWithoutRenderer: Record<string, unknown> = { ...valid.host }
+    delete hostWithoutRenderer.renderer
+    expect(() => parseScenarioResult({ ...valid, host: hostWithoutRenderer })).toThrow(/host.renderer/)
+    expect(() => parseScenarioResult({ ...valid, counters: { ...valid.counters, textureSources: undefined } })).toThrow(/counters.textureSources/)
+    expect(() => parseScenarioResult({ ...valid, timings: { ...valid.timings, overBudget: 'no' } })).toThrow(/timings.overBudget/)
   })
 
   it('rejects malformed host and timings', () => {

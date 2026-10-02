@@ -13,6 +13,8 @@ export interface SceneCensus {
   geometries: number
   materials: number
   textures: number
+  /** Distinct `texture.source` objects: one per uploaded image, however many clones share it. */
+  textureSources: number
 }
 
 function isMesh(object: THREE.Object3D): object is THREE.Mesh {
@@ -49,11 +51,15 @@ export function census(root: THREE.Object3D): SceneCensus {
   const geometries = new Set<THREE.BufferGeometry>()
   const materials = new Set<THREE.Material>()
   const textures = new Set<THREE.Texture>()
+  const sources = new Set<object>()
   for (const { mesh } of meshes) {
     geometries.add(mesh.geometry)
     for (const material of materialsOf(mesh)) {
       materials.add(material)
-      for (const texture of texturesOf(material)) textures.add(texture)
+      for (const texture of texturesOf(material)) {
+        textures.add(texture)
+        sources.add(texture.source)
+      }
     }
   }
   return {
@@ -62,6 +68,7 @@ export function census(root: THREE.Object3D): SceneCensus {
     geometries: geometries.size,
     materials: materials.size,
     textures: textures.size,
+    textureSources: sources.size,
   }
 }
 
