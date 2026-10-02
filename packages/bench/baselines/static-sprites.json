@@ -1,6 +1,6 @@
 {
   "scenario": "static-sprites",
-  "commit": "799c76c",
+  "commit": "8a87278",
   "host": {
     "platform": "linux",
     "cpus": 8,
@@ -20,11 +20,11 @@
   },
   "timings": {
     "frames": 60,
-    "medianMs": 1.5,
-    "p95Ms": 1.9000000953674316,
+    "medianMs": 1.4500000476837158,
+    "p95Ms": 1.899999976158142,
     "gcPauses": {
-      "count": 14,
-      "totalMs": 8.07
+      "count": 6,
+      "totalMs": 1.489
     }
   }
 }

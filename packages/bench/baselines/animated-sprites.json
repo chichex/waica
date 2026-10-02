@@ -1,6 +1,6 @@
 {
   "scenario": "animated-sprites",
-  "commit": "799c76c",
+  "commit": "8a87278",
   "host": {
     "platform": "linux",
     "cpus": 8,
@@ -21,10 +21,10 @@
   "timings": {
     "frames": 60,
     "medianMs": 1.100000023841858,
-    "p95Ms": 1.4000000953674316,
+    "p95Ms": 1.5,
     "gcPauses": {
-      "count": 23,
-      "totalMs": 7.837
+      "count": 15,
+      "totalMs": 2.272
     }
   }
 }

@@ -1,6 +1,6 @@
 {
   "scenario": "spawn-churn",
-  "commit": "799c76c",
+  "commit": "8a87278",
   "host": {
     "platform": "linux",
     "cpus": 8,
@@ -23,8 +23,8 @@
     "medianMs": 0.6000000238418579,
     "p95Ms": 1,
     "gcPauses": {
-      "count": 28,
-      "totalMs": 13.786
+      "count": 27,
+      "totalMs": 13.454
     }
   }
 }
