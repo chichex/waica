@@ -234,6 +234,10 @@ export class Game {
     })
     this.renderer = new THREE.WebGPURenderer({ canvas, antialias: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    // The model view on the CPU, as three's WebGL renderer computed it: a Sprite
+    // Batch instance carries that same matrix (ADR 0024), so batched and
+    // per-sprite draws stay pixel-identical.
+    this.renderer.highPrecision = true
     this.readiness = new RenderReadiness(this.renderer, (error) => {
       activeRuntimeBridgeHook()?.fail?.({ code: 'render-backend-failed', message: error.message })
     })

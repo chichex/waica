@@ -43,6 +43,8 @@ export class FakeWebGPURenderer {
   /** Mirrors the real backend flag, read after init(). */
   readonly backend = { isWebGPUBackend: false }
   readonly info = { render: { drawCalls: 0 } }
+  /** three's switch for a model view computed on the CPU instead of in the shader. */
+  highPrecision = false
   /** The animation loop callback last installed, or null. */
   loop: ((time: number) => void) | null = null
   renders = 0

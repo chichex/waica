@@ -33,6 +33,7 @@ import {
   type AnyMesh,
   type BasicMesh,
 } from './test-sprite-batches.js'
+import { lastFakeRenderer } from './test-renderer.js'
 
 useSpriteBatchTestEnvironment()
 
@@ -222,5 +223,12 @@ it('writes no instance for an off-camera sprite and lets an off-camera renderabl
   expect(runs).toHaveLength(1)
   expect(defined(runs[0]).count).toBe(2)
   expect(labeller(game)(defined(runs[0]))).toBe('Near,Also')
+  game.dispose()
+})
+
+it('draws every mesh with its model view computed on the CPU, exactly as a batch instance carries it (ADR 0024, ADR 0025)', async () => {
+  const game = await readyGame()
+
+  expect(lastFakeRenderer().highPrecision).toBe(true)
   game.dispose()
 })
