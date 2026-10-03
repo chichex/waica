@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The example has no dependency on three of its own, so the mock targets the
-// engine's copy: the WebGLRenderer is the one thing happy-dom cannot host.
+// engine's copy: the WebGPURenderer is the one thing happy-dom cannot host.
 vi.mock(
   new URL('../../../packages/engine/node_modules/three/build/three.webgpu.js', import.meta.url).pathname,
   async (importOriginal) =>

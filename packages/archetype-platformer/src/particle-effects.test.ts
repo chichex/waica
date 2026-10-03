@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // @waica/engine resolves its own nested `three` copy, so the mock has to
-// target that exact module: the WebGLRenderer is the one thing happy-dom
+// target that exact module: the WebGPURenderer is the one thing happy-dom
 // cannot host.
 vi.mock(
   new URL('../../engine/node_modules/three/build/three.webgpu.js', import.meta.url).pathname,

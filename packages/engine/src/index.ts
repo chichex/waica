@@ -215,6 +215,6 @@ export type {
 
 // Explicit escape hatch while our own API grows: a single source of three
 // for the whole workspace. The thesis is that three stays an implementation detail.
-// It is the WebGPU build the engine draws with (ADR 0025): no WebGLRenderer,
-// and node materials (TSL) instead of GLSL ShaderMaterial/onBeforeCompile.
+// It is the WebGPU build the engine draws with (ADR 0025): no classic WebGL renderer,
+// and node materials (TSL) instead of GLSL shaders.
 export * as THREE from 'three/webgpu'
