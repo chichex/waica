@@ -1,29 +1,9 @@
 // @vitest-environment happy-dom
 import { expect, it, vi } from 'vitest'
 
-vi.mock('three', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>()
-  class WebGLRenderer {
-    readonly domElement: HTMLCanvasElement
-    constructor({ canvas }: { canvas: HTMLCanvasElement }) {
-      this.domElement = canvas
-    }
-    setPixelRatio(): void {}
-    setSize(): void {}
-    setViewport(): void {}
-    setScissor(): void {}
-    setScissorTest(): void {}
-    setClearColor(): void {}
-    clear(): void {}
-    /** Hands the scene to the hook a test installed with onRender, as three would draw it. */
-    render(scene: unknown): void {
-      ;(globalThis as { onTestRender?: (scene: unknown) => void }).onTestRender?.(scene)
-    }
-    setAnimationLoop(): void {}
-    dispose(): void {}
-  }
-  return { ...actual, WebGLRenderer }
-})
+vi.mock('three/webgpu', async (importOriginal) =>
+  (await import('./test-renderer.js')).withFakeRenderer(await importOriginal()),
+)
 
 import { flush } from './assets/test-helpers.js'
 import { Sprite } from './components/sprite.js'
@@ -32,7 +12,7 @@ import { loadScene } from './scene.js'
 import { defined } from './test-support.js'
 import {
   basic,
-  makeGame,
+  readyGame,
   materials,
   meshes,
   onlyRun,
@@ -51,7 +31,7 @@ function spawnSprites(game: Game, count: number, prefix: string): void {
 }
 
 it('reuses freed slots: spawn 100, destroy 50, spawn 50 keeps the capacity and every GPU object (CA-4)', async () => {
-  const game = makeGame()
+  const game = await readyGame()
   spawnSprites(game, 100, 'A')
   await flush()
   renderFrame(game)
@@ -73,7 +53,7 @@ it('reuses freed slots: spawn 100, destroy 50, spawn 50 keeps the capacity and e
 })
 
 it('grows exactly once when a spawn passes the capacity (CA-4)', async () => {
-  const game = makeGame()
+  const game = await readyGame()
   spawnSprites(game, 16, 'A')
   await flush()
   renderFrame(game)
@@ -94,7 +74,7 @@ it('grows exactly once when a spawn passes the capacity (CA-4)', async () => {
 })
 
 it('starts every buffer at 16 slots and never shrinks during the scene (CA-4)', async () => {
-  const game = makeGame()
+  const game = await readyGame()
   spawnSprites(game, 3, 'A')
   await flush()
   renderFrame(game)
@@ -112,7 +92,7 @@ it('starts every buffer at 16 slots and never shrinks during the scene (CA-4)', 
 
 for (const release of ['unloadScene', 'dispose'] as const) {
   it(`releases every batch resource at ${release} (CA-4)`, async () => {
-    const game = makeGame()
+    const game = await readyGame()
     loadScene(game, scene([spriteEntity('A', { texture: '/hero.png' }), spriteEntity('B', { layer: 1 })]), REGISTRY)
     await flush()
     renderFrame(game)
@@ -134,7 +114,7 @@ for (const release of ['unloadScene', 'dispose'] as const) {
 }
 
 it('sizes each run by its own length when one key draws as many interleaved runs (review: O(N) instance memory)', async () => {
-  const game = makeGame()
+  const game = await readyGame()
   // 20 sprites of /a.png alternate in depth with 20 of /b.png: each key draws as 20 one-sprite runs.
   for (let i = 0; i < 40; i += 1) {
     game.spawn(`S${i}`).add(Sprite, { texture: i % 2 === 0 ? '/a.png' : '/b.png', layer: i * 0.1 })

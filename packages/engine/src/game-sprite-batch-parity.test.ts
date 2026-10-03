@@ -2,29 +2,9 @@
 import * as THREE from 'three'
 import { expect, it, vi } from 'vitest'
 
-vi.mock('three', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>()
-  class WebGLRenderer {
-    readonly domElement: HTMLCanvasElement
-    constructor({ canvas }: { canvas: HTMLCanvasElement }) {
-      this.domElement = canvas
-    }
-    setPixelRatio(): void {}
-    setSize(): void {}
-    setViewport(): void {}
-    setScissor(): void {}
-    setScissorTest(): void {}
-    setClearColor(): void {}
-    clear(): void {}
-    /** Hands the scene to the hook a test installed with onRender, as three would draw it. */
-    render(scene: unknown): void {
-      ;(globalThis as { onTestRender?: (scene: unknown) => void }).onTestRender?.(scene)
-    }
-    setAnimationLoop(): void {}
-    dispose(): void {}
-  }
-  return { ...actual, WebGLRenderer }
-})
+vi.mock('three/webgpu', async (importOriginal) =>
+  (await import('./test-renderer.js')).withFakeRenderer(await importOriginal()),
+)
 
 import { flush } from './assets/test-helpers.js'
 import { ParticleEmitter } from './components/particle-emitter.js'
@@ -39,7 +19,7 @@ import {
   animatedEntity,
   drawnMeshes,
   instances,
-  makeGame,
+  readyGame,
   meshRecord,
   onRender,
   REGISTRY,
@@ -75,8 +55,8 @@ const VARIETY: SceneEntityJson[] = [
 
 /** The same scene twice, batched and not, advanced in lockstep with one rotated and scaled entity. */
 async function twinGames(render: SceneRenderJson): Promise<{ batched: Game; unbatched: Game }> {
-  const batched = makeGame()
-  const unbatched = makeGame()
+  const batched = await readyGame()
+  const unbatched = await readyGame()
   loadScene(batched, scene(VARIETY, render), REGISTRY)
   loadScene(unbatched, scene(VARIETY, { ...render, batch: false }), REGISTRY)
   for (const game of [batched, unbatched]) {
@@ -122,7 +102,7 @@ interface RenderOrders {
 
 /** Three same-key sprites on layers 0, 2 and 4 around a tilemap (layer 1) and a particle batch (layer 3). */
 async function interleavedScene(): Promise<{ game: Game; tileMesh: THREE.Object3D; particleMesh: THREE.Object3D }> {
-  const game = makeGame()
+  const game = await readyGame()
   const sprites = [0, 2, 4].map((layer) => spriteEntity(`Layer${layer}`, { texture: '/hero.png', layer }))
   loadScene(game, scene(sprites), REGISTRY)
   game.spawn('Tiles').add(Tilemap, { layer: 1, mapWidth: 2, mapHeight: 1, cells: [0, 0] })
@@ -161,7 +141,7 @@ it('keeps runs interleaved with a tilemap and a particle batch exactly where the
 })
 
 it('leaves the scene untouched when no sprite batches (CA-6)', async () => {
-  const game = makeGame()
+  const game = await readyGame()
   loadScene(game, scene([spriteEntity('Solo', {})], { batch: false }), REGISTRY)
   await flush()
   const updateMatrixWorld = vi.spyOn(game.scene, 'updateMatrixWorld')
@@ -208,7 +188,7 @@ function groupOrderScene(game: Game, render: SceneRenderJson): void {
 it("keeps the renderOrder of a sprite's ancestor Group, drawing in the same order as without batching (review)", async () => {
   const orders = new Map<string, string[]>()
   for (const render of [{}, { batch: false }]) {
-    const game = makeGame()
+    const game = await readyGame()
     groupOrderScene(game, render)
     await flush()
     onRender(() => orders.set(JSON.stringify(render), transparentDrawOrder(game, labeller(game))))
@@ -221,7 +201,7 @@ it("keeps the renderOrder of a sprite's ancestor Group, drawing in the same orde
 })
 
 it('writes no instance for an off-camera sprite and lets an off-camera renderable not split a run (review: frustum culling)', async () => {
-  const game = makeGame()
+  const game = await readyGame()
   loadScene(
     game,
     scene([

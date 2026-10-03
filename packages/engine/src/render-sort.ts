@@ -80,3 +80,45 @@ export function ySortZ(entries: readonly YSortEntry[]): number[] {
   }
   return z
 }
+
+/** What applyYSort reads of an entity: its components and the Y its node draws at. */
+export interface YSortEntity {
+  readonly components: readonly unknown[]
+  readonly node: { readonly position: { readonly y: number } }
+}
+
+/**
+ * Under y-sort, re-derives every participant's z from layer band + entity Y:
+ * the scene's entities, then the batch participants its drains hold.
+ */
+export function applyYSort(entities: readonly YSortEntity[], drains: readonly YSortBatchParticipant[]): void {
+  const singles: Array<{ participant: YSortParticipant; index: number }> = []
+  const batches: Array<{ participant: YSortBatchParticipant; start: number; count: number }> = []
+  const entries: YSortEntry[] = []
+  for (const entity of entities) {
+    for (const component of entity.components) {
+      if (isYSortBatchParticipant(component)) {
+        const batchEntries = component.ySortEntries()
+        batches.push({ participant: component, start: entries.length, count: batchEntries.length })
+        entries.push(...batchEntries)
+      } else if (isYSortParticipant(component)) {
+        singles.push({ participant: component, index: entries.length })
+        entries.push({ layer: component.layer, y: entity.node.position.y })
+      }
+    }
+  }
+  for (const participant of drains) {
+    const batchEntries = participant.ySortEntries()
+    batches.push({ participant, start: entries.length, count: batchEntries.length })
+    entries.push(...batchEntries)
+  }
+  const z = ySortZ(entries)
+  for (const { participant, index } of singles) {
+    const sortZ = z[index]
+    if (sortZ === undefined) throw new Error(`ySortZ returned no z for y-sort participant ${index}`)
+    participant.setSortZ(sortZ)
+  }
+  for (const { participant, start, count } of batches) {
+    participant.setSortZs(z.slice(start, start + count))
+  }
+}

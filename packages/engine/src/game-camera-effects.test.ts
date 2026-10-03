@@ -2,31 +2,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 /** The camera center at each render, as the renderer saw it. */
-const drawn = vi.hoisted(() => ({ centers: [] as Array<{ x: number; y: number }> }))
+const drawn = { centers: [] as Array<{ x: number; y: number }> }
 
-vi.mock('three', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('three')>()
-  class WebGLRenderer {
-    readonly domElement: HTMLCanvasElement
-    constructor({ canvas }: { canvas: HTMLCanvasElement }) {
-      this.domElement = canvas
-    }
-    setPixelRatio(): void {}
-    setSize(): void {}
-    setViewport(): void {}
-    setScissor(): void {}
-    setScissorTest(): void {}
-    setClearColor(): void {}
-    clear(): void {}
-    render(_scene: unknown, camera: { position: { x: number; y: number } }): void {
-      drawn.centers.push({ x: camera.position.x, y: camera.position.y })
-    }
-    setAnimationLoop(): void {}
-    dispose(): void {}
-  }
-  return { ...actual, WebGLRenderer }
-})
+vi.mock('three/webgpu', async (importOriginal) =>
+  (await import('./test-renderer.js')).withFakeRenderer(await importOriginal()),
+)
 
+import { fakeRendering, resetFakeRendering } from './test-renderer'
 import * as THREE from 'three'
 import {
   CameraEffects,
@@ -57,6 +39,13 @@ function makeGame(options: Partial<GameOptions> = {}, size = { width: 640, heigh
   host.append(canvas)
   document.body.append(host)
   return new Game({ canvas, ...options })
+}
+
+/** A Game whose renderer is ready, so its frames draw. */
+async function readyGame(options: Partial<GameOptions> = {}, size = { width: 640, height: 360 }): Promise<Game> {
+  const game = makeGame(options, size)
+  await game.ready()
+  return game
 }
 
 /** One render frame running `steps` Simulation Steps. */
@@ -107,6 +96,10 @@ async function settled(handle: CameraEffectHandle): Promise<boolean | undefined>
 beforeEach(() => {
   document.body.innerHTML = ''
   drawn.centers.length = 0
+  resetFakeRendering()
+  fakeRendering.onRender = (_scene, camera) => {
+    drawn.centers.push({ x: camera.position.x, y: camera.position.y })
+  }
   vi.stubGlobal('ResizeObserver', ResizeObserverStub)
 })
 
@@ -130,9 +123,9 @@ describe('game.cameraEffects (CA-1)', () => {
 })
 
 describe('shake vs the base camera (CA-2, CA-6)', () => {
-  it('leaves the base centers identical and offsets only the drawn center, restoring the base after each render', () => {
-    const plain = makeGame()
-    const shaken = makeGame()
+  it('leaves the base centers identical and offsets only the drawn center, restoring the base after each render', async () => {
+    const plain = await readyGame()
+    const shaken = await readyGame()
     const without = playFollow(plain, false)
     const withShake = playFollow(shaken, true)
 
@@ -152,8 +145,8 @@ describe('shake vs the base camera (CA-2, CA-6)', () => {
     shaken.dispose()
   })
 
-  it('draws the base plus exactly the reported offset', () => {
-    const game = makeGame()
+  it('draws the base plus exactly the reported offset', async () => {
+    const game = await readyGame()
     game.cameraEffects.shake({ intensity: 1, seconds: 1 })
     for (let index = 0; index < 10; index += 1) {
       frame(game)
@@ -166,8 +159,8 @@ describe('shake vs the base camera (CA-2, CA-6)', () => {
     game.dispose()
   })
 
-  it('snaps the offset to screen pixels under a fixed resolution but never the base center', () => {
-    const game = makeGame({ resolution: RESOLUTION })
+  it('snaps the offset to screen pixels under a fixed resolution but never the base center', async () => {
+    const game = await readyGame({ resolution: RESOLUTION })
     const pixel = 10 / RESOLUTION.height
     const entries = playFollow(game, true, 29)
     let offGridBase = 0
@@ -183,8 +176,8 @@ describe('shake vs the base camera (CA-2, CA-6)', () => {
 })
 
 describe('shake is not re-clamped (CA-5)', () => {
-  it('keeps the base clamped at a limit while the drawn center crosses it by up to the amplitude', () => {
-    const game = makeGame()
+  it('keeps the base clamped at a limit while the drawn center crosses it by up to the amplitude', async () => {
+    const game = await readyGame()
     game.registerSceneCatalog({
       scenes: {
         main: {

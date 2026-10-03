@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from 'three/webgpu'
 
 /** Keeps Three's transparent-object sort key on live vertices, never unused capacity. */
 export function refreshParticleSortBounds(

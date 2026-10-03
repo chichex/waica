@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from 'three/webgpu'
 import { sheetCell } from '../animation/sheet.js'
 import { Component } from '../component.js'
 import { projectIsometric } from '../projection.js'

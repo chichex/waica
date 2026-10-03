@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from 'three/webgpu'
 import type { Component, ComponentClass } from './component.js'
 import type { Game } from './game.js'
 

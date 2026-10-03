@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from 'three/webgpu'
 import { reportRejection } from './report-rejection.js'
 import type { AssetLoader } from './assets/asset-loader.js'
 import type { ParticleBlend, ParticleOverflow } from './components/particle-emitter.js'

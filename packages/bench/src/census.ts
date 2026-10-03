@@ -1,4 +1,4 @@
-import type * as THREE from 'three'
+import type * as THREE from 'three/webgpu'
 
 /**
  * What a rendered scene holds: meshes plus the distinct three.js objects they

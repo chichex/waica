@@ -2,36 +2,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import enginePackage from '../package.json' with { type: 'json' }
 
-const renderer = vi.hoisted(() => ({
-  loop: null as ((time: number) => void) | null,
-  renders: 0,
-}))
+vi.mock('three/webgpu', async (importOriginal) =>
+  (await import('./test-renderer.js')).withFakeRenderer(await importOriginal()),
+)
 
-vi.mock('three', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('three')>()
-  class WebGLRenderer {
-    readonly domElement: HTMLCanvasElement
-    constructor({ canvas }: { canvas: HTMLCanvasElement }) {
-      this.domElement = canvas
-    }
-    setPixelRatio(): void {}
-    setSize(): void {}
-    setViewport(): void {}
-    setScissor(): void {}
-    setScissorTest(): void {}
-    setClearColor(): void {}
-    clear(): void {}
-    render(): void {
-      renderer.renders += 1
-    }
-    setAnimationLoop(loop: ((time: number) => void) | null): void {
-      renderer.loop = loop
-    }
-    dispose(): void {}
-  }
-  return { ...actual, WebGLRenderer }
-})
-
+import { lastFakeRenderer, resetFakeRendering } from './test-renderer'
 import {
   Component,
   Game,
@@ -199,8 +174,7 @@ function installActivation(): {
 }
 
 beforeEach(() => {
-  renderer.loop = null
-  renderer.renders = 0
+  resetFakeRendering()
   document.body.innerHTML = ''
   vi.stubGlobal('ResizeObserver', ResizeObserverStub)
 })
@@ -211,10 +185,11 @@ afterEach(() => {
 })
 
 describe('Runtime Bridge protocol', () => {
-  it('registers a fully constructed Game at a paused frame-zero baseline', () => {
+  it('registers a fully constructed Game at a paused frame-zero baseline', async () => {
     const { registered } = installActivation()
     const game = makeGame()
     game.spawn('Ready')
+    await game.ready()
 
     game.start()
 
@@ -226,13 +201,22 @@ describe('Runtime Bridge protocol', () => {
       mode: 'paused',
       frame: 0,
       simulationTime: 0,
-      capabilities: ['click', 'scene', 'fixed-step', 'assets', 'camera-effects', 'analog-actions'],
+      capabilities: ['click', 'scene', 'fixed-step', 'assets', 'camera-effects', 'analog-actions', 'render-backend'],
       assets: { pending: 0, loaded: 0, failed: 0 },
+      backend: 'webgpu',
     })
-    expect(RUNTIME_BRIDGE_CAPABILITIES).toEqual(['click', 'scene', 'fixed-step', 'assets', 'camera-effects', 'analog-actions'])
+    expect(RUNTIME_BRIDGE_CAPABILITIES).toEqual([
+      'click',
+      'scene',
+      'fixed-step',
+      'assets',
+      'camera-effects',
+      'analog-actions',
+      'render-backend',
+    ])
     expect(registered[0]?.surface).toBe(document.querySelector('canvas'))
-    expect(renderer.loop).toBeNull()
-    expect(renderer.renders).toBe(1)
+    expect(lastFakeRenderer().loop).toBeNull()
+    expect(lastFakeRenderer().renders).toBe(1)
     game.dispose()
   })
 
@@ -262,15 +246,16 @@ describe('Runtime Bridge protocol', () => {
     game.dispose()
   })
 
-  it('leaves ordinary execution on its existing real-time loop with no global endpoint', () => {
+  it('leaves ordinary execution on its existing real-time loop with no global endpoint', async () => {
     const game = makeGame()
+    await game.ready()
 
     game.start()
 
     expect(Object.prototype.hasOwnProperty.call(globalThis, RUNTIME_BRIDGE_SYMBOL)).toBe(false)
-    expect(renderer.loop).not.toBeNull()
-    renderer.loop?.(16)
-    expect(renderer.renders).toBe(1)
+    expect(lastFakeRenderer().loop).not.toBeNull()
+    lastFakeRenderer().loop?.(16)
+    expect(lastFakeRenderer().renders).toBe(1)
     game.dispose()
   })
 
@@ -291,9 +276,10 @@ describe('Runtime Bridge protocol', () => {
     expect(unregistered).toEqual([registered[0], registered[1]])
   })
 
-  it('steps the ordinary ordered frame pipeline without advancing while paused', () => {
+  it('steps the ordinary ordered frame pipeline without advancing while paused', async () => {
     const { registered } = installActivation()
     const game = makeGame()
+    await game.ready()
     const calls: string[] = []
     game.spawn('Subject').add(UpdateProbe, { calls })
     game.onUpdate((dt) => calls.push(`game:${dt}`))
@@ -316,8 +302,8 @@ describe('Runtime Bridge protocol', () => {
       frame: 2,
       simulationTime: 2 * SIMULATION_STEP,
     })
-    expect(renderer.renders).toBe(3)
-    expect(renderer.loop).toBeNull()
+    expect(lastFakeRenderer().renders).toBe(3)
+    expect(lastFakeRenderer().loop).toBeNull()
 
     // Derived, not summed: 60 whole steps are exactly one second.
     const second = registered[0]?.control({ operation: 'step', frames: 58 })
@@ -356,10 +342,10 @@ describe('Runtime Bridge protocol', () => {
     const bridge = defined(registered[0])
 
     expect(bridge.control({ operation: 'resume' }).mode).toBe('real-time')
-    const firstLoop = renderer.loop
+    const firstLoop = lastFakeRenderer().loop
     expect(firstLoop).not.toBeNull()
     expect(bridge.control({ operation: 'resume' }).mode).toBe('real-time')
-    expect(renderer.loop).toBe(firstLoop)
+    expect(lastFakeRenderer().loop).toBe(firstLoop)
 
     // CA-3: the first animation frame after resume seeds the clock and runs no step.
     firstLoop?.(1_000)
@@ -374,9 +360,9 @@ describe('Runtime Bridge protocol', () => {
     expect(bridge.metadata()).toMatchObject({ frame: 60, simulationTime: 1 })
 
     expect(bridge.control({ operation: 'pause' }).mode).toBe('paused')
-    expect(renderer.loop).toBeNull()
+    expect(lastFakeRenderer().loop).toBeNull()
     bridge.control({ operation: 'pause' })
-    expect(renderer.loop).toBeNull()
+    expect(lastFakeRenderer().loop).toBeNull()
 
     // Paused stepping continues the same counter: exactly one higher.
     expect(bridge.control({ operation: 'step', frames: 1 })).toMatchObject({
@@ -387,7 +373,7 @@ describe('Runtime Bridge protocol', () => {
 
     // Resuming much later never catches up on the wall clock.
     bridge.control({ operation: 'resume' })
-    renderer.loop?.(50_000)
+    lastFakeRenderer().loop?.(50_000)
     expect(calls).toHaveLength(61)
     expect(bridge.metadata()).toMatchObject({
       mode: 'real-time',

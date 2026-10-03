@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from 'three/webgpu'
 import type { Drawable } from './sprite-runs.js'
 
 /** A frame drawable: what three sorts it by, the object, and the sprite instance it stands for (null otherwise). */

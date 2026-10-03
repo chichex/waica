@@ -1,33 +1,11 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const renderer = vi.hoisted(() => ({
-  loop: null as ((time: number) => void) | null,
-}))
+vi.mock('three/webgpu', async (importOriginal) =>
+  (await import('./test-renderer.js')).withFakeRenderer(await importOriginal()),
+)
 
-vi.mock('three', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('three')>()
-  class WebGLRenderer {
-    readonly domElement: HTMLCanvasElement
-    constructor({ canvas }: { canvas: HTMLCanvasElement }) {
-      this.domElement = canvas
-    }
-    setPixelRatio(): void {}
-    setSize(): void {}
-    setViewport(): void {}
-    setScissor(): void {}
-    setScissorTest(): void {}
-    setClearColor(): void {}
-    clear(): void {}
-    render(): void {}
-    setAnimationLoop(loop: ((time: number) => void) | null): void {
-      renderer.loop = loop
-    }
-    dispose(): void {}
-  }
-  return { ...actual, WebGLRenderer }
-})
-
+import { lastFakeRenderer, resetFakeRendering } from './test-renderer'
 import { Component } from './component'
 import { frameMs } from './fixed-step-test-support'
 import { SIMULATION_STEP } from './fixed-step'
@@ -42,7 +20,7 @@ class ResizeObserverStub {
 }
 
 beforeEach(() => {
-  renderer.loop = null
+  resetFakeRendering()
   document.body.innerHTML = ''
   vi.stubGlobal('ResizeObserver', ResizeObserverStub)
 })
@@ -52,8 +30,9 @@ afterEach(() => {
 })
 
 function rawTick(time: number): void {
-  if (!renderer.loop) throw new Error('Game.start() did not install a frame callback')
-  renderer.loop(time)
+  const loop = lastFakeRenderer().loop
+  if (!loop) throw new Error('Game.start() did not install a frame callback')
+  loop(time)
 }
 
 /**
