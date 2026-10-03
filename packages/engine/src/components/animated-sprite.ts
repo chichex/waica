@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from 'three/webgpu'
 import { Component } from '../component.js'
 import { ClipPlayer, type ClipDef } from '../animation/clip-player.js'
 import { locateFrame, sheetCell, type SheetCell, type SheetDef } from '../animation/sheet.js'
@@ -155,7 +155,7 @@ export class AnimatedSprite extends Component implements YSortParticipant {
   private readonly failedSheets = new Set<THREE.Texture>()
   // The drawn quad, or under Sprite Batches (ADR 0024) the hidden anchor of
   // this sprite's instance, whose frame UV is read from the sheet clone.
-  private mesh?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
+  private mesh?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial | THREE.MeshBasicNodeMaterial>
   private frame = 0
   // Current frame's quad scale relative to the sheet's largest cell: always
   // 1 on grid sheets, per-frame on cell sheets (frames vary in pixel size).
