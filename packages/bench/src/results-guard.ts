@@ -85,6 +85,14 @@ function parseHost(value: unknown): BenchHost {
   }
 }
 
+function backendAt(fields: Fields): ScenarioResult['backend'] {
+  const value = fields.backend
+  if (value !== 'webgpu' && value !== 'webgl2') {
+    throw new Error('bench: invalid result: result.backend must be "webgpu" or "webgl2"')
+  }
+  return value
+}
+
 export function parseScenarioResult(value: unknown): ScenarioResult {
   const fields = record(value, 'result')
   const scenario = SCENARIOS.find((name) => name === fields.scenario)
@@ -92,6 +100,7 @@ export function parseScenarioResult(value: unknown): ScenarioResult {
   return {
     scenario,
     commit: stringAt(fields, 'commit', 'result'),
+    backend: backendAt(fields),
     host: parseHost(fields.host),
     counters: parseCounters(fields.counters),
     timings: parseTimings(fields.timings),
