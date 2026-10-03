@@ -104,6 +104,19 @@ describe('createProject', () => {
     expect(main).not.toContain("'waica:iso-town-theme'")
   })
 
+  it('generates a main.ts that awaits game.ready() before its first frame (ADR 0025)', async () => {
+    const parent = await tempDir()
+    roots.push(parent)
+    const target = path.join(parent, 'ready-first')
+
+    await createProject(target, 'demo', 'platformer')
+
+    const main = await readFile(path.join(target, 'src/main.ts'), 'utf8')
+    const ready = main.indexOf('await game.ready()')
+    expect(ready).toBeGreaterThan(-1)
+    expect(main.indexOf('game.start()')).toBeGreaterThan(ready)
+  })
+
   it('blank start leaves the isometric music uri alone (no art is copied)', async () => {
     const parent = await tempDir()
     roots.push(parent)
