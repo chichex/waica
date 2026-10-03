@@ -1,6 +1,7 @@
 {
   "scenario": "bullet-hell-40",
-  "commit": "adf61a7",
+  "commit": "22aa261",
+  "backend": "webgl2",
   "host": {
     "platform": "linux",
     "cpus": 8,
@@ -8,7 +9,7 @@
     "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
   },
   "counters": {
-    "drawCalls": 1,
+    "drawCalls": 2,
     "meshes": 3601,
     "visibleMeshes": 1,
     "geometries": 2,
@@ -22,12 +23,12 @@
   },
   "timings": {
     "frames": 600,
-    "medianMs": 26.300000071525574,
-    "p95Ms": 27.899999976158142,
+    "medianMs": 66.79999995231628,
+    "p95Ms": 69.30000007152557,
     "overBudget": true,
     "gcPauses": {
-      "count": 358,
-      "totalMs": 209.765
+      "count": 255,
+      "totalMs": 106.35
     }
   }
 }

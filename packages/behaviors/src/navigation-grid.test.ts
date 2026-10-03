@@ -6,27 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // intercepts this test file's own resolution) — same technique as
 // examples/isometric/src/demo-combat.test.ts.
 vi.mock(
-  new URL('../../engine/node_modules/three/build/three.module.js', import.meta.url).pathname,
-  async (importOriginal) => {
-    const actual = await importOriginal<Record<string, unknown>>()
-    class WebGLRenderer {
-      readonly domElement: HTMLCanvasElement
-      constructor({ canvas }: { canvas: HTMLCanvasElement }) {
-        this.domElement = canvas
-      }
-      setPixelRatio(): void {}
-      setSize(): void {}
-      setViewport(): void {}
-      setScissor(): void {}
-      setScissorTest(): void {}
-      setClearColor(): void {}
-      clear(): void {}
-      render(): void {}
-      setAnimationLoop(): void {}
-      dispose(): void {}
-    }
-    return { ...actual, WebGLRenderer }
-  },
+  new URL('../../engine/node_modules/three/build/three.webgpu.js', import.meta.url).pathname,
+  async (importOriginal) =>
+    (await import('../../engine/src/test-renderer.js')).withFakeRenderer(await importOriginal<Record<string, unknown>>()),
 )
 
 import { Game, Solid, Tilemap } from '@waica/engine'

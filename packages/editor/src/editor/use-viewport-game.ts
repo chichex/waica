@@ -53,7 +53,7 @@ function useSceneFileSwap(scenePath: string | undefined, target: SceneSwapTarget
 }
 
 /**
- * Runs the Game with the editor overlays drawn every frame, remembering the
+ * Runs the Game, once its renderer is ready, with the editor overlays drawn every frame, remembering the
  * edit camera's pan as it moves; returns what disposes both.
  */
 function startEditorLoop(game: Game, host: OverlayHost, camRef: RefObject<EditCamera>): () => void {
@@ -64,8 +64,20 @@ function startEditorLoop(game: Game, host: OverlayHost, camRef: RefObject<EditCa
     camRef.current.x = game.camera.position.x
     camRef.current.y = game.camera.position.y
   })
-  game.start()
+  let disposed = false
+  // The first frame waits for the renderer (ADR 0025). A Game disposed in
+  // the meantime (StrictMode's double mount, a quick mode switch) never
+  // starts, and its renderer's fate is no longer the editor's to report.
+  game.ready().then(
+    () => {
+      if (!disposed) game.start()
+    },
+    (error: unknown) => {
+      if (!disposed) console.error('[waica] the viewport cannot draw', error)
+    },
+  )
   return () => {
+    disposed = true
     overlays.dispose()
     game.dispose()
   }

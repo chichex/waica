@@ -1,4 +1,5 @@
-import * as THREE from 'three'
+import { attribute, context, mat3, positionLocal, uv, varying, vec3 } from 'three/tsl'
+import * as THREE from 'three/webgpu'
 import type { TextureOutcome } from './assets/asset-loader.js'
 
 export type SpriteBatchShape = 'rectangle' | 'circle'
@@ -36,51 +37,53 @@ export function spriteGeometry(shape: SpriteBatchShape): THREE.BufferGeometry {
 /** The per-instance UV transform a run carries: repeat (x, y) and offset (z, w). */
 const INSTANCE_UV = 'instanceUv'
 
+/** Whether three is building the material for one of the batch's instanced run meshes. */
+function drawsInstances(builder: THREE.NodeBuilder): boolean {
+  return (builder.object as Partial<THREE.InstancedMesh>).isInstancedMesh === true
+}
+
 /**
- * Shader hook shared by every batch material. The instance matrix already
- * holds view × world (three's own `modelViewMatrix` for that sprite, computed
- * the same way on the CPU), so the vertex shader skips `modelViewMatrix`; the
- * map's UV transform comes from the instance instead of `mapTransform`. Every
- * rewrite sits behind USE_INSTANCING: the hidden anchors share this material,
- * and if one were ever drawn as a plain mesh it compiles three's own chunks.
+ * The map UV of one instance: its repeat and offset as the same mat3 a
+ * texture's own matrix is, applied to the quad's UV in the fragment stage
+ * like three applies that matrix. The instance values reach the fragment
+ * flat, so every fragment of a sprite reads them exactly as written.
  */
-function useInstanceTransforms(shader: THREE.WebGLProgramParametersWithUniforms): void {
-  shader.vertexShader = shader.vertexShader
-    .replace('#include <common>', ['#include <common>', '#ifdef USE_INSTANCING', `  attribute vec4 ${INSTANCE_UV};`, '#endif'].join('\n'))
-    .replace(
-      '#include <uv_vertex>',
-      [
-        '#ifdef USE_INSTANCING',
-        '  #ifdef USE_MAP',
-        `    vMapUv = ( mat3( ${INSTANCE_UV}.x, 0.0, 0.0, 0.0, ${INSTANCE_UV}.y, 0.0, ${INSTANCE_UV}.z, ${INSTANCE_UV}.w, 1.0 ) * vec3( MAP_UV, 1 ) ).xy;`,
-        '  #endif',
-        '#else',
-        '  #include <uv_vertex>',
-        '#endif',
-      ].join('\n'),
-    )
-    .replace(
-      '#include <project_vertex>',
-      [
-        '#ifdef USE_INSTANCING',
-        '  vec4 mvPosition = instanceMatrix * vec4( transformed, 1.0 );',
-        '  gl_Position = projectionMatrix * mvPosition;',
-        '#else',
-        '  #include <project_vertex>',
-        '#endif',
-      ].join('\n'),
-    )
+function instanceMapUv(): THREE.Node {
+  const transform = varying(attribute(INSTANCE_UV, 'vec4')).setInterpolation(THREE.InterpolationSamplingType.FLAT)
+  return mat3(transform.x, 0, 0, 0, transform.y, 0, transform.z, transform.w, 1).mul(vec3(uv(), 1)).xy
+}
+
+/**
+ * Every batch's material, as a node material (ADR 0025). The instance
+ * matrix already holds view × world (three's own `modelViewMatrix` for that
+ * sprite, computed the same way on the CPU), so an instanced draw skips
+ * `modelViewMatrix`; the map's UV transform comes from the instance instead
+ * of the texture. Both apply to instanced draws only: the hidden anchors
+ * share this material, and if one were ever drawn as a plain mesh it gets
+ * three's own transforms.
+ */
+class SpriteBatchMaterial extends THREE.MeshBasicNodeMaterial {
+  constructor(parameters: THREE.MeshBasicNodeMaterialParameters) {
+    super(parameters)
+    this.contextNode = context({
+      getUV: (_texture: unknown, builder: THREE.NodeBuilder) => (drawsInstances(builder) ? instanceMapUv() : null),
+    })
+  }
+
+  override setupPositionView(builder: THREE.NodeBuilder): THREE.Node {
+    // three's instancing already multiplied positionLocal by the instance matrix.
+    return drawsInstances(builder) ? positionLocal : super.setupPositionView(builder)
+  }
 }
 
 function createMaterial(key: SpriteBatchKey, textures: SpriteBatchTextures): {
-  material: THREE.MeshBasicMaterial
+  material: THREE.MeshBasicNodeMaterial
   settled: Promise<TextureOutcome> | null
 } {
   // Double-sided: a flipped sprite mirrors through a negative x scale in its
   // matrix, exactly like its own mesh; per instance there is no winding flip.
-  const material = new THREE.MeshBasicMaterial({ transparent: true, side: THREE.DoubleSide })
+  const material = new SpriteBatchMaterial({ transparent: true, side: THREE.DoubleSide })
   material.forceSinglePass = true
-  material.onBeforeCompile = useInstanceTransforms
   if (key.texture === null) return { material, settled: null }
   const { texture, settled } = key.texture
     ? textures.texture(key.texture)
@@ -123,7 +126,7 @@ export class SpriteRunMesh {
   private readonly colors: THREE.InstancedBufferAttribute
   private readonly uvs: THREE.InstancedBufferAttribute
 
-  constructor(base: THREE.BufferGeometry, material: THREE.MeshBasicMaterial, capacity: number) {
+  constructor(base: THREE.BufferGeometry, material: THREE.MeshBasicNodeMaterial, capacity: number) {
     // Its own copy of the quad's attributes, so disposing one run never frees
     // buffers another geometry still binds.
     const geometry = base.clone()
@@ -175,7 +178,7 @@ export class SpriteRunMesh {
  * unload (ADR 0011).
  */
 export class SpriteBatch {
-  readonly material: THREE.MeshBasicMaterial
+  readonly material: THREE.MeshBasicNodeMaterial
   /** When the key's texture settled; null for untextured and bare entries. */
   readonly settled: Promise<TextureOutcome> | null
   // A slot reserves room in the key's capacity; it is not a position in any

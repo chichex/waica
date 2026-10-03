@@ -6,6 +6,7 @@ function result(overrides: Partial<ScenarioResult['counters']> = {}, median = 1)
   return {
     scenario: 'static-sprites-1000',
     commit: 'abc1234',
+    backend: 'webgl2',
     host: { platform: 'linux', cpus: 8, chrome: 'Google Chrome 150', renderer: 'ANGLE (SwiftShader)' },
     counters: {
       drawCalls: 1000,

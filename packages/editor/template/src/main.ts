@@ -147,5 +147,9 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
     game.audio.play(musicUri, { channel: 'music', loop: true, scope: 'session' })
   }
 
+  // The renderer initializes asynchronously (ADR 0025): WebGPU when the
+  // browser offers it, otherwise WebGL2. A frame before it draws nothing, so
+  // the first one waits; it rejects, naming both, when neither works.
+  await game.ready()
   game.start()
 }

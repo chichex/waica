@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from 'three/webgpu'
 import { gameViewport } from './anchored-pieces.js'
 import { AssetLoader } from './assets/asset-loader.js'
 import type { TextureBackend } from './assets/texture-backend.js'
@@ -33,14 +33,8 @@ import {
 } from './runtime-bridge.js'
 import { RuntimeInspector } from './runtime-inspection.js'
 import { projectIsometric, unprojectIsometric } from './projection.js'
-import {
-  isYSortBatchParticipant,
-  isYSortParticipant,
-  ySortZ,
-  type YSortBatchParticipant,
-  type YSortEntry,
-  type YSortParticipant,
-} from './render-sort.js'
+import { RenderReadiness, type RenderBackend } from './render-readiness.js'
+import { applyYSort } from './render-sort.js'
 import {
   loadScene,
   registryEntry,
@@ -161,8 +155,9 @@ export class Game {
    */
   simulate = true
 
-  // TODO(H1): migrate to WebGPURenderer (three/webgpu) with automatic WebGL2 fallback.
-  private readonly renderer: THREE.WebGLRenderer
+  /** WebGPU when the browser offers it, else three's WebGL2 fallback (ADR 0025). */
+  private readonly renderer: THREE.WebGPURenderer
+  private readonly readiness: RenderReadiness
   private readonly resizeObserver: ResizeObserver
   /** Scene-scoped Sprite Batches (ADR 0024); `render.batch: false` opts a scene out. */
   private readonly spriteBatches: SpriteBatches
@@ -237,8 +232,15 @@ export class Game {
       // One screen pixel in world units: the shake snaps to it (never the base).
       pixel: () => (this.resolution ? this.viewHeight / this.resolution.height : null),
     })
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
+    this.renderer = new THREE.WebGPURenderer({ canvas, antialias: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    // The model view on the CPU, as three's WebGL renderer computed it: a Sprite
+    // Batch instance carries that same matrix (ADR 0024), so batched and
+    // per-sprite draws stay pixel-identical.
+    this.renderer.highPrecision = true
+    this.readiness = new RenderReadiness(this.renderer, (error) => {
+      activeRuntimeBridgeHook()?.fail?.({ code: 'render-backend-failed', message: error.message })
+    })
     this.scene.background = new THREE.Color(background)
     this.camera = new THREE.OrthographicCamera()
     this.camera.position.z = 10
@@ -251,6 +253,21 @@ export class Game {
     this.resize()
     this.resizeObserver = new ResizeObserver(() => this.resize())
     this.resizeObserver.observe(canvas)
+  }
+
+  /**
+   * Resolves once the renderer can draw; rejects, naming both Render
+   * Backends, when neither initializes. Every call returns the same promise.
+   * Frames before it simulate but draw nothing, so a host awaits it before
+   * its first frame (ADR 0025).
+   */
+  ready(): Promise<void> {
+    return this.readiness.promise
+  }
+
+  /** The Render Backend the renderer settled on; null until ready() resolved. */
+  get backend(): RenderBackend | null {
+    return this.readiness.backend
   }
 
   /** Creates a live entity in the scene. */
@@ -464,6 +481,7 @@ export class Game {
           loadScene: (name) => this.loadSceneByName(name),
           availableScenes: () => this.availableScenes,
           assets: () => this.assets.status,
+          backend: () => this.backend,
         })
         activation.register(this.runtimeBridge)
         this.audio.setSilenced(true)
@@ -473,11 +491,11 @@ export class Game {
       return
     }
     this.resetClock()
-    this.renderer.setAnimationLoop((time) => this.tick(time))
+    this.setAnimationLoop((time) => this.tick(time))
   }
 
   stop(): void {
-    this.renderer.setAnimationLoop(null)
+    this.setAnimationLoop(null)
   }
 
   /** Internal: called by Entity.destroy(). Its Anchored Pieces go (or freeze) with it. */
@@ -521,7 +539,15 @@ export class Game {
     // After the entities: their clones go with the cascade above, the
     // cached bases go here, exactly once (ADR 0019).
     this.assets.dispose()
-    this.renderer.dispose()
+    this.readiness.disposeRenderer()
+  }
+
+  /**
+   * three installs the loop once its init settled; a failed init is
+   * reported by ready(), not by every loop change made before it.
+   */
+  private setAnimationLoop(loop: ((time: number) => void) | null): void {
+    this.renderer.setAnimationLoop(loop).catch(() => {})
   }
 
   /**
@@ -533,7 +559,7 @@ export class Game {
    */
   private resumeRuntime(onStep: () => void): void {
     this.resetClock()
-    this.renderer.setAnimationLoop((time) => this.tick(time, onStep))
+    this.setAnimationLoop((time) => this.tick(time, onStep))
   }
 
   /** Forgets the clock and any partial step, so the next frame runs no burst. */
@@ -664,39 +690,6 @@ export class Game {
     this.audio.setSilenced(false)
   }
 
-  /** Under y-sort, re-derives every participant's z from layer band + entity Y. */
-  private applyYSort(): void {
-    const singles: Array<{ participant: YSortParticipant; index: number }> = []
-    const batches: Array<{ participant: YSortBatchParticipant; start: number; count: number }> = []
-    const entries: YSortEntry[] = []
-    for (const entity of this.entities) {
-      for (const component of entity.components) {
-        if (isYSortBatchParticipant(component)) {
-          const batchEntries = component.ySortEntries()
-          batches.push({ participant: component, start: entries.length, count: batchEntries.length })
-          entries.push(...batchEntries)
-        } else if (isYSortParticipant(component)) {
-          singles.push({ participant: component, index: entries.length })
-          entries.push({ layer: component.layer, y: entity.node.position.y })
-        }
-      }
-    }
-    for (const participant of sceneDrainsOf(this).participants()) {
-      const batchEntries = participant.ySortEntries()
-      batches.push({ participant, start: entries.length, count: batchEntries.length })
-      entries.push(...batchEntries)
-    }
-    const z = ySortZ(entries)
-    for (const { participant, index } of singles) {
-      const sortZ = z[index]
-      if (sortZ === undefined) throw new Error(`ySortZ returned no z for y-sort participant ${index}`)
-      participant.setSortZ(sortZ)
-    }
-    for (const { participant, start, count } of batches) {
-      participant.setSortZs(z.slice(start, start + count))
-    }
-  }
-
   private renderSurface(): void {
     if (this.sceneProjection === 'isometric') {
       for (const entity of this.entities) {
@@ -705,7 +698,7 @@ export class Game {
         entity.node.position.y = projected.y
       }
     }
-    if (this.renderSort === 'y') this.applyYSort()
+    if (this.renderSort === 'y') applyYSort(this.entities, sceneDrainsOf(this).participants())
     this.ui.setActive(this.simulate)
     // The shake offset exists only while drawing (ADR 0020): Anchored Pieces
     // and the render see the drawn center, then the base comes back exactly,
@@ -716,6 +709,8 @@ export class Game {
     this.camera.position.y = y + shake.y
     try {
       anchoredPiecesOf(this.ui).place()
+      // Before ready() the frame simulated, but three cannot draw yet.
+      if (!this.readiness.isReady) return
       if (this.resolution) {
         // Letterbox bars: clear the whole canvas, then render inside the scissor.
         this.renderer.setScissorTest(false)

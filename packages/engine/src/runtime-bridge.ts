@@ -2,6 +2,7 @@ import enginePackage from '../package.json' with { type: 'json' }
 import type { AssetStatus } from './assets/asset-loader.js'
 import { SIMULATION_STEP } from './fixed-step.js'
 import { checkInjectedValue } from './input.js'
+import type { RenderBackend } from './render-readiness.js'
 import type { RuntimeSnapshot, RuntimeSnapshotFilters } from './runtime-inspection.js'
 
 export const RUNTIME_BRIDGE_PROTOCOL_VERSION = 1 as const
@@ -26,7 +27,11 @@ export type RuntimeMode = 'paused' | 'real-time'
  * from `game.cameraEffects`; the `scene` operation stays a hard cut.
  * `analog-actions` (issue #75, ADR 0023) announces that `hold` takes an
  * optional `value` in (0, 1] and that every control result carries
- * `actionValues` beside `heldActions`.
+ * `actionValues` beside `heldActions`. `render-backend` (issue #140, ADR
+ * 0025) announces that every metadata carries `backend`: the Render Backend
+ * once the renderer is ready, null before — a Run Session waits for it — and
+ * that a renderer that fails to initialize reports through the activation's
+ * `fail`.
  */
 export const RUNTIME_BRIDGE_CAPABILITIES = [
   'click',
@@ -35,6 +40,7 @@ export const RUNTIME_BRIDGE_CAPABILITIES = [
   'assets',
   'camera-effects',
   'analog-actions',
+  'render-backend',
 ] as const
 
 export interface RuntimeMetadata {
@@ -46,6 +52,8 @@ export interface RuntimeMetadata {
   capabilities: readonly string[]
   /** `game.assets.status` at the moment of the read — reading it never advances `frame`. */
   assets: AssetStatus
+  /** The Render Backend once `game.ready()` resolved; null until then (and for good after a failed init). */
+  backend: RenderBackend | null
 }
 
 export type RuntimeControlRequest =
@@ -86,11 +94,19 @@ export interface RuntimeBridge {
   control(request: RuntimeControlRequest): RuntimeControlResult
 }
 
+/** Why a Game can never become operational; reported through the activation. */
+export interface RuntimeBridgeFailure {
+  code: 'render-backend-failed'
+  message: string
+}
+
 /** Ephemeral pre-page hook installed by the owner of a browser context. */
 export interface RuntimeBridgeActivation {
   readonly protocolVersion: typeof RUNTIME_BRIDGE_PROTOCOL_VERSION
   register(bridge: RuntimeBridge): void
   unregister(bridge: RuntimeBridge): void
+  /** Optional: told when the Game's renderer fails to initialize, so the owner stops waiting. */
+  fail?(failure: RuntimeBridgeFailure): void
 }
 
 export function activeRuntimeBridgeHook(): RuntimeBridgeActivation | null {
@@ -128,6 +144,8 @@ export interface RuntimeBridgeHost {
   availableScenes(): string[]
   /** A fresh `game.assets.status`. */
   assets(): AssetStatus
+  /** The Render Backend, null until the renderer is ready. */
+  backend(): RenderBackend | null
 }
 
 export class EngineRuntimeBridge implements RuntimeBridge {
@@ -153,6 +171,7 @@ export class EngineRuntimeBridge implements RuntimeBridge {
       simulationTime: this.frame * SIMULATION_STEP,
       capabilities: RUNTIME_BRIDGE_CAPABILITIES,
       assets: this.host.assets(),
+      backend: this.host.backend(),
     }
   }
 

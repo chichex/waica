@@ -1,6 +1,7 @@
 {
   "scenario": "animated-sprites-2000",
-  "commit": "77cacd5",
+  "commit": "22aa261",
+  "backend": "webgl2",
   "host": {
     "platform": "linux",
     "cpus": 8,
@@ -8,7 +9,7 @@
     "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
   },
   "counters": {
-    "drawCalls": 1,
+    "drawCalls": 2,
     "meshes": 2001,
     "visibleMeshes": 1,
     "geometries": 2,
@@ -22,12 +23,12 @@
   },
   "timings": {
     "frames": 60,
-    "medianMs": 13.5,
-    "p95Ms": 14.600000023841858,
-    "overBudget": false,
+    "medianMs": 61.700000047683716,
+    "p95Ms": 63.800000071525574,
+    "overBudget": true,
     "gcPauses": {
-      "count": 26,
-      "totalMs": 3.595
+      "count": 25,
+      "totalMs": 6.037
     }
   }
 }

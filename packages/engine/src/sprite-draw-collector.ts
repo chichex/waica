@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from 'three/webgpu'
 import type { Drawable } from './sprite-runs.js'
 
 /** A frame drawable: what three sorts it by, the object, and the sprite instance it stands for (null otherwise). */
@@ -43,8 +43,8 @@ function sortCenter(object: THREE.Object3D): THREE.Vector3 {
 }
 
 /**
- * One frame's transparent drawables, collected the way WebGLRenderer's
- * projectObject walks the scene: visibility, camera layers, Group render
+ * One frame's transparent drawables, collected the way three's renderer
+ * (`_projectObject`) walks the scene: visibility, camera layers, Group render
  * order, frustum culling, and the clip-space z it sorts by. Sprite anchors
  * are hidden yet collected when in view; `skip` (the batches' own run
  * meshes) is never walked. The drawables are pooled across frames.

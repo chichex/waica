@@ -1,4 +1,4 @@
-import { Mesh, type BufferGeometry, type MeshBasicMaterial } from 'three'
+import { Mesh, type BufferGeometry, type MeshBasicMaterial } from 'three/webgpu'
 import { vi } from 'vitest'
 import type { TextureBackend } from '../assets/texture-backend.js'
 import { Game } from '../game.js'

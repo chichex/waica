@@ -1,26 +1,9 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('three', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('three')>()
-  class WebGLRenderer {
-    readonly domElement: HTMLCanvasElement
-    constructor({ canvas }: { canvas: HTMLCanvasElement }) {
-      this.domElement = canvas
-    }
-    setPixelRatio(): void {}
-    setSize(): void {}
-    setViewport(): void {}
-    setScissor(): void {}
-    setScissorTest(): void {}
-    setClearColor(): void {}
-    clear(): void {}
-    render(): void {}
-    setAnimationLoop(): void {}
-    dispose(): void {}
-  }
-  return { ...actual, WebGLRenderer }
-})
+vi.mock('three/webgpu', async (importOriginal) =>
+  (await import('./test-renderer.js')).withFakeRenderer(await importOriginal()),
+)
 
 import { Sprite } from './components/sprite'
 import { Game } from './game'
@@ -197,7 +180,7 @@ describe('Pointer — entity picking', () => {
     // Logical y alone would rank these backwards: A's logical y (0) is
     // lower than B's (0.5), but under the isometric projection A's render
     // y (0) is HIGHER than B's (-0.5) — B is the one actually drawn in
-    // front (Game.applyYSort keys off entity.node.position.y, the
+    // front (applyYSort (render-sort.ts) keys off entity.node.position.y, the
     // projected value), so a click in the overlap must resolve to B.
     const game = makeGame()
     game.setSceneRender({ projection: 'isometric' })

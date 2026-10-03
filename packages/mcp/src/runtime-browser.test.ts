@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   RUNTIME_BRIDGE_SYMBOL_KEY,
   installRuntimeBridgeActivation,
+  runtimeChromeArgs,
   type BrowserBridgeActivation,
 } from './runtime-browser.js'
 
@@ -41,5 +42,34 @@ describe('browser Runtime Bridge activation', () => {
     replacementHook.register(second)
     expect(replacementHook.current).toBe(second)
     expect(replacementHook.failure).toBeNull()
+  })
+})
+
+describe('a Game whose renderer cannot initialize (ADR 0025)', () => {
+  it('records the first failure it reports, so readiness stops waiting', () => {
+    installRuntimeBridgeActivation()
+    const hook = activation()
+
+    hook.fail({ code: 'render-backend-failed', message: 'neither webgpu nor webgl2' })
+    hook.fail({ code: 'render-backend-failed', message: 'a later one' })
+
+    expect(hook.failure).toEqual({ code: 'render-backend-failed', message: 'neither webgpu nor webgl2' })
+  })
+})
+
+describe('extra Chrome arguments for the e2e legs (internal, undocumented)', () => {
+  it('launches with none unless WAICA_RUNTIME_CHROME_ARGS names some', () => {
+    expect(runtimeChromeArgs({})).toEqual([])
+    expect(runtimeChromeArgs({ WAICA_RUNTIME_CHROME_ARGS: '' })).toEqual([])
+  })
+
+  it('reads a JSON array of strings', () => {
+    expect(runtimeChromeArgs({ WAICA_RUNTIME_CHROME_ARGS: '["--enable-unsafe-webgpu"]' })).toEqual([
+      '--enable-unsafe-webgpu',
+    ])
+  })
+
+  it.each(['--enable-unsafe-webgpu', '[1]', '{"a":1}', '[null]'])('rejects %s instead of guessing', (value) => {
+    expect(() => runtimeChromeArgs({ WAICA_RUNTIME_CHROME_ARGS: value })).toThrow(/WAICA_RUNTIME_CHROME_ARGS/)
   })
 })

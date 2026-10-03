@@ -83,9 +83,7 @@ async function compileSourceFallbacks(packagesRoot: string): Promise<Record<stri
         path.join(outputRoot, directory, 'dist', 'index.js'),
       ]),
     )
-    entries.three = nodeModule
-      .createRequire(path.join(packagesRoot, 'engine', 'package.json'))
-      .resolve('three')
+    Object.assign(entries, threeEntries(packagesRoot))
     if (Object.values(entries).some((entry) => !existsSync(entry))) {
       throw new Error('TypeScript fallback compilation did not emit every package entry.')
     }
@@ -97,6 +95,12 @@ async function compileSourceFallbacks(packagesRoot: string): Promise<Record<stri
   }
 }
 
+/** The engine's own copy of three, by every specifier the engine imports it with (ADR 0025). */
+function threeEntries(packagesRoot: string): Record<string, string> {
+  const engineRequire = nodeModule.createRequire(path.join(packagesRoot, 'engine', 'package.json'))
+  return Object.fromEntries(['three', 'three/webgpu', 'three/tsl'].map((specifier) => [specifier, engineRequire.resolve(specifier)]))
+}
+
 export async function fallbackEntriesFor(runnerPath: string): Promise<Record<string, string>> {
   const packagesRoot = checkoutPackagesRoot()
   if (!packagesRoot) return {}
@@ -106,9 +110,7 @@ export async function fallbackEntriesFor(runnerPath: string): Promise<Record<str
       path.join(packagesRoot, directory, 'dist', 'index.js'),
     ]),
   )
-  built.three = nodeModule
-    .createRequire(path.join(packagesRoot, 'engine', 'package.json'))
-    .resolve('three')
+  Object.assign(built, threeEntries(packagesRoot))
   if (Object.values(built).every((entry) => existsSync(entry))) return built
   if (!runnerPath.endsWith('.ts')) return {}
   sourceFallbackEntries ??= compileSourceFallbacks(packagesRoot)

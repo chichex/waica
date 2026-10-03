@@ -2,26 +2,9 @@
 import { AdditiveBlending, LinearFilter, NearestFilter } from 'three'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
-vi.mock('three', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>()
-  class WebGLRenderer {
-    readonly domElement: HTMLCanvasElement
-    constructor({ canvas }: { canvas: HTMLCanvasElement }) {
-      this.domElement = canvas
-    }
-    setPixelRatio(): void {}
-    setSize(): void {}
-    setViewport(): void {}
-    setScissor(): void {}
-    setScissorTest(): void {}
-    setClearColor(): void {}
-    clear(): void {}
-    render(): void {}
-    setAnimationLoop(): void {}
-    dispose(): void {}
-  }
-  return { ...actual, WebGLRenderer }
-})
+vi.mock('three/webgpu', async (importOriginal) =>
+  (await import('../test-renderer.js')).withFakeRenderer(await importOriginal()),
+)
 
 import { FakeTextureBackend, flush } from '../assets/test-helpers.js'
 import { ParticleEmitter } from './particle-emitter.js'

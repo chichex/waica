@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from 'three/webgpu'
 
 /**
  * The seam between `game.assets` and the browser (ADR 0013's move, applied

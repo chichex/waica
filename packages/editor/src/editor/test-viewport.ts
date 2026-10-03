@@ -1,6 +1,6 @@
 // Test support for the Viewport characterization suites: a sized canvas, a
 // world-to-client mapping, shared scenes and a StrictMode mount helper. The
-// suites themselves mock three's WebGLRenderer (vi.mock must stay hoisted in
+// suites themselves mock three's WebGPURenderer (vi.mock must stay hoisted in
 // each test file).
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { createElement, type ComponentProps } from 'react'

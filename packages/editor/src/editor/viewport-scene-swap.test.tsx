@@ -6,42 +6,28 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // Viewport.tsx pulls THREE through @waica/engine's re-export, so the mock
 // targets the engine's own copy of three — the one thing happy-dom cannot
 // host — exactly like examples/isometric/src/demo-combat.test.ts.
-const rendererHooks = vi.hoisted(() => ({
-  loop: null as ((time: number) => void) | null,
-}))
-
 vi.mock(
-  new URL(
-    '../../../../packages/engine/node_modules/three/build/three.module.js',
-    import.meta.url,
-  ).pathname,
-  async (importOriginal) => {
-    const actual = await importOriginal<Record<string, unknown>>()
-    class WebGLRenderer {
-      readonly domElement: HTMLCanvasElement
-      constructor({ canvas }: { canvas: HTMLCanvasElement }) {
-        this.domElement = canvas
-      }
-      setPixelRatio(): void {}
-      setSize(): void {}
-      setViewport(): void {}
-      setScissor(): void {}
-      setScissorTest(): void {}
-      setClearColor(): void {}
-      clear(): void {}
-      render(): void {}
-      setAnimationLoop(loop: ((time: number) => void) | null): void {
-        rendererHooks.loop = loop
-      }
-      dispose(): void {}
-    }
-    return { ...actual, WebGLRenderer }
-  },
+  new URL('../../../../packages/engine/node_modules/three/build/three.webgpu.js', import.meta.url).pathname,
+  async (importOriginal) =>
+    (await import('../../../engine/src/test-renderer.js')).withFakeRenderer(
+      await importOriginal<Record<string, unknown>>(),
+    ),
 )
 
 import type { SceneJson, SceneRegistry } from '@waica/engine'
+import { fakeRendering } from '../../../engine/src/test-renderer'
 import { Viewport, type ViewportHandle } from './Viewport'
 import { defined } from '../../../engine/src/test-support'
+
+/** Lets the live Game's renderer init settle, then runs one frame of its loop. */
+async function tick(): Promise<void> {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+  const loop = fakeRendering.renderers.find((renderer) => !renderer.disposed && renderer.loop)?.loop
+  if (!loop) throw new Error('the Viewport started no Game loop')
+  act(() => loop(16))
+}
 
 class ResizeObserverStub {
   observe(): void {}
@@ -105,7 +91,6 @@ describe('Viewport scene swap (CA-19)', () => {
     container = document.createElement('div')
     document.body.append(container)
     root = createRoot(container)
-    rendererHooks.loop = null
     vi.stubGlobal('ResizeObserver', ResizeObserverStub)
   })
 
@@ -167,7 +152,7 @@ describe('Viewport scene swap (CA-19)', () => {
     expect(game.find('B')).toBeDefined()
   })
 
-  it('preserves the editor pan across a scene swap', () => {
+  it('preserves the editor pan across a scene swap', async () => {
     const box: HandleBox = { current: null }
     render(root, box, SCENE_A)
     const game = defined(defined(box.current).game())
@@ -175,7 +160,7 @@ describe('Viewport scene swap (CA-19)', () => {
     // into the editor's own cam ref, exactly as a real drag would.
     game.camera.position.x = 42
     game.camera.position.y = -7
-    act(() => rendererHooks.loop?.(16))
+    await tick()
 
     render(root, box, SCENE_B, { scenePath: PATH_B })
 

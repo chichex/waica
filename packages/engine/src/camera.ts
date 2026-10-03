@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from 'three/webgpu'
 
 /**
  * The scene camera: a built-in, singular part of every scene — not a

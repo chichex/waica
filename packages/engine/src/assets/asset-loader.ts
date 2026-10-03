@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from 'three/webgpu'
 import { ThreeTextureBackend, type TextureBackend } from './texture-backend.js'
 import { reportRejection } from '../report-rejection.js'
 

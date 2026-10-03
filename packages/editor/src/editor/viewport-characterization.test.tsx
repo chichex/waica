@@ -3,42 +3,18 @@ import { act, fireEvent, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// Same seam as viewport-scene-swap.test.tsx: happy-dom cannot host WebGL, so
-// the engine's own copy of three gets a renderer that only records the loop.
-const rendererHooks = vi.hoisted(() => ({
-  loop: null as ((time: number) => void) | null,
-}))
-
+// Same seam as viewport-scene-swap.test.tsx: happy-dom hosts no GPU, so the
+// engine's own copy of three gets the shared fake renderer, which records the loop.
 vi.mock(
-  new URL(
-    '../../../../packages/engine/node_modules/three/build/three.module.js',
-    import.meta.url,
-  ).pathname,
-  async (importOriginal) => {
-    const actual = await importOriginal<Record<string, unknown>>()
-    class WebGLRenderer {
-      readonly domElement: HTMLCanvasElement
-      constructor({ canvas }: { canvas: HTMLCanvasElement }) {
-        this.domElement = canvas
-      }
-      setPixelRatio(): void {}
-      setSize(): void {}
-      setViewport(): void {}
-      setScissor(): void {}
-      setScissorTest(): void {}
-      setClearColor(): void {}
-      clear(): void {}
-      render(): void {}
-      setAnimationLoop(loop: ((time: number) => void) | null): void {
-        rendererHooks.loop = loop
-      }
-      dispose(): void {}
-    }
-    return { ...actual, WebGLRenderer }
-  },
+  new URL('../../../../packages/engine/node_modules/three/build/three.webgpu.js', import.meta.url).pathname,
+  async (importOriginal) =>
+    (await import('../../../engine/src/test-renderer.js')).withFakeRenderer(
+      await importOriginal<Record<string, unknown>>(),
+    ),
 )
 
 import { Solid, type SceneJson } from '@waica/engine'
+import { fakeRendering } from '../../../engine/src/test-renderer'
 import { defined } from '../../../engine/src/test-support'
 import {
   drag,
@@ -51,7 +27,15 @@ import {
   removeViewportHost,
 } from './test-viewport'
 
-const tick = (): void => act(() => rendererHooks.loop?.(16))
+/** Lets the live Game's renderer init settle, then runs one frame of its loop. */
+async function tick(): Promise<void> {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+  const loop = fakeRendering.renderers.find((renderer) => !renderer.disposed && renderer.loop)?.loop
+  if (!loop) throw new Error('the Viewport started no Game loop')
+  act(() => loop(16))
+}
 
 /** GameUi mounts each piece in an open shadow root, out of reach of screen queries; counts the shown ones. */
 const shownCopies = (text: string): number =>
@@ -65,7 +49,6 @@ function hiddenByStyle(element: Element | null): boolean {
 }
 
 beforeEach(() => {
-  rendererHooks.loop = null
   installViewportHost()
 })
 
@@ -181,10 +164,10 @@ describe('Viewport navigation', () => {
     expect(liveGame(mounted).camera.position.x).toBeCloseTo(-1)
   })
 
-  it('keeps the edit camera pan across a Play round trip', () => {
+  it('keeps the edit camera pan across a Play round trip', async () => {
     const mounted = mountViewport()
     drag(mounted.canvas, { from: [-6, 4], to: [-5, 2] })
-    tick()
+    await tick()
 
     mounted.rerender({ mode: 'play' })
     mounted.rerender({ mode: 'edit' })
@@ -195,26 +178,26 @@ describe('Viewport navigation', () => {
 })
 
 describe('Viewport per-frame editor overlays', () => {
-  it("hides the selected entity's appearance while its layer is hidden", () => {
+  it("hides the selected entity's appearance while its layer is hidden", async () => {
     const mounted = mountViewport({ selected: 'Hero', componentVisibility: { appearance: false, collision: true } })
     const hero = defined(liveGame(mounted).find('Hero'))
 
-    tick()
+    await tick()
     expect(hero.node.visible).toBe(false)
     mounted.rerender({ componentVisibility: { appearance: true, collision: true } })
-    tick()
+    await tick()
     expect(hero.node.visible).toBe(true)
   })
 
-  it("previews the scene's UI pieces inside the camera frame in edit mode", () => {
+  it("previews the scene's UI pieces inside the camera frame in edit mode", async () => {
     const scene: SceneJson = { ...HERO_AND_FOE, camera: { position: [0, 0], zoom: 12 }, ui: ['hud'] }
     const mounted = mountViewport({ scene, showCamera: true, registry: { ...REGISTRY, ui: { hud: '<p>Score panel</p>' } } })
 
     // The live Game mounts its own copy hidden in edit mode; the shown one is the preview.
-    tick()
+    await tick()
     expect(shownCopies('Score panel')).toBe(1)
     mounted.rerender({ scene: { ...scene, ui: [] } })
-    tick()
+    await tick()
     expect(shownCopies('Score panel')).toBe(0)
   })
 })

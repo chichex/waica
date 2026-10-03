@@ -1,90 +1,101 @@
-/**
- * The WebGL calls that issue a draw. three r186 draws through these under
- * WebGL2 (instanced ones for InstancedMesh); the multi-draw extension used
- * by BatchedMesh is not wrapped because no engine renderable uses it.
- */
-export const DRAW_ENTRY_POINTS = [
-  'drawArrays',
-  'drawElements',
-  'drawArraysInstanced',
-  'drawElementsInstanced',
-] as const
+/** The GPU API a Game drew through (ADR 0025). */
+export type RenderBackendName = 'webgpu' | 'webgl2'
 
-export interface DrawCounter {
-  /** Draw calls since install or the last reset(). */
-  readonly calls: number
-  /** The context that issued the most recent draw, or null before any. */
-  readonly lastContext: object | null
-  reset(): void
+/** The slice of three's WebGPURenderer the bench reads. */
+export interface BenchRenderer {
+  /** three counts every draw it issues, on either backend, in `info.render.drawCalls`. */
+  readonly info: { readonly render: { readonly drawCalls: number } }
+  /** The backend init() settled on: WebGPU, or the WebGL2 fallback. */
+  readonly backend: object
+}
+
+export interface RendererCapture {
+  /** The renderer whose init() ran last, or null before any. */
+  readonly current: BenchRenderer | null
   uninstall(): void
 }
 
 type Patchable = object
 
 /**
- * Wraps the draw entry points of each prototype (in the page:
- * `WebGLRenderingContext.prototype` and `WebGL2RenderingContext.prototype`)
- * so every draw is counted, without any engine API.
+ * Wraps `init` on a renderer prototype (in the page:
+ * `THREE.WebGPURenderer.prototype`) so the bench learns which renderer the
+ * Game built, without any engine API. Install it before the Game exists.
  */
-export function installDrawCounter(prototypes: readonly Patchable[]): DrawCounter {
-  let calls = 0
-  let lastContext: object | null = null
-  const remember = (context: object): void => {
-    lastContext = context
+export function captureRenderer(prototype: Patchable): RendererCapture {
+  let current: BenchRenderer | null = null
+  const remember = (renderer: BenchRenderer): void => {
+    current = renderer
   }
-  const restores: (() => void)[] = []
-  for (const proto of prototypes) {
-    const target = proto as Record<string, unknown>
-    for (const name of DRAW_ENTRY_POINTS) {
-      const original = target[name]
-      if (typeof original !== 'function') continue
-      target[name] = function countedDraw(this: object, ...args: unknown[]): unknown {
-        calls++
-        remember(this)
-        return (original as (...a: unknown[]) => unknown).apply(this, args)
-      }
-      restores.push(() => {
-        target[name] = original
-      })
-    }
+  const target = prototype as Record<string, unknown>
+  const ownDescriptor = Object.getOwnPropertyDescriptor(prototype, 'init')
+  const original = target.init
+  if (typeof original !== 'function') throw new Error('bench: the renderer prototype has no init()')
+  target.init = function capturedInit(this: BenchRenderer, ...args: unknown[]): unknown {
+    remember(this)
+    return (original as (...a: unknown[]) => unknown).apply(this, args)
   }
   return {
-    get calls() {
-      return calls
-    },
-    get lastContext() {
-      return lastContext
-    },
-    reset() {
-      calls = 0
+    get current() {
+      return current
     },
     uninstall() {
-      for (const restore of restores) restore()
-      restores.length = 0
+      if (ownDescriptor) Object.defineProperty(prototype, 'init', ownDescriptor)
+      else delete target.init
     },
   }
 }
 
-/** The slice of a WebGL context syncGpu needs. */
-export interface PixelReader {
+/** Draw calls `renderer` issued while `frame` ran: the difference, so an earlier count never leaks in. */
+export function countDraws(renderer: BenchRenderer, frame: () => void): number {
+  const before = renderer.info.render.drawCalls
+  frame()
+  return renderer.info.render.drawCalls - before
+}
+
+export function renderBackendOf(renderer: BenchRenderer): RenderBackendName {
+  const { backend } = renderer
+  return 'isWebGPUBackend' in backend && backend.isWebGPUBackend === true ? 'webgpu' : 'webgl2'
+}
+
+interface WebGPUQueueOwner {
+  device: { queue: { onSubmittedWorkDone(): Promise<unknown> } }
+}
+
+interface PixelReader {
   readonly RGBA: number
   readonly UNSIGNED_BYTE: number
   readPixels(x: number, y: number, width: number, height: number, format: number, type: number, pixels: Uint8Array): void
 }
 
+function hasQueue(backend: object): backend is WebGPUQueueOwner {
+  const { device } = backend as Partial<WebGPUQueueOwner>
+  return typeof device?.queue?.onSubmittedWorkDone === 'function'
+}
+
+function hasPixelReader(backend: object): backend is { gl: PixelReader } {
+  const { gl } = backend as { gl?: Partial<PixelReader> }
+  return typeof gl?.readPixels === 'function'
+}
+
 const SYNC_PIXEL = new Uint8Array(4)
 
 /**
- * Blocks until the GPU has executed every command issued so far on
- * `context`: reading back one pixel forces the pipeline to drain, so a
+ * Waits until the GPU has executed every command issued so far, so a
  * frame's wall time includes GPU (or SwiftShader) work, not just its CPU
- * submission.
+ * submission: on WebGPU the queue reports it, on WebGL2 reading back one
+ * pixel forces the pipeline to drain.
  */
-export function syncGpu(context: unknown): void {
-  if (!isPixelReader(context)) return
-  context.readPixels(0, 0, 1, 1, context.RGBA, context.UNSIGNED_BYTE, SYNC_PIXEL)
-}
-
-function isPixelReader(value: unknown): value is PixelReader {
-  return typeof value === 'object' && value !== null && typeof (value as Partial<PixelReader>).readPixels === 'function'
+export async function syncGpu(renderer: BenchRenderer): Promise<void> {
+  const { backend } = renderer
+  if (renderBackendOf(renderer) === 'webgpu' && hasQueue(backend)) {
+    await backend.device.queue.onSubmittedWorkDone()
+    return
+  }
+  if (hasPixelReader(backend)) {
+    const { gl } = backend
+    gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, SYNC_PIXEL)
+    return
+  }
+  throw new Error('bench: no GPU sync for this renderer backend')
 }
