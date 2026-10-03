@@ -1,6 +1,7 @@
 {
   "scenario": "spawn-churn-50",
-  "commit": "77cacd5",
+  "commit": "22aa261",
+  "backend": "webgl2",
   "host": {
     "platform": "linux",
     "cpus": 8,
@@ -8,7 +9,7 @@
     "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
   },
   "counters": {
-    "drawCalls": 1,
+    "drawCalls": 2,
     "meshes": 1501,
     "visibleMeshes": 1,
     "geometries": 2,
@@ -22,12 +23,12 @@
   },
   "timings": {
     "frames": 600,
-    "medianMs": 10.100000023841858,
-    "p95Ms": 11.200000047683716,
-    "overBudget": false,
+    "medianMs": 61.700000047683716,
+    "p95Ms": 65.30000007152557,
+    "overBudget": true,
     "gcPauses": {
-      "count": 57,
-      "totalMs": 40.159
+      "count": 52,
+      "totalMs": 44.817
     }
   }
 }
