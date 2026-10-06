@@ -33,6 +33,7 @@ import {
 } from './runtime-bridge.js'
 import { RuntimeInspector } from './runtime-inspection.js'
 import { projectIsometric, unprojectIsometric } from './projection.js'
+import { canvasBackground, drawStraightToCanvas, mapUvPerVertex } from './render-output.js'
 import { RenderReadiness, type RenderBackend } from './render-readiness.js'
 import { applyYSort } from './render-sort.js'
 import {
@@ -238,10 +239,12 @@ export class Game {
     // Batch instance carries that same matrix (ADR 0024), so batched and
     // per-sprite draws stay pixel-identical.
     this.renderer.highPrecision = true
+    drawStraightToCanvas(this.renderer)
+    mapUvPerVertex(this.renderer)
     this.readiness = new RenderReadiness(this.renderer, (error) => {
       activeRuntimeBridgeHook()?.fail?.({ code: 'render-backend-failed', message: error.message })
     })
-    this.scene.background = new THREE.Color(background)
+    this.scene.background = canvasBackground(background)
     this.camera = new THREE.OrthographicCamera()
     this.camera.position.z = 10
     this.pointer = new Pointer(canvas, {

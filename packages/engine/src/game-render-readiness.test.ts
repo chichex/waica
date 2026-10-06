@@ -168,3 +168,17 @@ describe('dispose() while ready() is pending', () => {
     expect(renderer.renders).toBe(0)
   })
 })
+
+describe('canvas output (ADR 0025)', () => {
+  it('draws straight to the canvas in sRGB like WebGLRenderer, with the background as the canvas stores it', () => {
+    const game = makeGame()
+    const renderer = lastFakeRenderer()
+    const byte = (channel: number): number => Math.round(channel * 255)
+    const background = game.scene.background as { r: number; g: number; b: number }
+
+    expect(renderer.outputColorSpace).toBe('srgb-linear')
+    expect(typeof renderer.contextNode.value.getOutput).toBe('function')
+    expect(typeof renderer.contextNode.value.getUV).toBe('function')
+    expect([byte(background.r), byte(background.g), byte(background.b)]).toEqual([0x1a, 0x1a, 0x2e])
+  })
+})

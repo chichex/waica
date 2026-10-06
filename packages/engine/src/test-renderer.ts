@@ -45,6 +45,10 @@ export class FakeWebGPURenderer {
   readonly info = { render: { drawCalls: 0 } }
   /** three's switch for a model view computed on the CPU instead of in the shader. */
   highPrecision = false
+  /** three's default output: sRGB, through an intermediate linear target. */
+  outputColorSpace = 'srgb'
+  /** The renderer-wide context three merges into every material build. */
+  readonly contextNode = { value: {} as Record<string, unknown> }
   /** The animation loop callback last installed, or null. */
   loop: ((time: number) => void) | null = null
   renders = 0
