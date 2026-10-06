@@ -15,6 +15,12 @@ export interface ViewportPointerSession {
   showCamera: boolean
 }
 
+/** Shows `cursor` on the live Game's canvas inside the viewport surface, where the cursor always was. */
+function showHoverCursor(surface: HTMLElement, cursor: string): void {
+  const target = surface.querySelector('canvas') ?? surface
+  target.style.cursor = cursor
+}
+
 /**
  * The edit viewport's pointer interaction: one gesture at a time (paint,
  * box edit, camera drag, entity drag, marquee or pan) from pointer-down to
@@ -53,7 +59,7 @@ export function useViewportPointer(session: ViewportPointerSession, callbacks: G
     if (!step) return
     const gesture = gestureRef.current
     if (gesture) gestureRef.current = dragGesture(step, gesture)
-    else (canvasRef.current ?? e.currentTarget).style.cursor = hoverCursor(step.world.game, step.world.live, step.at.point)
+    else showHoverCursor(e.currentTarget, hoverCursor(step.world.game, step.world.live, step.at.point))
   }
 
   const onPointerUp = (): void => {

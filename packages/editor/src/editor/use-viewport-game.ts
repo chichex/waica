@@ -84,6 +84,24 @@ function startEditorLoop(game: Game, host: OverlayHost, camRef: RefObject<EditCa
 }
 
 /**
+ * A fresh canvas in `surface` for one Game, published through `canvasRef`
+ * until released. Never the previous Game's canvas: disposing a renderer
+ * can lose its canvas's context (three's WebGL2 backend), and a canvas
+ * hands every renderer that same context (review #2).
+ */
+function claimGameCanvas(surface: HTMLElement, canvasRef: RefObject<HTMLCanvasElement | null>) {
+  const canvas = mountGameCanvas(surface)
+  canvasRef.current = canvas
+  return {
+    canvas,
+    release: (): void => {
+      canvas.remove()
+      if (canvasRef.current === canvas) canvasRef.current = null
+    },
+  }
+}
+
+/**
  * Owns the live Game behind the Viewport: builds it per [epoch, mode], keeps
  * the latest props readable from its loop, and reloads another scene file
  * over it.
@@ -123,11 +141,7 @@ export function useViewportGame(inputs: ViewportLive, options: ViewportGameOptio
   useEffect(() => {
     const surface = surfaceRef.current
     if (!surface) return
-    // Never the previous Game's canvas: disposing a renderer can lose its
-    // canvas's context (three's WebGL2 backend), and a canvas hands every
-    // renderer that same context (review #2).
-    const canvas = mountGameCanvas(surface)
-    canvasRef.current = canvas
+    const { canvas, release } = claimGameCanvas(surface, canvasRef)
     const game = createViewportGame(canvas, liveRef.current, { mode, background, viewHeight: camRef.current.view })
     gameRef.current = game
     lastLoadedScenePathRef.current = liveRef.current.scenePath ?? null
@@ -144,8 +158,7 @@ export function useViewportGame(inputs: ViewportLive, options: ViewportGameOptio
     return () => {
       stop()
       gameRef.current = null
-      canvas.remove()
-      if (canvasRef.current === canvas) canvasRef.current = null
+      release()
     }
     // Every other input is read live through liveRef; background and
     // showCamera are fixed per Viewport instance, so they never force a rebuild.
