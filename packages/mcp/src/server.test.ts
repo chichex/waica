@@ -2,8 +2,9 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { cleanup, jsonResult, makeProject, tempDir } from './test-helpers.js'
+import { fallbackEntriesFor } from './project-component-fallbacks.js'
 import { ProjectComponentLoader } from './project-component-loader.js'
 import { createWaicaMcpServer } from './server.js'
 import type { RuntimeService } from './runtime-service.js'
@@ -51,6 +52,13 @@ function argumentsFor(name: string, projectPath: string): Record<string, unknown
 
 const roots: string[] = []
 afterEach(async () => cleanup(...roots.splice(0)))
+
+// A checkout without built @waica dists compiles the package sources once per
+// process before its first validation (project-component-fallbacks.ts). That
+// one-time compile is not what the validation-child tests below time: done
+// lazily, it landed inside their few-second waits and failed them on a loaded
+// runner (the v0.24.0 publish run). Pay it here, bounded like the compile itself.
+beforeAll(() => fallbackEntriesFor('validation-runner.ts'), 120_000)
 
 async function connectedPair(
   runtime?: RuntimeService,
