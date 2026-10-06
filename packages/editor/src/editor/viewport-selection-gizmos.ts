@@ -8,18 +8,20 @@ import { renderPoint, type ViewportProjection } from './viewport-space'
 
 export const SELECTION_AMBER = 0xffb703
 
-export function rectLoop(color: number): THREE.LineLoop<THREE.BufferGeometry, THREE.LineBasicMaterial> {
+/** A unit rectangle outline, closed by repeating its first corner: WebGPURenderer draws no LineLoop. */
+export function rectLoop(color: number): THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial> {
   const geo = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(-0.5, -0.5, 0),
     new THREE.Vector3(0.5, -0.5, 0),
     new THREE.Vector3(0.5, 0.5, 0),
     new THREE.Vector3(-0.5, 0.5, 0),
+    new THREE.Vector3(-0.5, -0.5, 0),
   ])
-  return new THREE.LineLoop(geo, new THREE.LineBasicMaterial({ color }))
+  return new THREE.Line(geo, new THREE.LineBasicMaterial({ color }))
 }
 
 /** Frames `loop` around the entity's render-space bounds, with a small margin, at the loop's own depth. */
-function outlineEntity(loop: THREE.LineLoop, entity: Entity, projection: ViewportProjection): void {
+function outlineEntity(loop: THREE.Line, entity: Entity, projection: ViewportProjection): void {
   const bounds = entityBounds(entity, projection)
   const [entityX, entityY] = renderPoint(projection, entity.position.x, entity.position.y)
   loop.position.set(entityX + bounds.centerX, entityY + bounds.centerY, loop.position.z)
@@ -135,7 +137,7 @@ function createBoxGizmos(game: Game) {
 
 /** Outlines every member of the multi-selection so the group reads at a glance. */
 function createMultiGizmos(game: Game) {
-  const loops: THREE.LineLoop[] = []
+  const loops: THREE.Line[] = []
   return {
     sync(names: readonly string[], projection: ViewportProjection): void {
       while (loops.length < names.length) {
