@@ -36,6 +36,9 @@ it('keeps the instance transform to instanced draws, so a plain draw of the mate
   // The instance matrix already holds view × world: no modelViewMatrix on top.
   expect(material.setupPositionView(instanced)).toBe(positionLocal)
   expect(material.setupPositionView(plain)).not.toBe(positionLocal)
-  expect(uvContext.getUV(null, instanced)).not.toBeNull()
-  expect(uvContext.getUV(null, plain)).toBeNull()
+  const map = new THREE.TextureNode(new THREE.Texture())
+  // Per vertex, like every other map (render-output.ts), from the instance's own transform.
+  expect((uvContext.getUV(map, instanced) as THREE.Node).type).toBe('VaryingNode')
+  expect(map.updateMatrix).toBe(false)
+  expect(uvContext.getUV(new THREE.TextureNode(new THREE.Texture()), plain)).toBeNull()
 })

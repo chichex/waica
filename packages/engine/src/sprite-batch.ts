@@ -1,4 +1,4 @@
-import { attribute, context, mat3, positionLocal, uv, varying, vec3 } from 'three/tsl'
+import { attribute, context, mat3, positionLocal, uv, vec3, vertexStage } from 'three/tsl'
 import * as THREE from 'three/webgpu'
 import type { TextureOutcome } from './assets/asset-loader.js'
 
@@ -44,13 +44,18 @@ function drawsInstances(builder: THREE.NodeBuilder): boolean {
 
 /**
  * The map UV of one instance: its repeat and offset as the same mat3 a
- * texture's own matrix is, applied to the quad's UV in the fragment stage
- * like three applies that matrix. The instance values reach the fragment
- * flat, so every fragment of a sprite reads them exactly as written.
+ * texture's own matrix is, applied to the quad's UV per vertex — as every
+ * other map is (render-output.ts `mapUvPerVertex`) — so the corner UVs are
+ * the very floats the per-sprite draw interpolates.
  */
 function instanceMapUv(): THREE.Node {
-  const transform = varying(attribute(INSTANCE_UV, 'vec4')).setInterpolation(THREE.InterpolationSamplingType.FLAT)
-  return mat3(transform.x, 0, 0, 0, transform.y, 0, transform.z, transform.w, 1).mul(vec3(uv(), 1)).xy
+  const transform = attribute(INSTANCE_UV, 'vec4')
+  return vertexStage(mat3(transform.x, 0, 0, 0, transform.y, 0, transform.z, transform.w, 1).mul(vec3(uv(), 1)).xy)
+}
+
+/** What the batch's `getUV` hook receives for its map. */
+interface MapTexture {
+  setUpdateMatrix(value: boolean): unknown
 }
 
 /**
@@ -66,7 +71,12 @@ class SpriteBatchMaterial extends THREE.MeshBasicNodeMaterial {
   constructor(parameters: THREE.MeshBasicNodeMaterialParameters) {
     super(parameters)
     this.contextNode = context({
-      getUV: (_texture: unknown, builder: THREE.NodeBuilder) => (drawsInstances(builder) ? instanceMapUv() : null),
+      getUV: (texture: MapTexture, builder: THREE.NodeBuilder) => {
+        if (!drawsInstances(builder)) return null
+        // The instance transform replaces the map's own matrix.
+        texture.setUpdateMatrix(false)
+        return instanceMapUv()
+      },
     })
   }
 
