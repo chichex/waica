@@ -135,6 +135,20 @@ describe('Tilemap merged rendering', () => {
     game.dispose()
   })
 
+  it('draws nothing without a tile, as WebGLRenderer skipped a zero-count draw (WebGPURenderer issues it)', () => {
+    const game = makeGame()
+    const entity = game.spawn('Map')
+    const tilemap = entity.add(Tilemap, { cellSize: 1, mapWidth: 2, mapHeight: 1, cells: [-1, -1] })
+    expect(geometryOf(entity).mesh.visible).toBe(false)
+
+    tilemap.cells = [0, -1]
+    expect(geometryOf(entity).mesh.visible).toBe(true)
+
+    tilemap.cells = [-1, -1]
+    expect(geometryOf(entity).mesh.visible).toBe(false)
+    game.dispose()
+  })
+
   it('empty-pads short cell arrays and ignores values past the map area', () => {
     const game = makeGame()
     const entity = game.spawn('Map')

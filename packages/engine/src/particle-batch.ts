@@ -170,6 +170,9 @@ export class ParticleBatch implements SceneDrain {
     colors.needsUpdate = true
     this.sortIndices()
     this.mesh.geometry.setDrawRange(0, this.active * 6)
+    // WebGPURenderer issues a zero-count draw (WebGLRenderer skipped it):
+    // an empty batch is not drawn at all.
+    this.mesh.visible = this.active > 0
   }
 
   ySortEntries(): readonly YSortEntry[] {

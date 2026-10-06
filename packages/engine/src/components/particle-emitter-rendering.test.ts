@@ -215,3 +215,19 @@ it('uses spawn snapshots, semi-implicit Euler and midpoint interpolation (CA-5, 
   expect(emitter.active).toBe(1)
   game.dispose()
 })
+
+it('draws nothing while no particle is alive, as WebGLRenderer skipped a zero-count draw (WebGPURenderer issues it)', () => {
+  const game = makeParticleGame()
+  const emitter = game.spawn('Idle').add(ParticleEmitter, { capacity: 2, lifetime: 0.5 })
+  const mesh = particleMeshes(game)[0] as ParticleMesh
+  emitter.onUpdate?.(0.1)
+  expect(mesh.visible).toBe(false)
+
+  emitter.emit(1)
+  expect(mesh.visible).toBe(true)
+
+  emitter.onUpdate?.(1)
+  expect(emitter.active).toBe(0)
+  expect(mesh.visible).toBe(false)
+  game.dispose()
+})
