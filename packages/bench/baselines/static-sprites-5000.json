@@ -1,6 +1,6 @@
 {
   "scenario": "static-sprites-5000",
-  "commit": "22aa261",
+  "commit": "2c57b94",
   "backend": "webgl2",
   "host": {
     "platform": "linux",
@@ -9,7 +9,7 @@
     "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
   },
   "counters": {
-    "drawCalls": 2,
+    "drawCalls": 1,
     "meshes": 5001,
     "visibleMeshes": 1,
     "geometries": 2,
@@ -23,12 +23,12 @@
   },
   "timings": {
     "frames": 60,
-    "medianMs": 76.64999997615814,
-    "p95Ms": 79,
+    "medianMs": 29.450000047683716,
+    "p95Ms": 37.5,
     "overBudget": true,
     "gcPauses": {
-      "count": 9,
-      "totalMs": 3.945
+      "count": 10,
+      "totalMs": 4.762
     }
   }
 }
