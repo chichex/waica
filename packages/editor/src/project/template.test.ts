@@ -139,6 +139,17 @@ describe('projectFiles', () => {
     ['platformer example', exampleMain],
     ['topdown example', topdownMain],
     ['isometric example', isometricMain],
+  ])('reports a failed start instead of leaving a floating rejection in the %s (review #4)', (_name, main) => {
+    expect(main).toContain("main(canvas).catch((error: unknown) => {")
+    expect(main).toContain("console.error('[waica] the game failed to start:', error)")
+    expect(main).not.toMatch(/void main\(/)
+  })
+
+  it.each([
+    ['generated project', projectFiles('my-game')['src/main.ts'] ?? ''],
+    ['platformer example', exampleMain],
+    ['topdown example', topdownMain],
+    ['isometric example', isometricMain],
   ])('awaits game.ready() before the first frame in the %s (ADR 0025)', (_name, main) => {
     const ready = main.indexOf('await game.ready()')
     expect(ready).toBeGreaterThan(-1)

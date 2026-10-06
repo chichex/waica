@@ -91,7 +91,9 @@ if (canvas.dataset.waica) {
   location.reload()
 } else {
   canvas.dataset.waica = 'mounted'
-  void main(canvas)
+  main(canvas).catch((error: unknown) => {
+    console.error('[waica] the game failed to start:', error)
+  })
 }
 
 async function main(canvas: HTMLCanvasElement): Promise<void> {
