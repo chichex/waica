@@ -60,6 +60,11 @@ export class RenderReadiness {
     this.promise.catch(() => {})
   }
 
+  /** Runs `then` once the renderer is ready; never after a failed init. */
+  whenReady(then: () => void): void {
+    this.promise.then(then, () => {})
+  }
+
   /** True once the renderer can draw. */
   get isReady(): boolean {
     return this.state.status === 'ready'

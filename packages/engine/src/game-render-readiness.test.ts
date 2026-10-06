@@ -77,10 +77,24 @@ describe('game.ready(): the renderer initializes asynchronously (ADR 0025)', () 
 
     lastFakeRenderer().resolveInit('webgpu')
     await game.ready()
+    // The paused frame is drawn once the renderer is ready (review #1), then every step draws.
+    expect(lastFakeRenderer().renders).toBe(1)
     bridge.control({ operation: 'step', frames: 1 })
 
     expect(updates.count).toBe(3)
+    expect(lastFakeRenderer().renders).toBe(2)
+  })
+
+  it('draws the paused frame of a Game started before ready() as soon as the renderer is ready, without advancing it (review #1)', async () => {
+    fakeRendering.init = 'pending'
+    const { game, bridge } = startedGame()
+    expect(lastFakeRenderer().renders).toBe(0)
+
+    lastFakeRenderer().resolveInit('webgpu')
+    await game.ready()
+
     expect(lastFakeRenderer().renders).toBe(1)
+    expect(bridge.metadata().frame).toBe(0)
   })
 
   it('returns the same settled outcome on every call', async () => {
@@ -180,5 +194,65 @@ describe('canvas output (ADR 0025)', () => {
     expect(typeof renderer.contextNode.value.getOutput).toBe('function')
     expect(typeof renderer.contextNode.value.getUV).toBe('function')
     expect([byte(background.r), byte(background.g), byte(background.b)]).toEqual([0x1a, 0x1a, 0x2e])
+  })
+})
+
+describe('the fake renderer installs a loop only once init() settled, as three does (review #5)', () => {
+  it('queues start() and stop() behind a pending init, in order', async () => {
+    fakeRendering.init = 'pending'
+    const game = makeGame()
+    game.start()
+    expect(lastFakeRenderer().loop).toBeNull()
+
+    lastFakeRenderer().resolveInit('webgpu')
+    await game.ready()
+    await Promise.resolve()
+    expect(lastFakeRenderer().loop).not.toBeNull()
+
+    game.stop()
+    await Promise.resolve()
+    expect(lastFakeRenderer().loop).toBeNull()
+  })
+})
+
+describe('a disposed Game (review #3)', () => {
+  it('ignores start() after dispose(): no bridge, no loop', async () => {
+    const { bridges } = installActivation()
+    const game = makeGame()
+    await game.ready()
+    game.dispose()
+
+    game.start()
+    await Promise.resolve()
+
+    expect(bridges).toHaveLength(0)
+    expect(lastFakeRenderer().loop).toBeNull()
+    expect(lastFakeRenderer().renders).toBe(0)
+  })
+
+  it('never starts when a host disposes it while ready() is pending', async () => {
+    const { bridges } = installActivation()
+    fakeRendering.init = 'pending'
+    const game = makeGame()
+    const started = game.ready().then(() => game.start())
+    game.dispose()
+
+    lastFakeRenderer().resolveInit('webgpu')
+    await started
+
+    expect(bridges).toHaveLength(0)
+    expect(lastFakeRenderer().renders).toBe(0)
+  })
+
+  it('does not report a renderer failure to the activation once disposed', async () => {
+    const { failures } = installActivation()
+    fakeRendering.init = 'pending'
+    const game = makeGame()
+    game.dispose()
+
+    lastFakeRenderer().rejectInit(new Error('no adapter'))
+    await expect(game.ready()).rejects.toThrow()
+
+    expect(failures).toEqual([])
   })
 })

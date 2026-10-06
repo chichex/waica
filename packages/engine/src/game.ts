@@ -195,6 +195,8 @@ export class Game {
   private liveSceneName: string | null = null
   /** True for the whole extent of a runFrame() call, incl. its tail. */
   private insideFrame = false
+  /** Set by dispose(): a disposed Game never starts again nor reports its renderer (review #3). */
+  private disposed = false
   /** A loadSceneByName() enqueued while insideFrame; applied at the next runFrame's start. */
   private pendingSceneLoad: (() => void) | null = null
 
@@ -242,7 +244,7 @@ export class Game {
     drawStraightToCanvas(this.renderer)
     mapUvPerVertex(this.renderer)
     this.readiness = new RenderReadiness(this.renderer, (error) => {
-      activeRuntimeBridgeHook()?.fail?.({ code: 'render-backend-failed', message: error.message })
+      if (!this.disposed) activeRuntimeBridgeHook()?.fail?.({ code: 'render-backend-failed', message: error.message })
     })
     this.scene.background = canvasBackground(background)
     this.camera = new THREE.OrthographicCamera()
@@ -465,6 +467,7 @@ export class Game {
   }
 
   start(): void {
+    if (this.disposed) return
     const activation = activeRuntimeBridgeHook()
     if (activation) {
       if (!this.runtimeBridge) {
@@ -491,6 +494,12 @@ export class Game {
         window.addEventListener('pagehide', this.unregisterRuntimeBridge)
       }
       this.renderSurface()
+      // Started before ready(): the paused frame draws once the renderer can, frame unchanged.
+      if (!this.readiness.isReady) {
+        this.readiness.whenReady(() => {
+          if (this.runtimeBridge) this.renderSurface()
+        })
+      }
       return
     }
     this.resetClock()
@@ -525,6 +534,7 @@ export class Game {
 
   /** Shuts the game down completely (loop, input, GPU). */
   dispose(): void {
+    this.disposed = true
     this.stop()
     this.unregisterRuntimeBridge()
     this.input.dispose()
