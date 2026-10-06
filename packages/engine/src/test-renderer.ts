@@ -105,9 +105,15 @@ export class FakeWebGPURenderer {
     fakeRendering.onRender?.(scene, camera)
   }
 
+  /** Like three: applied at once when initialized, otherwise once init() settled, in call order. */
   setAnimationLoop(loop: ((time: number) => void) | null): Promise<void> {
-    this.loop = loop
-    return Promise.resolve()
+    if (this.initialized) {
+      this.loop = loop
+      return Promise.resolve()
+    }
+    return this.init().then(() => {
+      this.loop = loop
+    })
   }
 
   dispose(): Promise<void> {
