@@ -80,6 +80,8 @@ interface BridgeResponse {
     message: string
     availableActions?: unknown[]
     availableScenes?: unknown[]
+    /** The page-side stack of an unexpected error (one without a bridge code), to trace it. */
+    stack?: string
   }
 }
 
@@ -88,7 +90,7 @@ interface BridgeResponse {
  * Game's Runtime Bridge and turns a thrown bridge error into data. It must
  * reference nothing outside its own body.
  */
-function callLiveBridge(request: {
+export function callLiveBridge(request: {
   operation: BridgeOperation
   argument: Record<string, unknown>
 }): BridgeResponse {
@@ -126,7 +128,9 @@ function callLiveBridge(request: {
       message?: unknown
       availableActions?: unknown
       availableScenes?: unknown
+      stack?: unknown
     }
+    const unexpected = typeof detail.code !== 'string' && typeof detail.stack === 'string'
     return {
       ok: false,
       error: {
@@ -139,9 +143,25 @@ function callLiveBridge(request: {
         ...(Array.isArray(detail.availableScenes)
           ? { availableScenes: detail.availableScenes }
           : {}),
+        ...(unexpected ? { stack: String(detail.stack).slice(0, 4_096) } : {}),
       },
     }
   }
+}
+
+/**
+ * What a failed bridge call reports beside its message: the choices a
+ * refusal offers, or, for an unexpected error, its page-side stack and the
+ * page's recent errors.
+ */
+function bridgeErrorDiagnostics(
+  error: NonNullable<BridgeResponse['error']>,
+  page: () => Record<string, unknown>,
+): Record<string, unknown> | undefined {
+  if (error.availableActions) return { availableActions: error.availableActions }
+  if (error.availableScenes) return { availableScenes: error.availableScenes }
+  if (error.stack) return { stack: error.stack, ...page() }
+  return undefined
 }
 
 async function readinessProbe(page: Page): Promise<ReadinessProbe> {
@@ -347,11 +367,7 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
       this.preflight,
       error.stage === 'game' ? 'game' : 'control',
       error.message,
-      error.availableActions
-        ? { availableActions: error.availableActions }
-        : error.availableScenes
-          ? { availableScenes: error.availableScenes }
-          : undefined,
+      bridgeErrorDiagnostics(error, () => this.diagnostics()),
       error.code === 'runtime-invalid-state'
         ? 'runtime-invalid-state'
         : 'runtime-operation-failed',
