@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { captureRenderer, countDraws, renderBackendOf, syncGpu, type BenchRenderer } from './draw-counter.ts'
+import { captureRenderer, countDraws, syncGpu, type BenchRenderer } from './draw-counter.ts'
 
 /** A renderer as the bench sees it: three's per-frame info and the backend init() settled on. */
 function fakeRenderer(backend: object): BenchRenderer & { draw(): void } {
@@ -61,13 +61,6 @@ describe('countDraws', () => {
   })
 })
 
-describe('renderBackendOf', () => {
-  it('names the Render Backend init() settled on', () => {
-    expect(renderBackendOf(fakeRenderer({ isWebGPUBackend: true }))).toBe('webgpu')
-    expect(renderBackendOf(fakeRenderer({ isWebGLBackend: true }))).toBe('webgl2')
-  })
-})
-
 describe('syncGpu', () => {
   it('waits for the WebGPU queue to finish the work submitted so far', async () => {
     let done = false
@@ -83,7 +76,7 @@ describe('syncGpu', () => {
       },
     }
 
-    await syncGpu(fakeRenderer({ isWebGPUBackend: true, device }))
+    await syncGpu(fakeRenderer({ device }), 'webgpu')
 
     expect(done).toBe(true)
   })
@@ -92,13 +85,15 @@ describe('syncGpu', () => {
     const reads: unknown[][] = []
     const gl = { RGBA: 6408, UNSIGNED_BYTE: 5121, readPixels: (...args: unknown[]) => reads.push(args) }
 
-    await syncGpu(fakeRenderer({ isWebGLBackend: true, gl }))
+    await syncGpu(fakeRenderer({ gl }), 'webgl2')
 
     expect(reads).toHaveLength(1)
     expect(reads[0]?.slice(0, 6)).toEqual([0, 0, 1, 1, 6408, 5121])
   })
 
   it('fails on a backend it cannot sync, instead of timing an unsynced frame', async () => {
-    await expect(syncGpu(fakeRenderer({}))).rejects.toThrow(/GPU sync/)
+    await expect(syncGpu(fakeRenderer({}), 'webgpu')).rejects.toThrow(/GPU sync/)
+    // The Game's backend decides, not a guess from the renderer's internals (review #7).
+    await expect(syncGpu(fakeRenderer({ gl: { RGBA: 1, UNSIGNED_BYTE: 1, readPixels: () => {} } }), 'webgpu')).rejects.toThrow(/GPU sync/)
   })
 })

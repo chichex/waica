@@ -9,10 +9,10 @@ import {
   type RuntimeBridgeActivation,
 } from '@waica/engine'
 import { CreationTracker, census } from '../census.ts'
-import { captureRenderer, countDraws, renderBackendOf, syncGpu, type BenchRenderer } from '../draw-counter.ts'
+import { captureRenderer, countDraws, syncGpu, type BenchRenderer } from '../draw-counter.ts'
 import type { PageScenarioReport, ScenarioName } from '../results.ts'
 import { LOOP_END_MARK, LOOP_START_MARK } from '../timings.ts'
-import { webglRenderer } from './renderer-probe.ts'
+import { describeRenderer, webglRenderer } from './renderer-probe.ts'
 import { planFor } from './scenarios.ts'
 
 /**
@@ -65,6 +65,9 @@ async function startScenarioGame(name: ScenarioName): Promise<{ game: Game; rend
 export async function runScenario(name: ScenarioName): Promise<PageScenarioReport> {
   const bridge = captureRuntimeBridge()
   const { game, renderer, steps } = await startScenarioGame(name)
+  // Non-null after the ready() startScenarioGame awaited (ADR 0025).
+  const backend = game.backend
+  if (!backend) throw new Error('bench: the Game reports no Render Backend after ready()')
   game.start()
   const tracker = new CreationTracker()
   // Weak, so destroyed entities stay garbage — the harness must not keep
@@ -78,7 +81,7 @@ export async function runScenario(name: ScenarioName): Promise<PageScenarioRepor
   for (let i = 0; i < steps; i++) {
     const started = performance.now()
     drawCalls = countDraws(renderer, () => bridge().control({ operation: 'step' }))
-    await syncGpu(renderer)
+    await syncGpu(renderer, backend)
     frameMs.push(performance.now() - started)
     tracker.observe(game.scene)
     for (const entity of game.entities) {
@@ -96,7 +99,7 @@ export async function runScenario(name: ScenarioName): Promise<PageScenarioRepor
     entitiesDestroyed: spawned - game.entities.length,
     ...tracker.totals,
   }
-  const backend = renderBackendOf(renderer)
+  const description = describeRenderer(backend, renderer, webglRenderer)
   game.dispose()
-  return { scenario: name, backend, renderer: webglRenderer(), counters, frameMs }
+  return { scenario: name, backend, renderer: description, counters, frameMs }
 }

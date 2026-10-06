@@ -1,7 +1,7 @@
 /** Prefix of the single stdout line that carries a run's results JSON. */
 export const RESULTS_MARKER = 'WAICA_BENCH_RESULTS '
 
-import type { RenderBackendName } from './draw-counter.ts'
+import type { RenderBackend } from '@waica/engine'
 import type { ScenarioName } from './sweep.ts'
 
 export { SCENARIOS, type ScenarioName } from './sweep.ts'
@@ -49,7 +49,7 @@ export interface BenchHost {
   platform: string
   cpus: number
   chrome: string
-  /** The WebGL renderer string: a real GPU, or a software one such as SwiftShader. */
+  /** What the scenario drew on: the WebGPU adapter (`WebGPU: …`), or the WebGL renderer string — a real GPU, or a software one such as SwiftShader. */
   renderer: string
 }
 
@@ -57,7 +57,7 @@ export interface ScenarioResult {
   scenario: ScenarioName
   commit: string
   /** The Render Backend the scenario drew through (ADR 0025): the browser's choice, recorded. */
-  backend: RenderBackendName
+  backend: RenderBackend
   host: BenchHost
   counters: ScenarioCounters
   timings: ScenarioTimings
@@ -66,7 +66,7 @@ export interface ScenarioResult {
 /** What the page reports for one scenario, before the runner adds host data. */
 export interface PageScenarioReport {
   scenario: ScenarioName
-  backend: RenderBackendName
+  backend: RenderBackend
   renderer: string
   counters: ScenarioCounters
   frameMs: number[]

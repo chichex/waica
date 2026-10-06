@@ -1,5 +1,4 @@
-/** The GPU API a Game drew through (ADR 0025). */
-export type RenderBackendName = 'webgpu' | 'webgl2'
+import type { RenderBackend } from '@waica/engine'
 
 /** The slice of three's WebGPURenderer the bench reads. */
 export interface BenchRenderer {
@@ -53,11 +52,6 @@ export function countDraws(renderer: BenchRenderer, frame: () => void): number {
   return renderer.info.render.drawCalls - before
 }
 
-export function renderBackendOf(renderer: BenchRenderer): RenderBackendName {
-  const { backend } = renderer
-  return 'isWebGPUBackend' in backend && backend.isWebGPUBackend === true ? 'webgpu' : 'webgl2'
-}
-
 interface WebGPUQueueOwner {
   device: { queue: { onSubmittedWorkDone(): Promise<unknown> } }
 }
@@ -81,21 +75,22 @@ function hasPixelReader(backend: object): backend is { gl: PixelReader } {
 const SYNC_PIXEL = new Uint8Array(4)
 
 /**
- * Waits until the GPU has executed every command issued so far, so a
+ * Waits until the GPU has executed every command issued so far on the
+ * Render Backend the Game reports (`game.backend`), so a
  * frame's wall time includes GPU (or SwiftShader) work, not just its CPU
  * submission: on WebGPU the queue reports it, on WebGL2 reading back one
  * pixel forces the pipeline to drain.
  */
-export async function syncGpu(renderer: BenchRenderer): Promise<void> {
+export async function syncGpu(renderer: BenchRenderer, renderBackend: RenderBackend): Promise<void> {
   const { backend } = renderer
-  if (renderBackendOf(renderer) === 'webgpu' && hasQueue(backend)) {
+  if (renderBackend === 'webgpu' && hasQueue(backend)) {
     await backend.device.queue.onSubmittedWorkDone()
     return
   }
-  if (hasPixelReader(backend)) {
+  if (renderBackend === 'webgl2' && hasPixelReader(backend)) {
     const { gl } = backend
     gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, SYNC_PIXEL)
     return
   }
-  throw new Error('bench: no GPU sync for this renderer backend')
+  throw new Error(`bench: no GPU sync for a ${renderBackend} renderer backend`)
 }
