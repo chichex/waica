@@ -1,10 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const renderer = vi.hoisted(() => ({
-  loop: null as ((time: number) => void) | null,
-}))
-
 /** Counts real calls to resolveComponentUpdateSchedule, past Game's own memo. */
 const scheduleCalls = vi.hoisted(() => ({ count: 0 }))
 
@@ -19,29 +15,11 @@ vi.mock('./component-update-schedule', async (importOriginal) => {
   return { ...actual, resolveComponentUpdateSchedule }
 })
 
-vi.mock('three', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('three')>()
-  class WebGLRenderer {
-    readonly domElement: HTMLCanvasElement
-    constructor({ canvas }: { canvas: HTMLCanvasElement }) {
-      this.domElement = canvas
-    }
-    setPixelRatio(): void {}
-    setSize(): void {}
-    setViewport(): void {}
-    setScissor(): void {}
-    setScissorTest(): void {}
-    setClearColor(): void {}
-    clear(): void {}
-    render(): void {}
-    setAnimationLoop(loop: ((time: number) => void) | null): void {
-      renderer.loop = loop
-    }
-    dispose(): void {}
-  }
-  return { ...actual, WebGLRenderer }
-})
+vi.mock('three/webgpu', async (importOriginal) =>
+  (await import('./test-renderer.js')).withFakeRenderer(await importOriginal()),
+)
 
+import { lastFakeRenderer, resetFakeRendering } from './test-renderer'
 import { Component, type SolidContact } from './component'
 import { DynamicBody } from './components/dynamic-body'
 import { Hitbox } from './components/hitbox'
@@ -200,19 +178,20 @@ let clock: number | null = null
 
 /** Drives the real animation loop one display frame forward: `steps` Simulation Steps. */
 function frame(steps = 1): void {
-  if (!renderer.loop) throw new Error('Game.start() did not install a frame callback')
+  const loop = lastFakeRenderer().loop
+  if (!loop) throw new Error('Game.start() did not install a frame callback')
   if (clock === null) {
     clock = 0
-    renderer.loop(clock) // the first frame after start() only seeds the clock (CA-3)
+    loop(clock) // the first frame after start() only seeds the clock (CA-3)
   }
   clock += frameMs(60) * steps
-  renderer.loop(clock)
+  loop(clock)
 }
 
 beforeEach(() => {
   calls.length = 0
   clock = null
-  renderer.loop = null
+  resetFakeRendering()
   scheduleCalls.count = 0
   document.body.innerHTML = ''
   vi.stubGlobal('ResizeObserver', ResizeObserverStub)

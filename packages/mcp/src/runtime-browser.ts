@@ -10,15 +10,21 @@ import type {
   RuntimeDevServer,
   RuntimeLifecycleHandlers,
 } from './runtime-session-manager.js'
-import { ASSETS_POLL_INTERVAL_MS, abortableDelay, runtimeAssetStatus } from './runtime-assets.js'
 import type { RuntimePreflightResult } from './runtime-preflight.js'
+import {
+  awaitRuntimeReadiness,
+  boundedMessage,
+  runtimeError,
+  type BrowserDiagnostics,
+  type PageBridgeMetadata,
+  type ReadinessProbe,
+} from './runtime-readiness.js'
 import { RuntimeToolError, type RuntimeControlInput } from './runtime-service.js'
 
 export const RUNTIME_BRIDGE_SYMBOL_KEY = '@waica/runtime-bridge/v1'
-export const MINIMUM_RUNTIME_ENGINE_VERSION = '0.5.0'
 
 export interface BrowserBridgeFailure {
-  code: 'multiple-games'
+  code: 'multiple-games' | 'render-backend-failed'
   message: string
 }
 
@@ -28,6 +34,8 @@ export interface BrowserBridgeActivation {
   failure: BrowserBridgeFailure | null
   register(bridge: unknown): void
   unregister(bridge: unknown): void
+  /** The Game's renderer could not initialize (ADR 0025): the Run Session stops waiting. */
+  fail(failure: BrowserBridgeFailure): void
 }
 
 /** Serialized by Playwright and installed before any Project module executes. */
@@ -50,61 +58,13 @@ export function installRuntimeBridgeActivation(): void {
     unregister(bridge: unknown): void {
       if (this.current === bridge) this.current = null
     },
+    fail(failure: BrowserBridgeFailure): void {
+      this.failure ??= { code: failure.code, message: String(failure.message) }
+    },
   }
   Object.defineProperty(globalThis, key, {
     configurable: true,
     value: activation,
-  })
-}
-
-interface PageBridgeMetadata {
-  engineVersion: string
-  bridgeVersion: number
-  mode: 'paused' | 'real-time'
-  frame: number
-  simulationTime: number
-  /** Absent on a pre-CA-10 engine build — never assume it's there. */
-  capabilities?: string[]
-  /** Absent on an engine without the 'assets' capability (ADR 0019). */
-  assets?: { pending: number; loaded: number; failed: number }
-  [key: string]: unknown
-}
-
-type ReadinessProbe =
-  | { status: 'waiting' }
-  | { status: 'failure'; message: string }
-  | {
-      status: 'ready'
-      metadata: PageBridgeMetadata
-      initialSnapshot: Record<string, unknown>
-    }
-
-interface BrowserDiagnostics {
-  browserErrors: string[]
-}
-
-function boundedMessage(value: unknown): string {
-  const text = value instanceof Error ? `${value.name}: ${value.message}` : String(value)
-  return text.length <= 4_096 ? text : `${text.slice(-4_096)}`
-}
-
-function runtimeError(
-  preflight: RuntimePreflightResult,
-  stage: 'browser' | 'page' | 'bridge' | 'game' | 'control',
-  message: string,
-  diagnostics?: Record<string, unknown>,
-  code:
-    | 'runtime-start-failed'
-    | 'runtime-incompatible'
-    | 'runtime-invalid-state'
-    | 'runtime-operation-failed' = 'runtime-start-failed',
-): RuntimeToolError {
-  return new RuntimeToolError({
-    code,
-    stage,
-    message,
-    projectPath: preflight.projectPath,
-    ...(diagnostics ? { diagnostics } : {}),
   })
 }
 
@@ -120,6 +80,8 @@ interface BridgeResponse {
     message: string
     availableActions?: unknown[]
     availableScenes?: unknown[]
+    /** The page-side stack of an unexpected error (one without a bridge code), to trace it. */
+    stack?: string
   }
 }
 
@@ -128,7 +90,7 @@ interface BridgeResponse {
  * Game's Runtime Bridge and turns a thrown bridge error into data. It must
  * reference nothing outside its own body.
  */
-function callLiveBridge(request: {
+export function callLiveBridge(request: {
   operation: BridgeOperation
   argument: Record<string, unknown>
 }): BridgeResponse {
@@ -166,7 +128,9 @@ function callLiveBridge(request: {
       message?: unknown
       availableActions?: unknown
       availableScenes?: unknown
+      stack?: unknown
     }
+    const unexpected = typeof detail.code !== 'string' && typeof detail.stack === 'string'
     return {
       ok: false,
       error: {
@@ -179,9 +143,25 @@ function callLiveBridge(request: {
         ...(Array.isArray(detail.availableScenes)
           ? { availableScenes: detail.availableScenes }
           : {}),
+        ...(unexpected ? { stack: String(detail.stack).slice(0, 4_096) } : {}),
       },
     }
   }
+}
+
+/**
+ * What a failed bridge call reports beside its message: the choices a
+ * refusal offers, or, for an unexpected error, its page-side stack and the
+ * page's recent errors.
+ */
+function bridgeErrorDiagnostics(
+  error: NonNullable<BridgeResponse['error']>,
+  page: () => Record<string, unknown>,
+): Record<string, unknown> | undefined {
+  if (error.availableActions) return { availableActions: error.availableActions }
+  if (error.availableScenes) return { availableScenes: error.availableScenes }
+  if (error.stack) return { stack: error.stack, ...page() }
+  return undefined
 }
 
 async function readinessProbe(page: Page): Promise<ReadinessProbe> {
@@ -193,11 +173,10 @@ async function readinessProbe(page: Page): Promise<ReadinessProbe> {
     const hook = (globalThis as Record<PropertyKey, unknown>)[
       Symbol.for('@waica/runtime-bridge/v1')
     ] as BrowserBridgeActivation | undefined
-    if (!hook?.current) {
-      if (hook?.failure) return { status: 'failure', message: hook.failure.message } as const
-      return { status: 'waiting' } as const
+    if (hook?.failure) {
+      return { status: 'failure', code: hook.failure.code, message: hook.failure.message } as const
     }
-    if (hook.failure) return { status: 'failure', message: hook.failure.message } as const
+    if (!hook?.current) return { status: 'waiting' } as const
     try {
       const bridge = hook.current as Bridge
       return {
@@ -212,47 +191,6 @@ async function readinessProbe(page: Page): Promise<ReadinessProbe> {
       } as const
     }
   }) as Promise<ReadinessProbe>
-}
-
-function bridgeReady(
-  preflight: RuntimePreflightResult,
-  probe: Extract<ReadinessProbe, { status: 'ready' }>,
-): RuntimeBridgeReady {
-  const { metadata, initialSnapshot } = probe
-  if (metadata.bridgeVersion !== 1) {
-    throw runtimeError(
-      preflight,
-      'bridge',
-      `Runtime Bridge protocol ${String(metadata.bridgeVersion)} is incompatible; protocol 1 is required.`,
-      { minimumEngineVersion: MINIMUM_RUNTIME_ENGINE_VERSION },
-      'runtime-incompatible',
-    )
-  }
-  if (
-    metadata.mode !== 'paused' ||
-    metadata.frame !== 0 ||
-    metadata.simulationTime !== 0
-  ) {
-    throw runtimeError(
-      preflight,
-      'game',
-      'The Runtime Bridge did not reach the required paused frame-zero baseline.',
-      { metadata },
-    )
-  }
-  const assets = runtimeAssetStatus(metadata.assets)
-  return {
-    engineVersion: metadata.engineVersion,
-    bridgeVersion: metadata.bridgeVersion,
-    mode: metadata.mode,
-    frame: metadata.frame,
-    simulationTime: metadata.simulationTime,
-    // [] (not undefined) for a pre-CA-10 engine that never sent the field,
-    // so a capability check can do a plain .includes() either way.
-    capabilities: metadata.capabilities ?? [],
-    ...(assets ? { assets } : {}),
-    initialSnapshot,
-  }
 }
 
 class PlaywrightRuntimeBrowser implements RuntimeBrowser {
@@ -404,50 +342,13 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
   }
 
   private async waitForReady(signal?: AbortSignal): Promise<RuntimeBridgeReady> {
-    const deadline = Date.now() + this.preflight.timeoutMs
-    while (Date.now() <= deadline) {
-      signal?.throwIfAborted()
-      if (this.closed || this.page.isClosed()) {
-        throw runtimeError(
-          this.preflight,
-          'page',
-          'The Project page closed before Runtime Bridge readiness.',
-          this.diagnostics(),
-        )
-      }
-      const probe = await readinessProbe(this.page).catch((error) => ({
-        status: 'failure' as const,
-        message: boundedMessage(error),
-      }))
-      if (probe.status === 'ready') return bridgeReady(this.preflight, probe)
-      if (probe.status === 'failure') {
-        throw runtimeError(
-          this.preflight,
-          probe.message.includes('Exactly one live Game') ? 'game' : 'bridge',
-          probe.message,
-          this.diagnostics(),
-        )
-      }
-      await abortableDelay(ASSETS_POLL_INTERVAL_MS, signal)
-    }
-    const diagnostics = this.diagnostics()
-    if (this.browserErrors.length > 0) {
-      throw runtimeError(
-        this.preflight,
-        'page',
-        'The Project page did not reach Runtime Bridge readiness.',
-        diagnostics,
-      )
-    }
-    throw runtimeError(
-      this.preflight,
-      'bridge',
-      'Timed out waiting for Runtime Bridge protocol 1 and one live Game.',
-      { ...diagnostics, minimumEngineVersion: MINIMUM_RUNTIME_ENGINE_VERSION },
-      this.preflight.engine.version === MINIMUM_RUNTIME_ENGINE_VERSION
-        ? 'runtime-start-failed'
-        : 'runtime-incompatible',
-    )
+    return awaitRuntimeReadiness({
+      preflight: this.preflight,
+      probe: () => readinessProbe(this.page),
+      closed: () => this.closed || this.page.isClosed(),
+      diagnostics: () => this.diagnostics(),
+      signal,
+    })
   }
 
   private async invokeBridge(
@@ -466,11 +367,7 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
       this.preflight,
       error.stage === 'game' ? 'game' : 'control',
       error.message,
-      error.availableActions
-        ? { availableActions: error.availableActions }
-        : error.availableScenes
-          ? { availableScenes: error.availableScenes }
-          : undefined,
+      bridgeErrorDiagnostics(error, () => this.diagnostics()),
       error.code === 'runtime-invalid-state'
         ? 'runtime-invalid-state'
         : 'runtime-operation-failed',
@@ -512,6 +409,27 @@ class PlaywrightRuntimeBrowser implements RuntimeBrowser {
   }
 }
 
+/**
+ * Extra Chrome switches, read from WAICA_RUNTIME_CHROME_ARGS as a JSON array
+ * of strings. Internal and undocumented: only the e2e legs set it, to pick
+ * the Render Backend through the browser (ADR 0025) — a Run Session offers
+ * no backend option. Unset or empty means none, as before.
+ */
+export function runtimeChromeArgs(env: Record<string, string | undefined>): string[] {
+  const raw = env.WAICA_RUNTIME_CHROME_ARGS
+  if (raw === undefined || raw === '') return []
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    parsed = undefined
+  }
+  if (!Array.isArray(parsed) || !parsed.every((item): item is string => typeof item === 'string')) {
+    throw new Error('WAICA_RUNTIME_CHROME_ARGS must be a JSON array of strings.')
+  }
+  return parsed
+}
+
 export async function startRuntimeBrowser(
   preflight: RuntimePreflightResult,
   devServer: RuntimeDevServer,
@@ -523,6 +441,7 @@ export async function startRuntimeBrowser(
     browser = await chromium.launch({
       executablePath: preflight.browserExecutablePath,
       headless: preflight.headless,
+      args: runtimeChromeArgs(process.env),
     })
     context = await browser.newContext({
       viewport: preflight.viewport,

@@ -6,6 +6,25 @@ Waica's public engine core: entities and components, the game loop, scene and pr
 import { Component, Game, loadScene } from '@waica/engine'
 ```
 
+## Migrating to 0.24.0: WebGPURenderer and `game.ready()`
+
+A `Game` draws through three's `WebGPURenderer` (ADR 0025): WebGPU when the browser offers it, otherwise the renderer's own WebGL2 fallback. The browser decides — there is no option to force either one — and `game.backend` reports which one it got (`'webgpu'` or `'webgl2'`; `null` until the renderer is ready).
+
+- **Await `game.ready()` before the first frame.** `new Game(...)` stays synchronous, but the renderer initializes asynchronously. Frames before it finishes still simulate (steps, `onUpdate`) but draw nothing, so a host waits for it before `game.start()`:
+
+  ```ts
+  const game = new Game({ canvas })
+  loadScene(game, scene, registry)
+  await game.assets.ready()
+  await game.ready()
+  game.start()
+  ```
+
+  Every call returns the same promise. It rejects with an error naming both `webgpu` and `webgl2` when neither initializes; nothing is ever drawn then. A `Game` disposed while `ready()` is pending never starts, and its renderer is released once initialization settles.
+- **`THREE` is the `three/webgpu` build.** `import { THREE } from '@waica/engine'` now re-exports `three/webgpu`, the same copy of three the engine draws with: `THREE.WebGPURenderer` exists and `THREE.WebGLRenderer` does not. Custom GLSL does not render under `WebGPURenderer` — `ShaderMaterial`, `RawShaderMaterial` and `material.onBeforeCompile` are not supported there — so write custom shading as node materials with TSL (`three/tsl`). Built-in materials such as `MeshBasicMaterial` keep working unchanged.
+- **Tests under happy-dom.** happy-dom has no GPU: a project test that builds a `Game` replaces `WebGPURenderer` from `three/webgpu` with a fake (it previously replaced `WebGLRenderer` from `three`), whose `init()` resolves.
+- **Run Sessions.** A Run Session waits for the Render Backend before it reports ready, steps or screenshots, and its snapshots carry `backend`. A renderer that cannot initialize ends `start_project` with a runtime error that names the failure.
+
 ## Hitbox Collision Layers and Masks
 
 Every `Hitbox` belongs to one named Collision Layer and declares the other layers in which it is interested through a Collision Mask:

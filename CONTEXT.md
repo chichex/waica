@@ -153,3 +153,7 @@ _Avoid_: loaded, preloaded, settled, scene ready
 **Sprite Batch**:
 A run of sprites that are consecutive in draw order and share a batch key — texture, pixel-art filtering and shape (and, for animated sprites, the sheet) — drawn together in a single call, each sprite one instance carrying its own placement, color and frame. Batching never changes what is drawn in front of what: sprites of another key in between start a new run. Every sprite batches by default; a scene opts out as a whole, falling back to one draw per sprite.
 _Avoid_: instanced mesh, sprite pool, atlas
+
+**Render Backend**:
+The GPU API a Game draws through: `webgpu` when the browser offers it, otherwise `webgl2`. The browser decides — a game never picks one — and a Game draws nothing until its renderer is ready on one of them; a Run Session reports which one it got.
+_Avoid_: renderer, graphics API, driver

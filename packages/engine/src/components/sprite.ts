@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from 'three/webgpu'
 import { Component } from '../component.js'
 import type { YSortParticipant } from '../render-sort.js'
 import { spritePlacement } from '../sprite-placement.js'
@@ -127,7 +127,7 @@ export class Sprite extends Component implements YSortParticipant {
 
   // The drawn quad, or under Sprite Batches (ADR 0024) the hidden anchor of
   // this sprite's instance: the same placement either way.
-  private mesh?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
+  private mesh?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial | THREE.MeshBasicNodeMaterial>
 
   override onReady(): void {
     const batches = spriteBatchesOf(this.game)

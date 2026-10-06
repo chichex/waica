@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from 'three/webgpu'
 import { sheetCell } from '../animation/sheet.js'
 import { Component } from '../component.js'
 import { projectIsometric } from '../projection.js'
@@ -322,6 +322,8 @@ export class Tilemap extends Component implements SolidSource {
     geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(buffers.indices), 1))
     mesh.geometry.dispose()
     mesh.geometry = geometry
+    // WebGPURenderer issues a zero-count draw (WebGLRenderer skipped it): no tile, no draw.
+    mesh.visible = buffers.indices.length > 0
   }
 
   /** The loaded sheet image's size, or one pixel per sheet cell until it arrives. */

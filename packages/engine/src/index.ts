@@ -96,11 +96,13 @@ export {
 export type {
   RuntimeBridge,
   RuntimeBridgeActivation,
+  RuntimeBridgeFailure,
   RuntimeControlRequest,
   RuntimeControlResult,
   RuntimeMetadata,
   RuntimeMode,
 } from './runtime-bridge.js'
+export type { RenderBackend } from './render-readiness.js'
 export { RUNTIME_PROJECTION_LIMITS } from './runtime-inspection.js'
 export type {
   ProjectedValue,
@@ -213,4 +215,6 @@ export type {
 
 // Explicit escape hatch while our own API grows: a single source of three
 // for the whole workspace. The thesis is that three stays an implementation detail.
-export * as THREE from 'three'
+// It is the WebGPU build the engine draws with (ADR 0025): no classic WebGL renderer,
+// and node materials (TSL) instead of GLSL shaders.
+export * as THREE from 'three/webgpu'

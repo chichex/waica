@@ -637,6 +637,12 @@ button.ed-crumb:hover {
   touch-action: none;
 }
 
+.ed-viewport-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 .ed-viewport.is-edit {
   cursor: grab;
 }

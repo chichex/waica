@@ -207,6 +207,8 @@ loadScene(
   },
   { components: { ControlProbe, DynamicBody, Tilemap } },
 )
+// A host awaits the renderer before its first frame (ADR 0025).
+await game.ready()
 game.start()
 `
       : `import { Component, Game } from '@waica/engine'
@@ -236,6 +238,8 @@ game.ui.define('probe', '<style>#pixel { position:absolute; left:8px; top:8px; w
 game.ui.show('probe')
 const mover = game.spawn('Player')
 mover.add(Mover)
+// A host awaits the renderer before its first frame (ADR 0025).
+await game.ready()
 game.start()
 `
   await mkdir(path.join(project, 'src'), { recursive: true })
@@ -263,11 +267,40 @@ function jsonText(result) {
 }
 
 async function call(client, name, args, timeout = 60_000) {
-  return plainResult(await client.callTool(
+  const result = plainResult(await client.callTool(
     { name, arguments: args },
     undefined,
     { timeout },
   ))
+  if (name === 'start_project' && result.isError === undefined) assertLegBackend(client, result.structuredContent)
+  return result
+}
+
+/**
+ * Issue #140 (CA-9, ADR 0025): the browser picks the Render Backend, so each
+ * e2e leg launches Chrome with the switches that leave it exactly one, and
+ * every Run Session of the leg must report that one. A WebGPU leg that gets
+ * WebGL2 (or no adapter at all) fails; it never skips.
+ */
+export const RENDER_BACKEND_LEGS = [
+  { backend: 'webgl2', chromeArgs: ['--disable-features=WebGPUService'] },
+  { backend: 'webgpu', chromeArgs: ['--enable-unsafe-webgpu'] },
+]
+
+const legBackends = new WeakMap()
+
+function assertLegBackend(client, started) {
+  const expected = legBackends.get(client)
+  if (!expected) return
+  assert.equal(
+    started?.initialSnapshot?.backend,
+    expected,
+    `this e2e leg's Run Session must draw through ${expected}; got ${JSON.stringify(started?.initialSnapshot?.backend)}`,
+  )
+}
+
+function legEnvironment(renderLeg) {
+  return renderLeg ? { WAICA_RUNTIME_CHROME_ARGS: JSON.stringify(renderLeg.chromeArgs) } : {}
 }
 
 async function waitFor(check, timeoutMs, label) {
@@ -298,7 +331,7 @@ async function assertUrlClosed(url) {
 }
 
 /** Starts a Run Session over a fresh raw `waica mcp` child and returns its URL. */
-async function startOverRawStdio(child, { project, chrome }) {
+async function startOverRawStdio(child, { project, chrome, renderLeg }) {
   const rpc = stdioRpc(child)
   await rpc.request('initialize', {
     protocolVersion: '2025-11-25',
@@ -315,6 +348,7 @@ async function startOverRawStdio(child, { project, chrome }) {
     },
   })
   assert.equal(start.isError, undefined, `start_project failed: ${JSON.stringify(start)}`)
+  if (renderLeg) assert.equal(start.structuredContent.initialSnapshot?.backend, renderLeg.backend)
   return start.structuredContent.url
 }
 
@@ -333,15 +367,19 @@ async function signalAndWait(child, exited) {
  * CA-10 (issue #100): SIGTERM on the real stdio server closes its Run
  * Session (dev server and browser) and exits 0 within the 5 s deadline.
  */
-async function runSignalShutdownLeg({ root, cliPath, project, chrome }) {
-  const child = spawn(process.execPath, [cliPath, 'mcp'], { cwd: root, stdio: ['pipe', 'pipe', 'pipe'] })
+async function runSignalShutdownLeg({ root, cliPath, project, chrome, renderLeg }) {
+  const child = spawn(process.execPath, [cliPath, 'mcp'], {
+    cwd: root,
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: { ...process.env, ...legEnvironment(renderLeg) },
+  })
   let stderr = ''
   child.stderr.on('data', (chunk) => {
     stderr += chunk.toString()
   })
   const exited = new Promise((resolve) => child.once('exit', (code, signal) => resolve({ code, signal })))
   try {
-    const url = await startOverRawStdio(child, { project, chrome })
+    const url = await startOverRawStdio(child, { project, chrome, renderLeg })
     const { exit, shutdownMs } = await signalAndWait(child, exited)
     assert.deepEqual(exit, { code: 0, signal: null }, `SIGTERM must exit 0: ${JSON.stringify(exit)}`)
     assert.ok(shutdownMs < 5_500, `shutdown took ${shutdownMs} ms, past the 5 s deadline`)
@@ -1571,27 +1609,37 @@ async function frameScreenshot({ client, project, chrome, frames }) {
  * default) and with `render.batch: false`, and the two decoded screenshots
  * must match pixel for pixel — no tolerance.
  */
-async function runBatchParityLeg({ client, root, parent, chrome, viteBin, engineRoot, playwright }) {
+async function runBatchParityLeg({ client, root, parent, chrome, viteBin, engineRoot, playwright, label }) {
   const inspector = await openPngInspector(playwright, chrome.executablePath)
   try {
-    return await compareBatchParity({ client, root, parent, chrome, viteBin, engineRoot, inspector })
+    return await compareBatchParity({ client, root, parent, chrome, viteBin, engineRoot, inspector, label })
   } finally {
     await inspector.close()
   }
 }
 
-async function compareBatchParity({ client, root, parent, chrome, viteBin, engineRoot, inspector }) {
+/** Writes a screenshot under WAICA_E2E_SCREENSHOT_DIR, when set: evidence only, never compared here. */
+async function keepScreenshot(name, image) {
+  const directory = process.env.WAICA_E2E_SCREENSHOT_DIR
+  if (!directory) return
+  await mkdir(directory, { recursive: true })
+  await writeFile(path.join(directory, name), Buffer.from(image, 'base64'))
+}
+
+async function compareBatchParity({ client, root, parent, chrome, viteBin, engineRoot, inspector, label }) {
   const differing = {}
   for (const archetype of ['platformer', 'topdown', 'isometric']) {
     const project = await makeDemoProject({
       client, root, parent, viteBin, engineRoot, archetype, name: `waica-batch-${archetype}`,
     })
     const batched = await frameScreenshot({ client, project, chrome, frames: 13 })
+    await keepScreenshot(`${label}-${archetype}-main-f13.png`, batched.image)
     const scenePath = path.join(project, 'src/scenes/main.scene.json')
     const scene = JSON.parse(await readFile(scenePath, 'utf8'))
     scene.render = { ...scene.render, batch: false }
     await writeFile(scenePath, `${JSON.stringify(scene, null, 2)}\n`)
     const unbatched = await frameScreenshot({ client, project, chrome, frames: 13 })
+    await keepScreenshot(`${label}-${archetype}-main-f13-unbatched.png`, unbatched.image)
     const compared = await inspector.compare(batched.image, unbatched.image)
     assert.ok(compared.varied, `${archetype}: the batched screenshot must show a scene, not one flat color`)
     assert.equal(
@@ -1940,6 +1988,7 @@ export async function runRuntimeE2e({
   includeSceneFade = true,
   includeBatchParity = true,
   includeSignalShutdown = true,
+  renderLeg,
 }) {
   if (process.platform === 'win32') {
     throw new Error('The browser e2e gate requires its supported macOS/Linux host, not Windows.')
@@ -1948,7 +1997,7 @@ export async function runRuntimeE2e({
   const chrome = await discoverChrome()
   const requireFromMcp = createRequire(path.join(root, 'packages/mcp/package.json'))
   const { Client } = requireFromMcp('@modelcontextprotocol/sdk/client/index.js')
-  const { StdioClientTransport } = requireFromMcp('@modelcontextprotocol/sdk/client/stdio.js')
+  const { StdioClientTransport, getDefaultEnvironment } = requireFromMcp('@modelcontextprotocol/sdk/client/stdio.js')
   const playwright = requireFromMcp('playwright-core')
   const requireFromEditor = createRequire(path.join(root, 'packages/editor/package.json'))
   const viteRoot = await findPackageRoot(requireFromEditor.resolve('vite'), 'vite')
@@ -1967,7 +2016,9 @@ export async function runRuntimeE2e({
     args: [cliPath, 'mcp'],
     cwd: root,
     stderr: 'pipe',
+    env: { ...getDefaultEnvironment(), ...legEnvironment(renderLeg) },
   })
+  if (renderLeg) legBackends.set(client, renderLeg.backend)
   let stderr = ''
   let connected = false
   transport.stderr?.on('data', (chunk) => {
@@ -2037,6 +2088,7 @@ export async function runRuntimeE2e({
           viteBin,
           engineRoot,
           playwright,
+          label,
         })
       : {}
     if (negative) await runNegativeReadiness({ client, fixture: negative, chrome })
@@ -2044,10 +2096,11 @@ export async function runRuntimeE2e({
     if (includeSignalShutdown) {
       // Frees the happy fixture for a second, signalled server process.
       await call(client, 'stop_project', { project_path: happy.project }, 10_000)
-      signalShutdownResult = await runSignalShutdownLeg({ root, cliPath, project: happy.project, chrome })
+      signalShutdownResult = await runSignalShutdownLeg({ root, cliPath, project: happy.project, chrome, renderLeg })
     }
     const result = {
       label,
+      ...(renderLeg ? { renderBackend: renderLeg.backend, chromeArgs: renderLeg.chromeArgs } : {}),
       chromeExecutable: chrome.executablePath,
       chromeVersion: chrome.version,
       durationMs: Date.now() - startedAt,

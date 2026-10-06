@@ -1,29 +1,9 @@
 // @vitest-environment happy-dom
 import { expect, it, vi } from 'vitest'
 
-vi.mock('three', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>()
-  class WebGLRenderer {
-    readonly domElement: HTMLCanvasElement
-    constructor({ canvas }: { canvas: HTMLCanvasElement }) {
-      this.domElement = canvas
-    }
-    setPixelRatio(): void {}
-    setSize(): void {}
-    setViewport(): void {}
-    setScissor(): void {}
-    setScissorTest(): void {}
-    setClearColor(): void {}
-    clear(): void {}
-    /** Hands the scene to the hook a test installed with onRender, as three would draw it. */
-    render(scene: unknown): void {
-      ;(globalThis as { onTestRender?: (scene: unknown) => void }).onTestRender?.(scene)
-    }
-    setAnimationLoop(): void {}
-    dispose(): void {}
-  }
-  return { ...actual, WebGLRenderer }
-})
+vi.mock('three/webgpu', async (importOriginal) =>
+  (await import('./test-renderer.js')).withFakeRenderer(await importOriginal()),
+)
 
 import { FakeTextureBackend, flush } from './assets/test-helpers.js'
 import { AnimatedSprite } from './components/animated-sprite.js'
@@ -34,7 +14,7 @@ import {
   animatedEntity,
   instances,
   linear,
-  makeGame,
+  readyGame,
   materials,
   onlyRun,
   REGISTRY,
@@ -55,7 +35,7 @@ function playOneFrame(game: Parameters<typeof stepFrame>[0]): void {
 }
 
 it('draws many animated sprites of one sheet with one material in one run (CA-1)', async () => {
-  const game = makeGame()
+  const game = await readyGame()
   loadScene(game, scene(Array.from({ length: 20 }, (_, i) => animatedEntity(`A${i}`, {}))), REGISTRY)
   await flush()
   stepFrame(game)
@@ -66,7 +46,7 @@ it('draws many animated sprites of one sheet with one material in one run (CA-1)
 })
 
 it("writes each frame's UV offset and repeat into its instance by the next rendered frame (CA-5)", async () => {
-  const game = makeGame()
+  const game = await readyGame()
   loadScene(game, scene([animatedEntity('Walker', {})]), REGISTRY)
   await flush()
   renderFrame(game)
@@ -80,7 +60,7 @@ it("writes each frame's UV offset and repeat into its instance by the next rende
 })
 
 it('mirrors a flipped sprite through its instance matrix, like its own mesh (CA-5)', async () => {
-  const game = makeGame()
+  const game = await readyGame()
   loadScene(game, scene([animatedEntity('Walker', { width: 2 })]), REGISTRY)
   await flush()
   const sprite = defined(defined(game.find('Walker')).get(AnimatedSprite))
@@ -94,7 +74,7 @@ it('mirrors a flipped sprite through its instance matrix, like its own mesh (CA-
 })
 
 it("moves to the run of another sheet's key when its frame lands on that sheet (CA-5)", async () => {
-  const game = makeGame()
+  const game = await readyGame()
   const extraSheets = [{ texture: '/second.png', cols: 1, rows: 1 }]
   const clips = { both: { frames: [0, 8], fps: 10 } }
   loadScene(game, scene([animatedEntity('Walker', { extraSheets, clips, initialClip: 'both' })]), REGISTRY)
@@ -116,7 +96,7 @@ it('draws a frame of a failed sheet as the untextured quad, like its own mesh (C
   const textures = new FakeTextureBackend()
   textures.failUrl('/sheet.png')
   vi.spyOn(console, 'warn').mockImplementation(() => {})
-  const game = makeGame(textures)
+  const game = await readyGame(textures)
   loadScene(game, scene([animatedEntity('Walker', {})]), REGISTRY)
   await flush()
   renderFrame(game)
@@ -127,7 +107,7 @@ it('draws a frame of a failed sheet as the untextured quad, like its own mesh (C
 })
 
 it('updates its instance after width, height, offset, anchor, color and layer change (CA-5)', async () => {
-  const game = makeGame()
+  const game = await readyGame()
   loadScene(game, scene([spriteEntity('Live', {})]), REGISTRY)
   await flush()
   const sprite = spriteOf(game, 'Live')
@@ -152,7 +132,7 @@ it('updates its instance after width, height, offset, anchor, color and layer ch
 })
 
 it('moves to the circle entry when its shape changes (CA-5)', async () => {
-  const game = makeGame()
+  const game = await readyGame()
   loadScene(game, scene([spriteEntity('Shape', { color: 0xff0000 })]), REGISTRY)
   await flush()
   renderFrame(game)
@@ -167,7 +147,7 @@ it('moves to the circle entry when its shape changes (CA-5)', async () => {
 })
 
 it('skips the batch move on frames that stay on the same sheet (review: no per-step key allocation)', async () => {
-  const game = makeGame()
+  const game = await readyGame()
   loadScene(game, scene([animatedEntity('Walker', {})]), REGISTRY)
   await flush()
   renderFrame(game)

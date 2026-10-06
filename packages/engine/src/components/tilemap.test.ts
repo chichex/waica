@@ -1,26 +1,9 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('three', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('three')>()
-  class WebGLRenderer {
-    readonly domElement: HTMLCanvasElement
-    constructor({ canvas }: { canvas: HTMLCanvasElement }) {
-      this.domElement = canvas
-    }
-    setPixelRatio(): void {}
-    setSize(): void {}
-    setViewport(): void {}
-    setScissor(): void {}
-    setScissorTest(): void {}
-    setClearColor(): void {}
-    clear(): void {}
-    render(): void {}
-    setAnimationLoop(): void {}
-    dispose(): void {}
-  }
-  return { ...actual, WebGLRenderer }
-})
+vi.mock('three/webgpu', async (importOriginal) =>
+  (await import('../test-renderer.js')).withFakeRenderer(await importOriginal()),
+)
 
 import * as THREE from 'three'
 import { FakeTextureBackend, flush } from '../assets/test-helpers'
@@ -149,6 +132,20 @@ describe('Tilemap merged rendering', () => {
 
     game.setSceneRender()
     expect(geometryOf(entity).positions.slice(0, 2)).toEqual([0, 0])
+    game.dispose()
+  })
+
+  it('draws nothing without a tile, as WebGLRenderer skipped a zero-count draw (WebGPURenderer issues it)', () => {
+    const game = makeGame()
+    const entity = game.spawn('Map')
+    const tilemap = entity.add(Tilemap, { cellSize: 1, mapWidth: 2, mapHeight: 1, cells: [-1, -1] })
+    expect(geometryOf(entity).mesh.visible).toBe(false)
+
+    tilemap.cells = [0, -1]
+    expect(geometryOf(entity).mesh.visible).toBe(true)
+
+    tilemap.cells = [-1, -1]
+    expect(geometryOf(entity).mesh.visible).toBe(false)
     game.dispose()
   })
 

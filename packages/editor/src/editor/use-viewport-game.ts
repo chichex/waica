@@ -1,7 +1,7 @@
 import { loadScene, type Game } from '@waica/engine'
 import { useEffect, useEffectEvent, useImperativeHandle, useLayoutEffect, useRef, type Ref, type RefObject } from 'react'
 import { createFrameOverlays, type OverlayHost } from './viewport-frame-overlays'
-import { createViewportGame, liveComponent, restoreEditCamera } from './viewport-game'
+import { createViewportGame, liveComponent, mountGameCanvas, restoreEditCamera } from './viewport-game'
 import type { EditCamera, ViewportHandle, ViewportLive } from './viewport-live'
 
 export interface ViewportGameOptions {
@@ -53,7 +53,7 @@ function useSceneFileSwap(scenePath: string | undefined, target: SceneSwapTarget
 }
 
 /**
- * Runs the Game with the editor overlays drawn every frame, remembering the
+ * Runs the Game, once its renderer is ready, with the editor overlays drawn every frame, remembering the
  * edit camera's pan as it moves; returns what disposes both.
  */
 function startEditorLoop(game: Game, host: OverlayHost, camRef: RefObject<EditCamera>): () => void {
@@ -64,10 +64,40 @@ function startEditorLoop(game: Game, host: OverlayHost, camRef: RefObject<EditCa
     camRef.current.x = game.camera.position.x
     camRef.current.y = game.camera.position.y
   })
-  game.start()
+  let disposed = false
+  // The first frame waits for the renderer (ADR 0025). A Game disposed in
+  // the meantime (StrictMode's double mount, a quick mode switch) never
+  // starts, and its renderer's fate is no longer the editor's to report.
+  game.ready().then(
+    () => {
+      if (!disposed) game.start()
+    },
+    (error: unknown) => {
+      if (!disposed) console.error('[waica] the viewport cannot draw', error)
+    },
+  )
   return () => {
+    disposed = true
     overlays.dispose()
     game.dispose()
+  }
+}
+
+/**
+ * A fresh canvas in `surface` for one Game, published through `canvasRef`
+ * until released. Never the previous Game's canvas: disposing a renderer
+ * can lose its canvas's context (three's WebGL2 backend), and a canvas
+ * hands every renderer that same context (review #2).
+ */
+function claimGameCanvas(surface: HTMLElement, canvasRef: RefObject<HTMLCanvasElement | null>) {
+  const canvas = mountGameCanvas(surface)
+  canvasRef.current = canvas
+  return {
+    canvas,
+    release: (): void => {
+      canvas.remove()
+      if (canvasRef.current === canvas) canvasRef.current = null
+    },
   }
 }
 
@@ -78,6 +108,9 @@ function startEditorLoop(game: Game, host: OverlayHost, camRef: RefObject<EditCa
  */
 export function useViewportGame(inputs: ViewportLive, options: ViewportGameOptions) {
   const { epoch, mode, background, showCamera, viewHeight, onSelect } = options
+  /** The element React renders; each Game gets a fresh canvas inside it. */
+  const surfaceRef = useRef<HTMLDivElement>(null)
+  /** The live Game's own canvas, null between Games. */
   const canvasRef = useRef<HTMLCanvasElement>(null)
   /** Edit-mode UI preview: frame-anchored box and the scaled reference box. */
   const uiFrameRef = useRef<HTMLDivElement>(null)
@@ -106,8 +139,9 @@ export function useViewportGame(inputs: ViewportLive, options: ViewportGameOptio
   })
 
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+    const surface = surfaceRef.current
+    if (!surface) return
+    const { canvas, release } = claimGameCanvas(surface, canvasRef)
     const game = createViewportGame(canvas, liveRef.current, { mode, background, viewHeight: camRef.current.view })
     gameRef.current = game
     lastLoadedScenePathRef.current = liveRef.current.scenePath ?? null
@@ -124,13 +158,14 @@ export function useViewportGame(inputs: ViewportLive, options: ViewportGameOptio
     return () => {
       stop()
       gameRef.current = null
+      release()
     }
     // Every other input is read live through liveRef; background and
     // showCamera are fixed per Viewport instance, so they never force a rebuild.
   }, [epoch, mode, background, showCamera])
 
   useSceneFileSwap(inputs.scenePath, { gameRef, liveRef, camRef, lastLoadedScenePathRef, onSelect })
-  return { canvasRef, uiFrameRef, uiScaleRef, gameRef, liveRef, camRef, camLiveRef }
+  return { surfaceRef, canvasRef, uiFrameRef, uiScaleRef, gameRef, liveRef, camRef, camLiveRef }
 }
 
 /** The Viewport's imperative handle: live edits applied straight to the running Game. */

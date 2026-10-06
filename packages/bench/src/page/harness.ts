@@ -2,16 +2,17 @@ import {
   Game,
   RUNTIME_BRIDGE_PROTOCOL_VERSION,
   RUNTIME_BRIDGE_SYMBOL,
+  THREE,
   loadScene,
   type Entity,
   type RuntimeBridge,
   type RuntimeBridgeActivation,
 } from '@waica/engine'
 import { CreationTracker, census } from '../census.ts'
-import { installDrawCounter, syncGpu } from '../draw-counter.ts'
+import { captureRenderer, countDraws, syncGpu, type BenchRenderer } from '../draw-counter.ts'
 import type { PageScenarioReport, ScenarioName } from '../results.ts'
 import { LOOP_END_MARK, LOOP_START_MARK } from '../timings.ts'
-import { webglRenderer } from './renderer-probe.ts'
+import { describeRenderer, webglRenderer } from './renderer-probe.ts'
 import { planFor } from './scenarios.ts'
 
 /**
@@ -43,23 +44,30 @@ function gameCanvas(): HTMLCanvasElement {
   return canvas
 }
 
-/** Builds the scenario's Game, waits for Assets Ready and starts it paused. */
-async function startScenarioGame(name: ScenarioName): Promise<{ game: Game; steps: number }> {
+/** Builds the scenario's Game and its renderer, ready to draw (ADR 0025), with Assets Ready. */
+async function startScenarioGame(name: ScenarioName): Promise<{ game: Game; renderer: BenchRenderer; steps: number }> {
   const plan = planFor(name)
+  const capture = captureRenderer(THREE.WebGPURenderer.prototype)
   const game = new Game({ canvas: gameCanvas() })
+  capture.uninstall()
+  const renderer = capture.current
+  if (!renderer) throw new Error('bench: the Game built no WebGPURenderer')
+  await game.ready()
   await game.assets.preload(plan.textures)
   let step = 0
   game.onUpdate(() => plan.perStep?.(game, ++step))
   loadScene(game, plan.scene, plan.registry)
   await game.assets.ready()
-  return { game, steps: plan.steps }
+  return { game, renderer, steps: plan.steps }
 }
 
 /** Runs one scenario to completion and reports its counters and per-frame wall times. */
 export async function runScenario(name: ScenarioName): Promise<PageScenarioReport> {
-  const draws = installDrawCounter([WebGLRenderingContext.prototype, WebGL2RenderingContext.prototype])
   const bridge = captureRuntimeBridge()
-  const { game, steps } = await startScenarioGame(name)
+  const { game, renderer, steps } = await startScenarioGame(name)
+  // Non-null after the ready() startScenarioGame awaited (ADR 0025).
+  const backend = game.backend
+  if (!backend) throw new Error('bench: the Game reports no Render Backend after ready()')
   game.start()
   const tracker = new CreationTracker()
   // Weak, so destroyed entities stay garbage — the harness must not keep
@@ -68,12 +76,12 @@ export async function runScenario(name: ScenarioName): Promise<PageScenarioRepor
   const seen = new WeakSet<Entity>()
   let spawned = 0
   const frameMs: number[] = []
+  let drawCalls = 0
   performance.mark(LOOP_START_MARK)
   for (let i = 0; i < steps; i++) {
-    draws.reset()
     const started = performance.now()
-    bridge().control({ operation: 'step' })
-    syncGpu(draws.lastContext)
+    drawCalls = countDraws(renderer, () => bridge().control({ operation: 'step' }))
+    await syncGpu(renderer, backend)
     frameMs.push(performance.now() - started)
     tracker.observe(game.scene)
     for (const entity of game.entities) {
@@ -84,14 +92,14 @@ export async function runScenario(name: ScenarioName): Promise<PageScenarioRepor
   }
   performance.mark(LOOP_END_MARK)
   const counters = {
-    drawCalls: draws.calls,
+    drawCalls,
     ...census(game.scene),
     entitiesSpawned: spawned,
     // Every entity seen and no longer live was destroyed.
     entitiesDestroyed: spawned - game.entities.length,
     ...tracker.totals,
   }
+  const description = describeRenderer(backend, renderer, webglRenderer)
   game.dispose()
-  draws.uninstall()
-  return { scenario: name, renderer: webglRenderer(), counters, frameMs }
+  return { scenario: name, backend, renderer: description, counters, frameMs }
 }

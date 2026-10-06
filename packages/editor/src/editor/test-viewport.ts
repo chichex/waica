@@ -1,6 +1,6 @@
 // Test support for the Viewport characterization suites: a sized canvas, a
 // world-to-client mapping, shared scenes and a StrictMode mount helper. The
-// suites themselves mock three's WebGLRenderer (vi.mock must stay hoisted in
+// suites themselves mock three's WebGPURenderer (vi.mock must stay hoisted in
 // each test file).
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { createElement, type ComponentProps } from 'react'
@@ -65,7 +65,10 @@ export function mountViewport(overrides: Partial<ViewportProps> = {}): MountedVi
   const view = render(element({}), { reactStrictMode: true })
   return {
     handle: () => defined(current, 'the viewport handle'),
-    canvas: defined(view.container.querySelector('canvas'), 'the viewport canvas'),
+    // The live Game's canvas: each Game draws on its own (review #2).
+    get canvas() {
+      return defined(view.container.querySelector('canvas'), 'the viewport canvas')
+    },
     rerender: (next) => view.rerender(element(next)),
   }
 }

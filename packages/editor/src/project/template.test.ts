@@ -2,7 +2,9 @@ import { ARCHETYPE } from '@waica/archetype-platformer'
 import { ARCHETYPE as ISO_ARCHETYPE } from '@waica/archetype-isometric'
 import { describe, expect, it } from 'vitest'
 import enginePackage from '../../../engine/package.json'
+import isometricMain from '../../../../examples/isometric/src/main.ts?raw'
 import exampleMain from '../../../../examples/platformer/src/main.ts?raw'
+import topdownMain from '../../../../examples/topdown/src/main.ts?raw'
 import { projectArtFiles, projectFiles } from './template'
 
 // The golden output is about the shape of a generated project, not about which
@@ -130,6 +132,28 @@ describe('projectFiles', () => {
     for (const [path, content] of Object.entries(files)) {
       expect(content, `unsubstituted token in ${path}`).not.toContain('__ARCHETYPE_PACKAGE__')
     }
+  })
+
+  it.each([
+    ['generated project', projectFiles('my-game')['src/main.ts'] ?? ''],
+    ['platformer example', exampleMain],
+    ['topdown example', topdownMain],
+    ['isometric example', isometricMain],
+  ])('reports a failed start instead of leaving a floating rejection in the %s (review #4)', (_name, main) => {
+    expect(main).toContain("main(canvas).catch((error: unknown) => {")
+    expect(main).toContain("console.error('[waica] the game failed to start:', error)")
+    expect(main).not.toMatch(/void main\(/)
+  })
+
+  it.each([
+    ['generated project', projectFiles('my-game')['src/main.ts'] ?? ''],
+    ['platformer example', exampleMain],
+    ['topdown example', topdownMain],
+    ['isometric example', isometricMain],
+  ])('awaits game.ready() before the first frame in the %s (ADR 0025)', (_name, main) => {
+    const ready = main.indexOf('await game.ready()')
+    expect(ready).toBeGreaterThan(-1)
+    expect(main.indexOf('game.start()')).toBeGreaterThan(ready)
   })
 
   it.each([

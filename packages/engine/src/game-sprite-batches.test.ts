@@ -2,29 +2,9 @@
 import * as THREE from 'three'
 import { expect, it, vi } from 'vitest'
 
-vi.mock('three', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>()
-  class WebGLRenderer {
-    readonly domElement: HTMLCanvasElement
-    constructor({ canvas }: { canvas: HTMLCanvasElement }) {
-      this.domElement = canvas
-    }
-    setPixelRatio(): void {}
-    setSize(): void {}
-    setViewport(): void {}
-    setScissor(): void {}
-    setScissorTest(): void {}
-    setClearColor(): void {}
-    clear(): void {}
-    /** Hands the scene to the hook a test installed with onRender, as three would draw it. */
-    render(scene: unknown): void {
-      ;(globalThis as { onTestRender?: (scene: unknown) => void }).onTestRender?.(scene)
-    }
-    setAnimationLoop(): void {}
-    dispose(): void {}
-  }
-  return { ...actual, WebGLRenderer }
-})
+vi.mock('three/webgpu', async (importOriginal) =>
+  (await import('./test-renderer.js')).withFakeRenderer(await importOriginal()),
+)
 
 import { FakeTextureBackend, flush } from './assets/test-helpers.js'
 import { loadScene } from './scene.js'
@@ -34,7 +14,7 @@ import {
   drawnMeshes,
   instanceColor,
   linear,
-  makeGame,
+  readyGame,
   materials,
   meshes,
   onlyRun,
@@ -50,7 +30,7 @@ import {
 useSpriteBatchTestEnvironment()
 
 it('draws 100 sprites of one texture with one material in one run (CA-1)', async () => {
-  const game = makeGame()
+  const game = await readyGame()
   const entities = Array.from({ length: 100 }, (_, i) => spriteEntity(`S${i}`, { texture: '/hero.png' }))
   loadScene(game, scene(entities), REGISTRY)
   await flush()
@@ -63,7 +43,7 @@ it('draws 100 sprites of one texture with one material in one run (CA-1)', async
 })
 
 it('tints one sprite through its instance color, never through a material (CA-1)', async () => {
-  const game = makeGame()
+  const game = await readyGame()
   loadScene(game, scene([0, 1, 2].map((i) => spriteEntity(`S${i}`, { texture: '/hero.png' }))), REGISTRY)
   await flush()
   renderFrame(game)
@@ -81,7 +61,7 @@ it('tints one sprite through its instance color, never through a material (CA-1)
 })
 
 it('shares the untextured entry of a shape across colors (CA-1)', async () => {
-  const game = makeGame()
+  const game = await readyGame()
   const entities = [
     spriteEntity('Red', { color: 0xff0000 }),
     spriteEntity('Blue', { color: 0x0000ff }),
@@ -104,7 +84,7 @@ it('shares the untextured entry of a shape across colors (CA-1)', async () => {
 it('moves the sprites of a failed texture to the untextured entry and leaves the others (CA-1)', async () => {
   const textures = new FakeTextureBackend()
   textures.failUrl('/broken.png')
-  const game = makeGame(textures)
+  const game = await readyGame(textures)
   const entities = [
     spriteEntity('Fine', { texture: '/hero.png', layer: 0 }),
     spriteEntity('Broken', { texture: '/broken.png', color: 0x336699, layer: 1 }),
@@ -124,7 +104,7 @@ it('moves the sprites of a failed texture to the untextured entry and leaves the
 })
 
 it('restores one mesh and one material per sprite, with no batch objects, under render.batch: false (CA-6)', async () => {
-  const game = makeGame()
+  const game = await readyGame()
   const entities = Array.from({ length: 5 }, (_, i) => spriteEntity(`S${i}`, { texture: '/hero.png' }))
   loadScene(game, scene(entities, { batch: false }), REGISTRY)
   await flush()
@@ -138,7 +118,7 @@ it('restores one mesh and one material per sprite, with no batch objects, under 
 
 it('batches when the render block omits batch or sets it true (CA-6)', async () => {
   for (const render of [undefined, { batch: true }] as const) {
-    const game = makeGame()
+    const game = await readyGame()
     loadScene(game, scene([spriteEntity('A', {}), spriteEntity('B', {})], render), REGISTRY)
     await flush()
     renderFrame(game)

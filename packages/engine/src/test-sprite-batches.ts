@@ -1,6 +1,7 @@
 // Test support for the Sprite Batch tests (ADR 0024), excluded from builds.
-// The test files mock three's WebGLRenderer; these helpers only read the scene.
-import * as THREE from 'three'
+// The test files mock three's WebGPURenderer with test-renderer.ts; these
+// helpers only read the scene.
+import * as THREE from 'three/webgpu'
 import { afterEach, beforeEach, expect, vi } from 'vitest'
 import { FakeTextureBackend } from './assets/test-helpers.js'
 import { AnimatedSprite } from './components/animated-sprite.js'
@@ -8,6 +9,7 @@ import { Sprite } from './components/sprite.js'
 import { Game } from './game.js'
 import type { SceneEntityJson, SceneJson, SceneRegistry } from './scene.js'
 import { StateMachine } from './state/state-machine.js'
+import { fakeRendering, resetFakeRendering } from './test-renderer.js'
 import { defined } from './test-support.js'
 
 class ResizeObserverStub {
@@ -15,11 +17,9 @@ class ResizeObserverStub {
   disconnect(): void {}
 }
 
-type RenderHook = { onTestRender?: (scene: unknown) => void }
-
 /** What the mocked renderer calls on every render, so a test can look at the scene as three would draw it. */
 export function onRender(hook: (scene: unknown) => void): void {
-  ;(globalThis as RenderHook).onTestRender = hook
+  fakeRendering.onRender = (scene) => hook(scene)
 }
 
 /** A clean DOM, a ResizeObserver stub and no render hook around every test. */
@@ -31,7 +31,7 @@ export function useSpriteBatchTestEnvironment(): void {
   afterEach(() => {
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
-    delete (globalThis as RenderHook).onTestRender
+    resetFakeRendering()
   })
 }
 
@@ -46,6 +46,13 @@ export function makeGame(textures = new FakeTextureBackend()): Game {
   })
   document.body.append(canvas)
   return new Game({ canvas, textures })
+}
+
+/** A Game whose renderer is ready (ADR 0025), so its frames draw. */
+export async function readyGame(textures = new FakeTextureBackend()): Promise<Game> {
+  const game = makeGame(textures)
+  await game.ready()
+  return game
 }
 
 /** One rendered frame with no Simulation Step: the render pass only. */
@@ -96,9 +103,12 @@ export function materials(game: Game): Set<THREE.Material> {
   return found
 }
 
-export function basic(material: THREE.Material | THREE.Material[]): THREE.MeshBasicMaterial {
-  if (!(material instanceof THREE.MeshBasicMaterial)) throw new Error('expected one MeshBasicMaterial')
-  return material
+/** An unlit basic material: a sprite's own MeshBasicMaterial, or a batch's node equivalent (ADR 0025). */
+export type BasicMaterial = THREE.MeshBasicMaterial | THREE.MeshBasicNodeMaterial
+
+export function basic(material: THREE.Material | THREE.Material[]): BasicMaterial {
+  if (material instanceof THREE.MeshBasicMaterial || material instanceof THREE.MeshBasicNodeMaterial) return material
+  throw new Error('expected one MeshBasicMaterial or MeshBasicNodeMaterial')
 }
 
 /** The linear RGB a run carries for its instance at `index`. */

@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from 'three/webgpu'
 import type { TextureOutcome } from './assets/asset-loader.js'
 import type { Game } from './game.js'
 import {
@@ -19,7 +19,7 @@ export interface SpriteUvSource {
   readonly repeat: THREE.Vector2
 }
 
-export type SpriteAnchor = THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
+export type SpriteAnchor = THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicNodeMaterial>
 
 /** Where an instance sits: its key, that key's batch and its slot there. */
 export interface SpriteBatchSeat {

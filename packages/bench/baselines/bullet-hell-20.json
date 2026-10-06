@@ -1,6 +1,7 @@
 {
   "scenario": "bullet-hell-20",
-  "commit": "adf61a7",
+  "commit": "2c57b94",
+  "backend": "webgl2",
   "host": {
     "platform": "linux",
     "cpus": 8,
@@ -22,12 +23,12 @@
   },
   "timings": {
     "frames": 600,
-    "medianMs": 11.700000047683716,
-    "p95Ms": 12.799999952316284,
+    "medianMs": 10.100000023841858,
+    "p95Ms": 12,
     "overBudget": false,
     "gcPauses": {
-      "count": 186,
-      "totalMs": 49.539
+      "count": 154,
+      "totalMs": 47.356
     }
   }
 }

@@ -2,39 +2,14 @@
 import { createEvent, fireEvent } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// Same seam as viewport-scene-swap.test.tsx: happy-dom cannot host WebGL, so
-// the engine's own copy of three gets a renderer that only records the loop.
-const rendererHooks = vi.hoisted(() => ({
-  loop: null as ((time: number) => void) | null,
-}))
-
+// Same seam as viewport-scene-swap.test.tsx: happy-dom hosts no GPU, so the
+// engine's own copy of three gets the shared fake renderer, which records the loop.
 vi.mock(
-  new URL(
-    '../../../../packages/engine/node_modules/three/build/three.module.js',
-    import.meta.url,
-  ).pathname,
-  async (importOriginal) => {
-    const actual = await importOriginal<Record<string, unknown>>()
-    class WebGLRenderer {
-      readonly domElement: HTMLCanvasElement
-      constructor({ canvas }: { canvas: HTMLCanvasElement }) {
-        this.domElement = canvas
-      }
-      setPixelRatio(): void {}
-      setSize(): void {}
-      setViewport(): void {}
-      setScissor(): void {}
-      setScissorTest(): void {}
-      setClearColor(): void {}
-      clear(): void {}
-      render(): void {}
-      setAnimationLoop(loop: ((time: number) => void) | null): void {
-        rendererHooks.loop = loop
-      }
-      dispose(): void {}
-    }
-    return { ...actual, WebGLRenderer }
-  },
+  new URL('../../../../packages/engine/node_modules/three/build/three.webgpu.js', import.meta.url).pathname,
+  async (importOriginal) =>
+    (await import('../../../engine/src/test-renderer.js')).withFakeRenderer(
+      await importOriginal<Record<string, unknown>>(),
+    ),
 )
 
 import type { SceneJson } from '@waica/engine'

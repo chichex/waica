@@ -13,6 +13,14 @@ export interface GameBuild {
   viewHeight: number
 }
 
+/** A fresh canvas filling `surface`, for one Game only (review #2). */
+export function mountGameCanvas(surface: HTMLElement): HTMLCanvasElement {
+  const canvas = document.createElement('canvas')
+  canvas.className = 'ed-viewport-canvas'
+  surface.append(canvas)
+  return canvas
+}
+
 /** A Game over `canvas` with the live scene loaded, simulating (and playing music) only in Play. */
 export function createViewportGame(canvas: HTMLCanvasElement, live: ViewportLive, build: GameBuild): Game {
   const { mode, background, viewHeight } = build

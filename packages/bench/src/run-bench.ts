@@ -107,7 +107,7 @@ async function runEachScenario(browser: Browser, url: string, provenance: Proven
     const frames = summarizeFrames(report.frameMs)
     const timings = { ...frames, overBudget: isOverBudget(frames.p95Ms), gcPauses: gcPausesFromTrace(trace, LOOP_WINDOW) }
     const host: BenchHost = { ...provenance.host, renderer: report.renderer }
-    results.push({ scenario, commit: provenance.commit, host, counters: report.counters, timings })
+    results.push({ scenario, commit: provenance.commit, backend: report.backend, host, counters: report.counters, timings })
   }
   return results
 }
@@ -130,7 +130,7 @@ async function runScenarios(host: NodeHost, executablePath: string, gpu: boolean
 
 function summary(result: ScenarioResult): string {
   const { counters, timings } = result
-  return `${result.scenario}: ${counters.drawCalls} draw calls, ${counters.materials} materials, ${counters.textureSources} texture sources, ${counters.entitiesSpawned} spawned, median ${timings.medianMs.toFixed(2)} ms, p95 ${timings.p95Ms.toFixed(2)} ms, ${frameVerdict(timings.p95Ms)}`
+  return `${result.scenario} (${result.backend}): ${counters.drawCalls} draw calls, ${counters.materials} materials, ${counters.textureSources} texture sources, ${counters.entitiesSpawned} spawned, median ${timings.medianMs.toFixed(2)} ms, p95 ${timings.p95Ms.toFixed(2)} ms, ${frameVerdict(timings.p95Ms)}`
 }
 
 async function main(): Promise<void> {

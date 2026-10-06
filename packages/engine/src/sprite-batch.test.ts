@@ -1,52 +1,44 @@
-import * as THREE from 'three'
+import { positionLocal } from 'three/tsl'
+import * as THREE from 'three/webgpu'
 import { expect, it } from 'vitest'
 import { SpriteBatch } from './sprite-batch'
+import { defined } from './test-support'
 
-/**
- * The lines a GLSL preprocessor keeps with USE_INSTANCING undefined: only
- * that one macro is evaluated, every other conditional is kept whole.
- */
-function withoutInstancing(source: string): string {
-  const stack: { instancing: boolean; active: boolean }[] = []
-  const kept: string[] = []
-  for (const line of source.split('\n')) {
-    const directive = line.trim()
-    if (/^#if/.test(directive)) {
-      const instancing = /^#ifdef\s+USE_INSTANCING\b/.test(directive)
-      stack.push({ instancing, active: !instancing })
-      continue
-    }
-    const top = stack.at(-1)
-    if (directive.startsWith('#else') && top?.instancing) {
-      top.active = !top.active
-      continue
-    }
-    if (directive.startsWith('#endif') && top) {
-      stack.pop()
-      continue
-    }
-    if (stack.every((frame) => frame.active)) kept.push(line)
-  }
-  return kept.join('\n')
-}
-
-function batchVertexShader(): string {
-  const batch = new SpriteBatch(
+function untexturedBatch(): SpriteBatch {
+  return new SpriteBatch(
     { texture: null, pixelArt: false, shape: 'rectangle' },
     { texture: () => { throw new Error('untextured: no texture request') } },
     new THREE.PlaneGeometry(1, 1),
   )
-  const shader = { vertexShader: THREE.ShaderLib.basic.vertexShader, fragmentShader: '', uniforms: {} }
-  batch.material.onBeforeCompile(shader as unknown as THREE.WebGLProgramParametersWithUniforms, {} as THREE.WebGLRenderer)
-  return shader.vertexShader
 }
 
-it('keeps the instancing rewrite behind USE_INSTANCING, so a non-instanced draw of the material still compiles (review)', () => {
-  const source = batchVertexShader()
-  expect(source).toContain('instanceMatrix * vec4( transformed, 1.0 )')
+/** Just what the batch material's hooks read from three's node builder: the object being drawn. */
+function builderFor(object: THREE.Object3D): THREE.NodeBuilder {
+  return { object } as unknown as THREE.NodeBuilder
+}
 
-  const plain = withoutInstancing(source)
-  expect(plain).not.toMatch(/instanceMatrix|instanceUv/)
-  expect(plain).toContain('#include <project_vertex>')
-  expect(plain).toContain('#include <uv_vertex>')
+type UvContext = { getUV(texture: unknown, builder: THREE.NodeBuilder): unknown }
+
+it('is a node material with no GLSL hook: the instance transform is TSL (ADR 0025)', () => {
+  const { material } = untexturedBatch()
+
+  expect(material.isNodeMaterial).toBe(true)
+  // The GLSL path assigned its hook on the material itself; node materials ignore it.
+  expect(Object.hasOwn(material, 'onBeforeCompile')).toBe(false)
+})
+
+it('keeps the instance transform to instanced draws, so a plain draw of the material uses three\'s own (review)', () => {
+  const { material } = untexturedBatch()
+  const instanced = builderFor(new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), material, 1))
+  const plain = builderFor(new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material))
+  const uvContext = defined(material.contextNode, 'the batch material context').value as UvContext
+
+  // The instance matrix already holds view × world: no modelViewMatrix on top.
+  expect(material.setupPositionView(instanced)).toBe(positionLocal)
+  expect(material.setupPositionView(plain)).not.toBe(positionLocal)
+  const map = new THREE.TextureNode(new THREE.Texture())
+  // Per vertex, like every other map (render-output.ts), from the instance's own transform.
+  expect((uvContext.getUV(map, instanced) as THREE.Node).type).toBe('VaryingNode')
+  expect(map.updateMatrix).toBe(false)
+  expect(uvContext.getUV(new THREE.TextureNode(new THREE.Texture()), plain)).toBeNull()
 })

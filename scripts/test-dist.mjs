@@ -442,6 +442,8 @@ try {
       "const enginePackage = await import('@waica/engine')",
       "if (typeof enginePackage.resolveComponentUpdateSchedule !== 'function') throw new Error('engine root has no schedule resolver')",
       "if (enginePackage.ParticleEmitter?.componentName !== 'ParticleEmitter') throw new Error('engine root has no ParticleEmitter')",
+      "if (typeof enginePackage.THREE?.WebGPURenderer !== 'function') throw new Error('engine THREE is not the three/webgpu build')",
+      "if (enginePackage.THREE.WebGLRenderer !== undefined) throw new Error('engine THREE still exposes WebGLRenderer')",
       "class PackedProducer extends enginePackage.Component { static componentName = 'PackedProducer'; onUpdate() {} }",
       "class PackedConsumer extends enginePackage.Component { static componentName = 'PackedConsumer'; static updateAfter = ['PackedProducer']; onUpdate() {} }",
       "const packedSchedule = enginePackage.resolveComponentUpdateSchedule(['PackedConsumer', 'PackedProducer'], { PackedConsumer, PackedProducer })",

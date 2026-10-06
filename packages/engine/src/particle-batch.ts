@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from 'three/webgpu'
 import { reportRejection } from './report-rejection.js'
 import type { AssetLoader } from './assets/asset-loader.js'
 import type { ParticleBlend, ParticleOverflow } from './components/particle-emitter.js'
@@ -170,6 +170,9 @@ export class ParticleBatch implements SceneDrain {
     colors.needsUpdate = true
     this.sortIndices()
     this.mesh.geometry.setDrawRange(0, this.active * 6)
+    // WebGPURenderer issues a zero-count draw (WebGLRenderer skipped it):
+    // an empty batch is not drawn at all.
+    this.mesh.visible = this.active > 0
   }
 
   ySortEntries(): readonly YSortEntry[] {

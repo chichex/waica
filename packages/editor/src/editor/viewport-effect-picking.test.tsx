@@ -5,30 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // Same seam as viewport-pointer-characterization.test.tsx: happy-dom cannot
 // host WebGL, so the engine's own copy of three gets an inert renderer.
 vi.mock(
-  new URL(
-    '../../../../packages/engine/node_modules/three/build/three.module.js',
-    import.meta.url,
-  ).pathname,
-  async (importOriginal) => {
-    const actual = await importOriginal<Record<string, unknown>>()
-    class WebGLRenderer {
-      readonly domElement: HTMLCanvasElement
-      constructor({ canvas }: { canvas: HTMLCanvasElement }) {
-        this.domElement = canvas
-      }
-      setPixelRatio(): void {}
-      setSize(): void {}
-      setViewport(): void {}
-      setScissor(): void {}
-      setScissorTest(): void {}
-      setClearColor(): void {}
-      clear(): void {}
-      render(): void {}
-      setAnimationLoop(): void {}
-      dispose(): void {}
-    }
-    return { ...actual, WebGLRenderer }
-  },
+  new URL('../../../../packages/engine/node_modules/three/build/three.webgpu.js', import.meta.url).pathname,
+  async (importOriginal) =>
+    (await import('../../../engine/src/test-renderer.js')).withFakeRenderer(await importOriginal<Record<string, unknown>>()),
 )
 
 import { installArchetype, installDirectionalAnimation, projectIsometric, type Game, type SceneJson } from '@waica/engine'

@@ -4,6 +4,7 @@ import { parseScenarioResult, parseScenarioResults } from './results-guard.ts'
 const valid = {
   scenario: 'spawn-churn-10',
   commit: 'abc1234',
+  backend: 'webgl2',
   host: { platform: 'linux', cpus: 8, chrome: 'Google Chrome 150', renderer: 'ANGLE (SwiftShader)' },
   counters: {
     drawCalls: 300,
@@ -45,6 +46,14 @@ describe('parseScenarioResult', () => {
     expect(() => parseScenarioResult({ ...valid, host: hostWithoutRenderer })).toThrow(/host.renderer/)
     expect(() => parseScenarioResult({ ...valid, counters: { ...valid.counters, textureSources: undefined } })).toThrow(/counters.textureSources/)
     expect(() => parseScenarioResult({ ...valid, timings: { ...valid.timings, overBudget: 'no' } })).toThrow(/timings.overBudget/)
+  })
+
+  it('requires the Render Backend the scenario drew through (ADR 0025)', () => {
+    expect(parseScenarioResult({ ...valid, backend: 'webgpu' })).toEqual({ ...valid, backend: 'webgpu' })
+    const withoutBackend: Record<string, unknown> = { ...valid }
+    delete withoutBackend.backend
+    expect(() => parseScenarioResult(withoutBackend)).toThrow(/result.backend/)
+    expect(() => parseScenarioResult({ ...valid, backend: 'webgl' })).toThrow(/result.backend/)
   })
 
   it('rejects malformed host and timings', () => {

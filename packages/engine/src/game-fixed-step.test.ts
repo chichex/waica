@@ -1,40 +1,12 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const renderer = vi.hoisted(() => ({
-  loop: null as ((time: number) => void) | null,
-  renders: 0,
-  onRender: null as (() => void) | null,
-}))
-
 /** Every dt the engine hands stepSceneCamera, in call order. */
 const cameraSteps = vi.hoisted(() => ({ dts: [] as number[] }))
 
-vi.mock('three', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('three')>()
-  class WebGLRenderer {
-    readonly domElement: HTMLCanvasElement
-    constructor({ canvas }: { canvas: HTMLCanvasElement }) {
-      this.domElement = canvas
-    }
-    setPixelRatio(): void {}
-    setSize(): void {}
-    setViewport(): void {}
-    setScissor(): void {}
-    setScissorTest(): void {}
-    setClearColor(): void {}
-    clear(): void {}
-    render(): void {
-      renderer.renders += 1
-      renderer.onRender?.()
-    }
-    setAnimationLoop(loop: ((time: number) => void) | null): void {
-      renderer.loop = loop
-    }
-    dispose(): void {}
-  }
-  return { ...actual, WebGLRenderer }
-})
+vi.mock('three/webgpu', async (importOriginal) =>
+  (await import('./test-renderer.js')).withFakeRenderer(await importOriginal()),
+)
 
 vi.mock('./camera', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./camera')>()
@@ -45,6 +17,7 @@ vi.mock('./camera', async (importOriginal) => {
   return { ...actual, stepSceneCamera }
 })
 
+import { fakeRendering, lastFakeRenderer, resetFakeRendering } from './test-renderer'
 import { Component } from './component'
 import { MAX_STEPS_PER_FRAME, SIMULATION_STEP } from './fixed-step'
 import { frameMs } from './fixed-step-test-support'
@@ -57,9 +30,7 @@ class ResizeObserverStub {
 }
 
 beforeEach(() => {
-  renderer.loop = null
-  renderer.renders = 0
-  renderer.onRender = null
+  resetFakeRendering()
   cameraSteps.dts.length = 0
   document.body.innerHTML = ''
   vi.stubGlobal('ResizeObserver', ResizeObserverStub)
@@ -79,8 +50,9 @@ describe('Fixed Simulation Step loop', () => {
   }
 
   function tick(time: number): void {
-    if (!renderer.loop) throw new Error('Game.start() did not install a frame callback')
-    renderer.loop(time)
+    const loop = lastFakeRenderer().loop
+    if (!loop) throw new Error('Game.start() did not install a frame callback')
+    loop(time)
   }
 
   function makeStartedGame(bindings?: Record<string, string[]>): {
@@ -219,12 +191,13 @@ describe('Fixed Simulation Step loop', () => {
     game.dispose()
   })
 
-  it('runs zero steps on the first tick after start(), and again after stop()/start() — never a burst (CA-3)', () => {
+  it('runs zero steps on the first tick after start(), and again after stop()/start() — never a burst (CA-3)', async () => {
     const { game, dts } = makeStartedGame()
+    await game.ready()
 
     tick(1_000)
     expect(dts).toHaveLength(0)
-    expect(renderer.renders).toBe(1)
+    expect(lastFakeRenderer().renders).toBe(1)
 
     // The clock is live from the seed: one frame later, one step.
     tick(1_000 + frameMs(60))
@@ -237,7 +210,7 @@ describe('Fixed Simulation Step loop', () => {
     game.start()
     tick(9_000) // eight seconds later: seeds again, nothing to catch up
     expect(dts).toHaveLength(1)
-    expect(renderer.renders).toBe(4)
+    expect(lastFakeRenderer().renders).toBe(4)
     // 10 ms more: with the old remainder this would be a 20 ms step; it was reset.
     tick(9_000 + 10)
     expect(dts).toHaveLength(1)
@@ -367,7 +340,7 @@ describe('Fixed Simulation Step loop', () => {
     }
   })
 
-  it('renders and refreshes UI and audio exactly once per tick, after the last step, for 0, 1 and 6 steps (CA-5)', () => {
+  it('renders and refreshes UI and audio exactly once per tick, after the last step, for 0, 1 and 6 steps (CA-5)', async () => {
     const events: string[] = []
     class StepProbe extends Component {
       static override componentName = 'StepProbe'
@@ -376,11 +349,12 @@ describe('Fixed Simulation Step loop', () => {
       }
     }
     const { game } = makeStartedGame()
+    await game.ready()
     game.spawn('Stepper').add(StepProbe)
     vi.spyOn(game.ui, 'setActive').mockImplementation(() => events.push('ui.setActive'))
     vi.spyOn(game.audio, 'setActive').mockImplementation(() => events.push('audio.setActive'))
     vi.spyOn(game.audio, 'updatePlacements').mockImplementation(() => events.push('audio.updatePlacements'))
-    renderer.onRender = () => events.push('render')
+    fakeRendering.onRender = () => events.push('render')
     const tail = ['ui.setActive', 'audio.setActive', 'audio.updatePlacements', 'render']
     const expectFrame = (steps: number): void => {
       expect(events.filter((event) => event === 'step')).toHaveLength(steps)
