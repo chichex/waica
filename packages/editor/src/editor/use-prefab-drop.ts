@@ -17,14 +17,14 @@ export interface PrefabDropTarget {
 export function usePrefabDrop({ canvasRef, gameRef, liveRef, onDropPrefab }: PrefabDropTarget) {
   const [dropHover, setDropHover] = useState(false)
 
-  const onDragOver = (e: DragEvent<HTMLCanvasElement>): void => {
+  const onDragOver = (e: DragEvent<HTMLElement>): void => {
     if (!onDropPrefab || liveRef.current.mode !== 'edit') return
     e.preventDefault()
     e.dataTransfer.dropEffect = 'copy'
     setDropHover(true)
   }
 
-  const onDrop = (e: DragEvent<HTMLCanvasElement>): void => {
+  const onDrop = (e: DragEvent<HTMLElement>): void => {
     setDropHover(false)
     if (!onDropPrefab) return
     e.preventDefault()

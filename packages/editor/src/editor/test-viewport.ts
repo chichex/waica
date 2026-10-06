@@ -65,7 +65,10 @@ export function mountViewport(overrides: Partial<ViewportProps> = {}): MountedVi
   const view = render(element({}), { reactStrictMode: true })
   return {
     handle: () => defined(current, 'the viewport handle'),
-    canvas: defined(view.container.querySelector('canvas'), 'the viewport canvas'),
+    // The live Game's canvas: each Game draws on its own (review #2).
+    get canvas() {
+      return defined(view.container.querySelector('canvas'), 'the viewport canvas')
+    },
     rerender: (next) => view.rerender(element(next)),
   }
 }

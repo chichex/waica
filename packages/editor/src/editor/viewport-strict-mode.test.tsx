@@ -89,6 +89,24 @@ describe('Viewport under StrictMode (CA-22)', () => {
   })
 })
 
+describe('Viewport canvases (review #2)', () => {
+  it('gives every Game its own canvas, so disposing one never loses the live Game\'s context', async () => {
+    const { rerender } = render(viewport(1, 'edit'), { reactStrictMode: true })
+    await settle()
+    rerender(viewport(1, 'play'))
+    await settle()
+    rerender(viewport(1, 'edit'))
+    await settle()
+
+    const live = fakeRendering.renderers.filter((renderer) => !renderer.disposed)
+    expect(live).toHaveLength(1)
+    const canvas = live[0]?.domElement
+    expect(canvas && fakeRendering.lostCanvases.has(canvas)).toBe(false)
+    expect(canvas?.isConnected).toBe(true)
+    expect(document.querySelectorAll('canvas')).toHaveLength(1)
+  })
+})
+
 describe('Viewport and game.ready() (ADR 0025, CA-7)', () => {
   it('starts the loop only once the renderer is ready', async () => {
     fakeRendering.init = 'pending'

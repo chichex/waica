@@ -99,7 +99,7 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
 ) {
   const live = { scene, scenePath, sceneCatalog, registry, bindings, stats, music, resolution, selected, multiSelected, mode, grid: effectiveGrid(scene, grid), componentVisibility, tilemapBrush }
   const session = useViewportGame(live, { epoch, mode, background, showCamera, viewHeight, onSelect })
-  const { canvasRef, uiFrameRef, uiScaleRef, gameRef } = session
+  const { surfaceRef, uiFrameRef, uiScaleRef, gameRef } = session
   useViewportHandle(ref, gameRef)
   const pointer = useViewportPointer(
     { ...session, showCamera },
@@ -109,8 +109,8 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
 
   return (
     <>
-      <canvas
-        ref={canvasRef}
+      <div
+        ref={surfaceRef}
         className={`ed-viewport ${mode === 'edit' ? 'is-edit' : 'is-play'} ${drop.dropHover ? 'is-dropping' : ''}`}
         {...pointer.handlers}
         {...drop.handlers}

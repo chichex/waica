@@ -23,12 +23,20 @@ export const fakeRendering = {
   renderers: [] as FakeWebGPURenderer[],
   /** Called on every render with the scene and camera as three would draw them. */
   onRender: null as ((scene: unknown, camera: FakeCamera) => void) | null,
+  /**
+   * Canvases whose context a disposed renderer lost: three's WebGL2 backend
+   * calls WEBGL_lose_context.loseContext() in dispose(), and a canvas hands
+   * every renderer the same context, so another renderer on that canvas is
+   * left without one.
+   */
+  lostCanvases: new Set<HTMLCanvasElement>(),
 }
 
 export function resetFakeRendering(): void {
   fakeRendering.init = 'webgpu'
   fakeRendering.renderers.length = 0
   fakeRendering.onRender = null
+  fakeRendering.lostCanvases.clear()
 }
 
 /** The renderer built last, failing the test when there is none. */
@@ -118,6 +126,7 @@ export class FakeWebGPURenderer {
 
   dispose(): Promise<void> {
     this.disposed = true
+    fakeRendering.lostCanvases.add(this.domElement)
     return Promise.resolve()
   }
 

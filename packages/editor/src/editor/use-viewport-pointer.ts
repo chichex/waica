@@ -28,7 +28,7 @@ export function useViewportPointer(session: ViewportPointerSession, callbacks: G
   const host = { callbacks, showCamera, canvas: canvasRef, cameraDrag: camLiveRef, showMarquee: setMarqueeRect }
 
   /** The pointer over the live world, or null outside edit mode. */
-  const editStep = (e: PointerEvent<HTMLCanvasElement>): PointerStep | null => {
+  const editStep = (e: PointerEvent<HTMLElement>): PointerStep | null => {
     const game = gameRef.current
     const live = liveRef.current
     if (!game || live.mode !== 'edit') return null
@@ -37,7 +37,7 @@ export function useViewportPointer(session: ViewportPointerSession, callbacks: G
     return { world, host, at: { point, shiftKey: e.shiftKey, clientX: e.clientX, clientY: e.clientY } }
   }
 
-  const onPointerDown = (e: PointerEvent<HTMLCanvasElement>): void => {
+  const onPointerDown = (e: PointerEvent<HTMLElement>): void => {
     const step = editStep(e)
     if (!step) return
     try {
@@ -48,12 +48,12 @@ export function useViewportPointer(session: ViewportPointerSession, callbacks: G
     gestureRef.current = beginGesture(step)
   }
 
-  const onPointerMove = (e: PointerEvent<HTMLCanvasElement>): void => {
+  const onPointerMove = (e: PointerEvent<HTMLElement>): void => {
     const step = editStep(e)
     if (!step) return
     const gesture = gestureRef.current
     if (gesture) gestureRef.current = dragGesture(step, gesture)
-    else e.currentTarget.style.cursor = hoverCursor(step.world.game, step.world.live, step.at.point)
+    else (canvasRef.current ?? e.currentTarget).style.cursor = hoverCursor(step.world.game, step.world.live, step.at.point)
   }
 
   const onPointerUp = (): void => {
@@ -63,7 +63,7 @@ export function useViewportPointer(session: ViewportPointerSession, callbacks: G
     camLiveRef.current = null
   }
 
-  const onWheel = (e: WheelEvent<HTMLCanvasElement>): void => {
+  const onWheel = (e: WheelEvent<HTMLElement>): void => {
     zoomEditView({ gameRef, liveRef, camRef }, e.deltaY > 0 ? 1.1 : 1 / 1.1)
   }
 
