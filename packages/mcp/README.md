@@ -90,6 +90,8 @@ Full page reload reconnects to a fresh paused baseline. Runtime operations rejec
 
 `validate_project` checks every authored `Hitbox` block in prefab props, inline scene components, changed instance overrides, and `public/waica.params.json`. Invalid `layer` values produce `invalid-collision-layer`; a non-list mask or invalid/non-string entry produces `invalid-collision-mask`; repeated exact entries produce the warning `duplicate-collision-mask-entry`. Empty masks and syntactically valid project-owned names are accepted. A scene instance does not repeat findings inherited from its prefab—the finding stays at the source that must be edited.
 
+`validate_project` also checks each scene's `render.lighting` and `render.post` (issue #78): an Ambient Light intensity outside 0..1, a vignette intensity or radius outside 0..1, a color grade contrast or saturation outside 0..2, or a color that is not `#rrggbb` produces one `invalid-scene-render` error per field, naming the field and its range (for example `render.post.vignette.radius must be a number from 0 to 1; got -1.`).
+
 These authoring diagnostics complement the engine's quiet fail-closed runtime behavior. They do not create a layer registry, normalize values, or rewrite Project files. See `@waica/engine`'s Hitbox migration table before upgrading a Project that uses `Collectible`, `Hazard`, overlap `SceneTransition`, or the platformer example projectile.
 
 ## Animation clip validation

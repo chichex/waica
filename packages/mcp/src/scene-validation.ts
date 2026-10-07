@@ -1,3 +1,4 @@
+import { sceneRenderIssues } from '@waica/engine'
 import type {
   ParamSpec,
   PrefabJson,
@@ -76,6 +77,10 @@ export function validateScene(scene: SceneJson, scope: SceneScope): void {
         !!entry.entity && typeof entry.entity === 'object' && !Array.isArray(entry.entity),
     )
   validateSceneCamera(scene, entities.map(({ entity }) => entity), scope)
+  // render.lighting and render.post ranges (issue #78 CA-2), one error per field.
+  for (const issue of sceneRenderIssues(scene.render)) {
+    add(scope.context, 'error', 'invalid-scene-render', issue.message, scope.file, issue.field)
+  }
   for (const ui of Array.isArray(scene.ui) ? scene.ui : []) {
     if (typeof ui === 'string' && !scope.uiNames.has(ui)) {
       add(scope.context, 'warning', 'unknown-ui-piece', `Unknown UI piece "${ui}".`, scope.file, ui)
