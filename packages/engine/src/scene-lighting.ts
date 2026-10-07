@@ -113,8 +113,10 @@ export function removeLight(lighting: GameLighting, light: Light): void {
 }
 
 /** Internal: a Tilemap's solid tiles changed (spawned, edited or destroyed); occlusion is rebuilt once. */
-export function markOccludersChanged(lighting: GameLighting): void {
-  stateOf(lighting).occluderRevision += 1
+export function markOccludersChanged(lighting: GameLighting | undefined): void {
+  // A Tilemap on a stand-in game (a test stub with no lighting) has nothing to notify.
+  const state = lighting ? states.get(lighting) : undefined
+  if (state) state.occluderRevision += 1
 }
 
 /** Internal: bumps whenever the solid tiles change, so the occluder grid is rebuilt only then (inference 9). */

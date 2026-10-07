@@ -5,6 +5,7 @@ import { spritePlacement } from '../sprite-placement.js'
 import { reportRejection } from '../report-rejection.js'
 import type { SpriteBatchKey } from '../sprite-batch.js'
 import { spriteBatchesOf, spriteInstanceOf, type SpriteBatches } from '../sprite-batches.js'
+import { setEmissive } from '../render-layers.js'
 
 const clampAnchor = (value: number): number => Math.min(1, Math.max(0, value))
 
@@ -22,6 +23,7 @@ export class Sprite extends Component implements YSortParticipant {
     anchorX: { label: 'x anchor', min: 0, max: 1, step: 0.25 },
     anchorY: { label: 'y anchor', min: 0, max: 1, step: 0.25 },
     layer: { label: 'layer', min: -5, max: 5, step: 1 },
+    emissive: { label: 'emissive' },
   }
   static override transient = ['mesh']
   // Size, color and offset are reactive so inspector edits update the live quad.
@@ -89,6 +91,17 @@ export class Sprite extends Component implements YSortParticipant {
     this.syncQuad()
   }
 
+  // Emissive (issue #78 CA-10): never darkened by the light-map, drawn after
+  // it at full brightness. On its own render layer.
+  private _emissive = false
+  get emissive(): boolean {
+    return this._emissive
+  }
+  set emissive(value: boolean) {
+    this._emissive = value === true
+    if (this.mesh) setEmissive(this.mesh, this._emissive)
+  }
+
   /** Optional texture URL; with pixelArt on it filters in nearest. */
   texture?: string
   pixelArt = false
@@ -135,6 +148,7 @@ export class Sprite extends Component implements YSortParticipant {
     else this.buildMesh()
     if (!this.mesh) return
     this.mesh.position.z = this.layer * 0.01
+    setEmissive(this.mesh, this._emissive)
     this.syncQuad()
     this.entity.node.add(this.mesh)
   }

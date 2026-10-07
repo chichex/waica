@@ -6,6 +6,7 @@ import {
 } from '../particle-batch.js'
 import type { YSortBatchParticipant, YSortEntry } from '../render-sort.js'
 import { sceneDrainsOf } from '../scene-drains.js'
+import { setEmissive } from '../render-layers.js'
 
 export type ParticleVector = [number, number]
 export type ParticleSpace = 'world' | 'local'
@@ -42,6 +43,7 @@ export class ParticleEmitter extends Component implements YSortBatchParticipant 
     pixelArt: { label: 'Pixel art' },
     blend: { label: 'Blend', options: ['normal', 'additive'] },
     layer: { label: 'Layer', step: 1 },
+    emissive: { label: 'Emissive' },
   } satisfies Record<string, ParamSpec>
 
   rate = 0
@@ -124,6 +126,16 @@ export class ParticleEmitter extends Component implements YSortBatchParticipant 
     this._batch?.sync(this.renderContext())
   }
 
+  // Emissive (issue #78 CA-10): never darkened by the light-map.
+  private _emissive = false
+  get emissive(): boolean {
+    return this._emissive
+  }
+  set emissive(value: boolean) {
+    this._emissive = value === true
+    if (this._batch) setEmissive(this._batch.mesh, this._emissive)
+  }
+
   private _batch?: ParticleBatch
   private _unsubscribeRenderSync?: () => void
   private _emissionRemainder = 0
@@ -143,6 +155,7 @@ export class ParticleEmitter extends Component implements YSortBatchParticipant 
       assets: this.game.assets,
     })
     this._batch.setTexture(this.texture, this.pixelArt)
+    setEmissive(this._batch.mesh, this._emissive)
     this.game.scene.add(this._batch.mesh)
     this._batch.sync(this.renderContext())
     this._unsubscribeRenderSync = this.game.onUpdate(() => this._batch?.sync(this.renderContext()))

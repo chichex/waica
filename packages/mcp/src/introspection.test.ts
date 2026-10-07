@@ -40,7 +40,7 @@ const EXPECTED_PARTICLE_DEFAULTS = {
 }
 
 describe('listComponents', () => {
-  it('describes all 17 platformer classes and only the five declared display names', async () => {
+  it('describes all 18 platformer classes (Light since issue #78) and only the five declared display names', async () => {
     const project = await makeProject({
       'src/components/dash.ts': `export class Dash { static componentName = 'Dash' }\n`,
       'src/roles/guard.ts': `// project role\n`,
@@ -51,12 +51,13 @@ describe('listComponents', () => {
 
     const result = await listComponents(project)
 
-    expect(result.components).toHaveLength(18)
+    expect(result.components).toHaveLength(19)
     expect(result.components.map((component) => component.componentName)).toEqual(
       expect.arrayContaining([
         'Sprite',
         'AnimatedSprite',
         'ParticleEmitter',
+        'Light',
         'Solid',
         'Hitbox',
         'DynamicBody',
@@ -193,7 +194,7 @@ describe('listComponents', () => {
       path: 'src/components/explodes.ts',
       validated: false,
     })
-    expect(result.components).toHaveLength(18)
+    expect(result.components).toHaveLength(19)
   })
 
   it('attributes mixed-source components by their stable package contract', async () => {
@@ -217,7 +218,7 @@ describe('listComponents', () => {
 
     const result = await listComponents(project)
 
-    expect(result.components).toHaveLength(18)
+    expect(result.components).toHaveLength(19)
     expect(result.warnings.join('\n')).toMatch(/package\.json.*parse|parse.*package\.json/i)
   })
 

@@ -130,6 +130,21 @@ export type { StatValue } from './stats.js'
 export { GameUi } from './ui.js'
 export type { AnchoredPieceHandle, AttachOptions } from './anchored-pieces.js'
 export { Sprite } from './components/sprite.js'
+export { Light } from './components/light.js'
+export { GameLighting } from './scene-lighting.js'
+export type { AmbientLightInput } from './scene-lighting.js'
+export { GamePost } from './post-effects.js'
+export { EMISSIVE_LAYER, setEmissive } from './render-layers.js'
+export { lightFalloff, lightMapValue, lightVisibility } from './light-field.js'
+export type { LightField, OccluderGrid, Rgb } from './light-field.js'
+export { sceneRenderIssues } from './scene-render-options.js'
+export type {
+  AmbientLight,
+  ColorGradeEffect,
+  PostEffectsState,
+  SceneRenderIssue,
+  VignetteEffect,
+} from './scene-render-options.js'
 export { ParticleEmitter } from './components/particle-emitter.js'
 export type {
   ParticleBlend,
@@ -184,6 +199,8 @@ export type {
   SceneComponentJson,
   SceneRegistry,
   SceneRenderJson,
+  SceneLightingJson,
+  ScenePostJson,
   PrefabJson,
 } from './scene.js'
 export { ClipPlayer } from './animation/clip-player.js'

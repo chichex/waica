@@ -13,6 +13,7 @@ import {
 } from '../tilemap-grid.js'
 import { Solid } from './solid.js'
 import { reportRejection } from '../report-rejection.js'
+import { markOccludersChanged } from '../scene-lighting.js'
 
 /** Vertex positions, UVs and triangle indices for a Tilemap's mesh. */
 interface TileMeshBuffers {
@@ -212,6 +213,7 @@ export class Tilemap extends Component implements SolidSource {
     this.loadedTexture?.dispose()
     this.loadedTexture = undefined
     this.derivedSolids = []
+    markOccludersChanged(this.game.lighting)
   }
 
   solids(): readonly Solid[] {
@@ -403,5 +405,7 @@ export class Tilemap extends Component implements SolidSource {
       next.push(solid)
     }
     this.derivedSolids = next
+    // Occlusion is rebuilt from the solid tiles only when they change (inference 9).
+    markOccludersChanged(this.game.lighting)
   }
 }

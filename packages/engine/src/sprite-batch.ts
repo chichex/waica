@@ -148,6 +148,9 @@ export class SpriteRunMesh {
     this.mesh.instanceColor = this.colors
     // Drawn in an explicit renderOrder; its instances are already in view space.
     this.mesh.frustumCulled = false
+    // A run is collected through its sprites' anchors, which carry their own
+    // layers (Emissive or not, ADR 0026): the run itself is on every layer.
+    this.mesh.layers.enableAll()
     this.mesh.matrixAutoUpdate = false
     this.mesh.boundingSphere = new THREE.Sphere()
   }

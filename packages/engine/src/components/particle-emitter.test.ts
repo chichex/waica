@@ -55,6 +55,8 @@ const EXPECTED_DEFAULTS = {
   pixelArt: false,
   blend: 'normal',
   layer: 0,
+  // Issue #78 CA-10: an Emissive emitter is never darkened by the light-map.
+  emissive: false,
 }
 
 describe('ParticleEmitter public authoring API', () => {

@@ -33,6 +33,8 @@ import {
   EngineRuntimeBridge,
 } from './runtime-bridge.js'
 import { RuntimeInspector } from './runtime-inspection.js'
+import { FrameComposer } from './lit-frame.js'
+import { EMISSIVE_LAYER } from './render-layers.js'
 import { projectIsometric, unprojectIsometric } from './projection.js'
 import { canvasBackground, drawStraightToCanvas, mapUvPerVertex } from './render-output.js'
 import { RenderReadiness, type RenderBackend } from './render-readiness.js'
@@ -168,6 +170,8 @@ export class Game {
   private readonly resizeObserver: ResizeObserver
   /** Scene-scoped Sprite Batches (ADR 0024); `render.batch: false` opts a scene out. */
   private readonly spriteBatches: SpriteBatches
+  /** Off, lit or through the Post Effects: how each frame is drawn (ADR 0026). */
+  private readonly frame: FrameComposer
   private readonly updateFns = new Set<UpdateFn>()
   private readonly invalidUpdateCompositions = new WeakMap<Entity, string>()
   /**
@@ -255,6 +259,19 @@ export class Game {
     this.scene.background = canvasBackground(background)
     this.camera = new THREE.OrthographicCamera()
     this.camera.position.z = 10
+    // Emissive drawables sit on their own layer; an unlit frame draws it in place.
+    this.camera.layers.enable(EMISSIVE_LAYER)
+    this.frame = new FrameComposer({
+      renderer: this.renderer,
+      scene: this.scene,
+      camera: this.camera,
+      spriteBatches: this.spriteBatches,
+      resolution: this.resolution,
+      lighting: this.lighting,
+      post: this.post,
+      entities: this.entities,
+      projection: () => this.sceneProjection,
+    })
     this.pointer = new Pointer(canvas, {
       camera: this.camera,
       resolution: this.resolution,
@@ -562,6 +579,7 @@ export class Game {
     // After the entities: their clones go with the cascade above, the
     // cached bases go here, exactly once (ADR 0019).
     this.assets.dispose()
+    this.frame.dispose()
     this.readiness.disposeRenderer()
   }
 
@@ -734,14 +752,7 @@ export class Game {
       anchoredPiecesOf(this.ui).place()
       // Before ready() the frame simulated, but three cannot draw yet.
       if (!this.readiness.isReady) return
-      if (this.resolution) {
-        // Letterbox bars: clear the whole canvas, then render inside the scissor.
-        this.renderer.setScissorTest(false)
-        this.renderer.setClearColor(0x000000, 1)
-        this.renderer.clear(true, false, false)
-        this.renderer.setScissorTest(true)
-      }
-      this.spriteBatches.drawFrame(this.scene, this.camera, () => this.renderer.render(this.scene, this.camera))
+      this.frame.draw()
     } finally {
       this.camera.position.x = x
       this.camera.position.y = y

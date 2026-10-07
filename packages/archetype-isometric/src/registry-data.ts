@@ -1,6 +1,7 @@
 import {
   AnimatedSprite,
   Hitbox,
+  Light,
   ParticleEmitter,
   Solid,
   Sprite,
@@ -38,6 +39,7 @@ export const ISOMETRIC_REGISTRY_DATA: SceneRegistry = {
     Sprite,
     AnimatedSprite,
     ParticleEmitter,
+    Light,
     Tilemap,
     Solid,
     Hitbox,
