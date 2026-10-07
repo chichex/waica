@@ -83,8 +83,9 @@ export function entityComponentHandlers(core: EditorCore) {
       if (scene) core.commit(ops.setCameraProp(scene, key, value), false, `camera:${key}`)
     },
     onRenderProp: (key, value) => {
-      // Projection and batching are chosen as entities spawn: both rebuild the stage.
-      const structural = key === 'projection' || key === 'batch'
+      // Projection and batching are chosen as entities spawn, lighting and
+      // Post Effects as the scene loads: all rebuild the stage.
+      const structural = ['projection', 'batch', 'lighting', 'post'].includes(key)
       if (scene) core.commit(ops.setRenderProp(scene, key, value), structural, `render:${key}`)
     },
   } satisfies Partial<InspectorProps>
