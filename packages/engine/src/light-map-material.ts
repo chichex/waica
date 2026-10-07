@@ -101,8 +101,8 @@ function axisCrossingNode(start: Float, delta: Float, cell: Float): { next: Floa
  * texel's to the light's (Amanatides–Woo) and returns 0 at the first solid
  * one, never testing the texel's own cell — the lit face of a wall.
  */
-function segmentClearNode(uniforms: LightMapUniforms) {
-  return Fn(([from, to]: [Vec2, Vec2]) => {
+function segmentClearNode(uniforms: LightMapUniforms): (from: Vec2, to: Vec2) => Float {
+  const walk = Fn(([from, to]: [Vec2, Vec2]) => {
     const grid = uniforms.grid
     const a = from.sub(grid.xy).div(grid.z).toVar()
     const b = to.sub(grid.xy).div(grid.z).toVar()
@@ -130,10 +130,21 @@ function segmentClearNode(uniforms: LightMapUniforms) {
     })
     return clear
   })
+  return (from, to) => walk(from, to)
+}
+
+/** One light's per-object uniforms. */
+interface LightUniforms {
+  position: THREE.UniformNode<'vec2', THREE.Vector2>
+  color: THREE.UniformNode<'vec3', THREE.Vector3>
+  radius: THREE.UniformNode<'float', number>
+  bands: THREE.UniformNode<'float', number>
+  softness: THREE.UniformNode<'float', number>
+  castShadows: THREE.UniformNode<'float', number>
 }
 
 /** One light's per-object uniforms, read from the mesh being drawn. */
-function lightUniforms() {
+function lightUniforms(): LightUniforms {
   return {
     position: uniform(new THREE.Vector2()).onObjectUpdate(({ object }) => drawOf(object)?.position),
     color: uniform(new THREE.Vector3()).onObjectUpdate(({ object }) => drawOf(object)?.color),
@@ -143,8 +154,6 @@ function lightUniforms() {
     castShadows: uniform(1).onObjectUpdate(({ object }) => drawOf(object)?.castShadows),
   }
 }
-
-type LightUniforms = ReturnType<typeof lightUniforms>
 
 /** The texel's logical position: render space as is, or unprojected from the 2:1 lattice (ADR 0009). */
 function logicalPositionNode(isometric: Float): Vec2 {

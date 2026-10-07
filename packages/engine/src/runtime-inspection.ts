@@ -7,6 +7,12 @@ import type { RuntimeMetadata } from './runtime-bridge.js'
 import type { StatValue } from './stats.js'
 import { anchoredPiecesOf } from './ui.js'
 import { componentClassOf } from './component-registry.js'
+import {
+  lightingSnapshot,
+  postSnapshot,
+  type RuntimeSnapshotLighting,
+  type RuntimeSnapshotPost,
+} from './runtime-lighting-snapshot.js'
 
 export type ProjectionMarkerKind = 'cycle' | 'unsupported' | 'error' | 'truncated'
 
@@ -133,6 +139,10 @@ export interface RuntimeSnapshot extends RuntimeMetadata {
   time: RuntimeSnapshotTime
   ui: RuntimeSnapshotUi
   camera: RuntimeSnapshotCamera
+  /** Ambient Light and live Lights (issue #78 CA-12), logical coordinates; never filtered. */
+  lighting: RuntimeSnapshotLighting
+  /** Post Effects (issue #78 CA-12), each null when off; never filtered. */
+  post: RuntimeSnapshotPost
 }
 
 export const RUNTIME_PROJECTION_LIMITS = {
@@ -483,6 +493,8 @@ export class RuntimeInspector {
       time: this.timeSnapshot(),
       ui: this.uiSnapshot(projectionIssues),
       camera: this.game.cameraEffects.state,
+      lighting: lightingSnapshot(this.game),
+      post: postSnapshot(this.game),
     })
   }
 

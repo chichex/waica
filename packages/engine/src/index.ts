@@ -105,6 +105,11 @@ export type {
 export type { RenderBackend } from './render-readiness.js'
 export { RUNTIME_PROJECTION_LIMITS } from './runtime-inspection.js'
 export type {
+  RuntimeSnapshotLight,
+  RuntimeSnapshotLighting,
+  RuntimeSnapshotPost,
+} from './runtime-lighting-snapshot.js'
+export type {
   ProjectedValue,
   ProjectionIssue,
   ProjectionMarker,
