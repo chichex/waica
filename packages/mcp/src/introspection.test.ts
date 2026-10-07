@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { fallbackEntriesFor } from './project-component-fallbacks.js'
 import { readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { cleanup, makeProject, stubPackage, writeTree } from './test-helpers.js'
@@ -8,6 +9,12 @@ import {
   projectSummary,
 } from './introspection.js'
 import { defined, match } from '../../engine/src/test-support.js'
+
+// A checkout without built @waica dists compiles the package sources once per
+// process before its first project-component load (project-component-fallbacks.ts).
+// Paid here, bounded like the compile itself, so it never lands inside a test's
+// own timeout — the same guard as server.test.ts (PR #149).
+beforeAll(() => fallbackEntriesFor('project-component-runner.ts'), 120_000)
 
 const roots: string[] = []
 afterEach(async () => cleanup(...roots.splice(0)))

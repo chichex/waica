@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { fallbackEntriesFor } from './project-component-fallbacks.js'
 import type { PrefabJson } from '@waica/engine'
 import { cleanup, makeProject } from './test-helpers.js'
 import { validateProject } from './validation.js'
@@ -6,6 +7,12 @@ import {
   validateEntitySceneTransition,
   validatePrefabSceneTransition,
 } from './scene-transition-validation.js'
+
+// A checkout without built @waica dists compiles the package sources once per
+// process before its first project-component load (project-component-fallbacks.ts).
+// Paid here, bounded like the compile itself, so it never lands inside a test's
+// own timeout — the same guard as server.test.ts (PR #149).
+beforeAll(() => fallbackEntriesFor('project-component-runner.ts'), 120_000)
 
 const KNOWN = new Set(['main', 'cave'])
 const NO_PREFABS = new Map<string, PrefabJson>()
