@@ -3359,6 +3359,34 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
   ]
 }
 ",
+  "src/objects/torch.object.json": "{
+  "waicaPrefab": 1,
+  "type": "object",
+  "components": [
+    {
+      "type": "Sprite",
+      "props": {
+        "shape": "circle",
+        "color": 16753978,
+        "width": 0.3,
+        "height": 0.45,
+        "anchorY": 0,
+        "offsetY": 0.3,
+        "emissive": true
+      }
+    },
+    {
+      "type": "Light",
+      "props": {
+        "radius": 4.5,
+        "color": 16757606,
+        "intensity": 1,
+        "softness": 0.25
+      }
+    }
+  ]
+}
+",
   "src/objects/tree.object.json": "{
   "waicaPrefab": 1,
   "type": "object",
@@ -3601,12 +3629,210 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
       }
     },
     {
+      "name": "DungeonDoor",
+      "prefab": "objects/door",
+      "position": [
+        7,
+        7
+      ],
+      "overrides": {
+        "SceneTransition": {
+          "scene": "dungeon"
+        }
+      }
+    },
+    {
       "name": "Dust",
       "prefab": "objects/cave-dust",
       "position": [
         5,
         5
       ]
+    }
+  ],
+  "ui": [
+    "health"
+  ]
+}
+",
+  "src/scenes/dungeon.scene.json": "{
+  "waicaScene": 3,
+  "render": {
+    "sort": "y",
+    "projection": "isometric",
+    "lighting": {
+      "ambient": {
+        "color": "#5a6a9a",
+        "intensity": 0.3
+      }
+    },
+    "post": {
+      "vignette": {
+        "intensity": 0.45,
+        "radius": 0.35
+      }
+    }
+  },
+  "camera": {
+    "position": [
+      0,
+      -5
+    ],
+    "zoom": 12
+  },
+  "entities": [
+    {
+      "name": "Ground",
+      "prefab": "tiles/ground",
+      "position": [
+        0,
+        0
+      ],
+      "overrides": {
+        "Tilemap": {
+          "mapWidth": 10,
+          "mapHeight": 10,
+          "cells": [
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            1,
+            1,
+            1,
+            1,
+            4,
+            1,
+            1,
+            1,
+            4,
+            4,
+            1,
+            1,
+            1,
+            1,
+            4,
+            1,
+            1,
+            1,
+            4,
+            4,
+            1,
+            1,
+            1,
+            1,
+            4,
+            1,
+            1,
+            1,
+            4,
+            4,
+            1,
+            1,
+            1,
+            1,
+            4,
+            1,
+            1,
+            1,
+            4,
+            4,
+            1,
+            1,
+            1,
+            1,
+            4,
+            1,
+            1,
+            1,
+            4,
+            4,
+            1,
+            1,
+            1,
+            1,
+            4,
+            1,
+            1,
+            1,
+            4,
+            4,
+            1,
+            1,
+            1,
+            1,
+            4,
+            1,
+            1,
+            1,
+            4,
+            4,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4
+          ]
+        }
+      }
+    },
+    {
+      "name": "Player",
+      "prefab": "characters/player",
+      "position": [
+        2,
+        8
+      ]
+    },
+    {
+      "name": "Torch-1",
+      "prefab": "objects/torch",
+      "position": [
+        3.5,
+        2.5
+      ]
+    },
+    {
+      "name": "Torch-2",
+      "prefab": "objects/torch",
+      "position": [
+        3.5,
+        6.5
+      ]
+    },
+    {
+      "name": "Door",
+      "prefab": "objects/door",
+      "position": [
+        1.5,
+        1.5
+      ],
+      "overrides": {
+        "SceneTransition": {
+          "scene": "cave"
+        }
+      }
     }
   ],
   "ui": [

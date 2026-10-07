@@ -2,26 +2,26 @@
   "waicaScene": 3,
   "render": {
     "sort": "y",
-    "projection": "isometric"
+    "projection": "isometric",
+    "lighting": {
+      "ambient": {
+        "color": "#5a6a9a",
+        "intensity": 0.3
+      }
+    },
+    "post": {
+      "vignette": {
+        "intensity": 0.45,
+        "radius": 0.35
+      }
+    }
   },
   "camera": {
     "position": [
       0,
       -5
     ],
-    "zoom": 12,
-    "limits": {
-      "minX": -10,
-      "maxX": 10,
-      "minY": -10,
-      "maxY": 0
-    },
-    "deadzoneWidth": 0.5,
-    "deadzoneHeight": 0.5,
-    "lookahead": 0,
-    "lookaheadY": 0.5,
-    "smoothing": 4,
-    "follow": "Player"
+    "zoom": 12
   },
   "entities": [
     {
@@ -51,7 +51,7 @@
             1,
             1,
             1,
-            1,
+            4,
             1,
             1,
             1,
@@ -61,7 +61,7 @@
             1,
             1,
             1,
-            1,
+            4,
             1,
             1,
             1,
@@ -71,27 +71,7 @@
             1,
             1,
             1,
-            1,
-            1,
-            1,
-            1,
             4,
-            4,
-            1,
-            1,
-            1,
-            3,
-            3,
-            1,
-            1,
-            1,
-            4,
-            4,
-            1,
-            1,
-            1,
-            3,
-            3,
             1,
             1,
             1,
@@ -101,7 +81,7 @@
             1,
             1,
             1,
-            1,
+            4,
             1,
             1,
             1,
@@ -111,7 +91,27 @@
             1,
             1,
             1,
+            4,
             1,
+            1,
+            1,
+            4,
+            4,
+            1,
+            1,
+            1,
+            1,
+            4,
+            1,
+            1,
+            1,
+            4,
+            4,
+            1,
+            1,
+            1,
+            1,
+            4,
             1,
             1,
             1,
@@ -145,58 +145,37 @@
       "prefab": "characters/player",
       "position": [
         2,
-        7
+        8
       ]
     },
     {
-      "name": "Rock-1",
-      "prefab": "objects/rock",
+      "name": "Torch-1",
+      "prefab": "objects/torch",
       "position": [
-        7,
-        3
+        3.5,
+        2.5
       ]
     },
     {
-      "name": "Rock-2",
-      "prefab": "objects/rock",
+      "name": "Torch-2",
+      "prefab": "objects/torch",
       "position": [
-        2,
-        2
+        3.5,
+        6.5
       ]
     },
     {
       "name": "Door",
       "prefab": "objects/door",
       "position": [
-        8,
-        2
+        1.5,
+        1.5
       ],
       "overrides": {
         "SceneTransition": {
-          "scene": "main"
+          "scene": "cave"
         }
       }
-    },
-    {
-      "name": "DungeonDoor",
-      "prefab": "objects/door",
-      "position": [
-        7,
-        7
-      ],
-      "overrides": {
-        "SceneTransition": {
-          "scene": "dungeon"
-        }
-      }
-    },
-    {
-      "name": "Dust",
-      "prefab": "objects/cave-dust",
-      "position": [
-        5,
-        5
-      ]
     }
   ],
   "ui": [

@@ -74,6 +74,7 @@ const PALETTE_ICONS: Record<string, string> = {
   wind: '🌬️',
   'hurt-smoke': '💨',
   'cave-dust': '✨',
+  torch: '🔥',
   ground: '💎',
 }
 

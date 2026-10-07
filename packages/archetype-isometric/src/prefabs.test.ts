@@ -42,6 +42,8 @@ describe('the isometric prefabs express the genre model', () => {
       'objects/door',
       'objects/hurt-smoke',
       'objects/rock',
+      // Issue #78 CA-14: the dungeon's torch.
+      'objects/torch',
       'objects/tree',
       'objects/wind',
       'tiles/ground',

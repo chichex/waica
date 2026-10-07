@@ -166,7 +166,7 @@ describe('ISOMETRIC_BLANK_SCENE', () => {
 })
 
 describe('ISOMETRIC_CAVE_SCENE (CA-13)', () => {
-  it('resolves every prefab and stages exactly one Player and one Door back to main', () => {
+  it('resolves every prefab and stages exactly one Player, one Door back to main and one down to the dungeon', () => {
     for (const entity of ISOMETRIC_CAVE_SCENE.entities) {
       expect(ISOMETRIC_PREFABS[defined(entity.prefab)], entity.name).toBeDefined()
     }
@@ -174,8 +174,11 @@ describe('ISOMETRIC_CAVE_SCENE (CA-13)', () => {
       ISOMETRIC_CAVE_SCENE.entities.filter((entity) => entity.prefab === ref)
     expect(byPrefab('characters/player')).toHaveLength(1)
     const doors = byPrefab('objects/door')
-    expect(doors).toHaveLength(1)
-    expect(doors[0]?.overrides).toEqual({ SceneTransition: { scene: 'main' } })
+    // Issue #78 CA-14 adds the Door down to the dungeon; the way back to main is unchanged.
+    expect(doors.map((door) => door.overrides)).toEqual([
+      { SceneTransition: { scene: 'main' } },
+      { SceneTransition: { scene: 'dungeon' } },
+    ])
   })
 
   it('overrides the shared ground prefab with a smaller, distinct, fully enclosed layout', () => {

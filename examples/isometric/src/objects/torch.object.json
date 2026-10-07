@@ -1,0 +1,27 @@
+{
+  "waicaPrefab": 1,
+  "type": "object",
+  "components": [
+    {
+      "type": "Sprite",
+      "props": {
+        "shape": "circle",
+        "color": 16753978,
+        "width": 0.3,
+        "height": 0.45,
+        "anchorY": 0,
+        "offsetY": 0.3,
+        "emissive": true
+      }
+    },
+    {
+      "type": "Light",
+      "props": {
+        "radius": 4.5,
+        "color": 16757606,
+        "intensity": 1,
+        "softness": 0.25
+      }
+    }
+  ]
+}
