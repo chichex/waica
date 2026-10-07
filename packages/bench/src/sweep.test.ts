@@ -17,6 +17,8 @@ describe('SWEEP', () => {
       'bullet-hell-10': { kind: 'bullet-hell', n: 10 },
       'bullet-hell-20': { kind: 'bullet-hell', n: 20 },
       'bullet-hell-40': { kind: 'bullet-hell', n: 40 },
+      'lights-occlusion-8': { kind: 'lights-occlusion', n: 8 },
+      'lights-occlusion-32': { kind: 'lights-occlusion', n: 32 },
     })
   })
 
