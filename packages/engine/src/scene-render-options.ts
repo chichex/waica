@@ -119,9 +119,9 @@ function colorIssue(field: string, value: unknown, issues: SceneRenderIssue[]): 
   issues.push({ field, message: `${field} must be a #rrggbb color; got ${shown(value)}.` })
 }
 
-/** The block at `field`, reporting it when present but not an object; undefined when absent or wrong. */
-function block(parent: Record<string, unknown>, key: string, field: string, issues: SceneRenderIssue[]): Record<string, unknown> | undefined {
-  const value = parent[key]
+/** The block at `field` (its last segment, in `parent`), reported when present but not an object. */
+function block(parent: Record<string, unknown>, field: string, issues: SceneRenderIssue[]): Record<string, unknown> | undefined {
+  const value = parent[field.slice(field.lastIndexOf('.') + 1)]
   if (value === undefined) return undefined
   if (isRecord(value)) return value
   issues.push({ field, message: `${field} must be an object; got ${shown(value)}.` })
@@ -129,22 +129,22 @@ function block(parent: Record<string, unknown>, key: string, field: string, issu
 }
 
 function lightingIssues(render: Record<string, unknown>, issues: SceneRenderIssue[]): void {
-  const lighting = block(render, 'lighting', 'render.lighting', issues)
-  const ambient = lighting && block(lighting, 'ambient', 'render.lighting.ambient', issues)
+  const lighting = block(render, 'render.lighting', issues)
+  const ambient = lighting && block(lighting, 'render.lighting.ambient', issues)
   if (!ambient) return
   colorIssue('render.lighting.ambient.color', ambient.color, issues)
   if (ambient.intensity !== undefined) rangeIssue('render.lighting.ambient.intensity', ambient.intensity, issues)
 }
 
 function postIssues(render: Record<string, unknown>, issues: SceneRenderIssue[]): void {
-  const post = block(render, 'post', 'render.post', issues)
+  const post = block(render, 'render.post', issues)
   if (!post) return
-  const vignette = block(post, 'vignette', 'render.post.vignette', issues)
+  const vignette = block(post, 'render.post.vignette', issues)
   if (vignette) {
     rangeIssue('render.post.vignette.intensity', vignette.intensity, issues)
     rangeIssue('render.post.vignette.radius', vignette.radius, issues)
   }
-  const grade = block(post, 'colorGrade', 'render.post.colorGrade', issues)
+  const grade = block(post, 'render.post.colorGrade', issues)
   if (!grade) return
   colorIssue('render.post.colorGrade.tint', grade.tint, issues)
   if (grade.contrast !== undefined) rangeIssue('render.post.colorGrade.contrast', grade.contrast, issues)

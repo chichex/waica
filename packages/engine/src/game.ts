@@ -261,17 +261,8 @@ export class Game {
     this.camera.position.z = 10
     // Emissive drawables sit on their own layer; an unlit frame draws it in place.
     this.camera.layers.enable(EMISSIVE_LAYER)
-    this.frame = new FrameComposer({
-      renderer: this.renderer,
-      scene: this.scene,
-      camera: this.camera,
-      spriteBatches: this.spriteBatches,
-      resolution: this.resolution,
-      lighting: this.lighting,
-      post: this.post,
-      entities: this.entities,
-      projection: () => this.sceneProjection,
-    })
+    const { renderer, spriteBatches, resolution } = this
+    this.frame = new FrameComposer({ game: this, renderer, spriteBatches, resolution })
     this.pointer = new Pointer(canvas, {
       camera: this.camera,
       resolution: this.resolution,
@@ -460,8 +451,8 @@ export class Game {
   setSceneRender(json?: SceneRenderJson): void {
     this.renderSort = json?.sort === 'y' ? 'y' : null
     this.spriteBatches.enabled = json?.batch !== false
-    this.lighting.loadScene(json?.lighting)
-    this.post.loadScene(json?.post)
+    this.lighting.loadScene(json)
+    this.post.loadScene(json)
     const projection = json?.projection === 'isometric' ? 'isometric' : null
     if (projection === this.sceneProjection) return
     this.sceneProjection = projection

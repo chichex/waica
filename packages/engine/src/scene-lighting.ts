@@ -1,7 +1,7 @@
 import type { Light } from './components/light.js'
 import type { Rgb } from './light-field.js'
 import { hexColorOr, resolveAmbientLight, type AmbientLight } from './scene-render-options.js'
-import type { SceneLightingJson } from './scene.js'
+import type { SceneRenderJson } from './scene.js'
 
 /** What `game.lighting.ambient` accepts: either field, a color as `#rrggbb` or a number. */
 export interface AmbientLightInput {
@@ -80,10 +80,10 @@ export class GameLighting {
   }
 
   /** Adopts a scene's `render.lighting`, replacing whatever the previous scene left. Called by Game. */
-  loadScene(json: SceneLightingJson | undefined): void {
+  loadScene(render: SceneRenderJson | undefined): void {
     const state = stateOf(this)
-    state.ambient = resolveAmbientLight(json)
-    state.declared = json !== undefined
+    state.ambient = resolveAmbientLight(render?.lighting)
+    state.declared = render?.lighting !== undefined
   }
 
   /** Back to an unlit scene's state: full white, undeclared. Its Lights leave with their entities. */

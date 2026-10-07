@@ -6,7 +6,7 @@ import {
   type PostEffectsState,
   type VignetteEffect,
 } from './scene-render-options.js'
-import type { ScenePostJson } from './scene.js'
+import type { SceneRenderJson } from './scene.js'
 
 /**
  * `game.post` (issue #78): the live scene's Post Effects — a vignette and a
@@ -46,8 +46,8 @@ export class GamePost {
   }
 
   /** Adopts a scene's `render.post`, replacing whatever the previous scene left. Called by Game. */
-  loadScene(json: ScenePostJson | undefined): void {
-    this.state = resolvePostEffects(json)
+  loadScene(render: SceneRenderJson | undefined): void {
+    this.state = resolvePostEffects(render?.post)
   }
 
   /** Every effect off again. */

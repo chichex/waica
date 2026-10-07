@@ -1,26 +1,21 @@
 import * as THREE from 'three/webgpu'
 import { Tilemap } from './components/tilemap.js'
 import type { Entity } from './entity.js'
-import type { GameResolution } from './game.js'
+import type { Game, GameResolution } from './game.js'
 import { LightMap } from './light-map.js'
 import { buildOccluderGrid, type OccluderSource } from './occluder-grid.js'
-import type { GamePost } from './post-effects.js'
 import { PostPass } from './post-pass.js'
 import { EMISSIVE_LAYER } from './render-layers.js'
-import { ambientMultiplier, occluderRevision, type GameLighting } from './scene-lighting.js'
+import { ambientMultiplier, occluderRevision } from './scene-lighting.js'
 import type { SpriteBatches } from './sprite-batches.js'
 
-/** Everything a frame is drawn from: the Game's renderer, scene, camera and render state. */
+/** What a frame is drawn with besides the Game's public state: its renderer and Sprite Batches. */
 export interface FrameSurface {
+  readonly game: Game
   readonly renderer: THREE.WebGPURenderer
-  readonly scene: THREE.Scene
-  readonly camera: THREE.OrthographicCamera
   readonly spriteBatches: SpriteBatches
+  /** The fixed internal resolution, null to fill the canvas. */
   readonly resolution: GameResolution | null
-  readonly lighting: GameLighting
-  readonly post: GamePost
-  readonly entities: readonly Entity[]
-  projection(): 'isometric' | null
 }
 
 /** Layer 0 alone: every drawable that is not Emissive. */
@@ -64,8 +59,8 @@ export class FrameComposer {
   constructor(private readonly surface: FrameSurface) {}
 
   draw(): void {
-    const lit = this.surface.lighting.active
-    const post = this.surface.post.active
+    const lit = this.surface.game.lighting.active
+    const post = this.surface.game.post.active
     if (!lit && !post) {
       this.clearLetterbox()
       this.drawScene()
@@ -89,7 +84,7 @@ export class FrameComposer {
 
   /** The light-map's (and the Post Effects') size: the internal resolution, else the drawing buffer (B2). */
   private frameSize(): { width: number; height: number } {
-    const { resolution, renderer } = this.surface
+    const { renderer, resolution } = this.surface
     if (resolution) return { width: Math.max(1, Math.round(resolution.width)), height: Math.max(1, Math.round(resolution.height)) }
     renderer.getDrawingBufferSize(this.size)
     return { width: Math.max(1, this.size.x), height: Math.max(1, this.size.y) }
@@ -107,13 +102,14 @@ export class FrameComposer {
 
   /** The scene through its Sprite Batches (ADR 0024), for the camera's current layers. */
   private drawScene(): void {
-    const { scene, camera, spriteBatches, renderer } = this.surface
+    const { spriteBatches, renderer } = this.surface
+    const { scene, camera } = this.surface.game
     spriteBatches.drawFrame(scene, camera, () => renderer.render(scene, camera))
   }
 
   /** The scene for one layer mask, restoring the camera's own mask after. */
   private drawLayers(mask: number): void {
-    const layers = this.surface.camera.layers
+    const layers = this.surface.game.camera.layers
     const own = layers.mask
     layers.mask = mask
     try {
@@ -130,16 +126,17 @@ export class FrameComposer {
   }
 
   private composeLight(width: number, height: number, linear: boolean): void {
-    const { renderer, scene, camera, lighting } = this.surface
+    const { renderer } = this.surface
+    const { scene, camera, lighting } = this.surface.game
     this.lightMap ??= new LightMap()
     this.lightMap.render(renderer, camera, {
       width,
       height,
       ambient: ambientMultiplier(lighting),
       lights: lighting.lights,
-      projection: this.surface.projection(),
+      projection: this.surface.game.projection,
       occluderRevision: occluderRevision(lighting),
-      occluders: () => buildOccluderGrid(occluderSources(this.surface.entities)),
+      occluders: () => buildOccluderGrid(occluderSources(this.surface.game.entities)),
     })
     const autoClear = renderer.autoClear
     const background = scene.background
@@ -156,7 +153,8 @@ export class FrameComposer {
 
   /** The frame into the Post Effects' linear target, then one pass to the canvas (CA-11). */
   private drawThroughPost(width: number, height: number, lit: boolean): void {
-    const { renderer, scene } = this.surface
+    const { renderer } = this.surface
+    const { scene, post } = this.surface.game
     this.postPass ??= new PostPass()
     this.postPass.resize(width, height)
     const background = scene.background
@@ -173,6 +171,6 @@ export class FrameComposer {
       renderer.setRenderTarget(null)
     }
     this.clearLetterbox()
-    this.postPass.draw(renderer, { vignette: this.surface.post.vignette, colorGrade: this.surface.post.colorGrade })
+    this.postPass.draw(renderer, { vignette: post.vignette, colorGrade: post.colorGrade })
   }
 }

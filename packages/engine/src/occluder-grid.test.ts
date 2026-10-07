@@ -54,7 +54,7 @@ describe('buildOccluderGrid (CA-7, inference 8)', () => {
     // A light in the open cell (2, 1): the wall at column 1, row 0 hides
     // (0.5, 0.5); straight down, (2.5, 0.5) crosses no wall.
     const corner = { ...light, x: 2.5, y: 1.5 }
-    expect(lightVisibility(grid, corner, 0.5, 0.5)).toBe(0)
-    expect(lightVisibility(grid, corner, 2.5, 0.5)).toBe(1)
+    expect(lightVisibility(grid, corner, { x: 0.5, y: 0.5 })).toBe(0)
+    expect(lightVisibility(grid, corner, { x: 2.5, y: 0.5 })).toBe(1)
   })
 })

@@ -75,16 +75,27 @@ export class PostPass {
 
   /** Draws the target to whatever is bound now (the canvas), with this frame's effects. */
   draw(renderer: THREE.WebGPURenderer, effects: PostEffectsState): void {
-    const u = this.uniforms
-    u.vignetteOn.value = effects.vignette ? 1 : 0
-    u.vignetteIntensity.value = effects.vignette?.intensity ?? 0
-    u.vignetteRadius.value = effects.vignette?.radius ?? 0
-    u.gradeOn.value = effects.colorGrade ? 1 : 0
-    const [r, g, b] = hexChannels(effects.colorGrade?.tint ?? '#ffffff')
-    u.tint.value.set(r, g, b)
-    u.contrast.value = effects.colorGrade?.contrast ?? 1
-    u.saturation.value = effects.colorGrade?.saturation ?? 1
+    this.setVignette(effects.vignette)
+    this.setColorGrade(effects.colorGrade)
     this.quad.render(renderer)
+  }
+
+  private setVignette(vignette: PostEffectsState['vignette']): void {
+    const u = this.uniforms
+    u.vignetteOn.value = vignette ? 1 : 0
+    u.vignetteIntensity.value = vignette ? vignette.intensity : 0
+    u.vignetteRadius.value = vignette ? vignette.radius : 0
+  }
+
+  private setColorGrade(grade: PostEffectsState['colorGrade']): void {
+    const u = this.uniforms
+    const neutral = { tint: '#ffffff', contrast: 1, saturation: 1 }
+    const { tint, contrast, saturation } = grade ?? neutral
+    u.gradeOn.value = grade ? 1 : 0
+    const [r, g, b] = hexChannels(tint)
+    u.tint.value.set(r, g, b)
+    u.contrast.value = contrast
+    u.saturation.value = saturation
   }
 
   dispose(): void {

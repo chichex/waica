@@ -20,7 +20,6 @@ import {
   sin,
   sign,
   texture,
-  textureLoad,
   uniform,
   uv,
   vec2,
@@ -76,6 +75,26 @@ export function createLightMapUniforms(empty: THREE.Texture): LightMapUniforms {
 }
 
 type Vec2 = THREE.Node<'vec2'>
+type Float = THREE.Node<'float'>
+
+/** 1 when the grid cell holds a solid tile, 0 when it is open or outside the grid. */
+function solidAtNode(uniforms: LightMapUniforms, cell: Vec2): Float {
+  const size = uniforms.gridSize
+  const inside = cell.x.greaterThanEqual(0).and(cell.y.greaterThanEqual(0))
+    .and(cell.x.lessThan(size.x)).and(cell.y.lessThan(size.y))
+  const clamped = clamp(cell, vec2(0, 0), size.sub(1))
+  // load() follows the uniform's texture, so a rebuilt grid reaches the shader.
+  const value = uniforms.occluders.load(ivec2(int(clamped.x), int(clamped.y))).r
+  return select(inside, value, float(0))
+}
+
+/** light-field.ts `axisCrossing`: the first boundary's ray parameter and its growth per cell. */
+function axisCrossingNode(start: Float, delta: Float, cell: Float): { next: Float; step: Float } {
+  const flat = abs(delta).lessThan(1e-9)
+  const step = select(flat, float(1e30), float(1).div(max(abs(delta), 1e-9)))
+  const toBoundary = select(delta.greaterThan(0), cell.add(1).sub(start), start.sub(cell))
+  return { next: select(flat, float(1e30), toBoundary.mul(step)), step }
+}
 
 /**
  * `segmentClear` of light-field.ts in TSL: walks the grid cells from the
@@ -83,20 +102,6 @@ type Vec2 = THREE.Node<'vec2'>
  * one, never testing the texel's own cell — the lit face of a wall.
  */
 function segmentClearNode(uniforms: LightMapUniforms) {
-  const solidAt = (cell: Vec2): THREE.Node<'float'> => {
-    const size = uniforms.gridSize
-    const inside = cell.x.greaterThanEqual(0).and(cell.y.greaterThanEqual(0))
-      .and(cell.x.lessThan(size.x)).and(cell.y.lessThan(size.y))
-    const clamped = clamp(cell, vec2(0, 0), size.sub(1))
-    const value = textureLoad(uniforms.occluders.value, ivec2(int(clamped.x), int(clamped.y))).r
-    return select(inside, value, float(0))
-  }
-  const axis = (start: THREE.Node<'float'>, delta: THREE.Node<'float'>, cell: THREE.Node<'float'>) => {
-    const flat = abs(delta).lessThan(1e-9)
-    const step = select(flat, float(1e30), float(1).div(max(abs(delta), 1e-9)))
-    const toBoundary = select(delta.greaterThan(0), cell.add(1).sub(start), start.sub(cell))
-    return { next: select(flat, float(1e30), toBoundary.mul(step)), step }
-  }
   return Fn(([from, to]: [Vec2, Vec2]) => {
     const grid = uniforms.grid
     const a = from.sub(grid.xy).div(grid.z).toVar()
@@ -104,23 +109,21 @@ function segmentClearNode(uniforms: LightMapUniforms) {
     const cell = floor(a).toVar()
     const end = floor(b)
     const delta = b.sub(a).toVar()
-    const x = axis(a.x, delta.x, cell.x)
-    const y = axis(a.y, delta.y, cell.y)
+    const x = axisCrossingNode(a.x, delta.x, cell.x)
+    const y = axisCrossingNode(a.y, delta.y, cell.y)
     const nextX = x.next.toVar()
     const nextY = y.next.toVar()
-    const stepColumn = sign(delta.x)
-    const stepRow = sign(delta.y)
     const cells = min(abs(end.x.sub(cell.x)).add(abs(end.y.sub(cell.y))), 4096)
     const clear = float(1).toVar()
     Loop({ start: int(0), end: int(cells), type: 'int', condition: '<' }, () => {
       If(nextX.lessThan(nextY), () => {
-        cell.x.addAssign(stepColumn)
+        cell.x.addAssign(sign(delta.x))
         nextX.addAssign(x.step)
       }).Else(() => {
-        cell.y.addAssign(stepRow)
+        cell.y.addAssign(sign(delta.y))
         nextY.addAssign(y.step)
       })
-      If(solidAt(cell).greaterThan(0.5), () => {
+      If(solidAtNode(uniforms, cell).greaterThan(0.5), () => {
         clear.assign(0)
         Break()
       })
@@ -141,43 +144,45 @@ function lightUniforms() {
   }
 }
 
-/**
- * The material every light-map mesh shares (issue #78 CA-5..CA-7): per texel,
- * `color × intensity × falloff(d / radius) × visibility` with `d` measured in
- * logical space (ADR 0009), added onto the Ambient Light the target was
- * cleared to; the 8-bit target clamps the sum at 1. light-field.ts is its
- * specification.
- */
-export function createLightMaterial(uniforms: LightMapUniforms): THREE.MeshBasicNodeMaterial {
-  const light = lightUniforms()
+type LightUniforms = ReturnType<typeof lightUniforms>
+
+/** The texel's logical position: render space as is, or unprojected from the 2:1 lattice (ADR 0009). */
+function logicalPositionNode(isometric: Float): Vec2 {
+  const world = positionWorld.xy
+  const unprojected = vec2(world.x.div(2).sub(world.y), world.x.div(2).negate().sub(world.y))
+  return mix(world, unprojected, isometric)
+}
+
+/** light-field.ts `lightFalloff` at `t` = d / radius: smooth, or the top of its band. */
+function falloffNode(t: Float, bands: Float): Float {
+  const c = clamp(t, 0, 1)
+  const smooth = float(1).sub(c.mul(c).mul(float(3).sub(c.mul(2))))
+  const banded = ceil(smooth.mul(bands)).div(max(bands, 1))
+  return select(t.lessThan(1), select(bands.greaterThan(0.5), banded, smooth), float(0))
+}
+
+/** light-field.ts `lightVisibility`: the centre ray, plus the soft ring when softness > 0. */
+function visibilityNode(uniforms: LightMapUniforms, light: LightUniforms, logical: Vec2): Float {
   const segmentClear = segmentClearNode(uniforms)
-  const material = new THREE.MeshBasicNodeMaterial()
-  material.fragmentNode = Fn(() => {
-    const world = positionWorld.xy
-    const unprojected = vec2(world.x.div(2).sub(world.y), world.x.div(2).negate().sub(world.y))
-    const logical = mix(world, unprojected, uniforms.isometric).toVar()
-    const t = length(logical.sub(light.position)).div(max(light.radius, 1e-6))
-    const c = clamp(t, 0, 1)
-    const smooth = float(1).sub(c.mul(c).mul(float(3).sub(c.mul(2))))
-    const banded = ceil(smooth.mul(light.bands)).div(max(light.bands, 1))
-    const reach = select(t.lessThan(1), select(light.bands.greaterThan(0.5), banded, smooth), float(0)).toVar()
-    const visibility = float(1).toVar()
-    const shadows = light.castShadows.greaterThan(0.5).and(uniforms.grid.w.greaterThan(0.5)).and(reach.greaterThan(0))
-    If(shadows, () => {
-      const seen = segmentClear(logical, light.position).toVar()
-      If(light.softness.greaterThan(0), () => {
-        const spread = light.softness.mul(light.radius).mul(SOFT_SHADOW_SPREAD)
-        Loop(SOFT_SHADOW_RING, ({ i }) => {
-          const angle = float(i).mul((2 * Math.PI) / SOFT_SHADOW_RING)
-          seen.addAssign(segmentClear(logical, light.position.add(vec2(cos(angle), sin(angle)).mul(spread))))
-        })
-        visibility.assign(seen.div(SOFT_SHADOW_RING + 1))
-      }).Else(() => {
-        visibility.assign(seen)
+  const visibility = float(1).toVar()
+  If(light.castShadows.greaterThan(0.5).and(uniforms.grid.w.greaterThan(0.5)), () => {
+    const seen = segmentClear(logical, light.position).toVar()
+    If(light.softness.greaterThan(0), () => {
+      const spread = light.softness.mul(light.radius).mul(SOFT_SHADOW_SPREAD)
+      Loop(SOFT_SHADOW_RING, ({ i }) => {
+        const angle = float(i).mul((2 * Math.PI) / SOFT_SHADOW_RING)
+        seen.addAssign(segmentClear(logical, light.position.add(vec2(cos(angle), sin(angle)).mul(spread))))
       })
+      visibility.assign(seen.div(SOFT_SHADOW_RING + 1))
+    }).Else(() => {
+      visibility.assign(seen)
     })
-    return vec4(light.color.mul(reach).mul(visibility), 1)
-  })()
+  })
+  return visibility
+}
+
+/** Adds the light onto the cleared target: ONE + ONE, which the 8-bit target clamps at 1. */
+function addOnto(material: THREE.MeshBasicNodeMaterial): void {
   material.transparent = true
   material.depthTest = false
   material.depthWrite = false
@@ -187,6 +192,27 @@ export function createLightMaterial(uniforms: LightMapUniforms): THREE.MeshBasic
   material.blendDst = THREE.OneFactor
   material.blendSrcAlpha = THREE.OneFactor
   material.blendDstAlpha = THREE.OneFactor
+}
+
+/**
+ * The material every light-map mesh shares (issue #78 CA-5..CA-7): per texel,
+ * `color × intensity × falloff(d / radius) × visibility` with `d` measured in
+ * logical space (ADR 0009), added onto the Ambient Light the target was
+ * cleared to. light-field.ts is its specification.
+ */
+export function createLightMaterial(uniforms: LightMapUniforms): THREE.MeshBasicNodeMaterial {
+  const light = lightUniforms()
+  const material = new THREE.MeshBasicNodeMaterial()
+  material.fragmentNode = Fn(() => {
+    const logical = logicalPositionNode(uniforms.isometric).toVar()
+    const reach = falloffNode(length(logical.sub(light.position)).div(max(light.radius, 1e-6)), light.bands).toVar()
+    const visibility = float(0).toVar()
+    If(reach.greaterThan(0), () => {
+      visibility.assign(visibilityNode(uniforms, light, logical))
+    })
+    return vec4(light.color.mul(reach).mul(visibility), 1)
+  })()
+  addOnto(material)
   return material
 }
 

@@ -36,6 +36,19 @@ export interface OccluderGrid {
   solid: Uint8Array
 }
 
+/** A logical point. */
+export interface LogicalPoint {
+  x: number
+  y: number
+}
+
+/** What every light-map texel of a frame is computed from. */
+export interface LightScene {
+  ambient: Rgb
+  lights: readonly LightField[]
+  grid: OccluderGrid | null
+}
+
 /**
  * How far a soft light's shadow samples sit from its centre, as a fraction
  * of its radius at softness 1: the penumbra of a torch of radius 4 spans
@@ -90,11 +103,11 @@ function axisCrossing(start: number, delta: number, cell: number): { next: numbe
  * than the texel's own (the lit face of a wall, CA-7). A grid walk
  * (Amanatides–Woo) over every cell the segment enters, the light's included.
  */
-export function segmentClear(grid: OccluderGrid, fromX: number, fromY: number, toX: number, toY: number): boolean {
-  const ax = (fromX - grid.originX) / grid.cellSize
-  const ay = (fromY - grid.originY) / grid.cellSize
-  const bx = (toX - grid.originX) / grid.cellSize
-  const by = (toY - grid.originY) / grid.cellSize
+export function segmentClear(grid: OccluderGrid, from: LogicalPoint, to: LogicalPoint): boolean {
+  const ax = (from.x - grid.originX) / grid.cellSize
+  const ay = (from.y - grid.originY) / grid.cellSize
+  const bx = (to.x - grid.originX) / grid.cellSize
+  const by = (to.y - grid.originY) / grid.cellSize
   const endColumn = Math.floor(bx)
   const endRow = Math.floor(by)
   const walk: GridWalk = { column: Math.floor(ax), row: Math.floor(ay), nextX: 0, nextY: 0 }
@@ -123,44 +136,37 @@ export function segmentClear(grid: OccluderGrid, fromX: number, fromY: number, t
  * softness, the share of sample points (the centre plus a ring around it)
  * the texel sees, so the shadow edge ramps.
  */
-export function lightVisibility(grid: OccluderGrid | null, light: LightField, x: number, y: number): number {
+export function lightVisibility(grid: OccluderGrid | null, light: LightField, point: LogicalPoint): number {
   if (!grid || !light.castShadows) return 1
-  const centre = segmentClear(grid, x, y, light.x, light.y) ? 1 : 0
+  const centre = segmentClear(grid, point, light) ? 1 : 0
   if (light.softness <= 0) return centre
   const spread = light.softness * light.radius * SOFT_SHADOW_SPREAD
   let seen = centre
-  for (let sample = 0; sample < SOFT_SHADOW_RING; sample += 1) {
-    const angle = (sample * 2 * Math.PI) / SOFT_SHADOW_RING
-    const sx = light.x + Math.cos(angle) * spread
-    const sy = light.y + Math.sin(angle) * spread
-    if (segmentClear(grid, x, y, sx, sy)) seen += 1
+  for (let index = 0; index < SOFT_SHADOW_RING; index += 1) {
+    const angle = (index * 2 * Math.PI) / SOFT_SHADOW_RING
+    const sample = { x: light.x + Math.cos(angle) * spread, y: light.y + Math.sin(angle) * spread }
+    if (segmentClear(grid, point, sample)) seen += 1
   }
   return seen / (SOFT_SHADOW_RING + 1)
 }
 
 /** One light's own term at a logical point: color × intensity × falloff × visibility, never negative. */
-function lightTerm(light: LightField, grid: OccluderGrid | null, x: number, y: number): Rgb {
+function lightTerm(light: LightField, grid: OccluderGrid | null, point: LogicalPoint): Rgb {
   const strength = Math.max(0, light.intensity)
-  const distance = Math.hypot(x - light.x, y - light.y)
+  const distance = Math.hypot(point.x - light.x, point.y - light.y)
   const reach = light.radius > 0 ? lightFalloff(distance / light.radius, light.bands) : 0
   if (strength === 0 || reach === 0) return [0, 0, 0]
-  const amount = strength * reach * lightVisibility(grid, light, x, y)
+  const amount = strength * reach * lightVisibility(grid, light, point)
   return [Math.max(0, light.color[0]) * amount, Math.max(0, light.color[1]) * amount, Math.max(0, light.color[2]) * amount]
 }
 
 const clampUnit = (value: number): number => Math.min(1, Math.max(0, value))
 
 /** A light-map texel at a logical point: the Ambient Light plus every light's term, clamped per channel. */
-export function lightMapValue(
-  ambient: Rgb,
-  lights: readonly LightField[],
-  grid: OccluderGrid | null,
-  x: number,
-  y: number,
-): Rgb {
+export function lightMapValue({ ambient, lights, grid }: LightScene, point: LogicalPoint): Rgb {
   const total: Rgb = [ambient[0], ambient[1], ambient[2]]
   for (const light of lights) {
-    const [r, g, b] = lightTerm(light, grid, x, y)
+    const [r, g, b] = lightTerm(light, grid, point)
     total[0] += r
     total[1] += g
     total[2] += b

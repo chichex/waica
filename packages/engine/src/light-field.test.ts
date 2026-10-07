@@ -56,28 +56,28 @@ describe('lightFalloff (CA-5)', () => {
 
 describe('lightMapValue (CA-5)', () => {
   it('is the Ambient Light alone where no light reaches', () => {
-    expect(lightMapValue([0.2, 0.25, 0.3], [torch()], null, 10, 0)).toEqual([0.2, 0.25, 0.3])
+    expect(lightMapValue({ ambient: [0.2, 0.25, 0.3], lights: [torch()], grid: null }, { x: 10, y: 0 })).toEqual([0.2, 0.25, 0.3])
   })
 
   it('adds color × intensity × falloff to the ambient, per channel, clamped to 1', () => {
     const warm = torch({ color: [1, 0.5, 0.25], intensity: 0.8 })
-    const [r, g, b] = lightMapValue([0.1, 0.1, 0.1], [warm], null, 2, 0)
+    const [r, g, b] = lightMapValue({ ambient: [0.1, 0.1, 0.1], lights: [warm], grid: null }, { x: 2, y: 0 })
     expect(r).toBeCloseTo(0.1 + 0.8 * 0.5, 10)
     expect(g).toBeCloseTo(0.1 + 0.4 * 0.5, 10)
     expect(b).toBeCloseTo(0.1 + 0.2 * 0.5, 10)
-    expect(lightMapValue([0.5, 0.5, 0.5], [torch({ intensity: 3 })], null, 0, 0)).toEqual([1, 1, 1])
+    expect(lightMapValue({ ambient: [0.5, 0.5, 0.5], lights: [torch({ intensity: 3 })], grid: null }, { x: 0, y: 0 })).toEqual([1, 1, 1])
   })
 
   it('never darkens: a light of intensity 0 or a negative color leaves the ambient', () => {
     const ambient: [number, number, number] = [0.3, 0.3, 0.3]
-    expect(lightMapValue(ambient, [torch({ intensity: 0 })], null, 0, 0)).toEqual(ambient)
-    expect(lightMapValue(ambient, [torch({ color: [-1, -1, -1] })], null, 0, 0)).toEqual(ambient)
+    expect(lightMapValue({ ambient, lights: [torch({ intensity: 0 })], grid: null }, { x: 0, y: 0 })).toEqual(ambient)
+    expect(lightMapValue({ ambient, lights: [torch({ color: [-1, -1, -1] })], grid: null }, { x: 0, y: 0 })).toEqual(ambient)
   })
 
   it('sums several lights', () => {
     const left = torch({ x: -2 })
     const right = torch({ x: 2 })
-    const [r] = lightMapValue(DARK, [left, right], null, 0, 0)
+    const [r] = lightMapValue({ ambient: DARK, lights: [left, right], grid: null }, { x: 0, y: 0 })
     expect(r).toBeCloseTo(1, 10)
   })
 })
@@ -86,7 +86,7 @@ describe('isometric radius (CA-6)', () => {
   it('reaches the same distance in every logical grid direction', () => {
     const light = torch({ x: 3, y: 3 })
     const values = [[3 + 2, 3], [3 - 2, 3], [3, 3 + 2], [3, 3 - 2]].map(([x, y]) =>
-      lightMapValue(DARK, [light], null, x ?? 0, y ?? 0)[0],
+      lightMapValue({ ambient: DARK, lights: [light], grid: null }, { x: x ?? 0, y: y ?? 0 })[0],
     )
     expect(new Set(values)).toEqual(new Set([0.5]))
   })
@@ -101,34 +101,34 @@ describe('isometric radius (CA-6)', () => {
 
 describe('lightVisibility (CA-7)', () => {
   it('is 1 with no occluders', () => {
-    expect(lightVisibility(null, torch(), 3, 0)).toBe(1)
+    expect(lightVisibility(null, torch(), { x: 3, y: 0 })).toBe(1)
   })
 
   it('is 0 behind a solid tile and 1 on the tile itself (its lit face)', () => {
     // A wall cell two to the right of the light, which sits in cell (4, 4).
     const wall = grid([[6, 4]])
-    expect(lightVisibility(wall, torch(), 1, 0)).toBe(1)
-    expect(lightVisibility(wall, torch(), 2, 0)).toBe(1)
-    expect(lightVisibility(wall, torch(), 3, 0)).toBe(0)
-    expect(lightVisibility(wall, torch(), 3, 1.2)).toBe(1)
+    expect(lightVisibility(wall, torch(), { x: 1, y: 0 })).toBe(1)
+    expect(lightVisibility(wall, torch(), { x: 2, y: 0 })).toBe(1)
+    expect(lightVisibility(wall, torch(), { x: 3, y: 0 })).toBe(0)
+    expect(lightVisibility(wall, torch(), { x: 3, y: 1.2 })).toBe(1)
   })
 
   it('blocks a diagonal ray crossing a solid cell, not one passing beside it', () => {
     const wall = grid([[5, 5]])
-    expect(lightVisibility(wall, torch(), 2, 2)).toBe(0)
-    expect(lightVisibility(wall, torch(), 2, -2)).toBe(1)
+    expect(lightVisibility(wall, torch(), { x: 2, y: 2 })).toBe(0)
+    expect(lightVisibility(wall, torch(), { x: 2, y: -2 })).toBe(1)
   })
 
   it('ignores occluders for a light with castShadows false', () => {
     const wall = grid([[6, 4]])
-    expect(lightVisibility(wall, torch({ castShadows: false }), 3, 0)).toBe(1)
+    expect(lightVisibility(wall, torch({ castShadows: false }), { x: 3, y: 0 })).toBe(1)
   })
 
   it('ramps instead of stepping with softness above 0', () => {
     const wall = grid([[6, 4]])
     const across = [0, 0.3, 0.6, 0.9, 1.2, 1.5, 2, 3]
-    const hard = across.map((y) => lightVisibility(wall, torch(), 3, y))
-    const soft = across.map((y) => lightVisibility(wall, torch({ softness: 1 }), 3, y))
+    const hard = across.map((y) => lightVisibility(wall, torch(), { x: 3, y }))
+    const soft = across.map((y) => lightVisibility(wall, torch({ softness: 1 }), { x: 3, y }))
     expect(hard.every((value) => value === 0 || value === 1)).toBe(true)
     expect(soft.some((value) => value > 0 && value < 1)).toBe(true)
     for (let index = 1; index < soft.length; index += 1) {
@@ -138,11 +138,11 @@ describe('lightVisibility (CA-7)', () => {
   })
 
   it('treats cells outside the grid as open', () => {
-    expect(lightVisibility(grid([]), torch({ x: 20 }), 22, 0)).toBe(1)
+    expect(lightVisibility(grid([]), torch({ x: 20 }), { x: 22, y: 0 })).toBe(1)
   })
 
   it('darkens the light-map behind the wall to the ambient', () => {
     const wall = grid([[6, 4]])
-    expect(lightMapValue([0.1, 0.1, 0.1], [torch()], wall, 3, 0)).toEqual([0.1, 0.1, 0.1])
+    expect(lightMapValue({ ambient: [0.1, 0.1, 0.1], lights: [torch()], grid: wall }, { x: 3, y: 0 })).toEqual([0.1, 0.1, 0.1])
   })
 })
