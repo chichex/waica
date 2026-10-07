@@ -27,6 +27,7 @@ import {
 import { advanceGameTime, GameTime } from './game-time.js'
 import { Input, type InputBindings } from './input.js'
 import { Pointer } from './pointer.js'
+import { GamePost } from './post-effects.js'
 import {
   activeRuntimeBridgeHook,
   EngineRuntimeBridge,
@@ -45,6 +46,7 @@ import {
   type SceneRenderJson,
 } from './scene.js'
 import { sceneDrainsOf } from './scene-drains.js'
+import { GameLighting } from './scene-lighting.js'
 import { createSpriteBatches, type SpriteBatches } from './sprite-batches.js'
 import { createSpatialQuery, type SpatialQuery } from './spatial-query.js'
 import { Stats, type StatValue } from './stats.js'
@@ -147,6 +149,10 @@ export class Game {
   readonly cameraEffects: CameraEffects
   /** Simulated scheduling: `after`, `every`, `tween`, `now`. See ADR 0017. */
   readonly time = new GameTime()
+  /** The live scene's Ambient Light and Lights (ADR 0026); it dies with its scene. */
+  readonly lighting = new GameLighting()
+  /** The live scene's Post Effects (vignette, color grade); they die with their scene. */
+  readonly post = new GamePost()
   /** Registry retained by loadScene for runtime prefab spawning. */
   registry: SceneRegistry | null = null
   paramOverrides: ParamOverrides = {}
@@ -325,6 +331,8 @@ export class Game {
     // destroyed below, so an owner's own destroy() cancellation is a no-op.
     this.time.cancelSceneScoped()
     this.cameraEffects.unloadScene()
+    this.lighting.unloadScene()
+    this.post.unloadScene()
     // An explicit unload means "no scene": a swap queued earlier this frame
     // would otherwise flush next frame and resurrect one.
     this.pendingSceneLoad = null
@@ -435,6 +443,8 @@ export class Game {
   setSceneRender(json?: SceneRenderJson): void {
     this.renderSort = json?.sort === 'y' ? 'y' : null
     this.spriteBatches.enabled = json?.batch !== false
+    this.lighting.loadScene(json?.lighting)
+    this.post.loadScene(json?.post)
     const projection = json?.projection === 'isometric' ? 'isometric' : null
     if (projection === this.sceneProjection) return
     this.sceneProjection = projection
