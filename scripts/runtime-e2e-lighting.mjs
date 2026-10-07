@@ -73,6 +73,16 @@ async function rewriteScene(project, name, edit) {
   return () => writeFile(file, original)
 }
 
+/**
+ * The page's console errors so far, for failure messages only: a scene
+ * operation naming no scene fails without stepping or changing the live
+ * scene, and its diagnostics carry them.
+ */
+async function browserErrors(call, client, project) {
+  const probe = await call(client, 'control_runtime', { project_path: project, operation: 'scene', scene: '-waica-diagnostics-' })
+  return probe.structuredContent?.error?.diagnostics?.browserErrors ?? []
+}
+
 /** One paused Run Session: load `scene`, step to FRAME, screenshot, snapshot, stop. */
 async function capture({ helpers, client, project, chrome, scene }) {
   const { call, assertScreenshot, assertUrlClosed } = helpers
@@ -90,7 +100,7 @@ async function capture({ helpers, client, project, chrome, scene }) {
     await call(client, 'control_runtime', { project_path: project, operation: 'step', frames: FRAME })
     const shot = assertScreenshot(await call(client, 'capture_screenshot', { project_path: project }), 'paused', CANVAS)
     const inspected = await call(client, 'inspect_runtime', { project_path: project, entity_names: ['nobody'] })
-    return { image: shot.image, snapshot: inspected.structuredContent.snapshot }
+    return { image: shot.image, snapshot: inspected.structuredContent.snapshot, browserErrors: await browserErrors(call, client, project) }
   } finally {
     const stopped = await call(client, 'stop_project', { project_path: project })
     assert.equal(stopped.structuredContent.stopped, true)
@@ -170,6 +180,7 @@ async function dungeonAssertions({ helpers, client, project, chrome, inspector, 
     edgeDarkening: brightness(fullAmbientNoVignette.edge) - brightness(fullAmbient.edge),
     centreDifference: maxChannelDifference(fullAmbientNoVignette.centre, fullAmbient.centre),
     samples: { shipped, ambientOnly, fullAmbient, fullAmbientNoVignette },
+    browserErrors: [...new Set(Object.values(frames).flatMap((frame) => frame.browserErrors))].slice(0, 10),
   }
   const detail = JSON.stringify(measured)
   assert.ok(measured.litOverAmbient > 0, `a point near a torch must be brighter than the ambient-only frame; ${detail}`)
