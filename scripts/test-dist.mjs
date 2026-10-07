@@ -284,6 +284,15 @@ try {
   assert.match(packedEngineTypes, /ComponentUpdateScheduleResult/)
   assert.match(packedEngineTypes, /ComponentUpdateScheduleIssue/)
   assert.match(packedEngineTypes, /ParticleEmitter/)
+  // Issue #78 (CA-17): lighting and Post Effects are public, typed and documented.
+  for (const name of ['Light', 'GameLighting', 'GamePost', 'EMISSIVE_LAYER', 'sceneRenderIssues', 'lightMapValue', 'SceneLightingJson', 'ScenePostJson']) {
+    assert.match(packedEngineTypes, new RegExp(`\\b${name}\\b`), `the packed engine types must export ${name}`)
+  }
+  assert.match(
+    await readFile(packedEngineReadme, 'utf8'),
+    /## Lighting and Post Effects/,
+    'the packed engine README must document lighting and Post Effects',
+  )
 
   const platformerSource = JSON.parse(
     await readFile(join(root, 'packages/archetype-platformer/package.json'), 'utf8'),
@@ -442,6 +451,8 @@ try {
       "const enginePackage = await import('@waica/engine')",
       "if (typeof enginePackage.resolveComponentUpdateSchedule !== 'function') throw new Error('engine root has no schedule resolver')",
       "if (enginePackage.ParticleEmitter?.componentName !== 'ParticleEmitter') throw new Error('engine root has no ParticleEmitter')",
+      "if (enginePackage.Light?.componentName !== 'Light') throw new Error('engine root has no Light')",
+      "if (enginePackage.sceneRenderIssues({ lighting: { ambient: { intensity: 2 } } }).length !== 1) throw new Error('engine root does not range-check render.lighting')",
       "if (typeof enginePackage.THREE?.WebGPURenderer !== 'function') throw new Error('engine THREE is not the three/webgpu build')",
       "if (enginePackage.THREE.WebGLRenderer !== undefined) throw new Error('engine THREE still exposes WebGLRenderer')",
       "class PackedProducer extends enginePackage.Component { static componentName = 'PackedProducer'; onUpdate() {} }",
@@ -475,6 +486,7 @@ try {
       "if (isometricNode.ARCHETYPE.animation.fallbacks?.sw?.dir !== 'se' || !isometricNode.ARCHETYPE.animation.fallbacks.sw.flip) throw new Error('isometric sw fallback is invalid')",
       "if (isometricNode.ARCHETYPE.registry.resolveAsset?.('waica:iso-hero') !== 'assets/waica-iso-hero.png') throw new Error('isometric Node-safe registry cannot resolve package assets')",
       "if (isometricRoot.ARCHETYPE.registry.components.ParticleEmitter?.componentName !== 'ParticleEmitter' || isometricNode.ARCHETYPE.registry.components.ParticleEmitter?.componentName !== 'ParticleEmitter') throw new Error('isometric package has no ParticleEmitter')",
+      "if (isometricRoot.ARCHETYPE.registry.components.Light?.componentName !== 'Light' || !isometricNode.ARCHETYPE.extraScenes.dungeon) throw new Error('isometric package has no Light or no dungeon')",
     ].join('\n'),
   )
   run(process.execPath, [probe], { cwd: sandbox })
