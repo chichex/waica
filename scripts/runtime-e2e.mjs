@@ -19,6 +19,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { stdioRpc } from './stdio-rpc.mjs'
+import { runLightingLeg } from './runtime-e2e-lighting.mjs'
 
 const execFileAsync = promisify(execFile)
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
@@ -482,6 +483,8 @@ async function openPngInspector(playwright, executablePath) {
   return {
     range: (base64) => page.evaluate(rangeInPage, { base64 }),
     compare: (left, right) => page.evaluate(compareInPage, { left, right }),
+    /** Any other question, run in the same decoding page (see runtime-e2e-lighting.mjs). */
+    evaluate: (question, argument) => page.evaluate(question, argument),
     close: () => browser.close(),
   }
 }
@@ -1781,14 +1784,14 @@ async function runSceneSwapLeg({ client, root, parent, chrome, viteBin, engineRo
   const unknown = await call(client, 'control_runtime', {
     project_path: project,
     operation: 'scene',
-    scene: 'dungeon',
+    scene: 'crypt',
   })
   assert.equal(unknown.isError, true, 'an unknown scene name must fail')
   const unknownError = unknown.structuredContent.error
   assert.equal(unknownError.code, 'runtime-operation-failed')
   assert.deepEqual(
     [...(unknownError.diagnostics?.availableScenes ?? [])].sort(),
-    ['cave', 'main'],
+    ['cave', 'dungeon', 'main'],
     'the error must name the available scenes',
   )
   const stillOnMain = await inspectScene()
@@ -1987,6 +1990,7 @@ export async function runRuntimeE2e({
   includeSceneSwap = true,
   includeSceneFade = true,
   includeBatchParity = true,
+  includeLighting = true,
   includeSignalShutdown = true,
   renderLeg,
 }) {
@@ -2091,6 +2095,19 @@ export async function runRuntimeE2e({
           label,
         })
       : {}
+    const lightingResult = includeLighting
+      ? await runLightingLeg({
+          client,
+          root,
+          parent: temporaryParent,
+          chrome,
+          viteBin,
+          engineRoot,
+          playwright,
+          label,
+          helpers: { call, assertScreenshot, assertUrlClosed, keepScreenshot, makeDemoProject, openPngInspector },
+        })
+      : {}
     if (negative) await runNegativeReadiness({ client, fixture: negative, chrome })
     let signalShutdownResult = {}
     if (includeSignalShutdown) {
@@ -2111,6 +2128,7 @@ export async function runRuntimeE2e({
       ...sceneSwapResult,
       ...sceneFadeResult,
       ...batchParityResult,
+      ...lightingResult,
       ...signalShutdownResult,
     }
     console.log(`waica runtime e2e (${label}): ${JSON.stringify(result)}`)

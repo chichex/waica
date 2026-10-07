@@ -755,6 +755,7 @@ try {
     includeProjection: false,
     includeSceneSwap: false,
     includeBatchParity: false,
+    includeLighting: false,
     includeSceneFade: false,
   })
 

@@ -1,5 +1,6 @@
 import * as THREE from 'three/webgpu'
 import type { Light } from './components/light.js'
+import { FrameQuad } from './frame-quad.js'
 import { lightFootprint, type OccluderGrid, type Rgb } from './light-field.js'
 import {
   createLightMapUniforms,
@@ -56,13 +57,9 @@ export class LightMap {
   private readonly uniforms: LightMapUniforms = createLightMapUniforms(this.empty)
   private readonly material = createLightMaterial(this.uniforms)
   private readonly meshes = new Map<Light, LightMesh>()
-  private readonly multiplyMaterials = {
-    canvas: createMultiplyMaterial(this.target.texture, false),
-    linear: createMultiplyMaterial(this.target.texture, true),
-  }
   private readonly multiply = {
-    canvas: new THREE.QuadMesh(this.multiplyMaterials.canvas),
-    linear: new THREE.QuadMesh(this.multiplyMaterials.linear),
+    canvas: new FrameQuad(createMultiplyMaterial(this.target.texture, false)),
+    linear: new FrameQuad(createMultiplyMaterial(this.target.texture, true)),
   }
   private occluderTexture: THREE.DataTexture | null = null
   private builtRevision = -1
@@ -96,8 +93,8 @@ export class LightMap {
     this.target.dispose()
     this.geometry.dispose()
     this.material.dispose()
-    this.multiplyMaterials.canvas.dispose()
-    this.multiplyMaterials.linear.dispose()
+    this.multiply.canvas.dispose()
+    this.multiply.linear.dispose()
     this.empty.dispose()
     this.occluderTexture?.dispose()
     this.meshes.clear()

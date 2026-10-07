@@ -1,5 +1,6 @@
 import { clamp, dot, float, length, max, mix, texture, uniform, uv, vec3, vec4 } from 'three/tsl'
 import * as THREE from 'three/webgpu'
+import { FrameQuad } from './frame-quad.js'
 import type { PostEffectsState } from './scene-render-options.js'
 import { hexChannels } from './scene-lighting.js'
 import { linearToSrgb } from './srgb-transfer-node.js'
@@ -65,8 +66,7 @@ export class PostPass {
     depthBuffer: true,
   })
   private readonly uniforms = createUniforms()
-  private readonly material = createPostMaterial(this.target.texture, this.uniforms)
-  private readonly quad = new THREE.QuadMesh(this.material)
+  private readonly quad = new FrameQuad(createPostMaterial(this.target.texture, this.uniforms))
 
   /** Sizes the target for this frame. */
   resize(width: number, height: number): void {
@@ -100,6 +100,6 @@ export class PostPass {
 
   dispose(): void {
     this.target.dispose()
-    this.material.dispose()
+    this.quad.dispose()
   }
 }

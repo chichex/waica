@@ -11,6 +11,7 @@ import { Light } from './components/light.js'
 import { ParticleEmitter } from './components/particle-emitter.js'
 import { Tilemap } from './components/tilemap.js'
 import { Game, type GameResolution } from './game.js'
+import { isFrameQuad } from './frame-quad.js'
 import { EMISSIVE_LAYER } from './render-layers.js'
 import { loadScene, type SceneEntityJson, type SceneRenderJson } from './scene.js'
 import { occluderRevision } from './scene-lighting.js'
@@ -125,7 +126,10 @@ it('lit frame (CA-8, ADR 0026): draws the scene, then the light-map as one quad 
   ])
   expect(draws[0]?.scene).toBe(game.scene)
   expect(draws[0]?.background).toBe(background)
-  expect(draws[2]?.scene).toBeInstanceOf(THREE.QuadMesh)
+  // An ordinary scene, never a QuadMesh: on WebGPU a QuadMesh drawn to the canvas
+  // loses the frame on the next canvas render (issue #78 e2e).
+  expect(draws[2]?.scene).not.toBeInstanceOf(THREE.QuadMesh)
+  expect(isFrameQuad(draws[2]?.scene)).toBe(true)
   expect(draws[3]?.scene).toBe(game.scene)
   expect(draws[3]?.background).toBeNull()
   game.dispose()
@@ -234,7 +238,10 @@ it('Post Effects (CA-11): renders an unlit scene with a vignette into a render t
   const target = targetOf(draws[0])
   expect([target.width, target.height]).toEqual([320, 180])
   expect(target.texture.magFilter).toBe(THREE.NearestFilter)
-  expect(draws[1]?.scene).toBeInstanceOf(THREE.QuadMesh)
+  // An ordinary scene, never a QuadMesh: on WebGPU a QuadMesh drawn to the canvas
+  // loses the frame on the next canvas render (issue #78 e2e).
+  expect(draws[1]?.scene).not.toBeInstanceOf(THREE.QuadMesh)
+  expect(isFrameQuad(draws[1]?.scene)).toBe(true)
   expect(draws[1]?.target).toBeNull()
   game.dispose()
 })
@@ -258,7 +265,10 @@ it('Post Effects (CA-11): composes lighting inside the target and applies the ef
   expect(targetOf(draws[1])).not.toBe(sceneTarget)
   expect(targetOf(draws[2])).toBe(sceneTarget)
   expect(draws[3]).toMatchObject({ scene: game.scene, layers: EMISSIVE_MASK, target: sceneTarget })
-  expect(draws[4]?.scene).toBeInstanceOf(THREE.QuadMesh)
+  // An ordinary scene, never a QuadMesh: on WebGPU a QuadMesh drawn to the canvas
+  // loses the frame on the next canvas render (issue #78 e2e).
+  expect(draws[4]?.scene).not.toBeInstanceOf(THREE.QuadMesh)
+  expect(isFrameQuad(draws[4]?.scene)).toBe(true)
   expect(draws[4]?.target).toBeNull()
   game.dispose()
 })
