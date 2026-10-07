@@ -1,6 +1,6 @@
 {
   "scenario": "animated-sprites-500",
-  "commit": "2c57b94",
+  "commit": "2fa2a5f",
   "backend": "webgl2",
   "host": {
     "platform": "linux",
@@ -24,11 +24,11 @@
   "timings": {
     "frames": 60,
     "medianMs": 4.799999952316284,
-    "p95Ms": 5.600000023841858,
+    "p95Ms": 6.199999809265137,
     "overBudget": false,
     "gcPauses": {
-      "count": 29,
-      "totalMs": 3.485
+      "count": 30,
+      "totalMs": 3.591
     }
   }
 }

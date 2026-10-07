@@ -1,6 +1,6 @@
 {
   "scenario": "static-sprites-20000",
-  "commit": "2c57b94",
+  "commit": "2fa2a5f",
   "backend": "webgl2",
   "host": {
     "platform": "linux",
@@ -23,12 +23,12 @@
   },
   "timings": {
     "frames": 60,
-    "medianMs": 112.70000004768372,
-    "p95Ms": 136.39999997615814,
+    "medianMs": 133.05000007152557,
+    "p95Ms": 141.09999990463257,
     "overBudget": true,
     "gcPauses": {
       "count": 35,
-      "totalMs": 13.577
+      "totalMs": 12.982
     }
   }
 }

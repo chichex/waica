@@ -1,6 +1,6 @@
 {
   "scenario": "animated-sprites-2000",
-  "commit": "2c57b94",
+  "commit": "2fa2a5f",
   "backend": "webgl2",
   "host": {
     "platform": "linux",
@@ -23,12 +23,12 @@
   },
   "timings": {
     "frames": 60,
-    "medianMs": 13.199999988079071,
-    "p95Ms": 16.100000023841858,
+    "medianMs": 14.199999928474426,
+    "p95Ms": 15.299999952316284,
     "overBudget": false,
     "gcPauses": {
       "count": 25,
-      "totalMs": 4.301
+      "totalMs": 3.985
     }
   }
 }

@@ -1,6 +1,6 @@
 {
   "scenario": "spawn-churn-200",
-  "commit": "2c57b94",
+  "commit": "2fa2a5f",
   "backend": "webgl2",
   "host": {
     "platform": "linux",
@@ -23,12 +23,12 @@
   },
   "timings": {
     "frames": 600,
-    "medianMs": 37,
-    "p95Ms": 42,
+    "medianMs": 42.80000019073486,
+    "p95Ms": 45.39999985694885,
     "overBudget": true,
     "gcPauses": {
       "count": 150,
-      "totalMs": 153.751
+      "totalMs": 145.086
     }
   }
 }
