@@ -15,6 +15,12 @@ const FRAME = 13
  * printed with the leg's result.
  */
 const SHADOW_TOLERANCE = 2
+/**
+ * How much the vignette must darken the floor's left tip (about 0.6 of the
+ * way to a corner, past the dungeon's radius of 0.35) on a fully lit frame,
+ * summed over RGB: a margin, not a tolerance.
+ */
+const VIGNETTE_MIN_DARKENING = 30
 
 // The dungeon's fixed camera (packages/archetype-isometric/src/dungeon.ts):
 // centred on render (0, -5), 12 units tall, on the demo's 640x360 canvas.
@@ -41,7 +47,8 @@ export const DUNGEON_SAMPLES = {
     const base = dungeonPixel(3.5, 2.5)
     return { x: base.x, y: Math.round(base.y - (0.3 + 0.45 / 2) * (CANVAS.height / CAMERA.zoom)) }
   })(),
-  corner: { x: 4, y: 4 },
+  // The floor diamond's left tip, logical (0.5, 9.5): a wall tile, well lit at ambient 1.
+  edge: dungeonPixel(0.5, 9.5),
   centre: { x: CANVAS.width / 2, y: CANVAS.height / 2 },
 }
 
@@ -124,7 +131,9 @@ async function dungeonVariants({ helpers, client, project, chrome }) {
       scene.render.lighting = { ambient: { intensity: 1 } }
     }),
     // Same Post Effect pipeline, vignette at zero: only the darkening differs.
-    noVignette: await variant((scene) => {
+    // Fully lit, same Post Effect pipeline with the vignette at zero: only the darkening differs.
+    fullAmbientNoVignette: await variant((scene) => {
+      scene.render.lighting = { ambient: { intensity: 1 } }
       scene.render.post = { vignette: { ...scene.render.post.vignette, intensity: 0 } }
     }),
   }
@@ -151,22 +160,22 @@ async function dungeonAssertions({ helpers, client, project, chrome, inspector, 
   for (const [name, frame] of Object.entries(frames)) await helpers.keepScreenshot(`${label}-dungeon-${name}.png`, frame.image)
   assertDungeonSnapshot(frames.shipped.snapshot)
   const sample = (frame) => inspector.evaluate(samplesInPage, { base64: frame.image, points: DUNGEON_SAMPLES })
-  const [shipped, ambientOnly, fullAmbient, noVignette] = await Promise.all(
-    [frames.shipped, frames.ambientOnly, frames.fullAmbient, frames.noVignette].map(sample),
+  const [shipped, ambientOnly, fullAmbient, fullAmbientNoVignette] = await Promise.all(
+    [frames.shipped, frames.ambientOnly, frames.fullAmbient, frames.fullAmbientNoVignette].map(sample),
   )
   const measured = {
     litOverAmbient: brightness(shipped.lit) - brightness(ambientOnly.lit),
     shadowDifference: maxChannelDifference(shipped.shadowed, ambientOnly.shadowed),
     flameDifference: maxChannelDifference(shipped.flame, fullAmbient.flame),
-    cornerDarkening: brightness(noVignette.corner) - brightness(shipped.corner),
-    centreDifference: maxChannelDifference(noVignette.centre, shipped.centre),
-    samples: { shipped, ambientOnly, fullAmbient, noVignette },
+    edgeDarkening: brightness(fullAmbientNoVignette.edge) - brightness(fullAmbient.edge),
+    centreDifference: maxChannelDifference(fullAmbientNoVignette.centre, fullAmbient.centre),
+    samples: { shipped, ambientOnly, fullAmbient, fullAmbientNoVignette },
   }
   const detail = JSON.stringify(measured)
   assert.ok(measured.litOverAmbient > 0, `a point near a torch must be brighter than the ambient-only frame; ${detail}`)
   assert.ok(measured.shadowDifference <= SHADOW_TOLERANCE, `behind the wall must match the ambient-only frame within ${SHADOW_TOLERANCE}; ${detail}`)
   assert.equal(measured.flameDifference, 0, `the Emissive flame must not change with the Ambient Light; ${detail}`)
-  assert.ok(measured.cornerDarkening > 0, `the vignette must darken a corner; ${detail}`)
+  assert.ok(measured.edgeDarkening >= VIGNETTE_MIN_DARKENING, `the vignette must darken towards a corner; ${detail}`)
   assert.ok(measured.centreDifference <= SHADOW_TOLERANCE, `the vignette must leave the centre; ${detail}`)
   return measured
 }
