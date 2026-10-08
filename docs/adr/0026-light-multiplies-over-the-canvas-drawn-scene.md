@@ -8,4 +8,4 @@ Drawing every lit scene into a linear render target — three's default, and the
 
 ## Consequences
 
-Light darkens and brightens sRGB values, not linear ones, so falloff looks slightly different from a physically based multiply. A scene that adds a Post Effect moves into a render target and its translucent edges blend in linear space from then on.
+Light darkens and brightens sRGB values, not linear ones, so falloff looks slightly different from a physically based multiply. A scene that adds a Post Effect renders into an 8-bit render target that receives the same sRGB values as the canvas, so its translucent edges blend exactly as they do without one.
