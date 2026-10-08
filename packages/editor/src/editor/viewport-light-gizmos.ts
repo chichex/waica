@@ -1,7 +1,8 @@
 // The radius gizmo of every Light (issue #78 CA-13): a circle of its radius
 // around where it shines, a 2:1 ellipse in an isometric scene, drawn on the
 // Emissive layer so a dark scene never hides it. Edit mode only.
-import { projectIsometric, setEmissive, THREE, type Game, type Light } from '@waica/engine'
+import { projectIsometric, THREE, type Game, type Light } from '@waica/engine'
+import { addOverlay } from './viewport-selection-gizmos'
 
 const LIGHT_GIZMO_COLOR = 0xffc857
 const SEGMENTS = 64
@@ -27,8 +28,7 @@ export function createLightGizmos(game: Game) {
     const line = new THREE.Line(geometry, material)
     line.name = 'waica:light-gizmo'
     line.frustumCulled = false
-    setEmissive(line, true)
-    game.scene.add(line)
+    addOverlay(game, line)
     lines.set(light, line)
     return line
   }

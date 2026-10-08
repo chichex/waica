@@ -83,9 +83,8 @@ export class ParticleBatch implements SceneDrain {
     this._layer = Number.isFinite(layer) ? layer : 0
     this.material = new THREE.MeshBasicMaterial({
       color: 0xffffff,
-      transparent: true,
-      alphaTest: TRANSPARENT_TEXEL_ALPHA,
-      vertexColors: true,
+      // alphaTest: see TRANSPARENT_TEXEL_ALPHA (an Emissive behind shows through transparent texels).
+      transparent: true, alphaTest: TRANSPARENT_TEXEL_ALPHA, vertexColors: true,
       depthTest: true,
       depthWrite: true,
       blending: blend === 'additive' ? THREE.AdditiveBlending : THREE.NormalBlending,

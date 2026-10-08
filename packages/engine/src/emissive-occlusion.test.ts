@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import * as THREE from 'three/webgpu'
+import type * as THREE from 'three/webgpu'
 import { expect, it, vi } from 'vitest'
 
 vi.mock('three/webgpu', async (importOriginal) =>

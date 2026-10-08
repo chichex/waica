@@ -8,7 +8,7 @@ import { createCameraGizmo, sceneCameraFrame } from './viewport-camera-gizmo'
 import { gridCoverKey, gridLineVertices } from './grid'
 import type { ViewportLive } from './viewport-live'
 import { createLightGizmos } from './viewport-light-gizmos'
-import { createSelectionGizmos } from './viewport-selection-gizmos'
+import { addOverlay, createSelectionGizmos } from './viewport-selection-gizmos'
 import { createUiPreview, type UiPreviewHost } from './viewport-ui-preview'
 
 export interface OverlayHost extends UiPreviewHost {
@@ -34,7 +34,7 @@ function createGridOverlay(game: Game) {
   lines.position.z = -1
   lines.frustumCulled = false
   lines.visible = false
-  game.scene.add(lines)
+  addOverlay(game, lines)
   let coverKey = ''
   return {
     sync(grid: GridSettings, editing: boolean): void {

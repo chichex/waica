@@ -1,10 +1,20 @@
 // Per-frame gizmos for the selection: the selected entity's component boxes
 // (with their resize handles), its margin outline, the multi-selection
 // outlines, and hiding its appearance while that layer is hidden.
-import { THREE, type CollisionPoint, type Entity, type Game } from '@waica/engine'
+import { setEmissive, THREE, type CollisionPoint, type Entity, type Game } from '@waica/engine'
 import { BOX_KINDS, boxRenderPoints, CORNERS, entityBounds, findBox, projectionOf } from './viewport-boxes'
 import type { ViewportComponentVisibility, ViewportLive } from './viewport-live'
 import { renderPoint, type ViewportProjection } from './viewport-space'
+
+/**
+ * Adds an editor overlay to the scene on the Emissive layer (PR #150 review):
+ * drawn after the light-map at full brightness, so a dark scene never hides
+ * the grid, a selection or the camera frame.
+ */
+export function addOverlay(game: Game, ...objects: THREE.Object3D[]): void {
+  for (const object of objects) setEmissive(object, true)
+  game.scene.add(...objects)
+}
 
 export const SELECTION_AMBER = 0xffb703
 
@@ -60,7 +70,7 @@ function createHandlePool(game: Game, color: number) {
       const handle = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color }))
       handle.position.z = 5.1
       handle.visible = false
-      game.scene.add(handle)
+      addOverlay(game, handle)
       handles.push(handle)
     }
   }
@@ -87,7 +97,7 @@ function createBoxGizmo(game: Game, color: number) {
   const loop = rectLoop(color)
   loop.position.z = 5
   loop.visible = false
-  game.scene.add(loop)
+  addOverlay(game, loop)
   const handles = createHandlePool(game, color)
   let outlineKey = 'rectangle'
   return {
@@ -144,7 +154,7 @@ function createMultiGizmos(game: Game) {
         const loop = rectLoop(SELECTION_AMBER)
         loop.position.z = 4.9
         loop.visible = false
-        game.scene.add(loop)
+        addOverlay(game, loop)
         loops.push(loop)
       }
       loops.forEach((loop, index) => {
@@ -163,7 +173,7 @@ export function createSelectionGizmos(game: Game) {
   const margin = rectLoop(SELECTION_AMBER)
   margin.position.z = 5
   margin.visible = false
-  game.scene.add(margin)
+  addOverlay(game, margin)
   const hider = createAppearanceHider()
   const boxes = createBoxGizmos(game)
   const multi = createMultiGizmos(game)

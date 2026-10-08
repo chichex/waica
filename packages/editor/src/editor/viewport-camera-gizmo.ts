@@ -5,7 +5,7 @@ import { resolveSceneCamera, THREE, type Game, type CameraLimitsJson } from '@wa
 import { CAMERA_NODE } from '../scene/ops'
 import { projectionOf } from './viewport-boxes'
 import type { ViewportLive } from './viewport-live'
-import { rectLoop, SELECTION_AMBER } from './viewport-selection-gizmos'
+import { addOverlay, rectLoop, SELECTION_AMBER } from './viewport-selection-gizmos'
 import { renderPoint } from './viewport-space'
 
 const CAMERA_VIOLET = 0x8d79f0
@@ -58,7 +58,7 @@ export function createCameraGizmo(game: Game) {
   frameLoop.visible = false
   marker.visible = false
   limitsLoop.visible = false
-  game.scene.add(frameLoop, marker, limitsLoop)
+  addOverlay(game, frameLoop, marker, limitsLoop)
 
   const showLimits = (limits: CameraLimitsJson | null): void => {
     limitsLoop.visible = limits != null
