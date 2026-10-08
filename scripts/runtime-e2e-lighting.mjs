@@ -106,7 +106,9 @@ async function capture({ helpers, client, project, chrome, scene }) {
       const swapped = await call(client, 'control_runtime', { project_path: project, operation: 'scene', scene })
       assert.equal(swapped.isError, undefined, `scene:'${scene}' failed: ${JSON.stringify(swapped)}`)
     }
-    await call(client, 'control_runtime', { project_path: project, operation: 'step', frames: FRAME })
+    const stepped = await call(client, 'control_runtime', { project_path: project, operation: 'step', frames: FRAME })
+    // A step that threw leaves the canvas undrawn: say why instead of sampling an empty frame.
+    assert.equal(stepped.isError, undefined, `step in '${scene}' failed: ${JSON.stringify(stepped.structuredContent ?? stepped.content)}`)
     const shot = assertScreenshot(await call(client, 'capture_screenshot', { project_path: project }), 'paused', CANVAS)
     const inspected = await call(client, 'inspect_runtime', { project_path: project, entity_names: ['nobody'] })
     return { image: shot.image, snapshot: inspected.structuredContent.snapshot, browserErrors: await browserErrors(call, client, project) }
