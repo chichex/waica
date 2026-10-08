@@ -3,7 +3,7 @@
 // demo Project, stepped to the same frame and screenshotted; the decoded RGBA
 // is sampled at logical points projected to the screen.
 import assert from 'node:assert/strict'
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 /** The frame every variant is captured at, as the Sprite Batch parity leg does. */
@@ -268,77 +268,6 @@ async function consoleProbe({ helpers, client, project, chrome, playwright, chro
   console.log(`waica lighting console probe (${label}): ${JSON.stringify(relevant.slice(0, 40))}`)
 }
 
-// A project component that mounts one full-view quad drawn by a minimal node
-// material, chosen by `variant`: the PR #150 bisection of the construct whose
-// shader drops the WebGPU instance on CI.
-const PROBE_COMPONENT = `import { Component, THREE } from '@waica/engine'
-
-const { float, length, mix, uniform, uv, vec3, vec4 } = THREE.TSL
-
-const FRAGMENTS = {
-  control: () => vec4(1, 0, 0, 1),
-  uniform: () => vec4(vec3(uniform(0.5)), 1),
-  mix: () => vec4(mix(vec3(1, 0, 0), vec3(0, 0, 1), uniform(0.5)), 1),
-  length: () => vec4(vec3(length(uv().sub(0.5))), 1),
-}
-
-export class WaicaMaterialProbe extends Component {
-  static componentName = 'WaicaMaterialProbe'
-  variant = 'control'
-
-  onReady() {
-    const material = new THREE.MeshBasicNodeMaterial()
-    material.fragmentNode = (FRAGMENTS[this.variant] ?? FRAGMENTS.control)()
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), material)
-    mesh.position.z = 1
-    this.game.scene.add(mesh)
-  }
-}
-`
-
-/**
- * The bisection (PR #150): one Run Session page per variant, each compiling
- * one minimal node material in main, every console message printed. A
- * variant whose page logs "Instance dropped" is a construct that drops the
- * WebGPU instance.
- */
-async function materialBisect({ helpers, client, project, chrome, playwright, chromeArgs, label }) {
-  const componentFile = path.join(project, 'src/components/waica-material-probe.ts')
-  await mkdir(path.dirname(componentFile), { recursive: true })
-  await writeFile(componentFile, PROBE_COMPONENT)
-  const results = {}
-  try {
-    for (const variant of ['control', 'uniform', 'mix', 'length']) {
-      const restore = await rewriteScene(project, 'main', (scene) => {
-        scene.entities.push({ name: 'MaterialProbe', position: [8, 8], components: [{ type: 'WaicaMaterialProbe', props: { variant } }] })
-      })
-      const start = await helpers.call(client, 'start_project', {
-        project_path: project,
-        browser_executable_path: chrome.executablePath,
-        timeout_ms: 15_000,
-      })
-      const browser = await playwright.chromium.launch({ executablePath: chrome.executablePath, headless: true, args: chromeArgs })
-      const messages = []
-      try {
-        const page = await browser.newPage({ viewport: CANVAS })
-        page.on('console', (entry) => messages.push(`${entry.type()}: ${entry.text()}`.slice(0, 300)))
-        page.on('pageerror', (error) => messages.push(`pageerror: ${error.message}`.slice(0, 300)))
-        await page.goto(start.structuredContent.url)
-        await page.waitForTimeout(4000)
-      } finally {
-        await browser.close()
-        await helpers.call(client, 'stop_project', { project_path: project })
-        await restore()
-      }
-      const relevant = messages.filter((message) => !message.startsWith('debug:') && !message.includes('Villager'))
-      results[variant] = { instanceDropped: relevant.some((message) => message.includes('Instance dropped')), messages: relevant.slice(0, 8) }
-    }
-  } finally {
-    await rm(componentFile, { force: true })
-  }
-  console.log(`waica lighting material bisect (${label}): ${JSON.stringify(results)}`)
-}
-
 /** The whole lighting leg; `helpers` are runtime-e2e.mjs's own. */
 export async function runLightingLeg({ client, root, parent, chrome, viteBin, engineRoot, playwright, label, helpers, chromeArgs = [] }) {
   const project = await helpers.makeDemoProject({
@@ -347,7 +276,6 @@ export async function runLightingLeg({ client, root, parent, chrome, viteBin, en
   const inspector = await helpers.openPngInspector(playwright, chrome.executablePath)
   try {
     const ambientOneDifferingPixels = await ambientOneParity({ helpers, client, project, chrome, inspector, label })
-    await materialBisect({ helpers, client, project, chrome, playwright, chromeArgs, label })
     await consoleProbe({ helpers, client, project, chrome, playwright, chromeArgs, label })
     const diagnostics = await postDiagnostics({ helpers, client, project, chrome, inspector, label })
     const dungeon = await dungeonAssertions({ helpers, client, project, chrome, inspector, label })
