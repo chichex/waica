@@ -41,11 +41,14 @@ export function dungeonPixel(lx, ly) {
 /** Points of the shipped dungeon: lit between the torches, walled off from both, a flame, a corner and the centre. */
 export const DUNGEON_SAMPLES = {
   lit: dungeonPixel(3.5, 4.5),
-  shadowed: dungeonPixel(6.5, 4.5),
-  // Torch-1 at (3.5, 2.5): its flame circle sits 0.3 + 0.45 / 2 units above the base.
+  // In the chamber, within Torch-2's radius 3, behind wall cell (5, 4) from both torches.
+  shadowed: dungeonPixel(6.1, 4.5),
+  // Torch-1 at (3.5, 3.5): texel (16, 13) of its 32×32 frame is flame in all six
+  // frames (ATTRIBUTION.md); the frame's bottom sits 2/32 below the base.
   flame: (() => {
-    const base = dungeonPixel(3.5, 2.5)
-    return { x: base.x, y: Math.round(base.y - (0.3 + 0.45 / 2) * (CANVAS.height / CAMERA.zoom)) }
+    const base = dungeonPixel(3.5, 3.5)
+    const above = (32 - 13.5) / 32 - 2 / 32
+    return { x: base.x, y: Math.floor(base.y - above * (CANVAS.height / CAMERA.zoom)) }
   })(),
   // The floor diamond's left tip, logical (0.5, 9.5): a wall tile, well lit at ambient 1.
   edge: dungeonPixel(0.5, 9.5),
@@ -174,7 +177,7 @@ async function ambientOneParity({ helpers, client, project, chrome, inspector, l
 }
 
 /** Logical place of a 3×3 rock whose fully transparent top band covers Torch-1's flame, in front of it in y-sort. */
-const ROCK_IN_FRONT = { position: [5.675, 4.675], size: 3 }
+const ROCK_IN_FRONT = { position: [5.685, 5.685], size: 3 }
 
 const torchesOff = (scene) => {
   for (const entity of scene.entities) {
@@ -252,7 +255,7 @@ function assertDungeonSnapshot(snapshot) {
   assert.deepEqual(snapshot.lighting.lights.map((light) => light.entity), ['Torch-1', 'Torch-2'])
   assert.deepEqual(
     snapshot.lighting.lights.map(({ x, y, radius }) => ({ x, y, radius })),
-    [{ x: 3.5, y: 2.5, radius: 4.5 }, { x: 3.5, y: 6.5, radius: 4.5 }],
+    [{ x: 3.5, y: 3.5, radius: 3 }, { x: 3.5, y: 5.5, radius: 3 }],
   )
   assert.ok(snapshot.lighting.ambient.intensity < 0.5, 'the dungeon is dark')
   assert.deepEqual(snapshot.post, { vignette: { intensity: 0.45, radius: 0.35 }, colorGrade: null })
