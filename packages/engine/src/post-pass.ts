@@ -68,6 +68,8 @@ export class PostPass {
     minFilter: THREE.NearestFilter,
     magFilter: THREE.NearestFilter,
     depthBuffer: true,
+    // The canvas's own MSAA (antialias: true): geometry edges match the frame without post.
+    samples: 4,
   })
   private readonly uniforms = createUniforms()
   private readonly drawnLikeCanvas = drawLikeCanvas(this.target)

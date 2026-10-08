@@ -241,6 +241,8 @@ it('Post Effects (CA-11): renders an unlit scene with a vignette into a render t
   // 8-bit like the canvas and the light-map: a half-float target drew nothing
   // on CI's headless Linux WebGPU (issue #78, PR #150).
   expect(target.texture.type).toBe(THREE.UnsignedByteType)
+  // Multisampled like the canvas (antialias: true), so a Post Effect changes no geometry edge (review #3).
+  expect(target.samples).toBe(4)
   // An ordinary scene, never a QuadMesh: on WebGPU a QuadMesh drawn to the canvas
   // loses the frame on the next canvas render (issue #78 e2e).
   expect(draws[1]?.scene).not.toBeInstanceOf(THREE.QuadMesh)
