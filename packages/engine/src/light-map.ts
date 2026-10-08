@@ -57,10 +57,7 @@ export class LightMap {
   private readonly uniforms: LightMapUniforms = createLightMapUniforms(this.empty)
   private readonly material = createLightMaterial(this.uniforms)
   private readonly meshes = new Map<Light, LightMesh>()
-  private readonly multiply = {
-    canvas: new FrameQuad(createMultiplyMaterial(this.target.texture, false)),
-    linear: new FrameQuad(createMultiplyMaterial(this.target.texture, true)),
-  }
+  private readonly multiply = new FrameQuad(createMultiplyMaterial(this.target.texture))
   private occluderTexture: THREE.DataTexture | null = null
   private builtRevision = -1
   private readonly clear = new THREE.Color()
@@ -84,17 +81,16 @@ export class LightMap {
     renderer.setClearColor(this.savedClear, alpha)
   }
 
-  /** Multiplies the light-map over what is bound now; `linear` when that is a Post Effect's target. */
-  multiplyOver(renderer: THREE.WebGPURenderer, linear: boolean): void {
-    ;(linear ? this.multiply.linear : this.multiply.canvas).render(renderer)
+  /** Multiplies the light-map over what is bound now: the canvas, or a Post Effect's canvas-like target. */
+  multiplyOver(renderer: THREE.WebGPURenderer): void {
+    this.multiply.render(renderer)
   }
 
   dispose(): void {
     this.target.dispose()
     this.geometry.dispose()
     this.material.dispose()
-    this.multiply.canvas.dispose()
-    this.multiply.linear.dispose()
+    this.multiply.dispose()
     this.empty.dispose()
     this.occluderTexture?.dispose()
     this.meshes.clear()

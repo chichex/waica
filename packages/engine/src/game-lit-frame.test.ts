@@ -238,6 +238,9 @@ it('Post Effects (CA-11): renders an unlit scene with a vignette into a render t
   const target = targetOf(draws[0])
   expect([target.width, target.height]).toEqual([320, 180])
   expect(target.texture.magFilter).toBe(THREE.NearestFilter)
+  // 8-bit like the canvas and the light-map: a half-float target drew nothing
+  // on CI's headless Linux WebGPU (issue #78, PR #150).
+  expect(target.texture.type).toBe(THREE.UnsignedByteType)
   // An ordinary scene, never a QuadMesh: on WebGPU a QuadMesh drawn to the canvas
   // loses the frame on the next canvas render (issue #78 e2e).
   expect(draws[1]?.scene).not.toBeInstanceOf(THREE.QuadMesh)
@@ -246,13 +249,13 @@ it('Post Effects (CA-11): renders an unlit scene with a vignette into a render t
   game.dispose()
 })
 
-it('Post Effects (CA-11): draws the scene in linear color into the target: its background is the true color, not the canvas one', async () => {
+it('Post Effects (CA-11): draws the scene into the 8-bit target exactly as onto the canvas, its background included', async () => {
   const game = await readyGame()
+  const background = game.scene.background
   load(game, [], { post: { colorGrade: { saturation: 0 } } })
   const draws = frameDraws(game)
-  const background = draws[0]?.background
-  if (!(background instanceof THREE.Color)) throw new Error('expected a color background')
-  expect(background.getHexString(THREE.LinearSRGBColorSpace)).toBe(new THREE.Color(0x1a1a2e).getHexString(THREE.LinearSRGBColorSpace))
+  // The target stores sRGB-encoded values like the canvas, so the canvas background is the right clear.
+  expect(draws[0]?.background).toBe(background)
   game.dispose()
 })
 

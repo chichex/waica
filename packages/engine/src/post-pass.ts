@@ -3,7 +3,7 @@ import * as THREE from 'three/webgpu'
 import { FrameQuad } from './frame-quad.js'
 import type { PostEffectsState } from './scene-render-options.js'
 import { hexChannels } from './scene-lighting.js'
-import { linearToSrgb } from './srgb-transfer-node.js'
+import { drawLikeCanvas } from './render-output.js'
 
 /** The Post Effects' inputs, set every frame from `game.post`. */
 interface PostUniforms {
@@ -30,13 +30,14 @@ function createUniforms(): PostUniforms {
 
 /**
  * The single full-screen pass of the Post Effects (issue #78 CA-11): it reads
- * the frame from the linear target, encodes it to sRGB, grades it there —
+ * the frame from the target, already in the canvas's sRGB values, grades it —
  * tint, then saturation around Rec. 709 luma, then contrast around mid grey —
  * and darkens it towards the corners. Its output is the canvas's sRGB value.
  */
 function createPostMaterial(scene: THREE.Texture, u: PostUniforms): THREE.MeshBasicNodeMaterial {
   const material = new THREE.MeshBasicNodeMaterial()
-  const display = linearToSrgb(max(texture(scene, uv()).rgb, vec3(0, 0, 0)))
+  // Already the canvas's sRGB values (drawLikeCanvas): graded as they would show.
+  const display = texture(scene, uv()).rgb
   const tinted = display.mul(u.tint)
   const luma = dot(tinted, vec3(0.2126, 0.7152, 0.0722))
   const saturated = mix(vec3(luma, luma, luma), tinted, u.saturation)
@@ -55,17 +56,21 @@ function createPostMaterial(scene: THREE.Texture, u: PostUniforms): THREE.MeshBa
 
 /**
  * The Post Effects' render target and pass: the frame is drawn into `target`
- * (linear, half float, at the light-map resolution with nearest upscale —
- * E2), then `draw` writes it to the canvas through the effects.
+ * exactly as onto the canvas — 8-bit, sRGB-encoded, blending on sRGB values
+ * (ADR 0025's canvas path) — at the light-map resolution with nearest upscale
+ * (E2), then `draw` writes it to the canvas through the effects. A half-float
+ * linear target drew nothing on CI's headless Linux WebGPU (PR #150), and it
+ * changed every translucent edge.
  */
 export class PostPass {
   readonly target = new THREE.RenderTarget(1, 1, {
-    type: THREE.HalfFloatType,
+    type: THREE.UnsignedByteType,
     minFilter: THREE.NearestFilter,
     magFilter: THREE.NearestFilter,
     depthBuffer: true,
   })
   private readonly uniforms = createUniforms()
+  private readonly drawnLikeCanvas = drawLikeCanvas(this.target)
   private readonly quad = new FrameQuad(createPostMaterial(this.target.texture, this.uniforms))
 
   /** Sizes the target for this frame. */

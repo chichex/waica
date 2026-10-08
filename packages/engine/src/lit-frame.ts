@@ -47,14 +47,14 @@ function occluderSources(entities: readonly Entity[]): OccluderSource[] {
  * no Post Effect is one render straight into the canvas, exactly as before,
  * and nothing here is ever built. Lit: the scene without its Emissive
  * drawables, then the light-map multiplied over it, then the Emissive
- * drawables. With a Post Effect, all of that goes into a linear target and
+ * drawables. With a Post Effect, all of that goes into a target drawn like the
+ * canvas and
  * one pass writes it to the canvas.
  */
 export class FrameComposer {
   private lightMap: LightMap | null = null
   private postPass: PostPass | null = null
   private readonly size = new THREE.Vector2()
-  private readonly sceneTargetBackground = new THREE.Color()
 
   constructor(private readonly surface: FrameSurface) {}
 
@@ -69,7 +69,7 @@ export class FrameComposer {
     const { width, height } = this.frameSize()
     if (!post) {
       this.clearLetterbox()
-      this.drawLit(width, height, false)
+      this.drawLit(width, height)
       return
     }
     this.drawThroughPost(width, height, lit)
@@ -120,12 +120,12 @@ export class FrameComposer {
   }
 
   /** Scene, light-map, Emissive drawables, into whatever target is bound now. */
-  private drawLit(width: number, height: number, linear: boolean): void {
+  private drawLit(width: number, height: number): void {
     this.drawLayers(LIT_MASK)
-    this.composeLight(width, height, linear)
+    this.composeLight(width, height)
   }
 
-  private composeLight(width: number, height: number, linear: boolean): void {
+  private composeLight(width: number, height: number): void {
     const { renderer } = this.surface
     const { scene, camera, lighting } = this.surface.game
     this.lightMap ??= new LightMap()
@@ -143,7 +143,7 @@ export class FrameComposer {
     renderer.autoClear = false
     scene.background = null
     try {
-      this.lightMap.multiplyOver(renderer, linear)
+      this.lightMap.multiplyOver(renderer)
       this.drawLayers(EMISSIVE_MASK)
     } finally {
       renderer.autoClear = autoClear
@@ -151,23 +151,18 @@ export class FrameComposer {
     }
   }
 
-  /** The frame into the Post Effects' linear target, then one pass to the canvas (CA-11). */
+  /** The frame into the Post Effects' canvas-like target, then one pass to the canvas (CA-11). */
   private drawThroughPost(width: number, height: number, lit: boolean): void {
     const { renderer } = this.surface
-    const { scene, post } = this.surface.game
+    const { post } = this.surface.game
     this.postPass ??= new PostPass()
     this.postPass.resize(width, height)
-    const background = scene.background
-    // The canvas background carries sRGB values; a linear target needs the true color.
-    if (background instanceof THREE.Color) {
-      scene.background = this.sceneTargetBackground.setRGB(background.r, background.g, background.b, THREE.SRGBColorSpace)
-    }
+    // The target stores what the canvas would, so the scene's own (canvas) background clears it.
     renderer.setRenderTarget(this.postPass.target)
     try {
-      if (lit) this.drawLit(width, height, true)
+      if (lit) this.drawLit(width, height)
       else this.drawScene()
     } finally {
-      scene.background = background
       renderer.setRenderTarget(null)
     }
     this.clearLetterbox()

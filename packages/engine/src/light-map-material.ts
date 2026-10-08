@@ -27,7 +27,6 @@ import {
 } from 'three/tsl'
 import * as THREE from 'three/webgpu'
 import { SOFT_SHADOW_RING, SOFT_SHADOW_SPREAD } from './light-field.js'
-import { srgbToLinear } from './srgb-transfer-node.js'
 
 /** What one light-map mesh draws: its light, in logical units, with its look. */
 export interface LightDraw {
@@ -227,14 +226,12 @@ export function createLightMaterial(uniforms: LightMapUniforms): THREE.MeshBasic
 
 /**
  * The quad that multiplies the light-map over the frame already drawn
- * (ADR 0026): `frame × light`, alpha kept. Over the canvas it multiplies the
- * sRGB values as stored; inside a Post Effect's linear target the light is
- * decoded first, so a lit scene looks the same with or without one.
+ * (ADR 0026): `frame × light`, alpha kept, on the sRGB values as stored —
+ * on the canvas, or in a Post Effect's target, which stores them alike.
  */
-export function createMultiplyMaterial(light: THREE.Texture, linearTarget: boolean): THREE.MeshBasicNodeMaterial {
+export function createMultiplyMaterial(light: THREE.Texture): THREE.MeshBasicNodeMaterial {
   const material = new THREE.MeshBasicNodeMaterial()
-  const value = texture(light, uv()).rgb
-  material.fragmentNode = vec4(linearTarget ? srgbToLinear(value) : value, 1)
+  material.fragmentNode = vec4(texture(light, uv()).rgb, 1)
   material.transparent = true
   material.depthTest = false
   material.depthWrite = false

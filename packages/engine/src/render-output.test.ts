@@ -2,7 +2,7 @@
 import { vec4 } from 'three/tsl'
 import * as THREE from 'three/webgpu'
 import { expect, it } from 'vitest'
-import { canvasBackground, drawStraightToCanvas, mapUvPerVertex } from './render-output'
+import { canvasBackground, drawLikeCanvas, drawStraightToCanvas, mapUvPerVertex } from './render-output'
 
 type OutputContext = { getOutput?: (output: THREE.Node, builder: { renderer: { getRenderTarget(): unknown } }) => THREE.Node }
 
@@ -31,6 +31,21 @@ it('encodes every material output to sRGB on the canvas, and leaves a render tar
   expect(onCanvas.colorNode).toBe(color)
   expect(onCanvas.target).toBe(THREE.SRGBColorSpace)
   expect(getOutput(color, { renderer: { getRenderTarget: () => ({}) } })).toBe(color)
+})
+
+it('encodes to sRGB into a render target that draws like the canvas: a Post Effect frame (issue #78)', () => {
+  const renderer = new THREE.WebGPURenderer({ canvas: document.createElement('canvas') })
+  drawStraightToCanvas(renderer)
+  const getOutput = outputContext(renderer).getOutput
+  if (!getOutput) throw new Error('no getOutput in the renderer context')
+  const color = vec4(0.5, 0.5, 0.5, 1)
+  const frame = new THREE.RenderTarget(4, 4)
+  drawLikeCanvas(frame)
+
+  const intoFrame = getOutput(color, { renderer: { getRenderTarget: () => frame } }) as THREE.Node & { target?: string }
+  expect(intoFrame.type).toBe('ColorSpaceNode')
+  expect(intoFrame.target).toBe(THREE.SRGBColorSpace)
+  expect(getOutput(color, { renderer: { getRenderTarget: () => new THREE.RenderTarget(4, 4) } })).toBe(color)
 })
 
 it('clears with the background as the canvas stores it: the sRGB-encoded bytes', () => {
