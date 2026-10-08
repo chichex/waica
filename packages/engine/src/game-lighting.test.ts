@@ -209,11 +209,34 @@ it('game.post — Post Effects (CA-2, CA-11): starts from the scene’s declared
   expect(game.post.colorGrade).toEqual({ tint: '#ffffff', contrast: 1, saturation: 0.5 })
   expect(game.post.active).toBe(true)
   game.post.vignette = null
+  // Merged over the scene's grade, field by field like game.lighting.ambient (review): saturation 0.5 stays.
   game.post.colorGrade = { contrast: 3 }
   expect(game.post.vignette).toBeNull()
-  expect(game.post.colorGrade).toEqual({ tint: '#ffffff', contrast: 2, saturation: 1 })
+  expect(game.post.colorGrade).toEqual({ tint: '#ffffff', contrast: 2, saturation: 0.5 })
   game.post.colorGrade = null
   expect(game.post.active).toBe(false)
+})
+
+it('game.post — Post Effects (CA-11): a partial vignette merges over the current one, and turns one on from defaults', () => {
+  const game = makeGame()
+  loadScene(game, GRADED, registry)
+  game.post.vignette = { intensity: 0.9 }
+  expect(game.post.vignette).toEqual({ intensity: 0.9, radius: 0.4 })
+  game.post.vignette = null
+  game.post.vignette = { radius: 0.2 }
+  expect(game.post.vignette).toEqual({ intensity: 0.5, radius: 0.2 })
+  game.post.colorGrade = null
+  game.post.colorGrade = { tint: '#ff0000' }
+  expect(game.post.colorGrade).toEqual({ tint: '#ff0000', contrast: 1, saturation: 1 })
+})
+
+it('game.lighting — Ambient Light (CA-3): an unreadable intensity is ignored, keeping the current one (review)', () => {
+  const game = makeGame()
+  loadScene(game, DUSK, registry)
+  game.lighting.ambient = { intensity: Number.NaN }
+  expect(game.lighting.ambient.intensity).toBe(0.3)
+  game.lighting.ambient = { intensity: Number.POSITIVE_INFINITY }
+  expect(game.lighting.ambient.intensity).toBe(0.3)
 })
 
 it('game.post — Post Effects (CA-2, CA-11): dies with its scene', () => {

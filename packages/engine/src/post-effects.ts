@@ -24,9 +24,12 @@ export class GamePost {
     return vignette ? { ...vignette } : null
   }
 
-  /** Turns the vignette on (both fields, clamped to 0..1) or off with null. */
-  set vignette(value: VignetteEffect | null) {
-    this.state = { ...this.state, vignette: resolveVignette(value) }
+  /**
+   * Turns the vignette off with null, or changes it field by field over the
+   * current one (absent fields take their defaults when it was off), clamped to 0..1.
+   */
+  set vignette(value: Partial<VignetteEffect> | null) {
+    this.state = { ...this.state, vignette: value ? resolveVignette({ ...this.state.vignette, ...value }) : null }
   }
 
   /** The color grade now, a copy; null when off. */
@@ -35,9 +38,13 @@ export class GamePost {
     return colorGrade ? { ...colorGrade } : null
   }
 
-  /** Turns the color grade on (absent fields neutral, values clamped) or off with null. */
+  /**
+   * Turns the color grade off with null, or changes it field by field over the
+   * current one (absent fields neutral when it was off), clamped — like
+   * `game.lighting.ambient`, so a tween of one field keeps the others.
+   */
   set colorGrade(value: Partial<ColorGradeEffect> | null) {
-    this.state = { ...this.state, colorGrade: resolveColorGrade(value) }
+    this.state = { ...this.state, colorGrade: value ? resolveColorGrade({ ...this.state.colorGrade, ...value }) : null }
   }
 
   /** Whether any Post Effect is on. */

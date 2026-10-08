@@ -62,8 +62,10 @@ export class GameLighting {
   set ambient(value: AmbientLightInput) {
     const state = stateOf(this)
     const color = typeof value.color === 'number' ? hexOfNumber(value.color) : value.color
+    // An unreadable intensity (a NaN from a custom easing, say) is ignored, like an unreadable color.
+    const intensity = typeof value.intensity === 'number' && Number.isFinite(value.intensity) ? value.intensity : state.ambient.intensity
     state.ambient = resolveAmbientLight({
-      ambient: { color: hexColorOr(color, state.ambient.color), intensity: value.intensity ?? state.ambient.intensity },
+      ambient: { color: hexColorOr(color, state.ambient.color), intensity },
     })
     state.declared = true
   }
