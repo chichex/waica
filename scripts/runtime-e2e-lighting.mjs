@@ -61,6 +61,15 @@ async function samplesInPage({ base64, points }) {
   }))
 }
 
+// Runs in the page: whether every pixel is opaque white, the CI WebGPU symptom.
+async function allWhiteInPage({ base64 }) {
+  const { data } = await globalThis.decodePng(base64)
+  for (let index = 0; index < data.length; index += 4) {
+    if (data[index] !== 255 || data[index + 1] !== 255 || data[index + 2] !== 255) return false
+  }
+  return true
+}
+
 const brightness = (pixel) => pixel[0] + pixel[1] + pixel[2]
 const maxChannelDifference = (a, b) => Math.max(...[0, 1, 2].map((channel) => Math.abs(a[channel] - b[channel])))
 
@@ -191,6 +200,37 @@ async function dungeonAssertions({ helpers, client, project, chrome, inspector, 
   return measured
 }
 
+/**
+ * Diagnostic, not an assertion (PR #150): on CI's headless WebGPU every
+ * dungeon frame came out blank. Two variants split the suspects — main with
+ * a vignette and no Light (the Post Effect path alone), and the dungeon with
+ * no Post Effect (its Lights and occlusion alone) — and each reports the
+ * same sample points plus whether the whole frame is white. Printed at once,
+ * so a later failure in the leg cannot hide it.
+ */
+async function postDiagnostics({ helpers, client, project, chrome, inspector, label }) {
+  const variant = async (name, scene, edit) => {
+    const restore = await rewriteScene(project, scene, edit)
+    const frame = await capture({ helpers, client, project, chrome, scene }).finally(restore)
+    await helpers.keepScreenshot(`${label}-diagnostic-${name}.png`, frame.image)
+    return {
+      allWhite: await inspector.evaluate(allWhiteInPage, { base64: frame.image }),
+      samples: await inspector.evaluate(samplesInPage, { base64: frame.image, points: DUNGEON_SAMPLES }),
+      browserErrors: frame.browserErrors,
+    }
+  }
+  const diagnostics = {
+    mainWithVignette: await variant('main-vignette', 'main', (scene) => {
+      scene.render = { ...scene.render, post: { vignette: { intensity: 0.45, radius: 0.35 } } }
+    }),
+    dungeonWithoutPost: await variant('dungeon-no-post', 'dungeon', (scene) => {
+      delete scene.render.post
+    }),
+  }
+  console.log(`waica lighting diagnostics (${label}): ${JSON.stringify(diagnostics)}`)
+  return diagnostics
+}
+
 /** The whole lighting leg; `helpers` are runtime-e2e.mjs's own. */
 export async function runLightingLeg({ client, root, parent, chrome, viteBin, engineRoot, playwright, label, helpers }) {
   const project = await helpers.makeDemoProject({
@@ -199,8 +239,9 @@ export async function runLightingLeg({ client, root, parent, chrome, viteBin, en
   const inspector = await helpers.openPngInspector(playwright, chrome.executablePath)
   try {
     const ambientOneDifferingPixels = await ambientOneParity({ helpers, client, project, chrome, inspector, label })
+    const diagnostics = await postDiagnostics({ helpers, client, project, chrome, inspector, label })
     const dungeon = await dungeonAssertions({ helpers, client, project, chrome, inspector, label })
-    return { lighting: { ambientOneDifferingPixels, dungeon } }
+    return { lighting: { ambientOneDifferingPixels, diagnostics, dungeon } }
   } finally {
     await inspector.close()
   }
