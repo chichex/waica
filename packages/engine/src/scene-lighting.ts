@@ -101,6 +101,15 @@ export function ambientMultiplier(lighting: GameLighting): Rgb {
   return [r * intensity, g * intensity, b * intensity]
 }
 
+/**
+ * Whether the Ambient Light leaves the art as drawn: lights only add and the
+ * light-map clamps at 1, so such a scene's light-map is 1 everywhere and the
+ * frame is drawn unlit, building nothing (review).
+ */
+export function ambientIsFull(lighting: GameLighting): boolean {
+  return ambientMultiplier(lighting).every((channel) => channel >= 1)
+}
+
 /** Internal: a Light joins its scene's lighting when it is ready. */
 export function addLight(lighting: GameLighting, light: Light): void {
   const { lights } = stateOf(lighting)

@@ -6,7 +6,7 @@ import { LightMap } from './light-map.js'
 import { buildOccluderGrid, type OccluderSource } from './occluder-grid.js'
 import { PostPass } from './post-pass.js'
 import { EMISSIVE_LAYER } from './render-layers.js'
-import { ambientMultiplier, occluderRevision } from './scene-lighting.js'
+import { ambientIsFull, ambientMultiplier, occluderRevision } from './scene-lighting.js'
 import type { SpriteBatches } from './sprite-batches.js'
 
 /** What a frame is drawn with besides the Game's public state: its renderer and Sprite Batches. */
@@ -21,6 +21,16 @@ export interface FrameSurface {
 /** Layer 0 alone: every drawable that is not Emissive. */
 const LIT_MASK = 1
 const EMISSIVE_MASK = 1 << EMISSIVE_LAYER
+
+/**
+ * What the occluder grid is built from: the solid tiles' revision and every
+ * Tilemap's origin, so moving a Tilemap rebuilds it too (review) — still
+ * never per frame while nothing changes.
+ */
+export function occluderSignature(game: Game): string {
+  const origins = occluderSources(game.entities).map(({ originX, originY }) => `${originX},${originY}`)
+  return `${occluderRevision(game.lighting)}|${origins.join(';')}`
+}
 
 /** Every Tilemap of the scene as an occluder source (inference 8). */
 function occluderSources(entities: readonly Entity[]): OccluderSource[] {
@@ -59,7 +69,8 @@ export class FrameComposer {
   constructor(private readonly surface: FrameSurface) {}
 
   draw(): void {
-    const lit = this.surface.game.lighting.active
+    // Full Ambient Light: the light-map would be 1 everywhere, so nothing to multiply.
+    const lit = this.surface.game.lighting.active && !ambientIsFull(this.surface.game.lighting)
     const post = this.surface.game.post.active
     if (!lit && !post) {
       this.clearLetterbox()
@@ -135,7 +146,7 @@ export class FrameComposer {
       ambient: ambientMultiplier(lighting),
       lights: lighting.lights,
       projection: this.surface.game.projection,
-      occluderRevision: occluderRevision(lighting),
+      occluderRevision: occluderSignature(this.surface.game),
       occluders: () => buildOccluderGrid(occluderSources(this.surface.game.entities)),
     })
     const autoClear = renderer.autoClear

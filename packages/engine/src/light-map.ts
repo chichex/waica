@@ -20,8 +20,8 @@ export interface LightMapFrame {
   ambient: Rgb
   lights: readonly Light[]
   projection: 'isometric' | null
-  /** Bumps whenever the solid tiles change; the grid is rebuilt only then. */
-  occluderRevision: number
+  /** Changes whenever the solid tiles or a Tilemap's origin change; the grid is rebuilt only then. */
+  occluderRevision: string
   occluders: () => OccluderGrid | null
 }
 
@@ -59,7 +59,7 @@ export class LightMap {
   private readonly meshes = new Map<Light, LightMesh>()
   private readonly multiply = new FrameQuad(createMultiplyMaterial(this.target.texture))
   private occluderTexture: THREE.DataTexture | null = null
-  private builtRevision = -1
+  private builtRevision = ''
   private readonly clear = new THREE.Color()
   private readonly savedClear = new THREE.Color()
 

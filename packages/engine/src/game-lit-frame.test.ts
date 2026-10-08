@@ -15,6 +15,7 @@ import { isFrameQuad } from './frame-quad.js'
 import { EMISSIVE_LAYER } from './render-layers.js'
 import { loadScene, type SceneEntityJson, type SceneRenderJson } from './scene.js'
 import { occluderRevision } from './scene-lighting.js'
+import { occluderSignature } from './lit-frame.js'
 import { fakeRendering, type FakeDraw } from './test-renderer.js'
 import { REGISTRY, renderFrame, runMeshes, scene, spriteEntity, useSpriteBatchTestEnvironment } from './test-sprite-batches.js'
 import { defined } from './test-support.js'
@@ -99,16 +100,16 @@ it('off path (CA-1, B4): draws an Emissive sprite of an unlit scene in the same 
   game.dispose()
 })
 
-it('off path (CA-1, B4): goes back to the single render, building nothing new, once the scene’s last Light is destroyed', async () => {
+it('off path (CA-1, review): a Light under full Ambient Light changes no pixel, so it draws the single render and builds nothing', async () => {
   const game = await readyGame()
   load(game, [lightEntity('Torch', [0, 0])])
-  expect(frameDraws(game)).toHaveLength(4)
-  const built = fakeRendering.renderTargets.length
-  game.find('Torch')?.destroy()
+  expect(game.lighting.active).toBe(true)
   const draws = frameDraws(game)
   expect(draws).toHaveLength(1)
   expect(draws[0]).toMatchObject({ scene: game.scene, target: null })
-  expect(fakeRendering.renderTargets).toHaveLength(built)
+  expect(fakeRendering.renderTargets).toEqual([])
+  game.lighting.ambient = { intensity: 0.5 }
+  expect(frameDraws(game)).toHaveLength(4)
   game.dispose()
 })
 
@@ -168,7 +169,7 @@ it('lit frame (CA-8, ADR 0026): clears the light-map to the Ambient Light’s co
 
 it('lit frame (CA-8, ADR 0026): draws one light-map mesh per live Light, and drops a destroyed one on the next frame (CA-4)', async () => {
   const game = await readyGame()
-  load(game, [lightEntity('A', [0, 0]), lightEntity('B', [3, 0])])
+  load(game, [lightEntity('A', [0, 0]), lightEntity('B', [3, 0])], { lighting: { ambient: { intensity: 0.5 } } })
   const lightMeshes = (draws: FakeDraw[]): number => {
     const lightScene = draws[1]?.scene
     if (!(lightScene instanceof THREE.Scene)) throw new Error('expected the light-map scene')
@@ -187,7 +188,7 @@ it('lit frame (CA-8, ADR 0026): keeps Emissive sprites out of the scene pass and
     spriteEntity('FlameA', { texture: '/flame.png', emissive: true, layer: 1 }),
     spriteEntity('FlameB', { texture: '/flame.png', emissive: true, layer: 2 }),
     spriteEntity('Wall', { texture: '/a.png', layer: 3 }),
-  ], { lighting: {} })
+  ], { lighting: { ambient: { intensity: 0.5 } } })
   await flush()
   expect(runCountsDuring(game, 0)).toEqual([[2]])
   expect(runCountsDuring(game, 3)).toEqual([[2]])
@@ -211,7 +212,7 @@ it('lit frame (CA-8, ADR 0026): puts an Emissive drawable on the Emissive layer 
 
 it('light-map resolution (CA-9, B2): is the fixed resolution, upscaled with nearest filtering', async () => {
   const game = await readyGame({ width: 320, height: 180 })
-  load(game, [lightEntity('Torch', [0, 0])])
+  load(game, [lightEntity('Torch', [0, 0])], { lighting: { ambient: { intensity: 0.5 } } })
   const target = targetOf(frameDraws(game)[1])
   expect([target.width, target.height]).toEqual([320, 180])
   expect(target.texture.magFilter).toBe(THREE.NearestFilter)
@@ -222,7 +223,7 @@ it('light-map resolution (CA-9, B2): is the fixed resolution, upscaled with near
 
 it('light-map resolution (CA-9, B2): matches the drawing buffer without a fixed resolution', async () => {
   const game = await readyGame()
-  load(game, [lightEntity('Torch', [0, 0])])
+  load(game, [lightEntity('Torch', [0, 0])], { lighting: { ambient: { intensity: 0.5 } } })
   const target = targetOf(frameDraws(game)[1])
   expect([target.width, target.height]).toEqual([640, 360])
   game.dispose()
@@ -263,7 +264,7 @@ it('Post Effects (CA-11): draws the scene into the 8-bit target exactly as onto 
 
 it('Post Effects (CA-11): composes lighting inside the target and applies the effects after the Emissive drawables', async () => {
   const game = await readyGame()
-  load(game, [lightEntity('Torch', [0, 0])], { post: { vignette: { intensity: 1, radius: 0 } } })
+  load(game, [lightEntity('Torch', [0, 0])], { lighting: { ambient: { intensity: 0.5 } }, post: { vignette: { intensity: 1, radius: 0 } } })
   const draws = frameDraws(game)
   expect(draws).toHaveLength(5)
   const sceneTarget = targetOf(draws[0])
@@ -289,7 +290,7 @@ it('Post Effects (CA-11): switches off at runtime back to the single canvas rend
 
 it('lifecycle: disposes every render target it built when the Game is disposed', async () => {
   const game = await readyGame()
-  load(game, [lightEntity('Torch', [0, 0])], { post: { vignette: { intensity: 1, radius: 0 } } })
+  load(game, [lightEntity('Torch', [0, 0])], { lighting: { ambient: { intensity: 0.5 } }, post: { vignette: { intensity: 1, radius: 0 } } })
   renderFrame(game)
   const disposed: unknown[] = []
   for (const target of fakeRendering.renderTargets) {
@@ -316,5 +317,19 @@ it('lifecycle: rebuilds occlusion only when a Tilemap’s solid tiles change, ne
   const edited = occluderRevision(game.lighting)
   game.find('Ground')?.destroy()
   expect(occluderRevision(game.lighting)).toBeGreaterThan(edited)
+  game.dispose()
+})
+
+it('lifecycle: rebuilds occlusion when a Tilemap moves, not only when its tiles change (review)', async () => {
+  const game = await readyGame()
+  load(game, [
+    { name: 'Ground', position: [0, 0], components: [{ type: 'Tilemap', props: { mapWidth: 2, mapHeight: 1, cells: [0, 1], solidTiles: [1] } }] },
+    lightEntity('Torch', [0, 0]),
+  ], { lighting: { ambient: { intensity: 0.5 } } })
+  const before = occluderSignature(game)
+  renderFrame(game)
+  expect(occluderSignature(game)).toBe(before)
+  defined(game.find('Ground')).position.x = 3
+  expect(occluderSignature(game)).not.toBe(before)
   game.dispose()
 })
