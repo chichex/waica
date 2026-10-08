@@ -2106,6 +2106,7 @@ export async function runRuntimeE2e({
           playwright,
           label,
           helpers: { call, assertScreenshot, assertUrlClosed, keepScreenshot, makeDemoProject, openPngInspector },
+          chromeArgs: renderLeg?.chromeArgs ?? [],
         })
       : {}
     if (negative) await runNegativeReadiness({ client, fixture: negative, chrome })
