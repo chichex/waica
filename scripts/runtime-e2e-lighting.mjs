@@ -233,50 +233,14 @@ async function postDiagnostics({ helpers, client, project, chrome, inspector, la
   return diagnostics
 }
 
-/**
- * Diagnostic (PR #150): WebGPU reports an invalid pipeline as a console
- * warning, and one invalid draw drops the whole frame — which the Run
- * Session's error log (console errors only) never shows. This opens the Run
- * Session's page in a second Chrome with the leg's switches, with main
- * carrying a vignette and one Light (both suspect materials), and prints
- * every console message it logs.
- */
-async function consoleProbe({ helpers, client, project, chrome, playwright, chromeArgs, label }) {
-  const restore = await rewriteScene(project, 'main', (scene) => {
-    scene.render = { ...scene.render, post: { vignette: { intensity: 0.45, radius: 0.35 } } }
-    scene.entities.push({ name: 'ProbeLight', position: [8, 8], components: [{ type: 'Light', props: { radius: 3 } }] })
-  })
-  const start = await helpers.call(client, 'start_project', {
-    project_path: project,
-    browser_executable_path: chrome.executablePath,
-    timeout_ms: 15_000,
-  })
-  const browser = await playwright.chromium.launch({ executablePath: chrome.executablePath, headless: true, args: chromeArgs })
-  const messages = []
-  try {
-    const page = await browser.newPage({ viewport: CANVAS })
-    page.on('console', (entry) => messages.push(`${entry.type()}: ${entry.text()}`.slice(0, 600)))
-    page.on('pageerror', (error) => messages.push(`pageerror: ${error.message}`.slice(0, 600)))
-    await page.goto(start.structuredContent.url)
-    await page.waitForTimeout(4000)
-  } finally {
-    await browser.close()
-    await helpers.call(client, 'stop_project', { project_path: project })
-    await restore()
-  }
-  const relevant = messages.filter((message) => !message.startsWith('debug:'))
-  console.log(`waica lighting console probe (${label}): ${JSON.stringify(relevant.slice(0, 40))}`)
-}
-
 /** The whole lighting leg; `helpers` are runtime-e2e.mjs's own. */
-export async function runLightingLeg({ client, root, parent, chrome, viteBin, engineRoot, playwright, label, helpers, chromeArgs = [] }) {
+export async function runLightingLeg({ client, root, parent, chrome, viteBin, engineRoot, playwright, label, helpers }) {
   const project = await helpers.makeDemoProject({
     client, root, parent, viteBin, engineRoot, archetype: 'isometric', name: 'waica-lighting',
   })
   const inspector = await helpers.openPngInspector(playwright, chrome.executablePath)
   try {
     const ambientOneDifferingPixels = await ambientOneParity({ helpers, client, project, chrome, inspector, label })
-    await consoleProbe({ helpers, client, project, chrome, playwright, chromeArgs, label })
     const diagnostics = await postDiagnostics({ helpers, client, project, chrome, inspector, label })
     const dungeon = await dungeonAssertions({ helpers, client, project, chrome, inspector, label })
     return { lighting: { ambientOneDifferingPixels, diagnostics, dungeon } }
