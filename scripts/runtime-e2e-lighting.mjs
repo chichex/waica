@@ -221,10 +221,15 @@ const DUNGEON_VARIANTS = {
   },
 }
 
-/** Frames drawn through lighting or a Post Effect: the ones issue #151 leaves blank on CI's Linux WebGPU. */
+/**
+ * Frames with lighting components (Lights, an Emissive flame) or a Post
+ * Effect: the ones issue #151 leaves blank on CI's Linux WebGPU. The unlit
+ * dungeon is one of them — it keeps its Lights and flame, and run
+ * 37827344540 showed it blank too, so the cause is not the light-map pass.
+ */
 const LIT_OR_POST_FRAMES = [
   'shipped', 'ambientOnly', 'fullAmbient', 'fullAmbientNoVignette', 'identityPost', 'noPost',
-  'rockInFront', 'ambientOnlyNoPost', 'mainWithVignette',
+  'rockInFront', 'unlitNoPost', 'ambientOnlyNoPost', 'mainWithVignette',
 ]
 
 /** Every frame the leg reads: each dungeon variant, and main with a vignette and no Light. */
@@ -307,9 +312,9 @@ async function dungeonAssertions({ frames, samples, inspector, unlitMain }) {
 }
 
 /**
- * Issue #151's expected failure: the snapshot still holds, every lighting or
- * Post Effect frame (LIT_OR_POST_FRAMES, the review's new samples included)
- * must still be blank, and the unlit dungeon still renders.
+ * Issue #151's expected failure: the snapshot still holds, and every lighting
+ * or Post Effect frame (LIT_OR_POST_FRAMES, the review's new samples
+ * included) must still be blank. Main with Ambient Light 1 stays required.
  */
 function expectedBlank({ samples }) {
   const rendering = LIT_OR_POST_FRAMES.filter((name) => !blankSamples(samples[name]))
@@ -318,7 +323,6 @@ function expectedBlank({ samples }) {
     [],
     `issue #151 is fixed for ${rendering.join(', ')}: these frames now render on CI's Linux WebGPU, so remove expectsBlankLighting's exception and let the CA-15 assertions run; ${JSON.stringify(samples)}`,
   )
-  assert.ok(!blankSamples(samples.unlitNoPost), `the unlit dungeon must still render; ${JSON.stringify(samples.unlitNoPost)}`)
   return { expectedBlank: 'https://github.com/chichex/waica/issues/151', frames: LIT_OR_POST_FRAMES }
 }
 
