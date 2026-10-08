@@ -1,0 +1,16 @@
+{
+  "waicaPrefab": 1,
+  "type": "object",
+  "components": [
+    {
+      "type": "Sprite",
+      "props": {
+        "texture": "src/art/waica-iso-wall.png",
+        "pixelArt": true,
+        "width": 2,
+        "height": 2,
+        "anchorY": 0.25
+      }
+    }
+  ]
+}

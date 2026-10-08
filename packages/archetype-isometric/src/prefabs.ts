@@ -5,7 +5,7 @@ import {
   PATROLLER_STATE_GRAPH,
 } from '@waica/behaviors'
 import { ISOMETRIC_EFFECT_PREFABS, SWORD_SPARKS } from './effect-prefabs.js'
-import { ISOMETRIC_TORCH_PREFAB } from './dungeon.js'
+import { ISOMETRIC_TORCH_PREFAB, ISOMETRIC_WALL_PREFAB } from './dungeon.js'
 
 const SHIPPED_DIRECTIONS = ['n', 'ne', 'e', 'se', 's'] as const
 /** One row per shipped facing: idle · walk×3 · attack×3 · hurt×2 · death×2. */
@@ -265,6 +265,7 @@ export const ISOMETRIC_PREFABS: Record<string, PrefabJson> = {
   },
   ...ISOMETRIC_EFFECT_PREFABS,
   'objects/torch': ISOMETRIC_TORCH_PREFAB,
+  'objects/wall': ISOMETRIC_WALL_PREFAB,
   'objects/door': {
     waicaPrefab: 1,
     type: 'object',

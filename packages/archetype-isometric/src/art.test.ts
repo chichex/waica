@@ -51,6 +51,18 @@ interface AppearanceProps {
   clips?: Record<string, { frames: number[] }>
 }
 
+/** Texels per render unit of one torch frame: the sheet is 3 columns × 2 rows of frames (issue #78 round 3). */
+function torchFrameDensity(): [number, number] {
+  const torch = defined(defined(ISOMETRIC_PREFABS['objects/torch']).components.find(
+    (candidate) => candidate.type === 'AnimatedSprite',
+  )).props as AppearanceProps
+  const sheet = pngSize(artFileFor(defined(torch.texture)))
+  return [
+    sheet.width / defined(torch.cols) / defined(torch.width),
+    sheet.height / defined(torch.rows) / defined(torch.height),
+  ]
+}
+
 describe('isometric stock art', () => {
   it('ships a real PNG for every image art row', () => {
     for (const art of ISOMETRIC_ART.filter((entry) => entry.kind === 'image')) {
@@ -139,7 +151,7 @@ describe('isometric stock art', () => {
   })
 
   it('draws textured props at their PNG aspect', () => {
-    for (const ref of ['objects/tree', 'objects/rock', 'objects/crate']) {
+    for (const ref of ['objects/tree', 'objects/rock', 'objects/crate', 'objects/wall']) {
       const sprite = defined(defined(ISOMETRIC_PREFABS[ref]).components.find(
         (candidate) => candidate.type === 'Sprite',
       )).props as AppearanceProps
@@ -167,13 +179,14 @@ describe('isometric stock art', () => {
       defined(tilemap.cellHeight) / defined(tilemap.cellSize),
     ]
 
-    for (const ref of ['objects/tree', 'objects/rock', 'objects/crate']) {
+    for (const ref of ['objects/tree', 'objects/rock', 'objects/crate', 'objects/wall']) {
       const sprite = defined(defined(ISOMETRIC_PREFABS[ref]).components.find(
         (candidate) => candidate.type === 'Sprite',
       )).props as AppearanceProps
       const size = pngSize(artFileFor(defined(sprite.texture)))
       densities[ref] = [size.width / defined(sprite.width), size.height / defined(sprite.height)]
     }
+    densities['objects/torch'] = torchFrameDensity()
 
     expect(densities).toEqual({
       'characters/player': [16, 16],
@@ -183,6 +196,8 @@ describe('isometric stock art', () => {
       'objects/tree': [32, 32],
       'objects/rock': [32, 32],
       'objects/crate': [32, 32],
+      'objects/wall': [32, 32],
+      'objects/torch': [32, 32],
     })
   })
 })
@@ -198,6 +213,8 @@ describe('CA-11 — sounds are art with a declared kind', () => {
       'waica-iso-rock.png',
       'waica-iso-crate.png',
       'waica-iso-click-marker.png',
+      'waica-iso-wall.png',
+      'waica-iso-torch.png',
     ]
     const soundFiles = [
       'waica-iso-sword-swing.ogg',

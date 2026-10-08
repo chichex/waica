@@ -10,6 +10,7 @@ interface GroundOverride {
   mapWidth: number
   mapHeight: number
   cells: number[]
+  solidTiles?: number[]
 }
 
 function componentProps(prefab: string, type: string): Record<string, unknown> {
@@ -24,7 +25,7 @@ function torches(): SceneEntityJson[] {
 function dungeonGrid(): OccluderGrid {
   const ground = defined(ISOMETRIC_DUNGEON_SCENE.entities.find((entity) => entity.name === 'Ground'))
   const map = ground.overrides?.['Tilemap'] as unknown as GroundOverride
-  const solidTiles = new Set(componentProps('tiles/ground', 'Tilemap')['solidTiles'] as number[])
+  const solidTiles = new Set(map.solidTiles ?? (componentProps('tiles/ground', 'Tilemap')['solidTiles'] as number[]))
   return {
     originX: 0,
     originY: 0,
@@ -61,21 +62,51 @@ it('dungeon (CA-14): is an extra scene of the archetype, lit with a low Ambient 
   }
 })
 
-it('dungeon (CA-14): has at least two torches, each a Light with an Emissive flame', () => {
+it('dungeon (CA-14): has at least two torches, each an animated Emissive torch with a pool of light', () => {
   expect(torches().length).toBeGreaterThanOrEqual(2)
-  expect(componentProps('objects/torch', 'Light')['radius']).toBeGreaterThan(0)
-  expect(componentProps('objects/torch', 'Sprite')['emissive']).toBe(true)
+  const radius = componentProps('objects/torch', 'Light')['radius'] as number
+  // Pools of light, not the whole room tinted (round 3).
+  expect(radius).toBeGreaterThanOrEqual(2.5)
+  expect(radius).toBeLessThanOrEqual(3)
+  const sprite = componentProps('objects/torch', 'AnimatedSprite')
+  expect(sprite['texture']).toBe('waica:iso-torch')
+  expect(sprite['emissive']).toBe(true)
+  expect([sprite['cols'], sprite['rows']]).toEqual([3, 2])
+  expect(Object.values(sprite['clips'] as Record<string, { frames: number[] }>)[0]?.frames).toEqual([0, 1, 2, 3, 4, 5])
+})
+
+it('dungeon (CA-14, round 3): stands every torch on a floor cell, never on a solid tile (#152)', () => {
+  const grid = dungeonGrid()
+  for (const torch of torches()) {
+    const [x, y] = defined(torch.position)
+    expect(grid.solid[Math.floor(y) * grid.columns + Math.floor(x)], torch.name).toBe(0)
+  }
+})
+
+it('dungeon (CA-14, round 3): a stone floor, and a wall cube on every solid cell', () => {
+  const ground = defined(ISOMETRIC_DUNGEON_SCENE.entities.find((entity) => entity.name === 'Ground'))
+  const map = ground.overrides?.['Tilemap'] as unknown as GroundOverride
+  const grid = dungeonGrid()
+  const floorTiles = new Set(map.cells.filter((_, index) => grid.solid[index] === 0))
+  expect(floorTiles).toEqual(new Set([4]))
+  const walls = ISOMETRIC_DUNGEON_SCENE.entities.filter((entity) => entity.prefab === 'objects/wall')
+  const wallCells = new Set(walls.map((wall) => {
+    const [x, y] = defined(wall.position)
+    expect([x % 1, y % 1], wall.name).toEqual([0.5, 0.5])
+    return Math.floor(y) * grid.columns + Math.floor(x)
+  }))
+  const solidCells = new Set([...grid.solid].flatMap((value, index) => (value === 1 ? [index] : [])))
+  expect(wallCells).toEqual(solidCells)
+  expect(componentProps('objects/wall', 'Sprite')['texture']).toBe('waica:iso-wall')
 })
 
 it('dungeon (CA-14): puts solid wall tiles between its torches and a chamber behind them', () => {
   const grid = dungeonGrid()
   const lights = torches().map(torchLight)
-  // A point every torch reaches by distance but no torch sees: the wall is what darkens it.
-  const shadowed = { x: 6.5, y: 4.5 }
-  for (const light of lights) {
-    expect(Math.hypot(shadowed.x - light.x, shadowed.y - light.y)).toBeLessThan(light.radius)
-    expect(lightVisibility(grid, light, shadowed)).toBe(0)
-  }
+  // A point a torch reaches by distance but no torch sees: the wall is what darkens it.
+  const shadowed = { x: 6.1, y: 4.5 }
+  expect(lights.some((light) => Math.hypot(shadowed.x - light.x, shadowed.y - light.y) < light.radius)).toBe(true)
+  for (const light of lights) expect(lightVisibility(grid, light, shadowed)).toBe(0)
   const lit = { x: 3.5, y: 4.5 }
   expect(lights.some((light) => lightVisibility(grid, light, lit) === 1)).toBe(true)
 })
