@@ -31,7 +31,7 @@
     "three": "^0.186.1"
   },
   "devDependencies": {
-    "@types/node": "^26.6.3",
+    "@types/node": "^26.6.4",
     "@waica/editor": "workspace:^",
     "@waica/mcp": "workspace:^"
   }
