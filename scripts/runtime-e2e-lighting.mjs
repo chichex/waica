@@ -61,13 +61,30 @@ async function samplesInPage({ base64, points }) {
   }))
 }
 
-// Runs in the page: whether every pixel is opaque white, the CI WebGPU symptom.
-async function allWhiteInPage({ base64 }) {
-  const { data } = await globalThis.decodePng(base64)
-  for (let index = 0; index < data.length; index += 4) {
-    if (data[index] !== 255 || data[index + 1] !== 255 || data[index + 2] !== 255) return false
+// Runs in the page: pixels of `left` that differ from `right` where `right`'s
+// 3x3 neighbourhood is flat (no edge), so edge antialiasing cannot count.
+async function compareInteriorInPage({ left, right }) {
+  const a = await globalThis.decodePng(left)
+  const b = await globalThis.decodePng(right)
+  // Whether pixel `i` of `one` and pixel `j` of `other` have the same RGB.
+  const rgbEqual = (one, other, [i, j]) => one[i] === other[j] && one[i + 1] === other[j + 1] && one[i + 2] === other[j + 2]
+  const flatAt = (x, y) => {
+    const centre = (y * b.width + x) * 4
+    const neighbours = [-1, 0, 1].flatMap((dy) => [-1, 0, 1].map((dx) => ((y + dy) * b.width + x + dx) * 4))
+    return neighbours.every((index) => rgbEqual(b.data, b.data, [centre, index]))
   }
-  return true
+  const result = { interior: 0, differing: 0, first: null }
+  for (let y = 1; y < b.height - 1; y += 1) {
+    for (let x = 1; x < b.width - 1; x += 1) {
+      if (!flatAt(x, y)) continue
+      result.interior += 1
+      const i = (y * b.width + x) * 4
+      if (rgbEqual(a.data, b.data, [i, i])) continue
+      result.differing += 1
+      result.first ??= { x, y, left: [...a.data.subarray(i, i + 4)], right: [...b.data.subarray(i, i + 4)] }
+    }
+  }
+  return result
 }
 
 /**
@@ -137,7 +154,11 @@ async function capture({ helpers, client, project, chrome, scene }) {
   }
 }
 
-/** CA-8: main with Ambient Light 1 and no light draws exactly the unlit main. */
+/**
+ * CA-8: main with Ambient Light 1 and no light draws exactly the unlit main.
+ * Since the review, full Ambient Light skips the light-map altogether, so this
+ * now holds by construction; the comparison stays as the guard.
+ */
 async function ambientOneParity({ helpers, client, project, chrome, inspector, label }) {
   const unlit = await capture({ helpers, client, project, chrome, scene: 'main' })
   const restore = await rewriteScene(project, 'main', (scene) => {
@@ -149,33 +170,76 @@ async function ambientOneParity({ helpers, client, project, chrome, inspector, l
   const compared = await inspector.compare(lit.image, unlit.image)
   assert.ok(compared.varied, 'the main screenshot must show a scene, not one flat color')
   assert.equal(compared.differing, 0, `lit main at ambient 1 must equal unlit main pixel for pixel; ${JSON.stringify(compared)}`)
-  return compared.differing
+  return { differing: compared.differing, unlit }
 }
 
-/** The dungeon and the variants each CA-15 assertion compares it with. */
-async function dungeonVariants({ helpers, client, project, chrome }) {
-  const variant = async (edit) => {
+/** Logical place of a 3×3 rock whose fully transparent top band covers Torch-1's flame, in front of it in y-sort. */
+const ROCK_IN_FRONT = { position: [5.675, 4.675], size: 3 }
+
+const torchesOff = (scene) => {
+  for (const entity of scene.entities) {
+    if (entity.prefab === 'objects/torch') entity.overrides = { ...entity.overrides, Light: { intensity: 0 } }
+  }
+}
+
+/** The dungeon variants each CA-15 assertion compares, by name. */
+const DUNGEON_VARIANTS = {
+  shipped: () => {},
+  ambientOnly: torchesOff,
+  fullAmbient: (scene) => {
+    scene.render.lighting = { ambient: { intensity: 1 } }
+  },
+  // Fully lit, same Post Effect pipeline with the vignette at zero: only the darkening differs.
+  fullAmbientNoVignette: (scene) => {
+    scene.render.lighting = { ambient: { intensity: 1 } }
+    scene.render.post = { vignette: { ...scene.render.post.vignette, intensity: 0 } }
+  },
+  // Review (a): the Post Effect at identity against no Post Effect at all.
+  identityPost: (scene) => {
+    scene.render.post = { vignette: { ...scene.render.post.vignette, intensity: 0 } }
+  },
+  noPost: (scene) => {
+    delete scene.render.post
+  },
+  // Review (b): a lit sprite in front of the flame, its transparent texels over it.
+  rockInFront: (scene) => {
+    scene.entities.push({
+      name: 'RockInFront',
+      prefab: 'objects/rock',
+      position: ROCK_IN_FRONT.position,
+      overrides: { Sprite: { width: ROCK_IN_FRONT.size, height: ROCK_IN_FRONT.size } },
+    })
+  },
+  // Review (c): the unlit frame, and the Ambient Light alone, both without post.
+  unlitNoPost: (scene) => {
+    delete scene.render.lighting
+    delete scene.render.post
+  },
+  ambientOnlyNoPost: (scene) => {
+    torchesOff(scene)
+    delete scene.render.post
+  },
+}
+
+/** Frames drawn through lighting or a Post Effect: the ones issue #151 leaves blank on CI's Linux WebGPU. */
+const LIT_OR_POST_FRAMES = [
+  'shipped', 'ambientOnly', 'fullAmbient', 'fullAmbientNoVignette', 'identityPost', 'noPost',
+  'rockInFront', 'ambientOnlyNoPost', 'mainWithVignette',
+]
+
+/** Every frame the leg reads: each dungeon variant, and main with a vignette and no Light. */
+async function captureFrames({ helpers, client, project, chrome, label }) {
+  const frames = {}
+  for (const [name, edit] of Object.entries(DUNGEON_VARIANTS)) {
     const restore = await rewriteScene(project, 'dungeon', edit)
-    return capture({ helpers, client, project, chrome, scene: 'dungeon' }).finally(restore)
+    frames[name] = await capture({ helpers, client, project, chrome, scene: 'dungeon' }).finally(restore)
   }
-  const torchesOff = (scene) => {
-    for (const entity of scene.entities) {
-      if (entity.prefab === 'objects/torch') entity.overrides = { ...entity.overrides, Light: { intensity: 0 } }
-    }
-  }
-  return {
-    shipped: await capture({ helpers, client, project, chrome, scene: 'dungeon' }),
-    ambientOnly: await variant(torchesOff),
-    fullAmbient: await variant((scene) => {
-      scene.render.lighting = { ambient: { intensity: 1 } }
-    }),
-    // Same Post Effect pipeline, vignette at zero: only the darkening differs.
-    // Fully lit, same Post Effect pipeline with the vignette at zero: only the darkening differs.
-    fullAmbientNoVignette: await variant((scene) => {
-      scene.render.lighting = { ambient: { intensity: 1 } }
-      scene.render.post = { vignette: { ...scene.render.post.vignette, intensity: 0 } }
-    }),
-  }
+  const restore = await rewriteScene(project, 'main', (scene) => {
+    scene.render = { ...scene.render, post: { vignette: { intensity: 0.45, radius: 0.35 } } }
+  })
+  frames.mainWithVignette = await capture({ helpers, client, project, chrome, scene: 'main' }).finally(restore)
+  for (const [name, frame] of Object.entries(frames)) await helpers.keepScreenshot(`${label}-lighting-${name}.png`, frame.image)
+  return frames
 }
 
 function assertDungeonSnapshot(snapshot) {
@@ -189,86 +253,73 @@ function assertDungeonSnapshot(snapshot) {
   assert.deepEqual(snapshot.post, { vignette: { intensity: 0.45, radius: 0.35 }, colorGrade: null })
 }
 
+/** Review (c): what the CPU reference predicts for the Ambient Light alone over an unlit pixel. */
+async function predictedAmbient(snapshot, unlitPixel) {
+  const { lightMapValue } = await import('../packages/engine/dist/light-field.js')
+  const { color, intensity } = snapshot.lighting.ambient
+  const channels = [1, 3, 5].map((at) => (Number.parseInt(color.slice(at, at + 2), 16) / 255) * intensity)
+  // The light-map is 8-bit: the multiplier the frame is multiplied by is the stored byte.
+  const stored = lightMapValue({ ambient: channels, lights: [], grid: null }, { x: 0, y: 0 }).map((m) => Math.round(m * 255) / 255)
+  return [0, 1, 2].map((channel) => Math.round(unlitPixel[channel] * stored[channel]))
+}
+
 /**
  * CA-15: near a torch is brighter than the ambient-only frame; behind the
  * wall from both torches it matches it; the Emissive flame ignores the
- * Ambient Light; the vignette darkens a corner and leaves the centre.
+ * Ambient Light and shows through a lit sprite's transparent texels; the
+ * vignette darkens a corner and leaves the centre; post at identity equals no
+ * post; the Ambient Light alone matches the CPU reference.
  */
-async function dungeonAssertions({ helpers, client, project, chrome, inspector, label }) {
-  const frames = await dungeonVariants({ helpers, client, project, chrome })
-  for (const [name, frame] of Object.entries(frames)) await helpers.keepScreenshot(`${label}-dungeon-${name}.png`, frame.image)
-  assertDungeonSnapshot(frames.shipped.snapshot)
-  const sample = (frame) => inspector.evaluate(samplesInPage, { base64: frame.image, points: DUNGEON_SAMPLES })
-  const [shipped, ambientOnly, fullAmbient, fullAmbientNoVignette] = await Promise.all(
-    [frames.shipped, frames.ambientOnly, frames.fullAmbient, frames.fullAmbientNoVignette].map(sample),
-  )
+async function dungeonAssertions({ frames, samples, inspector, unlitMain }) {
+  const { shipped, ambientOnly, fullAmbient, fullAmbientNoVignette, rockInFront, unlitNoPost, ambientOnlyNoPost } = samples
+  const interior = await inspector.evaluate(compareInteriorInPage, { left: frames.identityPost.image, right: frames.noPost.image })
+  const unlitMainCentre = (await inspector.evaluate(samplesInPage, { base64: unlitMain.image, points: { centre: DUNGEON_SAMPLES.centre } })).centre
+  const predicted = {}
+  for (const point of ['lit', 'shadowed', 'edge', 'centre']) predicted[point] = await predictedAmbient(frames.ambientOnlyNoPost.snapshot, unlitNoPost[point])
   const measured = {
     litOverAmbient: brightness(shipped.lit) - brightness(ambientOnly.lit),
     shadowDifference: maxChannelDifference(shipped.shadowed, ambientOnly.shadowed),
     flameDifference: maxChannelDifference(shipped.flame, fullAmbient.flame),
+    flameThroughSprite: maxChannelDifference(rockInFront.flame, shipped.flame),
     edgeDarkening: brightness(fullAmbientNoVignette.edge) - brightness(fullAmbient.edge),
     centreDifference: maxChannelDifference(fullAmbientNoVignette.centre, fullAmbient.centre),
-    samples: { shipped, ambientOnly, fullAmbient, fullAmbientNoVignette },
-    browserErrors: [...new Set(Object.values(frames).flatMap((frame) => frame.browserErrors))].slice(0, 10),
+    identityInterior: interior,
+    mainVignetteCentre: maxChannelDifference(samples.mainWithVignette.centre, unlitMainCentre),
+    ambientVersusReference: Math.max(...Object.entries(predicted).map(([point, value]) => maxChannelDifference(ambientOnlyNoPost[point], value))),
+    predicted,
+    samples,
   }
   const detail = JSON.stringify(measured)
   assert.ok(measured.litOverAmbient > 0, `a point near a torch must be brighter than the ambient-only frame; ${detail}`)
   assert.ok(measured.shadowDifference <= SHADOW_TOLERANCE, `behind the wall must match the ambient-only frame within ${SHADOW_TOLERANCE}; ${detail}`)
   assert.equal(measured.flameDifference, 0, `the Emissive flame must not change with the Ambient Light; ${detail}`)
+  assert.equal(measured.flameThroughSprite, 0, `the Emissive flame must show through a lit sprite's transparent texels; ${detail}`)
   assert.ok(measured.edgeDarkening >= VIGNETTE_MIN_DARKENING, `the vignette must darken towards a corner; ${detail}`)
   assert.ok(measured.centreDifference <= SHADOW_TOLERANCE, `the vignette must leave the centre; ${detail}`)
-  return measured
+  assert.ok(interior.interior > 10_000, `the identity comparison must cover the frame's flat regions; ${detail}`)
+  assert.equal(interior.differing, 0, `a Post Effect at identity must equal no Post Effect on every interior pixel; ${detail}`)
+  assert.ok(!blankSamples(samples.mainWithVignette), `main with a vignette and no Light must render; ${detail}`)
+  assert.equal(measured.mainVignetteCentre, 0, `main with a vignette must keep its centre equal to unlit main; ${detail}`)
+  assert.ok(measured.ambientVersusReference <= 1, `the Ambient Light alone must match the CPU reference within 1; ${detail}`)
+  const summary = { ...measured }
+  delete summary.samples
+  return summary
 }
 
 /**
- * Diagnostic, not an assertion (PR #150): on CI's headless WebGPU every
- * dungeon frame came out blank. Two variants split the suspects — main with
- * a vignette and no Light (the Post Effect path alone), and the dungeon with
- * no Post Effect (its Lights and occlusion alone) — and each reports the
- * same sample points plus whether the whole frame is white. Printed at once,
- * so a later failure in the leg cannot hide it.
+ * Issue #151's expected failure: the snapshot still holds, every lighting or
+ * Post Effect frame (LIT_OR_POST_FRAMES, the review's new samples included)
+ * must still be blank, and the unlit dungeon still renders.
  */
-async function postDiagnostics({ helpers, client, project, chrome, inspector, label }) {
-  const variant = async (name, scene, edit) => {
-    const restore = await rewriteScene(project, scene, edit)
-    const frame = await capture({ helpers, client, project, chrome, scene }).finally(restore)
-    await helpers.keepScreenshot(`${label}-diagnostic-${name}.png`, frame.image)
-    return {
-      allWhite: await inspector.evaluate(allWhiteInPage, { base64: frame.image }),
-      samples: await inspector.evaluate(samplesInPage, { base64: frame.image, points: DUNGEON_SAMPLES }),
-      browserErrors: frame.browserErrors,
-    }
-  }
-  const diagnostics = {
-    mainWithVignette: await variant('main-vignette', 'main', (scene) => {
-      scene.render = { ...scene.render, post: { vignette: { intensity: 0.45, radius: 0.35 } } }
-    }),
-    dungeonWithoutPost: await variant('dungeon-no-post', 'dungeon', (scene) => {
-      delete scene.render.post
-    }),
-  }
-  console.log(`waica lighting diagnostics (${label}): ${JSON.stringify(diagnostics)}`)
-  return diagnostics
-}
-
-/** Issue #151's expected failure: the snapshot still holds, and every lighting/post frame must still be blank. */
-async function expectedBlankDungeon({ helpers, client, project, chrome, inspector, label, diagnostics }) {
-  const frames = await dungeonVariants({ helpers, client, project, chrome })
-  for (const [name, frame] of Object.entries(frames)) await helpers.keepScreenshot(`${label}-dungeon-${name}.png`, frame.image)
-  assertDungeonSnapshot(frames.shipped.snapshot)
-  const samples = {
-    ...Object.fromEntries(await Promise.all(Object.entries(frames).map(async ([name, frame]) =>
-      [name, await inspector.evaluate(samplesInPage, { base64: frame.image, points: DUNGEON_SAMPLES })]))),
-    mainWithVignette: diagnostics.mainWithVignette.samples,
-    dungeonWithoutPost: diagnostics.dungeonWithoutPost.samples,
-  }
-  const rendering = Object.entries(samples).filter(([, frame]) => !blankSamples(frame)).map(([name]) => name)
+function expectedBlank({ samples }) {
+  const rendering = LIT_OR_POST_FRAMES.filter((name) => !blankSamples(samples[name]))
   assert.deepEqual(
     rendering,
     [],
     `issue #151 is fixed for ${rendering.join(', ')}: these frames now render on CI's Linux WebGPU, so remove expectsBlankLighting's exception and let the CA-15 assertions run; ${JSON.stringify(samples)}`,
   )
-  return { expectedBlank: 'https://github.com/chichex/waica/issues/151', samples }
+  assert.ok(!blankSamples(samples.unlitNoPost), `the unlit dungeon must still render; ${JSON.stringify(samples.unlitNoPost)}`)
+  return { expectedBlank: 'https://github.com/chichex/waica/issues/151', frames: LIT_OR_POST_FRAMES }
 }
 
 /** The whole lighting leg; `helpers` are runtime-e2e.mjs's own. */
@@ -278,12 +329,17 @@ export async function runLightingLeg({ client, root, parent, chrome, viteBin, en
   })
   const inspector = await helpers.openPngInspector(playwright, chrome.executablePath)
   try {
-    const ambientOneDifferingPixels = await ambientOneParity({ helpers, client, project, chrome, inspector, label })
-    const diagnostics = await postDiagnostics({ helpers, client, project, chrome, inspector, label })
+    const parity = await ambientOneParity({ helpers, client, project, chrome, inspector, label })
+    const frames = await captureFrames({ helpers, client, project, chrome, label })
+    assertDungeonSnapshot(frames.shipped.snapshot)
+    const samples = {}
+    for (const [name, frame] of Object.entries(frames)) {
+      samples[name] = await inspector.evaluate(samplesInPage, { base64: frame.image, points: DUNGEON_SAMPLES })
+    }
     const dungeon = expectsBlankLighting(renderBackend)
-      ? await expectedBlankDungeon({ helpers, client, project, chrome, inspector, label, diagnostics })
-      : await dungeonAssertions({ helpers, client, project, chrome, inspector, label })
-    return { lighting: { ambientOneDifferingPixels, diagnostics, dungeon } }
+      ? expectedBlank({ samples })
+      : await dungeonAssertions({ frames, samples, inspector, unlitMain: parity.unlit })
+    return { lighting: { ambientOneDifferingPixels: parity.differing, dungeon } }
   } finally {
     await inspector.close()
   }
