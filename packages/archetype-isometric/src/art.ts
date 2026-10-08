@@ -10,6 +10,8 @@ export const ISOMETRIC_ART: ArchetypeArt[] = [
   { file: 'waica-iso-rock.png', uri: 'waica:iso-rock', kind: 'image' },
   { file: 'waica-iso-crate.png', uri: 'waica:iso-crate', kind: 'image' },
   { file: 'waica-iso-click-marker.png', uri: 'waica:iso-click-marker', kind: 'image' },
+  { file: 'waica-iso-wall.png', uri: 'waica:iso-wall', kind: 'image' },
+  { file: 'waica-iso-torch.png', uri: 'waica:iso-torch', kind: 'image' },
   { file: 'waica-iso-sword-swing.ogg', uri: 'waica:iso-sword-swing', kind: 'sound' },
   { file: 'waica-iso-hit.ogg', uri: 'waica:iso-hit', kind: 'sound' },
   { file: 'waica-iso-hurt.ogg', uri: 'waica:iso-hurt', kind: 'sound' },

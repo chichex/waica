@@ -1,5 +1,6 @@
 import { resolveSceneCamera, type SceneJson } from '@waica/engine'
 import { RoRow } from './PropRow'
+import { LightingOptions, PostOptions } from './SceneLightingOptions'
 
 type RenderProp = (key: string, value: unknown) => void
 
@@ -80,6 +81,8 @@ export function SceneInspector({
         value={cam.follow ? `follows ${cam.follow}` : `fixed at ${cam.position[0]}, ${cam.position[1]}`}
       />
       <RenderOptions scene={scene} onRenderProp={onRenderProp} />
+      <LightingOptions scene={scene} onRenderProp={onRenderProp} />
+      <PostOptions scene={scene} onRenderProp={onRenderProp} />
       <div className="ed-hint">
         click an entity in the viewport or the tree to edit it — drag prefabs from the left
         panel to add more

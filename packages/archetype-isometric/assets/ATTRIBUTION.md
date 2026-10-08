@@ -92,6 +92,31 @@ remain at the human-approved 16 texels per render unit.
 | `waica-iso-tree.png` | `(768,208,832,304)`, transparent bottom trimmed | 64×94 |
 | `waica-iso-rock.png` | `(784,868,814,890)`, padded at `(1,10)` | 32×32 |
 | `waica-iso-crate.png` | `(896,832,960,896)`, nearest-resized | 32×32 |
+| `waica-iso-wall.png` | `(448,1152,512,1216)`, the grey-blue stone cube (4th of the row of four); pixels outside its hexagon `(32,0) (64,16) (64,48) (32,64) (0,48) (0,16)` cleared (52 pixels of the neighbouring tile's tip) | 64×64 |
+
+The dungeon (issue #78) draws its stone floor with index 4 (`border`) of
+`waica-iso-ground.png`, the grey stone with a cross at `(960,640,1024,672)`:
+no new floor art. The wall cube is native at 32 texels per render unit (2×2
+units), so its base diamond is exactly one 64×32 cell; its Sprite sets
+`anchorY: 0.25`, the base diamond's centre.
+
+## Animated Pixel Torch
+
+- **Animated Pixel Torch** by XLIVE99
+- Source: https://opengameart.org/content/animated-pixel-torch
+- Licence: **Creative Commons Zero (CC0)**.
+- Source file: `Torch/Torch_Sheet.png` (96×64, 3 columns × 2 rows of 32×32
+  frames). Only that PNG was used; its pixels were copied into a fresh PNG
+  with no ancillary chunks. None of the pack's other files ships.
+
+| Output file | Source | Output size |
+|---|---|---:|
+| `waica-iso-torch.png` | the whole sheet, pixels unchanged | 96×64 |
+
+Each frame is native at 32 texels per render unit (1×1 unit). The torch's
+handle ends at row 30 of each frame, so its AnimatedSprite sets
+`anchorY: 2/32`. Rows 10–15 around columns 15–16 are flame in all six
+frames: the dungeon e2e samples the flame there.
 
 ## Click-to-move destination marker
 

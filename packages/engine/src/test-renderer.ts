@@ -14,6 +14,25 @@ export type FakeRendererInit = 'webgpu' | 'webgl2' | 'pending' | Error
 
 interface FakeCamera {
   position: { x: number; y: number }
+  layers?: { mask: number }
+}
+
+/** One render call as the fake saw it: what was drawn, into which target, with which camera layers and clearing. */
+export interface FakeDraw {
+  scene: unknown
+  camera: FakeCamera
+  /** The bound render target, null for the canvas. */
+  target: unknown
+  /** The camera's layer mask at the call; null for a camera without layers. */
+  layers: number | null
+  autoClear: boolean
+  /** The drawn object's `background` at the call (a Scene's), or undefined. */
+  background: unknown
+}
+
+/** What a scene or quad drawn by the fake may carry. */
+interface FakeDrawable {
+  background?: unknown
 }
 
 /** What every fake renderer reads and records; reset between tests with resetFakeRendering(). */
@@ -30,6 +49,10 @@ export const fakeRendering = {
    * left without one.
    */
   lostCanvases: new Set<HTMLCanvasElement>(),
+  /** Every render call since the last reset, in call order. */
+  draws: [] as FakeDraw[],
+  /** Every `THREE.RenderTarget` constructed since the last reset. */
+  renderTargets: [] as unknown[],
 }
 
 export function resetFakeRendering(): void {
@@ -37,6 +60,8 @@ export function resetFakeRendering(): void {
   fakeRendering.renderers.length = 0
   fakeRendering.onRender = null
   fakeRendering.lostCanvases.clear()
+  fakeRendering.draws.length = 0
+  fakeRendering.renderTargets.length = 0
 }
 
 /** The renderer built last, failing the test when there is none. */
@@ -57,6 +82,13 @@ export class FakeWebGPURenderer {
   outputColorSpace = 'srgb'
   /** The renderer-wide context three merges into every material build. */
   readonly contextNode = { value: {} as Record<string, unknown> }
+  /** three's switch for clearing before every render. */
+  autoClear = true
+  /** The bound render target; null draws to the canvas. */
+  renderTarget: unknown = null
+  /** What setClearColor last received, and its alpha. */
+  clearColor: unknown = 0x000000
+  clearAlpha = 1
   /** The animation loop callback last installed, or null. */
   loop: ((time: number) => void) | null = null
   renders = 0
@@ -96,20 +128,62 @@ export class FakeWebGPURenderer {
     this.failInit?.(error)
   }
 
-  setPixelRatio(): void {}
-  setSize(): void {}
+  private pixelRatio = 1
+  private width = 0
+  private height = 0
+
+  setPixelRatio(value: number): void {
+    this.pixelRatio = value
+  }
+
+  setSize(width: number, height: number): void {
+    this.width = width
+    this.height = height
+  }
+
+  /** The canvas size times the pixel ratio, as three reports it. */
+  getDrawingBufferSize<T extends { set(x: number, y: number): T }>(target: T): T {
+    return target.set(Math.floor(this.width * this.pixelRatio), Math.floor(this.height * this.pixelRatio))
+  }
+
+  setRenderTarget(target: unknown): void {
+    this.renderTarget = target ?? null
+  }
+
+  getRenderTarget(): unknown {
+    return this.renderTarget
+  }
+
+  getClearColor<T extends { set(value: unknown): T }>(target: T): T {
+    return target.set(this.clearColor)
+  }
+
+  getClearAlpha(): number {
+    return this.clearAlpha
+  }
   setViewport(): void {}
   setScissor(): void {}
   setScissorTest(): void {}
-  setClearColor(): void {}
+  setClearColor(color: unknown, alpha = 1): void {
+    this.clearColor = color
+    this.clearAlpha = alpha
+  }
 
   clear(): void {
     this.assertInitialized('clear')
   }
 
-  render(scene: unknown, camera: FakeCamera): void {
+  render(scene: FakeDrawable, camera: FakeCamera): void {
     this.assertInitialized('render')
     this.renders += 1
+    fakeRendering.draws.push({
+      scene,
+      camera,
+      target: this.renderTarget,
+      layers: camera.layers?.mask ?? null,
+      autoClear: this.autoClear,
+      background: scene.background,
+    })
     fakeRendering.onRender?.(scene, camera)
   }
 
@@ -135,7 +209,26 @@ export class FakeWebGPURenderer {
   }
 }
 
+/** A constructor three's module exports, as far as a Proxy needs to know. */
+function isConstructor(value: unknown): value is new (...args: unknown[]) => object {
+  return typeof value === 'function'
+}
+
+/** three's RenderTarget, recording every instance in `fakeRendering.renderTargets`. */
+function countingRenderTarget(actual: Record<string, unknown>): unknown {
+  const RenderTarget = actual.RenderTarget
+  if (!isConstructor(RenderTarget)) return RenderTarget
+  return new Proxy(RenderTarget, {
+    construct(target, args, newTarget) {
+      const created: unknown = Reflect.construct(target, args, newTarget)
+      if (typeof created !== 'object' || created === null) throw new Error('RenderTarget built no object')
+      fakeRendering.renderTargets.push(created)
+      return created
+    },
+  })
+}
+
 /** `three/webgpu` with the fake in place of WebGPURenderer, for a vi.mock factory. */
 export function withFakeRenderer(actual: Record<string, unknown>): Record<string, unknown> {
-  return { ...actual, WebGPURenderer: FakeWebGPURenderer }
+  return { ...actual, WebGPURenderer: FakeWebGPURenderer, RenderTarget: countingRenderTarget(actual) }
 }

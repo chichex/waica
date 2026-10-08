@@ -7,6 +7,7 @@ import { spritePlacement } from '../sprite-placement.js'
 import { reportRejection } from '../report-rejection.js'
 import type { SpriteBatchKey } from '../sprite-batch.js'
 import { spriteBatchesOf, spriteInstanceOf } from '../sprite-batches.js'
+import { setEmissive, TRANSPARENT_TEXEL_ALPHA } from '../render-layers.js'
 
 /** Where a frame on a failed sheet draws: the flat (white) untextured quad. */
 const UNTEXTURED: SpriteBatchKey = { texture: null, pixelArt: false, shape: 'rectangle' }
@@ -32,6 +33,7 @@ export class AnimatedSprite extends Component implements YSortParticipant {
     anchorX: { label: 'x anchor', min: 0, max: 1, step: 0.25 },
     anchorY: { label: 'y anchor', min: 0, max: 1, step: 0.25 },
     layer: { label: 'layer', min: -5, max: 5, step: 1 },
+    emissive: { label: 'emissive' },
   }
   static override transient = [
     'current',
@@ -142,6 +144,17 @@ export class AnimatedSprite extends Component implements YSortParticipant {
     this.syncQuad()
   }
 
+  // Emissive (issue #78 CA-10): never darkened by the light-map, drawn after
+  // it at full brightness. On its own render layer.
+  private _emissive = false
+  get emissive(): boolean {
+    return this._emissive
+  }
+  set emissive(value: boolean) {
+    this._emissive = value === true
+    if (this.mesh) setEmissive(this.mesh, this._emissive)
+  }
+
   clips: Record<string, ClipDef> = {}
   initialClip?: string
 
@@ -192,10 +205,11 @@ export class AnimatedSprite extends Component implements YSortParticipant {
       instance.uvSource = this.texs[0] ?? instance.uvSource
       this.mesh = instance.anchor
     } else {
-      const material = new THREE.MeshBasicMaterial({ map: this.texs[0], transparent: true })
+      const material = new THREE.MeshBasicMaterial({ map: this.texs[0], transparent: true, alphaTest: TRANSPARENT_TEXEL_ALPHA })
       this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material)
     }
     this.mesh.position.z = this.layer * 0.01
+    setEmissive(this.mesh, this._emissive)
     this.syncQuad()
     this.entity.node.add(this.mesh)
     if (this.initialClip) this.play(this.initialClip)

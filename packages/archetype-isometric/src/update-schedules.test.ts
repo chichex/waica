@@ -29,6 +29,23 @@ function representativePermutations(names: readonly string[]): string[][] {
   ]
 }
 
+/** Each stock prefab's resolved update order. */
+const EXPECTED_ORDERS: Record<string, string[]> = {
+  'characters/player': ['ParticleEmitter', 'StateMachine', 'AnimatedSprite', 'Health'],
+  'characters/villager': ['StateMachine', 'AnimatedSprite'],
+  'characters/orc': ['StateMachine', 'AnimatedSprite', 'Health'],
+  'objects/crate': [],
+  'objects/door': [],
+  'objects/tree': [],
+  'objects/rock': [],
+  'objects/torch': ['AnimatedSprite'],
+  'objects/wall': [],
+  'objects/wind': ['ParticleEmitter'],
+  'objects/hurt-smoke': ['ParticleEmitter'],
+  'objects/cave-dust': ['ParticleEmitter'],
+  'tiles/ground': [],
+}
+
 describe('isometric component update schedules', () => {
   it('declares exactly the confirmed read-after-write relations', () => {
     expect(AnimatedSprite.updateAfter).toEqual(['StateMachine'])
@@ -46,26 +63,12 @@ describe('isometric component update schedules', () => {
   })
 
   it('resolves every stock prefab without issues and independently of component-array order', () => {
-    const expected: Record<string, string[]> = {
-      'characters/player': ['ParticleEmitter', 'StateMachine', 'AnimatedSprite', 'Health'],
-      'characters/villager': ['StateMachine', 'AnimatedSprite'],
-      'characters/orc': ['StateMachine', 'AnimatedSprite', 'Health'],
-      'objects/crate': [],
-      'objects/door': [],
-      'objects/tree': [],
-      'objects/rock': [],
-      'objects/wind': ['ParticleEmitter'],
-      'objects/hurt-smoke': ['ParticleEmitter'],
-      'objects/cave-dust': ['ParticleEmitter'],
-      'tiles/ground': [],
-    }
-
     for (const [ref, prefab] of Object.entries(ISOMETRIC_PREFABS)) {
       const names = prefab.components.map((component) => component.type)
       for (const source of representativePermutations(names)) {
         expect(resolveComponentUpdateSchedule(source, ISOMETRIC_REGISTRY_DATA.components)).toEqual({
           ok: true,
-          order: expected[ref],
+          order: EXPECTED_ORDERS[ref],
           issues: [],
         })
       }

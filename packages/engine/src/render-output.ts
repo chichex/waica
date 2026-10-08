@@ -21,8 +21,25 @@ export function drawStraightToCanvas(renderer: THREE.WebGPURenderer): void {
   // The working space as output: three then needs no intermediate target.
   renderer.outputColorSpace = THREE.ColorManagement.workingColorSpace
   const context = renderer.contextNode.value as RendererContext
-  context.getOutput = (output: THREE.Node, builder: OutputBuilder): THREE.Node =>
-    builder.renderer.getRenderTarget() === null ? workingToColorSpace(output, THREE.SRGBColorSpace) : output
+  context.getOutput = (output: THREE.Node, builder: OutputBuilder): THREE.Node => {
+    const target = builder.renderer.getRenderTarget()
+    const likeCanvas = target === null || (typeof target === 'object' && canvasLike.has(target))
+    return likeCanvas ? workingToColorSpace(output, THREE.SRGBColorSpace) : output
+  }
+}
+
+/** Render targets that hold a frame exactly as the canvas would: sRGB-encoded 8-bit values. */
+const canvasLike = new WeakSet<object>()
+
+/**
+ * Makes `target` receive what the canvas would (issue #78): every material
+ * encodes to sRGB into it and blends on sRGB values, so a frame drawn there
+ * and copied to the canvas is the frame drawn straight to the canvas. The
+ * Post Effects' 8-bit target.
+ */
+export function drawLikeCanvas(target: THREE.RenderTarget): THREE.RenderTarget {
+  canvasLike.add(target)
+  return target
 }
 
 /**

@@ -1,6 +1,7 @@
 import { attribute, context, mat3, positionLocal, uv, vec3, vertexStage } from 'three/tsl'
 import * as THREE from 'three/webgpu'
 import type { TextureOutcome } from './assets/asset-loader.js'
+import { TRANSPARENT_TEXEL_ALPHA } from './render-layers.js'
 
 export type SpriteBatchShape = 'rectangle' | 'circle'
 
@@ -92,7 +93,7 @@ function createMaterial(key: SpriteBatchKey, textures: SpriteBatchTextures): {
 } {
   // Double-sided: a flipped sprite mirrors through a negative x scale in its
   // matrix, exactly like its own mesh; per instance there is no winding flip.
-  const material = new SpriteBatchMaterial({ transparent: true, side: THREE.DoubleSide })
+  const material = new SpriteBatchMaterial({ transparent: true, side: THREE.DoubleSide, alphaTest: TRANSPARENT_TEXEL_ALPHA })
   material.forceSinglePass = true
   if (key.texture === null) return { material, settled: null }
   const { texture, settled } = key.texture
@@ -148,6 +149,9 @@ export class SpriteRunMesh {
     this.mesh.instanceColor = this.colors
     // Drawn in an explicit renderOrder; its instances are already in view space.
     this.mesh.frustumCulled = false
+    // A run is collected through its sprites' anchors, which carry their own
+    // layers (Emissive or not, ADR 0026): the run itself is on every layer.
+    this.mesh.layers.enableAll()
     this.mesh.matrixAutoUpdate = false
     this.mesh.boundingSphere = new THREE.Sphere()
   }

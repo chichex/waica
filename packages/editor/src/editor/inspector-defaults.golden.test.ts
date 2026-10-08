@@ -12,7 +12,8 @@ import { componentDefaults, componentKeys } from './Inspector'
  * Issue #22 added Health and OutOfBounds and emptied Respawnable. The
  * isometric foundations spec intentionally adds anchorX/anchorY to both
  * appearance components; every other pre-existing row remains untouched.
- * The archetype particle effects added DustPuffs, a new row.
+ * The archetype particle effects added DustPuffs, a new row. Issue #78
+ * added the Light component and an `emissive` row to the three drawables.
  */
 const GOLDEN: Record<string, Record<string, unknown>> = {
   ParticleEmitter: {
@@ -40,9 +41,20 @@ const GOLDEN: Record<string, Record<string, unknown>> = {
     pixelArt: false,
     blend: 'normal',
     layer: 0,
+    emissive: false,
   },
-  Sprite: { offsetX: 0, offsetY: 0, anchorX: 0.5, anchorY: 0.5, layer: 0 },
-  AnimatedSprite: { offsetX: 0, offsetY: 0, anchorX: 0.5, anchorY: 0.5, layer: 0 },
+  Light: {
+    radius: 4,
+    color: 0xffffff,
+    intensity: 1,
+    bands: 0,
+    softness: 0,
+    castShadows: true,
+    offsetX: 0,
+    offsetY: 0,
+  },
+  Sprite: { offsetX: 0, offsetY: 0, anchorX: 0.5, anchorY: 0.5, layer: 0, emissive: false },
+  AnimatedSprite: { offsetX: 0, offsetY: 0, anchorX: 0.5, anchorY: 0.5, layer: 0, emissive: false },
   Solid: { offsetX: 0, offsetY: 0 },
   Hitbox: { layer: 'default', collidesWith: ['*'], offsetX: 0, offsetY: 0 },
   DynamicBody: {
@@ -88,7 +100,7 @@ const GOLDEN: Record<string, Record<string, unknown>> = {
 describe('Inspector component rows (golden, behavior preservation)', () => {
   const archetype = resolveArchetype('platformer')
 
-  it('lists exactly the 18 platformer registry components in the golden', () => {
+  it('lists exactly the 19 platformer registry components in the golden', () => {
     expect(Object.keys(archetype.registry.components).sort()).toEqual(
       Object.keys(GOLDEN).sort(),
     )

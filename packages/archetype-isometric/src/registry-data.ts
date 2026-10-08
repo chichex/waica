@@ -1,6 +1,7 @@
 import {
   AnimatedSprite,
   Hitbox,
+  Light,
   ParticleEmitter,
   Solid,
   Sprite,
@@ -38,6 +39,7 @@ export const ISOMETRIC_REGISTRY_DATA: SceneRegistry = {
     Sprite,
     AnimatedSprite,
     ParticleEmitter,
+    Light,
     Tilemap,
     Solid,
     Hitbox,
@@ -72,6 +74,8 @@ const PALETTE_ICONS: Record<string, string> = {
   wind: '🌬️',
   'hurt-smoke': '💨',
   'cave-dust': '✨',
+  torch: '🔥',
+  wall: '🧱',
   ground: '💎',
 }
 

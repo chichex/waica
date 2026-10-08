@@ -123,6 +123,14 @@ export const ISOMETRIC_CAVE_SCENE: SceneJson = {
       position: [8, 2],
       overrides: { SceneTransition: { scene: 'main' } },
     },
+    // Down to the torch-lit dungeon (issue #78 CA-14), clear of the
+    // Player's entry, the rocks and the way back to the meadow.
+    {
+      name: 'DungeonDoor',
+      prefab: 'objects/door',
+      position: [7, 7],
+      overrides: { SceneTransition: { scene: 'dungeon' } },
+    },
     // An enclosed room has no wind: a few faint motes drift instead.
     {
       name: 'Dust',

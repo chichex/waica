@@ -12,6 +12,17 @@ const RECTANGLE_TRIANGLE = [
 ]
 
 const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
+  // Issue #78 CA-4: every archetype registers the Light.
+  Light: {
+    radius: 4,
+    color: 0xffffff,
+    intensity: 1,
+    bands: 0,
+    softness: 0,
+    castShadows: true,
+    offsetX: 0,
+    offsetY: 0,
+  },
   ParticleEmitter: {
     rate: 0,
     emitting: true,
@@ -37,6 +48,8 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     pixelArt: false,
     blend: 'normal',
     layer: 0,
+    // Issue #78 CA-10.
+    emissive: false,
   },
   Sprite: {
     pixelArt: false,
@@ -48,6 +61,8 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     anchorX: 0.5,
     anchorY: 0.5,
     layer: 0,
+    // Issue #78 CA-10.
+    emissive: false,
     shape: 'rectangle',
   },
   AnimatedSprite: {
@@ -71,6 +86,8 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     anchorX: 0.5,
     anchorY: 0.5,
     layer: 0,
+    // Issue #78 CA-10.
+    emissive: false,
   },
   Tilemap: {
     texture: '',

@@ -32,8 +32,29 @@ export interface PrefabJson {
   components: SceneComponentJson[]
 }
 
+/**
+ * The scene's lighting (issue #78, ADR 0026). Declaring it — or spawning a
+ * Light — draws the scene lit; absent, the scene is drawn exactly as unlit.
+ */
+export interface SceneLightingJson {
+  /** Where no light reaches. Absent fields: `#ffffff` and 1, the art as drawn. */
+  ambient?: { color?: string; intensity?: number }
+}
+
+/** The scene's Post Effects, each off unless declared (issue #78). */
+export interface ScenePostJson {
+  /** Darkens the frame's edges: `intensity` 0..1 at the corners, starting at `radius` 0..1 from the centre. */
+  vignette?: { intensity: number; radius: number }
+  /** A `#rrggbb` tint multiplier, and contrast and saturation from 0 to 2 (1 leaves the frame unchanged). */
+  colorGrade?: { tint?: string; contrast?: number; saturation?: number }
+}
+
 /** Scene-wide render options (v3). */
 export interface SceneRenderJson {
+  /** Ambient Light; with it (or any Light) the scene is lit (ADR 0026). */
+  lighting?: SceneLightingJson
+  /** Vignette and color grade; with either on, the frame renders through a render target. */
+  post?: ScenePostJson
   /**
    * 'y' orders same-layer sprites by their render-space Y — lower Y renders
    * in front (top-down depth). Absent: spawn order breaks same-layer ties.

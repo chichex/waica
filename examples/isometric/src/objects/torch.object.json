@@ -1,0 +1,42 @@
+{
+  "waicaPrefab": 1,
+  "type": "object",
+  "components": [
+    {
+      "type": "AnimatedSprite",
+      "props": {
+        "texture": "src/art/waica-iso-torch.png",
+        "cols": 3,
+        "rows": 2,
+        "pixelArt": true,
+        "width": 1,
+        "height": 1,
+        "anchorY": 0.0625,
+        "clips": {
+          "burn": {
+            "frames": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "fps": 8
+          }
+        },
+        "initialClip": "burn",
+        "emissive": true
+      }
+    },
+    {
+      "type": "Light",
+      "props": {
+        "radius": 3,
+        "color": 16757606,
+        "intensity": 1,
+        "softness": 0.25
+      }
+    }
+  ]
+}

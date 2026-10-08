@@ -178,6 +178,19 @@
       }
     },
     {
+      "name": "DungeonDoor",
+      "prefab": "objects/door",
+      "position": [
+        7,
+        7
+      ],
+      "overrides": {
+        "SceneTransition": {
+          "scene": "dungeon"
+        }
+      }
+    },
+    {
       "name": "Dust",
       "prefab": "objects/cave-dust",
       "position": [

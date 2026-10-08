@@ -17,6 +17,7 @@ import {
 } from './registry'
 import { ISOMETRIC_REGISTRY_DATA } from './registry-data'
 import { ISOMETRIC_BLANK_SCENE, ISOMETRIC_CAVE_SCENE, ISOMETRIC_SCENE } from './scene-default'
+import { ISOMETRIC_DUNGEON_SCENE } from './dungeon'
 import { defined } from '../../engine/src/test-support'
 
 describe('isometric archetype manifest', () => {
@@ -25,7 +26,7 @@ describe('isometric archetype manifest', () => {
       id: 'isometric',
       label: 'Isometric',
       scene: ISOMETRIC_SCENE,
-      extraScenes: { cave: ISOMETRIC_CAVE_SCENE },
+      extraScenes: { cave: ISOMETRIC_CAVE_SCENE, dungeon: ISOMETRIC_DUNGEON_SCENE },
       blankScene: ISOMETRIC_BLANK_SCENE,
       registry: ISOMETRIC_REGISTRY,
       palette: ISOMETRIC_PALETTE,

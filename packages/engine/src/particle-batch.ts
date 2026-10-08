@@ -10,6 +10,7 @@ import {
 } from './particle-pool.js'
 import { projectIsometric } from './projection.js'
 import { refreshParticleSortBounds } from './particle-sort-bounds.js'
+import { TRANSPARENT_TEXEL_ALPHA } from './render-layers.js'
 import type { YSortEntry } from './render-sort.js'
 import type { SceneDrain } from './scene-drains.js'
 
@@ -82,8 +83,8 @@ export class ParticleBatch implements SceneDrain {
     this._layer = Number.isFinite(layer) ? layer : 0
     this.material = new THREE.MeshBasicMaterial({
       color: 0xffffff,
-      transparent: true,
-      vertexColors: true,
+      // alphaTest: see TRANSPARENT_TEXEL_ALPHA (an Emissive behind shows through transparent texels).
+      transparent: true, alphaTest: TRANSPARENT_TEXEL_ALPHA, vertexColors: true,
       depthTest: true,
       depthWrite: true,
       blending: blend === 'additive' ? THREE.AdditiveBlending : THREE.NormalBlending,

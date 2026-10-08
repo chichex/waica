@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { fallbackEntriesFor } from './project-component-fallbacks.js'
 import { readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { cleanup, makeProject, stubPackage, writeTree } from './test-helpers.js'
@@ -8,6 +9,12 @@ import {
   projectSummary,
 } from './introspection.js'
 import { defined, match } from '../../engine/src/test-support.js'
+
+// A checkout without built @waica dists compiles the package sources once per
+// process before its first project-component load (project-component-fallbacks.ts).
+// Paid here, bounded like the compile itself, so it never lands inside a test's
+// own timeout — the same guard as server.test.ts (PR #149).
+beforeAll(() => fallbackEntriesFor('project-component-runner.ts'), 120_000)
 
 const roots: string[] = []
 afterEach(async () => cleanup(...roots.splice(0)))
@@ -40,7 +47,7 @@ const EXPECTED_PARTICLE_DEFAULTS = {
 }
 
 describe('listComponents', () => {
-  it('describes all 17 platformer classes and only the five declared display names', async () => {
+  it('describes all 18 platformer classes (Light since issue #78) and only the five declared display names', async () => {
     const project = await makeProject({
       'src/components/dash.ts': `export class Dash { static componentName = 'Dash' }\n`,
       'src/roles/guard.ts': `// project role\n`,
@@ -51,12 +58,13 @@ describe('listComponents', () => {
 
     const result = await listComponents(project)
 
-    expect(result.components).toHaveLength(18)
+    expect(result.components).toHaveLength(19)
     expect(result.components.map((component) => component.componentName)).toEqual(
       expect.arrayContaining([
         'Sprite',
         'AnimatedSprite',
         'ParticleEmitter',
+        'Light',
         'Solid',
         'Hitbox',
         'DynamicBody',
@@ -193,7 +201,7 @@ describe('listComponents', () => {
       path: 'src/components/explodes.ts',
       validated: false,
     })
-    expect(result.components).toHaveLength(18)
+    expect(result.components).toHaveLength(19)
   })
 
   it('attributes mixed-source components by their stable package contract', async () => {
@@ -217,7 +225,7 @@ describe('listComponents', () => {
 
     const result = await listComponents(project)
 
-    expect(result.components).toHaveLength(18)
+    expect(result.components).toHaveLength(19)
     expect(result.warnings.join('\n')).toMatch(/package\.json.*parse|parse.*package\.json/i)
   })
 

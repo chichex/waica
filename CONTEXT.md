@@ -157,3 +157,19 @@ _Avoid_: instanced mesh, sprite pool, atlas
 **Render Backend**:
 The GPU API a Game draws through: `webgpu` when the browser offers it, otherwise `webgl2`. The browser decides — a game never picks one — and a Game draws nothing until its renderer is ready on one of them; a Run Session reports which one it got.
 _Avoid_: renderer, graphics API, driver
+
+**Ambient Light**:
+The light level a scene has where no light reaches: full light leaves the art as drawn, darker values dim everything that is lit. A scene declares its starting level and a game changes it while the scene runs (a day/night cycle); it dies with its scene. A scene that declares no lighting is drawn exactly as an unlit one.
+_Avoid_: darkness, global light, brightness
+
+**Emissive**:
+A drawable that ignores Ambient Light and the lights around it and always shows at full brightness — a torch flame, sparks, a glowing sign. Everything else in a lit scene is darkened or brightened by the light that reaches it.
+_Avoid_: unlit, glow, fullbright
+
+**Light**:
+An entity-owned source of 2D light: a radius in logical world space (an ellipse on an isometric screen), a color, an intensity, a falloff that is smooth or split into bands, and a shadow edge that is hard or soft. Solid tiles stop it, but the face of the tile it reaches is lit. Lights brighten what Ambient Light leaves dark; they never darken.
+_Avoid_: lamp, point light, glow
+
+**Post Effect**:
+A screen-wide pass over the finished game frame — a vignette darkening the edges, or a color grade shifting tint, contrast and saturation. Every one is off by default; a scene that uses none draws exactly as one without them. Camera Effects sit above it and are never altered by it.
+_Avoid_: filter, shader, post-processing, Camera Effect

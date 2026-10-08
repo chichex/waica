@@ -183,6 +183,30 @@ Under batching, the object a sprite adds to its entity is a hidden placement anc
 
 How much batching saves depends on how interleaved a scene is: one texture over the whole scene draws in one call, while a top-down scene that alternates many textures by y gains little. Runtime Snapshots are unchanged — batches are not entities, and sprites report the same state either way.
 
+## Lighting and Post Effects
+
+A scene can be lit (issue #78, ADR 0026). Without lighting and without a Post Effect a scene is drawn exactly as before: one render straight into the canvas, no render target.
+
+```json
+"render": {
+  "lighting": { "ambient": { "color": "#5a6a9a", "intensity": 0.3 } },
+  "post": {
+    "vignette": { "intensity": 0.45, "radius": 0.35 },
+    "colorGrade": { "tint": "#ffeedd", "contrast": 1.1, "saturation": 0.9 }
+  }
+}
+```
+
+- **Ambient Light.** `render.lighting.ambient` is where no light reaches: `color` (`#rrggbb`, default `#ffffff`) times `intensity` (0..1, default 1). `game.lighting.ambient` reads it and sets it at runtime, field by field (`game.lighting.ambient = { intensity: 0.2 }`), so a day/night cycle is a `game.time.tween` whose `onUpdate` sets it. Setting it lights a scene that declared none. It dies with its scene: a scene load or swap takes the next scene's value.
+- **Light.** A component: `radius` (logical units), `color`, `intensity` (≥ 0), `bands` (0 smooth, up to 16 equal steps), `softness` (0 hard shadow edge, up to 1), `castShadows` (default true) and `offsetX`/`offsetY` from its entity. Its falloff is `1 − smoothstep(d / radius)`, measured in logical space, so on an isometric screen it is a 2:1 ellipse. Lights add to the Ambient Light and never darken; the sum clamps at 1. A scene with a live Light is lit even without `render.lighting`, but under full Ambient Light (`#ffffff`, 1) a light changes no pixel, so such a frame skips the light-map altogether. `game.lighting.lights` lists them.
+- **Occlusion.** Only Tilemap `solidTiles` stop light: a point whose line to the light crosses a solid tile other than its own is in shadow, while the solid tile itself keeps the light that reaches it (its lit face). Every Tilemap of the scene contributes; the grid is rebuilt only when a Tilemap spawns, is destroyed or changes its tiles. Props with a `Solid` and moving entities cast no shadow.
+- **Emissive.** `Sprite`, `AnimatedSprite` and `ParticleEmitter` take `emissive: true`: drawn after the light-map at full brightness (a flame, sparks), still in their own order and Sprite Batch runs. Every drawable discards its fully transparent texels, so an Emissive drawable behind a lit sprite shows through that sprite's transparent texels and stays hidden behind its opaque ones. Engine-wise they sit on `EMISSIVE_LAYER`; `setEmissive(object, true)` puts any three.js object there.
+- **How a lit frame is drawn.** The scene without its Emissive drawables goes straight to the canvas as always; then a light-map — an 8-bit target the size of the fixed `resolution` (nearest upscale), or of the drawing buffer without one — cleared to the Ambient Light and lit by one quad per Light is multiplied over it; then the Emissive drawables. The multiply works on the canvas's sRGB values, so Ambient Light 1 with no light leaves the frame identical.
+- **Post Effects.** `render.post.vignette` (`intensity` and `radius`, 0..1) darkens towards the corners; `render.post.colorGrade` (`tint`, `contrast` and `saturation` 0..2, 1 = unchanged) grades the frame. With either on, the frame (lighting and Emissive drawables included) renders into an 8-bit target at the light-map's size, drawn exactly as onto the canvas (sRGB-encoded, blending on sRGB values, so no sprite edge changes), and one full-screen pass grades it and writes it to the canvas. `game.post.vignette` and `game.post.colorGrade` read and set them field by field over the current values, like the ambient (null turns one off); they die with their scene. Camera Effects stay above and are never altered.
+- **Validation and snapshots.** `validate_project` reports an out-of-range render field as `invalid-scene-render` and a Light param outside its range as `invalid-light-param`, naming it; at runtime out-of-range values are clamped. Every Runtime Snapshot carries `lighting: { ambient, lights: [{ entity, id, x, y, radius, color, intensity, bands, softness, castShadows }] }` in logical coordinates and `post: { vignette, colorGrade }` (null when off).
+
+The CPU reference of a light-map texel — `lightFalloff`, `lightVisibility`, `lightMapValue` — is exported for tools and tests; the shader follows it.
+
 ## Component lifecycle
 
 Waica keeps the lifecycle boundaries distinct:

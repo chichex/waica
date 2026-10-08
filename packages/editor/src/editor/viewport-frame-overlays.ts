@@ -1,13 +1,14 @@
 // Everything the editor draws over the live Game, refreshed once per frame
 // from the latest committed props: the grid, the selection gizmos, the
-// scene-camera gizmo and the edit-mode UI preview.
+// scene-camera gizmo, each Light's radius and the edit-mode UI preview.
 import { THREE, type Game } from '@waica/engine'
 import type { RefObject } from 'react'
 import type { GridSettings } from '../project/editor-settings'
 import { createCameraGizmo, sceneCameraFrame } from './viewport-camera-gizmo'
 import { gridCoverKey, gridLineVertices } from './grid'
 import type { ViewportLive } from './viewport-live'
-import { createSelectionGizmos } from './viewport-selection-gizmos'
+import { createLightGizmos } from './viewport-light-gizmos'
+import { addOverlay, createSelectionGizmos } from './viewport-selection-gizmos'
 import { createUiPreview, type UiPreviewHost } from './viewport-ui-preview'
 
 export interface OverlayHost extends UiPreviewHost {
@@ -33,7 +34,7 @@ function createGridOverlay(game: Game) {
   lines.position.z = -1
   lines.frustumCulled = false
   lines.visible = false
-  game.scene.add(lines)
+  addOverlay(game, lines)
   let coverKey = ''
   return {
     sync(grid: GridSettings, editing: boolean): void {
@@ -59,6 +60,7 @@ function createGridOverlay(game: Game) {
 export function createFrameOverlays(game: Game, host: OverlayHost) {
   const grid = createGridOverlay(game)
   const selection = createSelectionGizmos(game)
+  const lights = createLightGizmos(game)
   const camera = host.showCamera ? createCameraGizmo(game) : null
   const uiPreview = host.mode === 'edit' && host.showCamera ? createUiPreview(game, host) : null
 
@@ -79,6 +81,7 @@ export function createFrameOverlays(game: Game, host: OverlayHost) {
       const live = host.live.current
       grid.sync(live.grid, live.mode === 'edit')
       selection.sync(live)
+      lights.sync(live.mode)
       syncCamera(live)
     },
     dispose(): void {

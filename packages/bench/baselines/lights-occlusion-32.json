@@ -1,0 +1,34 @@
+{
+  "scenario": "lights-occlusion-32",
+  "commit": "2fa2a5f",
+  "backend": "webgl2",
+  "host": {
+    "platform": "linux",
+    "cpus": 8,
+    "chrome": "Google Chrome 150.0.7871.186",
+    "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+  },
+  "counters": {
+    "drawCalls": 34,
+    "meshes": 1,
+    "visibleMeshes": 1,
+    "geometries": 1,
+    "materials": 1,
+    "textures": 0,
+    "textureSources": 0,
+    "entitiesSpawned": 33,
+    "entitiesDestroyed": 0,
+    "materialsCreated": 1,
+    "geometriesCreated": 1
+  },
+  "timings": {
+    "frames": 60,
+    "medianMs": 214.10000014305115,
+    "p95Ms": 232.09999990463257,
+    "overBudget": true,
+    "gcPauses": {
+      "count": 3,
+      "totalMs": 1.213
+    }
+  }
+}
