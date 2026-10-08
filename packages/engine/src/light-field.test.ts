@@ -146,3 +146,62 @@ describe('lightVisibility (CA-7)', () => {
     expect(lightMapValue({ ambient: [0.1, 0.1, 0.1], lights: [torch()], grid: wall }, { x: 3, y: 0 })).toEqual([0.1, 0.1, 0.1])
   })
 })
+
+/** The dungeon demo's grid: a 10x10 border ring and a wall down column 5, open at row 8. */
+function dungeonGrid(): OccluderGrid {
+  const solid = new Uint8Array(100)
+  for (let row = 0; row < 10; row += 1) {
+    for (let column = 0; column < 10; column += 1) {
+      const border = column === 0 || row === 0 || column === 9 || row === 9
+      if (border || (column === 5 && row !== 8)) solid[row * 10 + column] = 1
+    }
+  }
+  return { originX: 0, originY: 0, cellSize: 1, columns: 10, rows: 10, solid }
+}
+
+/** Visibility on a 1/8-cell lattice over the room's floor: lines of values, split at solid cells (walls keep their lit-face rule). */
+function floorLines(light: LightField): number[][] {
+  const grid = dungeonGrid()
+  const steps = Array.from({ length: 64 }, (_, i) => 1 + (i + 0.5) / 8)
+  const solidAt = (x: number, y: number): boolean => grid.solid[Math.floor(y) * 10 + Math.floor(x)] === 1
+  const lines: number[][] = []
+  const sweep = (points: Array<{ x: number; y: number }>): void => {
+    let run: number[] = []
+    for (const point of points) {
+      if (solidAt(point.x, point.y)) {
+        lines.push(run)
+        run = []
+      } else {
+        run.push(lightVisibility(grid, light, point))
+      }
+    }
+    lines.push(run)
+  }
+  for (const y of steps) sweep(steps.map((x) => ({ x, y })))
+  for (const x of steps) sweep(steps.map((y) => ({ x, y })))
+  return lines
+}
+
+/** How often a run of values turns from rising to falling or back. */
+function reversals(values: readonly number[]): number {
+  let count = 0
+  let direction = 0
+  for (let i = 1; i < values.length; i += 1) {
+    const delta = (values[i] ?? 0) - (values[i - 1] ?? 0)
+    if (delta === 0) continue
+    const sign = Math.sign(delta)
+    if (direction !== 0 && sign !== direction) count += 1
+    direction = sign
+  }
+  return count
+}
+
+for (const softness of [0.25, 1]) {
+  it(`lightVisibility (review round 3): softness ${softness} is one smooth transition on the floor, not a staircase of hard edges`, () => {
+    const lines = floorLines(torch({ x: 3.5, y: 6.5, radius: 4.5, softness }))
+    expect(lines.reduce((sum, line) => sum + reversals(line), 0)).toBe(0)
+    // Nine overlapping hard shadows give at most eight levels between 0 and 1 (k/9): the fan.
+    const levels = new Set(lines.flat().filter((value) => value > 0 && value < 1).map((value) => value.toFixed(3)))
+    expect(levels.size).toBeGreaterThan(9)
+  })
+}

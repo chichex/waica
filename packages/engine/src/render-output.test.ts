@@ -84,3 +84,14 @@ it('leaves a texture with its own UV, or one sampled outside a mesh, to three', 
   expect(getUV(quad, { object: new THREE.Object3D() })).toBeNull()
   expect(quad.updateMatrix).toBe(true)
 })
+
+it('adds no per-vertex UV for the light-map occluder grid, which is only load()ed (review round 3: WebGPU allows 16 varyings)', async () => {
+  const { createLightMapUniforms } = await import('./light-map-material')
+  const renderer = new THREE.WebGPURenderer({ canvas: document.createElement('canvas') })
+  mapUvPerVertex(renderer)
+  const getUV = (renderer.contextNode.value as UvContext).getUV
+  if (!getUV) throw new Error('no getUV in the renderer context')
+  const { occluders } = createLightMapUniforms(new THREE.DataTexture(new Uint8Array([0]), 1, 1))
+
+  expect(getUV(occluders, { object: new THREE.Mesh() })).toBeNull()
+})

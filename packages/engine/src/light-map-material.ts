@@ -3,7 +3,6 @@ import {
   Break,
   ceil,
   clamp,
-  cos,
   float,
   floor,
   Fn,
@@ -17,7 +16,6 @@ import {
   mix,
   positionWorld,
   select,
-  sin,
   sign,
   texture,
   uniform,
@@ -26,7 +24,6 @@ import {
   vec4,
 } from 'three/tsl'
 import * as THREE from 'three/webgpu'
-import { SOFT_SHADOW_RING, SOFT_SHADOW_SPREAD } from './light-field.js'
 
 /** What one light-map mesh draws: its light, in logical units, with its look. */
 export interface LightDraw {
@@ -69,7 +66,10 @@ export function createLightMapUniforms(empty: THREE.Texture): LightMapUniforms {
     isometric: uniform(0),
     grid: uniform(new THREE.Vector4(0, 0, 1, 0)),
     gridSize: uniform(new THREE.Vector2(1, 1)),
-    occluders: texture(empty),
+    // An explicit UV: mapUvPerVertex (render-output.ts) leaves every other
+    // texture a per-vertex UV varying, one per load() here, past WebGPU's
+    // limit of 16 inter-stage variables. The grid is only ever load()ed.
+    occluders: texture(empty, vec2(0, 0)),
   }
 }
 
@@ -132,6 +132,45 @@ function segmentClearNode(uniforms: LightMapUniforms): (from: Vec2, to: Vec2) =>
   return (from, to) => walk(from, to)
 }
 
+/**
+ * `segmentPenetration` of light-field.ts in TSL: the same walk, summing in
+ * logical units how far the ray runs through solid cells, the texel's own
+ * cell never counted.
+ */
+function segmentPenetrationNode(uniforms: LightMapUniforms): (from: Vec2, to: Vec2) => Float {
+  const walk = Fn(([from, to]: [Vec2, Vec2]) => {
+    const grid = uniforms.grid
+    const a = from.sub(grid.xy).div(grid.z).toVar()
+    const b = to.sub(grid.xy).div(grid.z).toVar()
+    const cell = floor(a).toVar()
+    const end = floor(b)
+    const delta = b.sub(a).toVar()
+    const x = axisCrossingNode(a.x, delta.x, cell.x)
+    const y = axisCrossingNode(a.y, delta.y, cell.y)
+    const nextX = x.next.toVar()
+    const nextY = y.next.toVar()
+    const entry = float(0).toVar()
+    const cells = min(abs(end.x.sub(cell.x)).add(abs(end.y.sub(cell.y))), 4096)
+    const length = to.sub(from).length()
+    const inside = float(0).toVar()
+    Loop({ start: int(0), end: int(cells), type: 'int', condition: '<' }, () => {
+      If(nextX.lessThan(nextY), () => {
+        entry.assign(nextX)
+        cell.x.addAssign(sign(delta.x))
+        nextX.addAssign(x.step)
+      }).Else(() => {
+        entry.assign(nextY)
+        cell.y.addAssign(sign(delta.y))
+        nextY.addAssign(y.step)
+      })
+      const exit = min(min(nextX, nextY), 1)
+      inside.addAssign(solidAtNode(uniforms, cell).mul(exit.sub(entry)).mul(length))
+    })
+    return inside
+  })
+  return (from, to) => walk(from, to)
+}
+
 /** One light's per-object uniforms. */
 interface LightUniforms {
   position: THREE.UniformNode<'vec2', THREE.Vector2>
@@ -169,21 +208,16 @@ function falloffNode(t: Float, bands: Float): Float {
   return select(t.lessThan(1), select(bands.greaterThan(0.5), banded, smooth), float(0))
 }
 
-/** light-field.ts `lightVisibility`: the centre ray, plus the soft ring when softness > 0. */
+/** light-field.ts `lightVisibility`: hard, the clear walk; soft, a smoothstep over how deep the ray runs through walls. */
 function visibilityNode(uniforms: LightMapUniforms, light: LightUniforms, logical: Vec2): Float {
-  const segmentClear = segmentClearNode(uniforms)
   const visibility = float(1).toVar()
   If(light.castShadows.greaterThan(0.5).and(uniforms.grid.w.greaterThan(0.5)), () => {
-    const seen = segmentClear(logical, light.position).toVar()
     If(light.softness.greaterThan(0), () => {
-      const spread = light.softness.mul(light.radius).mul(SOFT_SHADOW_SPREAD)
-      Loop(SOFT_SHADOW_RING, ({ i }) => {
-        const angle = float(i).mul((2 * Math.PI) / SOFT_SHADOW_RING)
-        seen.addAssign(segmentClear(logical, light.position.add(vec2(cos(angle), sin(angle)).mul(spread))))
-      })
-      visibility.assign(seen.div(SOFT_SHADOW_RING + 1))
+      const penetration = segmentPenetrationNode(uniforms)(logical, light.position)
+      const depth = clamp(penetration.div(light.softness.mul(uniforms.grid.z)), 0, 1)
+      visibility.assign(float(1).sub(depth.mul(depth).mul(float(3).sub(depth.mul(2)))))
     }).Else(() => {
-      visibility.assign(seen)
+      visibility.assign(segmentClearNode(uniforms)(logical, light.position))
     })
   })
   return visibility

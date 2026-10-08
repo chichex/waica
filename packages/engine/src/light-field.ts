@@ -49,14 +49,6 @@ export interface LightScene {
   grid: OccluderGrid | null
 }
 
-/**
- * How far a soft light's shadow samples sit from its centre, as a fraction
- * of its radius at softness 1: the penumbra of a torch of radius 4 spans
- * about one tile.
- */
-export const SOFT_SHADOW_SPREAD = 0.25
-/** Samples on the soft-shadow ring, besides the light's centre. */
-export const SOFT_SHADOW_RING = 8
 
 /**
  * Brightness at `t` = distance / radius: 1 at the centre, a smooth ease to 0
@@ -132,22 +124,51 @@ export function segmentClear(grid: OccluderGrid, from: LogicalPoint, to: Logical
 }
 
 /**
- * How much of a light reaches a texel: 1 or 0 with a hard edge; with
- * softness, the share of sample points (the centre plus a ring around it)
- * the texel sees, so the shadow edge ramps.
+ * How far the segment from a texel to a light travels inside solid cells,
+ * in logical units, never counting the texel's own cell (its lit face): the
+ * same grid walk as `segmentClear`, measuring instead of stopping.
+ */
+export function segmentPenetration(grid: OccluderGrid, from: LogicalPoint, to: LogicalPoint): number {
+  const ax = (from.x - grid.originX) / grid.cellSize
+  const ay = (from.y - grid.originY) / grid.cellSize
+  const bx = (to.x - grid.originX) / grid.cellSize
+  const by = (to.y - grid.originY) / grid.cellSize
+  const walk: GridWalk = { column: Math.floor(ax), row: Math.floor(ay), nextX: 0, nextY: 0 }
+  const x = axisCrossing(ax, bx - ax, walk.column)
+  const y = axisCrossing(ay, by - ay, walk.row)
+  walk.nextX = x.next
+  walk.nextY = y.next
+  const cells = Math.abs(Math.floor(bx) - walk.column) + Math.abs(Math.floor(by) - walk.row)
+  const length = Math.hypot(to.x - from.x, to.y - from.y)
+  let inside = 0
+  for (let index = 0; index < cells; index += 1) {
+    let entry: number
+    if (walk.nextX < walk.nextY) {
+      entry = walk.nextX
+      walk.column += Math.sign(bx - ax)
+      walk.nextX += x.step
+    } else {
+      entry = walk.nextY
+      walk.row += Math.sign(by - ay)
+      walk.nextY += y.step
+    }
+    if (solidAt(grid, walk.column, walk.row)) inside += (Math.min(walk.nextX, walk.nextY, 1) - entry) * length
+  }
+  return inside
+}
+
+/**
+ * How much of a light reaches a texel. Hard (softness 0): 1 or 0. Soft: one
+ * walk measures how deep the ray runs through solid cells, and the light
+ * fades over the first `softness` cells of it — a ray grazing a wall's
+ * corner keeps most of its light, one through the wall none — so the edge
+ * is a single transition that widens away from the occluder (PR #150 review).
  */
 export function lightVisibility(grid: OccluderGrid | null, light: LightField, point: LogicalPoint): number {
   if (!grid || !light.castShadows) return 1
-  const centre = segmentClear(grid, point, light) ? 1 : 0
-  if (light.softness <= 0) return centre
-  const spread = light.softness * light.radius * SOFT_SHADOW_SPREAD
-  let seen = centre
-  for (let index = 0; index < SOFT_SHADOW_RING; index += 1) {
-    const angle = (index * 2 * Math.PI) / SOFT_SHADOW_RING
-    const sample = { x: light.x + Math.cos(angle) * spread, y: light.y + Math.sin(angle) * spread }
-    if (segmentClear(grid, point, sample)) seen += 1
-  }
-  return seen / (SOFT_SHADOW_RING + 1)
+  if (light.softness <= 0) return segmentClear(grid, point, light) ? 1 : 0
+  const depth = Math.min(1, segmentPenetration(grid, point, light) / (light.softness * grid.cellSize))
+  return 1 - depth * depth * (3 - 2 * depth)
 }
 
 /** One light's own term at a logical point: color × intensity × falloff × visibility, never negative. */
