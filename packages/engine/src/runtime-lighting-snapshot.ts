@@ -1,9 +1,14 @@
+import type { Entity } from './entity.js'
 import type { Game } from './game.js'
+import type { ProjectionIssue } from './runtime-inspection.js'
 import type { AmbientLight, PostEffectsState } from './scene-render-options.js'
 
 /** One live Light as a Runtime Snapshot reports it: its entity's name, logical position and params. */
 export interface RuntimeSnapshotLight {
+  /** The entity's name, as `ui.anchored[].entity` reports it. */
   entity: string
+  /** The entity's snapshot id (`entity-N`), unique where names repeat. */
+  id: string
   x: number
   y: number
   radius: number
@@ -26,7 +31,7 @@ export type RuntimeSnapshotPost = PostEffectsState
 
 const hex = (channel: number): string => Math.round(channel * 255).toString(16).padStart(2, '0')
 
-export function lightingSnapshot(game: Game): RuntimeSnapshotLighting {
+export function lightingSnapshot(game: Game, idFor: (entity: Entity) => string): RuntimeSnapshotLighting {
   return {
     ambient: game.lighting.ambient,
     lights: game.lighting.lights.map((light) => {
@@ -34,6 +39,7 @@ export function lightingSnapshot(game: Game): RuntimeSnapshotLighting {
       const [r, g, b] = field.color
       return {
         entity: light.entity.name,
+        id: idFor(light.entity),
         x: field.x,
         y: field.y,
         radius: field.radius,
@@ -49,4 +55,31 @@ export function lightingSnapshot(game: Game): RuntimeSnapshotLighting {
 
 export function postSnapshot(game: Game): RuntimeSnapshotPost {
   return { vignette: game.post.vignette, colorGrade: game.post.colorGrade }
+}
+
+/** What capping the lights needs from a snapshot: its lights and its projection issues. */
+interface LightsCappable {
+  lighting: RuntimeSnapshotLighting
+  projectionIssues: ProjectionIssue[]
+}
+
+/**
+ * The global cap's last stage, once entities and Anchored Pieces are gone
+ * (review): drops lights from the end until the snapshot fits, recording how
+ * many went with a `truncated` marker at `lighting.lights[n]`.
+ */
+export function capLights<T extends LightsCappable>(snapshot: T, fits: (candidate: T) => boolean): T {
+  let capped = snapshot
+  const retained = [...snapshot.lighting.lights]
+  while (retained.length > 0) {
+    retained.pop()
+    const omitted = snapshot.lighting.lights.length - retained.length
+    capped = {
+      ...snapshot,
+      lighting: { ...snapshot.lighting, lights: [...retained] },
+      projectionIssues: [...snapshot.projectionIssues, { path: `lighting.lights[${retained.length}]`, marker: 'truncated', omitted }],
+    }
+    if (fits(capped)) return capped
+  }
+  return capped
 }

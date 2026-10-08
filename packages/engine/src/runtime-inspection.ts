@@ -8,6 +8,7 @@ import type { StatValue } from './stats.js'
 import { anchoredPiecesOf } from './ui.js'
 import { componentClassOf } from './component-registry.js'
 import {
+  capLights,
   lightingSnapshot,
   postSnapshot,
   type RuntimeSnapshotLighting,
@@ -493,7 +494,7 @@ export class RuntimeInspector {
       time: this.timeSnapshot(),
       ui: this.uiSnapshot(projectionIssues),
       camera: this.game.cameraEffects.state,
-      lighting: lightingSnapshot(this.game),
+      lighting: lightingSnapshot(this.game, (entity) => this.idFor(entity)),
       post: postSnapshot(this.game),
     })
   }
@@ -550,7 +551,8 @@ export class RuntimeInspector {
       capped = { ...snapshot, entities: retained, projectionIssues }
       if (fitsSnapshot(capped)) return capped
     }
-    return capAnchored(capped)
+    const anchoredCapped = capAnchored(capped)
+    return fitsSnapshot(anchoredCapped) ? anchoredCapped : capLights(anchoredCapped, fitsSnapshot)
   }
 
   private idFor(entity: Entity): string {
