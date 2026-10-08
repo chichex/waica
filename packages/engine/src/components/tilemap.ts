@@ -14,6 +14,7 @@ import {
 import { Solid } from './solid.js'
 import { reportRejection } from '../report-rejection.js'
 import { markOccludersChanged } from '../scene-lighting.js'
+import { TRANSPARENT_TEXEL_ALPHA } from '../render-layers.js'
 
 /** Vertex positions, UVs and triangle indices for a Tilemap's mesh. */
 interface TileMeshBuffers {
@@ -297,6 +298,7 @@ export class Tilemap extends Component implements SolidSource {
     return new THREE.MeshBasicMaterial({
       color: this.color,
       transparent: true,
+      alphaTest: TRANSPARENT_TEXEL_ALPHA,
     })
   }
 

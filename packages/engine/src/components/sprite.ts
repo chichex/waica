@@ -5,7 +5,7 @@ import { spritePlacement } from '../sprite-placement.js'
 import { reportRejection } from '../report-rejection.js'
 import type { SpriteBatchKey } from '../sprite-batch.js'
 import { spriteBatchesOf, spriteInstanceOf, type SpriteBatches } from '../sprite-batches.js'
-import { setEmissive } from '../render-layers.js'
+import { setEmissive, TRANSPARENT_TEXEL_ALPHA } from '../render-layers.js'
 
 const clampAnchor = (value: number): number => Math.min(1, Math.max(0, value))
 
@@ -154,7 +154,7 @@ export class Sprite extends Component implements YSortParticipant {
   }
 
   private buildMesh(): void {
-    const material = new THREE.MeshBasicMaterial({ color: this.color, transparent: true })
+    const material = new THREE.MeshBasicMaterial({ color: this.color, transparent: true, alphaTest: TRANSPARENT_TEXEL_ALPHA })
     if (this.texture) {
       // Its own clone of the cached base (game.assets, ADR 0019): filters
       // are per clone, colour space comes with the base, and the image lands

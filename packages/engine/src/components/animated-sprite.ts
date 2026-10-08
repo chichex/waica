@@ -7,7 +7,7 @@ import { spritePlacement } from '../sprite-placement.js'
 import { reportRejection } from '../report-rejection.js'
 import type { SpriteBatchKey } from '../sprite-batch.js'
 import { spriteBatchesOf, spriteInstanceOf } from '../sprite-batches.js'
-import { setEmissive } from '../render-layers.js'
+import { setEmissive, TRANSPARENT_TEXEL_ALPHA } from '../render-layers.js'
 
 /** Where a frame on a failed sheet draws: the flat (white) untextured quad. */
 const UNTEXTURED: SpriteBatchKey = { texture: null, pixelArt: false, shape: 'rectangle' }
@@ -205,7 +205,7 @@ export class AnimatedSprite extends Component implements YSortParticipant {
       instance.uvSource = this.texs[0] ?? instance.uvSource
       this.mesh = instance.anchor
     } else {
-      const material = new THREE.MeshBasicMaterial({ map: this.texs[0], transparent: true })
+      const material = new THREE.MeshBasicMaterial({ map: this.texs[0], transparent: true, alphaTest: TRANSPARENT_TEXEL_ALPHA })
       this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material)
     }
     this.mesh.position.z = this.layer * 0.01

@@ -12,3 +12,12 @@ export const EMISSIVE_LAYER = 1
 export function setEmissive(object: THREE.Object3D, emissive: boolean): void {
   object.layers.set(emissive ? EMISSIVE_LAYER : 0)
 }
+
+/**
+ * The alphaTest every drawable carries (PR #150 review): a texel whose alpha
+ * byte is 0 is discarded instead of drawn. It contributes no color either way
+ * (normal blending keeps the frame), but discarded it also writes no depth, so
+ * an Emissive drawable drawn after the lit pass shows through the transparent
+ * texels of a lit sprite in front of it, and stays hidden behind its opaque ones.
+ */
+export const TRANSPARENT_TEXEL_ALPHA = 1 / 512
