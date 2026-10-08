@@ -16,6 +16,7 @@ import {
   validateComponentUpdateSchedule,
   validateParamReferences,
 } from './component-validation.js'
+import { lightParamFindings } from './light-param-validation.js'
 import { validateEntitySceneTransition } from './scene-transition-validation.js'
 import { validateStateMachines } from './state-machine-validation.js'
 import { add, type ValidationContext } from './validation-context.js'
@@ -120,7 +121,10 @@ function validateSceneEntity(entity: LooseSceneEntity, index: number, scope: Sce
     if (component.type === 'Hitbox') {
       context.findings.push(...collisionCategoryFindings(component.props, file, entityRef))
     }
+    if (component.type === 'Light') context.findings.push(...lightParamFindings(component.props, file, entityRef))
   }
+  // Only the overridden Light params: the prefab's own are reported at the prefab.
+  context.findings.push(...lightParamFindings(objectRecord(entity.overrides)['Light'], file, entityRef))
   context.findings.push(
     ...validateEntitySceneTransition(entity, entityRef, file, scope.prefabs, scope.knownScenes),
   )

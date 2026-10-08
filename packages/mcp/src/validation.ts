@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { discoverArchetypes, pickArchetype } from './archetypes.js'
 import { collisionCategoryFindings } from './collision-category-validation.js'
+import { lightParamFindings } from './light-param-validation.js'
 import { objectRecord } from './component-metadata.js'
 import {
   checkComponent,
@@ -95,6 +96,7 @@ function validatePrefab(
     if (component.type === 'Hitbox') {
       context.findings.push(...collisionCategoryFindings(component.props, file, ref))
     }
+    if (component.type === 'Light') context.findings.push(...lightParamFindings(component.props, file, ref))
   }
   validateParamReferences(
     components.map((component) => ({ component })),

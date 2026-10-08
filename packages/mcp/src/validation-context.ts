@@ -27,6 +27,7 @@ export type FindingCode =
   | 'invalid-collision-mask'
   | 'duplicate-collision-mask-entry'
   | 'invalid-scene-render'
+  | 'invalid-light-param'
 
 export interface ValidationFinding {
   severity: FindingSeverity
