@@ -1,6 +1,7 @@
 import * as THREE from 'three/webgpu'
 import { gameViewport } from './anchored-pieces.js'
 import { AssetLoader } from './assets/asset-loader.js'
+import type { ModelBackend } from './assets/model-backend.js'
 import type { TextureBackend } from './assets/texture-backend.js'
 import type { AudioBackend } from './audio/backend.js'
 import { AudioSubsystem } from './audio/audio-subsystem.js'
@@ -44,6 +45,7 @@ import {
   type SceneRenderJson,
 } from './scene.js'
 import { sceneDrainsOf } from './scene-drains.js'
+import { SceneAmbientLight3d } from './scene-lights-3d.js'
 import { resolveRenderPolicy, type SceneSpace } from './scene-space.js'
 import { GameLighting } from './scene-lighting.js'
 import { createSpriteBatches, type SpriteBatches } from './sprite-batches.js'
@@ -88,6 +90,8 @@ export interface GameOptions {
    * the real backend either way; `game.assets` always exists.
    */
   textures?: TextureBackend
+  /** Replaces the real `GLTFLoader` implementation behind `game.assets.model` (the same seam, for glTF). */
+  models?: ModelBackend
 }
 
 export type UpdateFn = (dt: number) => void
@@ -191,6 +195,8 @@ export class Game {
   private sceneSpace: SceneSpace = '2d'
   private renderSort: 'y' | null = null
   private sceneProjection: 'isometric' | null = null
+  /** The Ambient Light of a 3D scene, fed by `lighting.ambient` (ADR 0027). */
+  private readonly ambientLight3d = new SceneAmbientLight3d(this.scene)
   /** Timestamp of the last animation frame; null until the loop's first frame seeds it. */
   private lastTime: number | null = null
   /** Seconds of elapsed time not yet worth a whole Simulation Step (ADR 0014). */
@@ -234,6 +240,7 @@ export class Game {
     })
     this.assets = new AssetLoader({
       backend: options.textures,
+      models: options.models,
       // Same late lookup as audio's: preload() resolves through whatever
       // catalog is registered at call time, which outlives every scene.
       resolveAsset: (uri) => this.sceneCatalog?.registry.resolveAsset?.(uri) ?? uri,
@@ -757,6 +764,7 @@ export class Game {
     }
     if (this.renderSort === 'y') applyYSort(this.entities, sceneDrainsOf(this).participants())
     this.ui.setActive(this.simulate)
+    this.ambientLight3d.sync(this.sceneSpace, this.lighting.ambient)
     // The shake offset exists only while drawing (ADR 0020): Anchored Pieces
     // and the render see the drawn center, then the base comes back exactly,
     // so follow smoothing never starts from its own jitter.

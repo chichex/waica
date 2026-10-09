@@ -1,5 +1,6 @@
 import { isPerspectiveCamera, type ViewCamera } from './camera-projection.js'
 import type { Entity } from './entity.js'
+import { raycastPick, type ViewportFraction } from './pointer-raycast.js'
 import { projectIsometric, unprojectIsometric, type ProjectedPoint } from './projection.js'
 import { ySortZ } from './render-sort.js'
 import { AnimatedSprite } from './components/animated-sprite.js'
@@ -32,9 +33,12 @@ export interface PointerDeps {
   entities: readonly Entity[]
 }
 
-/** One resolved click: the logical-space point, plus the entity picked there (if any). */
+/**
+ * One resolved click: the logical-space point, plus the entity picked there
+ * (if any). In a 3D scene the point is in world space and carries `z`.
+ */
 export interface PointerPick {
-  readonly point: ProjectedPoint
+  readonly point: ProjectedPoint & { readonly z?: number }
   readonly entity: Entity | null
 }
 
@@ -114,42 +118,55 @@ export class Pointer {
   }
 
   /**
-   * Programmatic click injection (Runtime Bridge CA-10), in logical
-   * coordinates — resolved through the exact same picking a real click uses.
+   * Programmatic click injection (Runtime Bridge CA-10) — resolved through
+   * the exact same picking a real click uses. In a 2D scene `x` and `y` are
+   * logical coordinates and the pick always exists. In a 3D scene they are
+   * canvas CSS pixels from its top-left corner, as a pointer event reports
+   * them, and a ray that meets neither a model nor the ground gives null.
    */
-  injectClick(x: number, y: number): PointerPick {
+  injectClick(x: number, y: number): PointerPick | null {
+    const camera = this.liveCamera()
+    if (isPerspectiveCamera(camera)) return this.queue(this.pickAt(this.viewportFraction(x, y)))
     const renderPoint = this.toRenderPoint(x, y)
-    const pick = this.resolveRenderPoint(renderPoint.x, renderPoint.y)
-    this.pending = pick
+    return this.queue(this.resolveRenderPoint(renderPoint.x, renderPoint.y))
+  }
+
+  /** Makes a pick the pending click; no pick leaves any earlier click alone. */
+  private queue(pick: PointerPick | null): PointerPick | null {
+    if (pick) this.pending = pick
     return pick
   }
 
   private handlePointerDown = (event: PointerEvent): void => {
     // Primary button only; a touch tap reports the same button (ADR-0010).
     if (event.button !== 0) return
-    const at = this.viewportPoint(event)
+    const rect = this.canvas.getBoundingClientRect()
+    this.queue(this.pickAt(this.viewportFraction(event.clientX - rect.left, event.clientY - rect.top)))
+  }
+
+  /** The pick under a viewport position: the 2D sprite boxes, or a 3D scene's raycast. */
+  private pickAt(at: ViewportFraction | null): PointerPick | null {
     const camera = this.liveCamera()
-    // Picking in a 3D scene is the raycast's; until a scene has models there is nothing to pick.
-    if (!at || isPerspectiveCamera(camera)) return
+    if (!at) return null
+    if (isPerspectiveCamera(camera)) return raycastPick(camera, at, this.deps.entities)
     const renderX = camera.position.x + camera.left + at.nx * (camera.right - camera.left)
     const renderY = camera.position.y + camera.top - at.ny * (camera.top - camera.bottom)
-    this.pending = this.resolveRenderPoint(renderX, renderY)
+    return this.resolveRenderPoint(renderX, renderY)
   }
 
   /**
-   * Where a click falls inside the letterboxed viewport, as fractions of its
-   * width and height; null on a letterbox bar (not a click on the world) or
-   * before the canvas has a size.
+   * Where a canvas point (CSS px from its top-left corner) falls inside the
+   * letterboxed viewport, as fractions of its width and height; null on a
+   * letterbox bar (not a click on the world) or before the canvas has a size.
    */
-  private viewportPoint(event: PointerEvent): { nx: number; ny: number } | null {
+  private viewportFraction(px: number, py: number): ViewportFraction | null {
     const w = this.canvas.clientWidth
     const h = this.canvas.clientHeight
     if (w <= 0 || h <= 0) return null
     const { vx, vy, vw, vh } = this.letterboxRect(w, h)
     if (vw <= 0 || vh <= 0) return null
-    const rect = this.canvas.getBoundingClientRect()
-    const nx = (event.clientX - rect.left - vx) / vw
-    const ny = (event.clientY - rect.top - vy) / vh
+    const nx = (px - vx) / vw
+    const ny = (py - vy) / vh
     return nx < 0 || nx > 1 || ny < 0 || ny > 1 ? null : { nx, ny }
   }
 

@@ -124,7 +124,7 @@ describe('Pointer — screen to logical conversion', () => {
     const game = makeGame()
     game.setSceneRender({ projection: 'isometric' })
 
-    const pick = game.pointer.injectClick(2, -2)
+    const pick = defined(game.pointer.injectClick(2, -2))
 
     expect(pick.point.x).toBeCloseTo(2, 5)
     expect(pick.point.y).toBeCloseTo(-2, 5)
@@ -143,7 +143,7 @@ describe('Pointer — entity picking', () => {
     front.position.set(0, -0.5, 0)
     front.add(Sprite, { width: 2, height: 2, anchorX: 0.5, anchorY: 0.5 })
 
-    const pick = game.pointer.injectClick(0, 0)
+    const pick = defined(game.pointer.injectClick(0, 0))
 
     expect(pick.entity).toBe(front)
     game.dispose()
@@ -158,7 +158,7 @@ describe('Pointer — entity picking', () => {
     high.position.set(0, 0, 0)
     high.add(Sprite, { width: 2, height: 2, anchorX: 0.5, anchorY: 0.5, layer: 1 })
 
-    const pick = game.pointer.injectClick(0, 0)
+    const pick = defined(game.pointer.injectClick(0, 0))
 
     expect(pick.entity).toBe(high)
     game.dispose()
@@ -170,7 +170,7 @@ describe('Pointer — entity picking', () => {
     lone.position.set(5, 5, 0)
     lone.add(Sprite, { width: 1, height: 1, anchorX: 0.5, anchorY: 0.5 })
 
-    const pick = game.pointer.injectClick(0, 0)
+    const pick = defined(game.pointer.injectClick(0, 0))
 
     expect(pick.entity).toBeNull()
     game.dispose()
@@ -193,7 +193,7 @@ describe('Pointer — entity picking', () => {
 
     // Logical midpoint (0.25, 0.25) projects to render (0, -0.25), inside
     // both boxes.
-    const pick = game.pointer.injectClick(0.25, 0.25)
+    const pick = defined(game.pointer.injectClick(0.25, 0.25))
 
     expect(pick.entity).toBe(front)
     game.dispose()

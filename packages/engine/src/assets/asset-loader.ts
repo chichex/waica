@@ -1,12 +1,14 @@
 import * as THREE from 'three/webgpu'
+import { GltfModelBackend, type ModelBackend } from './model-backend.js'
+import { ModelCache, type ModelHandle } from './model-cache.js'
 import { ThreeTextureBackend, type TextureBackend } from './texture-backend.js'
 import { reportRejection } from '../report-rejection.js'
 
-/** `game.assets.status`: a fresh snapshot of the cache's counters, cumulative for the Game. */
+/** `game.assets.status`: a fresh snapshot of the caches' counters, textures and models together, cumulative for the Game. */
 export interface AssetStatus {
   /** Requested URLs that have not settled yet. */
   pending: number
-  /** Settled URLs whose image arrived. */
+  /** Settled URLs whose image or model arrived. */
   loaded: number
   /** Settled URLs whose load failed — recorded, warned once, never retried. */
   failed: number
@@ -23,6 +25,8 @@ export interface TextureHandle {
 export interface AssetLoaderOptions {
   /** Replaces the real `THREE.TextureLoader` implementation (ADR 0013); defaults to it. */
   backend?: TextureBackend
+  /** Replaces the real `GLTFLoader` implementation behind `model()`; defaults to it. */
+  models?: ModelBackend
   /**
    * Resolves a uri for `preload()` the way the scene loader resolves every
    * prefab's string prop (`resolveProps` in scene.ts). Looked up on every
@@ -62,8 +66,14 @@ function cloneOf(base: THREE.Texture): THREE.Texture {
   return clone
 }
 
+/** Whether a resolved uri names a glTF file: `.glb` or `.gltf`, ignoring a query string or fragment. */
+function isModelUrl(url: string): boolean {
+  const path = (url.split(/[?#]/, 1)[0] ?? '').toLowerCase()
+  return path.endsWith('.glb') || path.endsWith('.gltf')
+}
+
 /**
- * The engine's texture cache (`game.assets`, ADR 0019): keep-all for the
+ * The engine's asset cache (`game.assets`, ADR 0019): keep-all for the
  * Game's whole life, keyed by the URL as received, one backend load and one
  * base texture per URL. `ready()` is the **Assets Ready** signal — a
  * promise beside the synchronous scene load — and a failed image is
@@ -72,6 +82,7 @@ function cloneOf(base: THREE.Texture): THREE.Texture {
  */
 export class AssetLoader {
   private readonly backend: TextureBackend
+  private readonly models: ModelCache
   private readonly resolveAsset: (uri: string) => string
   private readonly entries = new Map<string, CacheEntry>()
   private pendingCount = 0
@@ -80,12 +91,18 @@ export class AssetLoader {
 
   constructor(options: AssetLoaderOptions = {}) {
     this.backend = options.backend ?? new ThreeTextureBackend()
+    this.models = new ModelCache(options.models ?? new GltfModelBackend())
     this.resolveAsset = options.resolveAsset ?? ((uri) => uri)
   }
 
   /** A fresh object on every read: `pending` is current, `loaded` and `failed` only grow until `dispose()`. */
   get status(): AssetStatus {
-    return { pending: this.pendingCount, loaded: this.loadedCount, failed: this.failedCount }
+    const models = this.models.counts
+    return {
+      pending: this.pendingCount + models.pending,
+      loaded: this.loadedCount + models.loaded,
+      failed: this.failedCount + models.failed,
+    }
   }
 
   /**
@@ -108,12 +125,29 @@ export class AssetLoader {
   }
 
   /**
+   * The consumer entry for glTF (Model): requests `url` — already resolved
+   * by `resolveProps` — and returns at once a root that fills with the
+   * consumer's own clone of the parsed file when it settles, with the file's
+   * animation clips. One backend load per URL, kept for the Game's life.
+   */
+  model(url: string): ModelHandle {
+    return this.models.handle(url)
+  }
+
+  /**
    * Requests every uri ahead of time, each resolved through the registered
-   * scene catalog. Resolves once all of them settled, failures included —
-   * a failure still only warns once, the same as a component's request.
+   * scene catalog: a `.glb` or `.gltf` goes to the model cache, anything
+   * else to the texture cache. Resolves once all of them settled, failures
+   * included — a failure still only warns once, the same as a component's
+   * request.
    */
   async preload(uris: string[]): Promise<void> {
-    await Promise.all(uris.map((uri) => this.request(this.resolveAsset(uri)).settled))
+    await Promise.all(
+      uris.map((uri) => {
+        const url = this.resolveAsset(uri)
+        return isModelUrl(url) ? this.models.preload(url) : this.request(url).settled
+      }),
+    )
   }
 
   /**
@@ -125,15 +159,16 @@ export class AssetLoader {
    * first frame with the textures in place.
    */
   async ready(): Promise<void> {
-    while (this.pendingCount > 0) {
+    while (this.status.pending > 0) {
       const inFlight = [...this.entries.values()].filter((entry) => entry.outcome === null)
-      await Promise.all(inFlight.map((entry) => entry.settled))
+      await Promise.all([...inFlight.map((entry) => entry.settled), ...this.models.inFlight()])
     }
   }
 
   /** Disposes every cached base exactly once and forgets everything; called by `Game.dispose()`. */
   dispose(): void {
     for (const entry of this.entries.values()) entry.base.dispose()
+    this.models.dispose()
     this.entries.clear()
     this.pendingCount = 0
     this.loadedCount = 0

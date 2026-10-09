@@ -10,6 +10,9 @@ export type {
 export { AssetLoader } from './assets/asset-loader.js'
 export type { AssetStatus } from './assets/asset-loader.js'
 export type { TextureBackend } from './assets/texture-backend.js'
+export { GltfModelBackend } from './assets/model-backend.js'
+export type { LoadedModel, ModelBackend } from './assets/model-backend.js'
+export type { ModelHandle, ModelOutcome } from './assets/model-cache.js'
 export { AudioSubsystem } from './audio/audio-subsystem.js'
 export type { AudioSubsystemOptions } from './audio/audio-subsystem.js'
 export type { AudioBackend, AudioResource, BackendPlayHandle, BackendPlayOptions } from './audio/backend.js'
@@ -136,6 +139,8 @@ export { RUNTIME_PROJECTION_LIMITS } from './runtime-inspection.js'
 export type {
   RuntimeSnapshotLight,
   RuntimeSnapshotLighting,
+  RuntimeSnapshotPointLight,
+  RuntimeSnapshotSun,
   RuntimeSnapshotPost,
 } from './runtime-lighting-snapshot.js'
 export type {
@@ -165,6 +170,10 @@ export { GameUi } from './ui.js'
 export type { AnchoredPieceHandle, AttachOptions } from './anchored-pieces.js'
 export { Sprite } from './components/sprite.js'
 export { Light } from './components/light.js'
+export { Model } from './components/model.js'
+export type { ModelShape } from './components/model.js'
+export { Sun } from './components/sun.js'
+export { PointLight } from './components/point-light.js'
 export { GameLighting } from './scene-lighting.js'
 export type { AmbientLightInput } from './scene-lighting.js'
 export { GamePost } from './post-effects.js'
