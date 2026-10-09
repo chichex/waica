@@ -230,3 +230,34 @@ describe('Ambient Light in a 3D scene, runtime (CA-11)', () => {
     expect(lightsOf(game, THREE.AmbientLight)).toHaveLength(1)
   })
 })
+
+describe('Sun, direction from scene JSON (CA-11)', () => {
+  it.each([['a string', 'abc'], ['a number', 3], ['null', null], ['an object', { x: 1 }], ['a NaN', [Number.NaN, -1, 0]], ['a short array', [0, -1]]])(
+    'keeps the default direction and does not throw when it is %s',
+    async (_label, direction) => {
+      const { game } = await ready3dGame()
+      const scene = scene3d([{ name: 'Sun', components: [{ type: 'Sun', props: { direction } }] }])
+      expect(() => loadScene(game, scene, registryOf({ Sun }))).not.toThrow()
+      expect(shineOf(defined(lightsOf(game, THREE.DirectionalLight)[0]))).toEqual([-0.408248, -0.816497, -0.408248])
+    },
+  )
+})
+
+describe('PointLight, offset frame (CA-11)', () => {
+  it('is in the entity\'s local frame: it turns and scales with a rotated, scaled entity', async () => {
+    const { game } = await ready3dGame()
+    loadScene(game, scene3d([]), registryOf({ PointLight }))
+    const entity = game.spawn('Lamp')
+    entity.position.set(10, 0, 0)
+    entity.node.rotation.set(Math.PI / 2, 0, 0)
+    entity.node.scale.set(2, 2, 2)
+    entity.add(PointLight, { offsetY: 1 })
+
+    const light = defined(lightsOf(game, THREE.PointLight)[0])
+    light.updateWorldMatrix(true, false)
+    const world = light.getWorldPosition(new THREE.Vector3())
+
+    // +Y of the entity, turned 90 degrees about X and doubled: it ends 2 units along world +Z.
+    expect(world.toArray().map((n) => Math.round(n * 1e6) / 1e6 || 0)).toEqual([10, 0, 2])
+  })
+})

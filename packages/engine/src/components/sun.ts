@@ -4,8 +4,9 @@ import type { Vec3Json } from '../scene-camera-3d.js'
 
 const DEFAULT_DIRECTION: Vec3Json = [-1, -2, -1]
 
-const finiteDirection = (value: readonly number[]): value is Vec3Json =>
-  value.length === 3 && value.every(Number.isFinite) && value.some((component) => component !== 0)
+/** Scene JSON is untyped at runtime: only an array of three finite numbers, not all zero, aims a light. */
+const finiteDirection = (value: unknown): value is Vec3Json =>
+  Array.isArray(value) && value.length === 3 && value.every(Number.isFinite) && value.some((component) => component !== 0)
 
 /**
  * The 3D scene's sunlight (ADR 0027, `CONTEXT.md` Sun): a directional light
