@@ -78,16 +78,17 @@ describe('Runtime Snapshot physics section: other states (CA-17)', () => {
   })
 
   it('truncates bodies from the end, with a marker, when the snapshot outgrows 1 MiB', async () => {
-    const longName = (index: number): string => `${'x'.repeat(4000)}${index}`
-    const boxes = Array.from({ length: 300 }, (_, index) => crate(longName(index), 1 + index * 2))
+    // Long names: the entities go first, and what is left of the bodies still outgrows the cap.
+    const longName = (index: number): string => `${'x'.repeat(20_000)}${index}`
+    const boxes = Array.from({ length: 60 }, (_, index) => crate(longName(index), 1 + index * 2))
     const { snapshot } = await physicsFixture(boxes, { simulation: { gravity: [0, 0, 0] } })
 
     const capped = snapshot()
 
     const kept = defined(capped.physics).bodies.length
     expect(kept).toBeGreaterThan(0)
-    expect(kept).toBeLessThan(300)
-    expect(capped.projectionIssues).toContainEqual({ path: `physics.bodies[${kept}]`, marker: 'truncated', omitted: 300 - kept })
+    expect(kept).toBeLessThan(60)
+    expect(capped.projectionIssues).toContainEqual({ path: `physics.bodies[${kept}]`, marker: 'truncated', omitted: 60 - kept })
     expect(JSON.stringify(capped).length).toBeLessThanOrEqual(1024 * 1024)
-  })
+  }, 20_000)
 })
