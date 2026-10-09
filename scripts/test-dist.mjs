@@ -768,6 +768,7 @@ try {
     includeSceneSwap: false,
     includeBatchParity: false,
     includeLighting: false,
+    includeSmoke3d: false,
     includeSceneFade: false,
   })
 
