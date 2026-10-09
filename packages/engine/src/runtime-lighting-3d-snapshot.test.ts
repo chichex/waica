@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('three/webgpu', async (importOriginal) =>
   (await import('./test-renderer.js')).withFakeRenderer(await importOriginal()),
@@ -8,23 +8,9 @@ vi.mock('three/webgpu', async (importOriginal) =>
 import { PointLight } from './components/point-light.js'
 import { Sun } from './components/sun.js'
 import { loadScene } from './scene.js'
-import { resetFakeRendering } from './test-renderer.js'
-import { ready3dGame, registryOf, runtimeBridgeOf, scene3d } from './test-game-3d.js'
+import { ready3dGame, registryOf, runtimeBridgeOf, scene3d, use3dTestEnvironment } from './test-game-3d.js'
 
-class ResizeObserverStub {
-  observe(): void {}
-  disconnect(): void {}
-}
-
-beforeEach(() => {
-  document.body.innerHTML = ''
-  vi.stubGlobal('ResizeObserver', ResizeObserverStub)
-})
-
-afterEach(() => {
-  vi.unstubAllGlobals()
-  resetFakeRendering()
-})
+use3dTestEnvironment()
 
 const REGISTRY = registryOf({ Sun, PointLight })
 

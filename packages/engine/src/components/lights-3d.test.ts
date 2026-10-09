@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import * as THREE from 'three/webgpu'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('three/webgpu', async (importOriginal) =>
   (await import('../test-renderer.js')).withFakeRenderer(await importOriginal()),
@@ -9,26 +9,13 @@ vi.mock('three/webgpu', async (importOriginal) =>
 import { authoringDefaults } from '../authoring-defaults.js'
 import type { Game } from '../game.js'
 import { loadScene } from '../scene.js'
-import { resetFakeRendering } from '../test-renderer.js'
-import { ready3dGame, registryOf, renderOnly, scene3d } from '../test-game-3d.js'
+import { ready3dGame, registryOf, scene3d, use3dTestEnvironment } from '../test-game-3d.js'
+import { renderFrame } from '../test-sprite-batches.js'
 import { defined } from '../test-support.js'
 import { PointLight } from './point-light.js'
 import { Sun } from './sun.js'
 
-class ResizeObserverStub {
-  observe(): void {}
-  disconnect(): void {}
-}
-
-beforeEach(() => {
-  document.body.innerHTML = ''
-  vi.stubGlobal('ResizeObserver', ResizeObserverStub)
-})
-
-afterEach(() => {
-  vi.unstubAllGlobals()
-  resetFakeRendering()
-})
+use3dTestEnvironment()
 
 /** Every object of one three class under the Game's scene. */
 function lightsOf<T extends THREE.Light>(game: Game, Class: new (...args: never[]) => T): T[] {
@@ -196,7 +183,7 @@ describe('Ambient Light in a 3D scene (CA-11)', () => {
   it('drives one AmbientLight the Game owns from render.lighting.ambient: color and intensity', async () => {
     const { game } = await ready3dGame()
     loadScene(game, scene3d([], { lighting: { ambient: { color: '#336699', intensity: 0.4 } } }), registryOf({}))
-    renderOnly(game)
+    renderFrame(game)
     const lights = lightsOf(game, THREE.AmbientLight)
     expect(lights).toHaveLength(1)
     expect(defined(lights[0]).color.getHexString()).toBe('336699')
@@ -206,7 +193,7 @@ describe('Ambient Light in a 3D scene (CA-11)', () => {
   it('is full white with no lighting block', async () => {
     const { game } = await ready3dGame()
     loadScene(game, scene3d([]), registryOf({}))
-    renderOnly(game)
+    renderFrame(game)
     const [light] = lightsOf(game, THREE.AmbientLight)
     expect(defined(light).color.getHexString()).toBe('ffffff')
     expect(defined(light).intensity).toBe(1)
@@ -219,7 +206,7 @@ describe('Ambient Light in a 3D scene, runtime (CA-11)', () => {
     const { game } = await ready3dGame()
     loadScene(game, scene3d([]), registryOf({}))
     game.lighting.ambient = { color: '#ff0000', intensity: 0.25 }
-    renderOnly(game)
+    renderFrame(game)
     const [light] = lightsOf(game, THREE.AmbientLight)
     expect([defined(light).color.getHexString(), defined(light).intensity]).toEqual(['ff0000', 0.25])
   })
@@ -227,19 +214,19 @@ describe('Ambient Light in a 3D scene, runtime (CA-11)', () => {
   it('exists only in a 3D scene: none in 2D, gone on unload, back on the next 3D scene', async () => {
     const { game } = await ready3dGame()
     loadScene(game, { waicaScene: 3, render: { lighting: { ambient: { intensity: 0.5 } } }, entities: [] }, registryOf({}))
-    renderOnly(game)
+    renderFrame(game)
     expect(lightsOf(game, THREE.AmbientLight)).toHaveLength(0)
 
     loadScene(game, scene3d([]), registryOf({}))
-    renderOnly(game)
+    renderFrame(game)
     expect(lightsOf(game, THREE.AmbientLight)).toHaveLength(1)
 
     game.unloadScene()
-    renderOnly(game)
+    renderFrame(game)
     expect(lightsOf(game, THREE.AmbientLight)).toHaveLength(0)
 
     loadScene(game, scene3d([]), registryOf({}))
-    renderOnly(game)
+    renderFrame(game)
     expect(lightsOf(game, THREE.AmbientLight)).toHaveLength(1)
   })
 })

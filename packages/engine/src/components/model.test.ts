@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import * as THREE from 'three/webgpu'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('three/webgpu', async (importOriginal) =>
   (await import('../test-renderer.js')).withFakeRenderer(await importOriginal()),
@@ -9,26 +9,11 @@ vi.mock('three/webgpu', async (importOriginal) =>
 import { authoringDefaults } from '../authoring-defaults.js'
 import { flush } from '../assets/test-helpers.js'
 import { loadScene } from '../scene.js'
-import { resetFakeRendering } from '../test-renderer.js'
-import { ready3dGame, registryOf, scene3d } from '../test-game-3d.js'
+import { meshesUnder as meshesOf, ready3dGame, registryOf, scene3d, use3dTestEnvironment } from '../test-game-3d.js'
 import { defined } from '../test-support.js'
-import { meshesUnder as meshesOf } from '../test-game-3d'
 import { Model } from './model.js'
 
-class ResizeObserverStub {
-  observe(): void {}
-  disconnect(): void {}
-}
-
-beforeEach(() => {
-  document.body.innerHTML = ''
-  vi.stubGlobal('ResizeObserver', ResizeObserverStub)
-})
-
-afterEach(() => {
-  vi.unstubAllGlobals()
-  resetFakeRendering()
-})
+use3dTestEnvironment()
 
 describe('Model primitives (CA-9)', () => {
   it('draws a box of the given color and size under the entity node, with a standard node material', async () => {
