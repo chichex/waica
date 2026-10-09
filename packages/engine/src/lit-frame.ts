@@ -70,8 +70,10 @@ export class FrameComposer {
 
   draw(): void {
     // Full Ambient Light: the light-map would be 1 everywhere, so nothing to multiply.
-    const lit = this.surface.game.lighting.active && !ambientIsFull(this.surface.game.lighting)
-    const post = this.surface.game.post.active
+    // A 3D scene never builds one: its lights are three's own (ADR 0027).
+    const { game } = this.surface
+    const lit = game.space === '2d' && game.lighting.active && !ambientIsFull(game.lighting)
+    const post = game.post.active
     if (!lit && !post) {
       this.clearLetterbox()
       this.drawScene()
@@ -114,7 +116,12 @@ export class FrameComposer {
   /** The scene through its Sprite Batches (ADR 0024), for the camera's current layers. */
   private drawScene(): void {
     const { spriteBatches, renderer } = this.surface
-    const { scene, camera } = this.surface.game
+    const { scene, camera, space } = this.surface.game
+    // A 3D scene has no sprites to batch: it draws straight, the depth buffer ordering it.
+    if (space === '3d') {
+      renderer.render(scene, camera)
+      return
+    }
     spriteBatches.drawFrame(scene, camera, () => renderer.render(scene, camera))
   }
 

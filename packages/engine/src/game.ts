@@ -4,19 +4,16 @@ import { AssetLoader } from './assets/asset-loader.js'
 import type { TextureBackend } from './assets/texture-backend.js'
 import type { AudioBackend } from './audio/backend.js'
 import { AudioSubsystem } from './audio/audio-subsystem.js'
+import { screenPanOf } from './audio/spatial.js'
 import { dispatchCollisions as dispatchHitboxCollisions } from './collision-dispatch.js'
-import {
-  isCameraVelocityProvider,
-  resolveSceneCamera,
-  stepSceneCamera,
-  type CameraVelocityProvider,
-  type ResolvedSceneCamera,
-  type SceneCameraJson,
-} from './camera.js'
+import type { ResolvedSceneCamera, SceneCameraJson } from './camera.js'
+import { worldToNormalized, type GameCamera, type WorldPoint } from './camera-projection.js'
+import { CameraRig } from './camera-rig.js'
 import { advanceCameraEffects, CameraEffects, layoutCameraEffects } from './camera-effects.js'
 import type { Component, ComponentClass } from './component.js'
 import { implementsOnUpdate, resolveComponentUpdateSchedule } from './component-update-schedule.js'
 import { Entity } from './entity.js'
+import type { PositionJson } from './entity-transform.js'
 import { Emitter } from './events.js'
 import {
   consumeSimulationSteps,
@@ -34,7 +31,6 @@ import {
 } from './runtime-bridge.js'
 import { RuntimeInspector } from './runtime-inspection.js'
 import { FrameComposer } from './lit-frame.js'
-import { EMISSIVE_LAYER } from './render-layers.js'
 import { projectIsometric, unprojectIsometric } from './projection.js'
 import { canvasBackground, drawStraightToCanvas, mapUvPerVertex } from './render-output.js'
 import { RenderReadiness, type RenderBackend } from './render-readiness.js'
@@ -48,6 +44,7 @@ import {
   type SceneRenderJson,
 } from './scene.js'
 import { sceneDrainsOf } from './scene-drains.js'
+import { resolveRenderPolicy, type SceneSpace } from './scene-space.js'
 import { GameLighting } from './scene-lighting.js'
 import { createSpriteBatches, type SpriteBatches } from './sprite-batches.js'
 import { createSpatialQuery, type SpatialQuery } from './spatial-query.js'
@@ -97,7 +94,7 @@ export type UpdateFn = (dt: number) => void
 
 export interface SpawnPrefabOptions {
   name?: string
-  position?: [number, number]
+  position?: PositionJson
 }
 
 /** The Project's scenes by name (a file's stem), plus the registry shared by all of them. */
@@ -127,7 +124,6 @@ function componentsInOrder(order: readonly string[], byName: ReadonlyMap<string,
  */
 export class Game {
   readonly scene = new THREE.Scene()
-  readonly camera: THREE.OrthographicCamera
   readonly input: Input
   readonly pointer: Pointer
   readonly query: SpatialQuery
@@ -190,6 +186,9 @@ export class Game {
   private readonly baseViewHeight: number
   private viewHeight: number
   private sceneCamera: ResolvedSceneCamera | null = null
+  /** The orthographic camera of 2D scenes and the perspective one of 3D scenes (ADR 0027); read by the Runtime Snapshot, not part of the game-facing API. */
+  readonly cameraRig = new CameraRig()
+  private sceneSpace: SceneSpace = '2d'
   private renderSort: 'y' | null = null
   private sceneProjection: 'isometric' | null = null
   /** Timestamp of the last animation frame; null until the loop's first frame seeds it. */
@@ -257,14 +256,10 @@ export class Game {
       if (!this.disposed) activeRuntimeBridgeHook()?.fail?.({ code: 'render-backend-failed', message: error.message })
     })
     this.scene.background = canvasBackground(background)
-    this.camera = new THREE.OrthographicCamera()
-    this.camera.position.z = 10
-    // Emissive drawables sit on their own layer; an unlit frame draws it in place.
-    this.camera.layers.enable(EMISSIVE_LAYER)
     const { renderer, spriteBatches, resolution } = this
     this.frame = new FrameComposer({ game: this, renderer, spriteBatches, resolution })
     this.pointer = new Pointer(canvas, {
-      camera: this.camera,
+      camera: () => this.camera,
       resolution: this.resolution,
       projection: () => this.sceneProjection,
       entities: this.entities,
@@ -355,6 +350,8 @@ export class Game {
     this.renderSort = null
     this.sceneProjection = null
     this.sceneCamera = null
+    this.sceneSpace = '2d'
+    this.cameraRig.reset()
     this.liveSceneName = null
     this.setViewHeight(this.baseViewHeight)
   }
@@ -449,11 +446,12 @@ export class Game {
    * draw order stays layer-banded with spawn-order ties.
    */
   setSceneRender(json?: SceneRenderJson): void {
-    this.renderSort = json?.sort === 'y' ? 'y' : null
+    const { space, sort, projection } = resolveRenderPolicy(json)
+    this.sceneSpace = space
+    this.renderSort = sort
     this.spriteBatches.enabled = json?.batch !== false
     this.lighting.loadScene(json)
     this.post.loadScene(json)
-    const projection = json?.projection === 'isometric' ? 'isometric' : null
     if (projection === this.sceneProjection) return
     this.sceneProjection = projection
     for (const entity of this.entities) {
@@ -467,21 +465,18 @@ export class Game {
    * simulating, follows/clamps per its settings. Called by loadScene.
    */
   setSceneCamera(json?: SceneCameraJson): void {
-    // No camera block: leave the camera to the host (constructor viewHeight).
-    if (!json) {
-      this.sceneCamera = null
-      return
-    }
-    this.sceneCamera = resolveSceneCamera(json)
+    // No orthographic block (none, or a 3D scene): leave the camera to the host.
+    const cam = (this.sceneCamera = this.cameraRig.adopt(json, this.sceneSpace))
+    if (!cam) return
     // With a follow target the declared position is moot: start centered on
     // the target so play begins framed like the editor shows it.
-    const followed = this.sceneCamera.follow ? this.find(this.sceneCamera.follow) : undefined
+    const followed = cam.follow ? this.find(cam.follow) : undefined
     const center = followed
       ? this.renderPoint(followed.position.x, followed.position.y)
-      : { x: this.sceneCamera.position[0], y: this.sceneCamera.position[1] }
+      : { x: cam.position[0], y: cam.position[1] }
     this.camera.position.x = center.x
     this.camera.position.y = center.y
-    this.setViewHeight(this.sceneCamera.zoom)
+    this.setViewHeight(cam.zoom)
   }
 
   start(): void {
@@ -540,12 +535,38 @@ export class Game {
     return this.sceneProjection
   }
 
-  /** Visible world height (2D camera zoom). */
+  /** The live scene's space (`render.space`); `'2d'` with no scene (ADR 0027). */
+  get space(): SceneSpace {
+    return this.sceneSpace
+  }
+
+  /** The camera the live scene draws with: orthographic in 2D scenes, perspective in 3D ones. */
+  get camera(): GameCamera {
+    return this.cameraRig.camera
+  }
+
+  /**
+   * Where a logical point falls on the canvas, in CSS px from its top-left
+   * corner inside the letterbox; null when a perspective camera cannot see it
+   * (behind its near plane). The one projection Anchored Pieces, spatial
+   * audio and the editor share (CA-6).
+   */
+  worldToScreen(point: WorldPoint): { x: number; y: number } | null {
+    const { clientWidth: w, clientHeight: h } = this.renderer.domElement
+    const view = gameViewport(w, h, this.resolution)
+    const render = this.renderPoint(point.x, point.y)
+    const at = worldToNormalized(this.camera, { x: render.x, y: render.y, z: point.z })
+    return at && { x: view.x + at.nx * view.width, y: view.y + at.ny * view.height }
+  }
+
+  /** Visible world height (2D camera zoom); a perspective camera does not use it. */
   get view(): number {
     return this.viewHeight
   }
 
   setViewHeight(value: number): void {
+    // A perspective camera frames by its lens, not by a visible height.
+    if (this.sceneSpace === '3d') return
     this.viewHeight = Math.min(Math.max(value, 2), 80)
     this.resize()
   }
@@ -661,7 +682,11 @@ export class Game {
       // Positional audio (CA-8): recomputed every frame, on this same pass —
       // never a second walk of `this.entities`, since `this.audio` already
       // holds direct references to whichever entities are tracked.
-      this.audio.updatePlacements(this.audioListenerPosition(), (x, y) => this.renderPoint(x, y))
+      this.audio.updatePlacements(
+        this.audioListenerPosition(),
+        (x, y) => this.renderPoint(x, y),
+        this.sceneSpace === '3d' ? screenPanOf(() => this.camera) : undefined,
+      )
       this.renderSurface()
     } finally {
       this.insideFrame = false
@@ -736,7 +761,8 @@ export class Game {
     // and the render see the drawn center, then the base comes back exactly,
     // so follow smoothing never starts from its own jitter.
     const { x, y } = this.camera.position
-    const { shake } = this.cameraEffects.state
+    // A perspective camera does not shake: the offset is in orthographic world units.
+    const shake = this.sceneSpace === '3d' ? { x: 0, y: 0 } : this.cameraEffects.state.shake
     this.camera.position.x = x + shake.x
     this.camera.position.y = y + shake.y
     try {
@@ -801,31 +827,9 @@ export class Game {
   }
 
   private updateSceneCamera(dt: number): void {
-    const cam = this.sceneCamera
-    if (!cam) return
-    const followed = cam.follow ? this.find(cam.follow) : undefined
-    const provider = followed?.components.find(
-      (c): c is Component & CameraVelocityProvider => isCameraVelocityProvider(c),
-    )
-    const velocity = provider?.getCameraVelocity()
-    const target = followed
-      ? this.renderPoint(followed.position.x, followed.position.y)
-      : null
-    const renderVelocity = velocity
-      ? this.renderPoint(velocity.vx, velocity.vy)
-      : { x: 0, y: 0 }
-    const next = stepSceneCamera(cam, {
-      x: this.camera.position.x,
-      y: this.camera.position.y,
-      halfW: (this.camera.right - this.camera.left) / 2,
-      halfH: this.viewHeight / 2,
-      target,
-      vx: renderVelocity.x,
-      vy: renderVelocity.y,
-      dt,
-    })
-    this.camera.position.x = next.x
-    this.camera.position.y = next.y
+    if (!this.sceneCamera) return
+    const host = { find: (name: string) => this.find(name), renderPoint: (x: number, y: number) => this.renderPoint(x, y), viewHeight: this.viewHeight }
+    this.cameraRig.follow(this.sceneCamera, host, dt)
   }
 
   private renderPoint(x: number, y: number): { x: number; y: number } {
@@ -841,6 +845,7 @@ export class Game {
    */
   private audioListenerPosition(): { x: number; y: number } {
     const { x, y } = this.camera.position
+    if (this.sceneSpace === '3d') return this.camera.position
     return this.sceneProjection === 'isometric' ? unprojectIsometric(x, y) : { x, y }
   }
 
@@ -864,13 +869,7 @@ export class Game {
       this.renderer.setViewport(vx, vy, vw, vh)
       this.renderer.setScissor(vx, vy, vw, vh)
     }
-    const halfH = this.viewHeight / 2
-    const halfW = halfH * aspect
-    this.camera.left = -halfW
-    this.camera.right = halfW
-    this.camera.top = halfH
-    this.camera.bottom = -halfH
-    this.camera.updateProjectionMatrix()
+    this.cameraRig.fit(aspect, this.viewHeight)
     layoutCameraEffects(this.cameraEffects, gameViewport(w, h, this.resolution))
   }
 }

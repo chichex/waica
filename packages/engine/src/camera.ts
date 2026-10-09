@@ -1,4 +1,9 @@
 import * as THREE from 'three/webgpu'
+import {
+  resolvePerspectiveCamera,
+  type PerspectiveSceneCameraJson,
+  type ResolvedPerspectiveCamera,
+} from './scene-camera-3d.js'
 
 /**
  * The scene camera: a built-in, singular part of every scene — not a
@@ -15,7 +20,10 @@ export interface CameraLimitsJson {
   maxY: number
 }
 
-export interface SceneCameraJson {
+/** The 2D scene camera: an orthographic view of the XY plane. */
+export interface OrthographicSceneCameraJson {
+  /** The default; written only to be explicit. */
+  kind?: 'orthographic'
   /** Where the camera starts (and stays, without a follow target). */
   position?: [number, number]
   /** Visible world height in units — the camera's zoom. */
@@ -31,7 +39,17 @@ export interface SceneCameraJson {
   limits?: CameraLimitsJson
 }
 
+/**
+ * A scene's camera block: orthographic (2D scenes) or perspective (scenes
+ * with `render.space: '3d'`), told apart by `kind`.
+ */
+export type SceneCameraJson = OrthographicSceneCameraJson | PerspectiveSceneCameraJson
+
+export type { PerspectiveSceneCameraJson, ResolvedPerspectiveCamera }
+
+/** The orthographic camera block, filled in. It carries no `kind`: the shape 2D scenes always had. */
 export interface ResolvedSceneCamera {
+  kind?: 'orthographic'
   position: [number, number]
   zoom: number
   follow: string
@@ -54,8 +72,15 @@ export const CAMERA_DEFAULTS = {
   smoothing: 6,
 } as const
 
-/** Fills a scene's camera block with the engine defaults. */
-export function resolveSceneCamera(json?: SceneCameraJson): ResolvedSceneCamera {
+/**
+ * Fills a scene's camera block with the engine defaults: the orthographic
+ * block (or none) as it always was, a perspective block with the 3D defaults.
+ */
+export function resolveSceneCamera(json?: OrthographicSceneCameraJson): ResolvedSceneCamera
+export function resolveSceneCamera(json: PerspectiveSceneCameraJson): ResolvedPerspectiveCamera
+export function resolveSceneCamera(json?: SceneCameraJson): ResolvedSceneCamera | ResolvedPerspectiveCamera
+export function resolveSceneCamera(json?: SceneCameraJson): ResolvedSceneCamera | ResolvedPerspectiveCamera {
+  if (json?.kind === 'perspective') return resolvePerspectiveCamera(json)
   return {
     position: json?.position ?? CAMERA_DEFAULTS.position,
     zoom: json?.zoom ?? CAMERA_DEFAULTS.zoom,

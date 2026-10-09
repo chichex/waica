@@ -17,6 +17,7 @@ import {
   type CameraEffectHandle,
   type CameraEffectsState,
   type GameOptions,
+  type OrthographicSceneCameraJson,
   type RuntimeBridge,
   type SceneJson,
 } from './index'
@@ -58,7 +59,7 @@ function resize(game: Game): void {
 }
 
 /** A scene whose camera follows "Runner", which the host moves every step. */
-function followScene(camera: SceneJson['camera'] = {}): SceneJson {
+function followScene(camera: OrthographicSceneCameraJson = {}): SceneJson {
   return {
     waicaScene: 3,
     camera: { follow: 'Runner', zoom: 10, smoothing: 6, lookahead: 0, ...camera },
@@ -189,7 +190,7 @@ describe('shake is not re-clamped (CA-5)', () => {
     })
     game.loadSceneByName('main')
     for (let index = 0; index < 120; index += 1) frame(game)
-    const halfW = (game.camera.right - game.camera.left) / 2
+    const halfW = ((game.camera as THREE.OrthographicCamera).right - (game.camera as THREE.OrthographicCamera).left) / 2
     const clampX = 10 - halfW
     expect(game.camera.position.x).toBeCloseTo(clampX, 9)
 

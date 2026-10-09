@@ -1,3 +1,4 @@
+import { isPerspectiveCamera, type ViewCamera } from './camera-projection.js'
 import type { Entity } from './entity.js'
 import { projectIsometric, unprojectIsometric, type ProjectedPoint } from './projection.js'
 import { ySortZ } from './render-sort.js'
@@ -21,7 +22,8 @@ export interface PointerCamera {
 }
 
 export interface PointerDeps {
-  camera: PointerCamera
+  /** The live camera, or a function returning it when the scene can swap cameras. */
+  camera: ViewCamera | (() => ViewCamera)
   /** Fixed resolution (letterbox target), or null to fill the canvas. */
   resolution: PointerResolution | null
   /** The scene's active render projection, read live. */
@@ -84,11 +86,14 @@ function spriteBoxOf(component: unknown): PointerSpriteBox | null {
  */
 export class Pointer {
   private pending: PointerPick | null = null
+  private readonly liveCamera: () => ViewCamera
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
     private readonly deps: PointerDeps,
   ) {
+    const { camera } = this.deps
+    this.liveCamera = typeof camera === 'function' ? camera : () => camera
     this.canvas.addEventListener('pointerdown', this.handlePointerDown)
   }
 
@@ -122,22 +127,30 @@ export class Pointer {
   private handlePointerDown = (event: PointerEvent): void => {
     // Primary button only; a touch tap reports the same button (ADR-0010).
     if (event.button !== 0) return
+    const at = this.viewportPoint(event)
+    const camera = this.liveCamera()
+    // Picking in a 3D scene is the raycast's; until a scene has models there is nothing to pick.
+    if (!at || isPerspectiveCamera(camera)) return
+    const renderX = camera.position.x + camera.left + at.nx * (camera.right - camera.left)
+    const renderY = camera.position.y + camera.top - at.ny * (camera.top - camera.bottom)
+    this.pending = this.resolveRenderPoint(renderX, renderY)
+  }
+
+  /**
+   * Where a click falls inside the letterboxed viewport, as fractions of its
+   * width and height; null on a letterbox bar (not a click on the world) or
+   * before the canvas has a size.
+   */
+  private viewportPoint(event: PointerEvent): { nx: number; ny: number } | null {
     const w = this.canvas.clientWidth
     const h = this.canvas.clientHeight
-    if (w <= 0 || h <= 0) return
+    if (w <= 0 || h <= 0) return null
     const { vx, vy, vw, vh } = this.letterboxRect(w, h)
-    if (vw <= 0 || vh <= 0) return
+    if (vw <= 0 || vh <= 0) return null
     const rect = this.canvas.getBoundingClientRect()
-    const px = event.clientX - rect.left
-    const py = event.clientY - rect.top
-    const nx = (px - vx) / vw
-    const ny = (py - vy) / vh
-    // Outside the visible viewport (a letterbox bar): not a click on the world.
-    if (nx < 0 || nx > 1 || ny < 0 || ny > 1) return
-    const camera = this.deps.camera
-    const renderX = camera.position.x + camera.left + nx * (camera.right - camera.left)
-    const renderY = camera.position.y + camera.top - ny * (camera.top - camera.bottom)
-    this.pending = this.resolveRenderPoint(renderX, renderY)
+    const nx = (event.clientX - rect.left - vx) / vw
+    const ny = (event.clientY - rect.top - vy) / vh
+    return nx < 0 || nx > 1 || ny < 0 || ny > 1 ? null : { nx, ny }
   }
 
   private letterboxRect(w: number, h: number): LetterboxRect {

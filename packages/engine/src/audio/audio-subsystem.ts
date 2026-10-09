@@ -1,6 +1,6 @@
 import type { AudioBackend, AudioResource, BackendPlayHandle } from './backend.js'
 import { Entity } from '../entity.js'
-import { attenuationForDistance, panForOffset } from './spatial.js'
+import { placementMix, placementView, type SoundPlacement } from './placement.js'
 import { WebAudioBackend } from './web-audio-backend.js'
 import type { AudioChannelState, AudioPlayOptions, LiveSoundInfo, SoundHandle } from './types.js'
 
@@ -23,9 +23,6 @@ export interface AudioSubsystemOptions {
 }
 
 type ResourceState = { status: 'pending' } | { status: 'ready'; resource: AudioResource } | { status: 'failed' }
-
-/** Where a positional sound's placement comes from (CA-8): a tracked entity, or a fixed point. */
-type SoundPlacement = { kind: 'entity'; entity: Entity } | { kind: 'point'; x: number; y: number }
 
 interface LiveSound {
   uri: string
@@ -56,7 +53,7 @@ interface LiveSound {
 function resolvePlacement(at: AudioPlayOptions['at']): SoundPlacement | null {
   if (!at) return null
   if (at instanceof Entity) return { kind: 'entity', entity: at }
-  return { kind: 'point', x: at.x, y: at.y }
+  return { kind: 'point', x: at.x, y: at.y, z: at.z ?? 0 }
 }
 
 const FACTORY_CHANNELS = ['music', 'sfx'] as const
@@ -241,23 +238,17 @@ export class AudioSubsystem {
    * distance. A sound with no placement (a flat sound) is never touched.
    */
   updatePlacements(
-    listener: { x: number; y: number },
+    listener: { x: number; y: number; z?: number },
     toRenderSpace: (x: number, y: number) => { x: number; y: number },
+    panOf3d?: (source: { x: number; y: number; z: number }) => number,
   ): void {
     if (this.live.size === 0) return
-    let listenerRender: { x: number; y: number } | null = null
+    const view = placementView(listener, toRenderSpace, panOf3d)
     for (const sound of this.live) {
-      if (sound.fading) continue
-      const placement = sound.placement
-      if (!placement) continue
-      const source =
-        placement.kind === 'entity'
-          ? { x: placement.entity.position.x, y: placement.entity.position.y }
-          : placement
-      sound.attenuation = attenuationForDistance(Math.hypot(source.x - listener.x, source.y - listener.y))
-      listenerRender ??= toRenderSpace(listener.x, listener.y)
-      const sourceRender = toRenderSpace(source.x, source.y)
-      sound.pan = panForOffset(sourceRender.x - listenerRender.x)
+      if (sound.fading || !sound.placement) continue
+      const mix = placementMix(sound.placement, view)
+      sound.attenuation = mix.attenuation
+      sound.pan = mix.pan
       sound.backendHandle?.setVolume(sound.volume * sound.attenuation)
       sound.backendHandle?.setPan(sound.pan)
     }
