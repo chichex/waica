@@ -14,7 +14,8 @@ import { componentDefaults, componentKeys } from './Inspector'
  * appearance components; every other pre-existing row remains untouched.
  * The archetype particle effects added DustPuffs, a new row. Issue #78
  * added the Light component and an `emissive` row to the three drawables.
- * Issue #154 added the 3D components Model, Sun and PointLight.
+ * Issue #154 added the 3D components Model, Sun and PointLight; issue #159
+ * the physics components Collider and RigidBody.
  */
 const GOLDEN: Record<string, Record<string, unknown>> = {
   ParticleEmitter: {
@@ -64,6 +65,28 @@ const GOLDEN: Record<string, Record<string, unknown>> = {
     offsetX: 0,
     offsetY: 0,
     offsetZ: 0,
+  },
+  // Issue #159 CA-18: every archetype registers the 3D physics components; validation keeps them out of 2D scenes.
+  Collider: {
+    shape: 'box',
+    size: [1, 1, 1],
+    radius: 0.5,
+    height: 1.8,
+    offset: [0, 0, 0],
+    sensor: false,
+    layer: 'default',
+    collidesWith: ['*'],
+    friction: 0.5,
+    restitution: 0,
+  },
+  RigidBody: {
+    type: 'dynamic',
+    mass: 1,
+    gravityScale: 1,
+    linearDamping: 0,
+    angularDamping: 0,
+    lockRotations: false,
+    velocity: [0, 0, 0],
   },
   Sprite: { offsetX: 0, offsetY: 0, anchorX: 0.5, anchorY: 0.5, layer: 0, emissive: false },
   AnimatedSprite: { offsetX: 0, offsetY: 0, anchorX: 0.5, anchorY: 0.5, layer: 0, emissive: false },

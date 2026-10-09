@@ -1,6 +1,7 @@
 import {
   componentSpaceMismatch,
   entityTransformIssues,
+  sceneSimulationIssues,
   sceneSpaceIssues,
   type PrefabJson,
   type SceneJson,
@@ -24,6 +25,13 @@ export function validateSceneSpace(scene: SceneJson, scope: SpaceScope): void {
   for (const issue of sceneSpaceIssues(scene.render, scene.camera)) {
     const code = issue.field.startsWith('camera.') ? 'invalid-scene-camera' : 'invalid-scene-render'
     add(scope.context, 'error', code, issue.message, scope.file, issue.field)
+  }
+}
+
+/** A scene's `simulation` block: a malformed gravity, and any block in a 2D scene (issue #159 CA-12). */
+export function validateSceneSimulation(scene: SceneJson, space: SceneSpace, scope: SpaceScope): void {
+  for (const issue of sceneSimulationIssues(scene.simulation, space)) {
+    add(scope.context, 'error', 'invalid-scene-simulation', issue.message, scope.file, issue.field)
   }
 }
 

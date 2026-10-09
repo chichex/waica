@@ -2,17 +2,30 @@ import type { ValidationFinding } from './validation.js'
 
 const COLLISION_LAYER_PATTERN = /^[a-z][a-z0-9-]*$/
 
-function fieldRef(owner: string | undefined, field: string): string {
-  return owner ? `${owner}:Hitbox.${field}` : `Hitbox.${field}`
+/** Which component's props a check reads, and who owns the block: the words and refs a finding uses. */
+interface CategoryScope {
+  component: string
+  owner: string | undefined
+  file: string
+}
+
+function fieldRef({ owner, component }: CategoryScope, field: string): string {
+  return owner ? `${owner}:${component}.${field}` : `${component}.${field}`
 }
 
 /** Collision-category findings for one authored Hitbox props block. */
-export function collisionCategoryFindings(
-  value: unknown,
-  file: string,
-  owner?: string,
-): ValidationFinding[] {
+export function collisionCategoryFindings(value: unknown, file: string, owner?: string): ValidationFinding[] {
+  return categoryFindings(value, { component: 'Hitbox', owner, file })
+}
+
+/** The same findings for a Collider's props block, which reuses the Hitbox's layer and mask (ADR 0016). */
+export function colliderCategoryFindings(value: unknown, file: string, owner?: string): ValidationFinding[] {
+  return categoryFindings(value, { component: 'Collider', owner, file })
+}
+
+function categoryFindings(value: unknown, scope: CategoryScope): ValidationFinding[] {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return []
+  const { component, file } = scope
   const props = value as Record<string, unknown>
   const findings: ValidationFinding[] = []
   if (
@@ -23,9 +36,9 @@ export function collisionCategoryFindings(
       severity: 'error',
       code: 'invalid-collision-layer',
       message:
-        'Hitbox.layer must start with a lowercase letter and contain only lowercase letters, digits, or hyphens; "*" is mask-only.',
+        `${component}.layer must start with a lowercase letter and contain only lowercase letters, digits, or hyphens; "*" is mask-only.`,
       file,
-      ref: fieldRef(owner, 'layer'),
+      ref: fieldRef(scope, 'layer'),
     })
   }
   if (!Object.hasOwn(props, 'collidesWith')) return findings
@@ -33,32 +46,29 @@ export function collisionCategoryFindings(
     findings.push({
       severity: 'error',
       code: 'invalid-collision-mask',
-      message: 'Hitbox.collidesWith must be a list of strings.',
+      message: `${component}.collidesWith must be a list of strings.`,
       file,
-      ref: fieldRef(owner, 'collidesWith'),
+      ref: fieldRef(scope, 'collidesWith'),
     })
     return findings
   }
 
-  findings.push(...collisionMaskEntryFindings(props.collidesWith, file, owner))
+  findings.push(...collisionMaskEntryFindings(props.collidesWith, scope))
   return findings
 }
 
-/** Findings for each entry of an authored Hitbox.collidesWith list, in list order. */
-function collisionMaskEntryFindings(
-  entries: readonly unknown[],
-  file: string,
-  owner: string | undefined,
-): ValidationFinding[] {
+/** Findings for each entry of an authored collidesWith list, in list order. */
+function collisionMaskEntryFindings(entries: readonly unknown[], scope: CategoryScope): ValidationFinding[] {
+  const { component, file } = scope
   const findings: ValidationFinding[] = []
   const seen = new Set<string>()
   entries.forEach((entry, index) => {
-    const ref = fieldRef(owner, `collidesWith[${index}]`)
+    const ref = fieldRef(scope, `collidesWith[${index}]`)
     if (typeof entry !== 'string') {
       findings.push({
         severity: 'error',
         code: 'invalid-collision-mask',
-        message: `Hitbox.collidesWith entry ${index + 1} must be a string.`,
+        message: `${component}.collidesWith entry ${index + 1} must be a string.`,
         file,
         ref,
       })
@@ -68,7 +78,7 @@ function collisionMaskEntryFindings(
       findings.push({
         severity: 'error',
         code: 'invalid-collision-mask',
-        message: `Hitbox.collidesWith entry "${entry}" is invalid; use "*" or a valid Collision Layer.`,
+        message: `${component}.collidesWith entry "${entry}" is invalid; use "*" or a valid Collision Layer.`,
         file,
         ref,
       })
@@ -78,7 +88,7 @@ function collisionMaskEntryFindings(
       findings.push({
         severity: 'warning',
         code: 'duplicate-collision-mask-entry',
-        message: `Duplicate Hitbox.collidesWith entry "${entry}" has no additional effect.`,
+        message: `Duplicate ${component}.collidesWith entry "${entry}" has no additional effect.`,
         file,
         ref,
       })

@@ -47,7 +47,7 @@ const EXPECTED_PARTICLE_DEFAULTS = {
 }
 
 describe('listComponents', () => {
-  it('describes all 21 platformer classes (Light since issue #78, Model, Sun and PointLight since issue #154) and only the six declared display names', async () => {
+  it('describes all 23 platformer classes (Light since issue #78, Model, Sun and PointLight since issue #154, Collider and RigidBody since issue #159) and only the six declared display names', async () => {
     const project = await makeProject({
       'src/components/dash.ts': `export class Dash { static componentName = 'Dash' }\n`,
       'src/roles/guard.ts': `// project role\n`,
@@ -58,7 +58,7 @@ describe('listComponents', () => {
 
     const result = await listComponents(project)
 
-    expect(result.components).toHaveLength(22)
+    expect(result.components).toHaveLength(24)
     expect(result.components.map((component) => component.componentName)).toEqual(
       expect.arrayContaining([
         'Sprite',
@@ -68,6 +68,8 @@ describe('listComponents', () => {
         'Model',
         'Sun',
         'PointLight',
+        'Collider',
+        'RigidBody',
         'Solid',
         'Hitbox',
         'DynamicBody',
@@ -205,7 +207,7 @@ describe('listComponents', () => {
       path: 'src/components/explodes.ts',
       validated: false,
     })
-    expect(result.components).toHaveLength(22)
+    expect(result.components).toHaveLength(24)
   })
 
   it('attributes mixed-source components by their stable package contract', async () => {
@@ -229,7 +231,7 @@ describe('listComponents', () => {
 
     const result = await listComponents(project)
 
-    expect(result.components).toHaveLength(22)
+    expect(result.components).toHaveLength(24)
     expect(result.warnings.join('\n')).toMatch(/package\.json.*parse|parse.*package\.json/i)
   })
 

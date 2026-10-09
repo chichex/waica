@@ -35,6 +35,28 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     offsetY: 0,
     offsetZ: 0,
   },
+  // Issue #159 CA-18: every archetype registers the 3D physics components; validation keeps them out of 2D scenes.
+  Collider: {
+    shape: 'box',
+    size: [1, 1, 1],
+    radius: 0.5,
+    height: 1.8,
+    offset: [0, 0, 0],
+    sensor: false,
+    layer: 'default',
+    collidesWith: ['*'],
+    friction: 0.5,
+    restitution: 0,
+  },
+  RigidBody: {
+    type: 'dynamic',
+    mass: 1,
+    gravityScale: 1,
+    linearDamping: 0,
+    angularDamping: 0,
+    lockRotations: false,
+    velocity: [0, 0, 0],
+  },
   ParticleEmitter: {
     rate: 0,
     emitting: true,

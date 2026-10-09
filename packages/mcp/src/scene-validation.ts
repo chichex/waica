@@ -17,7 +17,8 @@ import {
   validateComponentUpdateSchedule,
   validateParamReferences,
 } from './component-validation.js'
-import { validateEntitySpace, validateSceneSpace } from './space-validation.js'
+import { physicsCompositionFindings } from './physics-param-validation.js'
+import { validateEntitySpace, validateSceneSimulation, validateSceneSpace } from './space-validation.js'
 import { validateEntitySceneTransition } from './scene-transition-validation.js'
 import { validateStateMachines } from './state-machine-validation.js'
 import { add, type LooseSceneEntity, type ValidationContext } from './validation-context.js'
@@ -84,6 +85,7 @@ export function validateScene(scene: SceneJson, scope: SceneScope): void {
   // render.space, the camera against it and the 2D-only render options (issue #154 CA-13).
   validateSceneSpace(scene, scope)
   const space = resolveSceneSpace(scene.render)
+  validateSceneSimulation(scene, space, scope)
   for (const ui of Array.isArray(scene.ui) ? scene.ui : []) {
     if (typeof ui === 'string' && !scope.uiNames.has(ui)) {
       add(scope.context, 'warning', 'unknown-ui-piece', `Unknown UI piece "${ui}".`, scope.file, ui)
@@ -132,6 +134,9 @@ function validateSceneEntity(
   )
   const prefab = validatePrefabReference(entity, entityRef, scope)
   validateEntitySpace({ entity, ref: entityRef, prefab }, space, scope)
+  context.findings.push(
+    ...physicsCompositionFindings([...componentList(prefab?.components), ...inline], file, entityRef),
+  )
   const composition = entityComposition(entity, entityRef, prefab)
   validateEntityParamReferences(composition, scope)
 

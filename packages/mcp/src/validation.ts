@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { discoverArchetypes, pickArchetype } from './archetypes.js'
 import { collisionCategoryFindings } from './collision-category-validation.js'
+import { colliderParamFindings } from './physics-param-validation.js'
 import { checkComponentParams } from './component-param-findings.js'
 import { objectRecord } from './component-metadata.js'
 import {
@@ -391,6 +392,9 @@ function validateParamsFile(paramsJson: unknown, context: ValidationContext): vo
       checkComponent({ type: component }, PARAMS_FILE, entity, context)
       if (component === 'Hitbox') {
         context.findings.push(...collisionCategoryFindings(rawProps, PARAMS_FILE, entity))
+      }
+      if (component === 'Collider') {
+        context.findings.push(...colliderParamFindings(rawProps, PARAMS_FILE, entity))
       }
     }
   }
