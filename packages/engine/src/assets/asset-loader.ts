@@ -145,7 +145,8 @@ export class AssetLoader {
     await Promise.all(
       uris.map((uri) => {
         const url = this.resolveAsset(uri)
-        return isModelUrl(url) ? this.models.preload(url) : this.request(url).settled
+        // A resolver may hand back a url with no extension (a blob: or data: one): the uri as written still names the file.
+        return isModelUrl(uri) || isModelUrl(url) ? this.models.preload(url) : this.request(url).settled
       }),
     )
   }
