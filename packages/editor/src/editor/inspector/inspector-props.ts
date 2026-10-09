@@ -20,7 +20,7 @@ export type InspectorSelection =
   | { kind: 'scene'; name: string; scene: SceneJson }
   | { kind: 'entity'; entity: SceneEntityJson; sceneName: string; space?: SceneSpace }
   | { kind: 'multi'; entities: SceneEntityJson[]; sceneName: string }
-  | { kind: 'camera'; camera: SceneCameraJson | undefined; entityNames: string[] }
+  | { kind: 'camera'; camera: SceneCameraJson | undefined; entityNames: string[]; space?: SceneSpace }
   | { kind: 'prefab'; ref: string; prefab: PrefabJson }
   | { kind: 'ui'; name: string }
   | { kind: 'script'; name: string }

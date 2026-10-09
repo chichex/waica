@@ -6,6 +6,7 @@ import {
   type PerspectiveSceneCameraJson,
   type ResolvedSceneCamera,
   type SceneCameraJson,
+  type SceneSpace,
 } from '@waica/engine'
 import type { ResolutionSetting } from '../../project/game'
 import { cameraViewSize } from '../box-math'
@@ -23,8 +24,8 @@ const CAMERA_SPECS: Record<string, ParamSpec> = {
   smoothing: { label: 'Smoothing', min: 1, max: 20, step: 0.5 },
 }
 
-/** The perspective camera's field of view, in degrees. */
-const FOV_SPEC: ParamSpec = { label: 'Field of view', min: 10, max: 120, step: 1 }
+/** The perspective camera's field of view, in degrees: the span `validate_project` accepts, (0, 180), so no valid lens is shown pinned to an end. */
+const FOV_SPEC: ParamSpec = { label: 'Field of view', min: 1, max: 179, step: 1 }
 
 /** Fresh limits when the user turns them on: roomy around the origin. */
 const DEFAULT_LIMITS = { minX: -20, maxX: 20, minY: -12, maxY: 12 }
@@ -186,7 +187,7 @@ function LimitsSection({ cam, onProp }: CameraSectionProps) {
 }
 
 /** A 3D scene's camera: where it sits, what it looks at and its lens. */
-function PerspectiveCameraInspector({ camera, onProp }: { camera: PerspectiveSceneCameraJson; onProp: CameraProp }) {
+function PerspectiveCameraInspector({ camera, onProp }: { camera: PerspectiveSceneCameraJson | undefined; onProp: CameraProp }) {
   const cam = resolvePerspectiveCamera(camera)
   return (
     <div className="ed-pad">
@@ -205,17 +206,21 @@ function PerspectiveCameraInspector({ camera, onProp }: { camera: PerspectiveSce
 export function CameraInspector({
   camera,
   entityNames,
+  space,
   onProp,
   pixelsPerUnit,
   resolution,
 }: {
   camera: SceneCameraJson | undefined
   entityNames: string[]
+  /** The open scene's space: a 3D scene is edited as perspective even when it has no camera block yet. */
+  space?: SceneSpace
   onProp: CameraProp
   pixelsPerUnit: number
   resolution: ResolutionSetting
 }) {
   if (isPerspectiveCameraJson(camera)) return <PerspectiveCameraInspector camera={camera} onProp={onProp} />
+  if (space === '3d') return <PerspectiveCameraInspector camera={undefined} onProp={onProp} />
   const cam = resolveSceneCamera(camera)
   return (
     <div className="ed-pad">

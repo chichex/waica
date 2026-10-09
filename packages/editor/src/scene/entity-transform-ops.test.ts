@@ -79,3 +79,31 @@ describe('offsetPosition (CA-5)', () => {
     expect(ops.offsetPosition(undefined, 0.5)).toEqual([0.5, 0])
   })
 })
+
+describe('setCameraProp in a 3D scene (CA-21)', () => {
+  it('writes kind: perspective when the scene has no camera block', () => {
+    const scene: SceneJson = { waicaScene: 3, render: { space: '3d' }, entities: [] }
+    expect(ops.setCameraProp(scene, 'position', [1, 2, 3]).camera).toEqual({ kind: 'perspective', position: [1, 2, 3] })
+  })
+
+  it('replaces an orthographic block, which a 3D scene ignores, with a perspective one', () => {
+    const scene: SceneJson = { waicaScene: 3, render: { space: '3d' }, camera: { zoom: 12 }, entities: [] }
+    expect(ops.setCameraProp(scene, 'fov', 40).camera).toEqual({ kind: 'perspective', fov: 40 })
+  })
+
+  it('keeps the other fields of a perspective block', () => {
+    expect(ops.setCameraProp(SCENE, 'fov', 70).camera).toEqual({ ...SCENE.camera, fov: 70 })
+  })
+
+  it('leaves a 2D scene without a camera block as it was: no kind', () => {
+    const scene: SceneJson = { waicaScene: 3, entities: [] }
+    expect(ops.setCameraProp(scene, 'zoom', 20).camera).toEqual({ zoom: 20 })
+  })
+})
+
+describe('moveEntity keeps z (CA-5)', () => {
+  it('moves in the XY plane and leaves the z of a 3-number position', () => {
+    expect(ops.moveEntity(SCENE, 'Crate', [7, 8]).entities[0]?.position).toEqual([7, 8, 3])
+    expect(ops.moveEntity(SCENE, 'Flat', [7, 8]).entities[1]?.position).toEqual([7, 8])
+  })
+})

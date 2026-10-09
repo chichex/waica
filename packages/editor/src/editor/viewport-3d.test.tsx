@@ -12,7 +12,9 @@ vi.mock(
 
 import { THREE, type Game, type SceneJson } from '@waica/engine'
 import { fakeRendering } from '../../../engine/src/test-renderer'
-import { at, drag, GRID, HERO_AND_FOE, installViewportHost, liveGame, mountViewport, removeViewportHost } from './test-viewport'
+import { at, drag, GRID, HERO_AND_FOE, installViewportHost, liveGame, mountViewport, REGISTRY, removeViewportHost } from './test-viewport'
+import { frameEditView } from './viewport-game'
+import type { EditCamera, ViewportLive } from './viewport-live'
 
 const SCENE_3D: SceneJson = {
   waicaScene: 3,
@@ -153,5 +155,57 @@ describe('Viewport drops and scene swaps on a 3D scene (CA-21)', () => {
     mounted.rerender({ scene: HERO_AND_FOE, scenePath: 'src/scenes/a.scene.json' })
     await tick()
     expect(game.camera).toBeInstanceOf(THREE.OrthographicCamera)
+  })
+})
+
+describe('Viewport camera edits on a 3D scene (CA-21)', () => {
+  it('places the live perspective camera when the scene camera block changes', async () => {
+    const mounted = mountViewport({ scene: SCENE_3D })
+    await tick()
+    const game = liveGame(mounted)
+    mounted.rerender({ scene: { ...SCENE_3D, camera: { kind: 'perspective', position: [3, 2, 1], target: [0, 1, 0], fov: 30 } } })
+    await tick()
+    expect(liveGame(mounted)).toBe(game)
+    const camera = perspectiveOf(game)
+    expect(camera.position.toArray()).toEqual([3, 2, 1])
+    expect(camera.fov).toBe(30)
+  })
+
+  it('does not re-place the camera for an edit that leaves the camera block alone', async () => {
+    const mounted = mountViewport({ scene: SCENE_3D })
+    await tick()
+    const game = liveGame(mounted)
+    perspectiveOf(game).position.x = 9
+    mounted.rerender({ scene: { ...SCENE_3D, entities: [...SCENE_3D.entities, { name: 'Extra', position: [1, 1, 1] }] } })
+    await tick()
+    expect(perspectiveOf(game).position.x).toBe(9)
+  })
+
+  it('leaves a 2D scene to its overlays: a camera edit does not move the live camera', async () => {
+    const mounted = mountViewport({ scene: HERO_AND_FOE })
+    await tick()
+    const game = liveGame(mounted)
+    const before = game.camera.position.toArray()
+    mounted.rerender({ scene: { ...HERO_AND_FOE, camera: { position: [6, 6], zoom: 20 } } })
+    await tick()
+    expect(game.camera.position.toArray()).toEqual(before)
+  })
+})
+
+describe('frameEditView on a 3D scene (CA-21)', () => {
+  it('leaves the edit camera alone: the perspective pose is not an EditCamera', async () => {
+    const mounted = mountViewport({ scene: SCENE_3D })
+    await tick()
+    const live: ViewportLive = {
+      scene: SCENE_3D,
+      registry: REGISTRY,
+      selected: null,
+      mode: 'edit',
+      grid: GRID,
+      componentVisibility: { appearance: true, collision: true },
+    }
+    const camRef: { current: EditCamera } = { current: { x: 2, y: 3, view: 7 } }
+    frameEditView({ gameRef: { current: liveGame(mounted) }, liveRef: { current: live }, camRef })
+    expect(camRef.current).toEqual({ x: 2, y: 3, view: 7 })
   })
 })
