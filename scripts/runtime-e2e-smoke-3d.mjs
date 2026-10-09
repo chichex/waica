@@ -4,7 +4,7 @@
 // demo Project, loaded by name over the running Game, stepped and screenshot.
 // The snapshot, validate_project and the decoded pixels are asserted.
 import assert from 'node:assert/strict'
-import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { brightness, expectsBlankLighting, maxChannelDifference, rewriteScene, samplesInPage } from './runtime-e2e-lighting.mjs'
