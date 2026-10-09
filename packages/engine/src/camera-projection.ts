@@ -58,11 +58,13 @@ export function worldToNormalized(camera: ViewCamera, point: WorldPoint): Normal
  * CSS px per world unit at the game viewport's height. Orthographic: the
  * same everywhere. Perspective: at the depth of the world origin (the ground
  * a scene is built around), where a unit of an Anchored Piece's CSS reads as
- * a unit of world; nearer things look bigger, as the camera draws them.
+ * a unit of world (its distance from the camera, front or back); nearer
+ * things look bigger, as the camera draws them.
  */
 export function pixelsPerUnit(camera: ViewCamera, viewportHeight: number): number {
   if (!isPerspectiveCamera(camera)) return viewportHeight / (camera.top - camera.bottom)
   camera.updateMatrixWorld()
-  const depth = Math.max(camera.near, -scratch.set(0, 0, 0).applyMatrix4(camera.matrixWorldInverse).z)
+  // Absolute: a camera aimed away from the origin still measures how far the ground is, not the near plane.
+  const depth = Math.max(camera.near, Math.abs(scratch.set(0, 0, 0).applyMatrix4(camera.matrixWorldInverse).z))
   return viewportHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * depth)
 }

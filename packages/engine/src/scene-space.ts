@@ -1,4 +1,4 @@
-import { perspectiveCameraIssues } from './scene-camera-3d.js'
+import { isFiniteNumber, perspectiveCameraIssues, shown, type SceneFieldIssue } from './scene-camera-3d.js'
 
 /**
  * A scene's space (ADR 0027): `'2d'` is the engine's orthographic world,
@@ -61,14 +61,6 @@ export function componentSpaceMismatch(space: SceneSpace, type: string): boolean
   return space === '3d' ? TWO_D.has(type) : THREE_D.has(type)
 }
 
-/** One field of a scene's space, camera or entity transform that is invalid, for validate_project. */
-export interface SceneSpaceIssue {
-  field: string
-  message: string
-}
-
-const shown = (value: unknown): string => (typeof value === 'string' ? JSON.stringify(value) : String(value))
-
 function recordOf(value: unknown): Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value) ? { ...value } : {}
 }
@@ -76,7 +68,7 @@ function recordOf(value: unknown): Record<string, unknown> {
 /** Fields of `render` that only mean something in a 2D scene. */
 const TWO_D_RENDER_FIELDS = ['sort', 'projection', 'batch'] as const
 
-function cameraKindIssue(space: SceneSpace, camera: unknown, issues: SceneSpaceIssue[]): void {
+function cameraKindIssue(space: SceneSpace, camera: unknown, issues: SceneFieldIssue[]): void {
   if (camera === undefined || camera === null) return
   const kind = recordOf(camera).kind
   if (kind !== undefined && kind !== 'orthographic' && kind !== 'perspective') {
@@ -98,9 +90,9 @@ function cameraKindIssue(space: SceneSpace, camera: unknown, issues: SceneSpaceI
  * and `render.sort`, `render.projection` or `render.batch` under 3d. Other
  * render fields are `sceneRenderIssues`'s.
  */
-export function sceneSpaceIssues(render: unknown, camera: unknown): SceneSpaceIssue[] {
+export function sceneSpaceIssues(render: unknown, camera: unknown): SceneFieldIssue[] {
   const block = recordOf(render)
-  const issues: SceneSpaceIssue[] = []
+  const issues: SceneFieldIssue[] = []
   if (block.space !== undefined && block.space !== '2d' && block.space !== '3d') {
     issues.push({ field: 'render.space', message: `render.space must be '2d' or '3d'; got ${shown(block.space)}.` })
   }
@@ -116,17 +108,13 @@ export function sceneSpaceIssues(render: unknown, camera: unknown): SceneSpaceIs
   return issues
 }
 
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value)
-}
-
 /** The shape one transform field must have: its name and the lengths of tuple it accepts. */
 interface TupleField {
   field: string
   lengths: readonly number[]
 }
 
-function tupleIssue(issues: SceneSpaceIssue[], { field, lengths }: TupleField, value: unknown): void {
+function tupleIssue(issues: SceneFieldIssue[], { field, lengths }: TupleField, value: unknown): void {
   if (value === undefined) return
   if (Array.isArray(value) && lengths.includes(value.length) && value.every(isFiniteNumber)) return
   const need = lengths.join(' or ')
@@ -137,9 +125,9 @@ function tupleIssue(issues: SceneSpaceIssue[], { field, lengths }: TupleField, v
  * An entity's `position` (2 or 3 finite numbers), `rotation` (degrees) and
  * `scale` (3 finite numbers each) that are anything else.
  */
-export function entityTransformIssues(entity: unknown): SceneSpaceIssue[] {
+export function entityTransformIssues(entity: unknown): SceneFieldIssue[] {
   const json = recordOf(entity)
-  const issues: SceneSpaceIssue[] = []
+  const issues: SceneFieldIssue[] = []
   tupleIssue(issues, { field: 'position', lengths: [2, 3] }, json.position)
   tupleIssue(issues, { field: 'rotation', lengths: [3] }, json.rotation)
   tupleIssue(issues, { field: 'scale', lengths: [3] }, json.scale)

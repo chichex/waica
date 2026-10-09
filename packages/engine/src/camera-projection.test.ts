@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as THREE from 'three/webgpu'
-import { isPerspectiveCamera, worldToNormalized } from './camera-projection.js'
+import { isPerspectiveCamera, pixelsPerUnit, worldToNormalized } from './camera-projection.js'
 import { placePerspectiveCamera, resolvePerspectiveCamera } from './scene-camera-3d.js'
 
 /** The Pointer's screen→world mapping and the Anchored Pieces' inverse, as written before this helper existed. */
@@ -73,5 +73,21 @@ describe('worldToNormalized, perspective camera (CA-6)', () => {
   it('is null for a point behind the camera and for one inside the near plane', () => {
     expect(worldToNormalized(camera, { x: 0, y: 0, z: 20 })).toBeNull()
     expect(worldToNormalized(camera, { x: 0, y: 0, z: 9.95 })).toBeNull()
+  })
+})
+
+describe('pixelsPerUnit, perspective camera whose origin is behind it', () => {
+  it('stays near the scale at the look distance instead of collapsing to the near plane', () => {
+    const facing = new THREE.PerspectiveCamera()
+    placePerspectiveCamera(facing, resolvePerspectiveCamera({ kind: 'perspective', position: [0, 5, 10], target: [0, 0, 0] }), 16 / 9)
+    const away = new THREE.PerspectiveCamera()
+    placePerspectiveCamera(away, resolvePerspectiveCamera({ kind: 'perspective', position: [0, 5, 10], target: [0, 0, 20] }), 16 / 9)
+    const scale = pixelsPerUnit(facing, 600)
+    const behind = pixelsPerUnit(away, 600)
+    expect(scale).toBeGreaterThan(30)
+    expect(scale).toBeLessThan(80)
+    // The origin is ~11 units from the camera either way: the same order of magnitude, never ~5000.
+    expect(behind).toBeGreaterThan(30)
+    expect(behind).toBeLessThan(80)
   })
 })

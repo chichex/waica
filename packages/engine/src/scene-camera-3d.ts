@@ -81,31 +81,50 @@ export function placePerspectiveCamera(
   camera.updateMatrixWorld()
 }
 
-/** One field of a scene's camera block that is out of range, for validate_project. */
-export interface PerspectiveCameraIssue {
+/** One field of a scene's render, camera or entity transform that is invalid, for validate_project. */
+export interface SceneFieldIssue {
   field: string
   message: string
 }
 
-const shown = (value: unknown): string => (typeof value === 'string' ? JSON.stringify(value) : String(value))
+/** A JSON value as a message quotes it: strings in quotes, everything else as `String()` shows it. */
+export const shown = (value: unknown): string => (typeof value === 'string' ? JSON.stringify(value) : String(value))
 
-function isFiniteNumber(value: unknown): value is number {
+export function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
 
-function vectorIssue(field: string, value: unknown, issues: PerspectiveCameraIssue[]): void {
+function vectorIssue(field: string, value: unknown, issues: SceneFieldIssue[]): void {
   if (value === undefined) return
   if (Array.isArray(value) && value.length === 3 && value.every(isFiniteNumber)) return
   issues.push({ field, message: `${field} must be three finite numbers [x, y, z]; got ${JSON.stringify(value)}.` })
 }
 
-function fovIssue(value: unknown, issues: PerspectiveCameraIssue[]): void {
+function fovIssue(value: unknown, issues: SceneFieldIssue[]): void {
   if (value === undefined) return
   if (isFiniteNumber(value) && value > 0 && value < 180) return
   issues.push({ field: 'camera.fov', message: `camera.fov must be a number above 0 and below 180; got ${shown(value)}.` })
 }
 
-function planeIssues(near: unknown, far: unknown, issues: PerspectiveCameraIssue[]): void {
+/** `position` and `target` as the camera would use them, when both are well-formed (declared or default). */
+function resolvedAim(block: Record<string, unknown>): { position: Vec3Json; target: Vec3Json } | null {
+  const position = block.position ?? PERSPECTIVE_DEFAULTS.position
+  const target = block.target ?? PERSPECTIVE_DEFAULTS.target
+  const wellFormed = (value: unknown): value is Vec3Json =>
+    Array.isArray(value) && value.length === 3 && value.every(isFiniteNumber)
+  return wellFormed(position) && wellFormed(target) ? { position, target } : null
+}
+
+function aimIssue(block: Record<string, unknown>, issues: SceneFieldIssue[]): void {
+  const aim = resolvedAim(block)
+  if (!aim || aim.position.some((value, axis) => value !== aim.target[axis])) return
+  issues.push({
+    field: 'camera.target',
+    message: `camera.target must differ from camera.position (${JSON.stringify(aim.position)}): a camera needs a direction to look in.`,
+  })
+}
+
+function planeIssues(near: unknown, far: unknown, issues: SceneFieldIssue[]): void {
   const nearIsValid = isFiniteNumber(near) && near > 0
   if (near !== undefined && !nearIsValid) {
     issues.push({ field: 'camera.near', message: `camera.near must be a number above 0; got ${shown(near)}.` })
@@ -128,7 +147,7 @@ const ORTHOGRAPHIC_ONLY_FIELDS = [
   'limits',
 ] as const
 
-function orthographicFieldIssues(block: Record<string, unknown>, issues: PerspectiveCameraIssue[]): void {
+function orthographicFieldIssues(block: Record<string, unknown>, issues: SceneFieldIssue[]): void {
   for (const field of ORTHOGRAPHIC_ONLY_FIELDS) {
     if (block[field] === undefined) continue
     issues.push({ field: `camera.${field}`, message: `camera.${field} belongs to an orthographic camera; a perspective camera does not accept it.` })
@@ -141,14 +160,15 @@ function orthographicFieldIssues(block: Record<string, unknown>, issues: Perspec
  * three finite numbers, and none of the orthographic block's fields. Anything
  * that is not a perspective block reports none.
  */
-export function perspectiveCameraIssues(camera: unknown): PerspectiveCameraIssue[] {
+export function perspectiveCameraIssues(camera: unknown): SceneFieldIssue[] {
   if (typeof camera !== 'object' || camera === null) return []
   const block: Record<string, unknown> = { ...camera }
   if (block.kind !== 'perspective') return []
-  const issues: PerspectiveCameraIssue[] = []
+  const issues: SceneFieldIssue[] = []
   vectorIssue('camera.position', block.position, issues)
   vectorIssue('camera.target', block.target, issues)
   fovIssue(block.fov, issues)
+  aimIssue(block, issues)
   planeIssues(block.near, block.far, issues)
   orthographicFieldIssues(block, issues)
   return issues
