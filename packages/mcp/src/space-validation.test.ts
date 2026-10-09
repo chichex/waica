@@ -62,6 +62,15 @@ describe('render.space and the camera block (CA-13)', () => {
     expect(refs(findings)).toEqual(['camera.position', 'camera.target', 'camera.fov', 'camera.near', 'camera.far'])
   })
 
+  it('reports a camera whose position equals its target as invalid-scene-camera', async () => {
+    const findings = await spaceFindings({
+      render: { space: '3d' },
+      camera: { kind: 'perspective', position: [0, 2, 0], target: [0, 2, 0] },
+    })
+    expect(findings).toHaveLength(1)
+    expect(findings[0]).toMatchObject({ severity: 'error', code: 'invalid-scene-camera', ref: 'camera.target' })
+  })
+
   it('reports a perspective camera in a 2d scene and an orthographic camera in a 3d scene', async () => {
     const inTwoD = await spaceFindings({ camera: { kind: 'perspective' } })
     expect(inTwoD).toHaveLength(1)

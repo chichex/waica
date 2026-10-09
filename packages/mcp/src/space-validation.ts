@@ -1,17 +1,13 @@
 import {
   componentSpaceMismatch,
   entityTransformIssues,
-  resolveSceneSpace,
   sceneSpaceIssues,
   type PrefabJson,
-  type SceneEntityJson,
   type SceneJson,
   type SceneSpace,
 } from '@waica/engine'
 import { componentList } from './component-validation.js'
-import { add, type ValidationContext } from './validation-context.js'
-
-type LooseSceneEntity = Omit<Partial<SceneEntityJson>, 'name'> & { name?: unknown }
+import { add, type LooseSceneEntity, type ValidationContext } from './validation-context.js'
 
 /** What a scene's space checks need from the scene being validated. */
 interface SpaceScope {
@@ -29,11 +25,6 @@ export function validateSceneSpace(scene: SceneJson, scope: SpaceScope): void {
     const code = issue.field.startsWith('camera.') ? 'invalid-scene-camera' : 'invalid-scene-render'
     add(scope.context, 'error', code, issue.message, scope.file, issue.field)
   }
-}
-
-/** The space `validate_project` checks a scene's entities against. */
-export function sceneSpaceOf(scene: SceneJson): SceneSpace {
-  return resolveSceneSpace(scene.render)
 }
 
 /** One scene entity under validation: its JSON, the name findings refer to it by and its prefab, when it has one. */
