@@ -33,6 +33,17 @@ async function spaceFindings(scene: SceneInput, files: Record<string, string> = 
 
 const refs = (findings: Array<{ ref?: string }>): Array<string | undefined> => findings.map((finding) => finding.ref)
 
+describe('a camera without a direction (CA-13)', () => {
+  it('reports a camera whose position equals its target as invalid-scene-camera', async () => {
+    const findings = await spaceFindings({
+      render: { space: '3d' },
+      camera: { kind: 'perspective', position: [0, 2, 0], target: [0, 2, 0] },
+    })
+    expect(findings).toHaveLength(1)
+    expect(findings[0]).toMatchObject({ severity: 'error', code: 'invalid-scene-camera', ref: 'camera.target' })
+  })
+})
+
 describe('render.space and the camera block (CA-13)', () => {
   it('accepts a 2d scene, and a 3d scene with a valid perspective camera', async () => {
     expect(await spaceFindings({})).toEqual([])
@@ -60,15 +71,6 @@ describe('render.space and the camera block (CA-13)', () => {
     })
     expect(findings.every((finding) => finding.severity === 'error' && finding.code === 'invalid-scene-camera')).toBe(true)
     expect(refs(findings)).toEqual(['camera.position', 'camera.target', 'camera.fov', 'camera.near', 'camera.far'])
-  })
-
-  it('reports a camera whose position equals its target as invalid-scene-camera', async () => {
-    const findings = await spaceFindings({
-      render: { space: '3d' },
-      camera: { kind: 'perspective', position: [0, 2, 0], target: [0, 2, 0] },
-    })
-    expect(findings).toHaveLength(1)
-    expect(findings[0]).toMatchObject({ severity: 'error', code: 'invalid-scene-camera', ref: 'camera.target' })
   })
 
   it('reports a perspective camera in a 2d scene and an orthographic camera in a 3d scene', async () => {
