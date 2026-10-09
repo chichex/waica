@@ -119,3 +119,34 @@ describe('CameraInspector, perspective camera (CA-21)', () => {
     expect(within(section('Framing')).getByRole('slider', { name: /^Zoom/ })).toBeDefined()
   })
 })
+
+describe('CameraInspector, a 3D scene without a camera block (CA-21)', () => {
+  it('shows the perspective defaults, not the orthographic sections', () => {
+    renderInspector({ kind: 'camera', camera: undefined, entityNames: ['Hero'], space: '3d' })
+    expect(fields('position').map((field) => field.value)).toEqual(['0', '5', '10'])
+    expect(fields('target').map((field) => field.value)).toEqual(['0', '0', '0'])
+    expect(screen.queryByText('Framing', { selector: 'header, header > span' })).toBeNull()
+    expect(screen.queryByText('Follow', { selector: 'header, header > span' })).toBeNull()
+    expect(screen.queryByText('Limits', { selector: 'header, header > span' })).toBeNull()
+  })
+
+  it('edits the perspective fields of the missing block', () => {
+    const props = renderInspector({ kind: 'camera', camera: undefined, entityNames: [], space: '3d' })
+    fireEvent.change(defined(fields('position')[1]), { target: { value: '8' } })
+    expect(props.onCameraProp).toHaveBeenLastCalledWith('position', [0, 8, 10])
+  })
+
+  it('keeps the orthographic inspector for a 2D scene without a block', () => {
+    renderInspector({ kind: 'camera', camera: undefined, entityNames: [], space: '2d' })
+    expect(within(section('Framing')).getByRole('slider', { name: /^Zoom/ })).toBeDefined()
+  })
+})
+
+describe('CameraInspector, field of view (CA-21)', () => {
+  const slider = (): HTMLInputElement => screen.getByRole<HTMLInputElement>('slider', { name: /^Field of view/ })
+
+  it.each([150, 5, 179, 1])('shows a valid fov of %s as it is, not pinned to an end of the slider', (fov) => {
+    renderInspector({ kind: 'camera', camera: { kind: 'perspective', fov }, entityNames: [] })
+    expect(slider().value).toBe(String(fov))
+  })
+})

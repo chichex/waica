@@ -1,5 +1,7 @@
 import {
+  isPerspectiveCameraJson,
   resolveEntityComponents,
+  resolveSceneSpace,
   type PrefabJson,
   type SceneComponentJson,
   type SceneEntityJson,
@@ -20,7 +22,9 @@ export const CAMERA_NODE = '::camera'
  * makes the file a v3 scene.
  */
 export function setCameraProp(scene: SceneJson, key: string, value: unknown): SceneJson {
-  const camera = { ...scene.camera, [key]: value } as NonNullable<SceneJson['camera']>
+  // A 3D scene's camera is a perspective block: an edit to a missing (or ignored orthographic) one starts it as such.
+  const base = resolveSceneSpace(scene.render) === '3d' && !isPerspectiveCameraJson(scene.camera) ? { kind: 'perspective' } : scene.camera
+  const camera = { ...base, [key]: value } as NonNullable<SceneJson['camera']>
   if (value === undefined) delete camera[key as keyof typeof camera]
   return { ...scene, waicaScene: 3, camera }
 }

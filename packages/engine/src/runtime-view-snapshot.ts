@@ -1,4 +1,6 @@
 import * as THREE from 'three/webgpu'
+import { isPerspectiveCamera } from './camera-projection.js'
+import type { CameraEffectsState } from './camera-effects.js'
 import type { Game } from './game.js'
 import type { Vec3Json } from './scene-camera-3d.js'
 
@@ -20,7 +22,7 @@ function vector(value: THREE.Vector3): Vec3Json {
 
 export function viewSnapshot(game: Game): RuntimeSnapshotView {
   const camera = game.camera
-  if (!(camera instanceof THREE.PerspectiveCamera)) {
+  if (!isPerspectiveCamera(camera)) {
     return { kind: 'orthographic', position: [clean(camera.position.x), clean(camera.position.y)], zoom: game.view }
   }
   camera.updateMatrixWorld()
@@ -31,4 +33,14 @@ export function viewSnapshot(game: Game): RuntimeSnapshotView {
     target: vector(camera.position.clone().add(ahead)),
     fov: camera.fov,
   }
+}
+
+/**
+ * `game.cameraEffects.state` as the snapshot reports it. A perspective camera
+ * does not shake (spec decision 24: shake is a no-op in a 3D scene), so a 3D
+ * scene reports no offset even though the effect's own state keeps decaying.
+ */
+export function cameraEffectsSnapshot(game: Game): CameraEffectsState {
+  const state = game.cameraEffects.state
+  return game.space === '3d' ? { ...state, shake: { x: 0, y: 0 } } : state
 }

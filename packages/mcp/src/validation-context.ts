@@ -1,4 +1,7 @@
-import type { ArchetypeManifest, ComponentClass, ParamSpec } from '@waica/engine'
+import type { ArchetypeManifest, ComponentClass, ParamSpec, SceneEntityJson } from '@waica/engine'
+
+/** A scene entity as validation reads it: the name and the rest of the shape are unchecked JSON. */
+export type LooseSceneEntity = Omit<Partial<SceneEntityJson>, 'name'> & { name?: unknown }
 
 export type FindingSeverity = 'error' | 'warning' | 'info'
 

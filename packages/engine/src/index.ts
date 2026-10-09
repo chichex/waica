@@ -65,9 +65,9 @@ export {
   resolvePerspectiveCamera,
 } from './scene-camera-3d.js'
 export type {
-  PerspectiveCameraIssue,
   PerspectiveSceneCameraJson,
   ResolvedPerspectiveCamera,
+  SceneFieldIssue,
   Vec3Json,
 } from './scene-camera-3d.js'
 export { isPerspectiveCamera, worldToNormalized } from './camera-projection.js'
@@ -81,7 +81,7 @@ export {
   THREE_D_COMPONENTS,
   TWO_D_COMPONENTS,
 } from './scene-space.js'
-export type { SceneSpace, SceneSpaceIssue } from './scene-space.js'
+export type { SceneSpace } from './scene-space.js'
 export type { RuntimeSnapshotView } from './runtime-view-snapshot.js'
 export { applyTransformJson } from './entity-transform.js'
 export type { PositionJson, TransformJson } from './entity-transform.js'

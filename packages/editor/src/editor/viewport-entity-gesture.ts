@@ -71,7 +71,9 @@ export function dragEntities({ game, live }: EditorWorld, drag: EntityDrag, poin
     ;[x, y] = logicalPoint(projection, snapped[0], snapped[1])
   }
   for (const m of drag.members) {
-    game.find(m.name)?.position.set(logicalX - m.ox + (x - rawX), logicalY - m.oy + (y - rawY), 0)
+    const entity = game.find(m.name)
+    // z stays: dragging moves in the XY plane only.
+    entity?.position.set(logicalX - m.ox + (x - rawX), logicalY - m.oy + (y - rawY), entity.position.z)
   }
 }
 

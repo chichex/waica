@@ -55,7 +55,8 @@ function sceneSelection(core: EditorCore): InspectorSelection {
   if (!scene) return null
   const sceneName = openScenePath ? sceneLabel(openScenePath) : null
   if (selected === ops.CAMERA_NODE) {
-    return { kind: 'camera', camera: scene.camera, entityNames: scene.entities.map((e) => e.name) }
+    const space = resolveSceneSpace(scene.render)
+    return { kind: 'camera', camera: scene.camera, entityNames: scene.entities.map((e) => e.name), ...(space === '3d' ? { space } : {}) }
   }
   if (multi.length > 1) {
     return {

@@ -1,9 +1,8 @@
-import { sceneRenderIssues } from '@waica/engine'
+import { resolveSceneSpace, sceneRenderIssues } from '@waica/engine'
 import type {
   ParamSpec,
   PrefabJson,
   SceneComponentJson,
-  SceneEntityJson,
   SceneJson,
   SceneSpace,
 } from '@waica/engine'
@@ -19,12 +18,10 @@ import {
 } from './component-validation.js'
 import { lightParamFindings } from './light-param-validation.js'
 import { checkModelShapeIgnored } from './model-reference-validation.js'
-import { sceneSpaceOf, validateEntitySpace, validateSceneSpace } from './space-validation.js'
+import { validateEntitySpace, validateSceneSpace } from './space-validation.js'
 import { validateEntitySceneTransition } from './scene-transition-validation.js'
 import { validateStateMachines } from './state-machine-validation.js'
-import { add, type ValidationContext } from './validation-context.js'
-
-type LooseSceneEntity = Omit<Partial<SceneEntityJson>, 'name'> & { name?: unknown }
+import { add, type LooseSceneEntity, type ValidationContext } from './validation-context.js'
 
 /** One scene file and the Project-wide facts its entities are checked against. */
 export interface SceneScope {
@@ -87,7 +84,7 @@ export function validateScene(scene: SceneJson, scope: SceneScope): void {
   }
   // render.space, the camera against it and the 2D-only render options (issue #154 CA-13).
   validateSceneSpace(scene, scope)
-  const space = sceneSpaceOf(scene)
+  const space = resolveSceneSpace(scene.render)
   for (const ui of Array.isArray(scene.ui) ? scene.ui : []) {
     if (typeof ui === 'string' && !scope.uiNames.has(ui)) {
       add(scope.context, 'warning', 'unknown-ui-piece', `Unknown UI piece "${ui}".`, scope.file, ui)
