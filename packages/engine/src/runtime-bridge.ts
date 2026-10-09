@@ -96,7 +96,7 @@ export interface RuntimeBridge {
 
 /** Why a Game can never become operational; reported through the activation. */
 export interface RuntimeBridgeFailure {
-  code: 'render-backend-failed'
+  code: 'render-backend-failed' | 'physics-backend-failed'
   message: string
 }
 

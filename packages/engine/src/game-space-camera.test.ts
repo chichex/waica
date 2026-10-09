@@ -6,6 +6,7 @@ vi.mock('three/webgpu', async (importOriginal) =>
   (await import('./test-renderer.js')).withFakeRenderer(await importOriginal()),
 )
 
+import { listenerPosition } from './audio/spatial.js'
 import { FakeTextureBackend } from './assets/test-helpers.js'
 import type { SceneCameraJson } from './camera.js'
 import { Component } from './component.js'
@@ -93,7 +94,7 @@ describe('the audio listener in a 3d scene', () => {
   it('is a copy of the camera position that keeps z, not the live Vector3', async () => {
     const game = await readyGame()
     loadScene(game, scene3d(), REGISTRY)
-    const listener = (game as unknown as { audioListenerPosition(): { x: number; y: number; z?: number } }).audioListenerPosition()
+    const listener = listenerPosition(game.space, game.camera, game.projection)
     expect(listener).toEqual({ x: 0, y: 4, z: 12 })
     expect(listener).not.toBe(game.camera.position)
     game.camera.position.x = 9
@@ -103,7 +104,7 @@ describe('the audio listener in a 3d scene', () => {
   it('has no z in a 2d scene', async () => {
     const game = await readyGame()
     loadScene(game, { waicaScene: 3, entities: [] }, REGISTRY)
-    const listener = (game as unknown as { audioListenerPosition(): { x: number; y: number; z?: number } }).audioListenerPosition()
+    const listener = listenerPosition(game.space, game.camera, game.projection)
     expect(listener.z).toBeUndefined()
   })
 })

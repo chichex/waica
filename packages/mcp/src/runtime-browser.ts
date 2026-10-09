@@ -24,7 +24,7 @@ import { RuntimeToolError, type RuntimeControlInput } from './runtime-service.js
 export const RUNTIME_BRIDGE_SYMBOL_KEY = '@waica/runtime-bridge/v1'
 
 export interface BrowserBridgeFailure {
-  code: 'multiple-games' | 'render-backend-failed'
+  code: 'multiple-games' | 'render-backend-failed' | 'physics-backend-failed'
   message: string
 }
 

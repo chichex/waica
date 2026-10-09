@@ -139,6 +139,7 @@ describe('GameUi', () => {
       time: new GameTime(),
       setSceneCamera: () => {},
       setSceneRender: () => {},
+      setSceneSimulation: () => {},
     } as unknown as Parameters<typeof loadScene>[0]
     const scene: SceneJson = { waicaScene: 2, entities: [], ui: ['coin-counter'] }
     loadScene(game, scene, { components: {}, ui: { 'coin-counter': COUNTER, 'pause-menu': '<div/>' } })
@@ -154,6 +155,7 @@ describe('GameUi', () => {
       time: new GameTime(),
       setSceneCamera: () => {},
       setSceneRender: () => {},
+      setSceneSimulation: () => {},
     } as unknown as Parameters<typeof loadScene>[0]
     const scene: SceneJson = { waicaScene: 2, entities: [], ui: ['coin-counter'] }
     loadScene(game, scene, { components: {}, ui: { 'coin-counter': COUNTER } })

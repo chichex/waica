@@ -1,0 +1,125 @@
+import { Collider } from '../components/collider.js'
+import { RigidBody } from '../components/rigid-body.js'
+import type { Entity } from '../entity.js'
+import { SIMULATION_STEP } from '../fixed-step.js'
+import type { Vec3Json } from '../scene-camera-3d.js'
+import { colliderProblem, createBody, syncDynamicBody, type BodyRecord } from './body-sync.js'
+import type { RapierModule, RapierWorld } from './rapier-module.js'
+
+/**
+ * One Rapier world and the bodies of the live 3D scene (ADR 0028): created
+ * with the scene, stepped once per Simulation Step, freed with the scene. It
+ * owns every Rapier handle; components only hold plain params and ask the
+ * Game's `physics` for velocity, impulses and the like by entity.
+ */
+export class PhysicsWorld {
+  /** The Rapier world itself, for the modules that query it; nothing outside `physics-3d/` and its tests should touch it. */
+  readonly raw: RapierWorld
+  private readonly records = new Map<Entity, BodyRecord>()
+  private readonly byCollider = new Map<number, BodyRecord>()
+  /** Entities with a RigidBody and, so far, no Collider: warned about at the first step if it stays so. */
+  private readonly orphans = new Set<Entity>()
+  private readonly warned = new WeakSet<Entity>()
+  private sensors = 0
+
+  constructor(
+    private readonly R: RapierModule,
+    gravity: Vec3Json,
+  ) {
+    this.raw = new R.World({ x: gravity[0], y: gravity[1], z: gravity[2] })
+    this.raw.timestep = SIMULATION_STEP
+  }
+
+  /** Whether any body has a sensor Collider, so the sensor dispatch can be skipped when none does. */
+  get hasSensors(): boolean {
+    return this.sensors > 0
+  }
+
+  get gravity(): Vec3Json {
+    const { x, y, z } = this.raw.gravity
+    return [x, y, z]
+  }
+
+  set gravity(value: Vec3Json) {
+    this.raw.gravity = { x: value[0], y: value[1], z: value[2] }
+  }
+
+  /** The record of an entity's body, if it has one. */
+  recordOf(entity: Entity): BodyRecord | undefined {
+    return this.records.get(entity)
+  }
+
+  /** The record that owns a Rapier collider handle. */
+  recordOfCollider(handle: number): BodyRecord | undefined {
+    return this.byCollider.get(handle)
+  }
+
+  /** The bodies of the given entities, in their order. */
+  bodiesOf(entities: readonly Entity[]): BodyRecord[] {
+    return entities.flatMap((entity) => {
+      const record = this.records.get(entity)
+      return record ? [record] : []
+    })
+  }
+
+  /**
+   * Builds (or rebuilds) the entity's body from the Collider and RigidBody it
+   * has now. Called from each component's `onReady`, so either order of the
+   * two works: the later one replaces the earlier one's body.
+   */
+  attach(entity: Entity): void {
+    const collider = entity.get(Collider)
+    const rigid = entity.get(RigidBody) ?? null
+    if (!collider) {
+      if (rigid) this.orphans.add(entity)
+      return
+    }
+    this.detach(entity)
+    const problem = colliderProblem(collider)
+    if (problem !== null) {
+      console.warn(`[waica] Collider on "${entity.name}" creates no body: ${problem}.`)
+      return
+    }
+    const record = createBody(this.R, this.raw, { entity, collider, rigid })
+    if (!record) return
+    this.records.set(entity, record)
+    this.byCollider.set(record.shape.handle, record)
+    if (collider.sensor) this.sensors += 1
+  }
+
+  /** Removes the entity's body and collider; a no-op for an entity without one. */
+  detach(entity: Entity): void {
+    this.orphans.delete(entity)
+    const record = this.records.get(entity)
+    if (!record) return
+    this.records.delete(entity)
+    this.byCollider.delete(record.shape.handle)
+    if (record.collider.sensor) this.sensors -= 1
+    this.raw.removeRigidBody(record.body)
+  }
+
+  /** One Simulation Step of physics: Rapier steps, then dynamic bodies write their pose to their entities. */
+  step(): void {
+    this.warnOrphans()
+    this.raw.step()
+    for (const record of this.records.values()) syncDynamicBody(record)
+  }
+
+  /** Frees the Rapier world and forgets every body. The entities are destroyed (and detached) before this. */
+  free(): void {
+    this.records.clear()
+    this.byCollider.clear()
+    this.orphans.clear()
+    this.sensors = 0
+    this.raw.free()
+  }
+
+  private warnOrphans(): void {
+    for (const entity of this.orphans) {
+      this.orphans.delete(entity)
+      if (!entity.alive || entity.has(Collider) || this.warned.has(entity)) continue
+      this.warned.add(entity)
+      console.warn(`[waica] RigidBody on "${entity.name}" needs a Collider on the same entity; no body was created.`)
+    }
+  }
+}

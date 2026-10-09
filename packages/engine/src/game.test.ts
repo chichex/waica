@@ -14,6 +14,7 @@ import { Sprite } from './components/sprite'
 import type { Entity } from './entity'
 import { Game } from './game'
 import { loadScene, type SceneRegistry } from './scene'
+import { runSimulationPhases } from './simulation-phases'
 import { defineStates, resetRegistries } from './state/hooks'
 import { StateMachine } from './state/state-machine'
 import { defined } from './test-support'
@@ -154,7 +155,7 @@ describe('Game glue characterization', () => {
     const firstProbe = first.add(CollisionProbe)
     const secondProbe = second.add(CollisionProbe)
 
-    ;(game as unknown as { dispatchCollisions(): void }).dispatchCollisions()
+    ;runSimulationPhases(game)
 
     expect(firstProbe.hits).toEqual([second])
     expect(secondProbe.hits).toEqual([first])
@@ -180,7 +181,7 @@ describe('Game glue characterization', () => {
     expect(probe.contacts[0]).toMatchObject({ entity: wall, solid: wall.get(Solid), axis: 'x' })
     expect(probe.hits).toEqual([])
 
-    ;(game as unknown as { dispatchCollisions(): void }).dispatchCollisions()
+    ;runSimulationPhases(game)
 
     expect(probe.contacts).toHaveLength(1)
     expect(probe.hits).toEqual([trigger])
@@ -212,7 +213,7 @@ describe('Game glue characterization', () => {
       states: { active: {} },
     })
 
-    ;(game as unknown as { dispatchCollisions(): void }).dispatchCollisions()
+    ;runSimulationPhases(game)
 
     expect(calls).toEqual([
       { phase: 'wildcard', entity: first, other: second, fsm: machine },

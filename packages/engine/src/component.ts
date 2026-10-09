@@ -61,6 +61,18 @@ export interface SolidContact {
   readonly normal: ContactNormal
 }
 
+/** A 3D contact between two entities' solid Colliders, read after the physics step. */
+export interface BodyContact {
+  /** The entity whose component receives the hook. */
+  readonly entity: Entity
+  /** The entity it is in contact with. */
+  readonly other: Entity
+  /** Unit normal in world space, pointing from `entity` to `other`. */
+  readonly normal: { readonly x: number; readonly y: number; readonly z: number }
+  /** A world-space point on the contact. */
+  readonly point: { readonly x: number; readonly y: number; readonly z: number }
+}
+
 /**
  * A pluggable piece of an entity. User behaviors and engine ones are the
  * same thing: Component subclasses with public props.
@@ -85,8 +97,13 @@ export abstract class Component {
   onUpdate?(dt: number): void
   /** Runs after the scene changes between identity and projected rendering. */
   onProjectionChange?(projection: 'isometric' | null): void
-  /** Runs on overlap when this entity's Hitbox mask names the other's layer. */
+  /**
+   * Runs on overlap when this entity's Hitbox (2D) or sensor Collider (3D)
+   * mask names the other's layer.
+   */
   onCollide?(other: Entity): void
+  /** Runs once per Simulation Step for each entity this entity's solid Collider is in contact with (3D, issue #159). */
+  onBodyContact?(contact: BodyContact): void
   /** Runs when this entity's DynamicBody physically contacts a Solid. */
   onContact?(contact: SolidContact): void
   /**

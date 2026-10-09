@@ -4,7 +4,8 @@
 import * as THREE from 'three/webgpu'
 import { FakeModelBackend, FakeTextureBackend } from './assets/test-helpers.js'
 import type { SceneCameraJson } from './camera.js'
-import { Game, type GameResolution } from './game.js'
+import { Game, type GameOptions, type GameResolution } from './game.js'
+import { loadRapier } from './physics-3d/rapier-module.js'
 import { RUNTIME_BRIDGE_SYMBOL, type RuntimeBridge, type RuntimeBridgeActivation } from './runtime-bridge.js'
 import type { SceneEntityJson, SceneJson, SceneRegistry, SceneRenderJson } from './scene.js'
 import { useSpriteBatchTestEnvironment, type AnyMesh } from './test-sprite-batches.js'
@@ -15,14 +16,19 @@ export interface Game3d {
   textures: FakeTextureBackend
 }
 
-/** A Game on a 640×360 canvas whose renderer is ready, with fake backends for textures and glTF. */
-export async function ready3dGame(size = { width: 640, height: 360 }, resolution?: GameResolution): Promise<Game3d> {
+/** A Game on a 640×360 canvas whose renderer is ready, with fake backends for textures and glTF and the real Rapier. */
+export async function ready3dGame(
+  size = { width: 640, height: 360 },
+  resolution?: GameResolution,
+  extra: Partial<GameOptions> = {},
+): Promise<Game3d> {
   const canvas = document.createElement('canvas')
   Object.defineProperties(canvas, { clientWidth: { value: size.width }, clientHeight: { value: size.height } })
   document.body.append(canvas)
   const models = new FakeModelBackend()
   const textures = new FakeTextureBackend()
-  const game = new Game({ canvas, models, textures, ...(resolution ? { resolution } : {}) })
+  // The real deterministic Rapier through the GameOptions.physics seam, initialized once per file (issue #159 inference 6).
+  const game = new Game({ canvas, models, textures, physics: loadRapier, ...(resolution ? { resolution } : {}), ...extra })
   await game.ready()
   return { game, models, textures }
 }

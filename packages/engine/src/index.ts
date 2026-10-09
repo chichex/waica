@@ -88,6 +88,7 @@ export { Entity } from './entity.js'
 export { Component } from './component.js'
 export { authoringDefaults } from './authoring-defaults.js'
 export type {
+  BodyContact,
   ComponentClass,
   ComponentSpace,
   ContactNormal,
@@ -173,6 +174,14 @@ export { Light } from './components/light.js'
 export { Model } from './components/model.js'
 export type { ModelShape } from './components/model.js'
 export { Sun } from './components/sun.js'
+export { Collider, COLLIDER_SHAPES } from './components/collider.js'
+export type { ColliderShape } from './components/collider.js'
+export { RigidBody, RIGID_BODY_TYPES } from './components/rigid-body.js'
+export type { BodyVector, RigidBodyType } from './components/rigid-body.js'
+export { DEFAULT_GRAVITY, resolveSceneSimulation, sceneSimulationIssues } from './scene-simulation.js'
+export type { ResolvedSceneSimulation, SceneSimulationJson } from './scene-simulation.js'
+export type { PhysicsBackend, RapierModule } from './physics-3d/rapier-module.js'
+export type { RuntimeSnapshotBody, RuntimeSnapshotPhysics } from './runtime-physics-snapshot.js'
 export { PointLight } from './components/point-light.js'
 export { GameLighting } from './scene-lighting.js'
 export type { AmbientLightInput } from './scene-lighting.js'

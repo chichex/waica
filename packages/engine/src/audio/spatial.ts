@@ -1,4 +1,6 @@
-import { worldToNormalized, type ViewCamera, type WorldPoint } from '../camera-projection.js'
+import { worldToNormalized, type GameCamera, type ViewCamera, type WorldPoint } from '../camera-projection.js'
+import { unprojectIsometric } from '../projection.js'
+import type { SceneSpace } from '../scene-space.js'
 
 /**
  * Engine constants for CA-8 positional audio. There are no public tuning
@@ -43,4 +45,21 @@ export function screenPanOf(camera: () => ViewCamera): (point: WorldPoint) => nu
     const at = worldToNormalized(camera(), point)
     return at ? Math.max(-1, Math.min(1, (at.nx - 0.5) * 2)) : 0
   }
+}
+
+/**
+ * The audio listener's position (CA-8) in logical coordinates. The camera
+ * only ever holds render-space coordinates, so under `projection:
+ * 'isometric'` this is the exact inverse of the render projection — without
+ * it, distance-based attenuation would measure render-space distance instead
+ * of real game distance. A 3D scene's listener is its camera, in world space.
+ */
+export function listenerPosition(
+  space: SceneSpace,
+  camera: GameCamera,
+  projection: 'isometric' | null,
+): { x: number; y: number; z?: number } {
+  const { x, y, z } = camera.position
+  if (space === '3d') return { x, y, z }
+  return projection === 'isometric' ? unprojectIsometric(x, y) : { x, y }
 }

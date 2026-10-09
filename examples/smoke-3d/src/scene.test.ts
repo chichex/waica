@@ -109,7 +109,8 @@ describe('examples/smoke-3d boots like main.ts (CA-17)', () => {
     expect(game.camera.position.toArray()).toEqual([0, 5.5, 11])
     expect(game.entities.map((entity) => entity.name)).toEqual(['Ground', 'Box', 'Sphere', 'Tree', 'Daylight', 'Lamp'])
     expect(models.loadCalls).toEqual(['src/art/tree.glb'])
-    expect(game.assets.status).toEqual({ pending: 0, loaded: 1, failed: 0 })
+    // The glb, and the Rapier module the 3D scene loads (issue #159 CA-8 counts it as an asset).
+    expect(game.assets.status).toEqual({ pending: 0, loaded: 2, failed: 0 })
     game.dispose()
   })
 
