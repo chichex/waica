@@ -12,59 +12,45 @@ interface ParamKindRowProps {
   onChange: (value: unknown) => void
 }
 
-export function Vector2ParamRow({
-  label,
-  name,
-  value,
-  onChange,
-}: ParamKindRowProps & { label: string }) {
-  const pair = Array.isArray(value) ? value : []
-  const x = typeof pair[0] === 'number' && Number.isFinite(pair[0]) ? pair[0] : 0
-  const y = typeof pair[1] === 'number' && Number.isFinite(pair[1]) ? pair[1] : 0
-  return (
-    <div className="ed-row ed-row-xy">
-      {name}
-      <NumberField
-        aria-label={`${label} x`}
-        step={0.1}
-        value={x}
-        onChange={(text) => onChange([Number(text), y])}
-      />
-      <NumberField
-        aria-label={`${label} y`}
-        step={0.1}
-        value={y}
-        onChange={(text) => onChange([x, Number(text)])}
-      />
-    </div>
-  )
-}
-
 const finiteOr0 = (value: unknown): number => (typeof value === 'number' && Number.isFinite(value) ? value : 0)
 
-/** A `[x, y, z]` param (the Sun's direction): three number fields, each named `<label> x|y|z`. */
-export function Vector3ParamRow({
+/** A `[x, y]` or `[x, y, z]` param: one number field per axis, each named `<label> x|y|z`. */
+export function VectorParamRow({
   label,
   name,
   value,
+  axes,
   onChange,
-}: ParamKindRowProps & { label: string }) {
-  const triple = Array.isArray(value) ? value : []
-  const [x, y, z] = [finiteOr0(triple[0]), finiteOr0(triple[1]), finiteOr0(triple[2])]
+}: ParamKindRowProps & { label: string; axes: readonly ('x' | 'y' | 'z')[] }) {
+  const parts = Array.isArray(value) ? value : []
+  const numbers = axes.map((_axis, index) => finiteOr0(parts[index]))
   return (
-    <div className="ed-row ed-row-xyz">
+    <div className={`ed-row ${axes.length === 3 ? 'ed-row-xyz' : 'ed-row-xy'}`}>
       {name}
-      <NumberField aria-label={`${label} x`} step={0.1} value={x} onChange={(text) => onChange([Number(text), y, z])} />
-      <NumberField aria-label={`${label} y`} step={0.1} value={y} onChange={(text) => onChange([x, Number(text), z])} />
-      <NumberField aria-label={`${label} z`} step={0.1} value={z} onChange={(text) => onChange([x, y, Number(text)])} />
+      {axes.map((axis, index) => (
+        <NumberField
+          key={axis}
+          aria-label={`${label} ${axis}`}
+          step={0.1}
+          value={numbers[index] ?? 0}
+          onChange={(text) => onChange(numbers.map((current, at) => (at === index ? Number(text) : current)))}
+        />
+      ))}
     </div>
   )
 }
+
+/**
+ * Whether a model uri is one `validate_project` and the generated build
+ * resolve: a file directly under `src/art/` (the build's `import.meta.glob('./art/*')`
+ * never crosses a folder) or the archetype's own `waica:` art.
+ */
+const isResolvableModel = (uri: string): boolean => uri.startsWith('waica:') || /^src\/art\/[^/]+$/.test(uri)
 
 /** A `kind: 'model'` param (Model.src): the project's model art as a select; empty means "none". */
 export function ModelParamRow({ name, value, onChange }: ParamKindRowProps) {
   const { texture } = useContext(RefTargetsContext)
-  const models = texture.art.filter((item) => item.kind === 'model')
+  const models = texture.art.filter((item) => item.kind === 'model' && isResolvableModel(item.uri))
   const uri = typeof value === 'string' ? value : ''
   const missing = uri !== '' && !models.some((item) => item.uri === uri)
   return (

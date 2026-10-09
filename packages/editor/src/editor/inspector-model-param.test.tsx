@@ -26,6 +26,17 @@ describe('Model params in the inspector (issue #154 CA-8, CA-9)', () => {
     expect(options).toEqual(['none (use the shape)', 'tree.glb', 'rock.gltf'])
   })
 
+  it('offers only the models validate_project and the build resolve: src/art/<file> and the archetype\'s own', () => {
+    const nested: ArtItem = { ...TREE, label: 'models/pine.glb', uri: 'src/art/models/pine.glb', path: 'src/art/models/pine.glb' }
+    const inPublic: ArtItem = { ...TREE, label: 'public/oak.glb', uri: 'public/oak.glb', path: 'public/oak.glb' }
+    const bundled: ArtItem = { ...TREE, label: 'iso-tree.glb', uri: 'waica:iso-tree', path: 'waica:iso-tree' }
+    renderInspector({ kind: 'entity', sceneName: 'main', entity: crate() }, { art: [TREE, nested, inPublic, bundled] })
+
+    const select = screen.getByRole<HTMLSelectElement>('combobox', { name: /model file/i })
+    const options = within(select).getAllByRole('option').map((option) => option.textContent)
+    expect(options).toEqual(['none (use the shape)', 'tree.glb', 'iso-tree.glb'])
+  })
+
   it('commits the chosen model, and an empty choice clears it', () => {
     const props = renderInspector({ kind: 'entity', sceneName: 'main', entity: crate() }, { art: ART })
     const select = screen.getByRole<HTMLSelectElement>('combobox', { name: /model file/i })
