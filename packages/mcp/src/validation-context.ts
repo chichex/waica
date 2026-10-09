@@ -36,6 +36,7 @@ export type FindingCode =
   | 'component-space-mismatch'
   | 'missing-model'
   | 'model-shape-ignored'
+  | 'gltf-external-resource'
 
 export interface ValidationFinding {
   severity: FindingSeverity

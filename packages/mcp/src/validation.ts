@@ -13,6 +13,7 @@ import {
   validateComponentUpdateSchedule,
   validateParamReferences,
 } from './component-validation.js'
+import { validateGltfResources } from './gltf-resource-validation.js'
 import { checkModelShapeIgnored, projectArtRefs } from './model-reference-validation.js'
 import {
   PackageResolver,
@@ -192,6 +193,7 @@ export async function validateProject(
     ...(await uiBindingFindings(projectPath, uiFiles, context.declaredStats, context.anchoredPieces)),
   )
   validateParamsFile(fixed.get(PARAMS_FILE), context)
+  await validateGltfResources(projectPath, context)
   return validationReport(findings, sources, check.notes)
 }
 
