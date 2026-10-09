@@ -20,7 +20,10 @@ export interface AudioPlayOptions {
    * an isometric source that reads to the right on screen pans right even
    * though its volume reflects real (logical) game distance. In a 3D scene
    * the listener is the camera, attenuation uses the 3D distance (`z`
-   * included) and the pan follows where the source lands on screen.
+   * included) and the pan follows where the source lands on screen. The
+   * 2D curve (full volume within 3 units, silent at 16) is reused, so a
+   * camera set back from the action plays what it frames quieter: from the
+   * default camera, a sound at the centre of the view is at about 37%.
    */
   at?: Entity | { x: number; y: number; z?: number }
 }
