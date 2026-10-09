@@ -33,7 +33,7 @@ for (const [path, prefab] of Object.entries(prefabFiles)) {
   shippedPrefabs[path.slice(2, path.indexOf('.', 2))] = prefab
 }
 
-type ArchetypeArtLike = { uri: string; file: string; kind: 'image' | 'sound' }
+type ArchetypeArtLike = { uri: string; file: string; kind: 'image' | 'sound' | 'model' }
 
 /**
  * Every sound prop mismatch between an archetype's prefabs and a shipped
