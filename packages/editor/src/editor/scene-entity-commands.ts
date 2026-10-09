@@ -57,8 +57,7 @@ export function duplicateEntities(core: EditorCore, names: string[]): void {
     const copy = structuredClone(entity)
     copy.name = ops.uniqueName(next, name)
     // Nudge the copy so it doesn't hide exactly behind the original.
-    const [x, y] = entity.position ?? [0, 0]
-    copy.position = [x + 0.5, y]
+    copy.position = ops.offsetPosition(entity.position, 0.5)
     next = ops.addEntity(next, copy)
     copies.push(copy.name)
   }

@@ -55,6 +55,18 @@ export function entityPropHandlers(core: EditorCore, viewport: ViewportAccess) {
   } satisfies Partial<InspectorProps>
 }
 
+/** A 3D scene's X/Y/Z, rotation and scale edits: patched onto the live entity, then committed. */
+export function entityTransformHandlers(core: EditorCore, viewport: ViewportAccess) {
+  const { scene } = core.scenes
+  return {
+    onTransform: (name, patch) => {
+      if (!scene) return
+      viewport()?.applyTransform(name, patch)
+      core.commit(ops.setEntityTransform(scene, name, patch), false, `transform:${name}:${Object.keys(patch).join(',')}`)
+    },
+  } satisfies Partial<InspectorProps>
+}
+
 export function entityComponentHandlers(core: EditorCore) {
   const { scene } = core.scenes
   const [prefabLib] = core.library.prefabLib

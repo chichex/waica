@@ -1,11 +1,7 @@
-import {
-  resolveSceneCamera,
-  type PrefabJson,
-  type SceneComponentJson,
-  type SceneEntityJson,
-} from '@waica/engine'
+import type { PrefabJson, SceneComponentJson, SceneEntityJson, SceneSpace } from '@waica/engine'
 import { useArchetype } from '../../project/archetype'
 import { CHASSIS, splitComponents } from '../../project/chassis'
+import { resolveOrthographicCamera } from '../../scene/camera-block'
 import { prefabOwns, resolveComponents } from '../../scene/ops'
 import { cameraViewSize } from '../box-math'
 import { TilemapCard } from '../TilemapCard'
@@ -30,6 +26,8 @@ export type EntityInspectorProps = Omit<
   | 'onPrefabSizeAppearance'
 > & {
   entity: SceneEntityJson
+  /** The open scene's space; absent is a 2D scene. */
+  space?: SceneSpace
 }
 
 /** Instance-override readers and writers for one entity's components. */
@@ -63,7 +61,7 @@ function EntityAppearance({
     props.onApplyProp,
   )
   const fillCamera = (): void => {
-    const cam = resolveSceneCamera(props.sceneCamera)
+    const cam = resolveOrthographicCamera(props.sceneCamera)
     const view = cameraViewSize(cam.zoom, props.resolution.width / props.resolution.height)
     onSizeAppearance(entity.name, appearance.type, {
       ...view,

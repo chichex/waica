@@ -43,6 +43,7 @@ function entityCallbacks() {
   return {
     onRename: vi.fn(),
     onMove: vi.fn(),
+    onTransform: vi.fn(),
     onProp: vi.fn(),
     onMultiProp: vi.fn(),
     onResetProp: vi.fn(),

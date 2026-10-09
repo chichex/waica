@@ -10,7 +10,7 @@ vi.mock(
     (await import('../../../engine/src/test-renderer.js')).withFakeRenderer(await importOriginal<Record<string, unknown>>()),
 )
 
-import { installArchetype, installDirectionalAnimation, projectIsometric, type Game, type SceneJson } from '@waica/engine'
+import { installArchetype, installDirectionalAnimation, isPerspectiveCamera, projectIsometric, type Game, type SceneJson } from '@waica/engine'
 import { ARCHETYPE } from '@waica/archetype-isometric'
 import { defined } from '../../../engine/src/test-support'
 import { installViewportHost, liveGame, mountViewport, removeViewportHost } from './test-viewport'
@@ -29,6 +29,7 @@ function clientAt(
   [wx, wy]: readonly [number, number],
 ): { clientX: number; clientY: number } {
   const c = game.camera
+  if (isPerspectiveCamera(c)) throw new Error('expected the orthographic edit camera')
   const rect = canvas.getBoundingClientRect()
   return {
     clientX: ((wx - (c.position.x + c.left)) / (c.right - c.left)) * rect.width,

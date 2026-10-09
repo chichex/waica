@@ -2,6 +2,7 @@
 // scene-camera frame — the same runtime play uses, scaled into the gizmo.
 import { GameUi, type Game } from '@waica/engine'
 import type { RefObject } from 'react'
+import { orthographicCamera } from './viewport-camera'
 import type { SceneCameraFrame } from './viewport-camera-gizmo'
 import type { ViewportLive } from './viewport-live'
 import { uiFrameLayout, type UiFrameLayout } from './ui-preview'
@@ -71,7 +72,9 @@ export function createUiPreview(game: Game, host: UiPreviewHost) {
     // resolution, or (filling play) this same viewport panel.
     const canvasSize = { width: canvas.clientWidth, height: canvas.clientHeight }
     const reference = live.resolution ?? canvasSize
-    const c = game.camera
+    // The UI preview is a 2D scene's: a perspective camera has no frame to ride.
+    const c = orthographicCamera(game.camera)
+    if (!c) return
     const box = uiFrameLayout(
       { left: c.left, right: c.right, top: c.top, bottom: c.bottom, x: c.position.x, y: c.position.y },
       { x: frame.x, y: frame.y, width: frame.width, height: frame.height },

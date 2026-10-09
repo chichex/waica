@@ -6,6 +6,7 @@ import { finishStroke } from './tilemap-brush'
 import { snapActive, snapPoint } from './grid'
 import { beginHandleDrag, beginOutlineDrag, commitBoxDrag, dragBox, type BoxCommits, type BoxDrag } from './viewport-box-gesture'
 import { logicalAt } from './viewport-boxes'
+import { orthographicCamera } from './viewport-camera'
 import {
   beginEntityDrag,
   beginMarquee,
@@ -133,9 +134,11 @@ export function beginGesture(down: PointerStep): Gesture | null {
 function panCamera({ world: { game }, host, at }: PointerStep, pan: Extract<Gesture, { kind: 'pan' }>): Gesture {
   const rect = host.canvas.current?.getBoundingClientRect()
   if (!rect) return pan
-  const perPx = (game.camera.right - game.camera.left) / rect.width
-  game.camera.position.x -= (at.clientX - pan.px) * perPx
-  game.camera.position.y += (at.clientY - pan.py) * perPx
+  const camera = orthographicCamera(game.camera)
+  if (!camera) return pan
+  const perPx = (camera.right - camera.left) / rect.width
+  camera.position.x -= (at.clientX - pan.px) * perPx
+  camera.position.y += (at.clientY - pan.py) * perPx
   return { kind: 'pan', px: at.clientX, py: at.clientY }
 }
 

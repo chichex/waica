@@ -1,6 +1,7 @@
-import { loadScene, type Game } from '@waica/engine'
+import { applyTransformJson, loadScene, type Game } from '@waica/engine'
 import { useEffect, useEffectEvent, useImperativeHandle, useLayoutEffect, useRef, type Ref, type RefObject } from 'react'
 import { createFrameOverlays, type OverlayHost } from './viewport-frame-overlays'
+import { isReadOnlyView } from './viewport-camera'
 import { createViewportGame, liveComponent, mountGameCanvas, restoreEditCamera } from './viewport-game'
 import type { EditCamera, ViewportHandle, ViewportLive } from './viewport-live'
 
@@ -60,7 +61,7 @@ function startEditorLoop(game: Game, host: OverlayHost, camRef: RefObject<EditCa
   const overlays = createFrameOverlays(game, host)
   game.onUpdate(() => {
     overlays.update()
-    if (host.live.current.mode !== 'edit') return
+    if (host.live.current.mode !== 'edit' || isReadOnlyView(game)) return
     camRef.current.x = game.camera.position.x
     camRef.current.y = game.camera.position.y
   })
@@ -148,7 +149,7 @@ export function useViewportGame(inputs: ViewportLive, options: ViewportGameOptio
     if (mode === 'edit') {
       // loadScene framed the scene camera (centered on its follow target):
       // the editor view starts there, once per mount.
-      const seed = !camSeededRef.current && showCamera && liveRef.current.scene.camera != null
+      const seed = !camSeededRef.current && showCamera && liveRef.current.scene.camera != null && !isReadOnlyView(game)
       camSeededRef.current = true
       if (seed) camRef.current = { x: game.camera.position.x, y: game.camera.position.y, view: game.view }
       restoreEditCamera(game, camRef.current)
@@ -177,6 +178,10 @@ export function useViewportHandle(ref: Ref<ViewportHandle>, gameRef: RefObject<G
     },
     applyMove(entityName, x, y) {
       gameRef.current?.find(entityName)?.position.set(x, y, 0)
+    },
+    applyTransform(entityName, patch) {
+      const entity = gameRef.current?.find(entityName)
+      if (entity) applyTransformJson(entity, patch)
     },
     game() {
       return gameRef.current

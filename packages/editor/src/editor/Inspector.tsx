@@ -87,7 +87,7 @@ function SelectionBody({
     case 'scene':
       return <SceneInspector scene={selection.scene} onRenderProp={props.onRenderProp} />
     case 'entity':
-      return <EntityInspector {...props} entity={selection.entity} />
+      return <EntityInspector {...props} entity={selection.entity} space={selection.space} />
     case 'multi':
       return (
         <MultiInspector

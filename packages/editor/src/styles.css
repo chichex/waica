@@ -1747,6 +1747,10 @@ button.ed-crumb:hover {
   grid-template-columns: 1fr 55px 55px;
 }
 
+.ed-row-xyz {
+  grid-template-columns: 1fr 48px 48px 48px;
+}
+
 /* Project settings (controls / stats / game): a centered card in the stage.
    margin auto centers both axes and degrades to scrollable when content overflows. */
 .ed-project-pane {

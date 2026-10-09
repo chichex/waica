@@ -1,4 +1,5 @@
-import { resolveSceneCamera, type SceneJson } from '@waica/engine'
+import { isPerspectiveCameraJson, resolvePerspectiveCamera, resolveSceneSpace, type SceneJson } from '@waica/engine'
+import { resolveOrthographicCamera } from '../../scene/camera-block'
 import { RoRow } from './PropRow'
 import { LightingOptions, PostOptions } from './SceneLightingOptions'
 
@@ -63,6 +64,16 @@ function RenderOptions({ scene, onRenderProp }: { scene: SceneJson; onRenderProp
   )
 }
 
+/** Where the scene's camera is: the follow target or fixed point of a 2D camera, the pose of a 3D one. */
+function cameraSummary(scene: SceneJson): string {
+  if (resolveSceneSpace(scene.render) === '3d') {
+    const cam = resolvePerspectiveCamera(isPerspectiveCameraJson(scene.camera) ? scene.camera : undefined)
+    return `perspective at ${cam.position.join(', ')}`
+  }
+  const cam = resolveOrthographicCamera(scene.camera)
+  return cam.follow ? `follows ${cam.follow}` : `fixed at ${cam.position[0]}, ${cam.position[1]}`
+}
+
 /** Scene-level summary shown while nothing inside the scene is selected. */
 export function SceneInspector({
   scene,
@@ -71,16 +82,14 @@ export function SceneInspector({
   scene: SceneJson
   onRenderProp: RenderProp
 }) {
-  const cam = resolveSceneCamera(scene.camera)
+  const threeD = resolveSceneSpace(scene.render) === '3d'
   return (
     <div className="ed-pad">
       <RoRow label="entities" value={String(scene.entities.length)} />
       <RoRow label="ui pieces" value={scene.ui?.length ? scene.ui.join(', ') : 'none'} />
-      <RoRow
-        label="camera"
-        value={cam.follow ? `follows ${cam.follow}` : `fixed at ${cam.position[0]}, ${cam.position[1]}`}
-      />
-      <RenderOptions scene={scene} onRenderProp={onRenderProp} />
+      {threeD && <RoRow label="space" value="3d" />}
+      <RoRow label="camera" value={cameraSummary(scene)} />
+      {!threeD && <RenderOptions scene={scene} onRenderProp={onRenderProp} />}
       <LightingOptions scene={scene} onRenderProp={onRenderProp} />
       <PostOptions scene={scene} onRenderProp={onRenderProp} />
       <div className="ed-hint">

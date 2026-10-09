@@ -1,6 +1,7 @@
 import type { Game } from '@waica/engine'
 import { useRef, useState, type PointerEvent, type RefObject, type WheelEvent } from 'react'
 import type { ScreenRect } from './viewport-entity-gesture'
+import { isReadOnlyView } from './viewport-camera'
 import { zoomEditView } from './viewport-game'
 import { beginGesture, dragGesture, endGesture, type Gesture, type GestureCallbacks, type PointerStep } from './viewport-gestures'
 import type { EditCamera, EditorWorld, ViewportLive } from './viewport-live'
@@ -37,7 +38,8 @@ export function useViewportPointer(session: ViewportPointerSession, callbacks: G
   const editStep = (e: PointerEvent<HTMLElement>): PointerStep | null => {
     const game = gameRef.current
     const live = liveRef.current
-    if (!game || live.mode !== 'edit') return null
+    // A 3D scene is read-only: no gesture starts, hovers or drags in it.
+    if (!game || live.mode !== 'edit' || isReadOnlyView(game)) return null
     const world: EditorWorld = { game, live }
     const point = toWorld(canvasRef.current, game, e)
     return { world, host, at: { point, shiftKey: e.shiftKey, clientX: e.clientX, clientY: e.clientY } }

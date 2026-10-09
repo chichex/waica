@@ -4,6 +4,8 @@ import type {
   SceneCameraJson,
   SceneEntityJson,
   SceneJson,
+  SceneSpace,
+  TransformJson,
 } from '@waica/engine'
 import type { ResolutionSetting } from '../../project/game'
 import type { MachineProps } from '../../project/states'
@@ -16,7 +18,7 @@ import type { ViewportComponentVisibility } from '../Viewport'
 /** What the inspector is editing, mirroring the explorer view. */
 export type InspectorSelection =
   | { kind: 'scene'; name: string; scene: SceneJson }
-  | { kind: 'entity'; entity: SceneEntityJson; sceneName: string }
+  | { kind: 'entity'; entity: SceneEntityJson; sceneName: string; space?: SceneSpace }
   | { kind: 'multi'; entities: SceneEntityJson[]; sceneName: string }
   | { kind: 'camera'; camera: SceneCameraJson | undefined; entityNames: string[] }
   | { kind: 'prefab'; ref: string; prefab: PrefabJson }
@@ -52,6 +54,8 @@ export interface InspectorProps {
   onViewportVisibility(role: keyof ViewportComponentVisibility, visible: boolean): void
   onRename(from: string, to: string): void
   onMove(name: string, position: [number, number]): void
+  /** A 3D scene's position (X/Y/Z), rotation (degrees) or scale row. */
+  onTransform?(name: string, patch: TransformJson): void
   onProp(entity: string, componentType: string, key: string, value: unknown): void
   /** Writes one prop to every named entity in a single undo step (multi-selection). */
   onMultiProp(names: string[], componentType: string, key: string, value: unknown): void

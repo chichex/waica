@@ -1,9 +1,11 @@
 // The scene-camera gizmo: the frame the game will show, its center marker
 // (the camera's drag handle) and, while the camera is selected with limits
 // on, the world bounds it may not leave.
-import { resolveSceneCamera, THREE, type Game, type CameraLimitsJson } from '@waica/engine'
+import { THREE, type Game, type CameraLimitsJson } from '@waica/engine'
+import { resolveOrthographicCamera } from '../scene/camera-block'
 import { CAMERA_NODE } from '../scene/ops'
 import { projectionOf } from './viewport-boxes'
+import { cameraAspect } from './viewport-camera'
 import type { ViewportLive } from './viewport-live'
 import { addOverlay, rectLoop, SELECTION_AMBER } from './viewport-selection-gizmos'
 import { renderPoint } from './viewport-space'
@@ -27,16 +29,14 @@ export interface SceneCameraFrame {
  * position, else the scene camera's own position.
  */
 export function sceneCameraFrame(game: Game, live: ViewportLive, dragged: { x: number; y: number } | null): SceneCameraFrame {
-  const sceneCam = resolveSceneCamera(live.scene.camera)
+  const sceneCam = resolveOrthographicCamera(live.scene.camera)
   const target = sceneCam.follow ? game.find(sceneCam.follow) : undefined
   const targetRender = target ? renderPoint(projectionOf(live.scene), target.position.x, target.position.y) : null
   const pos = targetRender
     ? { x: targetRender[0], y: targetRender[1] }
     : (dragged ?? { x: sceneCam.position[0], y: sceneCam.position[1] })
   const res = live.resolution
-  const aspect = res
-    ? res.width / res.height
-    : (game.camera.right - game.camera.left) / (game.camera.top - game.camera.bottom)
+  const aspect = res ? res.width / res.height : cameraAspect(game.camera)
   const selected = live.selected === CAMERA_NODE
   return {
     ...pos,

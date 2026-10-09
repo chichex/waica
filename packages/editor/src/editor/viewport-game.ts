@@ -1,9 +1,11 @@
 // The live Game behind the Viewport: how one is built for an [epoch, mode]
 // pair, and the imperative operations the editor applies to it (live props,
 // its own pan/zoom, framing the scene camera).
-import { Game, loadScene, resolveSceneCamera, type Component } from '@waica/engine'
+import { Game, loadScene, type Component } from '@waica/engine'
 import type { RefObject } from 'react'
+import { resolveOrthographicCamera } from '../scene/camera-block'
 import { projectionOf } from './viewport-boxes'
+import { isReadOnlyView } from './viewport-camera'
 import type { EditCamera, ViewportLive } from './viewport-live'
 import { renderPoint } from './viewport-space'
 
@@ -59,6 +61,8 @@ export function createViewportGame(canvas: HTMLCanvasElement, live: ViewportLive
 
 /** Puts the editor's own pan/zoom back over whatever loadScene framed. */
 export function restoreEditCamera(game: Game, cam: EditCamera): void {
+  // A 3D scene is viewed through its own perspective camera, never panned or zoomed.
+  if (isReadOnlyView(game)) return
   game.camera.position.x = cam.x
   game.camera.position.y = cam.y
   game.setViewHeight(cam.view)
@@ -75,13 +79,15 @@ export function liveComponent(game: Game | null, entityName: string, componentTy
 
 /** Zooms the edit view by `factor`, remembering the result as the editor's own zoom. */
 function zoomEditCamera(game: Game, cam: EditCamera, factor: number): void {
+  if (isReadOnlyView(game)) return
   game.setViewHeight(game.view * factor)
   cam.view = game.view
 }
 
 /** Jumps the view to the scene camera's framing (its target's, when following); returns the new pan/zoom. */
 export function frameSceneCamera(game: Game, live: ViewportLive): EditCamera {
-  const sceneCam = resolveSceneCamera(live.scene.camera)
+  if (isReadOnlyView(game)) return { x: game.camera.position.x, y: game.camera.position.y, view: game.view }
+  const sceneCam = resolveOrthographicCamera(live.scene.camera)
   const target = sceneCam.follow ? game.find(sceneCam.follow) : undefined
   const [x, y] = target
     ? renderPoint(projectionOf(live.scene), target.position.x, target.position.y)

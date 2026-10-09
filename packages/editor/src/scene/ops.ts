@@ -4,6 +4,7 @@ import {
   type SceneComponentJson,
   type SceneEntityJson,
   type SceneJson,
+  type TransformJson,
 } from '@waica/engine'
 
 /** Pure mutations over the scene (the editor's source of truth). */
@@ -334,11 +335,42 @@ export function renameEntity(scene: SceneJson, from: string, to: string): SceneJ
   return next
 }
 
+/** Moves an entity in the XY plane; the z of a 3-number position (a 3D scene's depth) stays. */
 export function moveEntity(scene: SceneJson, name: string, position: [number, number]): SceneJson {
   return {
     ...scene,
-    entities: scene.entities.map((e) => (e.name === name ? { ...e, position } : e)),
+    entities: scene.entities.map((e) => {
+      if (e.name !== name) return e
+      const z = e.position?.[2]
+      return { ...e, position: z === undefined ? position : [position[0], position[1], z] }
+    }),
   }
+}
+
+/** The entity with the declared transform fields written; a rotation or scale back at its identity leaves the file. */
+function withTransform(entity: SceneEntityJson, patch: TransformJson): SceneEntityJson {
+  const next = { ...entity, ...patch }
+  if (patch.rotation?.every((angle) => angle === 0)) delete next.rotation
+  if (patch.scale?.every((factor) => factor === 1)) delete next.scale
+  return next
+}
+
+/**
+ * Writes an entity's position, rotation or scale (a 3D scene's X/Y/Z,
+ * rotation and scale rows); the fields the patch leaves out stay as they are.
+ */
+export function setEntityTransform(scene: SceneJson, name: string, patch: TransformJson): SceneJson {
+  return {
+    ...scene,
+    entities: scene.entities.map((e) => (e.name === name ? withTransform(e, patch) : e)),
+  }
+}
+
+/** A position shifted along x, keeping its shape (2 or 3 numbers); an entity without one starts from the origin. */
+export function offsetPosition(position: SceneEntityJson['position'], dx: number): NonNullable<SceneEntityJson['position']> {
+  if (!position) return [dx, 0]
+  const [x, y, z] = position
+  return z === undefined ? [x + dx, y] : [x + dx, y, z]
 }
 
 export function setComponentProp(
