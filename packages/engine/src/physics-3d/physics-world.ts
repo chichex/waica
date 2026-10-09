@@ -3,7 +3,8 @@ import { RigidBody } from '../components/rigid-body.js'
 import type { Entity } from '../entity.js'
 import { SIMULATION_STEP } from '../fixed-step.js'
 import type { Vec3Json } from '../scene-camera-3d.js'
-import { colliderProblem, createBody, syncDynamicBody, type BodyRecord } from './body-sync.js'
+import { colliderProblem, createBody, syncBodyPose, type BodyRecord } from './body-sync.js'
+import { CharacterMotion } from './character-controller.js'
 import type { RapierModule, RapierWorld } from './rapier-module.js'
 
 /**
@@ -21,13 +22,18 @@ export class PhysicsWorld {
   private readonly orphans = new Set<Entity>()
   private readonly warned = new WeakSet<Entity>()
   private sensors = 0
+  /** Bodies came or went since Rapier last updated the structure its queries read. */
+  private queriesStale = false
+  private readonly characters: CharacterMotion
 
   constructor(
-    private readonly R: RapierModule,
+    /** The Rapier module the world was made with, for the shapes and rays its queries build. */
+    readonly R: RapierModule,
     gravity: Vec3Json,
   ) {
     this.raw = new R.World({ x: gravity[0], y: gravity[1], z: gravity[2] })
     this.raw.timestep = SIMULATION_STEP
+    this.characters = new CharacterMotion(R, this.raw)
   }
 
   /** Whether any body has a sensor Collider, so the sensor dispatch can be skipped when none does. */
@@ -83,6 +89,7 @@ export class PhysicsWorld {
     const record = createBody(this.R, this.raw, { entity, collider, rigid })
     if (!record) return
     this.records.set(entity, record)
+    this.queriesStale = true
     this.byCollider.set(record.shape.handle, record)
     if (collider.sensor) this.sensors += 1
   }
@@ -96,13 +103,40 @@ export class PhysicsWorld {
     this.byCollider.delete(record.shape.handle)
     if (record.collider.sensor) this.sensors -= 1
     this.raw.removeRigidBody(record.body)
+    this.queriesStale = true
   }
 
-  /** One Simulation Step of physics: Rapier steps, then dynamic bodies write their pose to their entities. */
+  /**
+   * One Simulation Step of physics: every kinematic body is moved through the
+   * character controller, Rapier steps, then moving bodies write their pose to
+   * their entities.
+   */
   step(): void {
     this.warnOrphans()
+    for (const record of this.records.values()) {
+      if (record.kind !== 'kinematic') continue
+      this.refreshQueries()
+      this.characters.move(record)
+    }
     this.raw.step()
-    for (const record of this.records.values()) syncDynamicBody(record)
+    this.queriesStale = false
+    for (const record of this.records.values()) syncBodyPose(record)
+  }
+
+  /**
+   * Makes ray casts, shape queries and the character controller see the bodies
+   * created or removed since the last step: Rapier only updates the structure
+   * they read inside `step()`, so a body spawned this frame would be invisible
+   * (a character would fall through a floor spawned with it). A step of zero
+   * seconds updates it and moves nothing.
+   */
+  refreshQueries(): void {
+    if (!this.queriesStale) return
+    this.queriesStale = false
+    const timestep = this.raw.timestep
+    this.raw.timestep = 0
+    this.raw.step()
+    this.raw.timestep = timestep
   }
 
   /** Frees the Rapier world and forgets every body. The entities are destroyed (and detached) before this. */
@@ -111,6 +145,7 @@ export class PhysicsWorld {
     this.byCollider.clear()
     this.orphans.clear()
     this.sensors = 0
+    this.characters.free()
     this.raw.free()
   }
 

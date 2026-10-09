@@ -21,7 +21,12 @@ const ZERO: Readonly<BodyVector> = { x: 0, y: 0, z: 0 }
  * rotation from it. A `kinematic` body is moved by code. It needs a `Collider`
  * on the same entity (`validate_project` reports a body without one, and at
  * runtime none is created). `mass` is the collider's mass; `velocity` is the
- * initial linear velocity. A RigidBody in a 2D scene creates nothing.
+ * initial linear velocity. A `kinematic` body is a character: every step the
+ * engine moves it through Rapier's character controller by its
+ * `desiredVelocity` on x and z and its own vertical velocity under gravity,
+ * stopping at walls, climbing steps up to `stepHeight` and slopes up to
+ * `maxSlope`, sticking to the ground within `snapDistance`, and pushing
+ * dynamic bodies it walks into. A RigidBody in a 2D scene creates nothing.
  */
 export class RigidBody extends Component {
   static override componentName = 'RigidBody'
@@ -34,9 +39,12 @@ export class RigidBody extends Component {
     angularDamping: { label: 'Angular damping', min: 0, step: 0.1 },
     lockRotations: { label: 'Lock rotations' },
     velocity: { label: 'Initial velocity', kind: 'vector3' },
+    stepHeight: { label: 'Step height', min: 0, step: 0.05 },
+    maxSlope: { label: 'Max slope (degrees)', min: 0, max: 89, step: 1 },
+    snapDistance: { label: 'Snap to ground', min: 0, step: 0.05 },
   } satisfies Record<string, ParamSpec>
-  // A live read of the body, not an authorable default (it needs a Game to answer).
-  static override transient = ['linearVelocity']
+  // Live reads and writes of the body, not authorable defaults (they need a Game to answer).
+  static override transient = ['linearVelocity', 'desiredVelocity']
 
   type: RigidBodyType = 'dynamic'
   mass = 1
@@ -46,6 +54,18 @@ export class RigidBody extends Component {
   lockRotations = false
   /** The initial linear velocity `[x, y, z]`, applied when the body is created. */
   velocity: Vec3Json = [0, 0, 0]
+  /** Kinematic only: the tallest step it climbs without jumping. */
+  stepHeight = 0.3
+  /** Kinematic only: the steepest slope it climbs, in degrees. */
+  maxSlope = 45
+  /** Kinematic only: how far below its feet it still sticks to the ground (walking down steps and slopes). */
+  snapDistance = 0.2
+  /**
+   * Kinematic only: where it walks, in units per second on the world x and z
+   * axes. A motor sets it; the physics step reads it every Simulation Step and
+   * moves the body through the character controller. It stays until set again.
+   */
+  desiredVelocity = { x: 0, z: 0 }
 
   /** The body's linear velocity now, in units per second; zero before it exists. Assigning sets it. */
   get linearVelocity(): BodyVector {
@@ -53,6 +73,11 @@ export class RigidBody extends Component {
   }
   set linearVelocity(value: BodyVector) {
     this.game.physics.setVelocityOf(this.entity, value)
+  }
+
+  /** Launches a kinematic body upward at `speed` (units per second); only while it stands on something. */
+  jump(speed: number): void {
+    this.game.physics.jumpOf(this.entity, speed)
   }
 
   /** Whether the body stands on something; only a kinematic body moved by the character controller can. */

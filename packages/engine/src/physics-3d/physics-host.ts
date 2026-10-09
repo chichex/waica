@@ -4,7 +4,7 @@ import { activeRuntimeBridgeHook } from '../runtime-bridge.js'
 import type { Vec3Json } from '../scene-camera-3d.js'
 import { DEFAULT_GRAVITY, type ResolvedSceneSimulation } from '../scene-simulation.js'
 import type { SceneSpace } from '../scene-space.js'
-import type { BodyRecord } from './body-sync.js'
+import { bodyVelocity, type BodyRecord } from './body-sync.js'
 import { loadRapier, RAPIER_PACKAGE, type PhysicsBackend, type RapierModule } from './rapier-module.js'
 import { PhysicsWorld } from './physics-world.js'
 
@@ -100,17 +100,27 @@ export class PhysicsHost {
 
   velocityOf(entity: Entity): { x: number; y: number; z: number } | null {
     const record = this.recordOf(entity)
-    if (!record) return null
-    const { x, y, z } = record.body.linvel()
-    return { x, y, z }
+    return record ? bodyVelocity(record) : null
   }
 
+  /** Sets a dynamic body's velocity; for a kinematic one, x and z become its desired velocity and y its vertical velocity. */
   setVelocityOf(entity: Entity, velocity: { x: number; y: number; z: number }): void {
-    this.recordOf(entity)?.body.setLinvel(velocity, true)
+    const record = this.recordOf(entity)
+    if (record?.kind === 'dynamic') record.body.setLinvel(velocity, true)
+    if (record?.kind === 'kinematic' && record.rigid) {
+      record.rigid.desiredVelocity = { x: velocity.x, z: velocity.z }
+      record.vy = velocity.y
+    }
   }
 
   groundedOf(entity: Entity): boolean {
     return this.recordOf(entity)?.grounded ?? false
+  }
+
+  /** Launches a kinematic body upward, when it stands on something. */
+  jumpOf(entity: Entity, speed: number): void {
+    const record = this.recordOf(entity)
+    if (record?.kind === 'kinematic' && record.grounded) record.vy = speed
   }
 
   applyImpulseTo(entity: Entity, impulse: { x: number; y: number; z: number }): void {

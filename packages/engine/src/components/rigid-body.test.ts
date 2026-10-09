@@ -29,6 +29,9 @@ describe('RigidBody (CA-14)', () => {
       angularDamping: 0,
       lockRotations: false,
       velocity: [0, 0, 0],
+      stepHeight: 0.3,
+      maxSlope: 45,
+      snapDistance: 0.2,
     })
   })
 

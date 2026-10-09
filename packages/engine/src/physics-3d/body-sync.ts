@@ -23,6 +23,10 @@ export interface BodyRecord {
   readonly shape: RapierCollider
   /** Whether a kinematic body stands on something after the last step; written by the character controller. */
   grounded: boolean
+  /** A kinematic body's vertical velocity (units per second), integrated by the character controller. */
+  vy: number
+  /** A kinematic body's movement over the last step, per second. */
+  velocity: { x: number; y: number; z: number }
 }
 
 /** The dimensions a collider needs are positive finite numbers (Rapier does not defend itself against anything else). */
@@ -120,14 +124,25 @@ export function createBody(R: RapierModule, world: RapierWorld, parts: BodyParts
   if (collider.sensor) desc.setActiveCollisionTypes(R.ActiveCollisionTypes.ALL | R.ActiveCollisionTypes.FIXED_FIXED)
   if (rigid) desc.setMass(rigid.mass)
   const shape = world.createCollider(desc, body)
-  return { entity, collider, rigid, kind: bodyKind(rigid), body, shape, grounded: false }
+  return { entity, collider, rigid, kind: bodyKind(rigid), body, shape, grounded: false, vy: 0, velocity: { x: 0, y: 0, z: 0 } }
 }
 
-/** After a step: a dynamic body's pose becomes its entity's (a sleeping body has not moved). */
-export function syncDynamicBody(record: BodyRecord): void {
-  if (record.kind !== 'dynamic' || record.body.isSleeping()) return
+/** A body's linear velocity: Rapier's for a dynamic one, the measured movement of a kinematic one, none for a fixed one. */
+export function bodyVelocity(record: BodyRecord): { x: number; y: number; z: number } {
+  if (record.kind === 'kinematic') return { ...record.velocity }
+  if (record.kind === 'dynamic') {
+    const { x, y, z } = record.body.linvel()
+    return { x, y, z }
+  }
+  return { x: 0, y: 0, z: 0 }
+}
+
+/** After a step: a moving body's pose becomes its entity's (a sleeping dynamic body has not moved). */
+export function syncBodyPose(record: BodyRecord): void {
+  if (record.kind === 'fixed' || (record.kind === 'dynamic' && record.body.isSleeping())) return
   const t = record.body.translation()
-  const q = record.body.rotation()
   record.entity.position.set(t.x, t.y, t.z)
+  if (record.kind === 'kinematic') return
+  const q = record.body.rotation()
   record.entity.node.quaternion.set(q.x, q.y, q.z, q.w)
 }

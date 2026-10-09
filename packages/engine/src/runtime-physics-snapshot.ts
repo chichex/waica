@@ -1,6 +1,6 @@
 import type { Entity } from './entity.js'
 import type { Game } from './game.js'
-import type { BodyKind } from './physics-3d/body-sync.js'
+import { bodyVelocity, type BodyKind } from './physics-3d/body-sync.js'
 import type { PhysicsState } from './physics-3d/physics-host.js'
 import type { ProjectionIssue } from './runtime-inspection.js'
 import type { Vec3Json } from './scene-camera-3d.js'
@@ -36,7 +36,7 @@ export function physicsSection(game: Game, idFor: (entity: Entity) => string): {
   const world = game.physics.world
   const [gx, gy, gz] = game.physics.sceneGravity
   const bodies = (world?.bodiesOf(game.entities) ?? []).map((record): RuntimeSnapshotBody => {
-    const { x, y, z } = record.body.linvel()
+    const { x, y, z } = bodyVelocity(record)
     return {
       entity: record.entity.name,
       id: idFor(record.entity),
