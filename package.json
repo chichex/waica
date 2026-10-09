@@ -7,6 +7,7 @@
     "dev": "pnpm --filter @waica/example-platformer dev",
     "dev:topdown": "pnpm --filter @waica/example-topdown dev",
     "dev:isometric": "pnpm --filter @waica/example-isometric dev",
+    "dev:3d": "pnpm --filter @waica/example-smoke-3d dev",
     "editor": "pnpm --filter @waica/editor dev",
     "build": "pnpm -r build",
     "test": "vitest run",
