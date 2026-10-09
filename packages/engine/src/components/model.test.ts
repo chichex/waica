@@ -9,15 +9,48 @@ vi.mock('three/webgpu', async (importOriginal) =>
 import { authoringDefaults } from '../authoring-defaults.js'
 import { flush } from '../assets/test-helpers.js'
 import { loadScene } from '../scene.js'
-import { meshesUnder as meshesOf, ready3dGame, registryOf, scene3d, use3dTestEnvironment } from '../test-game-3d.js'
+import { meshesUnder as meshesOf, ready3dGame, registryOf, scene3d, use3dTestEnvironment, type Game3d } from '../test-game-3d.js'
 import { defined } from '../test-support.js'
 import { Model } from './model.js'
 
 use3dTestEnvironment()
 
+/** A ready Game with an empty 3D scene loaded: a Model draws only in one. */
+async function ready3dModelGame(): Promise<Game3d> {
+  const built = await ready3dGame()
+  loadScene(built.game, scene3d([]), registryOf({ Model }))
+  return built
+}
+
+describe('Model in a 2D scene (CA-9)', () => {
+  it('creates nothing: no root, no mesh, like Sun and PointLight', async () => {
+    const { game } = await ready3dGame()
+    loadScene(game, { waicaScene: 3, entities: [] }, registryOf({ Model }))
+    const entity = game.spawn('Crate')
+
+    const model = entity.add(Model, { shape: 'box' })
+
+    expect(model.root).toBeNull()
+    expect(entity.node.children).toHaveLength(0)
+    expect(() => entity.destroy()).not.toThrow()
+  })
+
+  it('ignores a later shape or src change without building anything', async () => {
+    const { game } = await ready3dGame()
+    loadScene(game, { waicaScene: 3, entities: [] }, registryOf({ Model }))
+    const entity = game.spawn('Crate')
+    const model = entity.add(Model)
+
+    model.shape = 'sphere'
+    model.src = '/tree.glb'
+
+    expect(entity.node.children).toHaveLength(0)
+  })
+})
+
 describe('Model primitives (CA-9)', () => {
   it('draws a box of the given color and size under the entity node, with a standard node material', async () => {
-    const { game } = await ready3dGame()
+    const { game } = await ready3dModelGame()
     const entity = game.spawn('Crate')
 
     const model = entity.add(Model, { shape: 'box', color: 0xff0000, size: 2 })
@@ -36,7 +69,7 @@ describe('Model primitives (CA-9)', () => {
     ['plane', THREE.PlaneGeometry],
     ['box', THREE.BoxGeometry],
   ] as const)('draws a %s', async (shape, Geometry) => {
-    const { game } = await ready3dGame()
+    const { game } = await ready3dModelGame()
     const model = game.spawn('Thing').add(Model, { shape })
     expect(defined(meshesOf(defined(model.root))[0]).geometry).toBeInstanceOf(Geometry)
   })
@@ -45,7 +78,7 @@ describe('Model primitives (CA-9)', () => {
 
 describe('Model primitives, shapes (CA-9)', () => {
   it('lays a plane flat on the ground: its normal points up', async () => {
-    const { game } = await ready3dGame()
+    const { game } = await ready3dModelGame()
     const model = game.spawn('Ground').add(Model, { shape: 'plane' })
     const geometry = defined(meshesOf(defined(model.root))[0]).geometry
     const normal = geometry.getAttribute('normal')
@@ -53,7 +86,7 @@ describe('Model primitives, shapes (CA-9)', () => {
   })
 
   it('defaults to a white unit box', async () => {
-    const { game } = await ready3dGame()
+    const { game } = await ready3dModelGame()
     const model = game.spawn('Default').add(Model)
     const mesh = defined(meshesOf(defined(model.root))[0])
     expect(mesh.geometry).toBeInstanceOf(THREE.BoxGeometry)
@@ -62,7 +95,7 @@ describe('Model primitives, shapes (CA-9)', () => {
   })
 
   it('updates the live mesh when color or size change, and rebuilds it when the shape changes', async () => {
-    const { game } = await ready3dGame()
+    const { game } = await ready3dModelGame()
     const model = game.spawn('Live').add(Model, { shape: 'box' })
     const first = defined(meshesOf(defined(model.root))[0])
 
@@ -85,7 +118,7 @@ describe('Model primitives, shapes (CA-9)', () => {
 
 describe('Model glTF (CA-9)', () => {
   it('draws the cached glTF under its root and keeps the file\'s own materials', async () => {
-    const { game, models } = await ready3dGame()
+    const { game, models } = await ready3dModelGame()
     const model = game.spawn('Tree').add(Model, { src: '/tree.glb' })
     expect(defined(model.root).parent).toBe(game.entities[0]?.node)
     expect(meshesOf(defined(model.root))).toHaveLength(0)
@@ -103,7 +136,7 @@ describe('Model glTF (CA-9)', () => {
 
 describe('Model glTF, precedence and disposal (CA-9)', () => {
   it('lets src win over shape: no primitive is built', async () => {
-    const { game } = await ready3dGame()
+    const { game } = await ready3dModelGame()
     const model = game.spawn('Both').add(Model, { src: '/tree.glb', shape: 'sphere' })
     await game.assets.ready()
     const geometries = meshesOf(defined(model.root)).map((mesh) => mesh.geometry.type)
@@ -112,7 +145,7 @@ describe('Model glTF, precedence and disposal (CA-9)', () => {
   })
 
   it('does not dispose the cached glTF on destroy, but removes its root', async () => {
-    const { game, models } = await ready3dGame()
+    const { game, models } = await ready3dModelGame()
     const entity = game.spawn('Tree')
     const model = entity.add(Model, { src: '/tree.glb' })
     await game.assets.ready()
@@ -129,7 +162,7 @@ describe('Model glTF, precedence and disposal (CA-9)', () => {
   })
 
   it('disposes the primitive geometry and material it created on destroy', async () => {
-    const { game } = await ready3dGame()
+    const { game } = await ready3dModelGame()
     const entity = game.spawn('Box')
     const model = entity.add(Model, { shape: 'box' })
     const mesh = defined(meshesOf(defined(model.root))[0])
@@ -147,7 +180,7 @@ describe('Model glTF, precedence and disposal (CA-9)', () => {
 
 describe('Model glTF, swapping and late loads (CA-9)', () => {
   it('swaps the glTF when src changes, loading the new file', async () => {
-    const { game, models } = await ready3dGame()
+    const { game, models } = await ready3dModelGame()
     const model = game.spawn('Swap').add(Model, { src: '/a.glb' })
     await game.assets.ready()
     model.src = '/b.glb'
@@ -159,7 +192,7 @@ describe('Model glTF, swapping and late loads (CA-9)', () => {
   })
 
   it('ignores a glTF that settles after the model was destroyed or swapped away', async () => {
-    const { game, models } = await ready3dGame()
+    const { game, models } = await ready3dModelGame()
     models.hold('/late.glb')
     const entity = game.spawn('Late')
     const model = entity.add(Model, { src: '/late.glb' })
@@ -172,7 +205,7 @@ describe('Model glTF, swapping and late loads (CA-9)', () => {
 
 describe('Model through a scene (CA-9)', () => {
   it('resolves src through the registry like a texture: waica: uris and project paths', async () => {
-    const { game, models } = await ready3dGame()
+    const { game, models } = await ready3dModelGame()
     const registry = registryOf({ Model })
     loadScene(
       game,
