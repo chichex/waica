@@ -1,6 +1,7 @@
 import { AnimatedSprite, Sprite, type Entity, type Game, type SceneEntityJson, type SceneJson, type SceneRegistry } from '@waica/engine'
 import { SWEEP, cellSize, gridShape, type ScenarioKind, type ScenarioName } from '../sweep.ts'
 import { bulletHell } from './bullet-hell.ts'
+import { fallingBoxes } from './falling-boxes.ts'
 import { lightsOcclusion } from './lights-occlusion.ts'
 import { SHEET_FRAMES, sheetTexture, squareTexture } from './fixture-art.ts'
 
@@ -105,6 +106,7 @@ export const PLAN_BY_KIND: Record<ScenarioKind, (n: number) => ScenarioPlan> = {
   'animated-sprites': animatedSprites,
   'bullet-hell': (n) => bulletHell(n, squareTexture(), REGISTRY_COMPONENTS),
   'lights-occlusion': lightsOcclusion,
+  'falling-boxes': fallingBoxes,
 }
 
 /** Builds the plan of one sweep entry; art is generated here, in the page. */
