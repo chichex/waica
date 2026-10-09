@@ -5,6 +5,7 @@ import type {
   SceneComponentJson,
   SceneEntityJson,
   SceneJson,
+  SceneSpace,
 } from '@waica/engine'
 import { collisionCategoryFindings } from './collision-category-validation.js'
 import { objectRecord } from './component-metadata.js'
@@ -17,6 +18,7 @@ import {
   validateParamReferences,
 } from './component-validation.js'
 import { lightParamFindings } from './light-param-validation.js'
+import { sceneSpaceOf, validateEntitySpace, validateSceneSpace } from './space-validation.js'
 import { validateEntitySceneTransition } from './scene-transition-validation.js'
 import { validateStateMachines } from './state-machine-validation.js'
 import { add, type ValidationContext } from './validation-context.js'
@@ -82,12 +84,15 @@ export function validateScene(scene: SceneJson, scope: SceneScope): void {
   for (const issue of sceneRenderIssues(scene.render)) {
     add(scope.context, 'error', 'invalid-scene-render', issue.message, scope.file, issue.field)
   }
+  // render.space, the camera against it and the 2D-only render options (issue #154 CA-13).
+  validateSceneSpace(scene, scope)
+  const space = sceneSpaceOf(scene)
   for (const ui of Array.isArray(scene.ui) ? scene.ui : []) {
     if (typeof ui === 'string' && !scope.uiNames.has(ui)) {
       add(scope.context, 'warning', 'unknown-ui-piece', `Unknown UI piece "${ui}".`, scope.file, ui)
     }
   }
-  for (const { entity, index } of entities) validateSceneEntity(entity, index, scope)
+  for (const entry of entities) validateSceneEntity(entry, scope, space)
 }
 
 function validateSceneCamera(
@@ -111,7 +116,11 @@ function validateSceneCamera(
   }
 }
 
-function validateSceneEntity(entity: LooseSceneEntity, index: number, scope: SceneScope): void {
+function validateSceneEntity(
+  { entity, index }: { entity: LooseSceneEntity; index: number },
+  scope: SceneScope,
+  space: SceneSpace,
+): void {
   const { context, file } = scope
   const entityRef =
     typeof entity.name === 'string' && entity.name ? entity.name : `entity[${index}]`
@@ -129,6 +138,7 @@ function validateSceneEntity(entity: LooseSceneEntity, index: number, scope: Sce
     ...validateEntitySceneTransition(entity, entityRef, file, scope.prefabs, scope.knownScenes),
   )
   const prefab = validatePrefabReference(entity, entityRef, scope)
+  validateEntitySpace({ entity, ref: entityRef, prefab }, space, scope)
   const composition = entityComposition(entity, entityRef, prefab)
   validateEntityParamReferences(composition, scope)
 
