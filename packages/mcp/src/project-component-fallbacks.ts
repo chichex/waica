@@ -96,7 +96,7 @@ async function compileSourceFallbacks(packagesRoot: string): Promise<Record<stri
 }
 
 /** Every specifier the engine imports three with: the builds (ADR 0025) and the addons its glTF loading uses (ADR 0027). */
-const THREE_SPECIFIERS = [
+export const THREE_SPECIFIERS = [
   'three',
   'three/webgpu',
   'three/tsl',

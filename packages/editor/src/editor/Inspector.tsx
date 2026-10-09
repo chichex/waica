@@ -101,6 +101,7 @@ function SelectionBody({
         <CameraInspector
           camera={selection.camera}
           entityNames={selection.entityNames}
+          space={selection.space}
           onProp={props.onCameraProp}
           pixelsPerUnit={props.pixelsPerUnit}
           resolution={props.resolution}

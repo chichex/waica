@@ -56,6 +56,19 @@ describe('Model params in the inspector (issue #154 CA-8, CA-9)', () => {
   })
 })
 
+describe('Model picker (issue #154 CA-15)', () => {
+  it('offers only the models validate_project and the build resolve: src/art/<file> and the archetype\'s own', () => {
+    const nested: ArtItem = { ...TREE, label: 'models/pine.glb', uri: 'src/art/models/pine.glb', path: 'src/art/models/pine.glb' }
+    const inPublic: ArtItem = { ...TREE, label: 'public/oak.glb', uri: 'public/oak.glb', path: 'public/oak.glb' }
+    const bundled: ArtItem = { ...TREE, label: 'iso-tree.glb', uri: 'waica:iso-tree', path: 'waica:iso-tree' }
+    renderInspector({ kind: 'entity', sceneName: 'main', entity: crate() }, { art: [TREE, nested, inPublic, bundled] })
+
+    const select = screen.getByRole<HTMLSelectElement>('combobox', { name: /model file/i })
+    const options = within(select).getAllByRole('option').map((option) => option.textContent)
+    expect(options).toEqual(['none (use the shape)', 'tree.glb', 'iso-tree.glb'])
+  })
+})
+
 describe('Sun direction in the inspector (issue #154 CA-11)', () => {
   it('edits the direction as X/Y/Z', () => {
     const entity: SceneEntityJson = { name: 'Daylight', components: [{ type: 'Sun', props: { direction: [-1, -2, -1] } }] }

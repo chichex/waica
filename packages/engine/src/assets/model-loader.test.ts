@@ -169,6 +169,20 @@ describe('preload routing (CA-7)', () => {
     expect(loader.status).toEqual({ pending: 0, loaded: 4, failed: 0 })
   })
 
+  it('decides by the uri as written too, since a resolver may return a url with no extension', async () => {
+    const blobs: Record<string, string> = {
+      'src/art/tree.glb': 'blob:http://localhost/aaaa-1111',
+      'src/art/rock.gltf': 'data:model/gltf+json;base64,e30=',
+      'src/art/ground.png': 'blob:http://localhost/bbbb-2222',
+    }
+    const { loader, models, textures } = make((uri) => blobs[uri] ?? uri)
+
+    await loader.preload(['src/art/tree.glb', 'src/art/rock.gltf', 'src/art/ground.png'])
+
+    expect(models.loadCalls).toEqual(['blob:http://localhost/aaaa-1111', 'data:model/gltf+json;base64,e30='])
+    expect(textures.loadCalls).toEqual(['blob:http://localhost/bbbb-2222'])
+  })
+
   it('shares one load between preload() and model()', async () => {
     const { loader, models } = make()
     await loader.preload(['/tree.glb'])

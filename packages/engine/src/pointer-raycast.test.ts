@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('three/webgpu', async (importOriginal) =>
   (await import('./test-renderer.js')).withFakeRenderer(await importOriginal()),
@@ -10,24 +10,10 @@ import { Model } from './components/model.js'
 import type { Game, GameResolution } from './game.js'
 import type { PointerPick } from './pointer.js'
 import { loadScene, type SceneEntityJson } from './scene.js'
-import { resetFakeRendering } from './test-renderer.js'
-import { ready3dGame, registryOf, scene3d, type Game3d } from './test-game-3d.js'
+import { ready3dGame, registryOf, scene3d, use3dTestEnvironment, type Game3d } from './test-game-3d.js'
 import { defined } from './test-support.js'
 
-class ResizeObserverStub {
-  observe(): void {}
-  disconnect(): void {}
-}
-
-beforeEach(() => {
-  document.body.innerHTML = ''
-  vi.stubGlobal('ResizeObserver', ResizeObserverStub)
-})
-
-afterEach(() => {
-  vi.unstubAllGlobals()
-  resetFakeRendering()
-})
+use3dTestEnvironment()
 
 const CAMERA: SceneCameraJson = { kind: 'perspective', position: [0, 5, 10], target: [0, 0, 0], fov: 60 }
 

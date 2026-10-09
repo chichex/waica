@@ -31,6 +31,7 @@ function primitiveGeometry(shape: ModelShape): THREE.BufferGeometry {
  * primitive has a standard (lit) node material. `color` and `size` follow the
  * inspector live; a new `src` or `shape` rebuilds the content. Destroying it
  * removes the root and disposes only what it created — never the cached glTF.
+ * In a 2D scene it creates nothing (`validate_project` reports it).
  */
 export class Model extends Component {
   static override componentName = 'Model'
@@ -87,6 +88,8 @@ export class Model extends Component {
   }
 
   override onReady(): void {
+    // Draws only in a 3D scene, like Sun and PointLight: 2.5D is a later block, and a lit-less mesh would come out black.
+    if (this.game.space !== '3d') return
     this.root = new THREE.Group()
     this.root.name = 'waica:model'
     this.entity.node.add(this.root)

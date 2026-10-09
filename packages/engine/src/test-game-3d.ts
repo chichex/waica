@@ -7,6 +7,7 @@ import type { SceneCameraJson } from './camera.js'
 import { Game, type GameResolution } from './game.js'
 import { RUNTIME_BRIDGE_SYMBOL, type RuntimeBridge, type RuntimeBridgeActivation } from './runtime-bridge.js'
 import type { SceneEntityJson, SceneJson, SceneRegistry, SceneRenderJson } from './scene.js'
+import { useSpriteBatchTestEnvironment, type AnyMesh } from './test-sprite-batches.js'
 
 export interface Game3d {
   game: Game
@@ -45,24 +46,22 @@ export function registryOf(components: SceneRegistry['components']): SceneRegist
   }
 }
 
-export type SceneMesh = THREE.Mesh<THREE.BufferGeometry, THREE.Material | THREE.Material[]>
-
-function isSceneMesh(object: THREE.Object3D): object is SceneMesh {
+function isAnyMesh(object: THREE.Object3D): object is AnyMesh {
   return object instanceof THREE.Mesh
 }
 
 /** Every mesh under `root`, typed for what a glTF or a primitive gives them (the generics three leaves at `any`). */
-export function meshesUnder(root: THREE.Object3D): SceneMesh[] {
-  const found: SceneMesh[] = []
+export function meshesUnder(root: THREE.Object3D): AnyMesh[] {
+  const found: AnyMesh[] = []
   root.traverse((object) => {
-    if (isSceneMesh(object)) found.push(object)
+    if (isAnyMesh(object)) found.push(object)
   })
   return found
 }
 
-/** One render frame running no Simulation Step. */
-export function renderOnly(game: Game): void {
-  ;(game as unknown as { runFrame(steps: number): void }).runFrame(0)
+/** A clean DOM, a ResizeObserver stub and no render hook around every 3D test. */
+export function use3dTestEnvironment(): void {
+  useSpriteBatchTestEnvironment()
 }
 
 /** The Runtime Bridge a started Game registers with a host activation: the surface `inspect_runtime` reads. */

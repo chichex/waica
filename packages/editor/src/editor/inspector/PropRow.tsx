@@ -4,7 +4,7 @@ import type { ParamDiagnostic } from '../collision-category-diagnostics'
 import { NumberField } from '../NumberField'
 import { availableRefTargets, type RefTarget } from '../ref-targets'
 import { ParamDiagnosticMessages, StringListField } from '../StringListField'
-import { ModelParamRow, TextureParamRow, Vector2ParamRow, Vector3ParamRow } from './param-kind-rows'
+import { ModelParamRow, TextureParamRow, VectorParamRow } from './param-kind-rows'
 import { RefRow } from './RefRow'
 import { RefTargetsContext } from './ref-targets-context'
 
@@ -190,10 +190,10 @@ type KindRowProps = ValueRowProps<unknown> & { label: string; spec: ParamSpec }
 /** The controls a param's declared `kind` asks for; `color` and `string-list` are drawn by the value's own type. */
 const KIND_ROWS: Partial<Record<NonNullable<ParamSpec['kind']>, (props: KindRowProps) => React.ReactNode>> = {
   vector2: ({ label, name, value, onChange, spec }) => (
-    <Vector2ParamRow label={spec.label ?? label} name={name} value={value} onChange={onChange} />
+    <VectorParamRow label={spec.label ?? label} name={name} value={value} axes={['x', 'y']} onChange={onChange} />
   ),
   vector3: ({ label, name, value, onChange, spec }) => (
-    <Vector3ParamRow label={spec.label ?? label} name={name} value={value} onChange={onChange} />
+    <VectorParamRow label={spec.label ?? label} name={name} value={value} axes={['x', 'y', 'z']} onChange={onChange} />
   ),
   texture: ({ name, value, onChange }) => <TextureParamRow name={name} value={value} onChange={onChange} />,
   model: ({ name, value, onChange }) => <ModelParamRow name={name} value={value} onChange={onChange} />,

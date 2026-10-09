@@ -9,7 +9,7 @@ import { screenPanOf } from './audio/spatial.js'
 import { dispatchCollisions as dispatchHitboxCollisions } from './collision-dispatch.js'
 import type { ResolvedSceneCamera, SceneCameraJson } from './camera.js'
 import { worldToNormalized, type GameCamera, type WorldPoint } from './camera-projection.js'
-import { CameraRig } from './camera-rig.js'
+import { CameraRig, type CameraFollowHost } from './camera-rig.js'
 import { advanceCameraEffects, CameraEffects, layoutCameraEffects } from './camera-effects.js'
 import type { Component, ComponentClass } from './component.js'
 import { implementsOnUpdate, resolveComponentUpdateSchedule } from './component-update-schedule.js'
@@ -193,6 +193,14 @@ export class Game {
   /** The orthographic camera of 2D scenes and the perspective one of 3D scenes (ADR 0027); read by the Runtime Snapshot, not part of the game-facing API. */
   readonly cameraRig = new CameraRig()
   private sceneSpace: SceneSpace = '2d'
+  /** A 3D scene's stereo pan, reading the live camera at every call (built once, not per frame). */
+  private readonly screenPan = screenPanOf(() => this.camera)
+  /** What following an entity reads from the Game, built once rather than per Simulation Step. */
+  private readonly followHost: CameraFollowHost = {
+    find: (name) => this.find(name),
+    renderPoint: (x, y) => this.renderPoint(x, y),
+    viewHeight: () => this.viewHeight,
+  }
   private renderSort: 'y' | null = null
   private sceneProjection: 'isometric' | null = null
   /** The Ambient Light of a 3D scene, fed by `lighting.ambient` (ADR 0027). */
@@ -692,7 +700,7 @@ export class Game {
       this.audio.updatePlacements(
         this.audioListenerPosition(),
         (x, y) => this.renderPoint(x, y),
-        this.sceneSpace === '3d' ? screenPanOf(() => this.camera) : undefined,
+        this.sceneSpace === '3d' ? this.screenPan : undefined,
       )
       this.renderSurface()
     } finally {
@@ -836,8 +844,7 @@ export class Game {
 
   private updateSceneCamera(dt: number): void {
     if (!this.sceneCamera) return
-    const host = { find: (name: string) => this.find(name), renderPoint: (x: number, y: number) => this.renderPoint(x, y), viewHeight: this.viewHeight }
-    this.cameraRig.follow(this.sceneCamera, host, dt)
+    this.cameraRig.follow(this.sceneCamera, this.followHost, dt)
   }
 
   private renderPoint(x: number, y: number): { x: number; y: number } {
@@ -851,9 +858,12 @@ export class Game {
    * inverse of `renderPoint` — without it, distance-based attenuation would
    * measure render-space distance instead of real game distance.
    */
-  private audioListenerPosition(): { x: number; y: number } {
+  private audioListenerPosition(): { x: number; y: number; z?: number } {
+    if (this.sceneSpace === '3d') {
+      const { x, y, z } = this.camera.position
+      return { x, y, z }
+    }
     const { x, y } = this.camera.position
-    if (this.sceneSpace === '3d') return this.camera.position
     return this.sceneProjection === 'isometric' ? unprojectIsometric(x, y) : { x, y }
   }
 

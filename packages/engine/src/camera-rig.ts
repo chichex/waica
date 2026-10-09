@@ -19,8 +19,8 @@ export interface CameraFollowHost {
   find(name: string): Entity | undefined
   /** A logical point in render space (the isometric projection, when the scene has one). */
   renderPoint(x: number, y: number): { x: number; y: number }
-  /** The visible world height, i.e. the orthographic zoom. */
-  readonly viewHeight: number
+  /** The visible world height, i.e. the orthographic zoom, as it is when called. */
+  viewHeight(): number
 }
 
 /**
@@ -103,7 +103,7 @@ export class CameraRig {
       x: camera.position.x,
       y: camera.position.y,
       halfW: (camera.right - camera.left) / 2,
-      halfH: host.viewHeight / 2,
+      halfH: host.viewHeight() / 2,
       target,
       vx: renderVelocity.x,
       vy: renderVelocity.y,
@@ -114,7 +114,11 @@ export class CameraRig {
   }
 
   private useBlock(json: PerspectiveSceneCameraJson | undefined): void {
-    this.perspective ??= new THREE.PerspectiveCamera()
+    if (!this.perspective) {
+      this.perspective = new THREE.PerspectiveCamera()
+      // A 3D scene is never lit, so an Emissive drawable is drawn in place on the camera's own layers.
+      this.perspective.layers.enable(EMISSIVE_LAYER)
+    }
     const resolved = resolvePerspectiveCamera(json)
     placePerspectiveCamera(this.perspective, resolved, this.aspect)
     this.distance = new THREE.Vector3(...resolved.position).distanceTo(new THREE.Vector3(...resolved.target)) || 1

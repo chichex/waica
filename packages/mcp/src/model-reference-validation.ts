@@ -64,8 +64,12 @@ export function checkModelParam(check: ModelParamCheck, context: ValidationConte
 }
 
 /**
- * A Model that declares both a `src` and a `shape` draws the glTF and ignores
- * the shape (inference 10): the shape is a leftover worth a warning.
+ * A Model that declares both a `src` and a non-default `shape` draws the glTF
+ * and ignores the shape (inference 10): the shape is a leftover worth a
+ * warning. The default `box` is not one: an editor writes `shape` as soon as
+ * the dropdown is touched and has no way to remove the key, so only a value
+ * the user can set back to the default counts, and setting it back clears
+ * the warning.
  */
 export function checkModelShapeIgnored(
   component: SceneComponentJson,
@@ -74,12 +78,12 @@ export function checkModelShapeIgnored(
 ): void {
   if (component.type !== 'Model') return
   const props = objectRecord(component.props)
-  if (typeof props.src !== 'string' || props.src === '' || props.shape === undefined) return
+  if (typeof props.src !== 'string' || props.src === '' || props.shape === undefined || props.shape === 'box') return
   add(
     context,
     'warning',
     'model-shape-ignored',
-    `Model on "${ref}" declares both src and shape; src wins and the shape is ignored.`,
+    `Model on "${ref}" declares both src and shape ${JSON.stringify(props.shape)}; src wins and the shape is ignored (set the shape back to box to clear this).`,
     file,
     ref,
   )

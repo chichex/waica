@@ -81,3 +81,22 @@ describe('perspectiveCameraIssues (CA-13)', () => {
     expect(fields(undefined)).toEqual([])
   })
 })
+
+describe('perspectiveCameraIssues, a camera without a direction', () => {
+  it('reports a position equal to the target (declared or defaulted)', () => {
+    const same = perspectiveCameraIssues({ kind: 'perspective', position: [0, 2, 0], target: [0, 2, 0] })
+    expect(same.map((issue) => issue.field)).toEqual(['camera.target'])
+    expect(same[0]?.message).toContain('position')
+    expect(perspectiveCameraIssues({ kind: 'perspective', position: [0, 0, 0] }).map((issue) => issue.field)).toEqual(['camera.target'])
+    expect(perspectiveCameraIssues({ kind: 'perspective', target: [0, 5, 10] }).map((issue) => issue.field)).toEqual(['camera.target'])
+  })
+
+  it('accepts a position that differs from the target on any axis', () => {
+    expect(perspectiveCameraIssues({ kind: 'perspective', position: [0, 2, 0], target: [0, 2, 0.5] })).toEqual([])
+    expect(perspectiveCameraIssues({ kind: 'perspective' })).toEqual([])
+  })
+
+  it('does not add a second finding when position or target is already malformed', () => {
+    expect(perspectiveCameraIssues({ kind: 'perspective', position: [0, 0], target: [0, 0] })).toHaveLength(2)
+  })
+})

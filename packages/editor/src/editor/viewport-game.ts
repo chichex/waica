@@ -86,7 +86,6 @@ function zoomEditCamera(game: Game, cam: EditCamera, factor: number): void {
 
 /** Jumps the view to the scene camera's framing (its target's, when following); returns the new pan/zoom. */
 export function frameSceneCamera(game: Game, live: ViewportLive): EditCamera {
-  if (isReadOnlyView(game)) return { x: game.camera.position.x, y: game.camera.position.y, view: game.view }
   const sceneCam = resolveOrthographicCamera(live.scene.camera)
   const target = sceneCam.follow ? game.find(sceneCam.follow) : undefined
   const [x, y] = target
@@ -115,6 +114,7 @@ export function zoomEditView({ gameRef, liveRef, camRef }: EditViewSession, fact
 /** Jumps the edit view to the scene camera's framing; a no-op outside edit mode. */
 export function frameEditView({ gameRef, liveRef, camRef }: EditViewSession): void {
   const game = gameRef.current
-  if (!game || liveRef.current.mode !== 'edit') return
+  // A read-only (3D) view has no pan to remember; its pose is not an EditCamera.
+  if (!game || liveRef.current.mode !== 'edit' || isReadOnlyView(game)) return
   camRef.current = frameSceneCamera(game, liveRef.current)
 }
