@@ -57,10 +57,10 @@ function cylinder(radius, y0, y1) {
   const triangles = []
   for (let index = 0; index < SIDES; index += 1) {
     const next = (index + 1) % SIDES
-    triangles.push([bottom[index], top[next], top[index]])
-    triangles.push([bottom[index], bottom[next], top[next]])
-    triangles.push([top[index], top[next], [0, y1, 0]])
-    triangles.push([bottom[next], bottom[index], [0, y0, 0]])
+    triangles.push([bottom[index], top[index], top[next]])
+    triangles.push([bottom[index], top[next], bottom[next]])
+    triangles.push([top[next], top[index], [0, y1, 0]])
+    triangles.push([bottom[index], bottom[next], [0, y0, 0]])
   }
   return triangles
 }
