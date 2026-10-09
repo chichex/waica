@@ -7,6 +7,7 @@ import assert from 'node:assert/strict'
 import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { expectsBlankLighting } from './runtime-e2e-lighting.mjs'
 
 const EXAMPLE = fileURLToPath(new URL('../examples/smoke-3d/', import.meta.url))
 /** The copied scene's name in the generated Project (its file stem). */
@@ -239,8 +240,29 @@ async function assertDepthOrder({ blockedFirst, blockedLast, inspector }) {
   return { differingPixels: compared.differing, sphereCentre: centre }
 }
 
+/**
+ * Expected failure, narrowly (the same one as the lighting leg: PR #150,
+ * https://github.com/chichex/waica/issues/151): on CI's headless Linux WebGPU
+ * a frame with lights comes out blank — no failed step, no page error — while
+ * the webgl2 leg and every local run draw it, and this scene's frame is lit.
+ * Only there the leg asserts the one frame it captures is still opaque white
+ * everywhere and fails the moment it renders, so the fix removes this
+ * exception. The snapshot and validate_project stay required, and so does
+ * every webgl2 assertion. This relaxes the #140 grill's decision 10 (a WebGPU
+ * leg never skips) for this leg's pixel samples alone.
+ */
+async function assertExpectedBlank({ inspector, image }) {
+  const { min, max } = await inspector.range(image)
+  const blank = [...min, ...max].every((value) => value === 255)
+  assert.ok(
+    blank,
+    `issue #151 is fixed for 3D frames: this one now renders on CI's Linux WebGPU, so remove the expectsBlankLighting exception from runtime-e2e-smoke-3d.mjs and let the pixel assertions run; ${JSON.stringify({ min, max })}`,
+  )
+  return { expectedBlank: 'https://github.com/chichex/waica/issues/151' }
+}
+
 /** The whole 3D smoke leg; `helpers` are runtime-e2e.mjs's own. */
-export async function runSmoke3dLeg({ client, root, parent, chrome, viteBin, engineRoot, playwright, label, helpers }) {
+export async function runSmoke3dLeg({ client, root, parent, chrome, viteBin, engineRoot, playwright, label, helpers, renderBackend }) {
   const validation = await assertValidates({ helpers, client, parent })
   const project = await makeRunnableProject({ helpers, client, root, parent, viteBin, engineRoot })
   const scene = JSON.parse(await readFile(path.join(project, `src/scenes/${SCENE}.scene.json`), 'utf8'))
@@ -254,6 +276,9 @@ export async function runSmoke3dLeg({ client, root, parent, chrome, viteBin, eng
     const shipped = await run('shipped', () => {})
     assert.equal(shipped.assets.failed, 0, 'the glb must load')
     assertSnapshot(shipped.snapshot)
+    if (expectsBlankLighting(renderBackend)) {
+      return { smoke3d: { validation, ...(await assertExpectedBlank({ inspector, image: shipped.image })) } }
+    }
     await assertFrame({ inspector, image: shipped.image, samples: shipped.samples })
     const lit = lightingMeasures(shipped.samples)
     assertLit(lit, shipped.samples)
