@@ -18,6 +18,7 @@ import {
   validateParamReferences,
 } from './component-validation.js'
 import { lightParamFindings } from './light-param-validation.js'
+import { checkModelShapeIgnored } from './model-reference-validation.js'
 import { sceneSpaceOf, validateEntitySpace, validateSceneSpace } from './space-validation.js'
 import { validateEntitySceneTransition } from './scene-transition-validation.js'
 import { validateStateMachines } from './state-machine-validation.js'
@@ -131,6 +132,7 @@ function validateSceneEntity(
       context.findings.push(...collisionCategoryFindings(component.props, file, entityRef))
     }
     if (component.type === 'Light') context.findings.push(...lightParamFindings(component.props, file, entityRef))
+    checkModelShapeIgnored(component, { file, ref: entityRef }, context)
   }
   // Only the overridden Light params: the prefab's own are reported at the prefab.
   context.findings.push(...lightParamFindings(objectRecord(entity.overrides)['Light'], file, entityRef))

@@ -31,6 +31,8 @@ export type FindingCode =
   | 'invalid-scene-camera'
   | 'invalid-entity-transform'
   | 'component-space-mismatch'
+  | 'missing-model'
+  | 'model-shape-ignored'
 
 export interface ValidationFinding {
   severity: FindingSeverity
@@ -62,6 +64,8 @@ export interface ValidationContext {
   roleStateSources: Map<string, string[]>
   bindings: Record<string, string[]>
   soundRefs: ReadonlySet<string>
+  /** Every uri a `kind: 'model'` param (Model.src) may validly name — see projectModelRefs. */
+  modelRefs: ReadonlySet<string>
   uiPieces: ReadonlySet<string>
   /** The stock Anchored Pieces, plus pieces a component names through a `ref: 'ui'` param. */
   anchoredPieces: Set<string>

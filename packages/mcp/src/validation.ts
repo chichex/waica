@@ -13,7 +13,7 @@ import {
   validateComponentUpdateSchedule,
   validateParamReferences,
 } from './component-validation.js'
-import { projectSoundRefs } from './param-reference-resolution.js'
+import { checkModelShapeIgnored, projectArtRefs } from './model-reference-validation.js'
 import {
   PackageResolver,
   mixedSourceWarnings,
@@ -97,6 +97,7 @@ function validatePrefab(
       context.findings.push(...collisionCategoryFindings(component.props, file, ref))
     }
     if (component.type === 'Light') context.findings.push(...lightParamFindings(component.props, file, ref))
+    checkModelShapeIgnored(component, { file, ref }, context)
   }
   validateParamReferences(
     components.map((component) => ({ component })),
@@ -294,7 +295,7 @@ async function validationContext(
   // CA-13: every uri a `ref: 'sound'` param may validly name — the
   // archetype's own declared sound art plus whatever actually lives under
   // the project's src/art/ (see param-reference-resolution.ts).
-  const soundRefs = await projectSoundRefs(projectPath, manifest.art)
+  const artRefs = await projectArtRefs(projectPath, manifest.art)
   const { componentRegistry, componentMetadata } = componentCatalog(manifest, sources)
   return {
     findings,
@@ -309,7 +310,7 @@ async function validationContext(
     stateFiles,
     roleStateSources: sources.roleStateSources,
     bindings: controlBindings(fixed.get('src/controls.json')),
-    soundRefs,
+    ...artRefs,
     uiPieces: inputs.uiPieces,
     anchoredPieces: new Set(stockAnchoredPieces(sources.behaviors.module)),
   }

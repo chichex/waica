@@ -124,7 +124,7 @@ export function resolveParamReference(
 }
 
 /** Files directly inside `directory` — not recursive, and never a directory entry. */
-async function filesDirectlyIn(directory: string): Promise<string[]> {
+export async function filesDirectlyIn(directory: string): Promise<string[]> {
   let entries
   try {
     entries = await readdir(directory, { withFileTypes: true })
