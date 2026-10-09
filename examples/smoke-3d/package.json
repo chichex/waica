@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@waica/behaviors": "workspace:*",
     "@waica/engine": "workspace:*"
   },
   "devDependencies": {

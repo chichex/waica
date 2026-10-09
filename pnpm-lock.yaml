@@ -52,6 +52,9 @@ importers:
 
   examples/smoke-3d:
     dependencies:
+      '@waica/behaviors':
+        specifier: workspace:*
+        version: link:../../packages/behaviors
       '@waica/engine':
         specifier: workspace:*
         version: link:../../packages/engine
