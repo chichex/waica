@@ -100,6 +100,25 @@ describe('Model with both src and shape (inference 10)', () => {
     expect(findings[0]).toMatchObject({ severity: 'warning', code: 'model-shape-ignored', ref: 'Tree' })
   })
 
+  it('stays quiet when the shape is the default box, which an editor cannot remove from an inline component', async () => {
+    const findings = await modelFindings({
+      'src/art/tree.glb': GLB,
+      'src/scenes/main.scene.json': threeD([model({ src: 'src/art/tree.glb', shape: 'box' })]),
+    })
+    expect(findings).toEqual([])
+  })
+
+  it('warns for every non-default shape beside a src: sphere and plane', async () => {
+    const findings = await modelFindings({
+      'src/art/tree.glb': GLB,
+      'src/scenes/main.scene.json': threeD([
+        model({ src: 'src/art/tree.glb', shape: 'plane' }),
+        { ...model({ src: 'src/art/tree.glb', shape: 'sphere' }), name: 'Ball' },
+      ]),
+    })
+    expect(findings.map((finding) => finding.code)).toEqual(['model-shape-ignored', 'model-shape-ignored'])
+  })
+
   it('stays quiet when only one of them is declared', async () => {
     const findings = await modelFindings({
       'src/art/tree.glb': GLB,
