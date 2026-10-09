@@ -9,9 +9,10 @@ vi.mock(
     (await import('../../../packages/engine/src/test-renderer.js')).withFakeRenderer(await importOriginal<Record<string, unknown>>()),
 )
 
-import { Game, Model, PointLight, Sun, THREE, type SceneJson, type SceneRegistry } from '@waica/engine'
+import { Game, Model, PointLight, Sun, THREE, type SceneEntityJson, type SceneJson, type SceneRegistry } from '@waica/engine'
 import { FakeModelBackend } from '../../../packages/engine/src/assets/test-helpers.js'
 import { defined } from '../../../packages/engine/src/test-support.js'
+import { renderFrame } from '../../../packages/engine/src/test-sprite-batches.js'
 import sceneFile from './scenes/main.scene.json'
 
 class ResizeObserverStub {
@@ -22,9 +23,23 @@ class ResizeObserverStub {
 const artFiles = import.meta.glob<string>('../art/*', { eager: true, query: '?url', import: 'default' })
 const attribution = import.meta.glob<string>('../ATTRIBUTION.md', { eager: true, query: '?raw', import: 'default' })
 
-/** The JSON file as the scene the Game loads, checked rather than asserted. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** An entity the tests read: a name, and components (when present) that are objects with a string type. */
+function isEntity(value: unknown): boolean {
+  if (!isRecord(value) || typeof value.name !== 'string') return false
+  const { components } = value
+  return components === undefined || (Array.isArray(components) && components.every((c) => isRecord(c) && typeof c.type === 'string'))
+}
+
+/** The JSON file as the scene the Game loads: every field the tests read is checked here, not asserted. */
 function isScene(value: unknown): value is SceneJson {
-  return typeof value === 'object' && value !== null && 'waicaScene' in value && value.waicaScene === 3 && 'entities' in value && Array.isArray(value.entities)
+  if (!isRecord(value) || value.waicaScene !== 3) return false
+  const { render, camera, entities } = value
+  const optionalRecord = (field: unknown): boolean => field === undefined || isRecord(field)
+  return optionalRecord(render) && optionalRecord(camera) && Array.isArray(entities) && entities.every(isEntity)
 }
 
 const scene: SceneJson = (() => {
@@ -55,8 +70,7 @@ function boot(): { game: Game; models: FakeModelBackend } {
   return { game, models }
 }
 
-const componentsOf = (name: string) => scene.entities.find((entity) => entity.name === name)?.components ?? []
-const typesOf = (name: string): string[] => componentsOf(name).map((component) => component.type)
+const typesOf = (entity: SceneEntityJson): string[] => (entity.components ?? []).map((component) => component.type)
 
 describe('examples/smoke-3d main scene (CA-17)', () => {
   it('declares a 3d space, a perspective camera and an Ambient Light', () => {
@@ -71,10 +85,10 @@ describe('examples/smoke-3d main scene (CA-17)', () => {
       .filter((component) => component.type === 'Model')
       .map((component) => component.props ?? {})
     expect(modelProps.map((props) => (typeof props.src === 'string' ? 'glb' : props.shape)).sort()).toEqual(['box', 'glb', 'plane', 'sphere'])
-    expect(scene.entities.filter((entity) => typesOf(entity.name).includes('Sun'))).toHaveLength(1)
-    expect(scene.entities.filter((entity) => typesOf(entity.name).includes('PointLight'))).toHaveLength(1)
+    expect(scene.entities.filter((entity) => typesOf(entity).includes('Sun'))).toHaveLength(1)
+    expect(scene.entities.filter((entity) => typesOf(entity).includes('PointLight'))).toHaveLength(1)
     const allowed = new Set(['Model', 'Sun', 'PointLight'])
-    expect(scene.entities.flatMap((entity) => typesOf(entity.name)).every((type) => allowed.has(type))).toBe(true)
+    expect(scene.entities.flatMap(typesOf).every((type) => allowed.has(type))).toBe(true)
   })
 
   it('ships the glb its Model names, and says where it came from', () => {
@@ -105,11 +119,17 @@ describe('examples/smoke-3d boots like main.ts (CA-17)', () => {
     expect(defined(game.find('Box')).node.rotation.y).toBeCloseTo(THREE.MathUtils.degToRad(30))
     expect(defined(game.find('Ground')).node.scale.toArray()).toEqual([24, 1, 24])
     expect(game.lighting.ambient).toEqual({ color: '#b8c8ff', intensity: 0.6 })
-    const lights: string[] = []
-    game.scene.traverse((object) => {
-      if (object instanceof THREE.Light) lights.push(object.type)
-    })
-    expect(lights.sort()).toEqual(['DirectionalLight', 'PointLight'])
+    const lightTypes = (): string[] => {
+      const found: string[] = []
+      game.scene.traverse((object) => {
+        if (object instanceof THREE.Light) found.push(object.type)
+      })
+      return found
+    }
+    // The components' lights exist at load; the Game's own ambient light joins the scene when a frame draws.
+    expect(lightTypes()).toEqual(expect.arrayContaining(['DirectionalLight', 'PointLight']))
+    renderFrame(game)
+    expect(lightTypes().sort()).toEqual(['AmbientLight', 'DirectionalLight', 'PointLight'])
     game.dispose()
   })
 })

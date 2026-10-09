@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { expectsBlankLighting } from './runtime-e2e-lighting.mjs'
+import { brightness, expectsBlankLighting, maxChannelDifference, rewriteScene, samplesInPage } from './runtime-e2e-lighting.mjs'
 
 const EXAMPLE = fileURLToPath(new URL('../examples/smoke-3d/', import.meta.url))
 /** The copied scene's name in the generated Project (its file stem). */
@@ -20,11 +20,7 @@ const BACKGROUND = [0x1a, 0x1a, 0x2e]
 /** Per-channel tolerance for the clear color: the same pixel on both Render Backends. */
 const BACKGROUND_TOLERANCE = 4
 
-const brightness = (pixel) => pixel[0] + pixel[1] + pixel[2]
 const warmth = (pixel) => pixel[0] - pixel[2]
-const maxChannelDifference = (a, b) => Math.max(...[0, 1, 2].map((channel) => Math.abs(a[channel] - b[channel])))
-/** Whether every sample is opaque white: the CI symptom of issue #151. */
-const blankSamples = (samples) => Object.values(samples).every((pixel) => pixel[0] === 255 && pixel[1] === 255 && pixel[2] === 255)
 
 /**
  * Where world points land in the 640x360 screenshot, through the engine's own
@@ -66,25 +62,6 @@ async function samplePoints(scene) {
   }
 }
 
-// Runs in the page, serialized by page.evaluate; `decodePng` is the inspector's.
-async function samplesInPage({ base64, points }) {
-  const { data, width } = await globalThis.decodePng(base64)
-  return Object.fromEntries(Object.entries(points).map(([name, { x, y }]) => {
-    const index = (y * width + x) * 4
-    return [name, [data[index], data[index + 1], data[index + 2], data[index + 3]]]
-  }))
-}
-
-/** Edits the copied scene, returning what restores it. */
-async function rewriteScene(project, edit) {
-  const file = path.join(project, `src/scenes/${SCENE}.scene.json`)
-  const original = await readFile(file, 'utf8')
-  const scene = JSON.parse(original)
-  edit(scene)
-  await writeFile(file, `${JSON.stringify(scene, null, 2)}\n`)
-  return () => writeFile(file, original)
-}
-
 /** One paused Run Session: boot, swap to the 3D scene, step to FRAME, snapshot, screenshot, stop. */
 async function capture({ helpers, client, project, chrome }) {
   const { call, assertScreenshot, assertUrlClosed } = helpers
@@ -102,7 +79,12 @@ async function capture({ helpers, client, project, chrome }) {
     const shot = assertScreenshot(await call(client, 'capture_screenshot', { project_path: project }), 'paused', CANVAS)
     const inspected = await call(client, 'inspect_runtime', { project_path: project })
     assert.equal(inspected.isError, undefined, `inspect_runtime failed: ${JSON.stringify(inspected)}`)
-    return { image: shot.image, snapshot: inspected.structuredContent.snapshot, assets: start.structuredContent.assets }
+    return {
+      image: shot.image,
+      snapshot: inspected.structuredContent.snapshot,
+      // The swap answers once the incoming scene's art settled: the glb is in these numbers, not in start_project's.
+      assets: { booted: start.structuredContent.assets, swapped: swapped.structuredContent.assets },
+    }
   } finally {
     const stopped = await call(client, 'stop_project', { project_path: project })
     assert.equal(stopped.structuredContent.stopped, true)
@@ -144,6 +126,14 @@ async function assertValidates({ helpers, client, parent }) {
   return summary
 }
 
+/** The glb loaded: after the swap nothing is pending or failed, and one more asset loaded than at boot. */
+function assertGlbLoaded({ booted, swapped }) {
+  assert.ok(booted && swapped, `start_project and the scene swap must carry assets; ${JSON.stringify({ booted, swapped })}`)
+  assert.equal(swapped.failed, 0, `the glb must load; ${JSON.stringify({ booted, swapped })}`)
+  assert.equal(swapped.pending, 0, `the swap must wait for the glb; ${JSON.stringify({ booted, swapped })}`)
+  assert.ok(swapped.loaded > booted.loaded, `the swap must have loaded the glb; ${JSON.stringify({ booted, swapped })}`)
+}
+
 /** The snapshot of the 3D scene: space, view, a model off the ground plane, the Sun and the Point Light. */
 function assertSnapshot(snapshot) {
   assert.equal(snapshot.scene, SCENE)
@@ -168,7 +158,6 @@ async function assertFrame({ inspector, image, samples }) {
   const range = await inspector.range(image)
   const spread = Math.max(...[0, 1, 2].map((channel) => range.max[channel] - range.min[channel]))
   assert.ok(spread >= 60, `the frame must show a scene, not one flat color; ${JSON.stringify(range)}`)
-  assert.ok(!blankSamples(samples), `the frame must not be blank; ${JSON.stringify(samples)}`)
   assert.ok(
     maxChannelDifference(samples.sky, BACKGROUND) <= BACKGROUND_TOLERANCE,
     `above the horizon the frame must show the clear color ${BACKGROUND}; ${JSON.stringify(samples)}`,
@@ -222,7 +211,7 @@ const blockerAfter = (scene) => {
 
 /** One variant of the copied scene: edit, capture, restore, sample. */
 async function variant({ helpers, client, project, chrome, inspector, points, edit }) {
-  const restore = await rewriteScene(project, edit)
+  const restore = await rewriteScene(project, SCENE, edit)
   const frame = await capture({ helpers, client, project, chrome }).finally(restore)
   return { ...frame, samples: await inspector.evaluate(samplesInPage, { base64: frame.image, points }) }
 }
@@ -274,7 +263,7 @@ export async function runSmoke3dLeg({ client, root, parent, chrome, viteBin, eng
   })
   try {
     const shipped = await run('shipped', () => {})
-    assert.equal(shipped.assets.failed, 0, 'the glb must load')
+    assertGlbLoaded(shipped.assets)
     assertSnapshot(shipped.snapshot)
     if (expectsBlankLighting(renderBackend)) {
       return { smoke3d: { validation, ...(await assertExpectedBlank({ inspector, image: shipped.image })) } }

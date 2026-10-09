@@ -22,8 +22,6 @@ import { stdioRpc } from './stdio-rpc.mjs'
 import { runLightingLeg } from './runtime-e2e-lighting.mjs'
 import { runSmoke3dLeg } from './runtime-e2e-smoke-3d.mjs'
 
-export { runSmoke3dLeg }
-
 const execFileAsync = promisify(execFile)
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
 const CHROME_CANDIDATES = process.platform === 'darwin'
