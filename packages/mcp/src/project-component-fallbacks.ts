@@ -95,10 +95,19 @@ async function compileSourceFallbacks(packagesRoot: string): Promise<Record<stri
   }
 }
 
-/** The engine's own copy of three, by every specifier the engine imports it with (ADR 0025). */
+/** Every specifier the engine imports three with: the builds (ADR 0025) and the addons its glTF loading uses (ADR 0027). */
+const THREE_SPECIFIERS = [
+  'three',
+  'three/webgpu',
+  'three/tsl',
+  'three/addons/loaders/GLTFLoader.js',
+  'three/addons/utils/SkeletonUtils.js',
+]
+
+/** The engine's own copy of three, by every specifier the engine imports it with. */
 function threeEntries(packagesRoot: string): Record<string, string> {
   const engineRequire = nodeModule.createRequire(path.join(packagesRoot, 'engine', 'package.json'))
-  return Object.fromEntries(['three', 'three/webgpu', 'three/tsl'].map((specifier) => [specifier, engineRequire.resolve(specifier)]))
+  return Object.fromEntries(THREE_SPECIFIERS.map((specifier) => [specifier, engineRequire.resolve(specifier)]))
 }
 
 export async function fallbackEntriesFor(runnerPath: string): Promise<Record<string, string>> {
