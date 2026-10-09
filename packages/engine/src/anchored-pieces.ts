@@ -99,6 +99,8 @@ interface Placement {
   clipped: boolean
   /** The unrounded height on screen: 0 at the viewport's top, 1 at its bottom. */
   depth: number
+  /** True when a perspective camera has the anchor behind it: there is no place to show the piece. */
+  behind?: boolean
 }
 
 /** A GameUi no Game connected has no viewport: nothing it holds is ever placed. */
@@ -272,6 +274,7 @@ export class AnchoredPieces {
       instance.placed = placement
       instance.host.style.left = `${placement.x}px`
       instance.host.style.top = `${placement.y}px`
+      instance.host.style.visibility = placement.behind ? 'hidden' : ''
       byDepth.push([instance, placement.depth])
     }
     // Lower on screen draws on top, like y-sort; the sort is stable, so
@@ -370,7 +373,7 @@ function anchorPoint(instance: Instance, projection: 'isometric' | null): WorldP
 function locate(instance: Instance, view: AnchorView): Placement {
   const at = worldToNormalized(view.camera, anchorPoint(instance, view.projection))
   // Behind a perspective camera there is no place on screen to put it.
-  if (!at) return { x: 0, y: 0, clipped: true, depth: 1 }
+  if (!at) return { x: 0, y: 0, clipped: true, depth: 1, behind: true }
   const { nx, ny } = at
   const { viewport } = view
   return {
