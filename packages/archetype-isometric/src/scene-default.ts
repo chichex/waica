@@ -1,4 +1,4 @@
-import type { SceneCameraJson, SceneJson } from '@waica/engine'
+import type { OrthographicSceneCameraJson, SceneJson } from '@waica/engine'
 import {
   ISOMETRIC_CAVE_GROUND_CELLS,
   ISOMETRIC_CAVE_MAP_HEIGHT,
@@ -11,7 +11,7 @@ import {
  * the player crosses walking speed, which lurches on short runs), a little
  * vertical lead, and softer smoothing than the platformer default.
  */
-function isometricCamera(): SceneCameraJson {
+function isometricCamera(): OrthographicSceneCameraJson {
   return {
     position: [0, -8],
     zoom: 12,

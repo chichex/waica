@@ -1,4 +1,6 @@
+import { isPerspectiveCamera, type ViewCamera } from './camera-projection.js'
 import type { Entity } from './entity.js'
+import { raycastPick, type ViewportFraction } from './pointer-raycast.js'
 import { projectIsometric, unprojectIsometric, type ProjectedPoint } from './projection.js'
 import { ySortZ } from './render-sort.js'
 import { AnimatedSprite } from './components/animated-sprite.js'
@@ -21,7 +23,8 @@ export interface PointerCamera {
 }
 
 export interface PointerDeps {
-  camera: PointerCamera
+  /** The live camera, or a function returning it when the scene can swap cameras. */
+  camera: ViewCamera | (() => ViewCamera)
   /** Fixed resolution (letterbox target), or null to fill the canvas. */
   resolution: PointerResolution | null
   /** The scene's active render projection, read live. */
@@ -30,9 +33,12 @@ export interface PointerDeps {
   entities: readonly Entity[]
 }
 
-/** One resolved click: the logical-space point, plus the entity picked there (if any). */
+/**
+ * One resolved click: the logical-space point, plus the entity picked there
+ * (if any). In a 3D scene the point is in world space and carries `z`.
+ */
 export interface PointerPick {
-  readonly point: ProjectedPoint
+  readonly point: ProjectedPoint & { readonly z?: number }
   readonly entity: Entity | null
 }
 
@@ -84,11 +90,14 @@ function spriteBoxOf(component: unknown): PointerSpriteBox | null {
  */
 export class Pointer {
   private pending: PointerPick | null = null
+  private readonly liveCamera: () => ViewCamera
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
     private readonly deps: PointerDeps,
   ) {
+    const { camera } = this.deps
+    this.liveCamera = typeof camera === 'function' ? camera : () => camera
     this.canvas.addEventListener('pointerdown', this.handlePointerDown)
   }
 
@@ -109,35 +118,56 @@ export class Pointer {
   }
 
   /**
-   * Programmatic click injection (Runtime Bridge CA-10), in logical
-   * coordinates — resolved through the exact same picking a real click uses.
+   * Programmatic click injection (Runtime Bridge CA-10) — resolved through
+   * the exact same picking a real click uses. In a 2D scene `x` and `y` are
+   * logical coordinates and the pick always exists. In a 3D scene they are
+   * canvas CSS pixels from its top-left corner, as a pointer event reports
+   * them, and a ray that meets neither a model nor the ground gives null.
    */
-  injectClick(x: number, y: number): PointerPick {
+  injectClick(x: number, y: number): PointerPick | null {
+    const camera = this.liveCamera()
+    if (isPerspectiveCamera(camera)) return this.queue(this.pickAt(this.viewportFraction(x, y)))
     const renderPoint = this.toRenderPoint(x, y)
-    const pick = this.resolveRenderPoint(renderPoint.x, renderPoint.y)
-    this.pending = pick
+    return this.queue(this.resolveRenderPoint(renderPoint.x, renderPoint.y))
+  }
+
+  /** Makes a pick the pending click; no pick leaves any earlier click alone. */
+  private queue(pick: PointerPick | null): PointerPick | null {
+    if (pick) this.pending = pick
     return pick
   }
 
   private handlePointerDown = (event: PointerEvent): void => {
     // Primary button only; a touch tap reports the same button (ADR-0010).
     if (event.button !== 0) return
+    const rect = this.canvas.getBoundingClientRect()
+    this.queue(this.pickAt(this.viewportFraction(event.clientX - rect.left, event.clientY - rect.top)))
+  }
+
+  /** The pick under a viewport position: the 2D sprite boxes, or a 3D scene's raycast. */
+  private pickAt(at: ViewportFraction | null): PointerPick | null {
+    const camera = this.liveCamera()
+    if (!at) return null
+    if (isPerspectiveCamera(camera)) return raycastPick(camera, at, this.deps.entities)
+    const renderX = camera.position.x + camera.left + at.nx * (camera.right - camera.left)
+    const renderY = camera.position.y + camera.top - at.ny * (camera.top - camera.bottom)
+    return this.resolveRenderPoint(renderX, renderY)
+  }
+
+  /**
+   * Where a canvas point (CSS px from its top-left corner) falls inside the
+   * letterboxed viewport, as fractions of its width and height; null on a
+   * letterbox bar (not a click on the world) or before the canvas has a size.
+   */
+  private viewportFraction(px: number, py: number): ViewportFraction | null {
     const w = this.canvas.clientWidth
     const h = this.canvas.clientHeight
-    if (w <= 0 || h <= 0) return
+    if (w <= 0 || h <= 0) return null
     const { vx, vy, vw, vh } = this.letterboxRect(w, h)
-    if (vw <= 0 || vh <= 0) return
-    const rect = this.canvas.getBoundingClientRect()
-    const px = event.clientX - rect.left
-    const py = event.clientY - rect.top
+    if (vw <= 0 || vh <= 0) return null
     const nx = (px - vx) / vw
     const ny = (py - vy) / vh
-    // Outside the visible viewport (a letterbox bar): not a click on the world.
-    if (nx < 0 || nx > 1 || ny < 0 || ny > 1) return
-    const camera = this.deps.camera
-    const renderX = camera.position.x + camera.left + nx * (camera.right - camera.left)
-    const renderY = camera.position.y + camera.top - ny * (camera.top - camera.bottom)
-    this.pending = this.resolveRenderPoint(renderX, renderY)
+    return nx < 0 || nx > 1 || ny < 0 || ny > 1 ? null : { nx, ny }
   }
 
   private letterboxRect(w: number, h: number): LetterboxRect {

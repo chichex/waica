@@ -23,6 +23,18 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     offsetX: 0,
     offsetY: 0,
   },
+  // Issue #154 CA-10: every archetype registers the 3D components; validation keeps them out of 2D scenes.
+  Model: { src: '', shape: 'box', color: 0xffffff, size: 1 },
+  Sun: { direction: [-1, -2, -1], color: 0xffffff, intensity: 1 },
+  PointLight: {
+    color: 0xffffff,
+    intensity: 1,
+    distance: 0,
+    decay: 2,
+    offsetX: 0,
+    offsetY: 0,
+    offsetZ: 0,
+  },
   ParticleEmitter: {
     rate: 0,
     emitting: true,

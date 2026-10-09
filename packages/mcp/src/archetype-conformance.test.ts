@@ -1,7 +1,7 @@
 import { access } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { resolveDirectionalClip, type BrowserArchetypeManifest } from '@waica/engine'
+import { resolveDirectionalClip, THREE_D_COMPONENTS, type BrowserArchetypeManifest } from '@waica/engine'
 import { ARCHETYPE as PLATFORMER } from '../../archetype-platformer/src/index.js'
 import { ARCHETYPE as TOPDOWN } from '../../archetype-topdown/src/index.js'
 import { ARCHETYPE as ISOMETRIC } from '../../archetype-isometric/src/index.js'
@@ -36,6 +36,20 @@ describe.each(MANIFESTS.map((manifest) => [manifest.id, manifest] as const))(
         for (const component of prefab.components) {
           expect(registered.has(component.type), `${ref} → ${component.type}`).toBe(true)
         }
+      }
+    })
+
+    it('registers the 3D components and keeps them out of its own scenes and prefabs (issue #154 CA-10)', () => {
+      for (const name of THREE_D_COMPONENTS) expect(archetype.registry.components[name], name).toBeDefined()
+      const threeD = new Set<string>(THREE_D_COMPONENTS)
+      const inScenes = [archetype.scene, archetype.blankScene, ...Object.values(archetype.extraScenes ?? {})]
+      for (const scene of inScenes) {
+        for (const entity of scene.entities) {
+          for (const component of entity.components ?? []) expect(threeD.has(component.type), `${entity.name}: ${component.type}`).toBe(false)
+        }
+      }
+      for (const [ref, prefab] of Object.entries(archetype.prefabs)) {
+        for (const component of prefab.components) expect(threeD.has(component.type), `${ref}: ${component.type}`).toBe(false)
       }
     })
 

@@ -6,6 +6,7 @@ import type { RefObject } from 'react'
 import type { GridSettings } from '../project/editor-settings'
 import { createCameraGizmo, sceneCameraFrame } from './viewport-camera-gizmo'
 import { gridCoverKey, gridLineVertices } from './grid'
+import { orthographicCamera } from './viewport-camera'
 import type { ViewportLive } from './viewport-live'
 import { createLightGizmos } from './viewport-light-gizmos'
 import { addOverlay, createSelectionGizmos } from './viewport-selection-gizmos'
@@ -38,9 +39,10 @@ function createGridOverlay(game: Game) {
   let coverKey = ''
   return {
     sync(grid: GridSettings, editing: boolean): void {
-      lines.visible = editing && grid.show
-      if (!lines.visible) return
-      const c = game.camera
+      const c = orthographicCamera(game.camera)
+      // No grid under a perspective camera: a 3D scene is only looked at.
+      lines.visible = editing && grid.show && c != null
+      if (!c || !lines.visible) return
       const rect = {
         minX: c.position.x + c.left,
         maxX: c.position.x + c.right,
@@ -76,9 +78,21 @@ export function createFrameOverlays(game: Game, host: OverlayHost) {
     uiPreview?.sync(live, frame)
   }
 
+  /** A 3D scene is read-only: nothing is drawn over it, and whatever a 2D scene left is hidden. */
+  const hideAll = (live: ViewportLive): void => {
+    grid.sync(live.grid, false)
+    selection.sync({ ...live, mode: 'play', multiSelected: [] })
+    lights.sync('play')
+    camera?.hide()
+  }
+
   return {
     update(): void {
       const live = host.live.current
+      if (game.space === '3d') {
+        hideAll(live)
+        return
+      }
       grid.sync(live.grid, live.mode === 'edit')
       selection.sync(live)
       lights.sync(live.mode)

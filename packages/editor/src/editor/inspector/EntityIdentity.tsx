@@ -1,13 +1,31 @@
 import { countOverrides } from '../../scene/ops'
 import { NumberField } from '../NumberField'
 import type { EntityInspectorProps } from './EntityInspector'
+import { Vec3Row } from './Vec3Row'
 
-/** The entity's name and scene position. */
+/** A 3D scene entity's transform: position (X/Y/Z), rotation in degrees and scale. */
+function TransformRows({
+  entity,
+  onTransform,
+}: Pick<EntityInspectorProps, 'entity'> & Required<Pick<EntityInspectorProps, 'onTransform'>>) {
+  const [x, y, z = 0] = entity.position ?? [0, 0]
+  return (
+    <>
+      <Vec3Row label="position" value={[x, y, z]} step={0.5} onChange={(position) => onTransform(entity.name, { position })} />
+      <Vec3Row label="rotation" value={entity.rotation ?? [0, 0, 0]} step={5} onChange={(rotation) => onTransform(entity.name, { rotation })} />
+      <Vec3Row label="scale" value={entity.scale ?? [1, 1, 1]} step={0.1} onChange={(scale) => onTransform(entity.name, { scale })} />
+    </>
+  )
+}
+
+/** The entity's name and scene position (a 3D scene's whole transform). */
 export function EntityIdentityRows({
   entity,
+  space,
   onRename,
   onMove,
-}: Pick<EntityInspectorProps, 'entity' | 'onRename' | 'onMove'>) {
+  onTransform,
+}: Pick<EntityInspectorProps, 'entity' | 'space' | 'onRename' | 'onMove' | 'onTransform'>) {
   const [x, y] = entity.position ?? [0, 0]
   return (
     <>
@@ -23,11 +41,15 @@ export function EntityIdentityRows({
           }}
         />
       </label>
-      <div className="ed-row ed-row-xy">
-        <span>position</span>
-        <NumberField step={0.5} value={x} onChange={(t) => onMove(entity.name, [Number(t), y])} />
-        <NumberField step={0.5} value={y} onChange={(t) => onMove(entity.name, [x, Number(t)])} />
-      </div>
+      {space === '3d' && onTransform ? (
+        <TransformRows entity={entity} onTransform={onTransform} />
+      ) : (
+        <div className="ed-row ed-row-xy">
+          <span>position</span>
+          <NumberField step={0.5} value={x} onChange={(t) => onMove(entity.name, [Number(t), y])} />
+          <NumberField step={0.5} value={y} onChange={(t) => onMove(entity.name, [x, Number(t)])} />
+        </div>
+      )}
     </>
   )
 }

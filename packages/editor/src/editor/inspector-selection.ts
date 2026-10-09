@@ -1,3 +1,4 @@
+import { resolveSceneSpace, type SceneJson } from '@waica/engine'
 import * as ops from '../scene/ops'
 import type { EditorCore } from './editor-commits'
 import type { ExplorerView } from './Explorer'
@@ -39,6 +40,14 @@ function fileSelection(
   }
 }
 
+/** One entity of the open scene; a 3D scene's entity carries the space its transform rows depend on. */
+function entitySelection(scene: SceneJson, name: string, sceneName: string): InspectorSelection {
+  const entity = scene.entities.find((e) => e.name === name)
+  if (!entity) return null
+  const space = resolveSceneSpace(scene.render)
+  return { kind: 'entity', entity, sceneName, ...(space === '3d' ? { space } : {}) }
+}
+
 /** The camera, a multi-selection, one entity, or — nothing picked — the scene itself. */
 function sceneSelection(core: EditorCore): InspectorSelection {
   const { scene, openScenePath } = core.scenes
@@ -46,7 +55,8 @@ function sceneSelection(core: EditorCore): InspectorSelection {
   if (!scene) return null
   const sceneName = openScenePath ? sceneLabel(openScenePath) : null
   if (selected === ops.CAMERA_NODE) {
-    return { kind: 'camera', camera: scene.camera, entityNames: scene.entities.map((e) => e.name) }
+    const space = resolveSceneSpace(scene.render)
+    return { kind: 'camera', camera: scene.camera, entityNames: scene.entities.map((e) => e.name), ...(space === '3d' ? { space } : {}) }
   }
   if (multi.length > 1) {
     return {
@@ -55,10 +65,7 @@ function sceneSelection(core: EditorCore): InspectorSelection {
       sceneName: sceneName ?? '',
     }
   }
-  if (selected) {
-    const entity = scene.entities.find((e) => e.name === selected)
-    return entity ? { kind: 'entity', entity, sceneName: sceneName ?? '' } : null
-  }
+  if (selected) return entitySelection(scene, selected, sceneName ?? '')
   // Scene open, nothing picked: you're editing the scene itself.
   return { kind: 'scene', name: sceneName ?? 'scene', scene }
 }

@@ -50,6 +50,16 @@ importers:
         specifier: ^8.3.2
         version: 8.3.2(@types/node@26.6.4)
 
+  examples/smoke-3d:
+    dependencies:
+      '@waica/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
+    devDependencies:
+      vite:
+        specifier: ^8.3.2
+        version: 8.3.2(@types/node@26.6.4)
+
   examples/topdown:
     dependencies:
       '@waica/archetype-topdown':

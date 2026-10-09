@@ -1,4 +1,7 @@
-import type { ArchetypeManifest, ComponentClass, ParamSpec } from '@waica/engine'
+import type { ArchetypeManifest, ComponentClass, ParamSpec, SceneEntityJson } from '@waica/engine'
+
+/** A scene entity as validation reads it: the name and the rest of the shape are unchecked JSON. */
+export type LooseSceneEntity = Omit<Partial<SceneEntityJson>, 'name'> & { name?: unknown }
 
 export type FindingSeverity = 'error' | 'warning' | 'info'
 
@@ -28,6 +31,13 @@ export type FindingCode =
   | 'duplicate-collision-mask-entry'
   | 'invalid-scene-render'
   | 'invalid-light-param'
+  | 'invalid-sun-param'
+  | 'invalid-scene-camera'
+  | 'invalid-entity-transform'
+  | 'component-space-mismatch'
+  | 'missing-model'
+  | 'model-shape-ignored'
+  | 'gltf-external-resource'
 
 export interface ValidationFinding {
   severity: FindingSeverity
@@ -59,6 +69,8 @@ export interface ValidationContext {
   roleStateSources: Map<string, string[]>
   bindings: Record<string, string[]>
   soundRefs: ReadonlySet<string>
+  /** Every uri a `kind: 'model'` param (Model.src) may validly name — see projectModelRefs. */
+  modelRefs: ReadonlySet<string>
   uiPieces: ReadonlySet<string>
   /** The stock Anchored Pieces, plus pieces a component names through a `ref: 'ui'` param. */
   anchoredPieces: Set<string>

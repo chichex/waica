@@ -1,7 +1,8 @@
 // What lies under the pointer in the edit viewport: world coordinates of a
 // client point, the topmost entity, a selected box's handle or outline, and
 // the scene camera's drag marker.
-import { resolveSceneCamera, type CollisionPoint, type Entity, type Game } from '@waica/engine'
+import type { CollisionPoint, Entity, Game } from '@waica/engine'
+import { resolveOrthographicCamera } from '../scene/camera-block'
 import {
   BOX_KINDS,
   boxCenter,
@@ -15,6 +16,7 @@ import {
   projectionOf,
   type BoxRole,
 } from './viewport-boxes'
+import { orthographicCamera } from './viewport-camera'
 import type { ViewportLive } from './viewport-live'
 import { pickRenderBounds } from './viewport-space'
 
@@ -39,7 +41,9 @@ export function toWorld(
   const rect = canvas.getBoundingClientRect()
   const nx = (e.clientX - rect.left) / rect.width
   const ny = (e.clientY - rect.top) / rect.height
-  const c = game.camera
+  // Only a 2D scene's orthographic camera maps a client point onto the world plane.
+  const c = orthographicCamera(game.camera)
+  if (!c) return [0, 0]
   return [
     c.position.x + c.left + nx * (c.right - c.left),
     c.position.y + c.top - ny * (c.top - c.bottom),
@@ -104,7 +108,7 @@ export function hitBoxOutline(game: Game, live: ViewportLive, point: CollisionPo
  * is only selectable from the Explorer.
  */
 export function hitCameraMarker(game: Game, live: ViewportLive, [wx, wy]: CollisionPoint): { ox: number; oy: number } | null {
-  const sceneCam = resolveSceneCamera(live.scene.camera)
+  const sceneCam = resolveOrthographicCamera(live.scene.camera)
   const [px, py] = sceneCam.position
   const hs = game.view * 0.035
   if (sceneCam.follow || Math.abs(wx - px) > hs || Math.abs(wy - py) > hs) return null

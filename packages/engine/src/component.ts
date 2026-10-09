@@ -9,7 +9,7 @@ export interface ParamSpec {
   max?: number
   step?: number
   /** Specialized editor control for values that are otherwise plain JSON. */
-  kind?: 'string-list' | 'vector2' | 'color' | 'texture'
+  kind?: 'string-list' | 'vector2' | 'vector3' | 'color' | 'texture' | 'model'
   /** Allowed values for a string param; rendered as a dropdown. Takes precedence over ref. */
   options?: string[]
   /** Project value this string param names; rendered and validated as a typed reference. */

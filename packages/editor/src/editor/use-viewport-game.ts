@@ -1,6 +1,7 @@
-import { loadScene, type Game } from '@waica/engine'
+import { applyTransformJson, loadScene, type Game, type SceneCameraJson } from '@waica/engine'
 import { useEffect, useEffectEvent, useImperativeHandle, useLayoutEffect, useRef, type Ref, type RefObject } from 'react'
 import { createFrameOverlays, type OverlayHost } from './viewport-frame-overlays'
+import { isReadOnlyView } from './viewport-camera'
 import { createViewportGame, liveComponent, mountGameCanvas, restoreEditCamera } from './viewport-game'
 import type { EditCamera, ViewportHandle, ViewportLive } from './viewport-live'
 
@@ -53,6 +54,18 @@ function useSceneFileSwap(scenePath: string | undefined, target: SceneSwapTarget
 }
 
 /**
+ * A 3D scene's camera block edited in the Inspector: re-adopt it on the live
+ * Game, since nothing else re-places the perspective camera. A 2D scene needs
+ * no such push: its overlays read the block every frame.
+ */
+function useLiveSceneCamera(gameRef: RefObject<Game | null>, camera: SceneCameraJson | undefined): void {
+  useEffect(() => {
+    const game = gameRef.current
+    if (game?.space === '3d') game.setSceneCamera(camera)
+  }, [gameRef, camera])
+}
+
+/**
  * Runs the Game, once its renderer is ready, with the editor overlays drawn every frame, remembering the
  * edit camera's pan as it moves; returns what disposes both.
  */
@@ -60,7 +73,7 @@ function startEditorLoop(game: Game, host: OverlayHost, camRef: RefObject<EditCa
   const overlays = createFrameOverlays(game, host)
   game.onUpdate(() => {
     overlays.update()
-    if (host.live.current.mode !== 'edit') return
+    if (host.live.current.mode !== 'edit' || isReadOnlyView(game)) return
     camRef.current.x = game.camera.position.x
     camRef.current.y = game.camera.position.y
   })
@@ -148,7 +161,7 @@ export function useViewportGame(inputs: ViewportLive, options: ViewportGameOptio
     if (mode === 'edit') {
       // loadScene framed the scene camera (centered on its follow target):
       // the editor view starts there, once per mount.
-      const seed = !camSeededRef.current && showCamera && liveRef.current.scene.camera != null
+      const seed = !camSeededRef.current && showCamera && liveRef.current.scene.camera != null && !isReadOnlyView(game)
       camSeededRef.current = true
       if (seed) camRef.current = { x: game.camera.position.x, y: game.camera.position.y, view: game.view }
       restoreEditCamera(game, camRef.current)
@@ -165,6 +178,7 @@ export function useViewportGame(inputs: ViewportLive, options: ViewportGameOptio
   }, [epoch, mode, background, showCamera])
 
   useSceneFileSwap(inputs.scenePath, { gameRef, liveRef, camRef, lastLoadedScenePathRef, onSelect })
+  useLiveSceneCamera(gameRef, inputs.scene.camera)
   return { surfaceRef, canvasRef, uiFrameRef, uiScaleRef, gameRef, liveRef, camRef, camLiveRef }
 }
 
@@ -176,7 +190,13 @@ export function useViewportHandle(ref: Ref<ViewportHandle>, gameRef: RefObject<G
       if (component) Reflect.set(component, key, value)
     },
     applyMove(entityName, x, y) {
-      gameRef.current?.find(entityName)?.position.set(x, y, 0)
+      // z stays: a 3-number position's depth (and in 2D, its draw order) is not part of an XY move.
+      const entity = gameRef.current?.find(entityName)
+      entity?.position.set(x, y, entity.position.z)
+    },
+    applyTransform(entityName, patch) {
+      const entity = gameRef.current?.find(entityName)
+      if (entity) applyTransformJson(entity, patch)
     },
     game() {
       return gameRef.current

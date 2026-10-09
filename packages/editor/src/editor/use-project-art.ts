@@ -10,8 +10,11 @@ export interface ArtItem {
   uri: string
   /** Project file path. */
   path: string
-  /** Image pickers (Appearance, Tilemap, Animation) show only 'image'; a ref: 'sound' prop shows only 'sound'. */
-  kind: 'image' | 'sound'
+  /**
+   * Image pickers (Appearance, Tilemap, Animation) show only 'image'; a ref: 'sound' prop shows only
+   * 'sound'; a kind: 'model' prop (Model.src) shows only 'model' (.glb and .gltf).
+   */
+  kind: 'image' | 'sound' | 'model'
 }
 
 /** A folder of art, grouped by the path the source files were dropped under. */
@@ -48,6 +51,8 @@ export interface ProjectArt {
 export const IMAGE_RE = /\.(png|jpe?g)$/i
 /** The one shipped audio format (inference 3 of the audio subsystem spec). */
 export const AUDIO_RE = /\.ogg$/i
+/** glTF in its binary and JSON forms (issue #154). A .gltf's sidecar files are the user's to import alongside. */
+export const MODEL_RE = /\.(glb|gltf)$/i
 
 async function readDirectoryEntries(
   reader: FileSystemDirectoryReader,
@@ -141,7 +146,14 @@ export function buildArtTree(art: ArtItem[]): ArtFolder {
   return root
 }
 
-/** Every image and sound under src/art and public, each behind a fresh object URL. */
+/** The MIME type an art file's object URL is served with. */
+function mimeOf(kind: ArtItem['kind'], name: string): string {
+  if (kind === 'sound') return 'audio/ogg'
+  if (kind === 'model') return /\.glb$/i.test(name) ? 'model/gltf-binary' : 'model/gltf+json'
+  return /\.png$/i.test(name) ? 'image/png' : 'image/jpeg'
+}
+
+/** Every image, sound and model under src/art and public, each behind a fresh object URL. */
 async function scanProjectArt(fs: ProjectFS): Promise<{ items: ArtItem[]; created: string[] }> {
   const created: string[] = []
   const tree = await fs.tree()
@@ -152,6 +164,7 @@ async function scanProjectArt(fs: ProjectFS): Promise<{ items: ArtItem[]; create
       if (node.kind === 'dir') walk(node.children)
       else if (IMAGE_RE.test(node.name)) files.push({ node, kind: 'image' })
       else if (AUDIO_RE.test(node.name)) files.push({ node, kind: 'sound' })
+      else if (MODEL_RE.test(node.name)) files.push({ node, kind: 'model' })
     }
   }
   for (const root of roots) walk(root?.children)
@@ -159,8 +172,7 @@ async function scanProjectArt(fs: ProjectFS): Promise<{ items: ArtItem[]; create
   for (const { node: file, kind } of files) {
     const bytes = await fs.readFile(file.path)
     if (!bytes) continue
-    const type =
-      kind === 'sound' ? 'audio/ogg' : /\.png$/i.test(file.name) ? 'image/png' : 'image/jpeg'
+    const type = mimeOf(kind, file.name)
     const url = URL.createObjectURL(new Blob([bytes], { type }))
     created.push(url)
     items.push({ label: file.name, url, uri: file.path, path: file.path, kind })
@@ -217,7 +229,7 @@ export function useProjectArt(
   return { art, loads: library.loads, refresh, importArt, urlFor, importProgress }
 }
 
-/** Writes dropped images and sounds to src/art, reporting progress, then re-scans. */
+/** Writes dropped images, sounds and models to src/art, reporting progress, then re-scans. */
 function useArtImport(
   fs: ProjectFS,
   rescan: () => void,
@@ -228,7 +240,7 @@ function useArtImport(
   const importArt = useCallback(
     async (files: DroppedFile[]): Promise<void> => {
       const importable = files.filter(
-        (f) => IMAGE_RE.test(f.file.name) || AUDIO_RE.test(f.file.name),
+        (f) => IMAGE_RE.test(f.file.name) || AUDIO_RE.test(f.file.name) || MODEL_RE.test(f.file.name),
       )
       if (!importable.length) return
       setImportProgress({ done: 0, total: importable.length })

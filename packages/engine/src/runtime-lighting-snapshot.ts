@@ -1,6 +1,10 @@
+import * as THREE from 'three/webgpu'
+import { PointLight } from './components/point-light.js'
+import { Sun } from './components/sun.js'
 import type { Entity } from './entity.js'
 import type { Game } from './game.js'
 import type { ProjectionIssue } from './runtime-inspection.js'
+import type { Vec3Json } from './scene-camera-3d.js'
 import type { AmbientLight, PostEffectsState } from './scene-render-options.js'
 
 /** One live Light as a Runtime Snapshot reports it: its entity's name, logical position and params. */
@@ -20,10 +24,37 @@ export interface RuntimeSnapshotLight {
   castShadows: boolean
 }
 
-/** `game.lighting` (issue #78 CA-12): the Ambient Light now and every live Light, in logical coordinates. */
+/** One live Sun in a 3D scene (issue #154 CA-16): its entity's name and id, the unit direction it shines along, color and intensity. */
+export interface RuntimeSnapshotSun {
+  entity: string
+  id: string
+  direction: Vec3Json
+  /** `#rrggbb`. */
+  color: string
+  intensity: number
+}
+
+/** One live Point Light in a 3D scene (issue #154 CA-16): its world position and look; `distance` 0 is unlimited. */
+export interface RuntimeSnapshotPointLight {
+  entity: string
+  id: string
+  position: Vec3Json
+  /** `#rrggbb`. */
+  color: string
+  intensity: number
+  distance: number
+}
+
+/**
+ * `game.lighting` (issue #78 CA-12): the Ambient Light now and every live
+ * Light, in logical coordinates. A 3D scene (issue #154 CA-16) adds its
+ * Suns and Point Lights; a 2D scene's snapshot has neither key.
+ */
 export interface RuntimeSnapshotLighting {
   ambient: AmbientLight
   lights: RuntimeSnapshotLight[]
+  sun?: RuntimeSnapshotSun[]
+  pointLights?: RuntimeSnapshotPointLight[]
 }
 
 /** `game.post` (issue #78 CA-12): each Post Effect, null when off. */
@@ -31,8 +62,39 @@ export type RuntimeSnapshotPost = PostEffectsState
 
 const hex = (channel: number): string => Math.round(channel * 255).toString(16).padStart(2, '0')
 
+const rounded = (value: number): number => Math.round(value * 1e6) / 1e6 || 0
+
+const hexOf = (color: number): string => `#${(color & 0xffffff).toString(16).padStart(6, '0')}`
+
+function unit(direction: Vec3Json): Vec3Json {
+  const [x, y, z] = new THREE.Vector3(...direction).normalize().toArray()
+  return [rounded(x), rounded(y), rounded(z)]
+}
+
+/** The Suns and Point Lights of a 3D scene's entities, in spawn order. */
+function lights3dSnapshot(game: Game, idFor: (entity: Entity) => string): Required<Pick<RuntimeSnapshotLighting, 'sun' | 'pointLights'>> {
+  const sun: RuntimeSnapshotSun[] = []
+  const pointLights: RuntimeSnapshotPointLight[] = []
+  for (const entity of game.entities) {
+    for (const component of entity.components) {
+      if (component instanceof Sun) {
+        const { direction, color, intensity } = component
+        sun.push({ entity: entity.name, id: idFor(entity), direction: unit(direction), color: hexOf(color), intensity })
+      } else if (component instanceof PointLight && component.light) {
+        const { color, intensity, distance, light } = component
+        light.updateWorldMatrix(true, false)
+        const at = light.getWorldPosition(new THREE.Vector3())
+        const position: Vec3Json = [rounded(at.x), rounded(at.y), rounded(at.z)]
+        pointLights.push({ entity: entity.name, id: idFor(entity), position, color: hexOf(color), intensity, distance })
+      }
+    }
+  }
+  return { sun, pointLights }
+}
+
 export function lightingSnapshot(game: Game, idFor: (entity: Entity) => string): RuntimeSnapshotLighting {
   return {
+    ...(game.space === '3d' ? lights3dSnapshot(game, idFor) : {}),
     ambient: game.lighting.ambient,
     lights: game.lighting.lights.map((light) => {
       const field = light.field()

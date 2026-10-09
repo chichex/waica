@@ -1,4 +1,4 @@
-import type { CollisionPoint, Game, GameResolution, InputBindings, SceneJson, SceneRegistry, StatValue } from '@waica/engine'
+import type { CollisionPoint, Game, GameResolution, InputBindings, SceneJson, SceneRegistry, StatValue, TransformJson } from '@waica/engine'
 import type { GridSettings } from '../project/editor-settings'
 import type { TilemapBrushSelection } from './tilemap-brush'
 
@@ -6,6 +6,8 @@ export interface ViewportHandle {
   /** Applies a prop change to the live instance (without recreating the game). */
   applyProp(entity: string, componentType: string, key: string, value: unknown): void
   applyMove(entity: string, x: number, y: number): void
+  /** Applies a 3D scene's position, rotation (degrees) or scale edit to the live entity. */
+  applyTransform(entity: string, patch: TransformJson): void
   /** The live Game instance, or null before the first mount effect runs. */
   game(): Game | null
 }

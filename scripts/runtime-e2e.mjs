@@ -20,6 +20,7 @@ import path from 'node:path'
 import { promisify } from 'node:util'
 import { stdioRpc } from './stdio-rpc.mjs'
 import { runLightingLeg } from './runtime-e2e-lighting.mjs'
+import { runSmoke3dLeg } from './runtime-e2e-smoke-3d.mjs'
 
 const execFileAsync = promisify(execFile)
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
@@ -1991,6 +1992,7 @@ export async function runRuntimeE2e({
   includeSceneFade = true,
   includeBatchParity = true,
   includeLighting = true,
+  includeSmoke3d = true,
   includeSignalShutdown = true,
   renderLeg,
 }) {
@@ -2109,6 +2111,20 @@ export async function runRuntimeE2e({
           renderBackend: renderLeg?.backend,
         })
       : {}
+    const smoke3dResult = includeSmoke3d
+      ? await runSmoke3dLeg({
+          client,
+          root,
+          parent: temporaryParent,
+          chrome,
+          viteBin,
+          engineRoot,
+          playwright,
+          label,
+          helpers: { call, assertScreenshot, assertUrlClosed, keepScreenshot, makeDemoProject, openPngInspector },
+          renderBackend: renderLeg?.backend,
+        })
+      : {}
     if (negative) await runNegativeReadiness({ client, fixture: negative, chrome })
     let signalShutdownResult = {}
     if (includeSignalShutdown) {
@@ -2130,6 +2146,7 @@ export async function runRuntimeE2e({
       ...sceneFadeResult,
       ...batchParityResult,
       ...lightingResult,
+      ...smoke3dResult,
       ...signalShutdownResult,
     }
     console.log(`waica runtime e2e (${label}): ${JSON.stringify(result)}`)

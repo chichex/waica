@@ -5,6 +5,7 @@ import {
   type SceneComponentJson,
 } from '@waica/engine'
 import { classDefaults, objectRecord } from './component-metadata.js'
+import { checkModelParam } from './model-reference-validation.js'
 import { resolveParamReference } from './param-reference-resolution.js'
 import { add, type ComponentMetadata, type ValidationContext } from './validation-context.js'
 
@@ -81,8 +82,9 @@ export function validateParamReferences(
     const props = objectRecord(component.props)
     for (const [param, spec] of Object.entries(metadata.params)) {
       if (only && !only.has(param)) continue
-      if (!spec.ref || spec.options !== undefined) continue
       const value = Object.hasOwn(props, param) ? props[param] : metadata.defaults[param]
+      if (spec.kind === 'model') checkModelParam({ componentType: component.type, param, value, file }, context)
+      if (!spec.ref || spec.options !== undefined) continue
       if (typeof value !== 'string' || value === '') continue
       if (spec.ref === 'ui') context.anchoredPieces.add(value)
       const field = `${component.type}.${param}`

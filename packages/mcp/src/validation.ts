@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { discoverArchetypes, pickArchetype } from './archetypes.js'
 import { collisionCategoryFindings } from './collision-category-validation.js'
-import { lightParamFindings } from './light-param-validation.js'
+import { checkComponentParams } from './component-param-findings.js'
 import { objectRecord } from './component-metadata.js'
 import {
   checkComponent,
@@ -13,7 +13,8 @@ import {
   validateComponentUpdateSchedule,
   validateParamReferences,
 } from './component-validation.js'
-import { projectSoundRefs } from './param-reference-resolution.js'
+import { validateGltfResources } from './gltf-resource-validation.js'
+import { projectArtRefs } from './model-reference-validation.js'
 import {
   PackageResolver,
   mixedSourceWarnings,
@@ -93,10 +94,7 @@ function validatePrefab(
   const components = componentList(prefab.components)
   for (const component of components) {
     checkComponent(component, file, ref, context)
-    if (component.type === 'Hitbox') {
-      context.findings.push(...collisionCategoryFindings(component.props, file, ref))
-    }
-    if (component.type === 'Light') context.findings.push(...lightParamFindings(component.props, file, ref))
+    checkComponentParams(component, { file, ref }, context)
   }
   validateParamReferences(
     components.map((component) => ({ component })),
@@ -191,6 +189,7 @@ export async function validateProject(
     ...(await uiBindingFindings(projectPath, uiFiles, context.declaredStats, context.anchoredPieces)),
   )
   validateParamsFile(fixed.get(PARAMS_FILE), context)
+  await validateGltfResources(projectPath, context)
   return validationReport(findings, sources, check.notes)
 }
 
@@ -294,7 +293,7 @@ async function validationContext(
   // CA-13: every uri a `ref: 'sound'` param may validly name — the
   // archetype's own declared sound art plus whatever actually lives under
   // the project's src/art/ (see param-reference-resolution.ts).
-  const soundRefs = await projectSoundRefs(projectPath, manifest.art)
+  const artRefs = await projectArtRefs(projectPath, manifest.art)
   const { componentRegistry, componentMetadata } = componentCatalog(manifest, sources)
   return {
     findings,
@@ -309,7 +308,7 @@ async function validationContext(
     stateFiles,
     roleStateSources: sources.roleStateSources,
     bindings: controlBindings(fixed.get('src/controls.json')),
-    soundRefs,
+    ...artRefs,
     uiPieces: inputs.uiPieces,
     anchoredPieces: new Set(stockAnchoredPieces(sources.behaviors.module)),
   }

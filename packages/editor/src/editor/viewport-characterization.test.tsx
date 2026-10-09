@@ -128,6 +128,16 @@ describe('Viewport imperative handle', () => {
   })
 })
 
+describe('Viewport imperative handle, moves keep z', () => {
+  it('keeps the z of the live entity on an XY move, so draw order does not flicker', () => {
+    const mounted = mountViewport({ scene: { waicaScene: 3, entities: [{ name: 'Hero', position: [0, 0, 5] }] } })
+
+    mounted.handle().applyMove('Hero', 3, -2)
+
+    expect(defined(liveGame(mounted).find('Hero')).position.toArray()).toEqual([3, -2, 5])
+  })
+})
+
 describe('Viewport navigation', () => {
   it('zooms with the buttons and the wheel', async () => {
     const user = userEvent.setup()

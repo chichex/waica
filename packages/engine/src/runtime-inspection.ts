@@ -1,5 +1,7 @@
 import type { AudioChannelState, LiveSoundInfo } from './audio/types.js'
 import type { CameraEffectsState } from './camera-effects.js'
+import type { SceneSpace } from './scene-space.js'
+import { cameraEffectsSnapshot, viewSnapshot, type RuntimeSnapshotView } from './runtime-view-snapshot.js'
 import type { Component } from './component.js'
 import type { Entity } from './entity.js'
 import type { Game } from './game.js'
@@ -140,6 +142,10 @@ export interface RuntimeSnapshot extends RuntimeMetadata {
   time: RuntimeSnapshotTime
   ui: RuntimeSnapshotUi
   camera: RuntimeSnapshotCamera
+  /** The live scene's space (`render.space`, ADR 0027); `'2d'` with no scene. Never filtered. */
+  space: SceneSpace
+  /** The view the scene is drawn from: the orthographic centre and zoom, or the perspective pose (issue #154 CA-16). Never filtered. */
+  view: RuntimeSnapshotView
   /** Ambient Light and live Lights (issue #78 CA-12), logical coordinates; never filtered. */
   lighting: RuntimeSnapshotLighting
   /** Post Effects (issue #78 CA-12), each null when off; never filtered. */
@@ -493,7 +499,9 @@ export class RuntimeInspector {
       audio: this.audioSnapshot(),
       time: this.timeSnapshot(),
       ui: this.uiSnapshot(projectionIssues),
-      camera: this.game.cameraEffects.state,
+      camera: cameraEffectsSnapshot(this.game),
+      space: this.game.space,
+      view: viewSnapshot(this.game),
       lighting: lightingSnapshot(this.game, (entity) => this.idFor(entity)),
       post: postSnapshot(this.game),
     })

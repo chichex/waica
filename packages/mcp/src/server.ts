@@ -215,6 +215,7 @@ export const TOOLS: Tool[] = [
     name: 'control_runtime',
     description:
       'Inject a semantic action or a canvas click, or change deterministic frame control for a Run Session. ' +
+      '`click` takes `x` and `y`: logical coordinates in a 2D scene, canvas CSS pixels in a 3D scene (nothing is picked on the letterbox bars or off the canvas). ' +
       '`hold` takes an optional analog `value` in (0, 1] (default 1; below 0.5 the action moves but is not held). ' +
       '`step` advances whole Simulation Steps of 1/60 s each (`frames`, 1-600, default 1); it does not accept a `dt`.',
     inputSchema: {

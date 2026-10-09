@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  isPerspectiveCameraJson,
   projectIsometric,
   resolveSceneCamera,
   stepSceneCamera,
@@ -58,7 +59,9 @@ describe('ISOMETRIC_SCENE', () => {
       smoothing: 4,
     })
 
-    const camera = resolveSceneCamera(ISOMETRIC_SCENE.camera)
+    const block = ISOMETRIC_SCENE.camera
+    if (isPerspectiveCameraJson(block)) throw new Error('the isometric demo uses an orthographic camera')
+    const camera = resolveSceneCamera(block)
     const next = stepSceneCamera(camera, {
       x: center.x,
       y: center.y,

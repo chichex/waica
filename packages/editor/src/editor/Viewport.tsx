@@ -6,6 +6,7 @@ import type { TilemapBrushSelection } from './tilemap-brush'
 import { usePrefabDrop } from './use-prefab-drop'
 import { useViewportGame, useViewportHandle } from './use-viewport-game'
 import { useViewportPointer } from './use-viewport-pointer'
+import { isThreeDScene } from './viewport-camera'
 import { frameEditView, zoomEditView } from './viewport-game'
 import type { ViewportComponentVisibility, ViewportHandle } from './viewport-live'
 import { ViewportGridTools, ViewportNavTools } from './ViewportTools'
@@ -106,6 +107,8 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
     { onSelect, onToggleSelect, onRangeSelect, onSelectCamera, onMoved, onMovedMany, onCameraMoved, onBoxResized, onBoxMoved, onPolygonChanged, onTilemapStroke },
   )
   const drop = usePrefabDrop({ ...session, onDropPrefab })
+  // A 3D scene is only looked at (ADR 0027): no 2D frame, grid or zoom tools over it.
+  const flat = !isThreeDScene(scene)
 
   return (
     <>
@@ -116,13 +119,13 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
         {...drop.handlers}
       />
       {pointer.marqueeRect && <div className="ed-marquee" style={pointer.marqueeRect} />}
-      {mode === 'edit' && showCamera && (
+      {mode === 'edit' && showCamera && flat && (
         <div ref={uiFrameRef} className="ed-vp-ui">
           <div ref={uiScaleRef} />
         </div>
       )}
-      {mode === 'edit' && onGridChange && <ViewportGridTools grid={grid} onGridChange={onGridChange} />}
-      {mode === 'edit' && (
+      {mode === 'edit' && flat && onGridChange && <ViewportGridTools grid={grid} onGridChange={onGridChange} />}
+      {mode === 'edit' && flat && (
         <ViewportNavTools
           onZoom={(factor) => zoomEditView(session, factor)}
           onFrameCamera={showCamera ? () => frameEditView(session) : undefined}

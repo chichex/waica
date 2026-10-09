@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { TOOLS } from './server.js'
 
 const root = path.resolve(import.meta.dirname, '../../..')
 const tools = [
@@ -101,5 +102,13 @@ describe('Runtime harness documentation', () => {
     }
     expect(bridgeAdr).toMatch(/engine-owned.*session-scoped/is)
     expect(deterministicAdr).toMatch(/start paused.*deterministic/is)
+  })
+})
+
+describe('control_runtime click units', () => {
+  it('tells an agent the units of x and y in each space', () => {
+    const control = TOOLS.find((tool) => tool.name === 'control_runtime')
+    expect(control?.description).toMatch(/logical coordinates in a 2D scene/i)
+    expect(control?.description).toMatch(/canvas CSS pixels in a 3D scene/i)
   })
 })

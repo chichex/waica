@@ -13,7 +13,8 @@ vi.mock(
 )
 
 import type { SceneJson } from '@waica/engine'
-import { at, drag, GRID, installViewportHost, mountViewport, removeViewportHost, HERO_AND_FOE, WALL } from './test-viewport'
+import { defined } from '../../../engine/src/test-support'
+import { at, drag, GRID, installViewportHost, liveGame, mountViewport, removeViewportHost, HERO_AND_FOE, WALL } from './test-viewport'
 
 beforeEach(installViewportHost)
 afterEach(removeViewportHost)
@@ -28,6 +29,15 @@ describe('Viewport entity selection and drag', () => {
 
     expect(onSelect).toHaveBeenCalledWith('Hero')
     expect(onMoved).toHaveBeenCalledWith('Hero', [1, -2])
+  })
+
+  it('keeps the z of a 3-number position while dragging in the XY plane', () => {
+    const mounted = mountViewport({ scene: { waicaScene: 3, entities: [{ name: 'Hero', position: [0, 0, 5] }] } })
+
+    fireEvent.pointerDown(mounted.canvas, { ...at(0, 0), pointerId: 1 })
+    fireEvent.pointerMove(mounted.canvas, { ...at(1, -2), pointerId: 1 })
+
+    expect(defined(liveGame(mounted).find('Hero')).position.toArray()).toEqual([1, -2, 5])
   })
 
   it('snaps the dragged entity to the grid when snapping is on', () => {

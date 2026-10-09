@@ -1,7 +1,9 @@
 import type { SceneCameraJson } from './camera.js'
 import type { Component, ComponentClass } from './component.js'
 import type { Entity } from './entity.js'
+import { applyTransformJson, type TransformJson } from './entity-transform.js'
 import type { Game } from './game.js'
+import type { SceneSpace } from './scene-space.js'
 
 /**
  * Waica's scene format: declarative, git-friendly data, editable by the
@@ -13,9 +15,8 @@ export interface SceneComponentJson {
   props?: Record<string, unknown>
 }
 
-export interface SceneEntityJson {
+export interface SceneEntityJson extends TransformJson {
   name: string
-  position?: [number, number]
   /** Prefab ref like "characters/slime", resolved against SceneRegistry.prefabs. */
   prefab?: string
   /** Per-component prop overrides on top of the prefab: componentType -> propName -> value. */
@@ -51,6 +52,12 @@ export interface ScenePostJson {
 
 /** Scene-wide render options (v3). */
 export interface SceneRenderJson {
+  /**
+   * `'2d'` (the default) or `'3d'` (ADR 0027). A 3D scene makes `z` a world
+   * axis under a perspective camera with a depth buffer; there is no layer
+   * band, y-sort, isometric projection, sprite batch or light-map in it.
+   */
+  space?: SceneSpace
   /** Ambient Light; with it (or any Light) the scene is lit (ADR 0026). */
   lighting?: SceneLightingJson
   /** Vignette and color grade; with either on, the frame renders through a render target. */
@@ -208,7 +215,7 @@ function sceneProps(props: Record<string, unknown>, type: string, entityName: st
 
 export function spawnFromJson(game: Game, json: SceneEntityJson, registry: SceneRegistry): Entity {
   const entity = game.spawn(json.name)
-  if (json.position) entity.position.set(json.position[0], json.position[1], 0)
+  applyTransformJson(entity, json)
   for (const comp of resolveEntityComponents(json, registry.prefabs)) {
     const Class = registryEntry(registry.components, comp.type)
     if (!Class) {
@@ -246,9 +253,12 @@ export function loadScene(game: Game, scene: SceneJson, registry: SceneRegistry)
   }
   game.registry = registry
   game.setSceneRender(scene.render)
+  // A perspective camera has no follow target to wait for: components see it from their first onReady.
+  const adoptsBeforeSpawns = game.space === '3d'
+  if (adoptsBeforeSpawns) game.setSceneCamera(scene.camera)
   for (const entityJson of scene.entities) spawnFromJson(game, entityJson, registry)
-  // After the spawns: with a follow target, the camera starts centered on it.
-  game.setSceneCamera(scene.camera)
+  // After the spawns: with a follow target, the orthographic camera starts centered on it.
+  if (!adoptsBeforeSpawns) game.setSceneCamera(scene.camera)
   if (registry.ui) game.ui.defineAll(registry.ui)
   // Scene-scoped: Game.unloadScene() unmounts these along with the entities.
   for (const name of scene.ui ?? []) game.ui.show(name, { scope: 'scene' })

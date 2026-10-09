@@ -56,7 +56,7 @@ export const DUNGEON_SAMPLES = {
 }
 
 // Runs in the page, serialized by page.evaluate.
-async function samplesInPage({ base64, points }) {
+export async function samplesInPage({ base64, points }) {
   const { data, width } = await globalThis.decodePng(base64)
   return Object.fromEntries(Object.entries(points).map(([name, { x, y }]) => {
     const index = (y * width + x) * 4
@@ -108,10 +108,11 @@ export function expectsBlankLighting(renderBackend, env = process.env, platform 
 /** Whether every sample is opaque white: the CI symptom of issue #151. */
 const blankSamples = (samples) => Object.values(samples).every((pixel) => pixel[0] === 255 && pixel[1] === 255 && pixel[2] === 255)
 
-const brightness = (pixel) => pixel[0] + pixel[1] + pixel[2]
-const maxChannelDifference = (a, b) => Math.max(...[0, 1, 2].map((channel) => Math.abs(a[channel] - b[channel])))
+export const brightness = (pixel) => pixel[0] + pixel[1] + pixel[2]
+export const maxChannelDifference = (a, b) => Math.max(...[0, 1, 2].map((channel) => Math.abs(a[channel] - b[channel])))
 
-async function rewriteScene(project, name, edit) {
+/** Edits a Project's scene file, returning what restores it. */
+export async function rewriteScene(project, name, edit) {
   const file = path.join(project, `src/scenes/${name}.scene.json`)
   const original = await readFile(file, 'utf8')
   const scene = JSON.parse(original)

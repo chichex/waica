@@ -6,7 +6,7 @@ import { createRoleFile } from './code-file-commands'
 import type { EditorCore } from './editor-commits'
 import { EMPTY_STATS } from './EditorCenter'
 import { Inspector } from './Inspector'
-import { entityComponentHandlers, entityPropHandlers, overrideHandlers } from './inspector-entity-handlers'
+import { entityComponentHandlers, entityPropHandlers, entityTransformHandlers, overrideHandlers } from './inspector-entity-handlers'
 import { prefabAppearanceHandlers, prefabPropHandlers } from './inspector-prefab-handlers'
 import { inspectorSelection } from './inspector-selection'
 import { entityMachinePatch } from './modal-commands'
@@ -47,6 +47,7 @@ export function EditorInspector({ core, viewport }: { core: EditorCore; viewport
       onEditState={setStateTarget}
       {...projectProps(core)}
       {...entityPropHandlers(core, viewport)}
+      {...entityTransformHandlers(core, viewport)}
       {...entityComponentHandlers(core)}
       {...overrideHandlers(core)}
       {...prefabPropHandlers(core, viewport)}

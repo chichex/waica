@@ -10,6 +10,9 @@ export type {
 export { AssetLoader } from './assets/asset-loader.js'
 export type { AssetStatus } from './assets/asset-loader.js'
 export type { TextureBackend } from './assets/texture-backend.js'
+export { GltfModelBackend } from './assets/model-backend.js'
+export type { LoadedModel, ModelBackend } from './assets/model-backend.js'
+export type { ModelHandle, ModelOutcome } from './assets/model-cache.js'
 export { AudioSubsystem } from './audio/audio-subsystem.js'
 export type { AudioSubsystemOptions } from './audio/audio-subsystem.js'
 export type { AudioBackend, AudioResource, BackendPlayHandle, BackendPlayOptions } from './audio/backend.js'
@@ -48,11 +51,40 @@ export { GameTime, advanceGameTime } from './game-time.js'
 export type { EasingName, TimerHandle, TimerOptions, TweenOptions } from './game-time.js'
 export type {
   SceneCameraJson,
+  OrthographicSceneCameraJson,
   CameraLimitsJson,
   CameraVelocity,
   CameraVelocityProvider,
   ResolvedSceneCamera,
 } from './camera.js'
+export {
+  isPerspectiveCameraJson,
+  PERSPECTIVE_DEFAULTS,
+  perspectiveCameraIssues,
+  placePerspectiveCamera,
+  resolvePerspectiveCamera,
+} from './scene-camera-3d.js'
+export type {
+  PerspectiveSceneCameraJson,
+  ResolvedPerspectiveCamera,
+  SceneFieldIssue,
+  Vec3Json,
+} from './scene-camera-3d.js'
+export { isPerspectiveCamera, worldToNormalized } from './camera-projection.js'
+export type { GameCamera, NormalizedPoint, ViewCamera, WorldPoint } from './camera-projection.js'
+export {
+  componentSpaceMismatch,
+  entityTransformIssues,
+  resolveSceneSpace,
+  SCENE_SPACES,
+  sceneSpaceIssues,
+  THREE_D_COMPONENTS,
+  TWO_D_COMPONENTS,
+} from './scene-space.js'
+export type { SceneSpace } from './scene-space.js'
+export type { RuntimeSnapshotView } from './runtime-view-snapshot.js'
+export { applyTransformJson } from './entity-transform.js'
+export type { PositionJson, TransformJson } from './entity-transform.js'
 export { Entity } from './entity.js'
 export { Component } from './component.js'
 export { authoringDefaults } from './authoring-defaults.js'
@@ -107,6 +139,8 @@ export { RUNTIME_PROJECTION_LIMITS } from './runtime-inspection.js'
 export type {
   RuntimeSnapshotLight,
   RuntimeSnapshotLighting,
+  RuntimeSnapshotPointLight,
+  RuntimeSnapshotSun,
   RuntimeSnapshotPost,
 } from './runtime-lighting-snapshot.js'
 export type {
@@ -136,6 +170,10 @@ export { GameUi } from './ui.js'
 export type { AnchoredPieceHandle, AttachOptions } from './anchored-pieces.js'
 export { Sprite } from './components/sprite.js'
 export { Light } from './components/light.js'
+export { Model } from './components/model.js'
+export type { ModelShape } from './components/model.js'
+export { Sun } from './components/sun.js'
+export { PointLight } from './components/point-light.js'
 export { GameLighting } from './scene-lighting.js'
 export type { AmbientLightInput } from './scene-lighting.js'
 export { GamePost } from './post-effects.js'

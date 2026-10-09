@@ -18,8 +18,8 @@ export interface ArchetypeArt {
   file: string
   /** Registry URI resolved by the archetype at runtime. */
   uri: string
-  /** What kind of asset this is — a sprite sheet or texture, or a sound file. */
-  kind: 'image' | 'sound'
+  /** What kind of asset this is — a sprite sheet or texture, a sound file, or a glTF model. */
+  kind: 'image' | 'sound' | 'model'
 }
 
 /** The conventional contract exported by every archetype package. */

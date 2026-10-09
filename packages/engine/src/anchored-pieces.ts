@@ -1,7 +1,8 @@
+import { pixelsPerUnit, worldToNormalized, type ViewCamera, type WorldPoint } from './camera-projection.js'
 import type { Entity } from './entity.js'
 import type { TimerHandle } from './game-time.js'
-import type { PointerCamera, PointerResolution } from './pointer.js'
-import { projectIsometric, type ProjectedPoint } from './projection.js'
+import type { PointerResolution } from './pointer.js'
+import { projectIsometric } from './projection.js'
 import type { RuntimeSnapshotUi } from './runtime-inspection.js'
 import type { Stats, StatValue } from './stats.js'
 import { placeholders, renderStat } from './ui-bindings.js'
@@ -50,7 +51,7 @@ export interface ViewportRect {
 
 /** What the Game tells the anchored layer each time it places: read live, never cached. */
 export interface AnchorView {
-  camera: PointerCamera
+  camera: ViewCamera
   /** The game viewport: see gameViewport. */
   viewport: ViewportRect
   projection: 'isometric' | null
@@ -98,6 +99,8 @@ interface Placement {
   clipped: boolean
   /** The unrounded height on screen: 0 at the viewport's top, 1 at its bottom. */
   depth: number
+  /** True when a perspective camera has the anchor behind it: there is no place to show the piece. */
+  behind?: boolean
 }
 
 /** A GameUi no Game connected has no viewport: nothing it holds is ever placed. */
@@ -125,7 +128,7 @@ interface Instance {
   /** The Game Time timer that removes an instance given `seconds`. */
   expiry: TimerHandle | null
   /** Render-space anchor point frozen when a lingering instance's entity was destroyed. */
-  frozen: ProjectedPoint | null
+  frozen: WorldPoint | null
   placed: Placement | null
   alive: boolean
 }
@@ -261,8 +264,8 @@ export class AnchoredPieces {
     layer.style.top = `${viewport.y}px`
     layer.style.width = `${viewport.width}px`
     layer.style.height = `${viewport.height}px`
-    // The camera frames exactly viewHeight world units vertically (Game.resize).
-    layer.style.setProperty('--waica-unit', `${viewport.height / (camera.top - camera.bottom)}px`)
+    // Orthographic: the camera frames exactly viewHeight world units vertically (Game.resize).
+    layer.style.setProperty('--waica-unit', `${pixelsPerUnit(camera, viewport.height)}px`)
     // Before any instance's style writes below: getAnimations() flushes style.
     for (const instance of this.instances) followGameTime(instance)
     const byDepth: Array<[Instance, number]> = []
@@ -271,6 +274,7 @@ export class AnchoredPieces {
       instance.placed = placement
       instance.host.style.left = `${placement.x}px`
       instance.host.style.top = `${placement.y}px`
+      instance.host.style.visibility = placement.behind ? 'hidden' : ''
       byDepth.push([instance, placement.depth])
     }
     // Lower on screen draws on top, like y-sort; the sort is stable, so
@@ -355,11 +359,11 @@ export class AnchoredPieces {
 }
 
 /** The entity's render point plus the offset, in render space — or the point frozen at its destroy(). */
-function anchorPoint(instance: Instance, projection: 'isometric' | null): ProjectedPoint {
+function anchorPoint(instance: Instance, projection: 'isometric' | null): WorldPoint {
   if (instance.frozen) return instance.frozen
-  const { x, y } = instance.entity.position
+  const { x, y, z } = instance.entity.position
   const render = projection === 'isometric' ? projectIsometric(x, y) : { x, y }
-  return { x: render.x + instance.offset[0], y: render.y + instance.offset[1] }
+  return { x: render.x + instance.offset[0], y: render.y + instance.offset[1], z }
 }
 
 /**
@@ -367,10 +371,11 @@ function anchorPoint(instance: Instance, projection: 'isometric' | null): Projec
  * corner: the exact inverse of the Pointer's screen→world mapping.
  */
 function locate(instance: Instance, view: AnchorView): Placement {
-  const anchor = anchorPoint(instance, view.projection)
-  const { camera, viewport } = view
-  const nx = (anchor.x - (camera.position.x + camera.left)) / (camera.right - camera.left)
-  const ny = (camera.position.y + camera.top - anchor.y) / (camera.top - camera.bottom)
+  const at = worldToNormalized(view.camera, anchorPoint(instance, view.projection))
+  // Behind a perspective camera there is no place on screen to put it.
+  if (!at) return { x: 0, y: 0, clipped: true, depth: 1, behind: true }
+  const { nx, ny } = at
+  const { viewport } = view
   return {
     x: whole(nx * viewport.width),
     y: whole(ny * viewport.height),

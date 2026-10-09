@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu'
+import type { LoadedModel, ModelBackend } from './model-backend.js'
 import type { TextureBackend } from './texture-backend.js'
 
 interface PixelSize {
@@ -66,6 +67,50 @@ export class FakeTextureBackend implements TextureBackend {
     const texture = new THREE.Texture()
     texture.image = { width: size.width, height: size.height } as HTMLImageElement
     return texture
+  }
+}
+
+/**
+ * Records exactly what the real GltfModelBackend would receive (ADR 0019).
+ * `load` resolves with a fresh scene of one box mesh named after the url and
+ * one animation clip; rejects for a url given to `failUrl`, and stays
+ * unsettled for a url given to `hold` until `release(url)`.
+ */
+export class FakeModelBackend implements ModelBackend {
+  /** Every url the loader asked for, in order — one per distinct url when the cache works. */
+  readonly loadCalls: string[] = []
+  /** The scene each url last resolved with: the cache's base, which no consumer may mutate. */
+  readonly scenes = new Map<string, THREE.Group>()
+  private readonly failing = new Set<string>()
+  private readonly gates = new Map<string, Gate>()
+
+  failUrl(url: string): void {
+    this.failing.add(url)
+  }
+
+  hold(url: string): void {
+    if (!this.gates.has(url)) this.gates.set(url, gate())
+  }
+
+  release(url: string): void {
+    const held = this.gates.get(url)
+    if (!held) return
+    this.gates.delete(url)
+    held.open()
+  }
+
+  async load(url: string): Promise<LoadedModel> {
+    this.loadCalls.push(url)
+    const held = this.gates.get(url)
+    if (held) await held.promise
+    if (this.failing.has(url)) throw new Error(`fake model backend: "${url}" is configured to fail`)
+    const scene = new THREE.Group()
+    scene.name = `scene:${url}`
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 0x8899aa }))
+    mesh.name = `mesh:${url}`
+    scene.add(mesh)
+    this.scenes.set(url, scene)
+    return { scene, animations: [new THREE.AnimationClip('Idle', 1, [])] }
   }
 }
 

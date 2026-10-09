@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act, createElement, StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { MemFS } from '../fs/project-fs'
 import {
   buildArtTree,
@@ -214,6 +214,47 @@ describe('useProjectArt (CA-17)', () => {
     expect(mounted.art().art.map((i) => i.uri)).toEqual(['src/art/swing.ogg'])
     expect(mounted.art().art[0]?.kind).toBe('sound')
 
+    mounted.unmount()
+  })
+})
+
+describe('useProjectArt models (issue #154 CA-8)', () => {
+  it('scans .glb and .gltf files as models with their glTF MIME types, beside images and sounds', async () => {
+    const created: Blob[] = []
+    vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      created.push(blob as Blob)
+      return `blob:model-${created.length}`
+    })
+    const fs = new MemFS('proj', {})
+    await fs.writeFile('src/art/hero.png', new Uint8Array([1]))
+    await fs.writeFile('src/art/tree.glb', new Uint8Array([2]))
+    await fs.writeFile('src/art/props/rock.gltf', new Uint8Array([3]))
+    const mounted = await mountProjectArt(fs)
+
+    const items = [...mounted.art().art].sort((a, b) => a.uri.localeCompare(b.uri))
+    expect(items.map((i) => ({ uri: i.uri, kind: i.kind }))).toEqual([
+      { uri: 'src/art/hero.png', kind: 'image' },
+      { uri: 'src/art/props/rock.gltf', kind: 'model' },
+      { uri: 'src/art/tree.glb', kind: 'model' },
+    ])
+    expect([...new Set(created.map((blob) => blob.type))].sort()).toEqual(['image/png', 'model/gltf+json', 'model/gltf-binary'])
+
+    mounted.unmount()
+  })
+
+  it('imports a .glb into src/art, same as images and sounds', async () => {
+    const fs = new MemFS('proj', {})
+    const mounted = await mountProjectArt(fs)
+    const file = new File([new Uint8Array([1, 2, 3])], 'tree.glb', { type: 'model/gltf-binary' })
+
+    await act(async () => {
+      await mounted.art().importArt([{ file, relativePath: 'models/tree.glb' }])
+    })
+
+    expect(await fs.readFile('src/art/models/tree.glb')).not.toBeNull()
+    expect(mounted.art().art.map((i) => ({ uri: i.uri, kind: i.kind }))).toEqual([
+      { uri: 'src/art/models/tree.glb', kind: 'model' },
+    ])
     mounted.unmount()
   })
 })

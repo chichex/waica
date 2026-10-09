@@ -166,9 +166,25 @@ _Avoid_: darkness, global light, brightness
 A drawable that ignores Ambient Light and the lights around it and always shows at full brightness — a torch flame, sparks, a glowing sign. Everything else in a lit scene is darkened or brightened by the light that reaches it.
 _Avoid_: unlit, glow, fullbright
 
+**Space**:
+What a scene's `z` axis and camera mean, declared as `render.space`. A `2d` scene (the default) is the orthographic world, where `z` only orders what is drawn; a `3d` scene makes `z` a world axis under a perspective camera, with a depth buffer deciding what is in front and no layer bands, y-sort, isometric projection, Sprite Batches or light-map. A scene is one or the other; 2D and 3D components do not mix in it.
+_Avoid_: mode, dimension, 2.5D
+
+**Model**:
+A 3D thing an entity draws in a 3D scene: a glTF/glb file loaded once through `game.assets`, or a primitive shape (box, sphere, plane) with a color and a size. The entity's position, rotation and scale place it, and a click can pick it.
+_Avoid_: mesh, 3D sprite, object
+
+**Sun**:
+The directional light of a 3D scene: it shines along one direction in world space, wherever its entity stands, with a color and an intensity. It casts no shadows.
+_Avoid_: directional light, sunlight, global light
+
+**Point Light**:
+An entity-owned source of light in a 3D scene: it shines in every direction from its entity's position plus an offset, reaching a distance (or without limit) and fading with decay. It casts no shadows. Not the 2D **Light**, which paints a light-map.
+_Avoid_: lamp, bulb, Light
+
 **Light**:
 An entity-owned source of 2D light: a radius in logical world space (an ellipse on an isometric screen), a color, an intensity, a falloff that is smooth or split into bands, and a shadow edge that is hard or soft. Solid tiles stop it, but the face of the tile it reaches is lit. Lights brighten what Ambient Light leaves dark; they never darken.
-_Avoid_: lamp, point light, glow
+_Avoid_: lamp, glow (in a 3D scene the counterpart is a **Point Light**)
 
 **Post Effect**:
 A screen-wide pass over the finished game frame — a vignette darkening the edges, or a color grade shifting tint, contrast and saturation. Every one is off by default; a scene that uses none draws exactly as one without them. Camera Effects sit above it and are never altered by it.

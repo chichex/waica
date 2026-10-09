@@ -45,7 +45,13 @@ async function withDeadline<T>(work: Promise<T>, ms: number, what: string): Prom
 }
 
 async function servePage(): Promise<PreviewServer> {
-  await build({ root: packageRoot, logLevel: 'warn', build: { emptyOutDir: true } })
+  await build({
+    root: packageRoot,
+    logLevel: 'warn',
+    build: { emptyOutDir: true },
+    // One three for the whole bundle (ADR 0027), as in every other Vite config of the repo.
+    resolve: { alias: [{ find: /^three$/, replacement: 'three/webgpu' }] },
+  })
   return preview({ root: packageRoot, logLevel: 'warn', preview: { host: '127.0.0.1', port: 0 } })
 }
 

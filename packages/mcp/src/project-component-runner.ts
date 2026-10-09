@@ -16,8 +16,16 @@ const FALLBACK_PACKAGES = new Set([
   '@waica/archetype-topdown',
   '@waica/archetype-isometric',
 ])
-// The engine draws with three's WebGPU build and writes its shaders in TSL (ADR 0025).
-const FALLBACK_SPECIFIERS = new Set([...FALLBACK_PACKAGES, 'three', 'three/webgpu', 'three/tsl'])
+// The engine draws with three's WebGPU build and writes its shaders in TSL (ADR 0025),
+// and loads glTF with two of three's addons (ADR 0027): mirrors THREE_SPECIFIERS in project-component-fallbacks.ts.
+const FALLBACK_SPECIFIERS = new Set([
+  ...FALLBACK_PACKAGES,
+  'three',
+  'three/webgpu',
+  'three/tsl',
+  'three/addons/loaders/GLTFLoader.js',
+  'three/addons/utils/SkeletonUtils.js',
+])
 const REF_KINDS = new Set(['prefab', 'clip', 'action', 'stat', 'sound', 'ui'])
 const RELATIVE_EXTENSIONS = ['.ts', '.tsx', '.js']
 

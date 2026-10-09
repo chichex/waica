@@ -25,6 +25,14 @@ const SOUND: ArtItem = {
   kind: 'sound',
 }
 
+const MODEL: ArtItem = {
+  label: 'tree.glb',
+  url: 'blob:tree',
+  uri: 'src/art/tree.glb',
+  path: 'src/art/tree.glb',
+  kind: 'model',
+}
+
 const IMAGE: ArtItem = {
   label: 'hero.png',
   url: 'blob:hero',
@@ -128,6 +136,19 @@ describe('Explorer sound library (CA-17, CA-18)', () => {
     expect(screen.getByText('swing.ogg')).toBeDefined()
     expect(screen.getByText('hero.png')).toBeDefined()
     expect(screen.getAllByRole('button', { name: PREVIEW_CONTROL })).toHaveLength(1)
+  })
+
+  it('lists a model (issue #154 CA-8) as its own row: nothing to open or preview, only the file menu', async () => {
+    const user = userEvent.setup()
+    const onOpenArt = vi.fn()
+    render(baseProps({ art: [MODEL, SOUND], onOpenArt }))
+
+    const row = screen.getByText('tree.glb')
+    expect(row).toBeDefined()
+    await user.click(row)
+    expect(onOpenArt).not.toHaveBeenCalled()
+    expect(screen.getAllByRole('button', { name: PREVIEW_CONTROL })).toHaveLength(1)
+    expect(row.closest('[draggable="true"]')).toBeNull()
   })
 
   it('invokes the injected preview entry point with the sound URL when clicked in edit mode', async () => {

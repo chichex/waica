@@ -1,13 +1,14 @@
-import { sceneRenderIssues } from '@waica/engine'
+import { resolveSceneSpace, sceneRenderIssues } from '@waica/engine'
 import type {
   ParamSpec,
   PrefabJson,
   SceneComponentJson,
-  SceneEntityJson,
   SceneJson,
+  SceneSpace,
 } from '@waica/engine'
 import { collisionCategoryFindings } from './collision-category-validation.js'
 import { objectRecord } from './component-metadata.js'
+import { checkComponentParams, overrideParamFindings } from './component-param-findings.js'
 import {
   checkComponent,
   componentList,
@@ -16,12 +17,10 @@ import {
   validateComponentUpdateSchedule,
   validateParamReferences,
 } from './component-validation.js'
-import { lightParamFindings } from './light-param-validation.js'
+import { validateEntitySpace, validateSceneSpace } from './space-validation.js'
 import { validateEntitySceneTransition } from './scene-transition-validation.js'
 import { validateStateMachines } from './state-machine-validation.js'
-import { add, type ValidationContext } from './validation-context.js'
-
-type LooseSceneEntity = Omit<Partial<SceneEntityJson>, 'name'> & { name?: unknown }
+import { add, type LooseSceneEntity, type ValidationContext } from './validation-context.js'
 
 /** One scene file and the Project-wide facts its entities are checked against. */
 export interface SceneScope {
@@ -82,12 +81,15 @@ export function validateScene(scene: SceneJson, scope: SceneScope): void {
   for (const issue of sceneRenderIssues(scene.render)) {
     add(scope.context, 'error', 'invalid-scene-render', issue.message, scope.file, issue.field)
   }
+  // render.space, the camera against it and the 2D-only render options (issue #154 CA-13).
+  validateSceneSpace(scene, scope)
+  const space = resolveSceneSpace(scene.render)
   for (const ui of Array.isArray(scene.ui) ? scene.ui : []) {
     if (typeof ui === 'string' && !scope.uiNames.has(ui)) {
       add(scope.context, 'warning', 'unknown-ui-piece', `Unknown UI piece "${ui}".`, scope.file, ui)
     }
   }
-  for (const { entity, index } of entities) validateSceneEntity(entity, index, scope)
+  for (const entry of entities) validateSceneEntity(entry, scope, space)
 }
 
 function validateSceneCamera(
@@ -111,24 +113,25 @@ function validateSceneCamera(
   }
 }
 
-function validateSceneEntity(entity: LooseSceneEntity, index: number, scope: SceneScope): void {
+function validateSceneEntity(
+  { entity, index }: { entity: LooseSceneEntity; index: number },
+  scope: SceneScope,
+  space: SceneSpace,
+): void {
   const { context, file } = scope
   const entityRef =
     typeof entity.name === 'string' && entity.name ? entity.name : `entity[${index}]`
   const inline = componentList(entity.components)
   for (const component of inline) {
     checkComponent(component, file, entityRef, context)
-    if (component.type === 'Hitbox') {
-      context.findings.push(...collisionCategoryFindings(component.props, file, entityRef))
-    }
-    if (component.type === 'Light') context.findings.push(...lightParamFindings(component.props, file, entityRef))
+    checkComponentParams(component, { file, ref: entityRef }, context)
   }
-  // Only the overridden Light params: the prefab's own are reported at the prefab.
-  context.findings.push(...lightParamFindings(objectRecord(entity.overrides)['Light'], file, entityRef))
+  context.findings.push(...overrideParamFindings(entity.overrides, file, entityRef))
   context.findings.push(
     ...validateEntitySceneTransition(entity, entityRef, file, scope.prefabs, scope.knownScenes),
   )
   const prefab = validatePrefabReference(entity, entityRef, scope)
+  validateEntitySpace({ entity, ref: entityRef, prefab }, space, scope)
   const composition = entityComposition(entity, entityRef, prefab)
   validateEntityParamReferences(composition, scope)
 

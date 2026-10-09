@@ -25,6 +25,26 @@ A `Game` draws through three's `WebGPURenderer` (ADR 0025): WebGPU when the brow
 - **Tests under happy-dom.** happy-dom has no GPU: a project test that builds a `Game` replaces `WebGPURenderer` from `three/webgpu` with a fake (it previously replaced `WebGLRenderer` from `three`), whose `init()` resolves.
 - **Run Sessions.** A Run Session waits for the Render Backend before it reports ready, steps or screenshots, and its snapshots carry `backend`. A renderer that cannot initialize ends `start_project` with a runtime error that names the failure.
 
+## Migrating to `<next minor>`: 3D scenes
+
+A scene can declare a 3D space (issue #154, ADR 0027). Nothing about a 2D scene changes — every existing scene file loads as it did — but a few types and one build setting do:
+
+- **`game.camera` is a union.** It is `THREE.OrthographicCamera | THREE.PerspectiveCamera`: the orthographic one in every 2D scene, a perspective one in a 3D scene. Code that read `game.camera.left/right/top/bottom` narrows first (`camera instanceof THREE.OrthographicCamera`, or `isPerspectiveCamera(camera)`), or goes through `game.worldToScreen(point)`. `game.view` and `setViewHeight()` are the orthographic zoom: under a perspective camera they change nothing.
+- **`SceneCameraJson` is a union.** The existing block (optionally `kind: 'orthographic'`) or `{ kind: 'perspective', position?, target?, fov?, near?, far? }`. `resolveSceneCamera` keeps returning the orthographic block with no `kind`; a perspective block gets its own defaults. A scene's camera must match its space (`validate_project` reports a mismatch).
+- **Scene entities take 3-number positions.** `position` is `[x, y]` (z = 0, as before) or `[x, y, z]`, and an entity may declare `rotation: [x, y, z]` in degrees (Euler order XYZ) and `scale: [x, y, z]`. In a 2D scene `z` is still only draw order.
+- **`ArchetypeArt.kind` and the editor's art `kind` gain `'model'`** (`.glb` and `.gltf`), and `ParamSpec.kind` gains `'model'` and `'vector3'`. Code that switches over these kinds handles the new member.
+- **`Pointer.injectClick(x, y)` may return `null`.** In a 3D scene `x` and `y` are canvas pixels and a ray that meets neither a model nor the ground yields no pick; in a 2D scene it still always returns one.
+- **One three.** `GLTFLoader` and `SkeletonUtils` import the bare `'three'`, the engine draws with `'three/webgpu'`. Every bundler of a project that uses `Model` (or any three addon) aliases the bare specifier to the WebGPU build, and only it:
+
+  ```ts
+  // vite.config.ts
+  export default defineConfig({
+    resolve: { alias: [{ find: /^three$/, replacement: 'three/webgpu' }] },
+  })
+  ```
+
+  `three/webgpu`, `three/tsl` and `three/addons/*` are left alone. Projects created by `create_project` after this release carry the alias; an earlier project adds it by hand. The same alias goes in a project's Vitest config if its tests import plain `'three'`.
+
 ## Hitbox Collision Layers and Masks
 
 Every `Hitbox` belongs to one named Collision Layer and declares the other layers in which it is interested through a Collision Mask:
@@ -207,6 +227,33 @@ A scene can be lit (issue #78, ADR 0026). Without lighting and without a Post Ef
 
 The CPU reference of a light-map texel — `lightFalloff`, `lightVisibility`, `lightMapValue` — is exported for tools and tests; the shader follows it.
 
+## 3D scenes
+
+A scene declares its space (ADR 0027): `render.space: '2d'` (the default) or `'3d'`. `game.space` reports the live scene's, `'2d'` with no scene. In a 3D scene `z` is a world axis (Y is up, the ground is the XZ plane, the default camera looks down −Z), the frame is drawn straight to the canvas with a depth buffer deciding what is in front, and there is no layer band, y-sort, isometric projection, Sprite Batch or light-map. `render.post` still works. `validate_project` rejects `render.sort`, `render.projection` and `render.batch` in a 3D scene, a 2D component (`Sprite`, `AnimatedSprite`, `Tilemap`, `Solid`, `DynamicBody`, `Hitbox`, `Light`, `ParticleEmitter`) on a 3D scene's entities, and a 3D component in a 2D scene (`component-space-mismatch`); `StateMachine` and project-owned components are allowed in both.
+
+```json
+{
+  "waicaScene": 3,
+  "render": { "space": "3d", "lighting": { "ambient": { "color": "#b8c8ff", "intensity": 0.6 } } },
+  "camera": { "kind": "perspective", "position": [0, 5.5, 11], "target": [0, 0.8, 0], "fov": 50 },
+  "entities": [
+    { "name": "Ground", "scale": [24, 1, 24], "components": [{ "type": "Model", "props": { "shape": "plane", "color": 5081930 } }] },
+    { "name": "Tree", "position": [4, 0, -1], "components": [{ "type": "Model", "props": { "src": "src/art/tree.glb" } }] },
+    { "name": "Daylight", "components": [{ "type": "Sun", "props": { "direction": [-0.5, -1, -0.35], "intensity": 3 } }] },
+    { "name": "Lamp", "position": [2.5, 0, 3.5], "components": [{ "type": "PointLight", "props": { "intensity": 14, "distance": 10, "offsetY": 1.2 } }] }
+  ]
+}
+```
+
+- **Camera.** `{ kind: 'perspective', position, target, fov, near, far }`, defaults `[0, 5, 10]`, `[0, 0, 0]`, 60, 0.1, 1000; `follow` and the 2D fields are not accepted. A 3D scene without a camera block gets the defaults. The camera is fixed by the scene; game code may move `game.camera`. `resize()` keeps the letterbox and sets the camera's aspect from the letterboxed size. Camera Fade and Flash work in 3D; Shake does nothing.
+- **Model.** Draws a glTF/glb from `src` (a `waica:` uri or a project path under `src/art/`, loaded once through `game.assets.model(uri)`) or a primitive `shape` (`'box'`, `'sphere'`, `'plane'` — the plane lies on the ground) of a `color` (`0xrrggbb`) and a uniform `size`, with a standard (lit) material. With both `src` and `shape`, `src` wins. The entity's `position`, `rotation` and `scale` place it; `color` and `size` follow the inspector live, a new `src` or `shape` rebuilds it. glTF animations load with the file (`ModelHandle.animations`) and are not played yet.
+- **Lights.** The Ambient Light of a 3D scene drives one `THREE.AmbientLight` the Game owns (`render.lighting.ambient` and `game.lighting.ambient`, full white by default). `Sun` is a directional light: `direction` `[x, y, z]` in world space (default `[-1, -2, -1]`), `color`, `intensity`. `PointLight` shines from its entity plus `offsetX/Y/Z`: `color`, `intensity`, `distance` (0 = unlimited), `decay` (default 2). Both create nothing in a 2D scene, follow their props live and leave with their entity. No shadows. three's lights are physically based: a point light of intensity 1 is dim, so a scene tunes intensities (the smoke example uses 3 for the Sun and 14 for the lamp).
+- **`game.worldToScreen(point)`.** `{ x, y, z? }` in logical coordinates to canvas CSS pixels inside the letterbox, or `null` when a perspective camera cannot see the point (behind its near plane). Anchored Pieces and spatial audio go through the same projection: in 3D a piece behind the camera is hidden, sounds attenuate by the 3D distance from the camera and pan by where they land on screen.
+- **Picking.** A click in a 3D scene casts a ray through the letterboxed point against every live `Model` (a glTF still loading is skipped) and resolves `PointerPick` with the nearest hit's entity and its world-space point (`point.z`). With no hit the entity is `null` and the point is where the ray meets the ground plane y = 0; a ray at the sky yields no pick.
+- **Assets.** `game.assets.model(uri)` returns a `ModelHandle` at once: `root` is empty until the file settles, then holds your own clone of the cached glTF (skinned meshes cloned with `SkeletonUtils.clone`), `animations` its clips, `settled` resolves `'loaded'` or `'failed'`. One backend load per URL for the Game's life; `status` counts models with textures, `preload` routes `.glb`/`.gltf` to them, `GameOptions.models` replaces the real `GLTFLoader` backend (`ModelBackend { load(url) }`) for a project's own tests. Only a `.glb`, or a `.gltf` with every buffer and image embedded as a `data:` uri, works in the editor (which serves each file from a `blob:` url) and in a built project (which hashes every art file's name): a `.gltf` that points at an external `.bin` or textures loads empty there, and `validate_project` warns (`gltf-external-resource`).
+- **Runtime Snapshot.** `space`, `view` (`{ kind: 'orthographic', position, zoom }` or `{ kind: 'perspective', position, target, fov }`) and, in a 3D scene, `lighting.sun[]` and `lighting.pointLights[]`.
+- **Editor.** A 3D scene opens read-only: the viewport draws it through its perspective camera (the one Play uses) with no gesture, grid or gizmo; the inspector edits X/Y/Z, rotation and scale, and a perspective camera's position, target and fov.
+
 ## Component lifecycle
 
 Waica keeps the lifecycle boundaries distinct:
@@ -380,5 +427,6 @@ game.assets.status // { pending, loaded, failed } — a fresh object on every re
 - **`preload(uris)`.** Requests every uri and resolves once all of them settled, failures included. A component that later asks for the same resolved URL is a cache hit.
 - **`status`.** `pending` is current; `loaded` and `failed` are cumulative for the Game and only grow until `dispose()`. A host that wants a loading bar reads it from `game.onUpdate`.
 - **Failure rule.** A texture that fails to load is recorded, not thrown: `console.warn('[waica] assets: failed to load "<url>"', error)` once per Game per URL, `failed` counts it, `ready()` resolves, and every consumer falls back to its flat material — `Sprite` and `Tilemap` drop the failed map, dispose their clone and render their `color` again; `AnimatedSprite` never installs the failed sheet's clone, so that sheet's frames show a plain white quad. Asking for that URL again on the same Game is a cached failure — no retry, no second warning.
+- **Models.** `game.assets.model(uri)` is the glTF half of the same cache (see [3D scenes](#3d-scenes)): one load per URL, `status` and `ready()` count it, `preload` routes `.glb` and `.gltf` to it.
 - **`GameOptions.textures`.** Replaces the real `THREE.TextureLoader` backend for that Game (ADR 0013's seam, applied to textures): `happy-dom` decodes no images, so a project's own tests inject a backend that resolves at once. The Runtime Bridge reports `assets` in its metadata under the `'assets'` capability, and a Run Session waits for `pending === 0` at readiness, after a `scene` operation and before every screenshot.
 
