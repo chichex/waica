@@ -15,6 +15,7 @@ import {
  */
 export class Solid extends Component {
   static override componentName = 'Solid'
+  static override space = '2d' as const
   static override params = {
     offsetX: { label: 'x offset' },
     offsetY: { label: 'y offset' },

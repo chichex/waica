@@ -28,6 +28,7 @@ const DEATH_SECONDS = 0.5
  */
 export class Patrol extends Component implements AnimationFacingProvider {
   static override componentName = 'Patrol'
+  static override space = '2d' as const
   static override params = {
     axis: { label: 'Axis', options: ['horizontal', 'vertical'] },
     distance: { label: 'Distance', min: 0.5, max: 20, step: 0.5 },

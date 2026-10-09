@@ -53,6 +53,8 @@ interface ComponentRow {
   hasOnUpdate: boolean
   hasUpdateAfter: boolean
   updateAfter: string[]
+  /** The raw `static space`; the parent validates it with the rest of the row. */
+  space: unknown
 }
 
 interface SuccessMessage {
@@ -247,18 +249,17 @@ function componentRow(value: unknown, relativeFile: string): ComponentRow | null
   const name: unknown = Reflect.get(value, 'componentName')
   if (typeof name !== 'string' || !name) return null
   const updateAfter: unknown = Reflect.get(value, 'updateAfter')
-  const hasUpdateAfter = updateAfter !== undefined
-  if (hasUpdateAfter && !isStringList(updateAfter)) {
+  if (updateAfter !== undefined && !isStringList(updateAfter)) {
     throw new Error(`Component "${name}" updateAfter must be an array of strings.`)
   }
-  const prototype = record(Reflect.get(value, 'prototype'))
   return {
     name,
     file: relativeFile,
     params: paramRows(value),
-    hasOnUpdate: typeof prototype.onUpdate === 'function',
-    hasUpdateAfter,
+    hasOnUpdate: typeof record(Reflect.get(value, 'prototype')).onUpdate === 'function',
+    hasUpdateAfter: updateAfter !== undefined,
     updateAfter: isStringList(updateAfter) ? [...updateAfter] : [],
+    space: Reflect.get(value, 'space') ?? null,
   }
 }
 

@@ -59,6 +59,7 @@ interface ClickToMoveMotor {
  */
 export class ClickToMove extends Component {
   static override componentName = 'ClickToMove'
+  static override space = '2d' as const
   static override displayName = 'Click to move'
   static override params = {
     arrivalTolerance: { label: 'Arrival tolerance', min: 0.05, max: 1, step: 0.05 },

@@ -18,6 +18,7 @@ import { Health } from './health.js'
  */
 export class MeleeAttack extends Component {
   static override componentName = 'MeleeAttack'
+  static override space = '2d' as const
   static override displayName = 'Melee attack'
   static override params = {
     damage: { label: 'Damage', min: 0, max: 20, step: 1 },

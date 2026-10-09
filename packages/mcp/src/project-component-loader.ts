@@ -123,6 +123,9 @@ function schedulingAdapter(row: ComponentRow): ComponentClass {
       value: Object.freeze([...row.updateAfter]),
     })
   }
+  if (row.space !== null) {
+    Object.defineProperty(SchedulingAdapter, 'space', { value: row.space })
+  }
   if (row.hasOnUpdate) {
     Object.defineProperty(SchedulingAdapter.prototype, 'onUpdate', {
       value: () => undefined,
@@ -133,7 +136,7 @@ function schedulingAdapter(row: ComponentRow): ComponentClass {
 
 /**
  * A scheduling stand-in carries only what resolveComponentUpdateSchedule
- * reads (componentName, updateAfter, prototype.onUpdate). This process imports
+ * reads (componentName, updateAfter, prototype.onUpdate) and validate_project reads (space). This process imports
  * @waica/engine for types only — project code and its engine run in isolated
  * children — so the stand-in cannot extend the real Component class. This is
  * the one place that presents it as a ComponentClass.

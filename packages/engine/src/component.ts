@@ -16,6 +16,13 @@ export interface ParamSpec {
   ref?: 'prefab' | 'stat' | 'action' | 'clip' | 'sound' | 'ui'
 }
 
+/**
+ * The scene space a component belongs to (ADR 0027): `'2d'` components draw,
+ * collide or light the orthographic world, `'3d'` ones need a perspective
+ * camera, `'both'` run anywhere. A component that declares nothing is `'both'`.
+ */
+export type ComponentSpace = '2d' | '3d' | 'both'
+
 export interface ComponentClass<T extends Component = Component> {
   new (): T
   /**
@@ -29,6 +36,8 @@ export interface ComponentClass<T extends Component = Component> {
   params?: Record<string, ParamSpec>
   /** Sibling component updates that must complete before this one when present. */
   updateAfter?: readonly string[]
+  /** The scene space this component belongs to; absent means both. */
+  space?: ComponentSpace
   /**
    * Instance fields holding runtime state rather than authorable defaults.
    * Excluded from authoringDefaults(); a subclass that does not redeclare
@@ -61,6 +70,7 @@ export abstract class Component {
   static displayName?: string
   static params?: Record<string, ParamSpec>
   static updateAfter?: readonly string[]
+  static space?: ComponentSpace
   static transient?: readonly string[]
 
   entity!: Entity

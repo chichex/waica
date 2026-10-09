@@ -16,6 +16,7 @@ import { Health } from './health.js'
  */
 export class OutOfBounds extends Component {
   static override componentName = 'OutOfBounds'
+  static override space = '2d' as const
   static override updateAfter: readonly string[] = ['DynamicBody', 'Health', 'StateMachine']
   static override displayName = 'Out of bounds'
   static override params = {

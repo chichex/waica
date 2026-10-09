@@ -17,6 +17,7 @@ const finiteDirection = (value: unknown): value is Vec3Json =>
  */
 export class Sun extends Component {
   static override componentName = 'Sun'
+  static override space = '3d' as const
   static override params = {
     direction: { label: 'Direction', kind: 'vector3' },
     color: { label: 'Color', kind: 'color' },

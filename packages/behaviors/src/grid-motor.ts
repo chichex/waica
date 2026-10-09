@@ -14,6 +14,7 @@ export abstract class GridMotor
   implements CameraVelocityProvider, AnimationFacingProvider
 {
   static override displayName = 'Motor'
+  static override space = '2d' as const
   static override params = {
     moveSpeed: { label: 'Speed', min: 1, max: 30, step: 0.5 },
     acceleration: { label: 'Acceleration', min: 5, max: 200, step: 5 },

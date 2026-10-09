@@ -1,12 +1,27 @@
 import { describe, expect, it } from 'vitest'
+import { AnimatedSprite } from './components/animated-sprite.js'
+import { DynamicBody } from './components/dynamic-body.js'
+import { Hitbox } from './components/hitbox.js'
+import { Light } from './components/light.js'
+import { Model } from './components/model.js'
+import { ParticleEmitter } from './components/particle-emitter.js'
+import { PointLight } from './components/point-light.js'
+import { Solid } from './components/solid.js'
+import { Sprite } from './components/sprite.js'
+import { Sun } from './components/sun.js'
+import { Tilemap } from './components/tilemap.js'
+import { Component } from './component.js'
+import { StateMachine } from './state/state-machine.js'
 import {
   componentSpaceMismatch,
+  componentSpaceOf,
   entityTransformIssues,
   resolveSceneSpace,
   sceneSpaceIssues,
-  THREE_D_COMPONENTS,
-  TWO_D_COMPONENTS,
 } from './scene-space.js'
+
+const TWO_D_CLASSES = [Sprite, AnimatedSprite, Tilemap, Solid, DynamicBody, Hitbox, Light, ParticleEmitter]
+const THREE_D_CLASSES = [Model, Sun, PointLight]
 
 describe('resolveSceneSpace (CA-1)', () => {
   it('is 2d unless the render block says 3d', () => {
@@ -67,25 +82,60 @@ describe('sceneSpaceIssues (CA-13)', () => {
   })
 })
 
-describe('componentSpaceMismatch (CA-14)', () => {
-  it('lists the 2D components and the 3D ones', () => {
-    expect([...TWO_D_COMPONENTS]).toEqual(['Sprite', 'AnimatedSprite', 'Tilemap', 'Solid', 'DynamicBody', 'Hitbox', 'Light', 'ParticleEmitter'])
-    expect([...THREE_D_COMPONENTS]).toEqual(['Model', 'Sun', 'PointLight'])
+describe('component space marker (CA-1)', () => {
+  it('defaults to both when a component declares nothing', () => {
+    expect(Component.space).toBeUndefined()
+    expect(componentSpaceOf(Component)).toBe('both')
+    expect(componentSpaceOf(StateMachine)).toBe('both')
+  })
+
+  it('marks the engine components with the space they belong to', () => {
+    expect(TWO_D_CLASSES.map((Class) => [Class.componentName, componentSpaceOf(Class)])).toEqual([
+      ['Sprite', '2d'],
+      ['AnimatedSprite', '2d'],
+      ['Tilemap', '2d'],
+      ['Solid', '2d'],
+      ['DynamicBody', '2d'],
+      ['Hitbox', '2d'],
+      ['Light', '2d'],
+      ['ParticleEmitter', '2d'],
+    ])
+    expect(THREE_D_CLASSES.map((Class) => [Class.componentName, componentSpaceOf(Class)])).toEqual([
+      ['Model', '3d'],
+      ['Sun', '3d'],
+      ['PointLight', '3d'],
+    ])
   })
 
   it('flags 2D components in 3d and 3D components in 2d, and nothing else', () => {
-    for (const type of TWO_D_COMPONENTS) {
-      expect(componentSpaceMismatch('3d', type)).toBe(true)
-      expect(componentSpaceMismatch('2d', type)).toBe(false)
+    for (const Class of TWO_D_CLASSES) {
+      expect(componentSpaceMismatch('3d', Class), Class.componentName).toBe(true)
+      expect(componentSpaceMismatch('2d', Class), Class.componentName).toBe(false)
     }
-    for (const type of THREE_D_COMPONENTS) {
-      expect(componentSpaceMismatch('2d', type)).toBe(true)
-      expect(componentSpaceMismatch('3d', type)).toBe(false)
+    for (const Class of THREE_D_CLASSES) {
+      expect(componentSpaceMismatch('2d', Class), Class.componentName).toBe(true)
+      expect(componentSpaceMismatch('3d', Class), Class.componentName).toBe(false)
     }
-    for (const type of ['StateMachine', 'PlayerRole', 'MyProjectThing']) {
-      expect(componentSpaceMismatch('2d', type)).toBe(false)
-      expect(componentSpaceMismatch('3d', type)).toBe(false)
+    expect(componentSpaceMismatch('2d', StateMachine)).toBe(false)
+    expect(componentSpaceMismatch('3d', StateMachine)).toBe(false)
+  })
+
+})
+
+describe('component space marker on any class (CA-1)', () => {
+  it('reads the marker of any class, including a project-owned one, and treats an unknown class as neutral', () => {
+    class ProjectOnly2d extends Component {
+      static override space = '2d' as const
     }
+    class ProjectBoth extends Component {
+      static override space = 'both' as const
+    }
+    expect(componentSpaceMismatch('3d', ProjectOnly2d)).toBe(true)
+    expect(componentSpaceMismatch('2d', ProjectOnly2d)).toBe(false)
+    expect(componentSpaceMismatch('3d', ProjectBoth)).toBe(false)
+    expect(componentSpaceMismatch('2d', ProjectBoth)).toBe(false)
+    expect(componentSpaceMismatch('3d', undefined)).toBe(false)
+    expect(componentSpaceMismatch('2d', undefined)).toBe(false)
   })
 })
 

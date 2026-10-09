@@ -40,6 +40,7 @@ const RECOVERY_ITERATIONS = 24
  */
 export class DynamicBody extends Component {
   static override componentName = 'DynamicBody'
+  static override space = '2d' as const
   static override params = {
     vx: { label: 'x velocity', step: 0.1 },
     vy: { label: 'y velocity', step: 0.1 },

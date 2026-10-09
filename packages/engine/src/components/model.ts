@@ -35,6 +35,7 @@ function primitiveGeometry(shape: ModelShape): THREE.BufferGeometry {
  */
 export class Model extends Component {
   static override componentName = 'Model'
+  static override space = '3d' as const
   static override params = {
     src: { label: 'Model file', kind: 'model' },
     shape: { label: 'Shape', options: [...SHAPES] },

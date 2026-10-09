@@ -17,6 +17,7 @@ export type SpriteShape = 'rectangle' | 'circle'
  */
 export class Sprite extends Component implements YSortParticipant {
   static override componentName = 'Sprite'
+  static override space = '2d' as const
   static override params = {
     offsetX: { label: 'x offset' },
     offsetY: { label: 'y offset' },

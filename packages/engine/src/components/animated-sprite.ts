@@ -26,6 +26,7 @@ const clampAnchor = (value: number): number => Math.min(1, Math.max(0, value))
  */
 export class AnimatedSprite extends Component implements YSortParticipant {
   static override componentName = 'AnimatedSprite'
+  static override space = '2d' as const
   static override updateAfter: readonly string[] = ['StateMachine']
   static override params = {
     offsetX: { label: 'x offset' },

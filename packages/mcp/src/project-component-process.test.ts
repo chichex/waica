@@ -310,6 +310,7 @@ process.on('message', (request) => {
     hasOnUpdate: true,
     hasUpdateAfter: true,
     updateAfter: ['Other'],
+    space: null,
   }
   const terminal = {
     kind: 'project-entry-result',

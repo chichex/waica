@@ -74,14 +74,13 @@ export { isPerspectiveCamera, worldToNormalized } from './camera-projection.js'
 export type { GameCamera, NormalizedPoint, ViewCamera, WorldPoint } from './camera-projection.js'
 export {
   componentSpaceMismatch,
+  componentSpaceOf,
   entityTransformIssues,
   resolveSceneSpace,
   SCENE_SPACES,
   sceneSpaceIssues,
-  THREE_D_COMPONENTS,
-  TWO_D_COMPONENTS,
 } from './scene-space.js'
-export type { SceneSpace } from './scene-space.js'
+export type { SceneSpace, SpaceMarked } from './scene-space.js'
 export type { RuntimeSnapshotView } from './runtime-view-snapshot.js'
 export { applyTransformJson } from './entity-transform.js'
 export type { PositionJson, TransformJson } from './entity-transform.js'
@@ -90,6 +89,7 @@ export { Component } from './component.js'
 export { authoringDefaults } from './authoring-defaults.js'
 export type {
   ComponentClass,
+  ComponentSpace,
   ContactNormal,
   ParamSpec,
   SolidContact,

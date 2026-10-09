@@ -26,6 +26,7 @@ interface TileMeshBuffers {
 /** One authorable cell map rendered as a single merged geometry. */
 export class Tilemap extends Component implements SolidSource {
   static override componentName = 'Tilemap'
+  static override space = '2d' as const
   static override params = {
     color: { label: 'color' },
     cols: { label: 'tileset columns', min: 1, step: 1 },

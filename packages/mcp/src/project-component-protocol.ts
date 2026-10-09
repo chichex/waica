@@ -7,6 +7,7 @@
 export const PROJECT_COMPONENT_PROTOCOL_VERSION = 1
 
 const REF_KINDS = new Set(['prefab', 'clip', 'action', 'stat', 'sound', 'ui'])
+const SPACES = new Set(['2d', '3d', 'both'])
 
 export type ComponentLoadFailureCode =
   | 'component-load-failed'
@@ -32,6 +33,8 @@ export interface ComponentRow {
   hasOnUpdate: boolean
   hasUpdateAfter: boolean
   updateAfter: string[]
+  /** The class's `static space` marker; null when it declares none. */
+  space: '2d' | '3d' | 'both' | null
 }
 
 interface SuccessTerminal {
@@ -114,6 +117,7 @@ function parseComponent(value: unknown, expectedFile: string): ComponentRow | un
       'hasOnUpdate',
       'hasUpdateAfter',
       'updateAfter',
+      'space',
     ]) ||
     typeof candidate.name !== 'string' ||
     candidate.name.length === 0 ||
@@ -123,7 +127,8 @@ function parseComponent(value: unknown, expectedFile: string): ComponentRow | un
     typeof candidate.hasUpdateAfter !== 'boolean' ||
     !Array.isArray(candidate.updateAfter) ||
     candidate.updateAfter.some((target) => typeof target !== 'string') ||
-    (!candidate.hasUpdateAfter && candidate.updateAfter.length > 0)
+    (!candidate.hasUpdateAfter && candidate.updateAfter.length > 0) ||
+    (candidate.space !== null && !SPACES.has(candidate.space as string))
   ) {
     return undefined
   }
@@ -136,6 +141,7 @@ function parseComponent(value: unknown, expectedFile: string): ComponentRow | un
     hasOnUpdate: candidate.hasOnUpdate,
     hasUpdateAfter: candidate.hasUpdateAfter,
     updateAfter: [...(candidate.updateAfter as string[])],
+    space: candidate.space as ComponentRow['space'],
   }
 }
 

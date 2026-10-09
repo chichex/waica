@@ -13,6 +13,7 @@ import {
  */
 export class Hitbox extends Component {
   static override componentName = 'Hitbox'
+  static override space = '2d' as const
   static override params = {
     layer: { label: 'Collision Layer' },
     collidesWith: { label: 'Collision Mask', kind: 'string-list' as const },

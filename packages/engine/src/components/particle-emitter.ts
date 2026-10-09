@@ -17,6 +17,7 @@ export type ParticleBlend = 'normal' | 'additive'
 /** A fixed-capacity source of short-lived, batched 2D particles. */
 export class ParticleEmitter extends Component implements YSortBatchParticipant {
   static override componentName = 'ParticleEmitter'
+  static override space = '2d' as const
   static override displayName = 'Particle Emitter'
   static override params = {
     rate: { label: 'Rate', min: 0 },

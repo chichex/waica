@@ -9,6 +9,7 @@ import { PlatformerMotor } from './platformer-motor.js'
  */
 export class Respawnable extends Component {
   static override componentName = 'Respawnable'
+  static override space = '2d' as const
   static override displayName = 'Respawn'
   static override transient = ['spawn']
 

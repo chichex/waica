@@ -15,6 +15,7 @@ import { anchorHeight } from './anchor-height.js'
  */
 export class Interactable extends Component {
   static override componentName = 'Interactable'
+  static override space = '2d' as const
   static override params = {
     line: { label: 'Line' },
     radius: { label: 'Radius', min: 0.5, max: 10, step: 0.25 },

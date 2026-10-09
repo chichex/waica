@@ -13,6 +13,7 @@ import { Component, type ParamSpec } from '../component.js'
  */
 export class PointLight extends Component {
   static override componentName = 'PointLight'
+  static override space = '3d' as const
   static override displayName = 'Point light (3D)'
   static override params = {
     color: { label: 'Color', kind: 'color' },

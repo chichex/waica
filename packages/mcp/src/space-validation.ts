@@ -49,7 +49,7 @@ export function validateEntitySpace(
   }
   const reported = new Set<string>()
   for (const component of [...componentList(prefab?.components), ...componentList(entity.components)]) {
-    if (reported.has(component.type) || !componentSpaceMismatch(space, component.type)) continue
+    if (reported.has(component.type) || !componentSpaceMismatch(space, scope.context.componentRegistry[component.type])) continue
     reported.add(component.type)
     const kind = space === '3d' ? '2D' : '3D'
     add(

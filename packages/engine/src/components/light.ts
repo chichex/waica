@@ -16,6 +16,7 @@ const finiteOr = (value: number, fallback: number): number => (Number.isFinite(v
  */
 export class Light extends Component {
   static override componentName = 'Light'
+  static override space = '2d' as const
   static override params = {
     radius: { label: 'Radius', min: 0, step: 0.25 },
     color: { label: 'Color', kind: 'color' },

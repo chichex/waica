@@ -133,7 +133,8 @@ describe('components per space (CA-14)', () => {
   const THREE_D = { render: { space: '3d' }, camera: { kind: 'perspective' } }
 
   it('reports every 2D component on an entity of a 3d scene, naming entity, component and space', async () => {
-    const types = ['Sprite', 'AnimatedSprite', 'Tilemap', 'Solid', 'DynamicBody', 'Hitbox', 'Light', 'ParticleEmitter']
+    // Tilemap is not in the platformer registry: the marker is read from the registry class, so an unknown type stays neutral (CA-3).
+    const types = ['Sprite', 'AnimatedSprite', 'Solid', 'DynamicBody', 'Hitbox', 'Light', 'ParticleEmitter']
     const findings = await spaceFindings({ ...THREE_D, entities: [{ name: 'Crate', components: types.map((type) => ({ type })) }] })
     const mismatches = findings.filter((finding) => finding.code === 'component-space-mismatch')
     expect(mismatches).toHaveLength(types.length)
@@ -169,5 +170,33 @@ describe('components per space (CA-14)', () => {
 
   it('reports nothing for a 2D component in a 2d scene', async () => {
     expect(await spaceFindings({ entities: [{ name: 'Crate', components: [{ type: 'Sprite' }] }] })).toEqual([])
+  })
+})
+
+describe('components per space: the marker is read from the registry class (CA-3)', () => {
+  const THREE_D = { render: { space: '3d' }, camera: { kind: 'perspective' } }
+
+  it('reports a 2D behavior in a 3d scene by reading the marker from the class (CA-3)', async () => {
+    const findings = await spaceFindings({ ...THREE_D, entities: [{ name: 'Hero', components: [{ type: 'PlatformerMotor' }, { type: 'Health' }] }] })
+    const mismatches = findings.filter((finding) => finding.code === 'component-space-mismatch')
+    expect(mismatches).toHaveLength(1)
+    expect(mismatches[0]).toMatchObject({ severity: 'error', ref: 'Hero' })
+    expect(mismatches[0]?.message).toContain('"PlatformerMotor"')
+  })
+
+  it('reports a 2D behavior that comes from the entity prefab in a 3d scene (CA-3)', async () => {
+    const findings = await spaceFindings(
+      { ...THREE_D, entities: [{ name: 'Guard', prefab: 'objects/guard' }] },
+      { 'src/objects/guard.object.json': JSON.stringify({ waicaPrefab: 1, type: 'object', components: [{ type: 'Patrol' }] }) },
+    )
+    const mismatches = findings.filter((finding) => finding.code === 'component-space-mismatch')
+    expect(mismatches).toHaveLength(1)
+    expect(mismatches[0]?.message).toContain('"Patrol"')
+  })
+
+  it('does not flag a 2D behavior in a 2d scene, nor a type the registry does not know (CA-3)', async () => {
+    const entities = [{ name: 'Hero', components: [{ type: 'PlatformerMotor' }, { type: 'NotARegisteredType' }] }]
+    expect((await spaceFindings({ entities })).filter((finding) => finding.code === 'component-space-mismatch')).toEqual([])
+    expect((await spaceFindings({ ...THREE_D, entities: [{ name: 'X', components: [{ type: 'NotARegisteredType' }] }] })).filter((finding) => finding.code === 'component-space-mismatch')).toEqual([])
   })
 })

@@ -19,6 +19,7 @@ import {
  */
 export class PlatformerMotor extends Component implements CameraVelocityProvider {
   static override componentName = 'PlatformerMotor'
+  static override space = '2d' as const
   static override displayName = 'Motor'
   static override params = {
     moveSpeed: { label: 'Speed', min: 1, max: 30, step: 0.5 },
