@@ -145,6 +145,9 @@ importers:
 
   packages/cli:
     dependencies:
+      '@dimforge/rapier3d-deterministic-compat':
+        specifier: 0.21.0
+        version: 0.21.0
       '@modelcontextprotocol/sdk':
         specifier: ^1.32.1
         version: 1.32.1(zod@4.4.3)
@@ -219,6 +222,9 @@ importers:
 
   packages/engine:
     dependencies:
+      '@dimforge/rapier3d-deterministic-compat':
+        specifier: 0.21.0
+        version: 0.21.0
       '@types/three':
         specifier: ^0.186.0
         version: 0.186.0
@@ -366,6 +372,9 @@ packages:
 
   '@dimforge/rapier3d-compat@0.12.0':
     resolution: {integrity: sha512-uekIGetywIgopfD97oDL5PfeezkFpNhwlzlaEYNOA0N6ghdsOvh/HYjSMek5Q2O1PYvRSDFcqFVJl4r4ZBwOow==}
+
+  '@dimforge/rapier3d-deterministic-compat@0.21.0':
+    resolution: {integrity: sha512-n7JuU62Obljlgq+OeH2DHhTmRSjRzwuJPl54tS9pFIzVQyvXsO5CH+a5KkIRBtnFWDbg1Zicv9BulG0jfBAopA==}
 
   '@eslint-community/eslint-plugin-eslint-comments@4.8.1':
     resolution: {integrity: sha512-vafrdi15JHBFh1qWOAucyJwlEEuhdoMof28jOdKdgnwZ7bXwd6v4wzHYSmAVLwnx0yc7bqAtfJ0EZQV1WAzV/Q==}
@@ -2391,6 +2400,8 @@ snapshots:
       '@babel/helper-validator-identifier': 7.29.7
 
   '@dimforge/rapier3d-compat@0.12.0': {}
+
+  '@dimforge/rapier3d-deterministic-compat@0.21.0': {}
 
   '@eslint-community/eslint-plugin-eslint-comments@4.8.1(eslint@9.39.5)':
     dependencies:

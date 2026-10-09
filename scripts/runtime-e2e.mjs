@@ -103,9 +103,11 @@ async function materializeRuntimeDependencies(project, engineRoot) {
   const engineDestination = path.join(project, 'node_modules/@waica/engine')
   await copyPackage(engineRoot, engineDestination)
   const requireFromEngine = createRequire(path.join(engineRoot, 'package.json'))
-  const threeEntry = requireFromEngine.resolve('three')
-  const threeRoot = await findPackageRoot(threeEntry, 'three')
-  await copyPackage(threeRoot, path.join(project, 'node_modules/three'))
+  // What an install puts next to @waica/engine: three, and the Rapier wasm a 3D scene imports on demand.
+  for (const dependency of ['three', '@dimforge/rapier3d-deterministic-compat']) {
+    const dependencyRoot = await findPackageRoot(requireFromEngine.resolve(dependency), dependency)
+    await copyPackage(dependencyRoot, path.join(project, 'node_modules', ...dependency.split('/')))
+  }
 }
 
 function quoteForPackageScript(value) {
