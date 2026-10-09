@@ -14,6 +14,7 @@ import {
   validateParamReferences,
 } from './component-validation.js'
 import { validateGltfResources } from './gltf-resource-validation.js'
+import { sunParamFindings } from './sun-param-validation.js'
 import { checkModelShapeIgnored, projectArtRefs } from './model-reference-validation.js'
 import {
   PackageResolver,
@@ -98,6 +99,7 @@ function validatePrefab(
       context.findings.push(...collisionCategoryFindings(component.props, file, ref))
     }
     if (component.type === 'Light') context.findings.push(...lightParamFindings(component.props, file, ref))
+    if (component.type === 'Sun') context.findings.push(...sunParamFindings(component.props, file, ref))
     checkModelShapeIgnored(component, { file, ref }, context)
   }
   validateParamReferences(
