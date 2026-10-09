@@ -62,17 +62,34 @@ export function colliderParamFindings(props: unknown, file: string, ref: string)
   return findings
 }
 
-/** Entity-level physics findings from the components it ends up with, prefab and inline (issue #159 CA-14). */
+const finding = (code: 'rigid-body-without-collider' | 'character-motor-without-body', message: string, where: { file: string; ref: string }): ValidationFinding => ({
+  severity: 'error',
+  code,
+  message,
+  ...where,
+})
+
+/** The `type` a RigidBody among these components ends up with: its own prop, or the dynamic default. */
+function rigidBodyType(components: readonly SceneComponentJson[]): unknown {
+  const rigid = components.filter((component) => component.type === 'RigidBody').at(-1)
+  return rigid && Object.hasOwn(objectRecord(rigid.props), 'type') ? objectRecord(rigid.props).type : 'dynamic'
+}
+
+/**
+ * Entity-level physics findings from the components it ends up with, prefab,
+ * overrides and inline (issue #159 CA-14, CA-20): a RigidBody needs a Collider
+ * beside it, and a CharacterMotor needs a Collider and a kinematic RigidBody.
+ */
 export function physicsCompositionFindings(components: readonly SceneComponentJson[], file: string, ref: string): ValidationFinding[] {
   const types = new Set(components.map((component) => component.type))
-  if (!types.has('RigidBody') || types.has('Collider')) return []
-  return [
-    {
-      severity: 'error',
-      code: 'rigid-body-without-collider',
-      message: `Entity "${ref}" has a RigidBody but no Collider; no body is created.`,
-      file,
-      ref,
-    },
-  ]
+  const findings: ValidationFinding[] = []
+  if (types.has('RigidBody') && !types.has('Collider')) {
+    findings.push(finding('rigid-body-without-collider', `Entity "${ref}" has a RigidBody but no Collider; no body is created.`, { file, ref }))
+  }
+  if (types.has('CharacterMotor') && !(types.has('Collider') && types.has('RigidBody') && rigidBodyType(components) === 'kinematic')) {
+    findings.push(
+      finding('character-motor-without-body', `Entity "${ref}" has a CharacterMotor, which needs a Collider and a kinematic RigidBody beside it; it does nothing without them.`, { file, ref }),
+    )
+  }
+  return findings
 }

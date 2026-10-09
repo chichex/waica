@@ -56,6 +56,19 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     angularDamping: 0,
     lockRotations: false,
     velocity: [0, 0, 0],
+    stepHeight: 0.3,
+    maxSlope: 45,
+    snapDistance: 0.2,
+  },
+  // Issue #159 CA-20: every archetype registers the 3D character motor too.
+  CharacterMotor: {
+    speed: 6,
+    jumpSpeed: 6,
+    leftAction: 'left',
+    rightAction: 'right',
+    forwardAction: 'up',
+    backAction: 'down',
+    jumpAction: 'jump',
   },
   ParticleEmitter: {
     rate: 0,

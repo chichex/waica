@@ -135,7 +135,7 @@ function validateSceneEntity(
   const prefab = validatePrefabReference(entity, entityRef, scope)
   validateEntitySpace({ entity, ref: entityRef, prefab }, space, scope)
   context.findings.push(
-    ...physicsCompositionFindings([...componentList(prefab?.components), ...inline], file, entityRef),
+    ...physicsCompositionFindings(resolvedEntityComponents(entity, prefab), file, entityRef),
   )
   const composition = entityComposition(entity, entityRef, prefab)
   validateEntityParamReferences(composition, scope)

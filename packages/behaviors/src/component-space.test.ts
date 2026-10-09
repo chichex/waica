@@ -45,8 +45,13 @@ describe('behavior component space markers (CA-2)', () => {
     expect(tagged).toEqual(TWO_D_BEHAVIORS)
   })
 
+  it('tags the 3D behaviors', () => {
+    const tagged = exportedComponents().filter((Class) => Class.space === '3d')
+    expect(tagged.map((Class) => Class.componentName)).toEqual(['CharacterMotor'])
+  })
+
   it('leaves every other behavior space-neutral', () => {
-    const neutral = exportedComponents().filter((Class) => Class.space !== '2d')
+    const neutral = exportedComponents().filter((Class) => Class.space !== '2d' && Class.space !== '3d')
     expect(neutral.map((Class) => Class.space)).toEqual(neutral.map(() => undefined))
     expect(neutral.map((Class) => Class.componentName).sort()).toEqual([
       'DamagePuff',

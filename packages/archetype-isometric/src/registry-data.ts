@@ -16,6 +16,7 @@ import {
   type SceneRegistry,
 } from '@waica/engine'
 import {
+  CharacterMotor,
   Chaser,
   ClickToMove,
   Collectible,
@@ -50,6 +51,7 @@ export const ISOMETRIC_REGISTRY_DATA: SceneRegistry = {
     PointLight,
     Collider,
     RigidBody,
+    CharacterMotor,
     Tilemap,
     Solid,
     Hitbox,

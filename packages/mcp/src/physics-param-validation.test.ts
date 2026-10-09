@@ -80,7 +80,7 @@ async function findingsOf(entities: unknown[], files: Record<string, string> = {
   roots.push(project)
   const { findings } = await validateProject(project)
   return findings.filter((finding) =>
-    ['invalid-collider-param', 'rigid-body-without-collider', 'component-space-mismatch', 'unknown-component'].includes(finding.code),
+    ['invalid-collider-param', 'rigid-body-without-collider', 'character-motor-without-body', 'component-space-mismatch', 'unknown-component'].includes(finding.code),
   )
 }
 
@@ -150,5 +150,40 @@ describe('validate_project on a RigidBody without a Collider (issue #159 CA-14)'
       expect.stringContaining('"Collider"'),
       expect.stringContaining('"RigidBody"'),
     ])
+  })
+})
+
+describe('validate_project on a CharacterMotor without its body (issue #159 CA-20)', () => {
+  const KINEMATIC = [{ type: 'Collider' }, { type: 'RigidBody', props: { type: 'kinematic' } }]
+
+  it('accepts a motor beside a Collider and a kinematic RigidBody', async () => {
+    expect(await findingsOf([{ name: 'Player', components: [...KINEMATIC, { type: 'CharacterMotor' }] }])).toEqual([])
+  })
+
+  it('reports a motor with no RigidBody, no Collider, or a dynamic RigidBody', async () => {
+    const findings = await findingsOf([
+      { name: 'NoBody', components: [{ type: 'Collider' }, { type: 'CharacterMotor' }] },
+      { name: 'NoCollider', components: [{ type: 'RigidBody', props: { type: 'kinematic' } }, { type: 'CharacterMotor' }] },
+      { name: 'Dynamic', components: [{ type: 'Collider' }, { type: 'RigidBody' }, { type: 'CharacterMotor' }] },
+    ])
+    const motor = findings.filter((finding) => finding.code === 'character-motor-without-body')
+    expect(motor.map((finding) => [finding.severity, finding.ref])).toEqual([
+      ['error', 'NoBody'],
+      ['error', 'NoCollider'],
+      ['error', 'Dynamic'],
+    ])
+    expect(motor[0]?.message).toContain('kinematic RigidBody')
+  })
+
+  it('reads the body type through the prefab and an override', async () => {
+    const prefab = JSON.stringify({ waicaPrefab: 1, type: 'character', components: [...KINEMATIC, { type: 'CharacterMotor' }] })
+    const findings = await findingsOf(
+      [
+        { name: 'Kinematic', prefab: 'characters/hero' },
+        { name: 'MadeDynamic', prefab: 'characters/hero', overrides: { RigidBody: { type: 'dynamic' } } },
+      ],
+      { 'src/characters/hero.character.json': prefab },
+    )
+    expect(findings.filter((finding) => finding.code === 'character-motor-without-body').map((finding) => finding.ref)).toEqual(['MadeDynamic'])
   })
 })
