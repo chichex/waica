@@ -114,7 +114,10 @@ describe('Viewport chrome on a 3D scene (CA-21)', () => {
     await tick()
     const game = liveGame(mounted)
     const owned = new Set<THREE.Object3D>(game.entities.map((entity) => entity.node))
-    const overlays = game.scene.children.filter((child) => !owned.has(child) && child.name !== 'waica:sprite-batches')
+    // The Game's own Ambient Light is not drawn over the scene by the editor.
+    const overlays = game.scene.children.filter(
+      (child) => !owned.has(child) && child.name !== 'waica:sprite-batches' && !(child instanceof THREE.Light),
+    )
     expect(overlays.length).toBeGreaterThan(0)
     for (const overlay of overlays) expect(overlay.visible, overlay.type).toBe(false)
     expect(document.querySelector<HTMLElement>('.ed-vp-ui')).toBeNull()

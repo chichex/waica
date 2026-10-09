@@ -224,13 +224,9 @@ function ArtFolderContents({ folder, isOpen, onToggle, actions }: ArtFolderConte
           </div>
         )
       })}
-      {folder.items.map((item) =>
-        item.kind === 'sound' ? (
-          <SoundRow key={item.path} item={item} actions={actions} />
-        ) : (
-          <ImageRow key={item.path} item={item} actions={actions} />
-        ),
-      )}
+      {folder.items.map((item) => (
+        <ArtRow key={item.path} item={item} actions={actions} />
+      ))}
     </>
   )
 }
@@ -242,6 +238,30 @@ function artFileEntries(item: ArtItem, actions: ArtRowActions): MenuEntry[] {
     'sep',
     { label: 'Delete', icon: '🗑', danger: true, onClick: () => actions.deleteArt(item) },
   ]
+}
+
+/** One art file's row, by what it is: a sound previews, a model lists, an image opens. */
+function ArtRow({ item, actions }: { item: ArtItem; actions: ArtRowActions }) {
+  if (item.kind === 'sound') return <SoundRow item={item} actions={actions} />
+  if (item.kind === 'model') return <ModelRow item={item} actions={actions} />
+  return <ImageRow item={item} actions={actions} />
+}
+
+/**
+ * A model (.glb / .gltf, issue #154) has no image stage to open and no
+ * 'waica/art' texture payload to drag: Model.src picks it from the
+ * inspector, so its row is a label with the file menu.
+ */
+function ModelRow({ item, actions }: { item: ArtItem; actions: ArtRowActions }) {
+  return (
+    <div
+      className="ed-x-item"
+      onContextMenu={(e) => actions.panel.openMenu(e, artFileEntries(item, actions))}
+    >
+      <span className="ed-x-ico">🧊</span>
+      {item.label}
+    </div>
+  )
 }
 
 /** An image: opens on the stage, and drags out as a texture ('waica/art'). */

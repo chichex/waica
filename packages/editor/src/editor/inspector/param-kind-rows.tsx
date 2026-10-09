@@ -1,5 +1,6 @@
 import { useContext, useState } from 'react'
 import { IMAGE_RE, type ArtItem, type DroppedFile } from '../use-project-art'
+import { MissingOption, missingOptionClass } from '../missing-option'
 import { NumberField } from '../NumberField'
 import { RefTargetsContext } from './ref-targets-context'
 import { TexturePicker, TexturePreview } from './TextureControls'
@@ -36,6 +37,49 @@ export function Vector2ParamRow({
         onChange={(text) => onChange([x, Number(text)])}
       />
     </div>
+  )
+}
+
+const finiteOr0 = (value: unknown): number => (typeof value === 'number' && Number.isFinite(value) ? value : 0)
+
+/** A `[x, y, z]` param (the Sun's direction): three number fields, each named `<label> x|y|z`. */
+export function Vector3ParamRow({
+  label,
+  name,
+  value,
+  onChange,
+}: ParamKindRowProps & { label: string }) {
+  const triple = Array.isArray(value) ? value : []
+  const [x, y, z] = [finiteOr0(triple[0]), finiteOr0(triple[1]), finiteOr0(triple[2])]
+  return (
+    <div className="ed-row ed-row-xyz">
+      {name}
+      <NumberField aria-label={`${label} x`} step={0.1} value={x} onChange={(text) => onChange([Number(text), y, z])} />
+      <NumberField aria-label={`${label} y`} step={0.1} value={y} onChange={(text) => onChange([x, Number(text), z])} />
+      <NumberField aria-label={`${label} z`} step={0.1} value={z} onChange={(text) => onChange([x, y, Number(text)])} />
+    </div>
+  )
+}
+
+/** A `kind: 'model'` param (Model.src): the project's model art as a select; empty means "none". */
+export function ModelParamRow({ name, value, onChange }: ParamKindRowProps) {
+  const { texture } = useContext(RefTargetsContext)
+  const models = texture.art.filter((item) => item.kind === 'model')
+  const uri = typeof value === 'string' ? value : ''
+  const missing = uri !== '' && !models.some((item) => item.uri === uri)
+  return (
+    <label className="ed-row">
+      {name}
+      <select className={missingOptionClass(missing)} value={uri} onChange={(e) => onChange(e.target.value)}>
+        <option value="">none (use the shape)</option>
+        {missing && <MissingOption value={uri} />}
+        {models.map((item) => (
+          <option key={item.uri} value={item.uri}>
+            {item.label}
+          </option>
+        ))}
+      </select>
+    </label>
   )
 }
 

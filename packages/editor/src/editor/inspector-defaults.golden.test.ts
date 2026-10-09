@@ -14,6 +14,7 @@ import { componentDefaults, componentKeys } from './Inspector'
  * appearance components; every other pre-existing row remains untouched.
  * The archetype particle effects added DustPuffs, a new row. Issue #78
  * added the Light component and an `emissive` row to the three drawables.
+ * Issue #154 added the 3D components Model, Sun and PointLight.
  */
 const GOLDEN: Record<string, Record<string, unknown>> = {
   ParticleEmitter: {
@@ -52,6 +53,17 @@ const GOLDEN: Record<string, Record<string, unknown>> = {
     castShadows: true,
     offsetX: 0,
     offsetY: 0,
+  },
+  Model: { src: '', shape: 'box', color: 0xffffff, size: 1 },
+  Sun: { direction: [-1, -2, -1], color: 0xffffff, intensity: 1 },
+  PointLight: {
+    color: 0xffffff,
+    intensity: 1,
+    distance: 0,
+    decay: 2,
+    offsetX: 0,
+    offsetY: 0,
+    offsetZ: 0,
   },
   Sprite: { offsetX: 0, offsetY: 0, anchorX: 0.5, anchorY: 0.5, layer: 0, emissive: false },
   AnimatedSprite: { offsetX: 0, offsetY: 0, anchorX: 0.5, anchorY: 0.5, layer: 0, emissive: false },
@@ -100,7 +112,7 @@ const GOLDEN: Record<string, Record<string, unknown>> = {
 describe('Inspector component rows (golden, behavior preservation)', () => {
   const archetype = resolveArchetype('platformer')
 
-  it('lists exactly the 19 platformer registry components in the golden', () => {
+  it('lists exactly the 22 platformer registry components in the golden', () => {
     expect(Object.keys(archetype.registry.components).sort()).toEqual(
       Object.keys(GOLDEN).sort(),
     )

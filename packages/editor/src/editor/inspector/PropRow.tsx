@@ -4,7 +4,7 @@ import type { ParamDiagnostic } from '../collision-category-diagnostics'
 import { NumberField } from '../NumberField'
 import { availableRefTargets, type RefTarget } from '../ref-targets'
 import { ParamDiagnosticMessages, StringListField } from '../StringListField'
-import { Vector2ParamRow, TextureParamRow } from './param-kind-rows'
+import { ModelParamRow, TextureParamRow, Vector2ParamRow, Vector3ParamRow } from './param-kind-rows'
 import { RefRow } from './RefRow'
 import { RefTargetsContext } from './ref-targets-context'
 
@@ -185,6 +185,27 @@ function StringRow({
   )
 }
 
+type KindRowProps = ValueRowProps<unknown> & { label: string; spec: ParamSpec }
+
+/** The controls a param's declared `kind` asks for; `color` and `string-list` are drawn by the value's own type. */
+const KIND_ROWS: Partial<Record<NonNullable<ParamSpec['kind']>, (props: KindRowProps) => React.ReactNode>> = {
+  vector2: ({ label, name, value, onChange, spec }) => (
+    <Vector2ParamRow label={spec.label ?? label} name={name} value={value} onChange={onChange} />
+  ),
+  vector3: ({ label, name, value, onChange, spec }) => (
+    <Vector3ParamRow label={spec.label ?? label} name={name} value={value} onChange={onChange} />
+  ),
+  texture: ({ name, value, onChange }) => <TextureParamRow name={name} value={value} onChange={onChange} />,
+  model: ({ name, value, onChange }) => <ModelParamRow name={name} value={value} onChange={onChange} />,
+}
+
+/** The specialised control a param's declared `kind` asks for, or null for a plain value. */
+function kindRow(props: ValueRowProps<unknown> & { label: string; spec?: ParamSpec }): React.ReactNode {
+  const { spec } = props
+  const render = spec?.kind ? KIND_ROWS[spec.kind] : undefined
+  return spec && render ? render({ ...props, spec }) : null
+}
+
 /** Dispatches a plain param to the control its value's type calls for. */
 function ValueRow({
   label,
@@ -194,12 +215,8 @@ function ValueRow({
   referenceTargets,
   onChange,
 }: ValueRowProps<unknown> & { label: string; spec?: ParamSpec; referenceTargets?: RefTarget[] }) {
-  if (spec?.kind === 'vector2') {
-    return <Vector2ParamRow label={spec.label ?? label} name={name} value={value} onChange={onChange} />
-  }
-  if (spec?.kind === 'texture') {
-    return <TextureParamRow name={name} value={value} onChange={onChange} />
-  }
+  const byKind = kindRow({ label, name, value, spec, onChange })
+  if (byKind) return byKind
   if (typeof value === 'boolean') {
     return (
       <label className="ed-row">
