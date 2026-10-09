@@ -19,17 +19,18 @@ for (const [path, scene] of Object.entries(sceneFiles)) {
   scenes[path.slice('./scenes/'.length, -'.scene.json'.length)] = scene
 }
 
-// The art (src/art/*): Model.src stores the project path ('src/art/tree.glb');
-// this map turns each into a served, build-safe URL.
-const artFiles = import.meta.glob<string>('./art/*', {
+// The art lives in art/ beside src/ (a generated Project keeps it in src/art/):
+// Model.src stores the project path ('src/art/tree.glb'); this map turns each
+// into a served, build-safe URL.
+const artFiles = import.meta.glob<string>('../art/*', {
   eager: true,
   query: '?url',
   import: 'default',
 })
 const artUrls: Record<string, string> = {}
 for (const [path, url] of Object.entries(artFiles)) {
-  // './art/tree.glb' -> 'src/art/tree.glb'
-  artUrls[`src/${path.slice(2)}`] = url
+  // '../art/tree.glb' -> 'src/art/tree.glb'
+  artUrls[`src/art/${path.slice('../art/'.length)}`] = url
 }
 
 // No archetype: this example uses the engine's 3D components directly.

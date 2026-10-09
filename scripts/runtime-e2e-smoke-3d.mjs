@@ -8,7 +8,7 @@ import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const EXAMPLE = fileURLToPath(new URL('../examples/smoke-3d/src/', import.meta.url))
+const EXAMPLE = fileURLToPath(new URL('../examples/smoke-3d/', import.meta.url))
 /** The copied scene's name in the generated Project (its file stem). */
 const SCENE = 'smoke-3d'
 /** The frame every variant is captured at, as the other screenshot legs do. */
@@ -112,7 +112,7 @@ async function capture({ helpers, client, project, chrome }) {
 /** Copies the example's scene and glb into a generated Project. */
 async function copyExample(project) {
   await mkdir(path.join(project, 'src/art'), { recursive: true })
-  await copyFile(path.join(EXAMPLE, 'scenes/main.scene.json'), path.join(project, `src/scenes/${SCENE}.scene.json`))
+  await copyFile(path.join(EXAMPLE, 'src/scenes/main.scene.json'), path.join(project, `src/scenes/${SCENE}.scene.json`))
   await copyFile(path.join(EXAMPLE, 'art/tree.glb'), path.join(project, 'src/art/tree.glb'))
 }
 

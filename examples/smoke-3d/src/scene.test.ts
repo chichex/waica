@@ -19,7 +19,7 @@ class ResizeObserverStub {
   disconnect(): void {}
 }
 
-const artFiles = import.meta.glob<string>('./art/*', { eager: true, query: '?url', import: 'default' })
+const artFiles = import.meta.glob<string>('../art/*', { eager: true, query: '?url', import: 'default' })
 const attribution = import.meta.glob<string>('../ATTRIBUTION.md', { eager: true, query: '?raw', import: 'default' })
 
 /** The JSON file as the scene the Game loads, checked rather than asserted. */
@@ -80,7 +80,7 @@ describe('examples/smoke-3d main scene (CA-17)', () => {
   it('ships the glb its Model names, and says where it came from', () => {
     const glb = scene.entities.flatMap((entity) => entity.components ?? []).find((component) => typeof component.props?.src === 'string')
     expect(glb?.props).toMatchObject({ src: 'src/art/tree.glb' })
-    expect(Object.keys(artFiles)).toContain('./art/tree.glb')
+    expect(Object.keys(artFiles)).toContain('../art/tree.glb')
     expect(Object.values(attribution).join('')).toMatch(/tree\.glb/)
   })
 })

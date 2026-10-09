@@ -1,4 +1,4 @@
-// Writes examples/smoke-3d/src/art/tree.glb: a small low-poly tree (a trunk and
+// Writes examples/smoke-3d/art/tree.glb: a small low-poly tree (a trunk and
 // two cones of foliage, two materials), built from nothing but code so the
 // example ships a model nobody else owns. Deterministic: running it again
 // rewrites the same bytes. Usage: node scripts/generate-smoke-3d-model.mjs
@@ -6,7 +6,7 @@ import { writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 
 const SIDES = 8
-const OUT = fileURLToPath(new URL('../examples/smoke-3d/src/art/tree.glb', import.meta.url))
+const OUT = fileURLToPath(new URL('../examples/smoke-3d/art/tree.glb', import.meta.url))
 
 const subtract = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
