@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { THREE } from '../index'
-import unitBox from './fixtures/unit-box.glb?inline'
+import unitBox from '../../fixtures/unit-box.glb?inline'
 import { GltfModelBackend } from './model-backend'
 import { defined } from '../test-support'
 
