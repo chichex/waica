@@ -83,7 +83,7 @@ export function checkModelShapeIgnored(
     context,
     'warning',
     'model-shape-ignored',
-    `Model on "${ref}" declares both src and shape "${String(props.shape)}"; src wins and the shape is ignored (set the shape back to box to clear this).`,
+    `Model on "${ref}" declares both src and shape ${JSON.stringify(props.shape)}; src wins and the shape is ignored (set the shape back to box to clear this).`,
     file,
     ref,
   )

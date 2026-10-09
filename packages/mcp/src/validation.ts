@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { discoverArchetypes, pickArchetype } from './archetypes.js'
 import { collisionCategoryFindings } from './collision-category-validation.js'
-import { lightParamFindings } from './light-param-validation.js'
+import { checkComponentParams } from './component-param-findings.js'
 import { objectRecord } from './component-metadata.js'
 import {
   checkComponent,
@@ -14,8 +14,7 @@ import {
   validateParamReferences,
 } from './component-validation.js'
 import { validateGltfResources } from './gltf-resource-validation.js'
-import { sunParamFindings } from './sun-param-validation.js'
-import { checkModelShapeIgnored, projectArtRefs } from './model-reference-validation.js'
+import { projectArtRefs } from './model-reference-validation.js'
 import {
   PackageResolver,
   mixedSourceWarnings,
@@ -95,12 +94,7 @@ function validatePrefab(
   const components = componentList(prefab.components)
   for (const component of components) {
     checkComponent(component, file, ref, context)
-    if (component.type === 'Hitbox') {
-      context.findings.push(...collisionCategoryFindings(component.props, file, ref))
-    }
-    if (component.type === 'Light') context.findings.push(...lightParamFindings(component.props, file, ref))
-    if (component.type === 'Sun') context.findings.push(...sunParamFindings(component.props, file, ref))
-    checkModelShapeIgnored(component, { file, ref }, context)
+    checkComponentParams(component, { file, ref }, context)
   }
   validateParamReferences(
     components.map((component) => ({ component })),

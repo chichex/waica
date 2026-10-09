@@ -8,6 +8,7 @@ import type {
 } from '@waica/engine'
 import { collisionCategoryFindings } from './collision-category-validation.js'
 import { objectRecord } from './component-metadata.js'
+import { checkComponentParams, overrideParamFindings } from './component-param-findings.js'
 import {
   checkComponent,
   componentList,
@@ -16,10 +17,7 @@ import {
   validateComponentUpdateSchedule,
   validateParamReferences,
 } from './component-validation.js'
-import { lightParamFindings } from './light-param-validation.js'
-import { checkModelShapeIgnored } from './model-reference-validation.js'
 import { validateEntitySpace, validateSceneSpace } from './space-validation.js'
-import { sunParamFindings } from './sun-param-validation.js'
 import { validateEntitySceneTransition } from './scene-transition-validation.js'
 import { validateStateMachines } from './state-machine-validation.js'
 import { add, type LooseSceneEntity, type ValidationContext } from './validation-context.js'
@@ -126,16 +124,9 @@ function validateSceneEntity(
   const inline = componentList(entity.components)
   for (const component of inline) {
     checkComponent(component, file, entityRef, context)
-    if (component.type === 'Hitbox') {
-      context.findings.push(...collisionCategoryFindings(component.props, file, entityRef))
-    }
-    if (component.type === 'Light') context.findings.push(...lightParamFindings(component.props, file, entityRef))
-    if (component.type === 'Sun') context.findings.push(...sunParamFindings(component.props, file, entityRef))
-    checkModelShapeIgnored(component, { file, ref: entityRef }, context)
+    checkComponentParams(component, { file, ref: entityRef }, context)
   }
-  // Only the overridden Light params: the prefab's own are reported at the prefab.
-  context.findings.push(...lightParamFindings(objectRecord(entity.overrides)['Light'], file, entityRef))
-  context.findings.push(...sunParamFindings(objectRecord(entity.overrides)['Sun'], file, entityRef))
+  context.findings.push(...overrideParamFindings(entity.overrides, file, entityRef))
   context.findings.push(
     ...validateEntitySceneTransition(entity, entityRef, file, scope.prefabs, scope.knownScenes),
   )
