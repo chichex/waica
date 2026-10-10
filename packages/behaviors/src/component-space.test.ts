@@ -52,6 +52,9 @@ const TWO_D_BEHAVIORS = [
   'TopDownMotor',
 ]
 
+/** The behaviors that need a 3D scene: the character motor drives a kinematic RigidBody. */
+const THREE_D_BEHAVIORS = ['CharacterMotor']
+
 const NEUTRAL_BEHAVIORS = ['Collectible', 'Health', 'Lifetime', 'OutOfBounds', 'Respawnable', 'SceneTransition']
 
 describe('behavior component space markers (CA-2)', () => {
@@ -65,7 +68,7 @@ describe('behavior component space markers (CA-2)', () => {
 
   it('tags the 3D behaviors', () => {
     const tagged = exportedComponents().filter((Class) => Class.space === '3d')
-    expect(tagged.map((Class) => Class.componentName)).toEqual(['CharacterMotor'])
+    expect(tagged.map((Class) => Class.componentName)).toEqual(THREE_D_BEHAVIORS)
   })
 
   it('leaves every other behavior space-neutral', () => {
@@ -74,9 +77,9 @@ describe('behavior component space markers (CA-2)', () => {
     expect(neutral.map((Class) => Class.componentName).sort()).toEqual(NEUTRAL_BEHAVIORS)
   })
 
-  it('reads as 2d or both through the engine helper', () => {
+  it('reads as 2d, 3d or both through the engine helper', () => {
     for (const Class of exportedComponents()) {
-      const expected = TWO_D_BEHAVIORS.includes(Class.componentName) ? '2d' : 'both'
+      const expected = TWO_D_BEHAVIORS.includes(Class.componentName) ? '2d' : THREE_D_BEHAVIORS.includes(Class.componentName) ? '3d' : 'both'
       expect(componentSpaceOf(Class), Class.componentName).toBe(expected)
     }
   })
