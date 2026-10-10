@@ -1,4 +1,4 @@
-import { Component, type ParamSpec } from '../component.js'
+import { Component, type ComponentSpace, type ParamSpec } from '../component.js'
 import type { Vec3Json } from '../scene-camera-3d.js'
 
 export type RigidBodyType = 'dynamic' | 'kinematic'
@@ -26,11 +26,14 @@ const ZERO: Readonly<BodyVector> = { x: 0, y: 0, z: 0 }
  * `desiredVelocity` on x and z and its own vertical velocity under gravity,
  * stopping at walls, climbing steps up to `stepHeight` and slopes up to
  * `maxSlope`, sticking to the ground within `snapDistance`, and pushing
- * dynamic bodies it walks into. A RigidBody in a 2D scene creates nothing.
+ * dynamic bodies it walks into. A param outside its range (`type` unknown,
+ * `mass` under the minimum, a `velocity` that is not three numbers) creates
+ * no body and warns once; `validate_project` reports it as
+ * `invalid-rigid-body-param`. A RigidBody in a 2D scene creates nothing.
  */
 export class RigidBody extends Component {
   static override componentName = 'RigidBody'
-  static override space = '3d' as const
+  static override space: ComponentSpace = '3d'
   static override params = {
     type: { label: 'Type', options: [...RIGID_BODY_TYPES] },
     mass: { label: 'Mass', min: 0.001, step: 0.1 },
@@ -75,9 +78,9 @@ export class RigidBody extends Component {
     this.game.physics.setVelocityOf(this.entity, value)
   }
 
-  /** Launches a kinematic body upward at `speed` (units per second); only while it stands on something. */
-  jump(speed: number): void {
-    this.game.physics.jumpOf(this.entity, speed)
+  /** Launches a kinematic body upward at `speed` (units per second), only while it stands on something; whether it did. */
+  jump(speed: number): boolean {
+    return this.game.physics.jumpOf(this.entity, speed)
   }
 
   /** Whether the body stands on something; only a kinematic body moved by the character controller can. */

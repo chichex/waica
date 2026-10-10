@@ -63,6 +63,7 @@ describe('scaffolds', () => {
     expect(code).not.toContain('params')
     expect(code).not.toContain('speed')
     expect(code).not.toContain('updateAfter')
+    expect(code).toContain("// static override space = '2d' as const")
   })
 
   it('rejects the reserved Component class exactly like the editor', async () => {

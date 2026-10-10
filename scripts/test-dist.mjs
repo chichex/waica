@@ -229,8 +229,10 @@ async function materializeExternalDependencies(pkg, manifest) {
  * Rapier is a dynamic import (ADR 0028), so a bundler emits its wasm as one
  * separate async chunk for every bundle that includes the engine, 2D examples
  * too; what a 2D project must not do is load it. So in each built example:
- * exactly one chunk holds the wasm, and nothing index.html loads (its scripts
- * and modulepreloads) contains it or names it.
+ * exactly one chunk holds the wasm, and nothing index.html loads up front (its
+ * scripts and modulepreloads) contains it. The entry chunk does name it: that
+ * is the dynamic import(). The `src`/`href` regex assumes Vite's default
+ * `base: '/'`, which every example uses.
  */
 async function assertRapierStaysLazy() {
   for (const example of ['platformer', 'topdown', 'isometric', 'smoke-3d']) {

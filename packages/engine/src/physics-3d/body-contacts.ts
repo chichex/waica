@@ -12,7 +12,7 @@ function manifoldContact(sides: readonly [BodyRecord, BodyRecord], manifold: Rap
   const [record, other] = sides
   const point = manifold.numSolverContacts() > 0 ? manifold.solverContactPoint(0) : null
   if (!point) return null
-  // The manifold's normal points from its first shape to its second; `flipped` says that first shape is ours.
+  // The manifold's normal points from its first shape to its second; `flipped` says that first shape is the other one, so it is negated to point from ours.
   const n = manifold.normal()
   const sign = flipped ? -1 : 1
   return {
@@ -37,6 +37,8 @@ function contactsOf(world: PhysicsWorld, record: BodyRecord): BodyContact[] {
   return [...contacts.values()]
 }
 
+const listens = (component: Component): boolean => typeof component.onBodyContact === 'function'
+
 function deliver(contacts: readonly BodyContact[], receivers: readonly Component[]): void {
   for (const contact of contacts) {
     if (!contact.entity.alive || !contact.other.alive) continue
@@ -47,13 +49,15 @@ function deliver(contacts: readonly BodyContact[], receivers: readonly Component
 /**
  * After the physics step (CA-15): every component on an entity with a solid
  * Collider that implements `onBodyContact` hears about each other entity it
- * touches, once per step, with the normal pointing from it to the other.
+ * touches, once per step, with the normal pointing from it to the other. The
+ * common scene, where no component listens, allocates nothing here: the
+ * narrow phase is read only for an entity that has a receiver.
  */
 export function dispatchBodyContacts(game: Game, world: PhysicsWorld): void {
-  for (const record of world.bodiesOf(game.entities)) {
+  for (const entity of game.entities) {
     if (game.physics.world !== world) return
-    if (record.collider.sensor || !record.entity.alive) continue
-    const receivers = record.entity.components.filter((component) => typeof component.onBodyContact === 'function')
-    if (receivers.length > 0) deliver(contactsOf(world, record), receivers)
+    const record = world.recordOf(entity)
+    if (!record || record.sensor || !entity.alive || !entity.components.some(listens)) continue
+    deliver(contactsOf(world, record), entity.components.filter(listens))
   }
 }

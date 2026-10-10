@@ -1,5 +1,5 @@
 import * as THREE from 'three/webgpu'
-import { Component, type ParamSpec } from '../component.js'
+import { Component, type ComponentSpace, type ParamSpec } from '../component.js'
 
 /**
  * A point light in a 3D scene (ADR 0027, `CONTEXT.md` Point Light): it shines
@@ -13,7 +13,7 @@ import { Component, type ParamSpec } from '../component.js'
  */
 export class PointLight extends Component {
   static override componentName = 'PointLight'
-  static override space = '3d' as const
+  static override space: ComponentSpace = '3d'
   static override displayName = 'Point light (3D)'
   static override params = {
     color: { label: 'Color', kind: 'color' },

@@ -24,7 +24,6 @@ import { Interactable } from './interactable.js'
  */
 export class SceneTransition extends Component {
   static override componentName = 'SceneTransition'
-  static override space = '2d' as const
   static override params = {
     scene: { label: 'Scene' },
     trigger: { label: 'Trigger', options: ['overlap', 'interact'] },

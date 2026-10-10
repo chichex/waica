@@ -47,10 +47,15 @@ export class PhysicsHost {
     return this.live ? this.live.gravity : [...this.gravity]
   }
 
-  /** Adopts a scene's space (called by `setSceneRender`): a 3D scene starts the load, or gets its world at once when the module is here. */
+  /**
+   * Adopts a scene's space (called by `setSceneRender`): a 3D scene starts the
+   * load, gets its world at once when the module is here, or hears about the
+   * load that already failed.
+   */
   enterScene(space: SceneSpace): void {
     if (space !== '3d' || this.disposed) return
-    if (this.module) this.createWorld(this.module)
+    if (this.failure) this.report(this.failure)
+    else if (this.module) this.createWorld(this.module)
     else this.begin()
   }
 
@@ -117,10 +122,12 @@ export class PhysicsHost {
     return this.recordOf(entity)?.grounded ?? false
   }
 
-  /** Launches a kinematic body upward, when it stands on something. */
-  jumpOf(entity: Entity, speed: number): void {
+  /** Launches a kinematic body upward when it stands on something; whether it did. */
+  jumpOf(entity: Entity, speed: number): boolean {
     const record = this.recordOf(entity)
-    if (record?.kind === 'kinematic' && record.grounded) record.vy = speed
+    if (record?.kind !== 'kinematic' || !record.grounded) return false
+    record.vy = speed
+    return true
   }
 
   applyImpulseTo(entity: Entity, impulse: { x: number; y: number; z: number }): void {
@@ -151,14 +158,34 @@ export class PhysicsHost {
     const reason = cause instanceof Error ? cause.message : String(cause)
     const error = new Error(`Physics failed to load: could not import ${RAPIER_PACKAGE} (${reason})`, { cause })
     this.failure = error
-    if (!this.disposed) activeRuntimeBridgeHook()?.fail?.({ code: 'physics-backend-failed', message: error.message })
+    // A Game whose live scene is 2D by now needs no physics: the failure waits for the next 3D scene.
+    if (this.game.space === '3d') this.report(error)
     throw error
   }
 
-  /** The world of the live 3D scene, with a body for every Collider already spawned (a load that finished late). */
+  /** Tells the Runtime Bridge the scene it is driving cannot simulate (the mirror of `render-backend-failed`). */
+  private report(error: Error): void {
+    if (this.disposed) return
+    activeRuntimeBridgeHook()?.fail?.({ code: 'physics-backend-failed', message: error.message })
+  }
+
+  /**
+   * The world of the live 3D scene, with a body for every Collider already
+   * spawned (a load that finished late). A body that cannot be built costs
+   * that entity its body, never the rest of the scene or the load itself
+   * (spawnFromJson's rule for a throwing component).
+   */
   private createWorld(module: RapierModule): void {
     if (this.live || this.disposed) return
-    this.live = new PhysicsWorld(module, this.gravity)
-    for (const entity of this.game.entities) this.live.attach(entity)
+    const world = new PhysicsWorld(module, this.gravity)
+    this.live = world
+    for (const entity of this.game.entities) {
+      try {
+        world.attach(entity)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        console.warn(`[waica] "${entity.name}": no physics body was created (${message})`)
+      }
+    }
   }
 }

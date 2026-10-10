@@ -238,3 +238,72 @@ describe('kinematic bodies in the Runtime Snapshot and among dynamic ones (CA-19
     expect(positionOf(fixture).y).toBeCloseTo(0.5, 1)
   })
 })
+
+/** A fixed slab leaning at `degrees` from the ground, its near face sloping up toward +x from x = 0. */
+function ramp(degrees: number): SceneEntityJson {
+  return { name: 'Ramp', position: [2, 1.5, 0], rotation: [0, 0, degrees], components: [{ type: 'Collider', props: { size: [8, 1, 8] } }] }
+}
+
+describe('slopes steeper than maxSlope (PR #163 finding 1)', () => {
+  it('does not count a 70-degree slope as ground: the walker slides down it to the floor and cannot jump off it', async () => {
+    const fixture = await physicsFixture([FLOOR, ramp(70), walker({ maxSlope: 45 }, [2.2, 8, 0])])
+    let onSlope = Number.NaN
+    for (let frame = 0; frame < 300 && Number.isNaN(onSlope); frame += 1) {
+      fixture.step(1)
+      // Met the slab: a free fall keeps x, sliding down the face moves it toward -x; still well above the floor.
+      if (positionOf(fixture).x < 2.2 - 0.02 && positionOf(fixture).y > 2) onSlope = positionOf(fixture).y
+    }
+    expect(onSlope).toBeGreaterThan(2)
+    expect(bodyOf(fixture).grounded).toBe(false)
+
+    bodyOf(fixture).jump(6)
+    fixture.step(1)
+    expect(bodyOf(fixture).linearVelocity.y).toBeLessThanOrEqual(0)
+
+    fixture.step(300)
+    expect(positionOf(fixture).y).toBeLessThan(onSlope - 1)
+    expect(positionOf(fixture).y).toBeCloseTo(0.9, 1)
+    expect(bodyOf(fixture).grounded).toBe(true)
+  })
+
+  it('still climbs a 30-degree slope and stands on it grounded', async () => {
+    const fixture = await physicsFixture([FLOOR, ramp(30), walker({ maxSlope: 45 }, [-1, 0.9, 0])])
+    fixture.step(20)
+    bodyOf(fixture).desiredVelocity = { x: 3, z: 0 }
+
+    fixture.step(60)
+
+    expect(positionOf(fixture).y).toBeGreaterThan(1.5)
+    expect(bodyOf(fixture).grounded).toBe(true)
+  })
+})
+
+describe('teleports (PR #163 finding 2)', () => {
+  it('lands a body teleported out of a fall onto the floor, standing on it and not inside it', async () => {
+    const fixture = await physicsFixture([FLOOR, walker({}, [0, 60, 0])])
+    fixture.step(120)
+    expect(bodyOf(fixture).linearVelocity.y).toBeLessThan(-15)
+
+    defined(fixture.game.find('Walker')).position.set(10, 0.9, -4)
+    fixture.step(1)
+    expect(positionOf(fixture).y).toBeGreaterThan(0.9 - 0.05)
+    fixture.step(29)
+
+    expect(positionOf(fixture)).toMatchObject({ x: 10, z: -4 })
+    expect(positionOf(fixture).y).toBeCloseTo(0.9, 1)
+    expect(bodyOf(fixture).grounded).toBe(true)
+  })
+
+  it('applies every kinematic teleport before moving any body, so two bodies can swap places in one step', async () => {
+    const other: SceneEntityJson = { ...walker({}, [5, 0.9, 0]), name: 'Other' }
+    const fixture = await physicsFixture([FLOOR, walker({}, [0, 0.9, 0]), other])
+    fixture.step(10)
+
+    defined(fixture.game.find('Walker')).position.set(5, 0.9, 0)
+    defined(fixture.game.find('Other')).position.set(-5, 0.9, 0)
+    fixture.step(5)
+
+    expect(positionOf(fixture).x).toBeCloseTo(5, 1)
+    expect(defined(fixture.game.find('Other')).position.x).toBeCloseTo(-5, 1)
+  })
+})

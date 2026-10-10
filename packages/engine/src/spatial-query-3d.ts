@@ -3,7 +3,7 @@ import type { Entity } from './entity.js'
 import type { Game } from './game.js'
 import type { BodyRecord } from './physics-3d/body-sync.js'
 import type { PhysicsWorld } from './physics-3d/physics-world.js'
-import { castWorldRay, recordsAtPoint, recordsInVolume, type Point3d, type QueryVolume3d } from './physics-3d/world-queries.js'
+import { recordsAtPoint, recordsInVolume, worldRayHits, type Point3d, type QueryVolume3d } from './physics-3d/world-queries.js'
 import type { ComponentClasses, NearestSpatialQueryFilter, SpatialQueryFilter } from './spatial-query.js'
 
 export type { Point3d, QueryVolume3d } from './physics-3d/world-queries.js'
@@ -20,14 +20,24 @@ export interface RayHit3d<T extends Entity = Entity> {
 type Filter = SpatialQueryFilter<ComponentClasses> | undefined
 type NearestFilter = NearestSpatialQueryFilter<ComponentClasses> | undefined
 
-/** The entity filter the 2D forms use, shared with the 3D ones (`spatial-query.ts` owns it). */
+/** The structural part of the entity filter the 2D forms use (`with`, `without`, `exclude`), shared with the 3D ones (`spatial-query.ts` owns it). */
 export interface EntityRules {
-  matches(entity: Entity, filter: Filter): boolean
   matchesCommon(entity: Entity, filter: NearestFilter): boolean
 }
 
 const isPoint3d = (value: unknown): value is Point3d =>
   typeof value === 'object' && value !== null && ['x', 'y', 'z'].every((axis) => Number.isFinite(Reflect.get(value, axis)))
+
+const isExtent = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0
+
+/** A finite box or sphere with a place: anything else is a volume Rapier cannot test. */
+function isVolume3d(value: unknown): value is QueryVolume3d {
+  if (typeof value !== 'object' || value === null || !isPoint3d(Reflect.get(value, 'center'))) return false
+  const shape: unknown = Reflect.get(value, 'shape')
+  if (shape === 'sphere') return isExtent(Reflect.get(value, 'radius'))
+  const size: unknown = Reflect.get(value, 'size')
+  return shape === 'box' && typeof size === 'object' && size !== null && ['x', 'y', 'z'].every((axis) => isExtent(Reflect.get(size, axis)))
+}
 
 /** The farthest a nearest query looks: its `maxDistance`, or no limit. */
 const rangeOf = (filter: NearestFilter): number => filter?.maxDistance ?? Infinity
@@ -53,21 +63,23 @@ export class SpatialQuery3d {
     const length = isPoint3d(direction) ? Math.hypot(direction.x, direction.y, direction.z) : 0
     if (!world || !isPoint3d(origin) || length === 0 || !(maxDistance >= 0) || !Number.isFinite(maxDistance)) return null
     const unit = { x: direction.x / length, y: direction.y / length, z: direction.z / length }
-    const hit = castWorldRay(world, { origin, direction: unit, maxDistance }, (record) => this.eligible(record, filter, false))
+    const hits = worldRayHits(world, { origin, direction: unit, maxDistance }, (record) => this.eligible(record, filter, false))
+    // The user's `where` runs here, outside Rapier's borrow of the world: the first hit it keeps wins.
+    const hit = hits.find(({ record }) => this.wanted(record, filter))
     if (!hit) return null
     return { entity: hit.record.entity, collider: hit.record.collider, distance: hit.distance, point: hit.point, normal: hit.normal }
   }
 
   area(volume: QueryVolume3d, filter?: Filter): Entity[] {
     const world = this.worldNow()
-    if (!world) return []
-    return this.inEntityOrder(recordsInVolume(world, volume, (record) => this.eligible(record, filter, true)))
+    if (!world || !isVolume3d(volume)) return []
+    return this.inEntityOrder(recordsInVolume(world, volume, (record) => this.eligible(record, filter, true)), filter)
   }
 
   point(at: Point3d, filter?: Filter): Entity[] {
     const world = this.worldNow()
     if (!world || !isPoint3d(at)) return []
-    return this.inEntityOrder(recordsAtPoint(world, at, (record) => this.eligible(record, filter, true)))
+    return this.inEntityOrder(recordsAtPoint(world, at, (record) => this.eligible(record, filter, true)), filter)
   }
 
   nearest(at: Point3d, filter?: NearestFilter): Entity | null {
@@ -97,14 +109,23 @@ export class SpatialQuery3d {
     return world
   }
 
-  /** A live entity's collider the query domain reads (solids for a ray, sensors for area and point) that passes the shared filter. */
+  /**
+   * A live entity's collider the query domain reads (solids for a ray, sensors
+   * for area and point) that passes the structural filter. Runs inside
+   * Rapier's callback, so it reads the record and nothing else.
+   */
   private eligible(record: BodyRecord, filter: Filter, sensors: boolean): boolean {
-    return record.collider.sensor === sensors && record.entity.alive && this.rules.matches(record.entity, filter)
+    return record.sensor === sensors && record.entity.alive && this.rules.matchesCommon(record.entity, filter)
   }
 
-  /** The entities of the records once each, in the order they were spawned. */
-  private inEntityOrder(records: readonly BodyRecord[]): Entity[] {
-    const found = new Set(records.map((record) => record.entity))
+  /** The user's `where`, run after Rapier has answered: it may throw, spawn or destroy without the world mid-query. */
+  private wanted(record: BodyRecord, filter: Filter): boolean {
+    return record.entity.alive && (!filter?.where || filter.where(record.entity))
+  }
+
+  /** The entities of the records that pass `where`, once each, in the order they were spawned. */
+  private inEntityOrder(records: readonly BodyRecord[], filter: Filter): Entity[] {
+    const found = new Set(records.filter((record) => this.wanted(record, filter)).map((record) => record.entity))
     return this.game.entities.filter((entity) => found.has(entity))
   }
 }

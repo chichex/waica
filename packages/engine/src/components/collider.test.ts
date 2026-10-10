@@ -150,3 +150,33 @@ describe('Collider that creates no body (CA-13)', () => {
     expect(registry.components.Collider).toBe(Collider)
   })
 })
+
+describe('Collider params the runtime refuses (PR #161 review)', () => {
+  it('says it once when the Collider and a RigidBody beside it share the invalid shape', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { game } = await physicsFixture([{ name: 'Flat', components: [{ type: 'Collider', props: { size: [1, 0, 1] } }, { type: 'RigidBody' }] }])
+
+    expect(worldOf(game).recordOf(defined(game.find('Flat')))).toBeUndefined()
+    expect(warn.mock.calls.map(([message]) => String(message))).toEqual([expect.stringContaining('Collider on "Flat" creates no body')])
+  })
+
+  it('creates no body for a capsule shorter than twice its radius, or a friction or restitution outside 0..1', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { game } = await physicsFixture([
+      { name: 'Squat', components: [{ type: 'Collider', props: { shape: 'capsule', radius: 0.5, height: 0.6 } }] },
+      { name: 'Slick', components: [{ type: 'Collider', props: { friction: 'high' } }] },
+      { name: 'Bouncy', components: [{ type: 'Collider', props: { restitution: 2 } }] },
+      { name: 'Ball', components: [{ type: 'Collider', props: { shape: 'capsule', radius: 0.5, height: 1 } }] },
+    ])
+
+    const world = worldOf(game)
+    for (const name of ['Squat', 'Slick', 'Bouncy']) expect(world.recordOf(defined(game.find(name))), name).toBeUndefined()
+    expect(world.recordOf(defined(game.find('Ball')))?.shape.halfHeight()).toBe(0)
+    expect(warn.mock.calls.map(([message]) => String(message))).toEqual([
+      expect.stringContaining('Collider on "Squat" creates no body: a capsule needs a height of at least twice its radius'),
+      expect.stringContaining('Collider on "Slick" creates no body: friction and restitution need numbers from 0 to 1'),
+      expect.stringContaining('Collider on "Bouncy" creates no body: friction and restitution need numbers from 0 to 1'),
+    ])
+  })
+
+})

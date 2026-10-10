@@ -18,10 +18,14 @@ export interface ParamSpec {
 
 /**
  * The scene space a component belongs to (ADR 0027): `'2d'` components draw,
- * collide or light the orthographic world, `'3d'` ones need a perspective
- * camera, `'both'` run anywhere. A component that declares nothing is `'both'`.
+ * collide or light the orthographic world, move or query over its x/y plane,
+ * or need a sibling that does; `'3d'` ones need a perspective camera;
+ * `'both'` run anywhere. A component that declares nothing is `'both'`.
  */
 export type ComponentSpace = '2d' | '3d' | 'both'
+
+/** The values of `ComponentSpace`, for the checks that read a marker from data (the project component protocol, conformance). */
+export const COMPONENT_SPACES: readonly ComponentSpace[] = ['2d', '3d', 'both']
 
 export interface ComponentClass<T extends Component = Component> {
   new (): T

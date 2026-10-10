@@ -10,7 +10,7 @@ import { Solid } from './components/solid.js'
 import { Sprite } from './components/sprite.js'
 import { Sun } from './components/sun.js'
 import { Tilemap } from './components/tilemap.js'
-import { Component } from './component.js'
+import { COMPONENT_SPACES, Component, type ComponentSpace } from './component.js'
 import { StateMachine } from './state/state-machine.js'
 import {
   componentSpaceMismatch,
@@ -120,12 +120,15 @@ describe('component space marker (CA-1)', () => {
     expect(componentSpaceMismatch('3d', StateMachine)).toBe(false)
   })
 
+  it('lists the three values of the union once, for the protocol and the conformance checks', () => {
+    expect(COMPONENT_SPACES).toEqual(['2d', '3d', 'both'])
+  })
 })
 
-describe('component space marker on any class (CA-1)', () => {
+describe('component space marker on project-owned and derived classes (CA-1)', () => {
   it('reads the marker of any class, including a project-owned one, and treats an unknown class as neutral', () => {
     class ProjectOnly2d extends Component {
-      static override space = '2d' as const
+      static override space: ComponentSpace = '2d'
     }
     class ProjectBoth extends Component {
       static override space = 'both' as const
@@ -136,6 +139,20 @@ describe('component space marker on any class (CA-1)', () => {
     expect(componentSpaceMismatch('2d', ProjectBoth)).toBe(false)
     expect(componentSpaceMismatch('3d', undefined)).toBe(false)
     expect(componentSpaceMismatch('2d', undefined)).toBe(false)
+  })
+
+  it('lets a subclass declare another space over a base marked with the wide type, and inherit it otherwise', () => {
+    class Flat extends Component {
+      static override space: ComponentSpace = '2d'
+    }
+    class Anywhere extends Flat {
+      static override space: ComponentSpace = 'both'
+    }
+    class StillFlat extends Flat {}
+    expect(componentSpaceOf(Anywhere)).toBe('both')
+    expect(componentSpaceOf(StillFlat)).toBe('2d')
+    expect(componentSpaceMismatch('3d', Anywhere)).toBe(false)
+    expect(componentSpaceMismatch('3d', StillFlat)).toBe(true)
   })
 })
 

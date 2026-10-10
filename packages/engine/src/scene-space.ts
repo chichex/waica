@@ -1,4 +1,4 @@
-import type { ComponentSpace } from './component.js'
+import type { ComponentClass, ComponentSpace } from './component.js'
 import { isFiniteNumber, perspectiveCameraIssues, shown, type SceneFieldIssue } from './scene-camera-3d.js'
 
 /**
@@ -35,10 +35,12 @@ export function resolveRenderPolicy(render: unknown): {
   }
 }
 
-/** What a component class says about the space it belongs to: its `static space` marker, or nothing. */
-export interface SpaceMarked {
-  readonly space?: ComponentSpace
-}
+/**
+ * What a component class says about the space it belongs to: its `static
+ * space` marker, or nothing. Only that slice of `ComponentClass`, so the
+ * abstract `Component` and a class the caller builds by hand qualify too.
+ */
+export type SpaceMarked = Pick<ComponentClass, 'space'>
 
 /** The space a component class belongs to; a class that declares none is `'both'`. */
 export function componentSpaceOf(Class: SpaceMarked): ComponentSpace {

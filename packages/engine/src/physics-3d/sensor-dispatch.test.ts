@@ -6,6 +6,7 @@ vi.mock('three/webgpu', async (importOriginal) =>
 )
 
 import { Component } from '../component.js'
+import { Collider } from '../components/collider.js'
 import type { Entity } from '../entity.js'
 import type { SceneComponentJson, SceneEntityJson } from '../scene.js'
 import { use3dTestEnvironment } from '../test-game-3d.js'
@@ -131,18 +132,81 @@ describe('sensors and solid colliders (CA-16)', () => {
     expect(Hears.log).toEqual([])
   })
 
-  it('detects a fixed collider and a kinematic body inside a sensor on a fixed body', async () => {
+  it('detects a fixed collider and a kinematic body inside a sensor on a fixed body whose mask names their layer', async () => {
     Hears.log = []
     const wall: SceneEntityJson = { name: 'Wall', position: [0, 1, 0], components: [{ type: 'Collider', props: { size: [1, 1, 1] } }] }
-    const { step } = await physicsFixture([zone('Zone'), wall, body('Walker', { at: [1, 1, 0], rigid: { type: 'kinematic' } })], {
-      components: { Hears },
-      simulation: FLOATING,
-    })
+    const { step } = await physicsFixture(
+      [zone('Zone', { props: { collidesWith: ['default'] } }), wall, body('Walker', { at: [1, 1, 0], rigid: { type: 'kinematic' } })],
+      { components: { Hears }, simulation: FLOATING },
+    )
 
     step(2)
 
     expect(Hears.log.filter((line) => line === 'Zone<-Wall')).toHaveLength(2)
     expect(Hears.log.filter((line) => line === 'Zone<-Walker')).toHaveLength(2)
+  })
+
+})
+
+describe('a sensor with the default mask (PR #161 review)', () => {
+  it('is not told about fixed solids (the level), only about the bodies that move', async () => {
+    Hears.log = []
+    const wall: SceneEntityJson = { name: 'Wall', position: [0, 1, 0], components: [{ type: 'Collider', props: { size: [1, 1, 1] } }] }
+    const { step } = await physicsFixture(
+      [zone('Zone'), wall, body('Walker', { at: [1, 1, 0], rigid: { type: 'kinematic' } }), body('Crate', { at: [-1, 1, 0] })],
+      { components: { Hears }, simulation: FLOATING },
+    )
+
+    step(1)
+
+    expect(Hears.log.sort()).toEqual(['Zone<-Crate', 'Zone<-Walker'])
+  })
+})
+
+/** Destroys whatever it is told about. */
+class Eats extends Component {
+  static override componentName = 'Eats'
+  static eaten: string[] = []
+  override onCollide(other: Entity): void {
+    Eats.eaten.push(other.name)
+    other.destroy()
+  }
+}
+
+describe('sensor dispatch survives handlers that change the world (PR #161 review)', () => {
+  it('lets onCollide destroy the other entity: no crash, and the rest of the overlap is still reported', async () => {
+    Eats.eaten = []
+    const { game, step } = await physicsFixture(
+      [
+        { name: 'Mouth', position: [0, 1, 0], components: [{ type: 'Collider', props: { sensor: true, size: [4, 2, 4] } }, { type: 'Eats' }] },
+        body('First', { at: [-1, 1, 0] }),
+        body('Second', { at: [1, 1, 0] }),
+      ],
+      { components: { Eats }, simulation: FLOATING },
+    )
+
+    expect(() => step(1)).not.toThrow()
+
+    expect(Eats.eaten.sort()).toEqual(['First', 'Second'])
+    expect(game.find('First')).toBeUndefined()
+    expect(game.find('Second')).toBeUndefined()
+    expect(worldOf(game).bodiesOf(game.entities).map((record) => record.entity.name)).toEqual(['Mouth'])
+  })
+
+  it('keeps the sensor flag it was built with: flipping `sensor` on a live Collider changes nothing, not even the sensor count', async () => {
+    Hears.log = []
+    const { game, step } = await physicsFixture(
+      [zone('Zone', { props: { collidesWith: ['crate'] } }), body('Crate', { props: { layer: 'crate' } }), body('Solid', { at: [10, 1, 0] })],
+      { components: { Hears }, simulation: FLOATING },
+    )
+    const solid = defined(game.find('Solid'))
+    defined(solid.get(Collider)).sensor = true
+    solid.destroy()
+
+    step(1)
+
+    expect(Hears.log).toEqual(['Zone<-Crate'])
+    expect(worldOf(game).hasSensors).toBe(true)
   })
 })
 
