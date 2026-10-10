@@ -37,6 +37,8 @@ function componentTemplate(name: string): string {
 // Project-owned behavior — loaded by the shipped game and editor Play.
 export class ${Class} extends Component {
   static override componentName = '${Class}'
+  // Keep it to one scene space ('2d' or '3d') with a marker; absent, it runs in both:
+  // static override space = '2d' as const
 
   override onUpdate(dt: number): void {
     // Add this component's per-frame behavior here.

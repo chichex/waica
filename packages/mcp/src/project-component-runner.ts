@@ -27,6 +27,8 @@ const FALLBACK_SPECIFIERS = new Set([
   'three/addons/utils/SkeletonUtils.js',
 ])
 const REF_KINDS = new Set(['prefab', 'clip', 'action', 'stat', 'sound', 'ui'])
+// Mirrors COMPONENT_SPACES in the engine's component.ts (this child imports no sibling).
+const SPACES = new Set(['2d', '3d', 'both'])
 const RELATIVE_EXTENSIONS = ['.ts', '.tsx', '.js']
 
 interface RunnerRequest {
@@ -53,8 +55,8 @@ interface ComponentRow {
   hasOnUpdate: boolean
   hasUpdateAfter: boolean
   updateAfter: string[]
-  /** The raw `static space`; the parent validates it with the rest of the row. */
-  space: unknown
+  /** The class's `static space` marker, checked here so a wrong one names its component; null when it declares none. */
+  space: string | null
 }
 
 interface SuccessMessage {
@@ -130,10 +132,7 @@ function installProjectResolution(
           : (fallbackEntries[specifier] ?? hostRequire.resolve(specifier)),
       )
     } catch (error) {
-      packageEntries.set(
-        specifier,
-        error instanceof Error ? error : new Error(String(error)),
-      )
+      packageEntries.set(specifier, error instanceof Error ? error : new Error(String(error)))
     }
   }
 
@@ -249,17 +248,22 @@ function componentRow(value: unknown, relativeFile: string): ComponentRow | null
   const name: unknown = Reflect.get(value, 'componentName')
   if (typeof name !== 'string' || !name) return null
   const updateAfter: unknown = Reflect.get(value, 'updateAfter')
-  if (updateAfter !== undefined && !isStringList(updateAfter)) {
+  const hasUpdateAfter = updateAfter !== undefined
+  if (hasUpdateAfter && !isStringList(updateAfter)) {
     throw new Error(`Component "${name}" updateAfter must be an array of strings.`)
+  }
+  const space: unknown = Reflect.get(value, 'space') ?? null
+  if (space !== null && (typeof space !== 'string' || !SPACES.has(space))) {
+    throw new Error(`Component "${name}" space must be '2d', '3d' or 'both'; got ${JSON.stringify(space)}.`)
   }
   return {
     name,
     file: relativeFile,
     params: paramRows(value),
     hasOnUpdate: typeof record(Reflect.get(value, 'prototype')).onUpdate === 'function',
-    hasUpdateAfter: updateAfter !== undefined,
+    hasUpdateAfter,
     updateAfter: isStringList(updateAfter) ? [...updateAfter] : [],
-    space: Reflect.get(value, 'space') ?? null,
+    space,
   }
 }
 
@@ -307,10 +311,7 @@ function sendTerminal(message: TerminalMessage): void {
 async function execute(request: RunnerRequest): Promise<void> {
   try {
     installProjectResolution(request.projectPath, request.fallbackEntries)
-    const loaded = (await import(pathToFileURL(request.entryFile).href)) as Record<
-      string,
-      unknown
-    >
+    const loaded = (await import(pathToFileURL(request.entryFile).href)) as Record<string, unknown>
     sendTerminal({
       kind: 'project-entry-result',
       version: PROTOCOL_VERSION,
@@ -324,9 +325,7 @@ async function execute(request: RunnerRequest): Promise<void> {
       version: PROTOCOL_VERSION,
       token: request.token,
       ok: false,
-      code: unsupportedByNode(error)
-        ? 'component-load-unsupported'
-        : 'component-load-failed',
+      code: unsupportedByNode(error) ? 'component-load-unsupported' : 'component-load-failed',
       message: causeText(error),
     })
   }

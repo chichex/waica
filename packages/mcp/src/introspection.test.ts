@@ -166,19 +166,24 @@ describe('listComponents', () => {
       expect(JSON.parse(JSON.stringify(component.defaults))).toEqual(component.defaults)
       expect(component.updates).toEqual(expect.any(Boolean))
       expect(component.updateAfter).toEqual(expect.any(Array))
+      expect(['2d', '3d', 'both'], component.componentName).toContain(component.space)
     }
     expect(result.components.find(({ componentName }) => componentName === 'AnimatedSprite')).toMatchObject({
       updates: true,
       updateAfter: ['StateMachine'],
+      space: '2d',
     })
     expect(result.components.find(({ componentName }) => componentName === 'OutOfBounds')).toMatchObject({
       updates: true,
       updateAfter: ['DynamicBody', 'Health', 'StateMachine'],
+      space: 'both',
     })
     expect(result.components.find(({ componentName }) => componentName === 'PlatformerMotor')).toMatchObject({
       updates: false,
       updateAfter: [],
+      space: '2d',
     })
+    expect(result.components.find(({ componentName }) => componentName === 'Model')).toMatchObject({ space: '3d' })
     expect(result.projectOwned).toEqual([
       { path: 'src/components/dash.ts', validated: false },
       { path: 'src/roles/guard.ts', validated: false },
@@ -263,6 +268,7 @@ module.exports.ARCHETYPE = {
         defaults: {},
         updates: false,
         updateAfter: [],
+        space: 'both',
         sourcePackage: '@waica/archetype-fixture',
       },
     ])
