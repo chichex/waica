@@ -1,4 +1,4 @@
-import { Component, ParticleEmitter, StateMachine } from '@waica/engine'
+import { Component, ParticleEmitter, StateMachine, type ComponentSpace } from '@waica/engine'
 
 /**
  * A soft dust trail while this entity walks. The
@@ -13,6 +13,7 @@ import { Component, ParticleEmitter, StateMachine } from '@waica/engine'
  */
 export class DustTrail extends Component {
   static override componentName = 'DustTrail'
+  static override space: ComponentSpace = '2d'
   static override displayName = 'Dust trail'
   static override params = {
     state: { label: 'State' },

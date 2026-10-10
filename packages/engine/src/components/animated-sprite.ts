@@ -1,5 +1,5 @@
 import * as THREE from 'three/webgpu'
-import { Component } from '../component.js'
+import { Component, type ComponentSpace } from '../component.js'
 import { ClipPlayer, type ClipDef } from '../animation/clip-player.js'
 import { locateFrame, sheetCell, type SheetCell, type SheetDef } from '../animation/sheet.js'
 import type { YSortParticipant } from '../render-sort.js'
@@ -26,7 +26,7 @@ const clampAnchor = (value: number): number => Math.min(1, Math.max(0, value))
  */
 export class AnimatedSprite extends Component implements YSortParticipant {
   static override componentName = 'AnimatedSprite'
-  static override space = '2d' as const
+  static override space: ComponentSpace = '2d'
   static override updateAfter: readonly string[] = ['StateMachine']
   static override params = {
     offsetX: { label: 'x offset' },

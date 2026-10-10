@@ -1,5 +1,5 @@
 import * as THREE from 'three/webgpu'
-import { Component, type ParamSpec } from '../component.js'
+import { Component, type ComponentSpace, type ParamSpec } from '../component.js'
 
 export type ModelShape = 'box' | 'sphere' | 'plane'
 
@@ -35,7 +35,7 @@ function primitiveGeometry(shape: ModelShape): THREE.BufferGeometry {
  */
 export class Model extends Component {
   static override componentName = 'Model'
-  static override space = '3d' as const
+  static override space: ComponentSpace = '3d'
   static override params = {
     src: { label: 'Model file', kind: 'model' },
     shape: { label: 'Shape', options: [...SHAPES] },

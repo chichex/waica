@@ -4,10 +4,12 @@
  * shape before the loader trusts it.
  */
 
+import { COMPONENT_SPACES, type ComponentSpace } from '@waica/engine'
+
 export const PROJECT_COMPONENT_PROTOCOL_VERSION = 1
 
 const REF_KINDS = new Set(['prefab', 'clip', 'action', 'stat', 'sound', 'ui'])
-const SPACES = new Set(['2d', '3d', 'both'])
+const SPACES = new Set<string>(COMPONENT_SPACES)
 
 export type ComponentLoadFailureCode =
   | 'component-load-failed'
@@ -34,7 +36,7 @@ export interface ComponentRow {
   hasUpdateAfter: boolean
   updateAfter: string[]
   /** The class's `static space` marker; null when it declares none. */
-  space: '2d' | '3d' | 'both' | null
+  space: ComponentSpace | null
 }
 
 interface SuccessTerminal {
@@ -128,7 +130,7 @@ function parseComponent(value: unknown, expectedFile: string): ComponentRow | un
     !Array.isArray(candidate.updateAfter) ||
     candidate.updateAfter.some((target) => typeof target !== 'string') ||
     (!candidate.hasUpdateAfter && candidate.updateAfter.length > 0) ||
-    (candidate.space !== null && !SPACES.has(candidate.space as string))
+    (candidate.space !== null && (typeof candidate.space !== 'string' || !SPACES.has(candidate.space)))
   ) {
     return undefined
   }

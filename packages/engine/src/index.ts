@@ -85,7 +85,7 @@ export type { RuntimeSnapshotView } from './runtime-view-snapshot.js'
 export { applyTransformJson } from './entity-transform.js'
 export type { PositionJson, TransformJson } from './entity-transform.js'
 export { Entity } from './entity.js'
-export { Component } from './component.js'
+export { COMPONENT_SPACES, Component } from './component.js'
 export { authoringDefaults } from './authoring-defaults.js'
 export type {
   BodyContact,

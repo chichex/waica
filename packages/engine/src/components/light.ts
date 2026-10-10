@@ -1,4 +1,4 @@
-import { Component, type ParamSpec } from '../component.js'
+import { Component, type ComponentSpace, type ParamSpec } from '../component.js'
 import type { LightField } from '../light-field.js'
 import { addLight, removeLight } from '../scene-lighting.js'
 
@@ -16,7 +16,7 @@ const finiteOr = (value: number, fallback: number): number => (Number.isFinite(v
  */
 export class Light extends Component {
   static override componentName = 'Light'
-  static override space = '2d' as const
+  static override space: ComponentSpace = '2d'
   static override params = {
     radius: { label: 'Radius', min: 0, step: 0.25 },
     color: { label: 'Color', kind: 'color' },

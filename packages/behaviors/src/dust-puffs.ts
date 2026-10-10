@@ -1,4 +1,4 @@
-import { Component, ParticleEmitter, StateMachine } from '@waica/engine'
+import { Component, ParticleEmitter, StateMachine, type ComponentSpace } from '@waica/engine'
 import { PlatformerMotor } from './platformer-motor.js'
 
 /** The stock player graph's grounded states: a jump entered from one of these is a takeoff. */
@@ -32,6 +32,7 @@ const AIR_STATES = ['jump', 'fall']
  */
 export class DustPuffs extends Component {
   static override componentName = 'DustPuffs'
+  static override space: ComponentSpace = '2d'
   static override displayName = 'Dust puffs'
   static override params = {
     jumpCount: { label: 'Jump puff', min: 0, max: 64, step: 1 },

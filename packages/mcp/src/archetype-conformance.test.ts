@@ -1,7 +1,7 @@
 import { access } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { componentSpaceOf, resolveDirectionalClip, type BrowserArchetypeManifest } from '@waica/engine'
+import { COMPONENT_SPACES, componentSpaceOf, resolveDirectionalClip, type BrowserArchetypeManifest } from '@waica/engine'
 import { ARCHETYPE as PLATFORMER } from '../../archetype-platformer/src/index.js'
 import { ARCHETYPE as TOPDOWN } from '../../archetype-topdown/src/index.js'
 import { ARCHETYPE as ISOMETRIC } from '../../archetype-isometric/src/index.js'
@@ -59,7 +59,7 @@ describe.each(MANIFESTS.map((manifest) => [manifest.id, manifest] as const))(
 
     it('gives every registered component a space marker in the union, or none (issue #159 CA-5)', () => {
       for (const [name, Class] of Object.entries(archetype.registry.components)) {
-        expect(['2d', '3d', 'both', undefined], name).toContain(Class.space)
+        expect([...COMPONENT_SPACES, undefined], name).toContain(Class.space)
       }
     })
 
