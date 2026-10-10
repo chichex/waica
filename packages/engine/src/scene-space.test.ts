@@ -123,7 +123,9 @@ describe('component space marker (CA-1)', () => {
   it('lists the three values of the union once, for the protocol and the conformance checks', () => {
     expect(COMPONENT_SPACES).toEqual(['2d', '3d', 'both'])
   })
+})
 
+describe('component space marker on project-owned and derived classes (CA-1)', () => {
   it('reads the marker of any class, including a project-owned one, and treats an unknown class as neutral', () => {
     class ProjectOnly2d extends Component {
       static override space: ComponentSpace = '2d'

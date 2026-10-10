@@ -27,13 +27,28 @@ const TWO_D_SIGNALS: readonly { signal: string; pattern: RegExp }[] = [
 /** A source that declares a component class: a named concrete one, or an abstract base that extends Component. */
 const DECLARES_COMPONENT = /static override componentName\b|abstract class \w+\s+extends Component\b|\n {2}extends Component\b/
 
+const SOURCES = readdirSync(BEHAVIORS_SRC).filter((file) => file.endsWith('.ts') && !file.endsWith('.test.ts'))
+
 /** The source without its block and line comments, so prose never counts as a signal. */
 function withoutComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '$1')
 }
 
+function codeOf(file: string): string {
+  return withoutComments(readFileSync(path.join(BEHAVIORS_SRC, file), 'utf8'))
+}
+
 function signalsIn(code: string): string[] {
   return TWO_D_SIGNALS.filter(({ pattern }) => pattern.test(code)).map(({ signal }) => signal)
+}
+
+/** The component sources that show at least one signal, with the signals. */
+function flaggedSources(): { file: string; shown: string[] }[] {
+  return SOURCES.flatMap((file) => {
+    const code = codeOf(file)
+    const shown = DECLARES_COMPONENT.test(code) ? signalsIn(code) : []
+    return shown.length > 0 ? [{ file, shown }] : []
+  })
 }
 
 /** The component classes a behavior source exports, with the marker each one really carries (inherited or own). */
@@ -51,39 +66,33 @@ async function exportedClasses(file: string): Promise<{ name: string; space: str
   return classes
 }
 
-describe('behavior sources that assume 2D carry the marker (issue #159 CA-2)', () => {
-  const sources = readdirSync(BEHAVIORS_SRC).filter((file) => file.endsWith('.ts') && !file.endsWith('.test.ts'))
-  const code = (file: string): string => withoutComments(readFileSync(path.join(BEHAVIORS_SRC, file), 'utf8'))
+/** Every flagged source's class whose real marker is not '2d'. */
+async function untaggedClasses(): Promise<string[]> {
+  const untagged: string[] = []
+  for (const { file, shown } of flaggedSources()) {
+    for (const { name, space } of await exportedClasses(file)) {
+      if (space !== '2d') untagged.push(`${file} (${name}, ${space}): ${shown.join(', ')}`)
+    }
+  }
+  return untagged
+}
 
+describe('behavior sources that assume 2D carry the marker (issue #159 CA-2)', () => {
   it('finds the behavior sources', () => {
-    expect(sources.length).toBeGreaterThan(20)
+    expect(SOURCES.length).toBeGreaterThan(20)
   })
 
   it('fails on any component class whose source shows a 2D signal without the 2d marker', async () => {
-    const untagged: string[] = []
-    for (const file of sources) {
-      const text = code(file)
-      if (!DECLARES_COMPONENT.test(text)) continue
-      const shown = signalsIn(text)
-      if (shown.length === 0) continue
-      for (const { name, space } of await exportedClasses(file)) {
-        if (space !== '2d') untagged.push(`${file} (${name}, ${space}): ${shown.join(', ')}`)
-      }
-    }
-    expect(untagged).toEqual([])
+    expect(await untaggedClasses()).toEqual([])
   })
 
   it('reads the marker a class inherits, not the text of its own file', async () => {
-    expect(code('topdown-motor.ts')).not.toMatch(/static override space/)
+    expect(codeOf('topdown-motor.ts')).not.toMatch(/static override space/)
     expect(await exportedClasses('topdown-motor.ts')).toEqual([{ name: 'TopDownMotor', space: '2d' }])
   })
 
-  it('does see the signals it greps for, in code and not in comments', () => {
-    const flagged = sources.filter((file) => {
-      const text = code(file)
-      return DECLARES_COMPONENT.test(text) && signalsIn(text).length > 0
-    })
-    expect(flagged).toEqual([
+  it('does see the signals it greps for, in code and not in comments or quoted names', () => {
+    expect(flaggedSources().map(({ file }) => file)).toEqual([
       'chaser.ts',
       'click-to-move.ts',
       'damage-puff.ts',

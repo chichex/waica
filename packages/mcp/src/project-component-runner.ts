@@ -252,10 +252,6 @@ function componentRow(value: unknown, relativeFile: string): ComponentRow | null
   if (hasUpdateAfter && !isStringList(updateAfter)) {
     throw new Error(`Component "${name}" updateAfter must be an array of strings.`)
   }
-  const space: unknown = Reflect.get(value, 'space') ?? null
-  if (space !== null && (typeof space !== 'string' || !SPACES.has(space))) {
-    throw new Error(`Component "${name}" space must be '2d', '3d' or 'both'; got ${JSON.stringify(space)}.`)
-  }
   return {
     name,
     file: relativeFile,
@@ -263,8 +259,15 @@ function componentRow(value: unknown, relativeFile: string): ComponentRow | null
     hasOnUpdate: typeof record(Reflect.get(value, 'prototype')).onUpdate === 'function',
     hasUpdateAfter,
     updateAfter: isStringList(updateAfter) ? [...updateAfter] : [],
-    space,
+    space: spaceOf(value, name),
   }
+}
+
+/** The class's `static space` marker, or null; a value outside the union names its component. */
+function spaceOf(Class: object, name: string): string | null {
+  const space: unknown = Reflect.get(Class, 'space') ?? null
+  if (space === null || (typeof space === 'string' && SPACES.has(space))) return space
+  throw new Error(`Component "${name}" space must be '2d', '3d' or 'both'; got ${JSON.stringify(space)}.`)
 }
 
 function componentRows(

@@ -69,13 +69,8 @@ describe('project-owned components carry the space marker through the runner (CA
 
     expect(result.components.Fine?.Class.space).toBe('2d')
     expect(result.components.Sideways).toBeUndefined()
-    expect(result.failures).toEqual([
-      {
-        code: 'component-load-failed',
-        file: 'src/components/sideways.ts',
-        message: `Component "Sideways" space must be '2d', '3d' or 'both'; got "3D".`,
-      },
-    ])
+    const message = `Component "Sideways" space must be '2d', '3d' or 'both'; got "3D".`
+    expect(result.failures).toEqual([{ code: 'component-load-failed', file: 'src/components/sideways.ts', message }])
   })
 
   it('reports a 2d project component in a 3d scene through validate_project, and nothing for the others', async () => {
