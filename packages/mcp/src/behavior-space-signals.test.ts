@@ -1,59 +1,100 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { componentSpaceOf, type SpaceMarked } from '@waica/engine'
 
 // @waica/behaviors has no Node typings in its tsconfig, so the source scan of
 // issue #159 CA-2 runs here, where fs is typed; the tagged set itself is
 // asserted in packages/behaviors/src/component-space.test.ts.
 const BEHAVIORS_SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../behaviors/src')
 
-/** What marks a behavior source as written for the x/y world: the 2D solver, 2D components, 2D query forms and y bounds. */
+/**
+ * What marks a behavior source as written for the x/y world, under the rule
+ * of component-space.test.ts: the 2D solver, and the 2D collision or render
+ * components it reads or requires. Matched as code, after the comments are
+ * stripped, and never as a quoted name (an `updateAfter` entry orders an
+ * update when the sibling is present; it does not require it). `game.query`
+ * and `position.y` are not signals: every query has a 3D form and y is up
+ * in both spaces.
+ */
 const TWO_D_SIGNALS: readonly { signal: string; pattern: RegExp }[] = [
   { signal: 'resolveSolidAxis', pattern: /\bresolveSolidAxis\b/ },
-  { signal: 'Hitbox/Solid/DynamicBody', pattern: /\b(?:Hitbox|Solid|DynamicBody)\b/ },
-  { signal: 'game.query 2D form', pattern: /\bquery\.(?:area|point|nearest|ray)\(/ },
-  { signal: 'position.y bound', pattern: /\bposition\.y\s*[<>]/ },
+  { signal: '2D collision component', pattern: /(?<!['"])\b(?:Hitbox|Solid|DynamicBody)\b(?!['"])/ },
+  { signal: '2D render component', pattern: /(?<!['"])\b(?:Sprite|AnimatedSprite|Tilemap|Light|ParticleEmitter)\b(?!['"])/ },
 ]
 
 /** A source that declares a component class: a named concrete one, or an abstract base that extends Component. */
 const DECLARES_COMPONENT = /static override componentName\b|abstract class \w+\s+extends Component\b|\n {2}extends Component\b/
 
+/** The source without its block and line comments, so prose never counts as a signal. */
+function withoutComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '$1')
+}
+
+function signalsIn(code: string): string[] {
+  return TWO_D_SIGNALS.filter(({ pattern }) => pattern.test(code)).map(({ signal }) => signal)
+}
+
+/** The component classes a behavior source exports, with the marker each one really carries (inherited or own). */
+async function exportedClasses(file: string): Promise<{ name: string; space: string }[]> {
+  const loaded: unknown = await import(pathToFileURL(path.join(BEHAVIORS_SRC, file)).href)
+  const classes: { name: string; space: string }[] = []
+  for (const value of Object.values(loaded as Record<string, unknown>)) {
+    if (typeof value !== 'function' || !Object.hasOwn(value, 'componentName')) continue
+    const name: unknown = Reflect.get(value, 'componentName')
+    if (typeof name !== 'string') continue
+    const space: unknown = Reflect.get(value, 'space')
+    const marked: SpaceMarked = space === '2d' || space === '3d' || space === 'both' ? { space } : {}
+    classes.push({ name, space: componentSpaceOf(marked) })
+  }
+  return classes
+}
+
 describe('behavior sources that assume 2D carry the marker (issue #159 CA-2)', () => {
   const sources = readdirSync(BEHAVIORS_SRC).filter((file) => file.endsWith('.ts') && !file.endsWith('.test.ts'))
+  const code = (file: string): string => withoutComments(readFileSync(path.join(BEHAVIORS_SRC, file), 'utf8'))
 
   it('finds the behavior sources', () => {
     expect(sources.length).toBeGreaterThan(20)
   })
 
-  it('fails on any component source showing a 2D signal without static space = 2d', () => {
+  it('fails on any component class whose source shows a 2D signal without the 2d marker', async () => {
     const untagged: string[] = []
     for (const file of sources) {
-      const text = readFileSync(path.join(BEHAVIORS_SRC, file), 'utf8')
+      const text = code(file)
       if (!DECLARES_COMPONENT.test(text)) continue
-      const shown = TWO_D_SIGNALS.filter(({ pattern }) => pattern.test(text)).map(({ signal }) => signal)
-      if (shown.length === 0 || /static override space = '2d'/.test(text)) continue
-      untagged.push(`${file}: ${shown.join(', ')}`)
+      const shown = signalsIn(text)
+      if (shown.length === 0) continue
+      for (const { name, space } of await exportedClasses(file)) {
+        if (space !== '2d') untagged.push(`${file} (${name}, ${space}): ${shown.join(', ')}`)
+      }
     }
     expect(untagged).toEqual([])
   })
 
-  it('does see the signals it greps for', () => {
+  it('reads the marker a class inherits, not the text of its own file', async () => {
+    expect(code('topdown-motor.ts')).not.toMatch(/static override space/)
+    expect(await exportedClasses('topdown-motor.ts')).toEqual([{ name: 'TopDownMotor', space: '2d' }])
+  })
+
+  it('does see the signals it greps for, in code and not in comments', () => {
     const flagged = sources.filter((file) => {
-      const text = readFileSync(path.join(BEHAVIORS_SRC, file), 'utf8')
-      return DECLARES_COMPONENT.test(text) && TWO_D_SIGNALS.some(({ pattern }) => pattern.test(text))
+      const text = code(file)
+      return DECLARES_COMPONENT.test(text) && signalsIn(text).length > 0
     })
     expect(flagged).toEqual([
       'chaser.ts',
       'click-to-move.ts',
-      'collectible.ts',
+      'damage-puff.ts',
+      'dust-puffs.ts',
+      'dust-trail.ts',
       'grid-motor.ts',
-      'hazard.ts',
-      'interactable.ts',
       'melee-attack.ts',
-      'out-of-bounds.ts',
       'platformer-motor.ts',
-      'scene-transition.ts',
+      'swing-sparks.ts',
     ])
+    expect(signalsIn(withoutComments("/** its Hitbox mask */\nconst a = 1 // a Solid\nconst after = ['DynamicBody']\n"))).toEqual([])
+    expect(signalsIn('this.entity.get(Hitbox)')).toEqual(['2D collision component'])
   })
 })

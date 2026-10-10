@@ -1,4 +1,4 @@
-import { Component, Entity, ParticleEmitter } from '@waica/engine'
+import { Component, Entity, ParticleEmitter, type ComponentSpace } from '@waica/engine'
 
 /**
  * A puff from this entity's ParticleEmitter wherever
@@ -10,6 +10,7 @@ import { Component, Entity, ParticleEmitter } from '@waica/engine'
  */
 export class DamagePuff extends Component {
   static override componentName = 'DamagePuff'
+  static override space: ComponentSpace = '2d'
   static override displayName = 'Damage puff'
   static override params = {
     count: { label: 'Particles', min: 1, max: 64, step: 1 },

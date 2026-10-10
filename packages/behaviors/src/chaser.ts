@@ -3,6 +3,7 @@ import {
   Hitbox,
   resolveSolidAxis,
   type CollisionBody,
+  type ComponentSpace,
   type Entity,
   type RoleDefinition,
   type RoleGraph,
@@ -22,7 +23,7 @@ export type ChaserMode = 'walker' | 'ghost' | 'flyer'
  */
 export class Chaser extends Component {
   static override componentName = 'Chaser'
-  static override space = '2d' as const
+  static override space: ComponentSpace = '2d'
   static override params = {
     mode: { label: 'Mode', options: ['walker', 'ghost', 'flyer'] },
     range: { label: 'Sight range', min: 1, max: 30, step: 0.5 },
