@@ -170,3 +170,31 @@ describe('RigidBody needs a Collider (CA-14)', () => {
     expect(warn).not.toHaveBeenCalled()
   })
 })
+
+describe('RigidBody params Rapier cannot take (PR #161 review)', () => {
+  it('creates no body and says why, once, for an unknown type, a malformed velocity, a non-positive mass or a non-finite scale', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { game, step } = await physicsFixture([
+      { name: 'Static', position: [0, 5, 0], components: [{ type: 'Collider' }, { type: 'RigidBody', props: { type: 'static' } }] },
+      { name: 'Thrown', position: [2, 5, 0], components: [{ type: 'Collider' }, { type: 'RigidBody', props: { velocity: { x: 0, y: 5, z: 0 } } }] },
+      { name: 'Weightless', position: [4, 5, 0], components: [{ type: 'Collider' }, { type: 'RigidBody', props: { mass: 0 } }] },
+      { name: 'Scaled', position: [6, 5, 0], components: [{ type: 'Collider' }, { type: 'RigidBody', props: { gravityScale: 'none' } }] },
+      { name: 'Fine', position: [8, 5, 0], components: [{ type: 'Collider' }, { type: 'RigidBody' }] },
+    ])
+
+    step(5)
+
+    const world = worldOf(game)
+    for (const name of ['Static', 'Thrown', 'Weightless', 'Scaled']) {
+      expect(world.recordOf(defined(game.find(name))), name).toBeUndefined()
+      expect(game.find(name)?.position.y, name).toBe(5)
+    }
+    expect(game.find('Fine')?.position.y).toBeLessThan(5)
+    expect(warn.mock.calls.map(([message]) => String(message))).toEqual([
+      expect.stringContaining('RigidBody on "Static" creates no body: type must be dynamic or kinematic; got "static"'),
+      expect.stringContaining('RigidBody on "Thrown" creates no body: velocity must be three finite numbers'),
+      expect.stringContaining('RigidBody on "Weightless" creates no body: mass must be at least 0.001'),
+      expect.stringContaining('RigidBody on "Scaled" creates no body: gravityScale must be a finite number'),
+    ])
+  })
+})

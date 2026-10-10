@@ -12,13 +12,18 @@ function isDefaultMask(mask: readonly string[]): boolean {
 /**
  * Whether `self` is notified about `target` (ADR 0016's directional
  * interest). A sensor always has an interest, its `collidesWith` (default
- * every layer). A solid collider has none until it declares a mask of its own
+ * every layer), except that the default mask leaves out the level's fixed
+ * solids: a 2D Hitbox never sees a Solid, so a pickup resting on the floor is
+ * not told about the floor every step; naming their layer still works. A
+ * solid collider has no interest until it declares a mask of its own
  * (inference 14, issue #159): the default `['*']` on a solid means "no
  * interest", so a wall or a character is not woken by every trigger it touches.
  */
 function interestedIn(self: BodyRecord, target: BodyRecord): boolean {
   const { collider } = self
-  if (!collider.sensor && isDefaultMask(collider.collidesWith)) return false
+  const defaultMask = isDefaultMask(collider.collidesWith)
+  if (!self.sensor && defaultMask) return false
+  if (defaultMask && !target.sensor && target.kind === 'fixed') return false
   return collisionMaskTargets(collider.collidesWith, target.collider.layer)
 }
 
@@ -30,12 +35,12 @@ function sensorPairs(game: Game, world: PhysicsWorld): SensorPair[] {
   const spawnIndex = new Map(records.map((record, index) => [record, index]))
   const spawnedBefore = (a: BodyRecord, b: BodyRecord): boolean => (spawnIndex.get(a) ?? 0) < (spawnIndex.get(b) ?? 0)
   const pairs: SensorPair[] = []
-  for (const sensor of records.filter((record) => record.collider.sensor)) {
+  for (const sensor of records.filter((record) => record.sensor)) {
     world.raw.intersectionPairsWith(sensor.shape, (shape) => {
       const other = world.recordOfCollider(shape.handle)
       if (!other || other === sensor) return
       // Two sensors see each other: the earlier one reports the pair.
-      if (other.collider.sensor && spawnedBefore(other, sensor)) return
+      if (other.sensor && spawnedBefore(other, sensor)) return
       pairs.push([sensor, other])
     })
   }

@@ -1,4 +1,4 @@
-import { Component, type ParamSpec } from '../component.js'
+import { Component, type ComponentSpace, type ParamSpec } from '../component.js'
 import type { Vec3Json } from '../scene-camera-3d.js'
 
 export type ColliderShape = 'box' | 'sphere' | 'capsule'
@@ -12,13 +12,18 @@ export const COLLIDER_SHAPES: readonly ColliderShape[] = ['box', 'sphere', 'caps
  * move it. With a `RigidBody` beside it, it is the body that falls, bounces
  * or walks. `sensor: true` makes it a trigger instead — it detects and never
  * pushes — with the 2D Hitbox's `layer` and `collidesWith` semantics (ADR
- * 0016). `size` is a box's full extents; `radius` a sphere's or capsule's;
- * `height` a capsule's total end-to-end height; `offset` is in the entity's
- * local frame. A Collider in a 2D scene creates nothing.
+ * 0016); with the default mask (`['*']`) a sensor is not told about fixed
+ * solid colliders (the level's walls and floors), as a Hitbox never sees a
+ * Solid — a mask that names their layer still is. `size` is a box's full
+ * extents; `radius` a sphere's or capsule's; `height` a capsule's total
+ * end-to-end height, at least twice its radius; `offset` is in the entity's
+ * local frame. A Collider in a 2D scene creates nothing; one whose params
+ * Rapier cannot take creates no body and warns once (`validate_project`
+ * reports them as `invalid-collider-param`).
  */
 export class Collider extends Component {
   static override componentName = 'Collider'
-  static override space = '3d' as const
+  static override space: ComponentSpace = '3d'
   static override params = {
     shape: { label: 'Shape', options: [...COLLIDER_SHAPES] },
     size: { label: 'Size', kind: 'vector3' },

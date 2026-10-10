@@ -3,7 +3,7 @@ import { RigidBody } from '../components/rigid-body.js'
 import type { Entity } from '../entity.js'
 import { SIMULATION_STEP } from '../fixed-step.js'
 import type { Vec3Json } from '../scene-camera-3d.js'
-import { colliderProblem, createBody, syncDynamicBody, type BodyRecord } from './body-sync.js'
+import { colliderProblem, createBody, rigidBodyProblem, syncDynamicBody, type BodyRecord } from './body-sync.js'
 import type { RapierModule, RapierWorld } from './rapier-module.js'
 
 /**
@@ -19,7 +19,8 @@ export class PhysicsWorld {
   private readonly byCollider = new Map<number, BodyRecord>()
   /** Entities with a RigidBody and, so far, no Collider: warned about at the first step if it stays so. */
   private readonly orphans = new Set<Entity>()
-  private readonly warned = new WeakSet<Entity>()
+  /** The last warning each entity got, so the same problem seen from both of its components is said once. */
+  private readonly warned = new WeakMap<Entity, string>()
   private sensors = 0
 
   constructor(
@@ -76,15 +77,13 @@ export class PhysicsWorld {
     }
     this.detach(entity)
     const problem = colliderProblem(collider)
-    if (problem !== null) {
-      console.warn(`[waica] Collider on "${entity.name}" creates no body: ${problem}.`)
-      return
-    }
+    const bodyProblem = problem === null && rigid ? rigidBodyProblem(rigid) : null
+    if (problem !== null) return this.warnOnce(entity, `Collider on "${entity.name}" creates no body: ${problem}.`)
+    if (bodyProblem !== null) return this.warnOnce(entity, `RigidBody on "${entity.name}" creates no body: ${bodyProblem}.`)
     const record = createBody(this.R, this.raw, { entity, collider, rigid })
-    if (!record) return
     this.records.set(entity, record)
     this.byCollider.set(record.shape.handle, record)
-    if (collider.sensor) this.sensors += 1
+    if (record.sensor) this.sensors += 1
   }
 
   /** Removes the entity's body and collider; a no-op for an entity without one. */
@@ -94,7 +93,7 @@ export class PhysicsWorld {
     if (!record) return
     this.records.delete(entity)
     this.byCollider.delete(record.shape.handle)
-    if (record.collider.sensor) this.sensors -= 1
+    if (record.sensor) this.sensors -= 1
     this.raw.removeRigidBody(record.body)
   }
 
@@ -117,9 +116,14 @@ export class PhysicsWorld {
   private warnOrphans(): void {
     for (const entity of this.orphans) {
       this.orphans.delete(entity)
-      if (!entity.alive || entity.has(Collider) || this.warned.has(entity)) continue
-      this.warned.add(entity)
-      console.warn(`[waica] RigidBody on "${entity.name}" needs a Collider on the same entity; no body was created.`)
+      if (!entity.alive || entity.has(Collider)) continue
+      this.warnOnce(entity, `RigidBody on "${entity.name}" needs a Collider on the same entity; no body was created.`)
     }
+  }
+
+  private warnOnce(entity: Entity, message: string): void {
+    if (this.warned.get(entity) === message) return
+    this.warned.set(entity, message)
+    console.warn(`[waica] ${message}`)
   }
 }

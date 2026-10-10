@@ -1,4 +1,4 @@
-import { Component, type ParamSpec } from '../component.js'
+import { Component, type ComponentSpace, type ParamSpec } from '../component.js'
 import type { Vec3Json } from '../scene-camera-3d.js'
 
 export type RigidBodyType = 'dynamic' | 'kinematic'
@@ -21,11 +21,14 @@ const ZERO: Readonly<BodyVector> = { x: 0, y: 0, z: 0 }
  * rotation from it. A `kinematic` body is moved by code. It needs a `Collider`
  * on the same entity (`validate_project` reports a body without one, and at
  * runtime none is created). `mass` is the collider's mass; `velocity` is the
- * initial linear velocity. A RigidBody in a 2D scene creates nothing.
+ * initial linear velocity. A param outside its range (`type` unknown, `mass`
+ * under the minimum, a `velocity` that is not three numbers) creates no body
+ * and warns once; `validate_project` reports it as `invalid-rigid-body-param`.
+ * A RigidBody in a 2D scene creates nothing.
  */
 export class RigidBody extends Component {
   static override componentName = 'RigidBody'
-  static override space = '3d' as const
+  static override space: ComponentSpace = '3d'
   static override params = {
     type: { label: 'Type', options: [...RIGID_BODY_TYPES] },
     mass: { label: 'Mass', min: 0.001, step: 0.1 },
