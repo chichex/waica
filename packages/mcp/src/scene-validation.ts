@@ -134,9 +134,10 @@ function validateSceneEntity(
   )
   const prefab = validatePrefabReference(entity, entityRef, scope)
   validateEntitySpace({ entity, ref: entityRef, prefab }, space, scope)
-  context.findings.push(
-    ...physicsCompositionFindings(resolvedEntityComponents(entity, prefab), file, entityRef),
-  )
+  // In a 2D scene the physics components are already space mismatches; a second finding would ask for a Collider that could not run there either.
+  if (space === '3d') {
+    context.findings.push(...physicsCompositionFindings(resolvedEntityComponents(entity, prefab), file, entityRef))
+  }
   const composition = entityComposition(entity, entityRef, prefab)
   validateEntityParamReferences(composition, scope)
 

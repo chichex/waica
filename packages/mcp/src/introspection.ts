@@ -1,7 +1,9 @@
 import {
   authoringDefaults,
+  componentSpaceOf,
   type ArchetypeManifest,
   type ComponentClass,
+  type ComponentSpace,
   type RoleDefinition,
   type SceneComponentJson,
 } from '@waica/engine'
@@ -27,6 +29,8 @@ export interface ComponentDescription {
   defaults: Record<string, unknown>
   updates: boolean
   updateAfter: string[]
+  /** The scene space the class declares with `static space`; `'both'` when it declares none. */
+  space: ComponentSpace
   sourcePackage: string
 }
 
@@ -67,6 +71,7 @@ function describeComponent(Class: ComponentClass, sources: ComponentSources): Co
     defaults: authoringDefaults(Class),
     updates: prototypeDefines(Class, 'onUpdate'),
     updateAfter: [...(Class.updateAfter ?? [])],
+    space: componentSpaceOf(Class),
     sourcePackage: sourcePackage(Class, sources),
   }
   if (Object.hasOwn(Class, 'displayName') && typeof Class.displayName === 'string') {

@@ -7,7 +7,7 @@ import {
   type CollisionPoint,
   type CollisionShape,
 } from '../collision-shape.js'
-import { Component, type ContactNormal, type SolidContact } from '../component.js'
+import { Component, type ComponentSpace, type ContactNormal, type SolidContact } from '../component.js'
 import { sceneSolids } from '../scene-solids.js'
 import { resolveSolidAxis, type CollisionAxis } from '../solid-axis.js'
 import { Solid } from './solid.js'
@@ -40,7 +40,7 @@ const RECOVERY_ITERATIONS = 24
  */
 export class DynamicBody extends Component {
   static override componentName = 'DynamicBody'
-  static override space = '2d' as const
+  static override space: ComponentSpace = '2d'
   static override params = {
     vx: { label: 'x velocity', step: 0.1 },
     vy: { label: 'y velocity', step: 0.1 },

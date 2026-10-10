@@ -32,6 +32,7 @@ export type FindingCode =
   | 'invalid-scene-render'
   | 'invalid-scene-simulation'
   | 'invalid-collider-param'
+  | 'invalid-rigid-body-param'
   | 'rigid-body-without-collider'
   | 'character-motor-without-body'
   | 'invalid-light-param'

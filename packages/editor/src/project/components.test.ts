@@ -43,6 +43,7 @@ describe('project component files', () => {
     expect(code).toContain("static override componentName = 'Gun'")
     expect(code).toContain('override onUpdate(dt: number): void')
     expect(code).toContain("// Add this component's per-frame behavior here.")
+    expect(code).toContain("// static override space = '2d' as const")
   })
 
   it('invents no state: the starter carries neither a placeholder field nor its params entry', () => {

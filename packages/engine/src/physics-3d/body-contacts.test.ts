@@ -6,9 +6,11 @@ vi.mock('three/webgpu', async (importOriginal) =>
 )
 
 import { Component, type BodyContact, type SolidContact } from '../component.js'
+import { RigidBody } from '../components/rigid-body.js'
 import type { SceneComponentJson, SceneEntityJson } from '../scene.js'
 import { use3dTestEnvironment } from '../test-game-3d.js'
-import { FLOOR, physicsFixture } from '../test-physics-3d.js'
+import { defined } from '../test-support.js'
+import { FLOOR, physicsFixture, worldOf } from '../test-physics-3d.js'
 
 use3dTestEnvironment()
 
@@ -102,5 +104,102 @@ describe('body contacts: silence and sensors (CA-15)', () => {
     step(10)
 
     expect(Recorder.contacts).toEqual([])
+  })
+})
+
+/** Destroys its own entity the first time it touches anything. */
+class Breaks extends Component {
+  static override componentName = 'Breaks'
+  override onBodyContact(): void {
+    this.entity.destroy()
+  }
+}
+
+/** Adds a second RigidBody (which rebuilds the body) the first time it touches anything. */
+class Rebuilds extends Component {
+  static override componentName = 'Rebuilds'
+  static rebuilt = 0
+  private done = false
+  override onBodyContact(): void {
+    if (this.done) return
+    this.done = true
+    Rebuilds.rebuilt += 1
+    this.entity.add(RigidBody)
+  }
+}
+
+const RESTING = (name: string, x: number, extra: SceneComponentJson[]): SceneEntityJson => ({
+  name,
+  position: [x, 0.5, 0],
+  components: [{ type: 'Collider' }, { type: 'RigidBody' }, ...extra],
+})
+
+describe('body contacts survive handlers that change the world (PR #161 review)', () => {
+  it('lets a handler destroy its own entity: no crash, and the entities after it still hear their contacts', async () => {
+    Recorder.contacts = []
+    const { game, step } = await physicsFixture(
+      [FLOOR, RESTING('A', 0, [{ type: 'Breaks' }]), RESTING('B', 1, [{ type: 'Breaks' }]), RESTING('C', 3, [{ type: 'Recorder' }])],
+      { components: { Breaks, Recorder } },
+    )
+
+    // The boxes start exactly on the floor: the first contacts come with the second step.
+    expect(() => step(2)).not.toThrow()
+
+    expect(game.find('A')).toBeUndefined()
+    expect(game.find('B')).toBeUndefined()
+    expect(Recorder.contacts.map((contact) => `${contact.entity.name}<-${contact.other.name}`)).toEqual(['C<-Floor'])
+    expect(worldOf(game).bodiesOf(game.entities).map((record) => record.entity.name)).toEqual(['Floor', 'C'])
+    step(1)
+    expect(Recorder.contacts).toHaveLength(2)
+  })
+
+  it('lets a handler rebuild its own body: no crash, and the rebuilt body keeps hearing its contacts', async () => {
+    Recorder.contacts = []
+    Rebuilds.rebuilt = 0
+    const { game, step } = await physicsFixture([FLOOR, RESTING('A', 0, [{ type: 'Rebuilds' }, { type: 'Recorder' }]), RESTING('B', 3, [{ type: 'Recorder' }])], {
+      components: { Rebuilds, Recorder },
+    })
+    const before = defined(worldOf(game).recordOf(defined(game.find('A')))).shape.handle
+
+    expect(() => step(2)).not.toThrow()
+
+    expect(Rebuilds.rebuilt).toBe(1)
+    expect(defined(worldOf(game).recordOf(defined(game.find('A')))).shape.handle).not.toBe(before)
+    Recorder.contacts = []
+    step(1)
+    expect(Recorder.contacts.map((contact) => `${contact.entity.name}<-${contact.other.name}`).sort()).toEqual(['A<-Floor', 'B<-Floor'])
+  })
+})
+
+describe('body contacts of kinematic bodies (PR #161 review)', () => {
+  it('tells a kinematic body about the fixed floor it stands on and the kinematic body beside it', async () => {
+    Recorder.contacts = []
+    const kinematic = (name: string, x: number, extra: SceneComponentJson[] = []): SceneEntityJson => ({
+      name,
+      position: [x, 0.5, 0],
+      components: [{ type: 'Collider' }, { type: 'RigidBody', props: { type: 'kinematic' } }, ...extra],
+    })
+    const { step } = await physicsFixture([FLOOR, kinematic('Walker', 0, [{ type: 'Recorder' }]), kinematic('Other', 1)], {
+      components: { Recorder },
+    })
+
+    step(1)
+
+    expect(Recorder.contacts.map((contact) => contact.other.name).sort()).toEqual(['Floor', 'Other'])
+    expect(Recorder.contacts.find((contact) => contact.other.name === 'Floor')?.normal.y).toBeCloseTo(-1, 5)
+  })
+})
+
+describe('body contacts cost nothing when nobody listens (PR #161 review)', () => {
+  it('never reads the narrow phase while no component implements onBodyContact, and does once one does', async () => {
+    const { game, step } = await physicsFixture([FLOOR, RESTING('A', 0, []), RESTING('B', 2, [])], { components: { Recorder } })
+    const pairs = vi.spyOn(worldOf(game).raw, 'contactPairsWith')
+
+    step(5)
+    expect(pairs).not.toHaveBeenCalled()
+
+    game.find('B')?.add(Recorder)
+    step(1)
+    expect(pairs).toHaveBeenCalledTimes(1)
   })
 })

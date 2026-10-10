@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu'
 import { sheetCell } from '../animation/sheet.js'
-import { Component } from '../component.js'
+import { Component, type ComponentSpace } from '../component.js'
 import { projectIsometric } from '../projection.js'
 import { SOLID_SOURCE_SYMBOL, type SolidSource } from '../scene-solids.js'
 import {
@@ -26,7 +26,7 @@ interface TileMeshBuffers {
 /** One authorable cell map rendered as a single merged geometry. */
 export class Tilemap extends Component implements SolidSource {
   static override componentName = 'Tilemap'
-  static override space = '2d' as const
+  static override space: ComponentSpace = '2d'
   static override params = {
     color: { label: 'color' },
     cols: { label: 'tileset columns', min: 1, step: 1 },

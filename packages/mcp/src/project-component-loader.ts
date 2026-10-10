@@ -136,13 +136,14 @@ function schedulingAdapter(row: ComponentRow): ComponentClass {
 
 /**
  * A scheduling stand-in carries only what resolveComponentUpdateSchedule
- * reads (componentName, updateAfter, prototype.onUpdate) and validate_project reads (space). This process imports
- * @waica/engine for types only — project code and its engine run in isolated
- * children — so the stand-in cannot extend the real Component class. This is
- * the one place that presents it as a ComponentClass.
+ * reads (componentName, updateAfter, prototype.onUpdate) and what
+ * validate_project reads (space). This process imports @waica/engine for
+ * types only — project code and its engine run in isolated children — so
+ * the stand-in cannot extend the real Component class. This is the one
+ * place that presents it as a ComponentClass.
  */
 function asSchedulingClass(adapter: new () => object): ComponentClass {
-  // eslint-disable-next-line no-restricted-syntax -- structural stand-in: this process loads no engine runtime code, and the scheduler reads only componentName, updateAfter and prototype.onUpdate
+  // eslint-disable-next-line no-restricted-syntax -- structural stand-in: this process loads no engine runtime code; the scheduler and validate_project read only componentName, updateAfter, space and prototype.onUpdate
   return adapter as unknown as ComponentClass
 }
 

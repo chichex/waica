@@ -2,7 +2,7 @@ import { applyTransformJson, loadScene, type Game, type SceneCameraJson } from '
 import { useEffect, useEffectEvent, useImperativeHandle, useLayoutEffect, useRef, type Ref, type RefObject } from 'react'
 import { createFrameOverlays, type OverlayHost } from './viewport-frame-overlays'
 import { isReadOnlyView } from './viewport-camera'
-import { createViewportGame, liveComponent, mountGameCanvas, restoreEditCamera } from './viewport-game'
+import { createViewportGame, liveComponent, mountGameCanvas, restoreEditCamera, startFailureMessage } from './viewport-game'
 import type { EditCamera, ViewportHandle, ViewportLive } from './viewport-live'
 
 export interface ViewportGameOptions {
@@ -86,7 +86,7 @@ function startEditorLoop(game: Game, host: OverlayHost, camRef: RefObject<EditCa
       if (!disposed) game.start()
     },
     (error: unknown) => {
-      if (!disposed) console.error('[waica] the viewport cannot draw', error)
+      if (!disposed) console.error(startFailureMessage(game), error)
     },
   )
   return () => {
