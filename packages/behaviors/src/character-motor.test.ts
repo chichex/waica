@@ -77,7 +77,7 @@ describe('CharacterMotor (CA-20)', () => {
     expect(where(fixture).z).toBeCloseTo(start.z, 3)
   })
 
-  it('maps left, forward (up, toward -z) and back (down, toward +z) on the world axes', async () => {
+  it('maps left, forward (up, toward -z) and back (down, toward +z) on the world axes, diagonals at the cardinal speed', async () => {
     const fixture = await playground(player({ speed: 3 }))
     const start = where(fixture)
 
@@ -85,14 +85,16 @@ describe('CharacterMotor (CA-20)', () => {
     hold(fixture, 'up')
     fixture.step(60)
 
-    expect(where(fixture).x - start.x).toBeCloseTo(-3, 0)
-    expect(where(fixture).z - start.z).toBeCloseTo(-3, 0)
+    // Normalized like TopDownMotor: one second on a diagonal covers 3 units, not 3 * sqrt(2).
+    expect(where(fixture).x - start.x).toBeCloseTo(-3 / Math.SQRT2, 1)
+    expect(where(fixture).z - start.z).toBeCloseTo(-3 / Math.SQRT2, 1)
+    expect(Math.hypot(where(fixture).x - start.x, where(fixture).z - start.z)).toBeCloseTo(3, 1)
 
     const midway = where(fixture).z
     fixture.bridge.control({ operation: 'release', action: 'up' })
     hold(fixture, 'down')
     fixture.step(60)
-    expect(where(fixture).z - midway).toBeCloseTo(3, 0)
+    expect(where(fixture).z - midway).toBeCloseTo(3 / Math.SQRT2, 1)
   })
 })
 
@@ -153,7 +155,7 @@ describe('CharacterMotor jumping (CA-20)', () => {
     expect(top(high)).toBeGreaterThan(top(low) + 2)
   })
 
-  it('spends the press: nothing else reads the same jump', async () => {
+  it('spends the press when it jumps: nothing else reads the same jump', async () => {
     const fixture = await playground()
     const consumed = vi.spyOn(fixture.game.input, 'consume')
 
@@ -161,6 +163,22 @@ describe('CharacterMotor jumping (CA-20)', () => {
     fixture.step(1)
 
     expect(consumed).toHaveBeenCalledWith('jump')
+  })
+
+})
+
+describe('CharacterMotor and a jump press it cannot use (PR #163 finding 6)', () => {
+  it('leaves the press alone when it cannot jump (in the air), for a double jump or a glide to read', async () => {
+    const fixture = await playground(player({}, { type: 'kinematic' }))
+    fixture.bridge.control({ operation: 'press', action: 'jump' })
+    fixture.step(10)
+    expect(defined(fixture.game.find('Player')?.get(RigidBody)).grounded).toBe(false)
+    const consumed = vi.spyOn(fixture.game.input, 'consume')
+
+    fixture.bridge.control({ operation: 'press', action: 'jump' })
+    fixture.step(1)
+
+    expect(consumed).not.toHaveBeenCalledWith('jump')
   })
 })
 
