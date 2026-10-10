@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { colliderParamFindings, rigidBodyParamFindings } from './physics-param-validation.js'
+import { colliderParamFindings, physicsCompositionFindings, rigidBodyParamFindings } from './physics-param-validation.js'
 import { fallbackEntriesFor } from './project-component-fallbacks.js'
 import { cleanup, makeProject } from './test-helpers.js'
 import { validateProject } from './validation.js'
@@ -266,5 +266,18 @@ describe('validate_project on a CharacterMotor without its body (issue #159 CA-2
       { 'src/characters/hero.character.json': prefab },
     )
     expect(findings.filter((finding) => finding.code === 'character-motor-without-body').map((finding) => finding.ref)).toEqual(['MadeDynamic'])
+  })
+})
+
+describe('physicsCompositionFindings reads the RigidBody the runtime reads (PR #163 finding 7)', () => {
+  it('judges the first RigidBody of a duplicated pair, as entity.get does', () => {
+    const twice = [
+      { type: 'Collider' },
+      { type: 'RigidBody', props: { type: 'dynamic' } },
+      { type: 'RigidBody', props: { type: 'kinematic' } },
+      { type: 'CharacterMotor' },
+    ]
+    expect(physicsCompositionFindings(twice, FILE, 'Hero').map((finding) => finding.code)).toEqual(['character-motor-without-body'])
+    expect(physicsCompositionFindings([...twice].reverse(), FILE, 'Hero')).toEqual([])
   })
 })

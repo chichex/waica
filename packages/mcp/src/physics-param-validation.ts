@@ -110,9 +110,9 @@ const finding = (code: 'rigid-body-without-collider' | 'character-motor-without-
   ...where,
 })
 
-/** The `type` a RigidBody among these components ends up with: its own prop, or the dynamic default. */
+/** The `type` the RigidBody the runtime reads (`entity.get`: the first) ends up with: its own prop, or the dynamic default. */
 function rigidBodyType(components: readonly SceneComponentJson[]): unknown {
-  const rigid = components.filter((component) => component.type === 'RigidBody').at(-1)
+  const rigid = components.find((component) => component.type === 'RigidBody')
   return rigid && Object.hasOwn(objectRecord(rigid.props), 'type') ? objectRecord(rigid.props).type : 'dynamic'
 }
 

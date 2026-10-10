@@ -7,8 +7,11 @@ vi.mock('three/webgpu', async (importOriginal) =>
 
 import { Component } from './component.js'
 import { Collider } from './components/collider.js'
+import type { Entity } from './entity.js'
+import type { Point3d, QueryVolume3d, RayHit3d } from './index.js'
 import { loadScene } from './scene.js'
 import type { SceneEntityJson } from './scene.js'
+import type { EntityWith } from './spatial-query.js'
 import { ready3dGame, registryOf, use3dTestEnvironment } from './test-game-3d.js'
 import { FLOOR, physicsFixture } from './test-physics-3d.js'
 import { defined } from './test-support.js'
@@ -157,5 +160,80 @@ describe('the two forms of game.query stay in their space (CA-21)', () => {
     expect(game.query.point({ x: 0, y: 1, z: 0 })).toEqual([])
     expect(game.query.ray({ x: 0, y: 5, z: 0 }, DOWN, 10)).toBeNull()
     expect(defined(game.find('Zone'))).toBeDefined()
+  })
+})
+
+describe('game.query.area validates its volume (PR #163 finding 5)', () => {
+  it('answers with nothing, not an error, for a volume that is not a finite box or sphere', async () => {
+    const { game } = await physicsFixture([zone('Zone', [0, 1, 0])])
+    const center = { x: 0, y: 1, z: 0 }
+    const bad: unknown[] = [
+      { shape: 'box', center },
+      { shape: 'cone', center, radius: 1 },
+      { shape: 'sphere', center: { x: Number.NaN, y: 1, z: 0 }, radius: 1 },
+      { shape: 'box', center, size: { x: -1, y: 1, z: 1 } },
+      { shape: 'sphere', center, radius: 0 },
+      { shape: 'sphere', center, radius: Number.POSITIVE_INFINITY },
+    ]
+    for (const volume of bad) expect(game.query.area(volume as QueryVolume3d), JSON.stringify(volume)).toEqual([])
+    expect(game.query.area({ shape: 'sphere', center, radius: 1 }).map((entity) => entity.name)).toEqual(['Zone'])
+  })
+})
+
+describe('the where predicate runs outside Rapier (PR #163 finding 4)', () => {
+  it('may destroy an entity with a collider and the world stays usable', async () => {
+    const { game } = await physicsFixture([FLOOR, zone('A', [0, 1, 0]), zone('B', [0, 1, 0]), solid('Block', [0, 2.5, 0])])
+    const at = { x: 0, y: 1, z: 0 }
+
+    const found = game.query.point(at, {
+      where: (entity) => {
+        game.find('B')?.destroy()
+        return entity.alive
+      },
+    })
+    expect(found.map((entity) => entity.name)).toEqual(['A'])
+    expect(game.find('B')).toBeUndefined()
+
+    const hit = game.query.ray({ x: 0, y: 6, z: 0 }, DOWN, 10, {
+      where: (entity) => {
+        game.find('Block')?.destroy()
+        return entity.alive
+      },
+    })
+    expect(hit?.entity.name).toBe('Floor')
+    expect(game.find('Block')).toBeUndefined()
+    expect(game.query.area({ shape: 'sphere', center: at, radius: 2 }).map((entity) => entity.name)).toEqual(['A'])
+  })
+
+  it('lets an error in the predicate reach the caller, and the world stays usable', async () => {
+    const { game } = await physicsFixture([FLOOR, zone('Zone', [0, 1, 0])])
+    const boom = (): boolean => {
+      throw new Error('a bug in where')
+    }
+
+    expect(() => game.query.ray({ x: 0, y: 6, z: 0 }, DOWN, 10, { where: boom })).toThrow('a bug in where')
+    expect(() => game.query.point({ x: 0, y: 1, z: 0 }, { where: boom })).toThrow('a bug in where')
+    expect(() => game.query.area({ shape: 'sphere', center: { x: 0, y: 1, z: 0 }, radius: 1 }, { where: boom })).toThrow('a bug in where')
+    expect(game.query.ray({ x: 0, y: 6, z: 0 }, DOWN, 10)?.entity.name).toBe('Floor')
+    expect(game.query.point({ x: 0, y: 1, z: 0 }).map((entity) => entity.name)).toEqual(['Zone'])
+  })
+})
+
+describe('the 3D forms narrow through a type guard like the 2D ones (PR #163 finding 8)', () => {
+  it('returns the guarded type from ray, area, point and nearest', async () => {
+    const tagged: SceneEntityJson = { name: 'Tagged', position: [0, 2.5, 0], components: [{ type: 'Collider' }, { type: 'Tagged' }] }
+    const { game } = await physicsFixture([FLOOR, tagged, zone('Zone', [0, 1, 0], { extra: [{ type: 'Tagged' }] })], { components: { Tagged } })
+    const isTagged = (entity: Entity): entity is EntityWith<[typeof Tagged]> => entity.has(Tagged)
+    const origin: Point3d = { x: 0, y: 6, z: 0 }
+
+    const hit: RayHit3d<EntityWith<[typeof Tagged]>> | null = game.query.ray(origin, DOWN, 10, { where: isTagged })
+    const inVolume: EntityWith<[typeof Tagged]>[] = game.query.area({ shape: 'sphere', center: { x: 0, y: 1, z: 0 }, radius: 1 }, { where: isTagged })
+    const atPoint: EntityWith<[typeof Tagged]>[] = game.query.point({ x: 0, y: 1, z: 0 }, { where: isTagged })
+    const closest: EntityWith<[typeof Tagged]> | null = game.query.nearest({ x: 0, y: 2.5, z: 0 }, { where: isTagged })
+
+    expect(hit?.entity.get(Tagged)).toBeInstanceOf(Tagged)
+    expect(inVolume.map((entity) => entity.name)).toEqual(['Zone'])
+    expect(atPoint.map((entity) => entity.name)).toEqual(['Zone'])
+    expect(closest?.name).toBe('Tagged')
   })
 })

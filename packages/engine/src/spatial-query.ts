@@ -92,7 +92,7 @@ export interface SpatialQuery {
   area<
     Classes extends ComponentClasses = readonly [],
     Narrowed extends QueryEntity<Classes> = QueryEntity<Classes>,
-  >(body: CollisionBody, filter: SpatialGuardFilter<Classes, Narrowed>): Narrowed[]
+  >(body: CollisionBody | QueryVolume3d, filter: SpatialGuardFilter<Classes, Narrowed>): Narrowed[]
   /** In a 3D scene `area` takes a volume and returns the entities whose sensor colliders intersect it, in Entity order. */
   area<Classes extends ComponentClasses = readonly []>(
     body: CollisionBody | QueryVolume3d,
@@ -112,6 +112,10 @@ export interface SpatialQuery {
   ): QueryEntity<Classes>[]
   point(x: number, y: number, filter?: SpatialQueryFilter): Entity[]
   /** 3D scenes: entities whose sensor colliders contain the point, in Entity order. */
+  point<
+    Classes extends ComponentClasses = readonly [],
+    Narrowed extends QueryEntity<Classes> = QueryEntity<Classes>,
+  >(at: Point3d, filter: SpatialGuardFilter<Classes, Narrowed>): Narrowed[]
   point<Classes extends ComponentClasses = readonly []>(
     at: Point3d,
     filter: SpatialQueryFilter<Classes>,
@@ -134,6 +138,10 @@ export interface SpatialQuery {
   ): QueryEntity<Classes> | null
   nearest(x: number, y: number, filter?: NearestSpatialQueryFilter): Entity | null
   /** 3D scenes: the closest filtered transform, z included. */
+  nearest<
+    Classes extends ComponentClasses = readonly [],
+    Narrowed extends QueryEntity<Classes> = QueryEntity<Classes>,
+  >(at: Point3d, filter: NearestGuardFilter<Classes, Narrowed>): Narrowed | null
   nearest<Classes extends ComponentClasses = readonly []>(
     at: Point3d,
     filter: NearestSpatialQueryFilter<Classes>,
@@ -169,6 +177,10 @@ export interface SpatialQuery {
     filter?: SpatialQueryFilter,
   ): RayHit | null
   /** 3D scenes: the first solid collider along the ray (sensors never block it); `direction` need not be a unit vector. */
+  ray<
+    Classes extends ComponentClasses = readonly [],
+    Narrowed extends QueryEntity<Classes> = QueryEntity<Classes>,
+  >(origin: Point3d, direction: Point3d, maxDistance: number, filter: SpatialGuardFilter<Classes, Narrowed>): RayHit3d<Narrowed> | null
   ray<Classes extends ComponentClasses = readonly []>(
     origin: Point3d,
     direction: Point3d,
@@ -411,7 +423,7 @@ class SpaceSpatialQuery {
     private readonly game: Game,
     private readonly flat: LinearSpatialQuery,
   ) {
-    this.solid = new SpatialQuery3d(game, { matches: matchesFilter, matchesCommon: matchesCommonFilter })
+    this.solid = new SpatialQuery3d(game, { matchesCommon: matchesCommonFilter })
   }
 
   area(first: CollisionBody | QueryVolume3d, filter?: Filter): Entity[] {
