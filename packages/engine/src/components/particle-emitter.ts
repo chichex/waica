@@ -1,4 +1,4 @@
-import { Component, type ParamSpec } from '../component.js'
+import { Component, type ComponentSpace, type ParamSpec } from '../component.js'
 import {
   ParticleBatch,
   type ParticleRenderContext,
@@ -17,7 +17,7 @@ export type ParticleBlend = 'normal' | 'additive'
 /** A fixed-capacity source of short-lived, batched 2D particles. */
 export class ParticleEmitter extends Component implements YSortBatchParticipant {
   static override componentName = 'ParticleEmitter'
-  static override space = '2d' as const
+  static override space: ComponentSpace = '2d'
   static override displayName = 'Particle Emitter'
   static override params = {
     rate: { label: 'Rate', min: 0 },
