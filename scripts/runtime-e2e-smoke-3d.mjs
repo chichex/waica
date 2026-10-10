@@ -64,9 +64,6 @@ async function samplePoints(scene) {
   }
 }
 
-/** The scene's own gravity, as `simulation.gravity` says it (issue #159 CA-23). */
-const GRAVITY = [0, -9.81, 0]
-
 /**
  * The physics of the running scene (issue #159 CA-23), driven through the
  * Runtime Bridge: the world is ready with the scene's gravity, the Crate falls
@@ -75,7 +72,7 @@ const GRAVITY = [0, -9.81, 0]
  * pinned by the position hash of physics-determinism.test.ts, not by Chrome's
  * wasm.
  */
-async function exercisePhysics({ helpers, client, project }) {
+async function exercisePhysics({ helpers, client, project, gravity }) {
   const { call } = helpers
   const control = async (operation, extra = {}) => {
     const result = await call(client, 'control_runtime', { project_path: project, operation, ...extra })
@@ -92,7 +89,7 @@ async function exercisePhysics({ helpers, client, project }) {
 
   const falling = await look('Crate')
   assert.equal(falling.physics?.state, 'ready', `the physics world must be ready; ${JSON.stringify(falling.physics)}`)
-  assert.deepEqual(falling.physics.gravity, GRAVITY, 'the snapshot reports the scene gravity')
+  assert.deepEqual(falling.physics.gravity, gravity, 'the snapshot reports the scene gravity')
   await control('step', { frames: 120 })
   const crate = await look('Crate')
   assert.ok(Math.abs(crate.position.y - 0.5) <= 2e-2, `the Crate must rest on the Ground at y = 0.5; ${JSON.stringify(crate.position)}`)
@@ -118,8 +115,13 @@ async function exercisePhysics({ helpers, client, project }) {
   return { crateY: crate.position.y, walked: walked.x - start.x, jumpedTo: rising.y, landedY: landed.position.y }
 }
 
-/** One paused Run Session: boot, swap to the 3D scene, step to FRAME, snapshot, screenshot, stop. */
-async function capture({ helpers, client, project, chrome, physics = false }) {
+/**
+ * One paused Run Session: boot, swap to the 3D scene, step to FRAME, snapshot,
+ * screenshot, and, with `physics` (the scene's gravity), the physics phase
+ * after the screenshot (so the frame it took is the same in every variant);
+ * then stop.
+ */
+async function capture({ helpers, client, project, chrome, physics = null }) {
   const { call, assertScreenshot, assertUrlClosed } = helpers
   const start = await call(client, 'start_project', {
     project_path: project,
@@ -136,7 +138,7 @@ async function capture({ helpers, client, project, chrome, physics = false }) {
     const inspected = await call(client, 'inspect_runtime', { project_path: project })
     assert.equal(inspected.isError, undefined, `inspect_runtime failed: ${JSON.stringify(inspected)}`)
     // After the screenshot, so the frame every variant is compared at stays frame 13.
-    const simulated = physics ? await exercisePhysics({ helpers, client, project }) : null
+    const simulated = physics ? await exercisePhysics({ helpers, client, project, gravity: physics.gravity }) : null
     return {
       image: shot.image,
       snapshot: inspected.structuredContent.snapshot,
@@ -342,7 +344,8 @@ export async function runSmoke3dLeg({ client, root, parent, chrome, viteBin, eng
     return frame
   })
   try {
-    const shipped = await run('shipped', () => {}, { physics: true })
+    // The scene's own gravity, read from the file the project runs, not repeated here.
+    const shipped = await run('shipped', () => {}, { physics: { gravity: scene.simulation.gravity } })
     assertGlbLoaded(shipped.assets)
     assertSnapshot(shipped.snapshot)
     if (expectsBlankLighting(renderBackend)) {

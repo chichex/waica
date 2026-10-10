@@ -66,7 +66,7 @@ function boot(): { game: Game; models: FakeModelBackend } {
   Object.defineProperties(canvas, { clientWidth: { value: 640 }, clientHeight: { value: 360 } })
   document.body.append(canvas)
   const models = new FakeModelBackend()
-  const game = new Game({ canvas, background: 0x1a1a2e, models, bindings: { ...BINDINGS } })
+  const game = new Game({ canvas, background: 0x1a1a2e, models, bindings: BINDINGS })
   game.registerSceneCatalog({ scenes: { main: scene }, registry: REGISTRY })
   game.loadSceneByName('main')
   return { game, models }
@@ -118,6 +118,13 @@ describe('examples/smoke-3d simulates (issue #159 CA-22)', () => {
   it('declares the world gravity and what stands, walks and falls in it', () => {
     expect(scene.simulation).toEqual({ gravity: [0, -9.81, 0] })
     expect(typesOf(byName('Ground'))).toEqual(['Model', 'Collider'])
+    // The props the Player walks among are solid too (PR #164 finding 9): fixed colliders sized to their models.
+    expect(typesOf(byName('Box'))).toEqual(['Model', 'Collider'])
+    expect(propsOf('Box', 'Collider')).toEqual({ size: [1.5, 1.5, 1.5] })
+    expect(typesOf(byName('Sphere'))).toEqual(['Model', 'Collider'])
+    expect(propsOf('Sphere', 'Collider')).toEqual({ shape: 'sphere', radius: 1 })
+    expect(typesOf(byName('Tree'))).toEqual(['Model', 'Collider'])
+    expect(propsOf('Tree', 'Collider')).toMatchObject({ shape: 'box' })
     expect(typesOf(byName('Player'))).toEqual(['Model', 'Collider', 'RigidBody', 'CharacterMotor'])
     expect(propsOf('Player', 'RigidBody')).toEqual({ type: 'kinematic' })
     expect(byName('Player').position).toEqual([-1, 0.9, 3])

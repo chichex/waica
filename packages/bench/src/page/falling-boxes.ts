@@ -8,17 +8,31 @@ const SPACING = 1.5
 const LAYER_HEIGHT = 1.6
 const DROP = 2
 
+/** The pose box `index` of the lattice starts in. */
+interface BoxPose {
+  position: [number, number, number]
+  rotation: [number, number, number]
+}
+
 /**
  * Box `index` of the lattice, a few units above the floor: ten by ten per
- * layer, layers stacked above, each nudged sideways by a fixed amount so the
- * towers they fall into wobble and topple instead of landing perfectly square.
+ * layer, layers stacked above. Each box is nudged on x by its column and
+ * layer and on z by its row and layer, and turned a few degrees about y, so
+ * the boxes of one tower never share a footprint: the towers they fall into
+ * wobble and topple instead of landing perfectly square (a nudge that
+ * depended on the column alone left every tower aligned, PR #164 review).
  */
-export function boxPosition(index: number): [number, number, number] {
+function boxPose(index: number): BoxPose {
   const column = index % LAYER_SIDE
   const row = Math.floor(index / LAYER_SIDE) % LAYER_SIDE
   const layer = Math.floor(index / (LAYER_SIDE * LAYER_SIDE))
-  const nudge = ((index * 7) % 5) * 0.03
-  return [(column - (LAYER_SIDE - 1) / 2) * SPACING + nudge, DROP + layer * LAYER_HEIGHT, (row - (LAYER_SIDE - 1) / 2) * SPACING]
+  const nudgeX = (((column + 3 * layer) * 7) % 5) * 0.03
+  const nudgeZ = (((row + 2 * layer) * 7) % 5) * 0.03
+  const turn = ((index * 37) % 21) - 10
+  return {
+    position: [(column - (LAYER_SIDE - 1) / 2) * SPACING + nudgeX, DROP + layer * LAYER_HEIGHT, (row - (LAYER_SIDE - 1) / 2) * SPACING + nudgeZ],
+    rotation: [0, turn, 0],
+  }
 }
 
 /**
@@ -39,7 +53,7 @@ export function fallingBoxes(n: number): ScenarioPlan {
   }
   const boxes: SceneEntityJson[] = Array.from({ length: n }, (_, i) => ({
     name: `Box-${i}`,
-    position: boxPosition(i),
+    ...boxPose(i),
     components: [{ type: 'Model', props: { shape: 'box', color: 0xc89b3c } }, { type: 'Collider' }, { type: 'RigidBody' }],
   }))
   return {

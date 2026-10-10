@@ -56,7 +56,7 @@ if (canvas.dataset.waica) {
 }
 
 async function main(canvas: HTMLCanvasElement): Promise<void> {
-  const game = new Game({ canvas, background: 0x1a1a2e, bindings: { ...BINDINGS } })
+  const game = new Game({ canvas, background: 0x1a1a2e, bindings: BINDINGS })
   game.registerSceneCatalog({ scenes, registry })
   game.loadSceneByName('main')
   // Assets Ready (ADR 0019): the scene spawned synchronously, its glb is still

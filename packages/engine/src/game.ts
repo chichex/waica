@@ -73,7 +73,7 @@ export interface GameOptions {
   /** Fixed resolution (from the project's game.json); absent = fill the canvas. */
   resolution?: GameResolution
   /** Control overrides (action → key and `Gamepad:` codes) on top of the defaults. */
-  bindings?: InputBindings
+  bindings?: Readonly<InputBindings>
   /** Radial stick dead zone of `game.input`, in [0, 1); absent or invalid means 0.2 (ADR 0023). */
   gamepadDeadZone?: number
   /** Initial stat values (points, lives…) from the project's stats.json. */
