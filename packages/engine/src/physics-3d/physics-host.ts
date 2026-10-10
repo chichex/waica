@@ -122,10 +122,12 @@ export class PhysicsHost {
     return this.recordOf(entity)?.grounded ?? false
   }
 
-  /** Launches a kinematic body upward, when it stands on something. */
-  jumpOf(entity: Entity, speed: number): void {
+  /** Launches a kinematic body upward when it stands on something; whether it did. */
+  jumpOf(entity: Entity, speed: number): boolean {
     const record = this.recordOf(entity)
-    if (record?.kind === 'kinematic' && record.grounded) record.vy = speed
+    if (record?.kind !== 'kinematic' || !record.grounded) return false
+    record.vy = speed
+    return true
   }
 
   applyImpulseTo(entity: Entity, impulse: { x: number; y: number; z: number }): void {

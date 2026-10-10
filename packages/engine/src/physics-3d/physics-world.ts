@@ -112,6 +112,7 @@ export class PhysicsWorld {
    */
   step(): void {
     this.warnOrphans()
+    this.characters.follow(this.records.values())
     for (const record of this.records.values()) {
       if (record.kind !== 'kinematic') continue
       this.refreshQueries()

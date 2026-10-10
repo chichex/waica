@@ -78,9 +78,9 @@ export class RigidBody extends Component {
     this.game.physics.setVelocityOf(this.entity, value)
   }
 
-  /** Launches a kinematic body upward at `speed` (units per second); only while it stands on something. */
-  jump(speed: number): void {
-    this.game.physics.jumpOf(this.entity, speed)
+  /** Launches a kinematic body upward at `speed` (units per second), only while it stands on something; whether it did. */
+  jump(speed: number): boolean {
+    return this.game.physics.jumpOf(this.entity, speed)
   }
 
   /** Whether the body stands on something; only a kinematic body moved by the character controller can. */
