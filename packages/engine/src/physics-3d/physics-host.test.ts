@@ -12,6 +12,7 @@ import { match } from '../test-support.js'
 import { ready3dGame, registryOf, scene3d, use3dTestEnvironment } from '../test-game-3d.js'
 import { crate, FLOOR, physicsFixture, worldOf } from '../test-physics-3d.js'
 import { Collider } from '../components/collider.js'
+import { RigidBody } from '../components/rigid-body.js'
 import { loadRapier, type RapierModule } from './rapier-module.js'
 
 use3dTestEnvironment()
@@ -259,5 +260,83 @@ describe('physics keeps its component updates in the schedule (CA-10)', () => {
     expect(seen[0]).toBe(5)
     expect(seen[1]).toBe(afterOne)
     expect(afterOne).toBeLessThan(5)
+  })
+})
+
+/** A backend the test fails by hand, to hold the module "loading" and then refuse it. */
+function heldFailingBackend(): { backend: () => Promise<RapierModule>; refuse: () => Promise<void> } {
+  let reject: (error: Error) => void = () => {}
+  const promise = new Promise<RapierModule>((_, fail) => {
+    reject = fail
+  })
+  return {
+    backend: () => promise,
+    refuse: async () => {
+      reject(new Error('wasm blocked'))
+      await promise.catch(() => undefined)
+    },
+  }
+}
+
+describe('the physics module failing after the scene changed (PR #161 review)', () => {
+  it('does not fail the bridge for a Game whose live scene is 2D by then, and reports the stored failure when a 3D scene loads later', async () => {
+    const failures: RuntimeBridgeFailure[] = []
+    const activation: RuntimeBridgeActivation = {
+      protocolVersion: 1,
+      register: () => {},
+      unregister: () => {},
+      fail: (failure) => failures.push(failure),
+    }
+    Object.defineProperty(globalThis, RUNTIME_BRIDGE_SYMBOL, { configurable: true, value: activation })
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const held = heldFailingBackend()
+    const { game } = await ready3dGame(undefined, undefined, { physics: held.backend })
+    loadScene(game, scene3d([FLOOR]), registryOf({ Collider }))
+    loadScene(game, TWO_D_SCENE, registryOf({}))
+
+    await held.refuse()
+    await game.assets.ready()
+
+    expect(game.assets.status).toEqual({ pending: 0, loaded: 0, failed: 1 })
+    expect(failures).toEqual([])
+    await expect(game.ready()).resolves.toBeUndefined()
+
+    loadScene(game, scene3d([FLOOR]), registryOf({ Collider }))
+
+    expect(failures).toEqual([{ code: 'physics-backend-failed', message: match.stringContaining('@dimforge/rapier3d-deterministic-compat') }])
+    expect(game.physics.state).toBe('failed')
+    expect(game.physics.world).toBeNull()
+    await expect(game.ready()).rejects.toThrow(/@dimforge\/rapier3d-deterministic-compat/)
+  })
+})
+
+describe('a body that cannot be built while the late world is built (PR #161 review)', () => {
+  it('costs that entity its body only: the others get theirs, the load counts as loaded and game.ready() resolves', async () => {
+    const failures: RuntimeBridgeFailure[] = []
+    const activation: RuntimeBridgeActivation = {
+      protocolVersion: 1,
+      register: () => {},
+      unregister: () => {},
+      fail: (failure) => failures.push(failure),
+    }
+    Object.defineProperty(globalThis, RUNTIME_BRIDGE_SYMBOL, { configurable: true, value: activation })
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const held = heldBackend()
+    const module = await loadRapier()
+    vi.spyOn(module.World.prototype, 'createRigidBody').mockImplementationOnce(() => {
+      throw new Error('boom')
+    })
+    const { game } = await ready3dGame(undefined, undefined, { physics: held.backend })
+    loadScene(game, scene3d([FLOOR, crate('A', 3), crate('B', 5)]), registryOf({ Collider, RigidBody }))
+
+    await held.release()
+    await game.assets.ready()
+
+    expect(game.assets.status).toEqual({ pending: 0, loaded: 1, failed: 0 })
+    await expect(game.ready()).resolves.toBeUndefined()
+    expect(failures).toEqual([])
+    expect(game.physics.state).toBe('ready')
+    expect(worldOf(game).bodiesOf(game.entities).map((record) => record.entity.name)).toEqual(['A', 'B'])
+    expect(warn.mock.calls.map(([message]) => String(message))).toEqual([expect.stringMatching(/"Floor".*boom/)])
   })
 })

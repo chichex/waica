@@ -59,6 +59,15 @@ export function createViewportGame(canvas: HTMLCanvasElement, live: ViewportLive
   return game
 }
 
+/**
+ * What the editor logs when a Game's `ready()` rejects: a 3D scene loads the
+ * physics module before it draws, so when that is what failed the renderer
+ * is not the one to suspect.
+ */
+export function startFailureMessage(game: Game): string {
+  return game.physics.state === 'failed' ? '[waica] the viewport cannot simulate: the physics module failed to load' : '[waica] the viewport cannot draw'
+}
+
 /** Puts the editor's own pan/zoom back over whatever loadScene framed. */
 export function restoreEditCamera(game: Game, cam: EditCamera): void {
   // A 3D scene is viewed through its own perspective camera, never panned or zoomed.
