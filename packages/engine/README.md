@@ -25,7 +25,7 @@ A `Game` draws through three's `WebGPURenderer` (ADR 0025): WebGPU when the brow
 - **Tests under happy-dom.** happy-dom has no GPU: a project test that builds a `Game` replaces `WebGPURenderer` from `three/webgpu` with a fake (it previously replaced `WebGLRenderer` from `three`), whose `init()` resolves.
 - **Run Sessions.** A Run Session waits for the Render Backend before it reports ready, steps or screenshots, and its snapshots carry `backend`. A renderer that cannot initialize ends `start_project` with a runtime error that names the failure.
 
-## Migrating to `<next minor>`: 3D scenes
+## Migrating to 0.26.0: 3D scenes
 
 A scene can declare a 3D space (issue #154, ADR 0027). Nothing about a 2D scene changes — every existing scene file loads as it did — but a few types and one build setting do:
 
