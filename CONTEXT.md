@@ -182,6 +182,30 @@ _Avoid_: directional light, sunlight, global light
 An entity-owned source of light in a 3D scene: it shines in every direction from its entity's position plus an offset, reaching a distance (or without limit) and fading with decay. It casts no shadows. Not the 2D **Light**, which paints a light-map.
 _Avoid_: lamp, bulb, Light
 
+**Component Space**:
+The space a component class belongs to, declared on the class as `static space`: `'2d'` (it draws, collides or lights the orthographic world), `'3d'` (it needs a perspective camera) or `'both'`, which is what a component that says nothing is. `validate_project` reads it to keep each kind out of the other's scenes; project-owned components may declare it too.
+_Avoid_: dimension, mode, 2D flag
+
+**Physics World**:
+The one Rapier world of the live 3D scene, created when the scene loads and the physics module is ready, stepped once per Simulation Step after every component's `onUpdate`, and freed with the scene. A 2D scene has none. The module arrives asynchronously and counts as a pending asset, so Assets Ready waits for it.
+_Avoid_: physics engine, simulation, Rapier scene
+
+**Simulation Block**:
+The `simulation` entry of a 3D scene's JSON, holding the physics world's settings; today only `gravity` (default `[0, -9.81, 0]`). A 2D scene may not declare one.
+_Avoid_: physics config, world settings
+
+**Collider**:
+The collision shape of an entity in a 3D scene: a box, sphere or capsule of an explicit size (never taken from a **Model**), alone a fixed wall or floor, or with a **Rigid Body** beside it the body that moves. With `sensor: true` it is a trigger instead, the 3D counterpart of a **Hitbox**: it detects overlaps through the same Collision Layer and Mask and never pushes or is pushed.
+_Avoid_: hitbox (the 2D trigger), solid (the 2D wall), physics shape
+
+**Rigid Body**:
+What makes a **Collider** move: `dynamic` falls, bounces and stacks under the scene's gravity and writes its pose to its entity every step; `kinematic` is a character, moved by the engine's character controller from a desired velocity on the ground plane and its own vertical velocity, stopping at walls, climbing steps and standing on the ground. Needs a Collider on the same entity.
+_Avoid_: body, DynamicBody (the 2D component), physics object
+
+**Character Motor**:
+The behavior that turns the player's actions into a kinematic **Rigid Body**'s walking and jumping on the world axes (`-z` is forward); it moves nothing itself. Not the 2D motors, which resolve their own collisions against **Solids**.
+_Avoid_: character controller (Rapier's, which the engine drives), player movement
+
 **Light**:
 An entity-owned source of 2D light: a radius in logical world space (an ellipse on an isometric screen), a color, an intensity, a falloff that is smooth or split into bands, and a shadow edge that is hard or soft. Solid tiles stop it, but the face of the tile it reaches is lit. Lights brighten what Ambient Light leaves dark; they never darken.
 _Avoid_: lamp, glow (in a 3D scene the counterpart is a **Point Light**)

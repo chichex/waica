@@ -2,6 +2,7 @@ import {
   Component,
   Sprite,
   screenInputToLogical,
+  type ComponentSpace,
   type Entity,
   type Game,
   type StateContext,
@@ -59,6 +60,7 @@ interface ClickToMoveMotor {
  */
 export class ClickToMove extends Component {
   static override componentName = 'ClickToMove'
+  static override space: ComponentSpace = '2d'
   static override displayName = 'Click to move'
   static override params = {
     arrivalTolerance: { label: 'Arrival tolerance', min: 0.05, max: 1, step: 0.05 },

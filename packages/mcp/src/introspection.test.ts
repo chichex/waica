@@ -47,7 +47,7 @@ const EXPECTED_PARTICLE_DEFAULTS = {
 }
 
 describe('listComponents', () => {
-  it('describes all 21 platformer classes (Light since issue #78, Model, Sun and PointLight since issue #154) and only the six declared display names', async () => {
+  it('describes all 24 platformer classes (Light since issue #78, Model, Sun and PointLight since issue #154, Collider, RigidBody and CharacterMotor since issue #159) and only the six declared display names', async () => {
     const project = await makeProject({
       'src/components/dash.ts': `export class Dash { static componentName = 'Dash' }\n`,
       'src/roles/guard.ts': `// project role\n`,
@@ -58,7 +58,7 @@ describe('listComponents', () => {
 
     const result = await listComponents(project)
 
-    expect(result.components).toHaveLength(22)
+    expect(result.components).toHaveLength(25)
     expect(result.components.map((component) => component.componentName)).toEqual(
       expect.arrayContaining([
         'Sprite',
@@ -68,6 +68,9 @@ describe('listComponents', () => {
         'Model',
         'Sun',
         'PointLight',
+        'Collider',
+        'RigidBody',
+        'CharacterMotor',
         'Solid',
         'Hitbox',
         'DynamicBody',
@@ -166,19 +169,24 @@ describe('listComponents', () => {
       expect(JSON.parse(JSON.stringify(component.defaults))).toEqual(component.defaults)
       expect(component.updates).toEqual(expect.any(Boolean))
       expect(component.updateAfter).toEqual(expect.any(Array))
+      expect(['2d', '3d', 'both'], component.componentName).toContain(component.space)
     }
     expect(result.components.find(({ componentName }) => componentName === 'AnimatedSprite')).toMatchObject({
       updates: true,
       updateAfter: ['StateMachine'],
+      space: '2d',
     })
     expect(result.components.find(({ componentName }) => componentName === 'OutOfBounds')).toMatchObject({
       updates: true,
       updateAfter: ['DynamicBody', 'Health', 'StateMachine'],
+      space: 'both',
     })
     expect(result.components.find(({ componentName }) => componentName === 'PlatformerMotor')).toMatchObject({
       updates: false,
       updateAfter: [],
+      space: '2d',
     })
+    expect(result.components.find(({ componentName }) => componentName === 'Model')).toMatchObject({ space: '3d' })
     expect(result.projectOwned).toEqual([
       { path: 'src/components/dash.ts', validated: false },
       { path: 'src/roles/guard.ts', validated: false },
@@ -205,7 +213,7 @@ describe('listComponents', () => {
       path: 'src/components/explodes.ts',
       validated: false,
     })
-    expect(result.components).toHaveLength(22)
+    expect(result.components).toHaveLength(25)
   })
 
   it('attributes mixed-source components by their stable package contract', async () => {
@@ -229,7 +237,7 @@ describe('listComponents', () => {
 
     const result = await listComponents(project)
 
-    expect(result.components).toHaveLength(22)
+    expect(result.components).toHaveLength(25)
     expect(result.warnings.join('\n')).toMatch(/package\.json.*parse|parse.*package\.json/i)
   })
 
@@ -263,6 +271,7 @@ module.exports.ARCHETYPE = {
         defaults: {},
         updates: false,
         updateAfter: [],
+        space: 'both',
         sourcePackage: '@waica/archetype-fixture',
       },
     ])

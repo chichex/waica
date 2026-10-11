@@ -7,10 +7,7 @@ const packageRoot = path.resolve(import.meta.dirname, '..')
 
 describe('@waica/cli package contract', () => {
   it('publishes both the editor and the MCP server from one bin set', async () => {
-    const pkg = JSON.parse(await readFile(path.join(packageRoot, 'package.json'), 'utf8')) as Record<
-      string,
-      unknown
-    >
+    const pkg = JSON.parse(await readFile(path.join(packageRoot, 'package.json'), 'utf8')) as Record<string, unknown>
     expect(pkg).toMatchObject({
       name: '@waica/cli',
       type: 'module',
@@ -23,6 +20,7 @@ describe('@waica/cli package contract', () => {
         build: 'tsc -p tsconfig.build.json && node bundle-editor.mjs && node bundle-mcp.mjs',
       },
       dependencies: {
+        '@dimforge/rapier3d-deterministic-compat': '0.21.0',
         '@modelcontextprotocol/sdk': match.stringMatching(/^\^1\./),
         'playwright-core': match.stringMatching(/^\^1\./),
         three: match.stringMatching(/^\^0\./),
@@ -41,6 +39,7 @@ describe('@waica/cli package contract', () => {
     })
     expect(pkg).not.toHaveProperty('exports')
     expect(Object.keys(pkg.dependencies as object).sort()).toEqual([
+      '@dimforge/rapier3d-deterministic-compat',
       '@modelcontextprotocol/sdk',
       'playwright-core',
       'three',

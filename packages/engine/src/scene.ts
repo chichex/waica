@@ -3,6 +3,7 @@ import type { Component, ComponentClass } from './component.js'
 import type { Entity } from './entity.js'
 import { applyTransformJson, type TransformJson } from './entity-transform.js'
 import type { Game } from './game.js'
+import type { SceneSimulationJson } from './scene-simulation.js'
 import type { SceneSpace } from './scene-space.js'
 
 /**
@@ -87,6 +88,8 @@ export interface SceneJson {
   camera?: SceneCameraJson
   /** Draw-order policy (v3); absent = layer bands with spawn-order ties. */
   render?: SceneRenderJson
+  /** The physics world's settings (v3, 3D scenes only): gravity. Absent = earth gravity. */
+  simulation?: SceneSimulationJson
   entities: SceneEntityJson[]
   /** UI pieces (src/ui/*.html) mounted visible when the scene loads. */
   ui?: string[]
@@ -188,6 +191,7 @@ const COMPONENT_MEMBERS = {
   onProjectionChange: true,
   onCollide: true,
   onContact: true,
+  onBodyContact: true,
   onInteract: true,
   onDestroy: true,
 } satisfies Record<keyof Component, true>
@@ -253,6 +257,7 @@ export function loadScene(game: Game, scene: SceneJson, registry: SceneRegistry)
   }
   game.registry = registry
   game.setSceneRender(scene.render)
+  game.setSceneSimulation(scene.simulation)
   // A perspective camera has no follow target to wait for: components see it from their first onReady.
   const adoptsBeforeSpawns = game.space === '3d'
   if (adoptsBeforeSpawns) game.setSceneCamera(scene.camera)

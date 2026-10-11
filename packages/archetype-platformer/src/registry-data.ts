@@ -1,11 +1,13 @@
 import {
   AnimatedSprite,
+  Collider,
   DynamicBody,
   Hitbox,
   Light,
   Model,
   PointLight,
   ParticleEmitter,
+  RigidBody,
   Solid,
   Sprite,
   StateMachine,
@@ -14,6 +16,7 @@ import {
   type SceneRegistry,
 } from '@waica/engine'
 import {
+  CharacterMotor,
   Chaser,
   Collectible,
   DustPuffs,
@@ -44,6 +47,9 @@ export const PLATFORMER_REGISTRY_DATA: SceneRegistry = {
     Model,
     Sun,
     PointLight,
+    Collider,
+    RigidBody,
+    CharacterMotor,
     Solid,
     Hitbox,
     DynamicBody,

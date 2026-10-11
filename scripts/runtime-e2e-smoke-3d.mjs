@@ -2,7 +2,9 @@
 // Backend. The e2e never runs examples/* (it generates Projects through
 // create_project), so the example's scene and glb are copied into a generated
 // demo Project, loaded by name over the running Game, stepped and screenshot.
-// The snapshot, validate_project and the decoded pixels are asserted.
+// The snapshot, validate_project and the decoded pixels are asserted, and (issue
+// #159, CA-23) so is the physics: the Crate falls and rests, the Player walks,
+// jumps and lands, all through the Runtime Bridge on whichever Render Backend.
 import assert from 'node:assert/strict'
 import { copyFile, mkdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -62,8 +64,64 @@ async function samplePoints(scene) {
   }
 }
 
-/** One paused Run Session: boot, swap to the 3D scene, step to FRAME, snapshot, screenshot, stop. */
-async function capture({ helpers, client, project, chrome }) {
+/**
+ * The physics of the running scene (issue #159 CA-23), driven through the
+ * Runtime Bridge: the world is ready with the scene's gravity, the Crate falls
+ * and rests on the Ground, holding right walks the Player, a jump lifts it and
+ * it lands grounded. Tolerances, not exact values: the exact simulation is
+ * pinned by the position hash of physics-determinism.test.ts, not by Chrome's
+ * wasm.
+ */
+async function exercisePhysics({ helpers, client, project, gravity }) {
+  const { call } = helpers
+  const control = async (operation, extra = {}) => {
+    const result = await call(client, 'control_runtime', { project_path: project, operation, ...extra })
+    assert.equal(result.isError, undefined, `${operation} failed: ${JSON.stringify(result.structuredContent ?? result.content)}`)
+  }
+  const look = async (name) => {
+    const inspected = await call(client, 'inspect_runtime', { project_path: project, entity_names: [name] })
+    assert.equal(inspected.isError, undefined, `inspect_runtime(${name}) failed: ${JSON.stringify(inspected)}`)
+    const { snapshot } = inspected.structuredContent
+    const entity = snapshot.entities.find((candidate) => candidate.name === name)
+    assert.ok(entity, `the snapshot must hold ${name}`)
+    return { position: entity.transform.position, physics: snapshot.physics, body: snapshot.physics?.bodies.find((body) => body.entity === name) }
+  }
+
+  const falling = await look('Crate')
+  assert.equal(falling.physics?.state, 'ready', `the physics world must be ready; ${JSON.stringify(falling.physics)}`)
+  assert.deepEqual(falling.physics.gravity, gravity, 'the snapshot reports the scene gravity')
+  await control('step', { frames: 120 })
+  const crate = await look('Crate')
+  assert.ok(Math.abs(crate.position.y - 0.5) <= 2e-2, `the Crate must rest on the Ground at y = 0.5; ${JSON.stringify(crate.position)}`)
+  assert.equal(crate.body?.type, 'dynamic')
+
+  const start = (await look('Player')).position
+  await control('hold', { action: 'right' })
+  await control('step', { frames: 30 })
+  await control('release', { action: 'right' })
+  const walked = (await look('Player')).position
+  assert.ok(walked.x - start.x > 1.5, `holding right must walk the Player; ${JSON.stringify({ start, walked })}`)
+
+  // Let it come to rest where the walk ended before it jumps.
+  await control('step', { frames: 30 })
+  const standing = (await look('Player')).position
+  await control('press', { action: 'jump' })
+  await control('step', { frames: 20 })
+  const rising = (await look('Player')).position
+  assert.ok(rising.y > standing.y + 0.5, `a jump must lift the Player above where it stood; ${JSON.stringify({ standing, rising })}`)
+  await control('step', { frames: 90 })
+  const landed = await look('Player')
+  assert.equal(landed.body?.grounded, true, `the Player must land grounded; ${JSON.stringify(landed)}`)
+  return { crateY: crate.position.y, walked: walked.x - start.x, jumpedTo: rising.y, landedY: landed.position.y }
+}
+
+/**
+ * One paused Run Session: boot, swap to the 3D scene, step to FRAME, snapshot,
+ * screenshot, and, with `physics` (the scene's gravity), the physics phase
+ * after the screenshot (so the frame it took is the same in every variant);
+ * then stop.
+ */
+async function capture({ helpers, client, project, chrome, physics = null }) {
   const { call, assertScreenshot, assertUrlClosed } = helpers
   const start = await call(client, 'start_project', {
     project_path: project,
@@ -79,9 +137,12 @@ async function capture({ helpers, client, project, chrome }) {
     const shot = assertScreenshot(await call(client, 'capture_screenshot', { project_path: project }), 'paused', CANVAS)
     const inspected = await call(client, 'inspect_runtime', { project_path: project })
     assert.equal(inspected.isError, undefined, `inspect_runtime failed: ${JSON.stringify(inspected)}`)
+    // After the screenshot, so the frame every variant is compared at stays frame 13.
+    const simulated = physics ? await exercisePhysics({ helpers, client, project, gravity: physics.gravity }) : null
     return {
       image: shot.image,
       snapshot: inspected.structuredContent.snapshot,
+      physics: simulated,
       // The swap answers once the incoming scene's art settled: the glb is in these numbers, not in start_project's.
       assets: { booted: start.structuredContent.assets, swapped: swapped.structuredContent.assets },
     }
@@ -123,7 +184,28 @@ async function assertValidates({ helpers, client, parent }) {
   const { summary, findings } = validated.structuredContent
   const errors = findings.filter((finding) => finding.severity === 'error')
   assert.equal(summary.errors, 0, `validate_project must report no error; ${JSON.stringify(errors)}`)
+  await assertPlatformerMotorMismatch({ helpers, client, project })
   return summary
+}
+
+/**
+ * A 2D behavior in the 3D scene is an error now (issue #159 CA-1 to CA-3):
+ * the same scene with a PlatformerMotor added to the Player reports exactly
+ * one component-space-mismatch.
+ */
+async function assertPlatformerMotorMismatch({ helpers, client, project }) {
+  const restore = await rewriteScene(project, SCENE, (scene) => {
+    scene.entities.find((entity) => entity.name === 'Player').components.push({ type: 'PlatformerMotor' })
+  })
+  try {
+    const validated = await helpers.call(client, 'validate_project', { project_path: project })
+    assert.equal(validated.isError, undefined, `validate_project failed: ${JSON.stringify(validated)}`)
+    const mismatches = validated.structuredContent.findings.filter((finding) => finding.code === 'component-space-mismatch')
+    assert.equal(mismatches.length, 1, `a PlatformerMotor in the 3D scene must be one component-space-mismatch; ${JSON.stringify(mismatches)}`)
+    assert.match(mismatches[0].message, /PlatformerMotor/)
+  } finally {
+    await restore()
+  }
 }
 
 /** The glb loaded: after the swap nothing is pending or failed, and one more asset loaded than at boot. */
@@ -142,7 +224,7 @@ function assertSnapshot(snapshot) {
   assert.deepEqual(snapshot.view.position, [0, 5.5, 11])
   assert.deepEqual(snapshot.view.target, [0, 0.8, 0])
   const modelEntities = snapshot.entities.filter((entity) => entity.components.some((component) => component.type === 'Model'))
-  assert.equal(modelEntities.length, 4, 'the ground, the box, the sphere and the glb are Models')
+  assert.equal(modelEntities.length, 8, 'the ground, the box, the sphere, the glb, the player, the step, the wall and the crate are Models')
   assert.ok(modelEntities.some((entity) => entity.transform.position.z !== 0), 'a Model stands off the z = 0 plane')
   assert.equal(snapshot.lighting.sun.length, 1)
   assert.equal(snapshot.lighting.pointLights.length, 1)
@@ -210,9 +292,9 @@ const blockerAfter = (scene) => {
 }
 
 /** One variant of the copied scene: edit, capture, restore, sample. */
-async function variant({ helpers, client, project, chrome, inspector, points, edit }) {
+async function variant({ helpers, client, project, chrome, inspector, points, edit, physics }) {
   const restore = await rewriteScene(project, SCENE, edit)
-  const frame = await capture({ helpers, client, project, chrome }).finally(restore)
+  const frame = await capture({ helpers, client, project, chrome, physics }).finally(restore)
   return { ...frame, samples: await inspector.evaluate(samplesInPage, { base64: frame.image, points }) }
 }
 
@@ -257,16 +339,17 @@ export async function runSmoke3dLeg({ client, root, parent, chrome, viteBin, eng
   const scene = JSON.parse(await readFile(path.join(project, `src/scenes/${SCENE}.scene.json`), 'utf8'))
   const points = await samplePoints(scene)
   const inspector = await helpers.openPngInspector(playwright, chrome.executablePath)
-  const run = (name, edit) => variant({ helpers, client, project, chrome, inspector, points, edit }).then(async (frame) => {
+  const run = (name, edit, options = {}) => variant({ helpers, client, project, chrome, inspector, points, edit, ...options }).then(async (frame) => {
     await helpers.keepScreenshot(`${label}-smoke-3d-${name}.png`, frame.image)
     return frame
   })
   try {
-    const shipped = await run('shipped', () => {})
+    // The scene's own gravity, read from the file the project runs, not repeated here.
+    const shipped = await run('shipped', () => {}, { physics: { gravity: scene.simulation.gravity } })
     assertGlbLoaded(shipped.assets)
     assertSnapshot(shipped.snapshot)
     if (expectsBlankLighting(renderBackend)) {
-      return { smoke3d: { validation, ...(await assertExpectedBlank({ inspector, image: shipped.image })) } }
+      return { smoke3d: { validation, physics: shipped.physics, ...(await assertExpectedBlank({ inspector, image: shipped.image })) } }
     }
     await assertFrame({ inspector, image: shipped.image, samples: shipped.samples })
     const lit = lightingMeasures(shipped.samples)
@@ -280,7 +363,7 @@ export async function runSmoke3dLeg({ client, root, parent, chrome, viteBin, eng
       blockedLast: await run('blocker-last', blockerAfter),
       inspector,
     })
-    return { smoke3d: { validation, samples: shipped.samples, lit, sunOff, lampOff, depth } }
+    return { smoke3d: { validation, physics: shipped.physics, samples: shipped.samples, lit, sunOff, lampOff, depth } }
   } finally {
     await inspector.close()
   }

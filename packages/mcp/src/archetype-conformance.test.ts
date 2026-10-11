@@ -1,7 +1,7 @@
 import { access } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { resolveDirectionalClip, THREE_D_COMPONENTS, type BrowserArchetypeManifest } from '@waica/engine'
+import { COMPONENT_SPACES, componentSpaceOf, resolveDirectionalClip, type BrowserArchetypeManifest } from '@waica/engine'
 import { ARCHETYPE as PLATFORMER } from '../../archetype-platformer/src/index.js'
 import { ARCHETYPE as TOPDOWN } from '../../archetype-topdown/src/index.js'
 import { ARCHETYPE as ISOMETRIC } from '../../archetype-isometric/src/index.js'
@@ -40,8 +40,12 @@ describe.each(MANIFESTS.map((manifest) => [manifest.id, manifest] as const))(
     })
 
     it('registers the 3D components and keeps them out of its own scenes and prefabs (issue #154 CA-10)', () => {
-      for (const name of THREE_D_COMPONENTS) expect(archetype.registry.components[name], name).toBeDefined()
-      const threeD = new Set<string>(THREE_D_COMPONENTS)
+      const threeD = new Set(
+        Object.entries(archetype.registry.components)
+          .filter(([, Class]) => componentSpaceOf(Class) === '3d')
+          .map(([name]) => name),
+      )
+      for (const name of ['Model', 'Sun', 'PointLight']) expect(threeD.has(name), name).toBe(true)
       const inScenes = [archetype.scene, archetype.blankScene, ...Object.values(archetype.extraScenes ?? {})]
       for (const scene of inScenes) {
         for (const entity of scene.entities) {
@@ -50,6 +54,12 @@ describe.each(MANIFESTS.map((manifest) => [manifest.id, manifest] as const))(
       }
       for (const [ref, prefab] of Object.entries(archetype.prefabs)) {
         for (const component of prefab.components) expect(threeD.has(component.type), `${ref}: ${component.type}`).toBe(false)
+      }
+    })
+
+    it('gives every registered component a space marker in the union, or none (issue #159 CA-5)', () => {
+      for (const [name, Class] of Object.entries(archetype.registry.components)) {
+        expect([...COMPONENT_SPACES, undefined], name).toContain(Class.space)
       }
     })
 

@@ -30,14 +30,15 @@ describe('@waica/engine package contract', () => {
     expect(healthAdr).toMatch(/first eligible update[\s\S]*StateMachine/i)
   })
 
-  it('publishes the README without changing the engine dependency set', async () => {
+  it('publishes the README and one new dependency, Rapier, pinned exactly (issue #159 CA-6)', async () => {
     const manifest = JSON.parse(await text(path.join(packageRoot, 'package.json'))) as {
       files: string[]
       dependencies: Record<string, string>
     }
 
     expect(manifest.files).toEqual(['dist', 'README.md'])
-    expect(Object.keys(manifest.dependencies).sort()).toEqual(['@types/three', 'three'])
+    expect(Object.keys(manifest.dependencies).sort()).toEqual(['@dimforge/rapier3d-deterministic-compat', '@types/three', 'three'])
+    expect(manifest.dependencies['@dimforge/rapier3d-deterministic-compat']).toBe('0.21.0')
   })
 })
 

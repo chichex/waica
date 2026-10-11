@@ -1,4 +1,4 @@
-import { Component } from '../component.js'
+import { Component, type ComponentSpace } from '../component.js'
 import {
   resolveCollisionPoints,
   type CollisionPoint,
@@ -13,6 +13,7 @@ import {
  */
 export class Hitbox extends Component {
   static override componentName = 'Hitbox'
+  static override space: ComponentSpace = '2d'
   static override params = {
     layer: { label: 'Collision Layer' },
     collidesWith: { label: 'Collision Mask', kind: 'string-list' as const },

@@ -1,6 +1,7 @@
 import {
   componentSpaceMismatch,
   entityTransformIssues,
+  sceneSimulationIssues,
   sceneSpaceIssues,
   type PrefabJson,
   type SceneJson,
@@ -27,6 +28,13 @@ export function validateSceneSpace(scene: SceneJson, scope: SpaceScope): void {
   }
 }
 
+/** A scene's `simulation` block: a malformed gravity, and any block in a 2D scene (issue #159 CA-12). */
+export function validateSceneSimulation(scene: SceneJson, space: SceneSpace, scope: SpaceScope): void {
+  for (const issue of sceneSimulationIssues(scene.simulation, space)) {
+    add(scope.context, 'error', 'invalid-scene-simulation', issue.message, scope.file, issue.field)
+  }
+}
+
 /** One scene entity under validation: its JSON, the name findings refer to it by and its prefab, when it has one. */
 interface EntitySubject {
   entity: LooseSceneEntity
@@ -49,7 +57,7 @@ export function validateEntitySpace(
   }
   const reported = new Set<string>()
   for (const component of [...componentList(prefab?.components), ...componentList(entity.components)]) {
-    if (reported.has(component.type) || !componentSpaceMismatch(space, component.type)) continue
+    if (reported.has(component.type) || !componentSpaceMismatch(space, scope.context.componentRegistry[component.type])) continue
     reported.add(component.type)
     const kind = space === '3d' ? '2D' : '3D'
     add(

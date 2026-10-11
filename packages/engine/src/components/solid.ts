@@ -1,4 +1,4 @@
-import { Component } from '../component.js'
+import { Component, type ComponentSpace } from '../component.js'
 import {
   collisionBounds,
   resolveCollisionPoints,
@@ -15,6 +15,7 @@ import {
  */
 export class Solid extends Component {
   static override componentName = 'Solid'
+  static override space: ComponentSpace = '2d'
   static override params = {
     offsetX: { label: 'x offset' },
     offsetY: { label: 'y offset' },

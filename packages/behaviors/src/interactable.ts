@@ -1,6 +1,7 @@
 import {
   Component,
   type AnchoredPieceHandle,
+  type ComponentSpace,
   type Entity,
   type Game,
   type StateContext,
@@ -15,6 +16,7 @@ import { anchorHeight } from './anchor-height.js'
  */
 export class Interactable extends Component {
   static override componentName = 'Interactable'
+  static override space: ComponentSpace = '2d'
   static override params = {
     line: { label: 'Line' },
     radius: { label: 'Radius', min: 0.5, max: 10, step: 0.25 },

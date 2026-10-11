@@ -1,10 +1,12 @@
 import {
   AnimatedSprite,
+  Collider,
   Hitbox,
   Light,
   Model,
   PointLight,
   ParticleEmitter,
+  RigidBody,
   Solid,
   Sprite,
   StateMachine,
@@ -14,6 +16,7 @@ import {
   type SceneRegistry,
 } from '@waica/engine'
 import {
+  CharacterMotor,
   Chaser,
   ClickToMove,
   Collectible,
@@ -46,6 +49,9 @@ export const ISOMETRIC_REGISTRY_DATA: SceneRegistry = {
     Model,
     Sun,
     PointLight,
+    Collider,
+    RigidBody,
+    CharacterMotor,
     Tilemap,
     Solid,
     Hitbox,

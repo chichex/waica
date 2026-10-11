@@ -5,8 +5,7 @@ import type { ModelBackend } from './assets/model-backend.js'
 import type { TextureBackend } from './assets/texture-backend.js'
 import type { AudioBackend } from './audio/backend.js'
 import { AudioSubsystem } from './audio/audio-subsystem.js'
-import { screenPanOf } from './audio/spatial.js'
-import { dispatchCollisions as dispatchHitboxCollisions } from './collision-dispatch.js'
+import { listenerPosition, screenPanOf } from './audio/spatial.js'
 import type { ResolvedSceneCamera, SceneCameraJson } from './camera.js'
 import { worldToNormalized, type GameCamera, type WorldPoint } from './camera-projection.js'
 import { CameraRig, type CameraFollowHost } from './camera-rig.js'
@@ -24,6 +23,8 @@ import {
 } from './fixed-step.js'
 import { advanceGameTime, GameTime } from './game-time.js'
 import { Input, type InputBindings } from './input.js'
+import { PhysicsHost } from './physics-3d/physics-host.js'
+import type { PhysicsBackend } from './physics-3d/rapier-module.js'
 import { Pointer } from './pointer.js'
 import { GamePost } from './post-effects.js'
 import {
@@ -32,7 +33,7 @@ import {
 } from './runtime-bridge.js'
 import { RuntimeInspector } from './runtime-inspection.js'
 import { FrameComposer } from './lit-frame.js'
-import { projectIsometric, unprojectIsometric } from './projection.js'
+import { projectIsometric } from './projection.js'
 import { canvasBackground, drawStraightToCanvas, mapUvPerVertex } from './render-output.js'
 import { RenderReadiness, type RenderBackend } from './render-readiness.js'
 import { applyYSort } from './render-sort.js'
@@ -45,9 +46,11 @@ import {
   type SceneRenderJson,
 } from './scene.js'
 import { sceneDrainsOf } from './scene-drains.js'
+import { resolveSceneSimulation, type SceneSimulationJson } from './scene-simulation.js'
 import { SceneAmbientLight3d } from './scene-lights-3d.js'
 import { resolveRenderPolicy, type SceneSpace } from './scene-space.js'
 import { GameLighting } from './scene-lighting.js'
+import { runSimulationPhases } from './simulation-phases.js'
 import { createSpriteBatches, type SpriteBatches } from './sprite-batches.js'
 import { createSpatialQuery, type SpatialQuery } from './spatial-query.js'
 import { Stats, type StatValue } from './stats.js'
@@ -70,7 +73,7 @@ export interface GameOptions {
   /** Fixed resolution (from the project's game.json); absent = fill the canvas. */
   resolution?: GameResolution
   /** Control overrides (action → key and `Gamepad:` codes) on top of the defaults. */
-  bindings?: InputBindings
+  bindings?: Readonly<InputBindings>
   /** Radial stick dead zone of `game.input`, in [0, 1); absent or invalid means 0.2 (ADR 0023). */
   gamepadDeadZone?: number
   /** Initial stat values (points, lives…) from the project's stats.json. */
@@ -92,6 +95,13 @@ export interface GameOptions {
   textures?: TextureBackend
   /** Replaces the real `GLTFLoader` implementation behind `game.assets.model` (the same seam, for glTF). */
   models?: ModelBackend
+  /**
+   * Where Rapier comes from for a 3D scene (ADR 0013's seam, applied to
+   * physics): resolves to the initialized module. Defaults to the real
+   * dynamic import, which only a 3D scene triggers; a project's own tests
+   * pass the module they initialized once, or a rejecting stub.
+   */
+  physics?: PhysicsBackend
 }
 
 export type UpdateFn = (dt: number) => void
@@ -155,6 +165,8 @@ export class Game {
   readonly lighting = new GameLighting()
   /** The live scene's Post Effects (vignette, color grade); they die with their scene. */
   readonly post = new GamePost()
+  /** The live 3D scene's Rapier world and bodies (ADR 0028); package-internal, read by the physics components and the Runtime Snapshot. */
+  readonly physics: PhysicsHost
   /** Registry retained by loadScene for runtime prefab spawning. */
   registry: SceneRegistry | null = null
   paramOverrides: ParamOverrides = {}
@@ -254,6 +266,7 @@ export class Game {
       resolveAsset: (uri) => this.sceneCatalog?.registry.resolveAsset?.(uri) ?? uri,
     })
     this.spriteBatches = createSpriteBatches(this, this.assets)
+    this.physics = new PhysicsHost(this, options.physics)
     this.cameraEffects = new CameraEffects({
       host: () => canvas.parentElement ?? document.body,
       // One screen pixel in world units: the shake snaps to it (never the base).
@@ -286,12 +299,14 @@ export class Game {
 
   /**
    * Resolves once the renderer can draw; rejects, naming both Render
-   * Backends, when neither initializes. Every call returns the same promise.
+   * Backends, when neither initializes. While the live scene is 3D it also
+   * waits for the physics module, and rejects naming its package if that
+   * fails to load (ADR 0028).
    * Frames before it simulate but draw nothing, so a host awaits it before
    * its first frame (ADR 0025).
    */
   ready(): Promise<void> {
-    return this.readiness.promise
+    return this.physics.whenReady(this.readiness.promise)
   }
 
   /** The Render Backend the renderer settled on; null until ready() resolved. */
@@ -357,6 +372,8 @@ export class Game {
     // Entity.destroy() splices itself out of `this.entities` in place — the
     // Pointer holds that array by reference, so it must never be reassigned.
     for (const entity of [...this.entities]) entity.destroy()
+    // After the cascade removed every body: the world goes with its scene.
+    this.physics.unloadScene()
     // Drains transferred by the destruction cascade above are scene-scoped too.
     sceneDrainsOf(this).clear()
     // After the cascade freed every slot: the batches go with their scene.
@@ -467,12 +484,18 @@ export class Game {
     this.spriteBatches.enabled = json?.batch !== false
     this.lighting.loadScene(json)
     this.post.loadScene(json)
+    this.physics.enterScene(space)
     if (projection === this.sceneProjection) return
     this.sceneProjection = projection
     for (const entity of this.entities) {
       entity.setProjected(projection === 'isometric')
       for (const component of entity.components) component.onProjectionChange?.(projection)
     }
+  }
+
+  /** Adopts a scene's simulation block (gravity); called by loadScene beside setSceneRender. */
+  setSceneSimulation(json?: SceneSimulationJson): void {
+    this.physics.setSimulation(resolveSceneSimulation(json))
   }
 
   /**
@@ -601,6 +624,7 @@ export class Game {
     // (entity.destroy() below only ever reaches owned work) — ADR 0017.
     this.time.cancelAll()
     for (const entity of [...this.entities]) entity.destroy()
+    this.physics.dispose()
     sceneDrainsOf(this).clear()
     this.spriteBatches.unload()
     // After the entities: their clones go with the cascade above, the
@@ -698,7 +722,7 @@ export class Game {
       // never a second walk of `this.entities`, since `this.audio` already
       // holds direct references to whichever entities are tracked.
       this.audio.updatePlacements(
-        this.audioListenerPosition(),
+        listenerPosition(this.sceneSpace, this.camera, this.sceneProjection),
         (x, y) => this.renderPoint(x, y),
         this.sceneSpace === '3d' ? this.screenPan : undefined,
       )
@@ -725,7 +749,7 @@ export class Game {
       if (!schedule) continue
       for (const component of schedule) component.onUpdate?.(SIMULATION_STEP)
     }
-    this.dispatchCollisions()
+    runSimulationPhases(this)
     this.updateSceneCamera(SIMULATION_STEP)
     advanceCameraEffects(this.cameraEffects)
     this.finishStep()
@@ -849,26 +873,6 @@ export class Game {
 
   private renderPoint(x: number, y: number): { x: number; y: number } {
     return this.sceneProjection === 'isometric' ? projectIsometric(x, y) : { x, y }
-  }
-
-  /**
-   * The audio listener's position (CA-8) in logical coordinates. The camera
-   * itself only ever holds render-space coordinates (see `updateSceneCamera`,
-   * `setSceneCamera`), so under `projection: 'isometric'` this is the exact
-   * inverse of `renderPoint` — without it, distance-based attenuation would
-   * measure render-space distance instead of real game distance.
-   */
-  private audioListenerPosition(): { x: number; y: number; z?: number } {
-    if (this.sceneSpace === '3d') {
-      const { x, y, z } = this.camera.position
-      return { x, y, z }
-    }
-    const { x, y } = this.camera.position
-    return this.sceneProjection === 'isometric' ? unprojectIsometric(x, y) : { x, y }
-  }
-
-  private dispatchCollisions(): void {
-    dispatchHitboxCollisions(this)
   }
 
   private resize(): void {

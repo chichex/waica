@@ -1,4 +1,6 @@
-import { Game, Model, PointLight, Sun, type SceneJson, type SceneRegistry } from '@waica/engine'
+import { CharacterMotor } from '@waica/behaviors'
+import { Collider, Game, Model, PointLight, RigidBody, Sun, type SceneJson, type SceneRegistry } from '@waica/engine'
+import { BINDINGS } from './controls'
 
 declare global {
   interface Window {
@@ -33,9 +35,10 @@ for (const [path, url] of Object.entries(artFiles)) {
   artUrls[`src/art/${path.slice('../art/'.length)}`] = url
 }
 
-// No archetype: this example uses the engine's 3D components directly.
+// No archetype: this example uses the engine's 3D components and the character
+// motor directly.
 const registry: SceneRegistry = {
-  components: { Model, Sun, PointLight },
+  components: { Model, Sun, PointLight, Collider, RigidBody, CharacterMotor },
   resolveAsset: (uri) => artUrls[uri] ?? uri,
 }
 
@@ -53,12 +56,14 @@ if (canvas.dataset.waica) {
 }
 
 async function main(canvas: HTMLCanvasElement): Promise<void> {
-  const game = new Game({ canvas, background: 0x1a1a2e })
+  const game = new Game({ canvas, background: 0x1a1a2e, bindings: BINDINGS })
   game.registerSceneCatalog({ scenes, registry })
   game.loadSceneByName('main')
-  // Assets Ready (ADR 0019): the scene spawned synchronously and its glb is
-  // still arriving; wait for it before the first frame so nothing pops in. A
-  // failed file is recorded, not thrown: this never rejects.
+  // Assets Ready (ADR 0019): the scene spawned synchronously, its glb is still
+  // arriving and so is the physics module (ADR 0028, a 3D scene loads it on
+  // demand); wait for both before the first frame so nothing pops in and
+  // nothing falls before it can land. A failed file is recorded, not thrown:
+  // this never rejects.
   await game.assets.ready()
 
   if (import.meta.env.DEV) {

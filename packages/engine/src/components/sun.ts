@@ -1,5 +1,5 @@
 import * as THREE from 'three/webgpu'
-import { Component, type ParamSpec } from '../component.js'
+import { Component, type ComponentSpace, type ParamSpec } from '../component.js'
 import type { Vec3Json } from '../scene-camera-3d.js'
 
 const DEFAULT_DIRECTION: Vec3Json = [-1, -2, -1]
@@ -17,6 +17,7 @@ const finiteDirection = (value: unknown): value is Vec3Json =>
  */
 export class Sun extends Component {
   static override componentName = 'Sun'
+  static override space: ComponentSpace = '3d'
   static override params = {
     direction: { label: 'Direction', kind: 'vector3' },
     color: { label: 'Color', kind: 'color' },

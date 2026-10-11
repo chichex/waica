@@ -1,4 +1,4 @@
-import { Component, type Entity } from '@waica/engine'
+import { Component, type Entity, type ComponentSpace } from '@waica/engine'
 import { Health } from './health.js'
 import { PlatformerMotor } from './platformer-motor.js'
 import { Respawnable } from './respawnable.js'
@@ -33,6 +33,7 @@ export function resolveHazardTouch(
  */
 export class Hazard extends Component {
   static override componentName = 'Hazard'
+  static override space: ComponentSpace = '2d'
   static override params = {
     stompable: { label: 'Stompable' },
     bounce: { label: 'Stomp bounce', min: 0, max: 30, step: 0.5 },

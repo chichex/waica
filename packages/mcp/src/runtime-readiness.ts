@@ -22,7 +22,7 @@ export interface PageBridgeMetadata {
 
 export type ReadinessProbe =
   | { status: 'waiting' }
-  /** `code` names the activation's failure ('multiple-games', 'render-backend-failed'), when it has one. */
+  /** `code` names the activation's failure ('multiple-games', 'render-backend-failed', 'physics-backend-failed'), when it has one. */
   | { status: 'failure'; code?: string; message: string }
   | {
       status: 'ready'
@@ -111,7 +111,7 @@ function bridgeReady(
 }
 
 function failureStage(probe: Extract<ReadinessProbe, { status: 'failure' }>): 'game' | 'bridge' {
-  if (probe.code === 'multiple-games' || probe.code === 'render-backend-failed') return 'game'
+  if (probe.code === 'multiple-games' || probe.code === 'render-backend-failed' || probe.code === 'physics-backend-failed') return 'game'
   return probe.message.includes('Exactly one live Game') ? 'game' : 'bridge'
 }
 

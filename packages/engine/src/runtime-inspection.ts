@@ -16,6 +16,7 @@ import {
   type RuntimeSnapshotLighting,
   type RuntimeSnapshotPost,
 } from './runtime-lighting-snapshot.js'
+import { capBodies, physicsSection, type RuntimeSnapshotPhysics } from './runtime-physics-snapshot.js'
 
 export type ProjectionMarkerKind = 'cycle' | 'unsupported' | 'error' | 'truncated'
 
@@ -150,6 +151,8 @@ export interface RuntimeSnapshot extends RuntimeMetadata {
   lighting: RuntimeSnapshotLighting
   /** Post Effects (issue #78 CA-12), each null when off; never filtered. */
   post: RuntimeSnapshotPost
+  /** The live 3D scene's physics world: state, gravity and bodies (issue #159 CA-17); absent in a 2D scene, never filtered. */
+  physics?: RuntimeSnapshotPhysics
 }
 
 export const RUNTIME_PROJECTION_LIMITS = {
@@ -504,6 +507,7 @@ export class RuntimeInspector {
       view: viewSnapshot(this.game),
       lighting: lightingSnapshot(this.game, (entity) => this.idFor(entity)),
       post: postSnapshot(this.game),
+      ...physicsSection(this.game, (entity) => this.idFor(entity)),
     })
   }
 
@@ -560,7 +564,8 @@ export class RuntimeInspector {
       if (fitsSnapshot(capped)) return capped
     }
     const anchoredCapped = capAnchored(capped)
-    return fitsSnapshot(anchoredCapped) ? anchoredCapped : capLights(anchoredCapped, fitsSnapshot)
+    const bodiesCapped = capBodies(anchoredCapped, fitsSnapshot)
+    return fitsSnapshot(bodiesCapped) ? bodiesCapped : capLights(bodiesCapped, fitsSnapshot)
   }
 
   private idFor(entity: Entity): string {

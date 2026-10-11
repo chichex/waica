@@ -1,5 +1,5 @@
 import * as THREE from 'three/webgpu'
-import { Component } from '../component.js'
+import { Component, type ComponentSpace } from '../component.js'
 import type { YSortParticipant } from '../render-sort.js'
 import { spritePlacement } from '../sprite-placement.js'
 import { reportRejection } from '../report-rejection.js'
@@ -17,6 +17,7 @@ export type SpriteShape = 'rectangle' | 'circle'
  */
 export class Sprite extends Component implements YSortParticipant {
   static override componentName = 'Sprite'
+  static override space: ComponentSpace = '2d'
   static override params = {
     offsetX: { label: 'x offset' },
     offsetY: { label: 'y offset' },

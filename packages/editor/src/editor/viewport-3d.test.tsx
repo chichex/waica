@@ -26,12 +26,23 @@ const SCENE_3D: SceneJson = {
 beforeEach(installViewportHost)
 afterEach(removeViewportHost)
 
-/** Lets the live Game's renderer init settle, then runs one frame of its loop. */
+const liveLoop = (): ((time: number) => void) | null | undefined =>
+  fakeRendering.renderers.find((renderer) => !renderer.disposed && renderer.loop)?.loop
+
+/**
+ * Lets the live Game's renderer init and its physics module (a 3D scene loads
+ * Rapier before `game.ready()` resolves) settle, then runs one frame of its loop.
+ */
 async function tick(): Promise<void> {
   await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0))
+    await vi.waitFor(
+      () => {
+        if (!liveLoop()) throw new Error('the Viewport started no Game loop')
+      },
+      { timeout: 5_000 },
+    )
   })
-  const loop = fakeRendering.renderers.find((renderer) => !renderer.disposed && renderer.loop)?.loop
+  const loop = liveLoop()
   if (!loop) throw new Error('the Viewport started no Game loop')
   act(() => loop(16))
 }

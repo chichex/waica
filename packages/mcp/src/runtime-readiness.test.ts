@@ -95,3 +95,20 @@ describe('Run Session readiness waits for the Render Backend (ADR 0025)', () => 
     expect(Date.now() - started).toBeLessThan(2_000)
   })
 })
+
+describe('Run Session readiness waits for the physics module (issue #159 CA-8)', () => {
+  it('surfaces a physics module that failed to load as a runtime error naming the package, not as a hang', async () => {
+    const message = 'Physics failed to load: could not import @dimforge/rapier3d-deterministic-compat (wasm blocked)'
+    const fake = page([ready(null), { status: 'failure', code: 'physics-backend-failed', message }])
+
+    const failure = await waitOn(fake.probe, 60_000).then(
+      () => null,
+      (error: unknown) => error,
+    )
+
+    expect(failure).toBeInstanceOf(RuntimeToolError)
+    expect(failure).toMatchObject({
+      body: { code: 'runtime-start-failed', stage: 'game', message },
+    })
+  })
+})

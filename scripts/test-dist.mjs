@@ -225,7 +225,33 @@ async function materializeExternalDependencies(pkg, manifest) {
   }
 }
 
+/**
+ * Rapier is a dynamic import (ADR 0028), so a bundler emits its wasm as one
+ * separate async chunk for every bundle that includes the engine, 2D examples
+ * too; what a 2D project must not do is load it. So in each built example:
+ * exactly one chunk holds the wasm, and nothing index.html loads up front (its
+ * scripts and modulepreloads) contains it. The entry chunk does name it: that
+ * is the dynamic import(). The `src`/`href` regex assumes Vite's default
+ * `base: '/'`, which every example uses.
+ */
+async function assertRapierStaysLazy() {
+  for (const example of ['platformer', 'topdown', 'isometric', 'smoke-3d']) {
+    const distRoot = join(root, 'examples', example, 'dist')
+    const scripts = (await filesBelow(distRoot)).filter((path) => path.endsWith('.js'))
+    const holding = []
+    for (const path of scripts) {
+      if ((await readFile(path, 'utf8')).includes('rapier_wasm3d')) holding.push(relative(distRoot, path))
+    }
+    assert.equal(holding.length, 1, `examples/${example}/dist must hold the Rapier wasm in exactly one chunk, found ${holding.join(', ') || 'none'}`)
+    const html = await readFile(join(distRoot, 'index.html'), 'utf8')
+    const loadedUpFront = [...html.matchAll(/(?:src|href)="\/(assets\/[^"]+\.js)"/g)].map((match) => match[1])
+    assert.ok(loadedUpFront.length > 0, `examples/${example}/dist/index.html loads no script`)
+    assert.ok(!loadedUpFront.includes(holding[0]), `examples/${example} loads its Rapier chunk up front`)
+  }
+}
+
 try {
+  await assertRapierStaysLazy()
   await mkdir(join(nodeModules, '@waica'), { recursive: true })
   const packedManifests = new Map()
 
@@ -374,7 +400,7 @@ try {
   assert.equal(cliPacked.exports, undefined, '@waica/cli must stay pure-bin')
   assert.deepEqual(
     Object.keys(cliPacked.dependencies ?? {}).sort(),
-    ['@modelcontextprotocol/sdk', 'playwright-core', 'three'],
+    ['@dimforge/rapier3d-deterministic-compat', '@modelcontextprotocol/sdk', 'playwright-core', 'three'],
     'the published CLI must declare exactly the runtime deps its bundled server loads',
   )
 

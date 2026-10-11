@@ -58,3 +58,27 @@ describe('the three specifiers a project component can import', () => {
     expect([...runnerThreeSpecifiers()].sort()).toEqual([...THREE_SPECIFIERS].sort())
   })
 })
+
+/** The one engine module allowed to name Rapier (ADR 0028): its types, and the dynamic import() that loads it. */
+const RAPIER_MODULE = path.join(ENGINE_SRC, 'physics-3d/rapier-module.ts')
+
+/** Every engine source that names the Rapier package in a static import, export or side-effect import. */
+function staticRapierImports(): string[] {
+  return engineSources(ENGINE_SRC).filter((file) => /(?:\bfrom\s+|\bimport\s+)['"]@dimforge\//.test(readFileSync(file, 'utf8')))
+}
+
+describe('the Rapier package is loaded by a 3D scene only (issue #159 CA-7)', () => {
+  it('is named statically by no engine source but the one loader module', () => {
+    expect(staticRapierImports().map((file) => path.relative(ENGINE_SRC, file))).toEqual(['physics-3d/rapier-module.ts'])
+  })
+
+  it('is imported dynamically, and only there', () => {
+    const importing = engineSources(ENGINE_SRC).filter((file) => /\bimport\s*\(\s*['"]@dimforge\//.test(readFileSync(file, 'utf8')))
+    expect(importing).toEqual([RAPIER_MODULE])
+  })
+
+  it('needs no entry in the MCP fallback list or the runner list, because no scene is loaded there', () => {
+    expect(THREE_SPECIFIERS.filter((specifier) => specifier.startsWith('@dimforge'))).toEqual([])
+    expect(readFileSync(path.join(here, 'project-component-runner.ts'), 'utf8')).not.toContain('@dimforge')
+  })
+})

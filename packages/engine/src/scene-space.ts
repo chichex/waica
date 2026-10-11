@@ -1,3 +1,4 @@
+import type { ComponentClass, ComponentSpace } from './component.js'
 import { isFiniteNumber, perspectiveCameraIssues, shown, type SceneFieldIssue } from './scene-camera-3d.js'
 
 /**
@@ -34,31 +35,29 @@ export function resolveRenderPolicy(render: unknown): {
   }
 }
 
-/** The engine's 2D components: they draw, collide or light the orthographic world. */
-export const TWO_D_COMPONENTS = [
-  'Sprite',
-  'AnimatedSprite',
-  'Tilemap',
-  'Solid',
-  'DynamicBody',
-  'Hitbox',
-  'Light',
-  'ParticleEmitter',
-] as const
+/**
+ * What a component class says about the space it belongs to: its `static
+ * space` marker, or nothing. Only that slice of `ComponentClass`, so the
+ * abstract `Component` and a class the caller builds by hand qualify too.
+ */
+export type SpaceMarked = Pick<ComponentClass, 'space'>
 
-/** The engine's 3D components. */
-export const THREE_D_COMPONENTS = ['Model', 'Sun', 'PointLight'] as const
-
-const TWO_D = new Set<string>(TWO_D_COMPONENTS)
-const THREE_D = new Set<string>(THREE_D_COMPONENTS)
+/** The space a component class belongs to; a class that declares none is `'both'`. */
+export function componentSpaceOf(Class: SpaceMarked): ComponentSpace {
+  return Class.space ?? 'both'
+}
 
 /**
- * True when a component of this type does not belong in a scene of this
- * space: a 2D component in 3d, a 3D one in 2d. `StateMachine` and
- * project-owned components belong in both.
+ * True when a component of this class does not belong in a scene of this
+ * space: a `'2d'` component in 3d, a `'3d'` one in 2d. Reads the class's
+ * `static space` marker, so engine, behavior and project-owned components
+ * answer the same way. A class the caller does not know (undefined) is
+ * space-neutral.
  */
-export function componentSpaceMismatch(space: SceneSpace, type: string): boolean {
-  return space === '3d' ? TWO_D.has(type) : THREE_D.has(type)
+export function componentSpaceMismatch(space: SceneSpace, Class: SpaceMarked | undefined): boolean {
+  if (Class === undefined) return false
+  const own = componentSpaceOf(Class)
+  return own !== 'both' && own !== space
 }
 
 function recordOf(value: unknown): Record<string, unknown> {

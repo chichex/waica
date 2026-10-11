@@ -85,6 +85,8 @@ export class AssetLoader {
   private readonly models: ModelCache
   private readonly resolveAsset: (uri: string) => string
   private readonly entries = new Map<string, CacheEntry>()
+  /** Work other than a texture or a model that counts as an asset (the physics module), until it settles. */
+  private readonly tracked = new Set<Promise<void>>()
   private pendingCount = 0
   private loadedCount = 0
   private failedCount = 0
@@ -135,6 +137,23 @@ export class AssetLoader {
   }
 
   /**
+   * Counts `work` as an asset (the physics module is one): `pending` is one
+   * higher until it settles, then `loaded` or, when it rejects, `failed` with
+   * one warning naming `label`. Assets Ready waits for it. Never rejects.
+   */
+  track(work: Promise<unknown>, label: string): void {
+    this.pendingCount += 1
+    const settled: Promise<void> = work.then(
+      () => this.settleTracked(settled, 'loaded'),
+      (error: unknown) => {
+        console.warn(`[waica] assets: failed to load "${label}"`, error)
+        this.settleTracked(settled, 'failed')
+      },
+    )
+    this.tracked.add(settled)
+  }
+
+  /**
    * Requests every uri ahead of time, each resolved through the registered
    * scene catalog: a `.glb` or `.gltf` goes to the model cache, anything
    * else to the texture cache. Resolves once all of them settled, failures
@@ -162,7 +181,7 @@ export class AssetLoader {
   async ready(): Promise<void> {
     while (this.status.pending > 0) {
       const inFlight = [...this.entries.values()].filter((entry) => entry.outcome === null)
-      await Promise.all([...inFlight.map((entry) => entry.settled), ...this.models.inFlight()])
+      await Promise.all([...inFlight.map((entry) => entry.settled), ...this.models.inFlight(), ...this.tracked])
     }
   }
 
@@ -171,9 +190,18 @@ export class AssetLoader {
     for (const entry of this.entries.values()) entry.base.dispose()
     this.models.dispose()
     this.entries.clear()
+    this.tracked.clear()
     this.pendingCount = 0
     this.loadedCount = 0
     this.failedCount = 0
+  }
+
+  private settleTracked(settled: Promise<void>, outcome: TextureOutcome): void {
+    // A dispose() in flight already forgot it and reset the counters.
+    if (!this.tracked.delete(settled)) return
+    this.pendingCount -= 1
+    if (outcome === 'loaded') this.loadedCount += 1
+    else this.failedCount += 1
   }
 
   private request(url: string): CacheEntry {

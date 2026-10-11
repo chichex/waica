@@ -1,4 +1,4 @@
-import { Component, ParticleEmitter, StateMachine } from '@waica/engine'
+import { Component, ParticleEmitter, StateMachine, type ComponentSpace } from '@waica/engine'
 
 /**
  * A burst of sparks from this entity's own
@@ -13,6 +13,7 @@ import { Component, ParticleEmitter, StateMachine } from '@waica/engine'
  */
 export class SwingSparks extends Component {
   static override componentName = 'SwingSparks'
+  static override space: ComponentSpace = '2d'
   static override displayName = 'Swing sparks'
   static override params = {
     state: { label: 'State' },

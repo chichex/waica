@@ -1,4 +1,5 @@
 export { PlatformerMotor } from './platformer-motor.js'
+export { CharacterMotor } from './character-motor.js'
 export { PLAYER_ROLE, PLAYER_STATE_GRAPH, playerUpdate } from './player-states.js'
 export { TopDownMotor, type TopDownFacing } from './topdown-motor.js'
 export { IsoMotor, type IsoFacing } from './iso-motor.js'

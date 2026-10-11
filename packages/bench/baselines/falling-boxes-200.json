@@ -1,0 +1,34 @@
+{
+  "scenario": "falling-boxes-200",
+  "commit": "8e12578",
+  "backend": "webgl2",
+  "host": {
+    "platform": "linux",
+    "cpus": 8,
+    "chrome": "Google Chrome 150.0.7871.186",
+    "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+  },
+  "counters": {
+    "drawCalls": 200,
+    "meshes": 200,
+    "visibleMeshes": 200,
+    "geometries": 200,
+    "materials": 200,
+    "textures": 0,
+    "textureSources": 0,
+    "entitiesSpawned": 202,
+    "entitiesDestroyed": 0,
+    "materialsCreated": 200,
+    "geometriesCreated": 200
+  },
+  "timings": {
+    "frames": 300,
+    "medianMs": 4.6000001430511475,
+    "p95Ms": 6.400000095367432,
+    "overBudget": false,
+    "gcPauses": {
+      "count": 25,
+      "totalMs": 5.139
+    }
+  }
+}

@@ -3,6 +3,7 @@ import {
   Hitbox,
   type CollisionBody,
   type CollisionPoint,
+  type ComponentSpace,
   type Entity,
 } from '@waica/engine'
 import { logicalDirection } from './facing.js'
@@ -18,6 +19,7 @@ import { Health } from './health.js'
  */
 export class MeleeAttack extends Component {
   static override componentName = 'MeleeAttack'
+  static override space: ComponentSpace = '2d'
   static override displayName = 'Melee attack'
   static override params = {
     damage: { label: 'Damage', min: 0, max: 20, step: 1 },

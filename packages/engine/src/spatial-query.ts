@@ -10,10 +10,12 @@ import { Hitbox } from './components/hitbox.js'
 import { Solid } from './components/solid.js'
 import type { Entity } from './entity.js'
 import type { Game } from './game.js'
+import type { SceneSpace } from './scene-space.js'
 import {
   createHitboxBroadphase,
   createSolidBroadphase,
 } from './spatial-broadphase.js'
+import { SpatialQuery3d, type Point3d, type QueryVolume3d, type RayHit3d } from './spatial-query-3d.js'
 import {
   collisionBodyContainsPoint,
   collisionBodyRay,
@@ -21,7 +23,7 @@ import {
   usableCollisionBody,
 } from './spatial-query-geometry.js'
 
-type ComponentClasses = readonly ComponentClass[]
+export type ComponentClasses = readonly ComponentClass[]
 type QueryEntity<Classes extends ComponentClasses> = Classes extends readonly []
   ? Entity
   : EntityWith<Classes>
@@ -90,12 +92,13 @@ export interface SpatialQuery {
   area<
     Classes extends ComponentClasses = readonly [],
     Narrowed extends QueryEntity<Classes> = QueryEntity<Classes>,
-  >(body: CollisionBody, filter: SpatialGuardFilter<Classes, Narrowed>): Narrowed[]
+  >(body: CollisionBody | QueryVolume3d, filter: SpatialGuardFilter<Classes, Narrowed>): Narrowed[]
+  /** In a 3D scene `area` takes a volume and returns the entities whose sensor colliders intersect it, in Entity order. */
   area<Classes extends ComponentClasses = readonly []>(
-    body: CollisionBody,
+    body: CollisionBody | QueryVolume3d,
     filter: SpatialQueryFilter<Classes>,
   ): QueryEntity<Classes>[]
-  area(body: CollisionBody, filter?: SpatialQueryFilter): Entity[]
+  area(body: CollisionBody | QueryVolume3d, filter?: SpatialQueryFilter): Entity[]
 
   /** Hitbox owners that strictly contain a point, mask-agnostic and in Entity order. */
   point<
@@ -108,6 +111,16 @@ export interface SpatialQuery {
     filter: SpatialQueryFilter<Classes>,
   ): QueryEntity<Classes>[]
   point(x: number, y: number, filter?: SpatialQueryFilter): Entity[]
+  /** 3D scenes: entities whose sensor colliders contain the point, in Entity order. */
+  point<
+    Classes extends ComponentClasses = readonly [],
+    Narrowed extends QueryEntity<Classes> = QueryEntity<Classes>,
+  >(at: Point3d, filter: SpatialGuardFilter<Classes, Narrowed>): Narrowed[]
+  point<Classes extends ComponentClasses = readonly []>(
+    at: Point3d,
+    filter: SpatialQueryFilter<Classes>,
+  ): QueryEntity<Classes>[]
+  point(at: Point3d, filter?: SpatialQueryFilter): Entity[]
 
   /** Closest filtered logical transform; equal distances retain Entity order. */
   nearest<
@@ -124,6 +137,16 @@ export interface SpatialQuery {
     filter: NearestSpatialQueryFilter<Classes>,
   ): QueryEntity<Classes> | null
   nearest(x: number, y: number, filter?: NearestSpatialQueryFilter): Entity | null
+  /** 3D scenes: the closest filtered transform, z included. */
+  nearest<
+    Classes extends ComponentClasses = readonly [],
+    Narrowed extends QueryEntity<Classes> = QueryEntity<Classes>,
+  >(at: Point3d, filter: NearestGuardFilter<Classes, Narrowed>): Narrowed | null
+  nearest<Classes extends ComponentClasses = readonly []>(
+    at: Point3d,
+    filter: NearestSpatialQueryFilter<Classes>,
+  ): QueryEntity<Classes> | null
+  nearest(at: Point3d, filter?: NearestSpatialQueryFilter): Entity | null
 
   /** First strict crossing of direct or source-derived Solid geometry. */
   ray<
@@ -153,6 +176,18 @@ export interface SpatialQuery {
     maxDistance: number,
     filter?: SpatialQueryFilter,
   ): RayHit | null
+  /** 3D scenes: the first solid collider along the ray (sensors never block it); `direction` need not be a unit vector. */
+  ray<
+    Classes extends ComponentClasses = readonly [],
+    Narrowed extends QueryEntity<Classes> = QueryEntity<Classes>,
+  >(origin: Point3d, direction: Point3d, maxDistance: number, filter: SpatialGuardFilter<Classes, Narrowed>): RayHit3d<Narrowed> | null
+  ray<Classes extends ComponentClasses = readonly []>(
+    origin: Point3d,
+    direction: Point3d,
+    maxDistance: number,
+    filter: SpatialQueryFilter<Classes>,
+  ): RayHit3d<QueryEntity<Classes>> | null
+  ray(origin: Point3d, direction: Point3d, maxDistance: number, filter?: SpatialQueryFilter): RayHit3d | null
 }
 
 export interface HitboxCandidate {
@@ -364,11 +399,81 @@ class LinearSpatialQuery {
   }
 }
 
+/** A volume names its place by `center`; a collision body by `x` and `y`. */
+const isVolume = (value: CollisionBody | QueryVolume3d): value is QueryVolume3d =>
+  typeof value === 'object' && value !== null && 'center' in value
+
+type Filter = SpatialQueryFilter<ComponentClasses>
+type NearestFilter = NearestSpatialQueryFilter<ComponentClasses>
+type Ray2dArgs = [x: number, y: number, dx: number, dy: number, maxDistance: number, filter?: Filter]
+type Ray3dArgs = [origin: Point3d, direction: Point3d, maxDistance: number, filter?: Filter]
+
+const isRay3d = (args: Ray2dArgs | Ray3dArgs): args is Ray3dArgs => typeof args[0] === 'object'
+
+/**
+ * Sends each call to the form its arguments name and refuses the form of the
+ * other space with an error naming both (issue #159 CA-21): the 2D forms read
+ * Hitboxes and Solids and take numbers or a collision body; the 3D forms read
+ * the physics world and take `{ x, y, z }` objects.
+ */
+class SpaceSpatialQuery {
+  private readonly solid: SpatialQuery3d
+
+  constructor(
+    private readonly game: Game,
+    private readonly flat: LinearSpatialQuery,
+  ) {
+    this.solid = new SpatialQuery3d(game, { matchesCommon: matchesCommonFilter })
+  }
+
+  area(first: CollisionBody | QueryVolume3d, filter?: Filter): Entity[] {
+    if (isVolume(first)) return this.in3d('area').area(first, filter)
+    this.require('area', '2d')
+    return this.flat.area(first, filter)
+  }
+
+  point(first: number | Point3d, second?: number | Filter, third?: Filter): Entity[] {
+    if (typeof first === 'object') return this.in3d('point').point(first, typeof second === 'object' ? second : undefined)
+    this.require('point', '2d')
+    return this.flat.point(first, typeof second === 'number' ? second : Number.NaN, third)
+  }
+
+  nearest(first: number | Point3d, second?: number | NearestFilter, third?: NearestFilter): Entity | null {
+    if (typeof first === 'object') return this.in3d('nearest').nearest(first, typeof second === 'object' ? second : undefined)
+    this.require('nearest', '2d')
+    return this.flat.nearest(first, typeof second === 'number' ? second : Number.NaN, third)
+  }
+
+  ray(...args: Ray2dArgs): RayHit | null
+  ray(...args: Ray3dArgs): RayHit3d | null
+  ray(...args: Ray2dArgs | Ray3dArgs): RayHit | RayHit3d | null {
+    if (isRay3d(args)) {
+      const [origin, direction, maxDistance, filter] = args
+      return this.in3d('ray').ray({ origin, direction }, maxDistance, filter)
+    }
+    this.require('ray', '2d')
+    return this.flat.ray(...args)
+  }
+
+  private in3d(operation: string): SpatialQuery3d {
+    this.require(operation, '3d')
+    return this.solid
+  }
+
+  private require(operation: string, space: SceneSpace): void {
+    // Only a 3D scene turns the 2D forms away; anything else (no scene, or a stand-in Game) is the 2D world.
+    if (space === '3d' ? this.game.space === '3d' : this.game.space !== '3d') return
+    throw new Error(
+      `game.query.${operation}: the ${space === '3d' ? '3D' : '2D'} form needs a ${space} scene, and the live scene is ${this.game.space}.`,
+    )
+  }
+}
+
 /** Package-internal constructor; only the SpatialQuery interface is public. */
 export function createSpatialQuery(
   game: Game,
   candidates: SpatialQueryCandidateProviders = indexedCandidateProviders(game),
   instrumentation?: SpatialQueryInstrumentation,
 ): SpatialQuery {
-  return new LinearSpatialQuery(candidates, instrumentation)
+  return new SpaceSpatialQuery(game, new LinearSpatialQuery(candidates, instrumentation))
 }

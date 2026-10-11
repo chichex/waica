@@ -17,7 +17,8 @@ import {
   validateComponentUpdateSchedule,
   validateParamReferences,
 } from './component-validation.js'
-import { validateEntitySpace, validateSceneSpace } from './space-validation.js'
+import { physicsCompositionFindings } from './physics-param-validation.js'
+import { validateEntitySpace, validateSceneSimulation, validateSceneSpace } from './space-validation.js'
 import { validateEntitySceneTransition } from './scene-transition-validation.js'
 import { validateStateMachines } from './state-machine-validation.js'
 import { add, type LooseSceneEntity, type ValidationContext } from './validation-context.js'
@@ -36,9 +37,10 @@ export interface SceneScope {
  * prefab. The merged prefab+override component list is resolved lazily: only
  * when a check actually needs it (an override that changes a ref param, a
  * clip-context change, an inline ref:clip lookup that needs the effective
- * sibling AnimatedSprite, or state-machine revalidation). A plain
+ * sibling AnimatedSprite, state-machine revalidation, or the physics
+ * composition of an entity that overrides or adds to its prefab). A plain
  * "prefab: ref" entity with no overrides and no inline components never pays
- * for building it.
+ * for building it: its effective components are its prefab's.
  */
 interface EntityComposition {
   readonly ref: string
@@ -84,6 +86,7 @@ export function validateScene(scene: SceneJson, scope: SceneScope): void {
   // render.space, the camera against it and the 2D-only render options (issue #154 CA-13).
   validateSceneSpace(scene, scope)
   const space = resolveSceneSpace(scene.render)
+  validateSceneSimulation(scene, space, scope)
   for (const ui of Array.isArray(scene.ui) ? scene.ui : []) {
     if (typeof ui === 'string' && !scope.uiNames.has(ui)) {
       add(scope.context, 'warning', 'unknown-ui-piece', `Unknown UI piece "${ui}".`, scope.file, ui)
@@ -133,6 +136,10 @@ function validateSceneEntity(
   const prefab = validatePrefabReference(entity, entityRef, scope)
   validateEntitySpace({ entity, ref: entityRef, prefab }, space, scope)
   const composition = entityComposition(entity, entityRef, prefab)
+  // In a 2D scene the physics components are already space mismatches; a second finding would ask for a Collider that could not run there either.
+  if (space === '3d') {
+    context.findings.push(...physicsCompositionFindings(effectiveComponents(composition), file, entityRef))
+  }
   validateEntityParamReferences(composition, scope)
 
   // Re-evaluate inherited state behavior only when this entity actually
@@ -156,6 +163,12 @@ function validateSceneEntity(
     )
     validateComponentUpdateSchedule(composition.effective(), file, entityRef, context, inheritedIssues)
   }
+}
+
+/** The components the entity ends up with: its prefab's as they are, unless it overrides or adds to them. */
+function effectiveComponents(composition: EntityComposition): SceneComponentJson[] {
+  const plain = composition.inline.length === 0 && Object.keys(composition.overrides).length === 0
+  return plain ? componentList(composition.prefab?.components) : composition.effective()
 }
 
 function entityComposition(

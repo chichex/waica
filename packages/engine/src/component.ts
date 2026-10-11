@@ -16,6 +16,17 @@ export interface ParamSpec {
   ref?: 'prefab' | 'stat' | 'action' | 'clip' | 'sound' | 'ui'
 }
 
+/**
+ * The scene space a component belongs to (ADR 0027): `'2d'` components draw,
+ * collide or light the orthographic world, move or query over its x/y plane,
+ * or need a sibling that does; `'3d'` ones need a perspective camera;
+ * `'both'` run anywhere. A component that declares nothing is `'both'`.
+ */
+export type ComponentSpace = '2d' | '3d' | 'both'
+
+/** The values of `ComponentSpace`, for the checks that read a marker from data (the project component protocol, conformance). */
+export const COMPONENT_SPACES: readonly ComponentSpace[] = ['2d', '3d', 'both']
+
 export interface ComponentClass<T extends Component = Component> {
   new (): T
   /**
@@ -29,6 +40,8 @@ export interface ComponentClass<T extends Component = Component> {
   params?: Record<string, ParamSpec>
   /** Sibling component updates that must complete before this one when present. */
   updateAfter?: readonly string[]
+  /** The scene space this component belongs to; absent means both. */
+  space?: ComponentSpace
   /**
    * Instance fields holding runtime state rather than authorable defaults.
    * Excluded from authoringDefaults(); a subclass that does not redeclare
@@ -52,6 +65,18 @@ export interface SolidContact {
   readonly normal: ContactNormal
 }
 
+/** A 3D contact between two entities' solid Colliders, read after the physics step. */
+export interface BodyContact {
+  /** The entity whose component receives the hook. */
+  readonly entity: Entity
+  /** The entity it is in contact with. */
+  readonly other: Entity
+  /** Unit normal in world space, pointing from `entity` to `other`. */
+  readonly normal: { readonly x: number; readonly y: number; readonly z: number }
+  /** A world-space point on the contact. */
+  readonly point: { readonly x: number; readonly y: number; readonly z: number }
+}
+
 /**
  * A pluggable piece of an entity. User behaviors and engine ones are the
  * same thing: Component subclasses with public props.
@@ -61,6 +86,7 @@ export abstract class Component {
   static displayName?: string
   static params?: Record<string, ParamSpec>
   static updateAfter?: readonly string[]
+  static space?: ComponentSpace
   static transient?: readonly string[]
 
   entity!: Entity
@@ -75,8 +101,13 @@ export abstract class Component {
   onUpdate?(dt: number): void
   /** Runs after the scene changes between identity and projected rendering. */
   onProjectionChange?(projection: 'isometric' | null): void
-  /** Runs on overlap when this entity's Hitbox mask names the other's layer. */
+  /**
+   * Runs on overlap when this entity's Hitbox (2D) or sensor Collider (3D)
+   * mask names the other's layer.
+   */
   onCollide?(other: Entity): void
+  /** Runs once per Simulation Step for each entity this entity's solid Collider is in contact with (3D, issue #159). */
+  onBodyContact?(contact: BodyContact): void
   /** Runs when this entity's DynamicBody physically contacts a Solid. */
   onContact?(contact: SolidContact): void
   /**

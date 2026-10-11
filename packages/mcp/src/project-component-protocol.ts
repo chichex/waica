@@ -4,9 +4,12 @@
  * shape before the loader trusts it.
  */
 
+import { COMPONENT_SPACES, type ComponentSpace } from '@waica/engine'
+
 export const PROJECT_COMPONENT_PROTOCOL_VERSION = 1
 
 const REF_KINDS = new Set(['prefab', 'clip', 'action', 'stat', 'sound', 'ui'])
+const SPACES = new Set<string>(COMPONENT_SPACES)
 
 export type ComponentLoadFailureCode =
   | 'component-load-failed'
@@ -32,6 +35,8 @@ export interface ComponentRow {
   hasOnUpdate: boolean
   hasUpdateAfter: boolean
   updateAfter: string[]
+  /** The class's `static space` marker; null when it declares none. */
+  space: ComponentSpace | null
 }
 
 interface SuccessTerminal {
@@ -114,6 +119,7 @@ function parseComponent(value: unknown, expectedFile: string): ComponentRow | un
       'hasOnUpdate',
       'hasUpdateAfter',
       'updateAfter',
+      'space',
     ]) ||
     typeof candidate.name !== 'string' ||
     candidate.name.length === 0 ||
@@ -123,7 +129,8 @@ function parseComponent(value: unknown, expectedFile: string): ComponentRow | un
     typeof candidate.hasUpdateAfter !== 'boolean' ||
     !Array.isArray(candidate.updateAfter) ||
     candidate.updateAfter.some((target) => typeof target !== 'string') ||
-    (!candidate.hasUpdateAfter && candidate.updateAfter.length > 0)
+    (!candidate.hasUpdateAfter && candidate.updateAfter.length > 0) ||
+    (candidate.space !== null && (typeof candidate.space !== 'string' || !SPACES.has(candidate.space)))
   ) {
     return undefined
   }
@@ -136,6 +143,7 @@ function parseComponent(value: unknown, expectedFile: string): ComponentRow | un
     hasOnUpdate: candidate.hasOnUpdate,
     hasUpdateAfter: candidate.hasUpdateAfter,
     updateAfter: [...(candidate.updateAfter as string[])],
+    space: candidate.space as ComponentRow['space'],
   }
 }
 
