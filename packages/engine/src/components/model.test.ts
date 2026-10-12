@@ -134,6 +134,38 @@ describe('Model glTF (CA-9)', () => {
 
 })
 
+describe('Model.handle (issue #166 CA-6)', () => {
+  it('keeps the handle of the glTF it draws: its root is the one under the Model root, and the clips arrive with the file', async () => {
+    const { game } = await ready3dModelGame()
+    const model = game.spawn('Rig').add(Model, { src: '/rig.glb' })
+
+    const handle = defined(model.handle, 'a handle at once')
+    expect(defined(model.root).children).toEqual([handle.root])
+    await game.assets.ready()
+    expect(handle.animations.map((clip) => clip.name)).toEqual(['Idle'])
+  })
+
+  it('is null for a primitive and in a 2D scene, and is replaced on a src change', async () => {
+    const { game } = await ready3dModelGame()
+    expect(game.spawn('Box').add(Model, { shape: 'box' }).handle).toBeNull()
+    const model = game.spawn('Swap').add(Model, { src: '/a.glb' })
+    const first = defined(model.handle)
+    model.src = '/b.glb'
+    expect(model.handle).not.toBe(first)
+    expect(defined(model.handle).root).toBe(defined(model.root).children[0])
+    model.src = ''
+    expect(model.handle).toBeNull()
+
+    const flat = await ready3dGame()
+    loadScene(flat.game, { waicaScene: 3, entities: [] }, registryOf({ Model }))
+    expect(flat.game.spawn('Flat').add(Model, { src: '/a.glb' }).handle).toBeNull()
+  })
+
+  it('is transient: not an authoring default', () => {
+    expect(Object.keys(authoringDefaults(Model))).not.toContain('handle')
+  })
+})
+
 describe('Model glTF, precedence and disposal (CA-9)', () => {
   it('lets src win over shape: no primitive is built', async () => {
     const { game } = await ready3dModelGame()
