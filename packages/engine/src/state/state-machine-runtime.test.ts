@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { installDirectionalAnimation, type DirectionalAnimation } from '../animation/directional'
-import type { Component } from '../component'
+import { Component } from '../component'
 import { resolveComponentUpdateSchedule } from '../component-update-schedule'
 import { AnimatedSprite } from '../components/animated-sprite'
 import type { Entity } from '../entity'
@@ -16,7 +16,7 @@ interface MachineHarness {
   kill(): void
 }
 
-function makeMachine(states: StateMachine['states'], sprite?: AnimatedSprite): MachineHarness {
+function makeMachine(states: StateMachine['states'], sprite?: AnimatedSprite, siblings: Component[] = []): MachineHarness {
   let pressed: string | null = null
   const used = new Set<string>()
   const consumed: string[] = []
@@ -36,6 +36,8 @@ function makeMachine(states: StateMachine['states'], sprite?: AnimatedSprite): M
     get alive() {
       return alive
     },
+    // What a real Entity holds: get() reads components (the Clip Target seam finds the sprite there, issue #166 CA-1).
+    components: [...(sprite ? [sprite] : []), ...siblings],
     get(Class: unknown) {
       return Class === AnimatedSprite ? sprite : undefined
     },
@@ -283,6 +285,37 @@ describe('StateMachine runtime characterization', () => {
     expect(() => machine.onCollide(otherEntity('Other'))).not.toThrow()
   })
 
+  it('plays through the first sibling that is a Clip Target, with no AnimatedSprite at all (issue #166 CA-1)', () => {
+    class FakeTarget extends Component {
+      static override componentName = 'FakeTarget'
+      current: string | undefined
+      readonly clipNames = ['idle', 'run']
+      clipFinished = false
+      readonly played: string[] = []
+      play(name: string): void {
+        this.played.push(name)
+        this.current = name
+      }
+    }
+    const target = new FakeTarget()
+    const { machine } = makeMachine(
+      {
+        idle: { transitions: [{ on: 'signal:move', to: 'run' }] },
+        run: {},
+      },
+      undefined,
+      [target],
+    )
+
+    machine.onReady()
+    expect(target.played).toEqual(['idle'])
+
+    machine.signal('move')
+    machine.onUpdate(0.016)
+    expect(machine.current).toBe('run')
+    expect(target.played).toEqual(['idle', 'run'])
+  })
+
   it('documents initial onEnter running before later siblings are spawned', () => {
     // Documented current behavior, not approved behavior: Entity.add calls
     // onReady immediately, so an initial hook cannot see components added later.
@@ -322,7 +355,7 @@ describe('StateMachine directional clip resolution', () => {
       input: { justPressed: () => false, consumed: () => false, consume: () => {} },
     } as unknown as Game
     let current = facing
-    const components: unknown[] = facing === null ? [] : [{ getAnimationFacing: () => current }]
+    const components: unknown[] = [sprite, ...(facing === null ? [] : [{ getAnimationFacing: () => current }])]
     const entity = {
       name: 'Walker',
       game,

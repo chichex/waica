@@ -29,6 +29,8 @@ export type {
   DirectionalFallback,
   ResolvedDirectionalClip,
 } from './animation/directional.js'
+export { isClipTarget } from './animation/clip-target.js'
+export type { ClipTarget } from './animation/clip-target.js'
 export { isYSortBatchParticipant, isYSortParticipant, ySortZ } from './render-sort.js'
 export type { YSortBatchParticipant, YSortEntry, YSortParticipant } from './render-sort.js'
 export { projectIsometric, screenInputToLogical, unprojectIsometric } from './projection.js'
