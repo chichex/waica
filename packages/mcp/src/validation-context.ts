@@ -10,6 +10,7 @@ export type FindingCode =
   | 'broken-prefab-ref'
   | 'override-key-not-in-prefab'
   | 'missing-clip'
+  | 'clip-end-on-looping-clip'
   | 'missing-sound'
   | 'dangling-transition-target'
   | 'unreachable-state'

@@ -49,6 +49,7 @@ function makePlayer(spawn: [number, number] = [0, 0]) {
       ;(entity as unknown as { alive: boolean }).alive = false
       game.time.cancelOwnedBy(entity)
     }),
+    components,
     get(Class: new () => Component) {
       return components.find((component) => component instanceof Class)
     },
@@ -156,7 +157,7 @@ describe('the player graph handles its own death', () => {
     const { game } = makePlayer()
     const bodiless = new StateMachine()
     bodiless.role = 'player'
-    bodiless.entity = { name: 'Ghost', game, get: () => undefined } as unknown as Entity
+    bodiless.entity = { name: 'Ghost', game, components: [], get: () => undefined } as unknown as Entity
     bodiless.game = game
     bodiless.initial = PLAYER_STATE_GRAPH.initial
     bodiless.states = structuredClone(PLAYER_STATE_GRAPH.states)

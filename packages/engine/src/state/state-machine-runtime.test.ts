@@ -331,6 +331,54 @@ describe('StateMachine runtime characterization', () => {
   })
 })
 
+describe('StateMachine clip:end through the Clip Target (issue #166 CA-2)', () => {
+  const DT = 1 / 60
+
+  /** A machine in `attack` beside a mounted sprite whose 4-frame 8 fps attack clip loops or not; both stepped in schedule order. */
+  function attackMachine(loop: boolean): { machine: StateMachine; step: () => void } {
+    const sprite = new AnimatedSprite()
+    sprite.clips = { attack: { frames: [0, 1, 2, 3], fps: 8, loop }, idle: { frames: [0], fps: 1 } }
+    sprite.entity = { node: { add: () => {} } } as unknown as Entity
+    sprite.game = {} as Game
+    sprite.onReady()
+    const { machine } = makeMachine(
+      {
+        attack: { transitions: [{ on: 'clip:end', to: 'idle' }] },
+        idle: {},
+      },
+      sprite,
+    )
+    machine.onReady()
+    // The schedule: the machine, then the sprite (updateAfter: ['StateMachine']).
+    const step = (): void => {
+      machine.onUpdate(DT)
+      sprite.onUpdate(DT)
+    }
+    return { machine, step }
+  }
+
+  it('leaves attack on the step the one-shot clip finishes and enters idle on the next: step 30 attack, step 31 idle', () => {
+    const { machine, step } = attackMachine(false)
+    for (let n = 1; n <= 30; n += 1) step()
+    expect(machine.current).toBe('attack')
+    step()
+    expect(machine.current).toBe('idle')
+  })
+
+  it('never fires for a looping clip', () => {
+    const { machine, step } = attackMachine(true)
+    for (let n = 1; n <= 300; n += 1) step()
+    expect(machine.current).toBe('attack')
+  })
+
+  it('reads false with no Clip Target beside it', () => {
+    const { machine } = makeMachine({ attack: { transitions: [{ on: 'clip:end', to: 'idle' }] }, idle: {} })
+    machine.onReady()
+    for (let n = 1; n <= 60; n += 1) machine.onUpdate(DT)
+    expect(machine.current).toBe('attack')
+  })
+})
+
 describe('StateMachine directional clip resolution', () => {
   const DIRECTIONAL: DirectionalAnimation = {
     directions: ['n', 's', 'e', 'w'],

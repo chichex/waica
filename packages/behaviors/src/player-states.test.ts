@@ -13,7 +13,7 @@ beforeEach(() => installArchetype({ roles: { player: PLAYER_ROLE } }))
 const { initial, states } = PLAYER_STATE_GRAPH
 
 function withSignals(...signals: string[]): TriggerEnv {
-  return { justPressed: () => false, elapsed: 0, signals: new Set(signals) }
+  return { justPressed: () => false, elapsed: 0, signals: new Set(signals), clipFinished: false }
 }
 
 describe('PLAYER_STATE_GRAPH', () => {

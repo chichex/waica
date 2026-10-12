@@ -8,12 +8,14 @@ import { isBoundAction } from './param-reference-resolution.js'
 import { directFiles } from './project-path.js'
 import { add, type ValidationContext } from './validation-context.js'
 
-/** Where the machines being checked live, and the clips their sibling AnimatedSprite declares. */
+/** Where the machines being checked live, and the clips their sibling Clip Target declares. */
 interface MachineScope {
   readonly file: string
   readonly ref: string | undefined
   readonly context: ValidationContext
   readonly clips: Set<string> | undefined
+  /** Whether each declared clip loops (an AnimatedSprite ClipDef's `loop`, default true); undefined with no sibling target. */
+  readonly clipLoops: ReadonlyMap<string, boolean> | undefined
 }
 
 /** One state of a machine, with the machine's whole state table for cross-state checks. */
@@ -25,6 +27,17 @@ interface MachineState {
 
 function machineStates(component: SceneComponentJson): Record<string, StateJson> {
   return objectRecord(component.props?.states) as Record<string, StateJson>
+}
+
+/** The loop flag of every clip the sibling AnimatedSprite declares: a ClipDef loops unless `loop` is false. */
+function siblingClipLoops(siblings: SceneComponentJson[]): ReadonlyMap<string, boolean> | undefined {
+  const animated = siblings.find((component) => component.type === 'AnimatedSprite')
+  if (!animated) return undefined
+  const loops = new Map<string, boolean>()
+  for (const [name, definition] of Object.entries(objectRecord(animated.props?.clips))) {
+    loops.set(name, objectRecord(definition).loop !== false)
+  }
+  return loops
 }
 
 function escapedRegex(value: string): string {
@@ -75,7 +88,7 @@ export function validateStateMachines(
   ref: string | undefined,
   context: ValidationContext,
 ): void {
-  const scope: MachineScope = { file, ref, context, clips: siblingClips(components) }
+  const scope: MachineScope = { file, ref, context, clips: siblingClips(components), clipLoops: siblingClipLoops(components) }
   for (const machine of components.filter((component) => component.type === 'StateMachine')) {
     validateMachine(machine, scope)
   }
@@ -89,6 +102,7 @@ function validateMachine(machine: SceneComponentJson, scope: MachineScope): void
   for (const name of realNames) {
     const state: MachineState = { name, definition: objectRecord(states[name]), states }
     validateStateClip(state, scope)
+    validateClipEndEdge(state, scope)
     validateStateTransitions(state, scope)
     if (name !== initial && !isTransitionTarget(states, name)) {
       add(
@@ -137,6 +151,26 @@ function validateStateClip({ name, definition }: MachineState, scope: MachineSco
       explicitClip === undefined ? (scope.ref ?? name) : `StateMachine.states.${name}.clip`,
     )
   }
+}
+
+/**
+ * A `clip:end` edge fires only when the state's clip is a one-shot (issue
+ * #166 CA-2): on a looping clip it never fires, silently. A clip the target
+ * does not declare is `missing-clip`'s business and reports nothing here.
+ */
+function validateClipEndEdge({ name, definition }: MachineState, scope: MachineScope): void {
+  const transitions = Array.isArray(definition.transitions) ? definition.transitions : []
+  if (!transitions.some((transition) => objectRecord(transition).on === 'clip:end')) return
+  const clip = typeof definition.clip === 'string' ? definition.clip : name
+  if (scope.clipLoops?.get(clip) !== true) return
+  add(
+    scope.context,
+    'warning',
+    'clip-end-on-looping-clip',
+    `State "${name}" leaves on clip:end, but its clip "${clip}" loops and never ends; set loop: false on the clip.`,
+    scope.file,
+    scope.ref ?? name,
+  )
 }
 
 function validateStateTransitions(state: MachineState, scope: MachineScope): void {

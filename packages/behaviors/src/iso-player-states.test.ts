@@ -22,7 +22,7 @@ beforeEach(() => installArchetype({ roles: { player: ISO_PLAYER_ROLE } }))
 const { initial, states } = ISO_PLAYER_STATE_GRAPH
 
 function withSignals(...signals: string[]): TriggerEnv {
-  return { justPressed: () => false, elapsed: 0, signals: new Set(signals) }
+  return { justPressed: () => false, elapsed: 0, signals: new Set(signals), clipFinished: false }
 }
 
 describe('ISO_PLAYER_STATE_GRAPH', () => {
@@ -50,6 +50,7 @@ describe('ISO_PLAYER_STATE_GRAPH', () => {
         justPressed: () => false,
         elapsed: 0.9,
         signals: new Set(),
+        clipFinished: false,
       })?.to,
     ).toBe('idle')
   })

@@ -18,7 +18,7 @@ import {
 
 /** One outgoing edge: when `on` fires, the machine moves to `to`. */
 export interface StateTransitionJson {
-  /** Trigger: 'input:<action>' | 'timer:<seconds>' | 'signal:<name>'. */
+  /** Trigger: 'input:<action>' | 'timer:<seconds>' | 'signal:<name>' | 'clip:end'. */
   on: string
   to: string
 }
@@ -41,6 +41,8 @@ export interface TriggerEnv {
   /** Seconds spent in the current state. */
   elapsed: number
   signals: ReadonlySet<string>
+  /** Whether the Clip Target reports its non-looping clip finished (issue #166); false with no target. */
+  clipFinished: boolean
 }
 
 /** Whether one trigger fires. Unknown or malformed triggers never fire. */
@@ -59,6 +61,9 @@ export function evaluateTrigger(on: string, env: TriggerEnv): boolean {
   // step below than to the one it truly belongs to.
   if (kind === 'timer') return env.elapsed + SIMULATION_TIME_EPSILON >= Number(arg)
   if (kind === 'signal') return env.signals.has(arg)
+  // The target updates after the machine (updateAfter: ['StateMachine']), so
+  // this fires on the Simulation Step after the clip finished, never for a loop.
+  if (kind === 'clip') return arg === 'end' && env.clipFinished
   return false
 }
 
@@ -203,6 +208,7 @@ export class StateMachine extends Component {
         this.game.input.justPressed(action) && !this.game.input.consumed(action),
       elapsed: this.elapsed,
       signals: this.signals,
+      clipFinished: this.clipTarget()?.clipFinished ?? false,
     }
   }
 
