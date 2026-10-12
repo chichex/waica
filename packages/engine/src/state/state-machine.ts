@@ -262,7 +262,9 @@ export class StateMachine extends Component {
     if (!target) return
     const clip = this.states[state]?.clip ?? state
     if (this.playDirectionalClip(target, clip)) return
-    if (target.clipNames.includes(clip)) {
+    // A target whose clips are pending (an Animator whose glb is still
+    // loading) is asked anyway and remembers the request (issue #166).
+    if (target.clipsPending || target.clipNames.includes(clip)) {
       target.play(clip)
       this.requestedClip = clip
     } else if (!this.warnedClips.has(state)) {

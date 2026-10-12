@@ -614,3 +614,48 @@ describe('StateMachine facing re-resolution (review of PR #167)', () => {
     expect(sprite.clipFinished).toBe(true)
   })
 })
+
+describe('StateMachine and a Clip Target whose clips are pending (review of PR #168)', () => {
+  it('asks a pending target to play with no warning, and reads its clip:end once the clip it asked for finishes', () => {
+    class LoadingTarget extends Component {
+      static override componentName = 'LoadingTarget'
+      current: string | undefined
+      clipNames: string[] = []
+      clipFinished = false
+      clipsPending = true
+      readonly requested: string[] = []
+      play(name: string): void {
+        this.requested.push(name)
+      }
+    }
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const target = new LoadingTarget()
+    const { machine } = makeMachine({ attack: { transitions: [{ on: 'clip:end', to: 'idle' }] }, idle: {} }, undefined, [target])
+
+    machine.onReady()
+    expect(target.requested).toEqual(['attack'])
+    expect(warn).not.toHaveBeenCalled()
+
+    // The glb settles: the target lists its clips, plays the remembered one and later finishes it.
+    target.clipsPending = false
+    target.clipNames = ['attack', 'idle']
+    target.current = 'attack'
+    target.clipFinished = true
+    machine.onUpdate(DT)
+    expect(machine.current).toBe('idle')
+    expect(target.requested).toEqual(['attack', 'idle'])
+    warn.mockRestore()
+  })
+
+  it('still warns for an AnimatedSprite that declares no clips: nothing is pending there', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const sprite = new AnimatedSprite()
+    const { machine } = makeMachine({ walk: {} }, sprite)
+
+    machine.onReady()
+
+    expect(sprite.current).toBeUndefined()
+    expect(warn).toHaveBeenCalledWith('[waica] "Test character": no clip "walk" for state "walk" — keeping "none"')
+    warn.mockRestore()
+  })
+})

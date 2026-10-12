@@ -1,5 +1,8 @@
-import { readFile } from 'node:fs/promises'
+import { open, readFile, type FileHandle } from 'node:fs/promises'
 import { objectRecord } from './component-metadata.js'
+
+/** glTF in its two forms (matches MODEL_RE in the editor's use-project-art.ts). */
+export const MODEL_FILE_RE = /\.(glb|gltf)$/i
 
 /** The 12-byte glb header: magic, version, total length; then the first chunk, which must be the JSON one. */
 const HEADER_BYTES = 12
@@ -7,41 +10,68 @@ const CHUNK_HEADER_BYTES = 8
 const GLB_MAGIC = 0x46546c67
 const JSON_CHUNK = 0x4e4f534a
 
-/**
- * The JSON document of a glb (the header and its first chunk, nothing else:
- * the binary chunk is never read), or null for bytes that are not one. Enough
- * to list a file's clips and skins without a loader (issue #166 CA-9).
- */
-export function parseGlbDocument(bytes: Uint8Array): Record<string, unknown> | null {
-  if (bytes.byteLength < HEADER_BYTES + CHUNK_HEADER_BYTES) return null
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
-  if (view.getUint32(0, true) !== GLB_MAGIC) return null
-  const chunkLength = view.getUint32(HEADER_BYTES, true)
-  if (view.getUint32(HEADER_BYTES + 4, true) !== JSON_CHUNK) return null
-  const start = HEADER_BYTES + CHUNK_HEADER_BYTES
-  if (start + chunkLength > bytes.byteLength) return null
+/** The parsed text when it is a JSON object; null for anything else. */
+function jsonObjectOf(text: string): Record<string, unknown> | null {
   try {
-    const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes.subarray(start, start + chunkLength)))
+    const parsed: unknown = JSON.parse(text)
     return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null
   } catch {
     return null
   }
 }
 
-/** A `.glb`'s JSON chunk or a `.gltf` parsed as JSON; null when the file is absent or unreadable. */
+/** The JSON chunk's offset and length behind a glb header and chunk header, or null when the bytes are not that. */
+function jsonChunkOf(head: Uint8Array): { start: number; length: number } | null {
+  if (head.byteLength < HEADER_BYTES + CHUNK_HEADER_BYTES) return null
+  const view = new DataView(head.buffer, head.byteOffset, head.byteLength)
+  if (view.getUint32(0, true) !== GLB_MAGIC) return null
+  if (view.getUint32(HEADER_BYTES + 4, true) !== JSON_CHUNK) return null
+  return { start: HEADER_BYTES + CHUNK_HEADER_BYTES, length: view.getUint32(HEADER_BYTES, true) }
+}
+
+/**
+ * The JSON document of a glb (the header and its first chunk, nothing else:
+ * the binary chunk is never read), or null for bytes that are not one. Enough
+ * to list a file's clips and skins without a loader (issue #166 CA-9).
+ */
+export function parseGlbDocument(bytes: Uint8Array): Record<string, unknown> | null {
+  const chunk = jsonChunkOf(bytes)
+  if (!chunk || chunk.start + chunk.length > bytes.byteLength) return null
+  return jsonObjectOf(new TextDecoder().decode(bytes.subarray(chunk.start, chunk.start + chunk.length)))
+}
+
+/**
+ * A `.glb`'s JSON chunk read in place — the 20 bytes of headers, then only
+ * the chunk the headers announce, never the binary chunk that makes up most
+ * of a file (review of PR #168) — or a `.gltf` parsed as JSON; null when the
+ * file is absent, unreadable or not what its extension says.
+ */
 export async function readModelDocument(file: string): Promise<Record<string, unknown> | null> {
-  let bytes: Buffer
+  if (/\.glb$/i.test(file)) return readGlbDocument(file)
   try {
-    bytes = await readFile(file)
+    return jsonObjectOf(await readFile(file, 'utf8'))
   } catch {
     return null
   }
-  if (/\.glb$/i.test(file)) return parseGlbDocument(new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength))
+}
+
+async function readGlbDocument(file: string): Promise<Record<string, unknown> | null> {
+  let handle: FileHandle
   try {
-    const parsed: unknown = JSON.parse(bytes.toString('utf8'))
-    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null
+    handle = await open(file, 'r')
   } catch {
     return null
+  }
+  try {
+    const head = new Uint8Array(HEADER_BYTES + CHUNK_HEADER_BYTES)
+    const chunk = (await handle.read(head, 0, head.byteLength, 0)).bytesRead === head.byteLength ? jsonChunkOf(head) : null
+    // The announced length is bounded by the file before anything is allocated for it.
+    if (!chunk || chunk.start + chunk.length > (await handle.stat()).size) return null
+    const text = new Uint8Array(chunk.length)
+    if ((await handle.read(text, 0, chunk.length, chunk.start)).bytesRead !== chunk.length) return null
+    return jsonObjectOf(new TextDecoder().decode(text))
+  } finally {
+    await handle.close()
   }
 }
 

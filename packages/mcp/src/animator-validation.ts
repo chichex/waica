@@ -2,23 +2,19 @@ import path from 'node:path'
 import type { SceneComponentJson } from '@waica/engine'
 import { objectRecord } from './component-metadata.js'
 import { clipNamesOf, readModelDocument } from './glb-document.js'
-import { filesDirectlyIn } from './param-reference-resolution.js'
-import { add, type ValidationContext } from './validation-context.js'
-
-/** glTF in its two forms, directly under src/art (the same set `projectModelRefs` lists). */
-const MODEL_FILE_RE = /\.(glb|gltf)$/i
+import { add, type ValidationContext, type ValidationFinding } from './validation-context.js'
 
 /**
- * The clip names of every model file directly under the project's src/art/,
- * by its `src/art/<file>` path, read from each file's JSON chunk (issue #166
- * CA-9). A file that cannot be read is absent from the map, so the clip checks
- * stay quiet and only `missing-model` speaks for it. A `waica:` uri names an
- * archetype's own model, whose file is not read here: its clips are unknown.
+ * The clip names of the given model files directly under the project's
+ * src/art/ (the set `projectModelRefs` lists), by their `src/art/<file>`
+ * path, read from each file's JSON chunk (issue #166 CA-9). A file that
+ * cannot be read is absent from the map, so the clip checks stay quiet and
+ * only `missing-model` speaks for it. A `waica:` uri names an archetype's own
+ * model, whose file is not read here: its clips are unknown.
  */
-export async function projectModelClips(projectPath: string): Promise<ReadonlyMap<string, readonly string[]>> {
+export async function projectModelClips(projectPath: string, modelFiles: readonly string[]): Promise<ReadonlyMap<string, readonly string[]>> {
   const clips = new Map<string, readonly string[]>()
-  for (const file of await filesDirectlyIn(path.join(projectPath, 'src/art'))) {
-    if (!MODEL_FILE_RE.test(file)) continue
+  for (const file of modelFiles) {
     const document = await readModelDocument(path.join(projectPath, 'src/art', file))
     if (document) clips.set(`src/art/${file}`, clipNamesOf(document))
   }
@@ -61,20 +57,44 @@ interface AnimatorScope {
 }
 
 /**
- * An entity's Animator (issue #166 CA-9): it needs a Model with a src beside
- * it (`animator-without-model`), and its `initialClip` and every key of its
- * `clips` overrides must be clips of that file (`missing-clip`, errors: both
- * are explicit names). A sibling StateMachine's state clips are checked by
- * validateStateMachines through the same clip set.
+ * The composition an Animator needs, judged per scene entity like the physics
+ * composition (`physicsCompositionFindings`): a Model with a src beside it,
+ * from the entity or its prefab, else `animator-without-model`. Never judged
+ * on the prefab alone: an instance can complete it with a `Model.src`
+ * override or an inline Model (review of PR #168).
  */
-export function validateAnimator(components: readonly SceneComponentJson[], scope: AnimatorScope): void {
+export function animatorCompositionFindings(components: readonly SceneComponentJson[], file: string, ref: string): ValidationFinding[] {
+  if (!components.some((component) => component.type === 'Animator') || modelSrcOf(components) !== undefined) return []
+  return [{ severity: 'error', code: 'animator-without-model', message: `Entity "${ref}" has an Animator but no Model with a src beside it; nothing plays.`, file, ref }]
+}
+
+/** The override keys of an Animator's siblings that change which clips it can play and how; any other override keeps the prefab's result. */
+const ANIMATOR_CLIP_KEYS: Readonly<Record<string, readonly string[]>> = { Model: ['src'], Animator: ['initialClip', 'clips'] }
+
+/**
+ * Whether a scene entity changes the clips its Animator plays against its
+ * prefab: an inline Model or Animator, or an override of a key in
+ * ANIMATOR_CLIP_KEYS. Otherwise the prefab-level clip findings stand alone.
+ */
+export function changesAnimatorClips(inline: readonly SceneComponentJson[], overrides: Record<string, unknown>): boolean {
+  return (
+    inline.some((component) => Object.hasOwn(ANIMATOR_CLIP_KEYS, component.type)) ||
+    Object.entries(overrides).some(([type, patch]) => (ANIMATOR_CLIP_KEYS[type] ?? []).some((key) => Object.hasOwn(objectRecord(patch), key)))
+  )
+}
+
+/**
+ * An Animator's clip references (issue #166 CA-9): its `initialClip` and
+ * every key of its `clips` overrides must be clips of the file its Model
+ * names (`missing-clip`, errors: both are explicit names). Checked on a
+ * prefab, and on a scene entity only when it changes those clips
+ * (`changesAnimatorClips`). A sibling StateMachine's state clips are checked
+ * by validateStateMachines through the same clip set.
+ */
+export function validateAnimatorClips(components: readonly SceneComponentJson[], scope: AnimatorScope): void {
   const animator = components.find((component) => component.type === 'Animator')
   if (!animator) return
-  const { file, ref, context } = scope
-  if (modelSrcOf(components) === undefined) {
-    add(context, 'error', 'animator-without-model', `Entity "${ref}" has an Animator but no Model with a src beside it; nothing plays.`, file, ref)
-    return
-  }
+  const { file, context } = scope
   const clips = animatorClips(components, context)
   if (!clips) return
   const props = objectRecord(animator.props)

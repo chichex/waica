@@ -15,6 +15,13 @@ export interface ClipTarget {
   readonly clipNames: readonly string[]
   /** True once a non-looping clip reached its end; false again after `play`. */
   readonly clipFinished: boolean
+  /**
+   * True while the target expects clips it cannot list yet (an Animator
+   * whose glb is loading): the machine asks for a clip anyway and the target
+   * remembers the request. Absent or false, an empty `clipNames` means the
+   * target has no clips, and a missing clip warns.
+   */
+  readonly clipsPending?: boolean
   play(name: string): void
   /**
    * The 2D mirror. A target without it is never flipped: a directional clip
