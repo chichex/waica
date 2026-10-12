@@ -1,4 +1,5 @@
 import { Component, RigidBody, type ComponentSpace } from '@waica/engine'
+import { turnYawToward } from './facing-3d.js'
 
 /**
  * Walks and jumps a 3D character (ADR 0028): beside a kinematic `RigidBody`
@@ -8,7 +9,11 @@ import { Component, RigidBody, type ComponentSpace } from '@waica/engine'
  * relative to the world, not to the camera, and `-z` is forward; a diagonal
  * is normalized, so it moves at `speed` like a cardinal direction. The jump
  * press is consumed only when the body jumped, so a press in the air stays
- * readable (a double jump, a glide). With no kinematic body beside it, it
+ * readable (a double jump, a glide). It also faces where it walks (issue
+ * #166 CA-14): each step with a non-zero desired velocity turns the entity's
+ * yaw toward it by at most `turnSpeed` degrees per second (0 snaps), with no
+ * input the yaw holds; the body is unaffected (a kinematic body's rotation is
+ * locked and its capsule is symmetric). With no kinematic body beside it, it
  * does nothing (`validate_project` reports it). Actions with no binding read
  * 0, so a Game without bindings stands still.
  */
@@ -23,6 +28,7 @@ export class CharacterMotor extends Component {
     forwardAction: { label: 'Forward action' },
     backAction: { label: 'Back action' },
     jumpAction: { label: 'Jump action' },
+    turnSpeed: { label: 'Turn speed (deg/s)', min: 0, max: 1440, step: 30 },
   }
 
   /** Walking speed in units per second. */
@@ -36,8 +42,10 @@ export class CharacterMotor extends Component {
   /** Walks toward +z. */
   backAction = 'down'
   jumpAction = 'jump'
+  /** How fast it turns to face its walk, in degrees per second; 0 snaps. */
+  turnSpeed = 540
 
-  override onUpdate(): void {
+  override onUpdate(dt: number): void {
     const body = this.entity.get(RigidBody)
     if (body?.type !== 'kinematic') return
     const { input } = this.game
@@ -47,6 +55,7 @@ export class CharacterMotor extends Component {
     const length = Math.hypot(x, z)
     const scale = length > 1 ? this.speed / length : this.speed
     body.desiredVelocity = { x: x * scale, z: z * scale }
+    turnYawToward(this.entity.node, x, z, this.turnSpeed, dt)
     if (input.justPressed(this.jumpAction) && body.jump(this.jumpSpeed)) input.consume(this.jumpAction)
   }
 }

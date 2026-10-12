@@ -1,3 +1,4 @@
+import { CharacterMotor } from '@waica/behaviors'
 import { authoringDefaults, Collider, RigidBody, type ParamSpec, type SceneComponentJson } from '@waica/engine'
 import { colliderCategoryFindings } from './collision-category-validation.js'
 import { objectRecord } from './component-metadata.js'
@@ -37,7 +38,7 @@ function specProblem({ name, spec, numeric }: { name: string; spec: ParamSpec; n
 }
 
 /** The authored params of `Class` (those its inspector declares) that break their own spec, in the spec's order. */
-function specProblems(Class: typeof Collider | typeof RigidBody, record: Record<string, unknown>, skip: readonly string[]): Array<[string, string]> {
+function specProblems(Class: typeof Collider | typeof RigidBody | typeof CharacterMotor, record: Record<string, unknown>, skip: readonly string[]): Array<[string, string]> {
   const defaults = authoringDefaults(Class)
   const params: Readonly<Record<string, ParamSpec>> = Class.params
   const found: Array<[string, string]> = []
@@ -101,6 +102,16 @@ export function colliderParamFindings(props: unknown, file: string, ref: string)
 export function rigidBodyParamFindings(props: unknown, file: string, ref: string): ValidationFinding[] {
   const problems = specProblems(RigidBody, objectRecord(props), [])
   return toFindings(problems, { code: 'invalid-rigid-body-param', component: 'RigidBody', file, ref })
+}
+
+/**
+ * The authored CharacterMotor params outside the ranges `CharacterMotor.params`
+ * declare (issue #166 CA-14): a negative or oversized `turnSpeed`, a `speed`
+ * or `jumpSpeed` outside its range; the action names are free text.
+ */
+export function characterMotorParamFindings(props: unknown, file: string, ref: string): ValidationFinding[] {
+  const problems = specProblems(CharacterMotor, objectRecord(props), [])
+  return toFindings(problems, { code: 'invalid-character-motor-param', component: 'CharacterMotor', file, ref })
 }
 
 const finding = (code: 'rigid-body-without-collider' | 'character-motor-without-body', message: string, where: { file: string; ref: string }): ValidationFinding => ({

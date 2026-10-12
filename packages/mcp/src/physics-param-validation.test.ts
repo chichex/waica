@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { colliderParamFindings, physicsCompositionFindings, rigidBodyParamFindings } from './physics-param-validation.js'
+import { characterMotorParamFindings, colliderParamFindings, physicsCompositionFindings, rigidBodyParamFindings } from './physics-param-validation.js'
 import { fallbackEntriesFor } from './project-component-fallbacks.js'
 import { cleanup, makeProject } from './test-helpers.js'
 import { validateProject } from './validation.js'
@@ -130,6 +130,7 @@ async function findingsOf(entities: unknown[], files: Record<string, string> = {
     [
       'invalid-collider-param',
       'invalid-rigid-body-param',
+      'invalid-character-motor-param',
       'rigid-body-without-collider',
       'character-motor-without-body',
       'component-space-mismatch',
@@ -279,5 +280,38 @@ describe('physicsCompositionFindings reads the RigidBody the runtime reads (PR #
     ]
     expect(physicsCompositionFindings(twice, FILE, 'Hero').map((finding) => finding.code)).toEqual(['character-motor-without-body'])
     expect(physicsCompositionFindings([...twice].reverse(), FILE, 'Hero')).toEqual([])
+  })
+})
+
+describe('CharacterMotor params (issue #166 CA-14)', () => {
+  it('reports invalid-character-motor-param for a negative turnSpeed and for the ranges CharacterMotor.params declare', () => {
+    const refs = (props: Record<string, unknown>): string[] => characterMotorParamFindings(props, FILE, 'Hero').map((finding) => finding.ref ?? '')
+    expect(refs({ turnSpeed: -1 })).toEqual(['Hero:CharacterMotor.turnSpeed'])
+    expect(refs({ turnSpeed: 2000, speed: 31, jumpSpeed: 'high' })).toEqual(['Hero:CharacterMotor.speed', 'Hero:CharacterMotor.jumpSpeed', 'Hero:CharacterMotor.turnSpeed'])
+    expect(refs({ turnSpeed: 0, speed: 6, leftAction: 'strafe' })).toEqual([])
+    const [finding] = characterMotorParamFindings({ turnSpeed: -1 }, FILE, 'Hero')
+    expect(finding).toMatchObject({ severity: 'error', code: 'invalid-character-motor-param', file: FILE })
+    expect(finding?.message).toContain('0 to 1440')
+  })
+
+  it('reaches validate_project from a scene entity, a prefab and an override', async () => {
+    const findings = await findingsOf(
+      [
+        { name: 'Hero', components: [{ type: 'Collider' }, { type: 'RigidBody', props: { type: 'kinematic' } }, { type: 'CharacterMotor', props: { turnSpeed: -30 } }] },
+        { name: 'Twin', prefab: 'characters/walker', overrides: { CharacterMotor: { speed: 99 } } },
+      ],
+      {
+        'src/characters/walker.character.json': JSON.stringify({
+          waicaPrefab: 1,
+          type: 'character',
+          components: [{ type: 'Collider' }, { type: 'RigidBody', props: { type: 'kinematic' } }, { type: 'CharacterMotor', props: { jumpSpeed: -1 } }],
+        }),
+      },
+    )
+    expect(findings.filter((finding) => finding.code === 'invalid-character-motor-param').map((finding) => finding.ref)).toEqual([
+      'characters/walker:CharacterMotor.jumpSpeed',
+      'Hero:CharacterMotor.turnSpeed',
+      'Twin:CharacterMotor.speed',
+    ])
   })
 })
