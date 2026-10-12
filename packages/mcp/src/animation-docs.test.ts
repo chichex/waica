@@ -83,3 +83,17 @@ describe('the 3D animation docs, layer 3 (issue #166 CA-16)', () => {
     expect(glossary).toMatch(/\*\*Facing\*\*:\n[^\n]*3D[^\n]*yaw/)
   })
 })
+
+describe('the 3D animation release docs, layer 4 (issue #166 CA-20)', () => {
+  it('carries a migration note for the next minor: the Clip Target seam, TriggerEnv.clipFinished, play restarting a finished clip and a motor that turns', async () => {
+    const readme = await text('packages/engine/README.md')
+
+    // Anchored on the note's subject, not on the version placeholder the release renames.
+    const start = readme.search(/## Migrating to [^\n]*3D animation/)
+    expect(start, 'the migration heading').toBeGreaterThan(0)
+    const note = readme.slice(start, readme.indexOf('\n## ', start + 1))
+    for (const topic of [/Clip Target/, /`isClipTarget`/, /`AnimatedSprite`/, /`TriggerEnv(\.clipFinished)?`[^\n]*clipFinished/, /`play\(`?[^\n]*(restart|replay)/, /`turnSpeed`/, /`clip:end`/]) {
+      expect(note, String(topic)).toMatch(topic)
+    }
+  })
+})

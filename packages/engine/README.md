@@ -25,6 +25,15 @@ A `Game` draws through three's `WebGPURenderer` (ADR 0025): WebGPU when the brow
 - **Tests under happy-dom.** happy-dom has no GPU: a project test that builds a `Game` replaces `WebGPURenderer` from `three/webgpu` with a fake (it previously replaced `WebGLRenderer` from `three`), whose `init()` resolves.
 - **Run Sessions.** A Run Session waits for the Render Backend before it reports ready, steps or screenshots, and its snapshots carry `backend`. A renderer that cannot initialize ends `start_project` with a runtime error that names the failure.
 
+## Migrating to 0.27.0: 3D animation
+
+A glTF's clips play (issue #166, ADR 0029): a `Model` keeps its `handle`, an `Animator` beside it plays the clips, a `StateMachine` drives either kind of sprite through one seam, and a 3D character turns to face its walk. Every 2D scene plays as it did; three things are additive and one is a small semantic change:
+
+- **The state machine plays through the Clip Target.** `StateMachine` no longer names `AnimatedSprite`: it plays each state's clip through the first sibling that satisfies `isClipTarget` (`{ current, clipNames, clipFinished, play(name), setFlipX? }`), which is the `AnimatedSprite` in a 2D scene and the `Animator` in a 3D one. A project component that plays clips can be that target by exposing the same members. A target that lists no clips yet (a model still loading) is asked anyway and remembers the request, so a sprite with no clips at all no longer warns about its states.
+- **`TriggerEnv.clipFinished`.** Code that builds a `TriggerEnv` for `evaluateTrigger` or `nextTransition` (tests of role graphs, mostly) adds `clipFinished: false`; the new `clip:end` trigger reads it.
+- **`play(current)` restarts a finished clip.** `AnimatedSprite.play(name)` is still a no-op for the clip that is running, but once a `loop: false` clip has ended, playing it again restarts it from frame 0 (and clears `clipFinished`). A project that re-entered a state to keep holding a one-shot's last frame now sees the clip replay; keep the entity in its state instead.
+- **A `CharacterMotor` turns by default.** `turnSpeed` (degrees per second, default 540) turns the entity's yaw toward where it walks; set `turnSpeed: 0` to snap, and keep the yaw out of your own code's hands or they will fight. The kinematic body is unaffected.
+
 ## Migrating to 0.26.0: 3D scenes
 
 A scene can declare a 3D space (issue #154, ADR 0027). Nothing about a 2D scene changes — every existing scene file loads as it did — but a few types and one build setting do:
