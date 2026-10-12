@@ -341,6 +341,27 @@ describe('StateMachine runtime characterization', () => {
     expect(target.played).toEqual(['idle', 'run'])
   })
 
+  it('asks a target that lists no clips yet to play, with no warning: a loading glb remembers the request (issue #166 CA-15)', () => {
+    class LoadingTarget extends Component {
+      static override componentName = 'LoadingTarget'
+      current: string | undefined
+      readonly clipNames: string[] = []
+      clipFinished = false
+      readonly requested: string[] = []
+      play(name: string): void {
+        this.requested.push(name)
+      }
+    }
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const target = new LoadingTarget()
+    const { machine } = makeMachine({ idle: {} }, undefined, [target])
+
+    machine.onReady()
+
+    expect(target.requested).toEqual(['idle'])
+    expect(warn).not.toHaveBeenCalled()
+  })
+
   it('documents initial onEnter running before later siblings are spawned', () => {
     // Documented current behavior, not approved behavior: Entity.add calls
     // onReady immediately, so an initial hook cannot see components added later.

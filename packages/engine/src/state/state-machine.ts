@@ -247,7 +247,9 @@ export class StateMachine extends Component {
     if (!target) return
     const clip = this.states[state]?.clip ?? state
     if (this.playDirectionalClip(target, clip)) return
-    if (target.clipNames.includes(clip)) {
+    // A target that lists no clips yet (an Animator whose glb is still
+    // loading) is asked anyway and remembers the request (issue #166).
+    if (target.clipNames.length === 0 || target.clipNames.includes(clip)) {
       target.play(clip)
     } else if (!this.warnedClips.has(state)) {
       this.warnedClips.add(state)
