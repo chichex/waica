@@ -66,3 +66,20 @@ describe('the 3D animation docs, layer 2 (issue #166 CA-12)', () => {
     expect(await bulletOf('Model')).toMatch(/Animator/)
   })
 })
+
+describe('the 3D animation docs, layer 3 (issue #166 CA-16)', () => {
+  it('documents turnSpeed, turnYawToward and the character role with its signals in the engine README (the package has no README of its own)', async () => {
+    const character = await bulletOf('Character')
+    for (const topic of [/`turnSpeed`/, /540/, /`turnYawToward[`(]/, /`character`/, /`CHARACTER_ROLE`/, /`CHARACTER_STATE_GRAPH`/, /`move`/, /`stop`/, /`rise`/, /`fall`/, /`land`/, /`Animator`/]) {
+      expect(character, String(topic)).toMatch(topic)
+    }
+    expect(await bulletOf('RigidBody')).toMatch(/invalid-character-motor-param/)
+  })
+
+  it('says in the glossary that the Character Motor turns the model toward its walk, and that 3D facing is the yaw', async () => {
+    const glossary = await text('CONTEXT.md')
+
+    expect(glossary).toMatch(/\*\*Character Motor\*\*:\n[^\n]*turns[^\n]*(toward|to face)/)
+    expect(glossary).toMatch(/\*\*Facing\*\*:\n[^\n]*3D[^\n]*yaw/)
+  })
+})

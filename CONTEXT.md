@@ -20,7 +20,7 @@ An archetype's declaration of which animation clips a role's states require and 
 _Avoid_: clip list, animation set
 
 **Facing**:
-The compass direction (`n`, `ne`, `e`, …) an entity reports so its current state resolves to a directional clip. It is read off motion as seen on screen — a motor's screen-relative input or a patrol's projected rail — never off logical axes.
+The compass direction (`n`, `ne`, `e`, …) an entity reports so its current state resolves to a directional clip. It is read off motion as seen on screen — a motor's screen-relative input or a patrol's projected rail — never off logical axes. In a 3D scene facing is the entity's yaw about +y, turned toward its walk, not a compass clip: no directional clips and no flips.
 _Avoid_: orientation, heading, direction
 
 **Clip Target**:
@@ -211,7 +211,7 @@ What makes a **Collider** move: `dynamic` falls, bounces and stacks under the sc
 _Avoid_: body, DynamicBody (the 2D component), physics object
 
 **Character Motor**:
-The behavior that turns the player's actions into a kinematic **Rigid Body**'s walking and jumping on the world axes (`-z` is forward); it moves nothing itself. Not the 2D motors, which resolve their own collisions against **Solids**.
+The behavior that turns the player's actions into a kinematic **Rigid Body**'s walking and jumping on the world axes (`-z` is forward) and turns the model toward where it walks at a turn speed; it moves nothing itself. Not the 2D motors, which resolve their own collisions against **Solids**.
 _Avoid_: character controller (Rapier's, which the engine drives), player movement
 
 **Light**:
