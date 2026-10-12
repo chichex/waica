@@ -228,6 +228,15 @@ describe('CharacterMotor turns toward where it walks (issue #166 CA-14)', () => 
     expect(Math.abs(yaw(fixture) - Math.PI / 2)).toBeLessThan(1e-9)
   })
 
+  it('turns toward its desired velocity, so a speed of 0 (a stun, a dialogue) holds the yaw under input (review of PR #169)', async () => {
+    const fixture = await playground(player({ speed: 0 }))
+    const start = where(fixture)
+    hold(fixture, 'right')
+    fixture.step(30)
+    expect(yaw(fixture)).toBe(0)
+    expect(where(fixture).x).toBeCloseTo(start.x, 6)
+  })
+
   it('turns at turnSpeed degrees per second: 180°/s reaches a quarter turn in 30 steps, not in 15', async () => {
     const fixture = await playground(player({ turnSpeed: 180 }))
     hold(fixture, 'right')

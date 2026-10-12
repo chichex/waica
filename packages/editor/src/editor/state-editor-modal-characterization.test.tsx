@@ -193,3 +193,28 @@ describe('StateEditorModal (characterization): code and closing', () => {
     expect(spies.onSave).not.toHaveBeenCalled()
   })
 })
+
+describe('StateEditorModal: the clip ends trigger (issue #166)', () => {
+  it('offers the clip ends trigger and keeps clip:end through a save (issue #166)', async () => {
+    const user = userEvent.setup()
+    const machine = {
+      role: 'player',
+      initial: 'idle',
+      states: { idle: { transitions: [] }, attack: { transitions: [{ on: 'clip:end', to: 'idle' }] } },
+    }
+    const spies = renderStateModal(machine, 'attack', { clips: ['idle', 'attack'] })
+
+    expect(screen.getByDisplayValue('clip ends')).toBeDefined()
+    await user.click(screen.getByRole('button', { name: '+ transition' }))
+    await user.selectOptions(screen.getByDisplayValue('signal'), 'clip')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(spies.onSave).toHaveBeenLastCalledWith({
+      states: {
+        idle: { transitions: [] },
+        attack: { transitions: [{ on: 'clip:end', to: 'idle' }, { on: 'clip:end', to: 'idle' }] },
+      },
+      initial: 'idle',
+    })
+  })
+})

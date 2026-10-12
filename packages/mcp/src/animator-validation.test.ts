@@ -28,6 +28,16 @@ async function rigProject(scene: string, extra: Record<string, string | Uint8Arr
   return validateProject(project)
 }
 
+/** The scene JSON of one 3D scene holding the given entities. */
+function sceneOf(entities: unknown[]): string {
+  return JSON.stringify({ waicaScene: 3, render: { space: '3d' }, camera: { kind: 'perspective' }, entities })
+}
+
+/** A character prefab holding the given components. */
+function prefabOf(components: unknown[]): string {
+  return JSON.stringify({ waicaPrefab: 1, type: 'character', components })
+}
+
 const MODEL = { type: 'Model', props: { src: 'src/art/rig.glb' } }
 const machine = (states: Record<string, unknown>) => ({ type: 'StateMachine', props: { initial: 'idle', states } })
 
@@ -85,5 +95,50 @@ describe('validate_project knows the Animator: loops, .gltf, absent files, 2D (i
     expect(codes(result, 'component-space-mismatch').map(({ message }) => message)).toEqual(
       expect.arrayContaining([expect.stringContaining('"Animator"')]),
     )
+  })
+})
+
+describe('validate_project, the Animator and prefabs (review of PR #168)', () => {
+  it('reports a missing initialClip once, for the prefab, not again for each plain instance', async () => {
+    const result = await rigProject(sceneOf([{ name: 'A', prefab: 'characters/hero' }, { name: 'B', prefab: 'characters/hero' }]), {
+      'src/characters/hero.character.json': prefabOf([MODEL, { type: 'Animator', props: { initialClip: 'Idle' } }]),
+    })
+
+    expect(codes(result, 'missing-clip').map(({ file, ref }) => [file, ref])).toEqual([['src/characters/hero.character.json', 'Animator.initialClip']])
+  })
+
+  it('reports animator-without-model per entity, like the physics composition: an instance that completes the prefab passes, a plain one reports under its name', async () => {
+    const result = await rigProject(
+      sceneOf([
+        { name: 'Skinned', prefab: 'characters/bare', overrides: { Model: { src: 'src/art/rig.glb' } } },
+        { name: 'Inline', prefab: 'characters/naked', components: [MODEL] },
+        { name: 'Bare', prefab: 'characters/bare' },
+      ]),
+      {
+        'src/characters/bare.character.json': prefabOf([{ type: 'Model' }, { type: 'Animator' }]),
+        'src/characters/naked.character.json': prefabOf([{ type: 'Animator' }]),
+      },
+    )
+
+    expect(codes(result, 'animator-without-model').map(({ file, ref }) => [file, ref])).toEqual([['src/scenes/main.scene.json', 'Bare']])
+  })
+
+  it('keeps the prefab-level state findings single when an override touches Model.color or Animator.fade, and re-checks an instance whose Model.src changes the clips', async () => {
+    const gltf = JSON.stringify({ asset: { version: '2.0' }, animations: [{ name: 'idle' }, { name: 'attack' }], buffers: [] })
+    const result = await rigProject(
+      sceneOf([
+        { name: 'Tinted', prefab: 'characters/hero', overrides: { Model: { color: 16711680 } } },
+        { name: 'Soft', prefab: 'characters/hero', overrides: { Animator: { fade: 0.3 } } },
+        { name: 'Reskinned', prefab: 'characters/hero', overrides: { Model: { src: 'src/art/other.gltf' } } },
+      ]),
+      {
+        'src/characters/hero.character.json': prefabOf([MODEL, { type: 'Animator', props: { initialClip: 'idle' } }, machine({ idle: {}, attack: {} })]),
+        'src/art/other.gltf': gltf,
+      },
+    )
+
+    expect(codes(result, 'missing-clip').map(({ file, ref, message }) => [file, ref, message])).toEqual([
+      ['src/characters/hero.character.json', 'characters/hero', 'State "attack" uses missing animation clip "attack".'],
+    ])
   })
 })

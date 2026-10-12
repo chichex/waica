@@ -1,7 +1,5 @@
 import type { THREE } from '@waica/engine'
 
-const TAU = Math.PI * 2
-
 /** An angle folded into (-π, π]. */
 const wrap = (radians: number): number => Math.atan2(Math.sin(radians), Math.cos(radians))
 
@@ -23,5 +21,5 @@ export function turnYawToward(node: THREE.Object3D, dirX: number, dirZ: number, 
   const delta = wrap(target - node.rotation.y)
   const limit = (turnSpeed * Math.PI * dt) / 180
   const step = Math.max(-limit, Math.min(limit, delta))
-  node.rotation.y = wrap(node.rotation.y + step) % TAU
+  node.rotation.y = wrap(node.rotation.y + step)
 }

@@ -29,8 +29,8 @@ import {
 import { directFiles, requireWaicaProject } from './project-path.js'
 import { validatePrefabSceneTransition } from './scene-transition-validation.js'
 import { validateScene } from './scene-validation.js'
-import { validateAnimator } from './animator-validation.js'
-import { projectRoleStateSources, validateStateMachines } from './state-machine-validation.js'
+import { validateAnimatorClips } from './animator-validation.js'
+import { behaviorRoleStates, projectRoleStateSources, validateStateMachines } from './state-machine-validation.js'
 import { stockAnchoredPieces, uiBindingFindings } from './ui-binding-validation.js'
 import {
   add,
@@ -104,7 +104,7 @@ function validatePrefab(
     file,
     context,
   )
-  validateAnimator(components, { file, ref, context })
+  validateAnimatorClips(components, { file, ref, context })
   validateStateMachines(components, file, ref, context)
   validateComponentUpdateSchedule(components, file, ref, context)
 }
@@ -313,8 +313,13 @@ async function validationContext(
     bindings: controlBindings(fixed.get('src/controls.json')),
     ...artRefs,
     uiPieces: inputs.uiPieces,
-    anchoredPieces: new Set(stockAnchoredPieces(sources.behaviors.module)),
+    ...behaviorFacts(sources.behaviors.module),
   }
+}
+
+/** What validate_project takes from the loaded `@waica/behaviors` module: its stock Anchored Pieces and the states of the roles it exports. */
+function behaviorFacts(behaviors: Record<string, unknown>): Pick<ValidationContext, 'anchoredPieces' | 'behaviorRoles'> {
+  return { anchoredPieces: new Set(stockAnchoredPieces(behaviors)), behaviorRoles: behaviorRoleStates(behaviors) }
 }
 
 /**
