@@ -55,79 +55,35 @@ function dropNodes(json, names) {
   return dropped
 }
 
-/** The accessors the kept document references, in first-use order. */
-function usedAccessors(json) {
-  const used = new Set()
-  for (const mesh of json.meshes ?? []) {
-    for (const primitive of mesh.primitives) {
-      for (const accessor of Object.values(primitive.attributes)) used.add(accessor)
-      if (primitive.indices !== undefined) used.add(primitive.indices)
-      for (const target of primitive.targets ?? []) for (const accessor of Object.values(target)) used.add(accessor)
-    }
-  }
-  for (const skin of json.skins ?? []) if (skin.inverseBindMatrices !== undefined) used.add(skin.inverseBindMatrices)
-  for (const animation of json.animations ?? []) {
-    for (const sampler of animation.samplers) {
-      used.add(sampler.input)
-      used.add(sampler.output)
-    }
-  }
-  return used
+/** The accessor indices one mesh primitive references: its attributes, indices and morph targets. */
+function primitiveAccessors(primitive) {
+  const targets = (primitive.targets ?? []).flatMap((target) => Object.values(target))
+  return [...Object.values(primitive.attributes), ...(primitive.indices === undefined ? [] : [primitive.indices]), ...targets]
 }
 
-/** Rebuilds accessors, bufferViews and the binary from what is used; `remap` says where each old index went. */
-function repack(json, binary) {
-  const keptMeshes = new Set(json.nodes.flatMap((node) => (node.mesh !== undefined ? [node.mesh] : [])))
-  const meshRemap = new Map()
-  json.meshes = json.meshes.filter((_, index) => keptMeshes.has(index)).map((mesh, newIndex, kept) => mesh)
-  let meshIndex = 0
-  for (let index = 0; index < keptMeshes.size + 100; index += 1) if (keptMeshes.has(index)) meshRemap.set(index, meshIndex++)
-  for (const node of json.nodes) if (node.mesh !== undefined) node.mesh = meshRemap.get(node.mesh)
+/** The accessor indices the kept document references: meshes, skins and animations. */
+function usedAccessors(json) {
+  const meshes = (json.meshes ?? []).flatMap((mesh) => mesh.primitives.flatMap(primitiveAccessors))
+  const skins = (json.skins ?? []).flatMap((skin) => (skin.inverseBindMatrices === undefined ? [] : [skin.inverseBindMatrices]))
+  const animations = (json.animations ?? []).flatMap((animation) => animation.samplers.flatMap((sampler) => [sampler.input, sampler.output]))
+  return new Set([...meshes, ...skins, ...animations])
+}
 
-  const used = usedAccessors(json)
-  const accessorRemap = new Map()
-  const viewRemap = new Map()
-  const views = []
-  const chunks = []
-  let offset = 0
-  const accessors = []
-  for (const [index, accessor] of json.accessors.entries()) {
-    if (!used.has(index)) continue
-    const copy = { ...accessor }
-    if (accessor.bufferView !== undefined) {
-      if (!viewRemap.has(accessor.bufferView)) {
-        const view = json.bufferViews[accessor.bufferView]
-        const bytes = binary.subarray(view.byteOffset ?? 0, (view.byteOffset ?? 0) + view.byteLength)
-        const padded = Buffer.concat([bytes, Buffer.alloc((4 - (bytes.length % 4)) % 4, 0)])
-        viewRemap.set(accessor.bufferView, views.length)
-        views.push({ ...view, buffer: 0, byteOffset: offset })
-        chunks.push(padded)
-        offset += padded.length
-      }
-      copy.bufferView = viewRemap.get(accessor.bufferView)
-    }
-    accessorRemap.set(index, accessors.length)
-    accessors.push(copy)
-  }
-  // Images keep their own views (never through an accessor).
-  for (const image of json.images ?? []) {
-    if (image.bufferView === undefined) continue
-    const view = json.bufferViews[image.bufferView]
-    const bytes = binary.subarray(view.byteOffset ?? 0, (view.byteOffset ?? 0) + view.byteLength)
-    const padded = Buffer.concat([bytes, Buffer.alloc((4 - (bytes.length % 4)) % 4, 0)])
-    image.bufferView = views.length
-    views.push({ ...view, buffer: 0, byteOffset: offset })
-    chunks.push(padded)
-    offset += padded.length
-  }
-  const renumber = (value) => accessorRemap.get(value)
-  for (const mesh of json.meshes) {
-    for (const primitive of mesh.primitives) {
-      for (const key of Object.keys(primitive.attributes)) primitive.attributes[key] = renumber(primitive.attributes[key])
-      if (primitive.indices !== undefined) primitive.indices = renumber(primitive.indices)
-      for (const target of primitive.targets ?? []) for (const key of Object.keys(target)) target[key] = renumber(target[key])
-    }
-  }
+/** Points one record's values (a primitive's attributes, a morph target) at their new accessor indices. */
+function renumberRecord(record, renumber) {
+  for (const key of Object.keys(record)) record[key] = renumber(record[key])
+}
+
+/** Points one mesh primitive's attributes, indices and morph targets at their new accessor indices. */
+function renumberPrimitive(primitive, renumber) {
+  renumberRecord(primitive.attributes, renumber)
+  if (primitive.indices !== undefined) primitive.indices = renumber(primitive.indices)
+  for (const target of primitive.targets ?? []) renumberRecord(target, renumber)
+}
+
+/** Points every accessor reference of the document at its new index. */
+function renumberAccessors(json, renumber) {
+  for (const mesh of json.meshes) for (const primitive of mesh.primitives) renumberPrimitive(primitive, renumber)
   for (const skin of json.skins ?? []) if (skin.inverseBindMatrices !== undefined) skin.inverseBindMatrices = renumber(skin.inverseBindMatrices)
   for (const animation of json.animations ?? []) {
     for (const sampler of animation.samplers) {
@@ -135,11 +91,59 @@ function repack(json, binary) {
       sampler.output = renumber(sampler.output)
     }
   }
+}
+
+/** Keeps only the meshes some node still draws, renumbering the nodes' references. */
+function pruneMeshes(json) {
+  const kept = [...new Set(json.nodes.flatMap((node) => (node.mesh === undefined ? [] : [node.mesh])))].sort((a, b) => a - b)
+  const remap = new Map(kept.map((index, newIndex) => [index, newIndex]))
+  json.meshes = kept.map((index) => json.meshes[index])
+  for (const node of json.nodes) if (node.mesh !== undefined) node.mesh = remap.get(node.mesh)
+}
+
+/** Appends the bytes of one buffer view to the new binary, padded to 4 bytes, and describes the copy. */
+function copier(json, binary) {
+  const views = []
+  const chunks = []
+  let offset = 0
+  const copy = (viewIndex) => {
+    const view = json.bufferViews[viewIndex]
+    const bytes = binary.subarray(view.byteOffset ?? 0, (view.byteOffset ?? 0) + view.byteLength)
+    const padded = Buffer.concat([bytes, Buffer.alloc((4 - (bytes.length % 4)) % 4, 0)])
+    views.push({ ...view, buffer: 0, byteOffset: offset })
+    chunks.push(padded)
+    offset += padded.length
+    return views.length - 1
+  }
+  return { copy, views, binary: () => Buffer.concat(chunks) }
+}
+
+/** Rebuilds accessors, bufferViews and the binary from what is used, in first-use order. */
+function repack(json, binary) {
+  pruneMeshes(json)
+  const used = usedAccessors(json)
+  const { copy, views, binary: packed } = copier(json, binary)
+  const viewRemap = new Map()
+  const accessorRemap = new Map()
+  const accessors = []
+  for (const [index, accessor] of json.accessors.entries()) {
+    if (!used.has(index)) continue
+    const copied = { ...accessor }
+    if (accessor.bufferView !== undefined) {
+      if (!viewRemap.has(accessor.bufferView)) viewRemap.set(accessor.bufferView, copy(accessor.bufferView))
+      copied.bufferView = viewRemap.get(accessor.bufferView)
+    }
+    accessorRemap.set(index, accessors.length)
+    accessors.push(copied)
+  }
+  // Images keep their own views (never through an accessor).
+  for (const image of json.images ?? []) if (image.bufferView !== undefined) image.bufferView = copy(image.bufferView)
+  renumberAccessors(json, (value) => accessorRemap.get(value))
   json.accessors = accessors
   json.bufferViews = views
-  const packed = Buffer.concat(chunks)
-  json.buffers = [{ byteLength: packed.length }]
-  return packed
+  const bytes = packed()
+  json.buffers = [{ byteLength: bytes.length }]
+  return bytes
 }
 
 const { input, output, keepClips, dropNodes: names } = parseArgs(process.argv.slice(2))

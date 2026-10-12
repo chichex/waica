@@ -22,13 +22,13 @@ function parseGlb(): { bytes: Uint8Array; json: GlbJson } {
 /** Every clip name the main scene's Player refers to: the Animator's initialClip and overrides, and each state's clip. */
 function referencedClips(): string[] {
   const player = sceneFile.entities.find((entity) => entity.name === 'Player')
-  const components = (player?.components ?? []) as Array<{ type: string; props?: Record<string, unknown> }>
+  const components: Array<{ type: string; props?: Record<string, unknown> }> = player?.components ?? []
   const animator = components.find((component) => component.type === 'Animator')?.props ?? {}
   const machine = components.find((component) => component.type === 'StateMachine')?.props ?? {}
   const states = (machine.states ?? {}) as Record<string, { clip?: string }>
   const names = [
     ...(typeof animator.initialClip === 'string' ? [animator.initialClip] : []),
-    ...Object.keys((animator.clips ?? {}) as Record<string, unknown>),
+    ...Object.keys(animator.clips ?? {}),
     ...Object.entries(states).filter(([name]) => name !== '*').map(([name, state]) => state.clip ?? name),
   ]
   return [...new Set(names)]
@@ -55,7 +55,9 @@ describe('examples/smoke-3d/art/knight.glb (issue #166 CA-17)', () => {
   })
 
   it('loads through the real GLTFLoader as a SkinnedMesh with its clips', async () => {
-    vi.stubGlobal('fetch', () => Promise.resolve(new Response(bytes, { status: 200 })))
+    // A copy: its buffer is a plain ArrayBuffer, which Response takes as a body.
+    const body = new Uint8Array(bytes).buffer
+    vi.stubGlobal('fetch', () => Promise.resolve(new Response(body, { status: 200 })))
     const model = await new GltfModelBackend().load('/knight.glb')
     let skinned = 0
     model.scene.traverse((object) => {

@@ -4,11 +4,15 @@
 // demo Project, loaded by name over the running Game, stepped and screenshot.
 // The snapshot, validate_project and the decoded pixels are asserted, and (issue
 // #159, CA-23) so is the physics: the Crate falls and rests, the Player walks,
-// jumps and lands, all through the Runtime Bridge on whichever Render Backend.
+// jumps and lands, all through the Runtime Bridge on whichever Render Backend;
+// and (issue #166, CA-18) so is the animation: the Player is KayKit's Knight
+// driven by the character role through an Animator, idling, walking and
+// jumping with the clips the snapshot reports, moving pixels while it idles.
 import assert from 'node:assert/strict'
-import { copyFile, mkdir, readFile } from 'node:fs/promises'
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { CLIPS, POSE_HASH_FRAME, animationOf, clipDuration, exerciseIdle, poseHashOf, session } from './runtime-e2e-animation.mjs'
 import { brightness, expectsBlankLighting, maxChannelDifference, rewriteScene, samplesInPage } from './runtime-e2e-lighting.mjs'
 
 const EXAMPLE = fileURLToPath(new URL('../examples/smoke-3d/', import.meta.url))
@@ -64,64 +68,83 @@ async function samplePoints(scene) {
   }
 }
 
-/**
- * The physics of the running scene (issue #159 CA-23), driven through the
- * Runtime Bridge: the world is ready with the scene's gravity, the Crate falls
- * and rests on the Ground, holding right walks the Player, a jump lifts it and
- * it lands grounded. Tolerances, not exact values: the exact simulation is
- * pinned by the position hash of physics-determinism.test.ts, not by Chrome's
- * wasm.
- */
-async function exercisePhysics({ helpers, client, project, gravity }) {
-  const { call } = helpers
-  const control = async (operation, extra = {}) => {
-    const result = await call(client, 'control_runtime', { project_path: project, operation, ...extra })
-    assert.equal(result.isError, undefined, `${operation} failed: ${JSON.stringify(result.structuredContent ?? result.content)}`)
-  }
-  const look = async (name) => {
-    const inspected = await call(client, 'inspect_runtime', { project_path: project, entity_names: [name] })
-    assert.equal(inspected.isError, undefined, `inspect_runtime(${name}) failed: ${JSON.stringify(inspected)}`)
-    const { snapshot } = inspected.structuredContent
-    const entity = snapshot.entities.find((candidate) => candidate.name === name)
-    assert.ok(entity, `the snapshot must hold ${name}`)
-    return { position: entity.transform.position, physics: snapshot.physics, body: snapshot.physics?.bodies.find((body) => body.entity === name) }
-  }
-
-  const falling = await look('Crate')
-  assert.equal(falling.physics?.state, 'ready', `the physics world must be ready; ${JSON.stringify(falling.physics)}`)
-  assert.deepEqual(falling.physics.gravity, gravity, 'the snapshot reports the scene gravity')
-  await control('step', { frames: 120 })
-  const crate = await look('Crate')
-  assert.ok(Math.abs(crate.position.y - 0.5) <= 2e-2, `the Crate must rest on the Ground at y = 0.5; ${JSON.stringify(crate.position)}`)
-  assert.equal(crate.body?.type, 'dynamic')
-
+/** Holding right for 30 frames: the Player walks on the walk clip, in the walk state, facing +x (issue #166 CA-18). */
+async function exerciseWalk({ control, look }) {
   const start = (await look('Player')).position
   await control('hold', { action: 'right' })
   await control('step', { frames: 30 })
+  const walking = await look('Player')
   await control('release', { action: 'right' })
-  const walked = (await look('Player')).position
+  const walked = walking.position
   assert.ok(walked.x - start.x > 1.5, `holding right must walk the Player; ${JSON.stringify({ start, walked })}`)
+  const animation = animationOf(walking)
+  assert.equal(animation.state, 'walk', `holding right must put the Player in walk; ${JSON.stringify(animation)}`)
+  assert.equal(animation.clip, CLIPS.walk, `walking must play the walk clip; ${JSON.stringify(animation)}`)
+  assert.ok(Math.abs(animation.yaw - Math.PI / 2) <= 0.05, `walking toward +x must turn the Player to yaw π/2; ${JSON.stringify(animation)}`)
+  return { walked: walked.x - start.x, walkYaw: animation.yaw, walkState: animation.state }
+}
 
+/** A jump press: the Player rises on the jump clip in the jump state, then lands grounded and idle on the idle clip. */
+async function exerciseJump({ control, look }) {
   // Let it come to rest where the walk ended before it jumps.
   await control('step', { frames: 30 })
   const standing = (await look('Player')).position
   await control('press', { action: 'jump' })
   await control('step', { frames: 20 })
-  const rising = (await look('Player')).position
+  const risingPlayer = await look('Player')
+  const rising = risingPlayer.position
   assert.ok(rising.y > standing.y + 0.5, `a jump must lift the Player above where it stood; ${JSON.stringify({ standing, rising })}`)
+  const jump = animationOf(risingPlayer)
+  assert.equal(jump.state, 'jump', `rising must put the Player in jump; ${JSON.stringify(jump)}`)
+  assert.equal(jump.clip, CLIPS.jump, `jumping must play the jump clip; ${JSON.stringify(jump)}`)
   await control('step', { frames: 90 })
   const landed = await look('Player')
   assert.equal(landed.body?.grounded, true, `the Player must land grounded; ${JSON.stringify(landed)}`)
-  return { crateY: crate.position.y, walked: walked.x - start.x, jumpedTo: rising.y, landedY: landed.position.y }
+  const back = animationOf(landed)
+  assert.equal(back.state, 'idle', `landing must bring the Player back to idle; ${JSON.stringify(back)}`)
+  assert.equal(back.clip, CLIPS.idle, `landing must play the idle clip again; ${JSON.stringify(back)}`)
+  return { jumpedTo: rising.y, landedY: landed.position.y, jumpState: jump.state, landedState: back.state }
+}
+
+/**
+ * The physics of the running scene (issue #159 CA-23) and its animation
+ * (issue #166 CA-18), driven through the Runtime Bridge: the world is ready
+ * with the scene's gravity, the Crate falls and rests on the Ground, the
+ * Player idles, holding right walks it facing +x on the walk clip, a jump
+ * lifts it on the jump clip and it lands grounded and idle. Tolerances, not
+ * exact values: the exact simulation is pinned by the hashes of
+ * physics-determinism.test.ts and animator-determinism.test.ts, not by Chrome.
+ */
+async function exerciseSimulation({ helpers, client, project, gravity, inspector, renderBackend, keep, idleDuration }) {
+  const run = session({ helpers, client, project })
+  const falling = await run.look('Crate')
+  assert.equal(falling.physics?.state, 'ready', `the physics world must be ready; ${JSON.stringify(falling.physics)}`)
+  assert.deepEqual(falling.physics.gravity, gravity, 'the snapshot reports the scene gravity')
+  await run.control('step', { frames: 120 })
+  const crate = await run.look('Crate')
+  assert.ok(Math.abs(crate.position.y - 0.5) <= 2e-2, `the Crate must rest on the Ground at y = 0.5; ${JSON.stringify(crate.position)}`)
+  assert.equal(crate.body?.type, 'dynamic')
+  const idle = await exerciseIdle(run, { inspector, renderBackend, keep, idleDuration })
+  const walk = await exerciseWalk(run)
+  const jump = await exerciseJump(run)
+  return {
+    crateY: crate.position.y,
+    walked: walk.walked,
+    jumpedTo: jump.jumpedTo,
+    landedY: jump.landedY,
+    animation: { idleDelta: idle.delta, differingIdlePixels: idle.differingIdlePixels, walkYaw: walk.walkYaw, states: ['idle', walk.walkState, jump.jumpState, jump.landedState] },
+  }
 }
 
 /**
  * One paused Run Session: boot, swap to the 3D scene, step to FRAME, snapshot,
- * screenshot, and, with `physics` (the scene's gravity), the physics phase
- * after the screenshot (so the frame it took is the same in every variant);
- * then stop.
+ * screenshot, and, with `simulation` (the scene's gravity and what the
+ * animation checks need), the simulation phase after the screenshot (so the
+ * frame it took is the same in every variant); then stop. The snapshot at
+ * FRAME carries the Player's pose hash, which both Render Backend legs must
+ * agree on (issue #166 CA-18).
  */
-async function capture({ helpers, client, project, chrome, physics = null }) {
+async function capture({ helpers, client, project, chrome, simulation = null }) {
   const { call, assertScreenshot, assertUrlClosed } = helpers
   const start = await call(client, 'start_project', {
     project_path: project,
@@ -138,11 +161,12 @@ async function capture({ helpers, client, project, chrome, physics = null }) {
     const inspected = await call(client, 'inspect_runtime', { project_path: project })
     assert.equal(inspected.isError, undefined, `inspect_runtime failed: ${JSON.stringify(inspected)}`)
     // After the screenshot, so the frame every variant is compared at stays frame 13.
-    const simulated = physics ? await exercisePhysics({ helpers, client, project, gravity: physics.gravity }) : null
+    const simulated = simulation ? await exerciseSimulation({ helpers, client, project, ...simulation }) : null
     return {
       image: shot.image,
       snapshot: inspected.structuredContent.snapshot,
       physics: simulated,
+      poseHashAt: { frame: POSE_HASH_FRAME, hash: poseHashOf(inspected.structuredContent.snapshot) },
       // The swap answers once the incoming scene's art settled: the glb is in these numbers, not in start_project's.
       assets: { booted: start.structuredContent.assets, swapped: swapped.structuredContent.assets },
     }
@@ -153,11 +177,21 @@ async function capture({ helpers, client, project, chrome, physics = null }) {
   }
 }
 
-/** Copies the example's scene and glb into a generated Project. */
+/**
+ * Copies the example's scene and glbs into a generated Project, and registers
+ * the character role the way a project does (src/roles/*.ts, which the
+ * template's main.ts loads): the demo's archetype bundle ships the 2D roles only.
+ */
 async function copyExample(project) {
   await mkdir(path.join(project, 'src/art'), { recursive: true })
+  await mkdir(path.join(project, 'src/roles'), { recursive: true })
   await copyFile(path.join(EXAMPLE, 'src/scenes/main.scene.json'), path.join(project, `src/scenes/${SCENE}.scene.json`))
   await copyFile(path.join(EXAMPLE, 'art/tree.glb'), path.join(project, 'src/art/tree.glb'))
+  await copyFile(path.join(EXAMPLE, 'art/knight.glb'), path.join(project, 'src/art/knight.glb'))
+  await writeFile(
+    path.join(project, 'src/roles/character.ts'),
+    "import { CHARACTER_ROLE } from '@waica/behaviors'\nimport { defineRole } from '@waica/engine'\n\ndefineRole('character', CHARACTER_ROLE)\n",
+  )
 }
 
 /** The runnable Project: a demo wired to the checkout's packages, with the example copied in. */
@@ -208,12 +242,12 @@ async function assertPlatformerMotorMismatch({ helpers, client, project }) {
   }
 }
 
-/** The glb loaded: after the swap nothing is pending or failed, and one more asset loaded than at boot. */
+/** The glbs loaded: after the swap nothing is pending or failed, and two more assets loaded than at boot (the tree and the knight). */
 function assertGlbLoaded({ booted, swapped }) {
   assert.ok(booted && swapped, `start_project and the scene swap must carry assets; ${JSON.stringify({ booted, swapped })}`)
-  assert.equal(swapped.failed, 0, `the glb must load; ${JSON.stringify({ booted, swapped })}`)
-  assert.equal(swapped.pending, 0, `the swap must wait for the glb; ${JSON.stringify({ booted, swapped })}`)
-  assert.ok(swapped.loaded > booted.loaded, `the swap must have loaded the glb; ${JSON.stringify({ booted, swapped })}`)
+  assert.equal(swapped.failed, 0, `the glbs must load; ${JSON.stringify({ booted, swapped })}`)
+  assert.equal(swapped.pending, 0, `the swap must wait for the glbs; ${JSON.stringify({ booted, swapped })}`)
+  assert.ok(swapped.loaded >= booted.loaded + 2, `the swap must have loaded the tree and the knight; ${JSON.stringify({ booted, swapped })}`)
 }
 
 /** The snapshot of the 3D scene: space, view, a model off the ground plane, the Sun and the Point Light. */
@@ -292,9 +326,9 @@ const blockerAfter = (scene) => {
 }
 
 /** One variant of the copied scene: edit, capture, restore, sample. */
-async function variant({ helpers, client, project, chrome, inspector, points, edit, physics }) {
+async function variant({ helpers, client, project, chrome, inspector, points, edit, simulation }) {
   const restore = await rewriteScene(project, SCENE, edit)
-  const frame = await capture({ helpers, client, project, chrome, physics }).finally(restore)
+  const frame = await capture({ helpers, client, project, chrome, simulation }).finally(restore)
   return { ...frame, samples: await inspector.evaluate(samplesInPage, { base64: frame.image, points }) }
 }
 
@@ -339,17 +373,21 @@ export async function runSmoke3dLeg({ client, root, parent, chrome, viteBin, eng
   const scene = JSON.parse(await readFile(path.join(project, `src/scenes/${SCENE}.scene.json`), 'utf8'))
   const points = await samplePoints(scene)
   const inspector = await helpers.openPngInspector(playwright, chrome.executablePath)
+  const keep = (name, image) => helpers.keepScreenshot(`${label}-smoke-3d-${name}.png`, image)
   const run = (name, edit, options = {}) => variant({ helpers, client, project, chrome, inspector, points, edit, ...options }).then(async (frame) => {
-    await helpers.keepScreenshot(`${label}-smoke-3d-${name}.png`, frame.image)
+    await keep(name, frame.image)
     return frame
   })
+  const idleDuration = await clipDuration(path.join(project, 'src/art/knight.glb'), CLIPS.idle)
   try {
     // The scene's own gravity, read from the file the project runs, not repeated here.
-    const shipped = await run('shipped', () => {}, { physics: { gravity: scene.simulation.gravity } })
+    const shipped = await run('shipped', () => {}, { simulation: { gravity: scene.simulation.gravity, inspector, renderBackend, keep, idleDuration } })
     assertGlbLoaded(shipped.assets)
     assertSnapshot(shipped.snapshot)
+    assert.match(shipped.poseHashAt.hash ?? '', /^[0-9a-f]{8}$/, `the snapshot at frame ${FRAME} must carry the Player's pose hash; ${JSON.stringify(shipped.poseHashAt)}`)
+    const animation = { ...shipped.physics.animation, poseHashAt: shipped.poseHashAt }
     if (expectsBlankLighting(renderBackend)) {
-      return { smoke3d: { validation, physics: shipped.physics, ...(await assertExpectedBlank({ inspector, image: shipped.image })) } }
+      return { smoke3d: { validation, physics: shipped.physics, animation, ...(await assertExpectedBlank({ inspector, image: shipped.image })) } }
     }
     await assertFrame({ inspector, image: shipped.image, samples: shipped.samples })
     const lit = lightingMeasures(shipped.samples)
@@ -363,7 +401,7 @@ export async function runSmoke3dLeg({ client, root, parent, chrome, viteBin, eng
       blockedLast: await run('blocker-last', blockerAfter),
       inspector,
     })
-    return { smoke3d: { validation, physics: shipped.physics, samples: shipped.samples, lit, sunOff, lampOff, depth } }
+    return { smoke3d: { validation, physics: shipped.physics, animation, samples: shipped.samples, lit, sunOff, lampOff, depth } }
   } finally {
     await inspector.close()
   }
