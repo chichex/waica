@@ -151,7 +151,7 @@ The named mixing group a sound plays on, with its own volume and mute, scaled by
 _Avoid_: bus, track, group, layer
 
 **Assets Ready**:
-The state of a Game in which every texture requested so far — by a spawned component or by an explicit preload — has loaded, or has failed and been recorded. A host awaits it before its first frame and a Run Session waits for it before reporting ready or capturing a screenshot; a later spawn that requests new art leaves the state until that art settles.
+The state of a Game in which every texture and model requested so far — by a spawned component or by an explicit preload — has loaded, or has failed and been recorded; a glTF's clips are playable from then on. A host awaits it before its first frame and a Run Session waits for it before reporting ready or capturing a screenshot; a later spawn that requests new art leaves the state until that art settles.
 _Avoid_: loaded, preloaded, settled, scene ready
 
 **Sprite Batch**:
@@ -175,8 +175,12 @@ What a scene's `z` axis and camera mean, declared as `render.space`. A `2d` scen
 _Avoid_: mode, dimension, 2.5D
 
 **Model**:
-A 3D thing an entity draws in a 3D scene: a glTF/glb file loaded once through `game.assets`, or a primitive shape (box, sphere, plane) with a color and a size. The entity's position, rotation and scale place it, and a click can pick it.
+A 3D thing an entity draws in a 3D scene: a glTF/glb file loaded once through `game.assets`, or a primitive shape (box, sphere, plane) with a color and a size. The entity's position, rotation and scale place it, a click can pick it, and an **Animator** beside it plays the file's clips.
 _Avoid_: mesh, 3D sprite, object
+
+**Animator**:
+The component that plays a Model's glTF clips: one mixer over the entity's own copy of the file, advanced once per **Simulation Step**, with a crossfade between clips and per-clip loop and speed overrides. The **Clip Target** of a 3D scene.
+_Avoid_: animation controller, animation player, mixer (three's, which it owns)
 
 **Sun**:
 The directional light of a 3D scene: it shines along one direction in world space, wherever its entity stands, with a color and an intensity. It casts no shadows.
