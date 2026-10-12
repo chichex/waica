@@ -8,7 +8,7 @@ vi.mock(
     (await import('../../engine/src/test-renderer.js')).withFakeRenderer(await importOriginal<Record<string, unknown>>()),
 )
 
-import { Animator, GltfModelBackend, installArchetype, Model, nextTransition, roleDefinition, StateMachine, type SceneEntityJson, type TriggerEnv } from '@waica/engine'
+import { Animator, GltfModelBackend, installArchetype, Model, nextTransition, roleDefinition, StateMachine, type SceneComponentJson, type SceneEntityJson, type TriggerEnv } from '@waica/engine'
 import { use3dTestEnvironment } from '../../engine/src/test-game-3d.js'
 import { FLOOR, physicsFixture, type PhysicsFixture } from '../../engine/src/test-physics-3d.js'
 import { RIG_URL, serveRig } from '../../engine/src/test-rig.js'
@@ -32,12 +32,12 @@ function withSignals(...signals: string[]): TriggerEnv {
 const BINDINGS = { left: ['ArrowLeft'], right: ['ArrowRight'], up: ['ArrowUp'], down: ['ArrowDown'], jump: ['Space'] }
 
 /** The Player: a capsule, a kinematic body, the motor and a machine in the character role; `extra` adds a Model and an Animator. */
-function player(extra: unknown[] = [], machineStates: Record<string, unknown> = states): SceneEntityJson {
+function player(extra: SceneComponentJson[] = [], machineStates: Record<string, unknown> = states): SceneEntityJson {
   return {
     name: 'Player',
     position: [0, 0.9, 0],
     components: [
-      ...(extra as SceneEntityJson['components'] & unknown[]),
+      ...extra,
       { type: 'Collider', props: { shape: 'capsule', radius: 0.4, height: 1.8 } },
       { type: 'RigidBody', props: { type: 'kinematic' } },
       { type: 'CharacterMotor' },
@@ -109,6 +109,28 @@ describe('the character role on a live body (issue #166 CA-15)', () => {
     fixture.step(60)
     expect(stateOf(fixture)).toBe('idle')
   })
+
+  it('never passes through fall or jump while Rapier loads, on its first physics step, or after a teleport: air with no vertical speed is not a fall (review of PR #169)', async () => {
+    // Spawned at rest, 5 cm above the floor, as the engine's character-controller tests spawn: a capsule authored exactly on the floor (y 0.9) is sunk and pushed out by the controller first, a real fall and rise.
+    const atRest: SceneEntityJson = { ...player(), position: [0, 0.95, 0] }
+    const fixture = await physicsFixture([FLOOR, atRest], { components: { CharacterMotor, StateMachine, Model, Animator }, game: { bindings: BINDINGS }, settle: false })
+    const seen: string[] = []
+    const run = (frames: number): void => {
+      for (let frame = 0; frame < frames; frame += 1) {
+        fixture.step(1)
+        seen.push(stateOf(fixture))
+      }
+    }
+
+    run(10)
+    await fixture.game.assets.ready()
+    run(20)
+    defined(fixture.game.find('Player')).position.set(3, 0.95, 0)
+    run(5)
+
+    expect(seen).toHaveLength(35)
+    expect(new Set(seen)).toEqual(new Set(['idle']))
+  })
 })
 
 describe('the character role beside an Animator on the rig (issue #166 CA-15)', () => {
@@ -123,8 +145,9 @@ describe('the character role beside an Animator on the rig (issue #166 CA-15)', 
     })
     const animator = defined(defined(fixture.game.find('Player')).get(Animator))
     const seen: string[] = []
+    // state:clip pairs, so the sequence proves the state and not only the clip (fall plays walk here).
     const note = (): void => {
-      const current = animator.current ?? 'none'
+      const current = `${stateOf(fixture)}:${animator.current ?? 'none'}`
       if (seen.at(-1) !== current) seen.push(current)
     }
     const run = (frames: number): void => {
@@ -144,7 +167,7 @@ describe('the character role beside an Animator on the rig (issue #166 CA-15)', 
     control(fixture, 'press', 'jump')
     run(110)
 
-    expect(seen).toEqual(['idle', 'walk', 'idle', 'jump', 'walk', 'idle'])
+    expect(seen).toEqual(['idle:idle', 'walk:walk', 'idle:idle', 'jump:jump', 'fall:walk', 'idle:idle'])
     expect(stateOf(fixture)).toBe('idle')
   })
 })

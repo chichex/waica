@@ -132,3 +132,34 @@ describe('clip:end against a directional contract (review of PR #167)', () => {
     expect(await codesOf(project, 'missing-clip')).toEqual([])
   })
 })
+
+describe('no-state-code and a role registered by reference (review of PR #169)', () => {
+  /** A 3D scene whose Player runs the four character states in the given role. */
+  const characterScene = (role: string): string =>
+    JSON.stringify({
+      waicaScene: 3,
+      render: { space: '3d' },
+      camera: { kind: 'perspective' },
+      entities: [{ name: 'Player', components: [{ type: 'StateMachine', props: { role, initial: 'idle', states: { idle: {}, walk: {}, jump: {}, fall: {} } } }] }],
+    })
+
+  it('recognises the states of a @waica/behaviors role passed to defineRole, which the file never spells out', async () => {
+    const project = await makeProject({
+      'src/roles/character.ts': "import { defineRole } from '@waica/engine'\nimport { CHARACTER_ROLE } from '@waica/behaviors'\n\ndefineRole('character', CHARACTER_ROLE)\n",
+      'src/scenes/main.scene.json': characterScene('character'),
+    })
+    roots.push(project)
+
+    expect(await codesOf(project, 'no-state-code')).toEqual([])
+  })
+
+  it('still reports a role registered through an identifier @waica/behaviors does not export', async () => {
+    const project = await makeProject({
+      'src/roles/guard.ts': "import { defineRole } from '@waica/engine'\nimport { GUARD_ROLE } from './guard-definition'\n\ndefineRole('guard', GUARD_ROLE)\n",
+      'src/scenes/main.scene.json': characterScene('guard'),
+    })
+    roots.push(project)
+
+    expect((await codesOf(project, 'no-state-code')).map(({ ref }) => ref)).toEqual(['Player', 'Player', 'Player', 'Player'])
+  })
+})

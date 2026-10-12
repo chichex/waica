@@ -59,7 +59,29 @@ function roleSourceHasState(source: string, state: string): boolean {
   return new RegExp(`\\b${escapedRegex(state)}\\s*:`).test(registration)
 }
 
-/** Mirrors flat state files and textually recognizes project role registrations. */
+/**
+ * The states of every role definition `@waica/behaviors` exports
+ * (`CHARACTER_ROLE`, `PLAYER_ROLE`, …), by export name: what a project role
+ * file registers when it passes one by reference, `defineRole('character',
+ * CHARACTER_ROLE)`, and spells no state of its own (review of PR #169).
+ */
+export function behaviorRoleStates(behaviors: Record<string, unknown>): ReadonlyMap<string, ReadonlySet<string>> {
+  const roles = new Map<string, ReadonlySet<string>>()
+  for (const [name, value] of Object.entries(behaviors)) {
+    const states = objectRecord(value).states
+    if (states && typeof states === 'object') roles.set(name, new Set(Object.keys(states)))
+  }
+  return roles
+}
+
+/** The states of the `@waica/behaviors` role definition the role's registration passes by reference, if it does. */
+function referencedBehaviorStates(source: string, role: string, behaviorRoles: ValidationContext['behaviorRoles']): ReadonlySet<string> | undefined {
+  const reference = new RegExp(`\\bdefine(?:Role|States)\\s*\\(\\s*(['"])${escapedRegex(role)}\\1\\s*,\\s*([A-Za-z_$][\\w$]*)`).exec(source)
+  const identifier = reference?.[2]
+  return identifier === undefined ? undefined : behaviorRoles.get(identifier)
+}
+
+/** Mirrors flat state files and recognizes project role registrations: textually, or by a `@waica/behaviors` role passed by reference. */
 function stateCodeExists(
   role: string,
   state: string,
@@ -71,8 +93,8 @@ function stateCodeExists(
     (!!roleStates && Object.hasOwn(roleStates, state)) ||
     (!!logicStates && Object.hasOwn(logicStates, state)) ||
     context.stateFiles.has(state) ||
-    (context.roleStateSources.get(role) ?? []).some((source) =>
-      roleSourceHasState(source, state),
+    (context.roleStateSources.get(role) ?? []).some(
+      (source) => roleSourceHasState(source, state) || (referencedBehaviorStates(source, role, context.behaviorRoles)?.has(state) ?? false),
     )
   )
 }

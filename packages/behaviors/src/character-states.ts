@@ -48,7 +48,10 @@ export const CHARACTER_STATE_GRAPH: RoleGraph = {
  * input in its own update and the engine's character controller moves the
  * body, so this only reads the kinematic RigidBody and reports what it is
  * doing as signals — `land` plus `move` or `stop` on the ground, `rise` or
- * `fall` in the air. Unmatched signals are no-ops.
+ * `fall` in the air once it has vertical speed. Air without vertical speed
+ * reports nothing: the body is not grounded before its first physics step
+ * (the spawn, every step while Rapier loads, the step after a teleport), and
+ * that is not a fall (review of PR #169). Unmatched signals are no-ops.
  */
 export function characterUpdate({ entity, fsm }: StateContext): void {
   const body = entity.get(RigidBody)
@@ -57,8 +60,10 @@ export function characterUpdate({ entity, fsm }: StateContext): void {
   if (body.grounded) {
     fsm.signal('land')
     fsm.signal(Math.hypot(x, z) > MOVE_THRESHOLD ? 'move' : 'stop')
-  } else {
-    fsm.signal(y > 0 ? 'rise' : 'fall')
+  } else if (y > 0) {
+    fsm.signal('rise')
+  } else if (y < 0) {
+    fsm.signal('fall')
   }
 }
 

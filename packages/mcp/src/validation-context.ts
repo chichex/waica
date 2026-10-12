@@ -75,6 +75,8 @@ export interface ValidationContext {
   declaredStats: Set<string>
   stateFiles: Set<string>
   roleStateSources: Map<string, string[]>
+  /** The states of every role definition `@waica/behaviors` exports, by export name — see behaviorRoleStates. */
+  behaviorRoles: ReadonlyMap<string, ReadonlySet<string>>
   bindings: Record<string, string[]>
   soundRefs: ReadonlySet<string>
   /** Every uri a `kind: 'model'` param (Model.src) may validly name — see projectModelRefs. */

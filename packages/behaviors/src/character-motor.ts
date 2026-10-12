@@ -11,11 +11,14 @@ import { turnYawToward } from './facing-3d.js'
  * press is consumed only when the body jumped, so a press in the air stays
  * readable (a double jump, a glide). It also faces where it walks (issue
  * #166 CA-14): each step with a non-zero desired velocity turns the entity's
- * yaw toward it by at most `turnSpeed` degrees per second (0 snaps), with no
- * input the yaw holds; the body is unaffected (a kinematic body's rotation is
- * locked and its capsule is symmetric). With no kinematic body beside it, it
- * does nothing (`validate_project` reports it). Actions with no binding read
- * 0, so a Game without bindings stands still.
+ * yaw toward it by at most `turnSpeed` degrees per second (0 snaps); with no
+ * input, or a `speed` of 0, the yaw holds. The body is unaffected: a
+ * kinematic body keeps the rotation it spawned with, so give it a Collider
+ * that looks the same from every side — a capsule or a sphere with no x/z
+ * `offset` — or the turned model and a box or offset collider disagree about
+ * where the character ends. With no kinematic body beside it, it does nothing
+ * (`validate_project` reports it). Actions with no binding read 0, so a Game
+ * without bindings stands still.
  */
 export class CharacterMotor extends Component {
   static override componentName = 'CharacterMotor'
@@ -55,7 +58,8 @@ export class CharacterMotor extends Component {
     const length = Math.hypot(x, z)
     const scale = length > 1 ? this.speed / length : this.speed
     body.desiredVelocity = { x: x * scale, z: z * scale }
-    turnYawToward(this.entity.node, x, z, this.turnSpeed, dt)
+    // Toward the velocity it asked for, not the raw input: a speed of 0 walks nowhere and turns nowhere.
+    turnYawToward(this.entity.node, body.desiredVelocity.x, body.desiredVelocity.z, this.turnSpeed, dt)
     if (input.justPressed(this.jumpAction) && body.jump(this.jumpSpeed)) input.consume(this.jumpAction)
   }
 }
