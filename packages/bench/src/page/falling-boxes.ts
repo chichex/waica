@@ -64,7 +64,7 @@ export function fallingBoxes(n: number): ScenarioPlan {
       entities: [floor, sun, ...boxes],
     },
     registry: { components: { Model, Sun, Collider, RigidBody } },
-    textures: [],
+    preload: [],
     steps: FALLING_BOXES_STEPS,
   }
 }

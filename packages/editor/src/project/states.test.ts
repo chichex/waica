@@ -195,3 +195,12 @@ describe('listRoleFiles', () => {
     expect(await listRoleFiles(fs)).toEqual([])
   })
 })
+
+describe('stateIssues beside a Model (issue #166 CA-11)', () => {
+  it('raises no clip warning when the clips are unknown: a glb the editor does not parse', () => {
+    const machine = machineProps({ type: 'StateMachine', props: { role: 'player', states: { idle: {}, dash: { clip: 'Dash' } } } })
+    expect(stateIssues('idle', machine, null, []).map((issue) => issue.text)).not.toContain('No animation for this state')
+    expect(stateIssues('dash', machine, null, []).map((issue) => issue.text)).not.toContain('No animation for this state')
+    expect(stateIssues('idle', machine, [], []).map((issue) => issue.text)).toContain('No animation for this state')
+  })
+})

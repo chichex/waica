@@ -1,19 +1,23 @@
-import type { SceneComponentJson, StateJson } from '@waica/engine'
+import { resolveDirectionalClip, type SceneComponentJson, type StateJson } from '@waica/engine'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
+import { animatorClipLoops } from './animator-validation.js'
 import { isPlayableClip } from './clip-resolution.js'
-import { siblingClips } from './component-validation.js'
+import { siblingClipLoops } from './component-validation.js'
 import { objectRecord } from './component-metadata.js'
 import { isBoundAction } from './param-reference-resolution.js'
 import { directFiles } from './project-path.js'
 import { add, type ValidationContext } from './validation-context.js'
 
-/** Where the machines being checked live, and the clips their sibling AnimatedSprite declares. */
+/** Where the machines being checked live, and the clips their sibling Clip Target declares. */
 interface MachineScope {
   readonly file: string
   readonly ref: string | undefined
   readonly context: ValidationContext
-  readonly clips: Set<string> | undefined
+  /** Whether each declared clip loops (an AnimatedSprite ClipDef's `loop`, default true); undefined with no sibling target. */
+  readonly clipLoops: ReadonlyMap<string, boolean> | undefined
+  /** The declared clip names: `clipLoops`' keys, undefined with no sibling target. */
+  readonly clips: ReadonlySet<string> | undefined
 }
 
 /** One state of a machine, with the machine's whole state table for cross-state checks. */
@@ -21,6 +25,10 @@ interface MachineState {
   readonly name: string
   readonly definition: StateJson
   readonly states: Record<string, StateJson>
+  /** The state's `clip` override, undefined when it plays the clip of its name. */
+  readonly explicitClip: string | undefined
+  /** The clip the runtime looks up: the override, else the state's name. */
+  readonly clip: string
 }
 
 function machineStates(component: SceneComponentJson): Record<string, StateJson> {
@@ -51,7 +59,29 @@ function roleSourceHasState(source: string, state: string): boolean {
   return new RegExp(`\\b${escapedRegex(state)}\\s*:`).test(registration)
 }
 
-/** Mirrors flat state files and textually recognizes project role registrations. */
+/**
+ * The states of every role definition `@waica/behaviors` exports
+ * (`CHARACTER_ROLE`, `PLAYER_ROLE`, …), by export name: what a project role
+ * file registers when it passes one by reference, `defineRole('character',
+ * CHARACTER_ROLE)`, and spells no state of its own (review of PR #169).
+ */
+export function behaviorRoleStates(behaviors: Record<string, unknown>): ReadonlyMap<string, ReadonlySet<string>> {
+  const roles = new Map<string, ReadonlySet<string>>()
+  for (const [name, value] of Object.entries(behaviors)) {
+    const states = objectRecord(value).states
+    if (states && typeof states === 'object') roles.set(name, new Set(Object.keys(states)))
+  }
+  return roles
+}
+
+/** The states of the `@waica/behaviors` role definition the role's registration passes by reference, if it does. */
+function referencedBehaviorStates(source: string, role: string, behaviorRoles: ValidationContext['behaviorRoles']): ReadonlySet<string> | undefined {
+  const reference = new RegExp(`\\bdefine(?:Role|States)\\s*\\(\\s*(['"])${escapedRegex(role)}\\1\\s*,\\s*([A-Za-z_$][\\w$]*)`).exec(source)
+  const identifier = reference?.[2]
+  return identifier === undefined ? undefined : behaviorRoles.get(identifier)
+}
+
+/** Mirrors flat state files and recognizes project role registrations: textually, or by a `@waica/behaviors` role passed by reference. */
 function stateCodeExists(
   role: string,
   state: string,
@@ -63,8 +93,8 @@ function stateCodeExists(
     (!!roleStates && Object.hasOwn(roleStates, state)) ||
     (!!logicStates && Object.hasOwn(logicStates, state)) ||
     context.stateFiles.has(state) ||
-    (context.roleStateSources.get(role) ?? []).some((source) =>
-      roleSourceHasState(source, state),
+    (context.roleStateSources.get(role) ?? []).some(
+      (source) => roleSourceHasState(source, state) || (referencedBehaviorStates(source, role, context.behaviorRoles)?.has(state) ?? false),
     )
   )
 }
@@ -75,7 +105,9 @@ export function validateStateMachines(
   ref: string | undefined,
   context: ValidationContext,
 ): void {
-  const scope: MachineScope = { file, ref, context, clips: siblingClips(components) }
+  // The clips of the entity's Clip Target: its AnimatedSprite's, or its Animator's from the glb its Model names (issue #166 CA-9).
+  const clipLoops = siblingClipLoops(components) ?? animatorClipLoops(components, context)
+  const scope: MachineScope = { file, ref, context, clipLoops, clips: clipLoops && new Set(clipLoops.keys()) }
   for (const machine of components.filter((component) => component.type === 'StateMachine')) {
     validateMachine(machine, scope)
   }
@@ -87,8 +119,9 @@ function validateMachine(machine: SceneComponentJson, scope: MachineScope): void
   const role = typeof machine.props?.role === 'string' ? machine.props.role : ''
   const initial = initialState(machine, realNames)
   for (const name of realNames) {
-    const state: MachineState = { name, definition: objectRecord(states[name]), states }
+    const state = machineState(name, states)
     validateStateClip(state, scope)
+    validateClipEndEdge(state, scope)
     validateStateTransitions(state, scope)
     if (name !== initial && !isTransitionTarget(states, name)) {
       add(
@@ -113,15 +146,20 @@ function validateMachine(machine: SceneComponentJson, scope: MachineScope): void
   }
 }
 
+/** One state with the clip it looks up at runtime: its `clip` override, else its name. */
+function machineState(name: string, states: Record<string, StateJson>): MachineState {
+  const definition = objectRecord(states[name])
+  const explicitClip = typeof definition.clip === 'string' ? definition.clip : undefined
+  return { name, definition, states, explicitClip, clip: explicitClip ?? name }
+}
+
 /** The machine's declared initial state, else its first real state. */
 function initialState(machine: SceneComponentJson, realNames: readonly string[]): string {
   const declared = machine.props?.initial
   return typeof declared === 'string' && declared ? declared : (realNames[0] ?? '')
 }
 
-function validateStateClip({ name, definition }: MachineState, scope: MachineScope): void {
-  const explicitClip = typeof definition.clip === 'string' ? definition.clip : undefined
-  const clip = explicitClip ?? name
+function validateStateClip({ name, explicitClip, clip }: MachineState, scope: MachineScope): void {
   // No "empty means none" special case here: the runtime looks up
   // `this.states[state]?.clip ?? state`, and '' survives that nullish
   // coalesce, so an explicit empty clip is looked up literally and must
@@ -137,6 +175,43 @@ function validateStateClip({ name, definition }: MachineState, scope: MachineSco
       explicitClip === undefined ? (scope.ref ?? name) : `StateMachine.states.${name}.clip`,
     )
   }
+}
+
+/**
+ * A `clip:end` edge fires only when the state's clip is a one-shot (issue
+ * #166 CA-2): on a looping clip it never fires, silently. A clip the target
+ * does not declare is `missing-clip`'s business and reports nothing here.
+ */
+function validateClipEndEdge({ name, definition, clip }: MachineState, scope: MachineScope): void {
+  const transitions = Array.isArray(definition.transitions) ? definition.transitions : []
+  if (!transitions.some((transition) => objectRecord(transition).on === 'clip:end')) return
+  const looping = loopingClipFor(clip, scope)
+  if (looping === undefined) return
+  add(
+    scope.context,
+    'warning',
+    'clip-end-on-looping-clip',
+    `State "${name}" leaves on clip:end, but its clip "${looping}" loops and never ends; set loop: false on the clip.`,
+    scope.file,
+    scope.ref ?? name,
+  )
+}
+
+/**
+ * The first clip the state can end up playing that loops, or undefined when
+ * none does. The literal name covers the name-based path; under a
+ * directional contract the runtime resolves `<state>-<dir>` per facing —
+ * mirrors and the contract's state fallbacks included, the same walk
+ * `isPlayableClip` takes — so each facing's resolved clip is checked too.
+ */
+function loopingClipFor(clip: string, scope: MachineScope): string | undefined {
+  const { clipLoops } = scope
+  if (!clipLoops) return undefined
+  const animation = scope.context.manifest.animation
+  const resolved = animation
+    ? animation.directions.map((direction) => resolveDirectionalClip(animation, clipLoops.keys(), clip, direction).clip)
+    : []
+  return [clip, ...resolved].find((candidate) => candidate !== undefined && clipLoops.get(candidate) === true)
 }
 
 function validateStateTransitions(state: MachineState, scope: MachineScope): void {

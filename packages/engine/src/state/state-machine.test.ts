@@ -25,7 +25,7 @@ import {
 } from './state-machine'
 
 function env(over: Partial<TriggerEnv> = {}): TriggerEnv {
-  return { justPressed: () => false, elapsed: 0, signals: new Set(), ...over }
+  return { justPressed: () => false, elapsed: 0, signals: new Set(), clipFinished: false, ...over }
 }
 
 describe('evaluateTrigger', () => {
@@ -58,6 +58,11 @@ describe('evaluateTrigger', () => {
   it('signal:<name> fires while the signal is queued', () => {
     expect(evaluateTrigger('signal:hurt', env({ signals: new Set(['hurt']) }))).toBe(true)
     expect(evaluateTrigger('signal:hurt', env())).toBe(false)
+  })
+
+  it('clip:end fires while the Clip Target reports its clip finished (issue #166 CA-2)', () => {
+    expect(evaluateTrigger('clip:end', env({ clipFinished: true }))).toBe(true)
+    expect(evaluateTrigger('clip:end', env())).toBe(false)
   })
 
   it('malformed or unknown triggers never fire', () => {

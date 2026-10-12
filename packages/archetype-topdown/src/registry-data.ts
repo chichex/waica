@@ -1,5 +1,6 @@
 import {
   AnimatedSprite,
+  Animator,
   Collider,
   Hitbox,
   Light,
@@ -55,6 +56,7 @@ export const TOPDOWN_REGISTRY_DATA: SceneRegistry = {
     Collider,
     RigidBody,
     CharacterMotor,
+    Animator,
     Tilemap,
     Solid,
     Hitbox,

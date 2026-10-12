@@ -69,7 +69,11 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     forwardAction: 'up',
     backAction: 'down',
     jumpAction: 'jump',
+    // Issue #166 CA-14: the motor turns toward its walk.
+    turnSpeed: 540,
   },
+  // Issue #166 CA-10: every archetype registers the Animator, the 3D Clip Target.
+  Animator: { initialClip: '', fade: 0.15, clips: {} },
   ParticleEmitter: {
     rate: 0,
     emitting: true,
@@ -240,7 +244,7 @@ describe('PLATFORMER_REGISTRY_DATA ui', () => {
 })
 
 describe('PLATFORMER_REGISTRY_DATA authoring defaults', () => {
-  it('covers exactly the 22 registered components', () => {
+  it('covers exactly the 23 registered components', () => {
     expect(Object.keys(PLATFORMER_REGISTRY_DATA.components).sort()).toEqual(
       Object.keys(EXPECTED_DEFAULTS).sort(),
     )

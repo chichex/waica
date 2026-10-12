@@ -62,7 +62,9 @@ describe('CharacterMotor (CA-20)', () => {
       forwardAction: 'up',
       backAction: 'down',
       jumpAction: 'jump',
+      turnSpeed: 540,
     })
+    expect(CharacterMotor.params.turnSpeed).toEqual({ label: 'Turn speed (deg/s)', min: 0, max: 1440, step: 30 })
   })
 
   it('walks right at its speed: one second of a held action moves it speed units, within 5 percent', async () => {
@@ -195,5 +197,52 @@ describe('CharacterMotor without a body (CA-20)', () => {
     hold(none, 'right')
     expect(() => none.step(30)).not.toThrow()
     expect(defined(none.game.find('Player')).position.x).toBe(0)
+  })
+})
+
+describe('CharacterMotor turns toward where it walks (issue #166 CA-14)', () => {
+  const yaw = (fixture: PhysicsFixture): number => defined(fixture.game.find('Player')).node.rotation.y
+
+  it('faces +x (yaw π/2) after a second of walking right, and walks as far as before', async () => {
+    const fixture = await playground()
+    const start = where(fixture)
+    expect(yaw(fixture)).toBe(0)
+
+    hold(fixture, 'right')
+    fixture.step(60)
+
+    expect(Math.abs(yaw(fixture) - Math.PI / 2)).toBeLessThan(1e-3)
+    expect(where(fixture).x - start.x).toBeGreaterThan(6 * 0.95)
+    expect(where(fixture).x - start.x).toBeLessThan(6 * 1.05)
+    expect(where(fixture).z).toBeCloseTo(start.z, 3)
+  })
+
+  it('holds its yaw with no input, and snaps on the first step with turnSpeed 0', async () => {
+    const fixture = await playground(player({ turnSpeed: 0 }))
+    hold(fixture, 'right')
+    fixture.step(1)
+    expect(Math.abs(yaw(fixture) - Math.PI / 2)).toBeLessThan(1e-9)
+
+    fixture.bridge.control({ operation: 'release', action: 'right' })
+    fixture.step(30)
+    expect(Math.abs(yaw(fixture) - Math.PI / 2)).toBeLessThan(1e-9)
+  })
+
+  it('turns toward its desired velocity, so a speed of 0 (a stun, a dialogue) holds the yaw under input (review of PR #169)', async () => {
+    const fixture = await playground(player({ speed: 0 }))
+    const start = where(fixture)
+    hold(fixture, 'right')
+    fixture.step(30)
+    expect(yaw(fixture)).toBe(0)
+    expect(where(fixture).x).toBeCloseTo(start.x, 6)
+  })
+
+  it('turns at turnSpeed degrees per second: 180°/s reaches a quarter turn in 30 steps, not in 15', async () => {
+    const fixture = await playground(player({ turnSpeed: 180 }))
+    hold(fixture, 'right')
+    fixture.step(15)
+    expect(Math.abs(yaw(fixture) - Math.PI / 4)).toBeLessThan(1e-6)
+    fixture.step(15)
+    expect(Math.abs(yaw(fixture) - Math.PI / 2)).toBeLessThan(1e-6)
   })
 })

@@ -1,5 +1,5 @@
-import { CharacterMotor } from '@waica/behaviors'
-import { Collider, Game, Model, PointLight, RigidBody, Sun, type SceneJson, type SceneRegistry } from '@waica/engine'
+import { CHARACTER_ROLE, CharacterMotor } from '@waica/behaviors'
+import { Animator, Collider, defineRole, Game, Model, PointLight, RigidBody, StateMachine, Sun, type SceneJson, type SceneRegistry } from '@waica/engine'
 import { BINDINGS } from './controls'
 
 declare global {
@@ -35,10 +35,12 @@ for (const [path, url] of Object.entries(artFiles)) {
   artUrls[`src/art/${path.slice('../art/'.length)}`] = url
 }
 
-// No archetype: this example uses the engine's 3D components and the character
-// motor directly.
+// No archetype: this example uses the engine's 3D components, the character
+// motor and the character role directly (issue #166: the Player is an animated
+// glb whose StateMachine plays its clips through the Animator).
+defineRole('character', CHARACTER_ROLE)
 const registry: SceneRegistry = {
-  components: { Model, Sun, PointLight, Collider, RigidBody, CharacterMotor },
+  components: { Model, Animator, StateMachine, Sun, PointLight, Collider, RigidBody, CharacterMotor },
   resolveAsset: (uri) => artUrls[uri] ?? uri,
 }
 

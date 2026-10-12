@@ -21,6 +21,8 @@ describe('SWEEP', () => {
       'lights-occlusion-32': { kind: 'lights-occlusion', n: 32 },
       'falling-boxes-200': { kind: 'falling-boxes', n: 200 },
       'falling-boxes-1000': { kind: 'falling-boxes', n: 1000 },
+      'skinned-characters-50': { kind: 'skinned-characters', n: 50 },
+      'skinned-characters-200': { kind: 'skinned-characters', n: 200 },
     })
   })
 

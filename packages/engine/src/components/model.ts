@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu'
+import type { ModelHandle } from '../assets/model-cache.js'
 import { Component, type ComponentSpace, type ParamSpec } from '../component.js'
 
 export type ModelShape = 'box' | 'sphere' | 'plane'
@@ -42,10 +43,17 @@ export class Model extends Component {
     color: { label: 'Color', kind: 'color' },
     size: { label: 'Size', min: 0.01, step: 0.1 },
   } satisfies Record<string, ParamSpec>
-  static override transient = ['root']
+  static override transient = ['root', 'handle']
 
   /** What this Model draws, under the entity's node; null until it is ready. The Pointer ray-casts against it. */
   root: THREE.Group | null = null
+  /**
+   * The handle of the glTF it draws (issue #166 CA-6): `handle.root` is the
+   * child of `root`, `handle.animations` its clips once settled — what an
+   * Animator beside it plays. Null for a primitive, in a 2D scene and before
+   * the component is ready; replaced on every rebuild.
+   */
+  handle: ModelHandle | null = null
 
   private _src = ''
   private _shape: ModelShape = 'box'
@@ -104,8 +112,12 @@ export class Model extends Component {
 
   private build(): void {
     if (!this.root) return
-    if (this._src) this.root.add(this.game.assets.model(this._src).root)
-    else this.buildPrimitive(this.root)
+    if (this._src) {
+      this.handle = this.game.assets.model(this._src)
+      this.root.add(this.handle.root)
+    } else {
+      this.buildPrimitive(this.root)
+    }
   }
 
   private buildPrimitive(root: THREE.Group): void {
@@ -125,6 +137,7 @@ export class Model extends Component {
   /** Empties the root and disposes the primitive this Model created; a glTF's clone only leaves the graph. */
   private clear(): void {
     this.root?.clear()
+    this.handle = null
     if (!this._primitive) return
     this._primitive.mesh.geometry.dispose()
     this._primitive.mesh.material.dispose()

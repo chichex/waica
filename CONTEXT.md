@@ -20,8 +20,12 @@ An archetype's declaration of which animation clips a role's states require and 
 _Avoid_: clip list, animation set
 
 **Facing**:
-The compass direction (`n`, `ne`, `e`, …) an entity reports so its current state resolves to a directional clip. It is read off motion as seen on screen — a motor's screen-relative input or a patrol's projected rail — never off logical axes.
+The compass direction (`n`, `ne`, `e`, …) an entity reports so its current state resolves to a directional clip. It is read off motion as seen on screen — a motor's screen-relative input or a patrol's projected rail — never off logical axes. In a 3D scene facing is the entity's yaw about +y, turned toward its walk, not a compass clip: no directional clips and no flips.
 _Avoid_: orientation, heading, direction
+
+**Clip Target**:
+The one sibling component a State Machine plays clips through: it asks for a clip by name on entering a state, reads which names exist and which one runs, and learns from it that a one-shot clip ended (the `clip:end` trigger). An Animated Sprite in a 2D scene, an **Animator** in a 3D one, found by what it can do, not by its class.
+_Avoid_: sprite (when the 3D one is meant), animation component, animator (for the 2D one)
 
 **Chassis**:
 The factory baseline something starts from and cannot shed: a prefab's core components (appearance, collision — configurable, never removable) and, by extension, the generic project skeleton every new project is created from.
@@ -147,7 +151,7 @@ The named mixing group a sound plays on, with its own volume and mute, scaled by
 _Avoid_: bus, track, group, layer
 
 **Assets Ready**:
-The state of a Game in which every texture requested so far — by a spawned component or by an explicit preload — has loaded, or has failed and been recorded. A host awaits it before its first frame and a Run Session waits for it before reporting ready or capturing a screenshot; a later spawn that requests new art leaves the state until that art settles.
+The state of a Game in which every texture and model requested so far — by a spawned component or by an explicit preload — has loaded, or has failed and been recorded; a glTF's clips are playable from then on. A host awaits it before its first frame and a Run Session waits for it before reporting ready or capturing a screenshot; a later spawn that requests new art leaves the state until that art settles.
 _Avoid_: loaded, preloaded, settled, scene ready
 
 **Sprite Batch**:
@@ -171,8 +175,12 @@ What a scene's `z` axis and camera mean, declared as `render.space`. A `2d` scen
 _Avoid_: mode, dimension, 2.5D
 
 **Model**:
-A 3D thing an entity draws in a 3D scene: a glTF/glb file loaded once through `game.assets`, or a primitive shape (box, sphere, plane) with a color and a size. The entity's position, rotation and scale place it, and a click can pick it.
+A 3D thing an entity draws in a 3D scene: a glTF/glb file loaded once through `game.assets`, or a primitive shape (box, sphere, plane) with a color and a size. The entity's position, rotation and scale place it, a click can pick it, and an **Animator** beside it plays the file's clips.
 _Avoid_: mesh, 3D sprite, object
+
+**Animator**:
+The component that plays a Model's glTF clips: one mixer over the entity's own copy of the file, advanced once per **Simulation Step**, with a crossfade between clips and per-clip loop and speed overrides. The **Clip Target** of a 3D scene.
+_Avoid_: animation controller, animation player, mixer (three's, which it owns)
 
 **Sun**:
 The directional light of a 3D scene: it shines along one direction in world space, wherever its entity stands, with a color and an intensity. It casts no shadows.
@@ -203,7 +211,7 @@ What makes a **Collider** move: `dynamic` falls, bounces and stacks under the sc
 _Avoid_: body, DynamicBody (the 2D component), physics object
 
 **Character Motor**:
-The behavior that turns the player's actions into a kinematic **Rigid Body**'s walking and jumping on the world axes (`-z` is forward); it moves nothing itself. Not the 2D motors, which resolve their own collisions against **Solids**.
+The behavior that turns the player's actions into a kinematic **Rigid Body**'s walking and jumping on the world axes (`-z` is forward) and turns the model toward where it walks at a turn speed; it moves nothing itself. Not the 2D motors, which resolve their own collisions against **Solids**.
 _Avoid_: character controller (Rapier's, which the engine drives), player movement
 
 **Light**:

@@ -1,5 +1,6 @@
 import {
   AnimatedSprite,
+  Animator,
   Collider,
   DynamicBody,
   Hitbox,
@@ -50,6 +51,7 @@ export const PLATFORMER_REGISTRY_DATA: SceneRegistry = {
     Collider,
     RigidBody,
     CharacterMotor,
+    Animator,
     Solid,
     Hitbox,
     DynamicBody,

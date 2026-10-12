@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { installDirectionalAnimation, type DirectionalAnimation } from '../animation/directional'
-import type { Component } from '../component'
+import { Component } from '../component'
 import { resolveComponentUpdateSchedule } from '../component-update-schedule'
 import { AnimatedSprite } from '../components/animated-sprite'
 import type { Entity } from '../entity'
@@ -16,7 +16,7 @@ interface MachineHarness {
   kill(): void
 }
 
-function makeMachine(states: StateMachine['states'], sprite?: AnimatedSprite): MachineHarness {
+function makeMachine(states: StateMachine['states'], sprite?: AnimatedSprite, siblings: Component[] = []): MachineHarness {
   let pressed: string | null = null
   const used = new Set<string>()
   const consumed: string[] = []
@@ -36,6 +36,8 @@ function makeMachine(states: StateMachine['states'], sprite?: AnimatedSprite): M
     get alive() {
       return alive
     },
+    // What a real Entity holds: get() reads components (the Clip Target seam finds the sprite there, issue #166 CA-1).
+    components: [...(sprite ? [sprite] : []), ...siblings],
     get(Class: unknown) {
       return Class === AnimatedSprite ? sprite : undefined
     },
@@ -58,6 +60,48 @@ function makeMachine(states: StateMachine['states'], sprite?: AnimatedSprite): M
 /** A live collision partner: the machine skips contacts whose sides are dead. */
 function otherEntity(name: string): Entity {
   return { name, alive: true } as unknown as Entity
+}
+
+const DT = 1 / 60
+
+/** A machine in `attack` beside a mounted sprite whose 4-frame 8 fps attack clip loops or not; both stepped in schedule order (issue #166 CA-2). */
+function attackMachine(loop: boolean): { machine: StateMachine; step: () => void } {
+  const sprite = new AnimatedSprite()
+  sprite.clips = { attack: { frames: [0, 1, 2, 3], fps: 8, loop }, idle: { frames: [0], fps: 1 } }
+  sprite.entity = { node: { add: () => {} } } as unknown as Entity
+  sprite.game = {} as Game
+  sprite.onReady()
+  const { machine } = makeMachine(
+    {
+      attack: { transitions: [{ on: 'clip:end', to: 'idle' }] },
+      idle: {},
+    },
+    sprite,
+  )
+  machine.onReady()
+  // The schedule: the machine, then the sprite (updateAfter: ['StateMachine']).
+  const step = (): void => {
+    machine.onUpdate(DT)
+    sprite.onUpdate(DT)
+  }
+  return { machine, step }
+}
+
+/**
+ * A mounted sprite whose frame is readable from its texture offset (4-column
+ * grid, no sheet url so game.assets is never touched), beside a machine with
+ * `states`; both stepped in schedule order.
+ */
+function mountedSprite(clips: AnimatedSprite['clips']): { sprite: AnimatedSprite; frame: () => number } {
+  const sprite = new AnimatedSprite()
+  sprite.cols = 4
+  sprite.clips = clips
+  const added: unknown[] = []
+  sprite.entity = { node: { add: (child: unknown) => added.push(child) } } as unknown as Entity
+  sprite.game = {} as Game
+  sprite.onReady()
+  const mesh = added[0] as { material: { map: { offset: { x: number } } } }
+  return { sprite, frame: () => Math.round(mesh.material.map.offset.x * 4) }
 }
 
 beforeEach(() => resetRegistries())
@@ -283,6 +327,59 @@ describe('StateMachine runtime characterization', () => {
     expect(() => machine.onCollide(otherEntity('Other'))).not.toThrow()
   })
 
+  it('plays through the first sibling that is a Clip Target, with no AnimatedSprite at all (issue #166 CA-1)', () => {
+    class FakeTarget extends Component {
+      static override componentName = 'FakeTarget'
+      current: string | undefined
+      readonly clipNames = ['idle', 'run']
+      clipFinished = false
+      readonly played: string[] = []
+      play(name: string): void {
+        this.played.push(name)
+        this.current = name
+      }
+    }
+    const target = new FakeTarget()
+    const { machine } = makeMachine(
+      {
+        idle: { transitions: [{ on: 'signal:move', to: 'run' }] },
+        run: {},
+      },
+      undefined,
+      [target],
+    )
+
+    machine.onReady()
+    expect(target.played).toEqual(['idle'])
+
+    machine.signal('move')
+    machine.onUpdate(0.016)
+    expect(machine.current).toBe('run')
+    expect(target.played).toEqual(['idle', 'run'])
+  })
+
+  it('asks a target whose clips are pending to play, with no warning: a loading glb remembers the request (issue #166 CA-15)', () => {
+    class LoadingTarget extends Component {
+      static override componentName = 'LoadingTarget'
+      current: string | undefined
+      readonly clipNames: string[] = []
+      clipFinished = false
+      readonly clipsPending = true
+      readonly requested: string[] = []
+      play(name: string): void {
+        this.requested.push(name)
+      }
+    }
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const target = new LoadingTarget()
+    const { machine } = makeMachine({ idle: {} }, undefined, [target])
+
+    machine.onReady()
+
+    expect(target.requested).toEqual(['idle'])
+    expect(warn).not.toHaveBeenCalled()
+  })
+
   it('documents initial onEnter running before later siblings are spawned', () => {
     // Documented current behavior, not approved behavior: Entity.add calls
     // onReady immediately, so an initial hook cannot see components added later.
@@ -298,13 +395,50 @@ describe('StateMachine runtime characterization', () => {
   })
 })
 
-describe('StateMachine directional clip resolution', () => {
-  const DIRECTIONAL: DirectionalAnimation = {
-    directions: ['n', 's', 'e', 'w'],
-    fallbacks: { w: { dir: 'e', flip: true } },
-    contract: { required: ['idle'], fallbacks: { walk: 'idle' } },
-  }
+describe('StateMachine clip:end through the Clip Target (issue #166 CA-2)', () => {
+  it('leaves attack on the step the one-shot clip finishes and enters idle on the next: step 30 attack, step 31 idle', () => {
+    const { machine, step } = attackMachine(false)
+    for (let n = 1; n <= 30; n += 1) step()
+    expect(machine.current).toBe('attack')
+    step()
+    expect(machine.current).toBe('idle')
+  })
 
+  it('never fires for a looping clip', () => {
+    const { machine, step } = attackMachine(true)
+    for (let n = 1; n <= 300; n += 1) step()
+    expect(machine.current).toBe('attack')
+  })
+
+  it('reads false with no Clip Target beside it', () => {
+    const { machine } = makeMachine({ attack: { transitions: [{ on: 'clip:end', to: 'idle' }] }, idle: {} })
+    machine.onReady()
+    for (let n = 1; n <= 60; n += 1) machine.onUpdate(DT)
+    expect(machine.current).toBe('attack')
+  })
+
+})
+
+const DIRECTIONAL: DirectionalAnimation = {
+  directions: ['n', 's', 'e', 'w'],
+  fallbacks: { w: { dir: 'e', flip: true } },
+  contract: { required: ['idle'], fallbacks: { walk: 'idle' } },
+}
+
+/** A Clip Target with one east-facing clip and no mirror (`setFlipX`), like an Animator. */
+class NoMirrorTarget extends Component {
+  static override componentName = 'NoMirrorTarget'
+  current: string | undefined
+  readonly clipNames = ['walk-e']
+  clipFinished = false
+  readonly played: string[] = []
+  play(name: string): void {
+    this.played.push(name)
+    this.current = name
+  }
+}
+
+describe('StateMachine directional clip resolution', () => {
   interface DirectionalHarness {
     machine: StateMachine
     play: MockInstance<AnimatedSprite['play']>
@@ -322,7 +456,7 @@ describe('StateMachine directional clip resolution', () => {
       input: { justPressed: () => false, consumed: () => false, consume: () => {} },
     } as unknown as Game
     let current = facing
-    const components: unknown[] = facing === null ? [] : [{ getAnimationFacing: () => current }]
+    const components: unknown[] = [sprite, ...(facing === null ? [] : [{ getAnimationFacing: () => current }])]
     const entity = {
       name: 'Walker',
       game,
@@ -426,6 +560,124 @@ describe('StateMachine directional clip resolution', () => {
     expect(warn).toHaveBeenCalledWith(
       '[waica] "Walker": no clip "walk" for state "walk" — keeping "none"',
     )
+    warn.mockRestore()
+  })
+})
+
+describe('StateMachine clip:end reads only the requested clip (review of PR #167)', () => {
+  it('reports only the clip the current state asked for: a state with no clip of its own never inherits the finished one-shot (review of PR #167)', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { sprite } = mountedSprite({ attack: { frames: [0, 1, 2, 3], fps: 8, loop: false }, idle: { frames: [0], fps: 1 } })
+    const { machine } = makeMachine(
+      {
+        attack: { transitions: [{ on: 'clip:end', to: 'recover' }] },
+        recover: { transitions: [{ on: 'clip:end', to: 'idle' }] },
+        idle: {},
+      },
+      sprite,
+    )
+    machine.onReady()
+    const step = (): void => {
+      machine.onUpdate(DT)
+      sprite.onUpdate(DT)
+    }
+
+    for (let n = 1; n <= 31; n += 1) step()
+    expect(machine.current).toBe('recover')
+    for (let n = 1; n <= 60; n += 1) step()
+    expect(machine.current).toBe('recover')
+    expect(warn).toHaveBeenCalledWith('[waica] "Test character": no clip "recover" for state "recover" — keeping "attack"')
+    warn.mockRestore()
+  })
+})
+
+describe('StateMachine facing re-resolution (review of PR #167)', () => {
+  it('warns once per state when a mirrored clip meets a target without setFlipX, and still plays it (review of PR #167)', () => {
+    installDirectionalAnimation(DIRECTIONAL)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const target = new NoMirrorTarget()
+    let facing = 'w'
+    const { machine } = makeMachine({ walk: {} }, undefined, [target, { getAnimationFacing: () => facing } as unknown as Component])
+
+    machine.onReady()
+    facing = 'e'
+    machine.onUpdate(DT)
+    facing = 'w'
+    machine.onUpdate(DT)
+
+    expect(target.played).toEqual(['walk-e'])
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn).toHaveBeenCalledWith(
+      '[waica] "Test character": clip "walk-e" is mirrored for facing "w", but the Clip Target cannot flip — playing it unmirrored',
+    )
+    warn.mockRestore()
+  })
+
+  it('keeps a finished one-shot on its last frame when a turn only mirrors it (review of PR #167)', () => {
+    installDirectionalAnimation(DIRECTIONAL)
+    const { sprite, frame } = mountedSprite({ 'cast-e': { frames: [0, 1, 2, 3], fps: 8, loop: false }, idle: { frames: [0], fps: 1 } })
+    let facing = 'e'
+    const { machine } = makeMachine({ cast: {} }, sprite, [{ getAnimationFacing: () => facing } as unknown as Component])
+    const setFlipX = vi.spyOn(sprite, 'setFlipX')
+    machine.onReady()
+    const step = (): void => {
+      machine.onUpdate(DT)
+      sprite.onUpdate(DT)
+    }
+
+    for (let n = 1; n <= 30; n += 1) step()
+    expect(frame()).toBe(3)
+    expect(sprite.clipFinished).toBe(true)
+    facing = 'w'
+    step()
+
+    expect(setFlipX).toHaveBeenLastCalledWith(true)
+    expect(frame()).toBe(3)
+    expect(sprite.clipFinished).toBe(true)
+  })
+})
+
+describe('StateMachine and a Clip Target whose clips are pending (review of PR #168)', () => {
+  it('asks a pending target to play with no warning, and reads its clip:end once the clip it asked for finishes', () => {
+    class LoadingTarget extends Component {
+      static override componentName = 'LoadingTarget'
+      current: string | undefined
+      clipNames: string[] = []
+      clipFinished = false
+      clipsPending = true
+      readonly requested: string[] = []
+      play(name: string): void {
+        this.requested.push(name)
+      }
+    }
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const target = new LoadingTarget()
+    const { machine } = makeMachine({ attack: { transitions: [{ on: 'clip:end', to: 'idle' }] }, idle: {} }, undefined, [target])
+
+    machine.onReady()
+    expect(target.requested).toEqual(['attack'])
+    expect(warn).not.toHaveBeenCalled()
+
+    // The glb settles: the target lists its clips, plays the remembered one and later finishes it.
+    target.clipsPending = false
+    target.clipNames = ['attack', 'idle']
+    target.current = 'attack'
+    target.clipFinished = true
+    machine.onUpdate(DT)
+    expect(machine.current).toBe('idle')
+    expect(target.requested).toEqual(['attack', 'idle'])
+    warn.mockRestore()
+  })
+
+  it('still warns for an AnimatedSprite that declares no clips: nothing is pending there', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const sprite = new AnimatedSprite()
+    const { machine } = makeMachine({ walk: {} }, sprite)
+
+    machine.onReady()
+
+    expect(sprite.current).toBeUndefined()
+    expect(warn).toHaveBeenCalledWith('[waica] "Test character": no clip "walk" for state "walk" — keeping "none"')
     warn.mockRestore()
   })
 })

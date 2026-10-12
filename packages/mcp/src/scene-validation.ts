@@ -20,6 +20,7 @@ import {
 import { physicsCompositionFindings } from './physics-param-validation.js'
 import { validateEntitySpace, validateSceneSimulation, validateSceneSpace } from './space-validation.js'
 import { validateEntitySceneTransition } from './scene-transition-validation.js'
+import { animatorCompositionFindings, changesAnimatorClips, validateAnimatorClips } from './animator-validation.js'
 import { validateStateMachines } from './state-machine-validation.js'
 import { add, type LooseSceneEntity, type ValidationContext } from './validation-context.js'
 
@@ -54,6 +55,24 @@ interface EntityComposition {
 type ReferenceScopes = Map<SceneComponentJson, ReadonlySet<string> | undefined>
 
 const STATE_BEHAVIOR_TYPES = new Set(['StateMachine', 'AnimatedSprite'])
+
+/**
+ * The override keys of a Clip Target's 3D siblings that change which clips a
+ * machine's states resolve against (the glb, and which of its clips loop);
+ * `Model.color` or `Animator.fade` keep the prefab's state findings as they
+ * are (review of PR #168).
+ */
+const STATE_CLIP_KEYS: Readonly<Record<string, readonly string[]>> = { Model: ['src'], Animator: ['clips'] }
+
+/** Whether the entity's inline components or overrides change the state behavior its prefab already had checked. */
+function changesStateBehavior(inline: readonly SceneComponentJson[], overrides: Record<string, unknown>): boolean {
+  return (
+    inline.some((component) => STATE_BEHAVIOR_TYPES.has(component.type) || Object.hasOwn(STATE_CLIP_KEYS, component.type)) ||
+    Object.entries(overrides).some(
+      ([type, patch]) => STATE_BEHAVIOR_TYPES.has(type) || (STATE_CLIP_KEYS[type] ?? []).some((key) => Object.hasOwn(objectRecord(patch), key)),
+    )
+  )
+}
 
 function resolvedEntityComponents(
   entity: LooseSceneEntity,
@@ -139,16 +158,19 @@ function validateSceneEntity(
   // In a 2D scene the physics components are already space mismatches; a second finding would ask for a Collider that could not run there either.
   if (space === '3d') {
     context.findings.push(...physicsCompositionFindings(effectiveComponents(composition), file, entityRef))
+    context.findings.push(...animatorCompositionFindings(effectiveComponents(composition), file, entityRef))
+    // The prefab already checked its Animator's clips; only an entity that changes them is checked again.
+    if (changesAnimatorClips(inline, composition.overrides)) {
+      validateAnimatorClips(composition.effective(), { file, ref: entityRef, context })
+    }
   }
   validateEntityParamReferences(composition, scope)
 
   // Re-evaluate inherited state behavior only when this entity actually
-  // changes a StateMachine or AnimatedSprite. Unrelated overrides keep the
-  // prefab-level finding as the single source of truth.
-  const changesStateBehavior =
-    inline.some((component) => STATE_BEHAVIOR_TYPES.has(component.type)) ||
-    Object.keys(composition.overrides).some((type) => STATE_BEHAVIOR_TYPES.has(type))
-  if (changesStateBehavior) {
+  // changes a StateMachine, an AnimatedSprite or the clips its 3D siblings
+  // provide. Unrelated overrides keep the prefab-level finding as the single
+  // source of truth.
+  if (changesStateBehavior(inline, composition.overrides)) {
     validateStateMachines(composition.effective(), file, entityRef, context)
   }
 

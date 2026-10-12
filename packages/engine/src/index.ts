@@ -29,6 +29,8 @@ export type {
   DirectionalFallback,
   ResolvedDirectionalClip,
 } from './animation/directional.js'
+export { isClipTarget } from './animation/clip-target.js'
+export type { ClipTarget } from './animation/clip-target.js'
 export { isYSortBatchParticipant, isYSortParticipant, ySortZ } from './render-sort.js'
 export type { YSortBatchParticipant, YSortEntry, YSortParticipant } from './render-sort.js'
 export { projectIsometric, screenInputToLogical, unprojectIsometric } from './projection.js'
@@ -173,6 +175,9 @@ export { Sprite } from './components/sprite.js'
 export { Light } from './components/light.js'
 export { Model } from './components/model.js'
 export type { ModelShape } from './components/model.js'
+export { Animator } from './components/animator.js'
+export type { AnimatorClipOverride, AnimatorState } from './components/animator.js'
+export { poseHash } from './animation/pose-hash.js'
 export { Sun } from './components/sun.js'
 export { Collider, COLLIDER_SHAPES } from './components/collider.js'
 export type { ColliderShape } from './components/collider.js'

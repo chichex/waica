@@ -1,11 +1,15 @@
 import type { ArchetypeArt, SceneComponentJson } from '@waica/engine'
 import path from 'node:path'
+import { projectModelClips } from './animator-validation.js'
 import { objectRecord } from './component-metadata.js'
+import { MODEL_FILE_RE } from './glb-document.js'
 import { filesDirectlyIn, projectSoundRefs } from './param-reference-resolution.js'
 import { add, type ValidationContext } from './validation-context.js'
 
-/** glTF in its two forms (matches MODEL_RE in the editor's use-project-art.ts). */
-const MODEL_FILE_RE = /\.(glb|gltf)$/i
+/** The `.glb` / `.gltf` files directly under the project's src/art/, by name. */
+async function projectModelFiles(projectPath: string): Promise<string[]> {
+  return (await filesDirectlyIn(path.join(projectPath, 'src/art'))).filter((file) => MODEL_FILE_RE.test(file))
+}
 
 /**
  * Every uri a `kind: 'model'` param (Model.src) may validly name (issue #154
@@ -19,21 +23,25 @@ export async function projectModelRefs(
   projectPath: string,
   art: readonly ArchetypeArt[],
 ): Promise<ReadonlySet<string>> {
+  return modelRefsOf(art, await projectModelFiles(projectPath))
+}
+
+function modelRefsOf(art: readonly ArchetypeArt[], modelFiles: readonly string[]): ReadonlySet<string> {
   const refs = new Set(art.filter((entry) => entry.kind === 'model').map((entry) => entry.uri))
-  for (const file of await filesDirectlyIn(path.join(projectPath, 'src/art'))) {
-    if (MODEL_FILE_RE.test(file)) refs.add(`src/art/${file}`)
-  }
+  for (const file of modelFiles) refs.add(`src/art/${file}`)
   return refs
 }
 
-/** The sound and model uris a project's reference params may validly name. */
+/** The sound and model uris a project's reference params may validly name, and the clips its model files hold (one listing of src/art for both model sets). */
 export async function projectArtRefs(
   projectPath: string,
   art: readonly ArchetypeArt[],
-): Promise<Pick<ValidationContext, 'soundRefs' | 'modelRefs'>> {
+): Promise<Pick<ValidationContext, 'soundRefs' | 'modelRefs' | 'modelClips'>> {
+  const modelFiles = await projectModelFiles(projectPath)
   return {
     soundRefs: await projectSoundRefs(projectPath, art),
-    modelRefs: await projectModelRefs(projectPath, art),
+    modelRefs: modelRefsOf(art, modelFiles),
+    modelClips: await projectModelClips(projectPath, modelFiles),
   }
 }
 

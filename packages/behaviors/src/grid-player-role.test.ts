@@ -65,6 +65,7 @@ function makePlayer() {
         ;(entity as unknown as { alive: boolean }).alive = false
         game.time.cancelOwnedBy(entity)
       }),
+      components: list,
       get(Class: new () => Component) {
         return list.find((component) => component instanceof Class)
       },

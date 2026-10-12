@@ -149,6 +149,7 @@ describe('the patroller role takes hits and dies', () => {
           entity.alive = false
           game.time.cancelOwnedBy(entity as unknown as Entity)
         }),
+        components: list,
         get(Class: new () => Component) {
           return list.find((component) => component instanceof Class)
         },

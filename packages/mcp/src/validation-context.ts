@@ -10,6 +10,8 @@ export type FindingCode =
   | 'broken-prefab-ref'
   | 'override-key-not-in-prefab'
   | 'missing-clip'
+  | 'clip-end-on-looping-clip'
+  | 'animator-without-model'
   | 'missing-sound'
   | 'dangling-transition-target'
   | 'unreachable-state'
@@ -35,6 +37,7 @@ export type FindingCode =
   | 'invalid-rigid-body-param'
   | 'rigid-body-without-collider'
   | 'character-motor-without-body'
+  | 'invalid-character-motor-param'
   | 'invalid-light-param'
   | 'invalid-sun-param'
   | 'invalid-scene-camera'
@@ -72,10 +75,14 @@ export interface ValidationContext {
   declaredStats: Set<string>
   stateFiles: Set<string>
   roleStateSources: Map<string, string[]>
+  /** The states of every role definition `@waica/behaviors` exports, by export name — see behaviorRoleStates. */
+  behaviorRoles: ReadonlyMap<string, ReadonlySet<string>>
   bindings: Record<string, string[]>
   soundRefs: ReadonlySet<string>
   /** Every uri a `kind: 'model'` param (Model.src) may validly name — see projectModelRefs. */
   modelRefs: ReadonlySet<string>
+  /** The clip names of every readable model file under src/art, by its project path — see projectModelClips. */
+  modelClips: ReadonlyMap<string, readonly string[]>
   uiPieces: ReadonlySet<string>
   /** The stock Anchored Pieces, plus pieces a component names through a `ref: 'ui'` param. */
   anchoredPieces: Set<string>

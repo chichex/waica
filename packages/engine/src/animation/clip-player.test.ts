@@ -47,3 +47,32 @@ describe('ClipPlayer', () => {
     expect(p.advance(0)).toBe(5)
   })
 })
+
+describe('ClipPlayer.finished (issue #166 CA-3)', () => {
+  const DT = 1 / 60
+
+  it('reports a non-looping clip finished once its time reaches frames.length / fps: after 30 steps, not after 29', () => {
+    const p = new ClipPlayer()
+    p.set({ frames: [0, 1, 2, 3], fps: 8, loop: false })
+    for (let step = 0; step < 29; step += 1) p.advance(DT)
+    expect(p.finished).toBe(false)
+    p.advance(DT)
+    expect(p.finished).toBe(true)
+  })
+
+  it('never reports a looping clip finished', () => {
+    const p = new ClipPlayer()
+    p.set({ frames: [0, 1, 2, 3], fps: 8 })
+    for (let step = 0; step < 300; step += 1) p.advance(DT)
+    expect(p.finished).toBe(false)
+  })
+
+  it('is false again after set', () => {
+    const p = new ClipPlayer()
+    p.set({ frames: [0, 1], fps: 8, loop: false })
+    p.advance(10)
+    expect(p.finished).toBe(true)
+    p.set({ frames: [0, 1], fps: 8, loop: false })
+    expect(p.finished).toBe(false)
+  })
+})

@@ -18,6 +18,16 @@ export class ClipPlayer {
   private loop = true
   private t = 0
 
+  /**
+   * Whether a non-looping clip has played through: its time reached
+   * `frames.length / fps` (the moment the last frame has been held for its
+   * whole duration), with the fixed-step epsilon so 30 steps of 1/60 s end a
+   * 0.5 s clip on the 30th. A looping clip never finishes; `set` clears it.
+   */
+  get finished(): boolean {
+    return !this.loop && this.t + SIMULATION_TIME_EPSILON >= this.frames.length / this.fps
+  }
+
   set(clip: ClipDef): void {
     this.frames = clip.frames.length > 0 ? clip.frames : [0]
     this.fps = clip.fps

@@ -31,6 +31,7 @@ function makeSubject(y: number, options: { health?: number } = {}) {
       alive = false
       game.time.cancelOwnedBy(entity)
     }),
+    components,
     get(Class: new () => Component) {
       return components.find((component) => component instanceof Class)
     },

@@ -9,7 +9,7 @@ import { AppearanceSection } from './AppearanceSection'
 import { BehavioursSection } from './BehavioursSection'
 import { CollisionSection, InlineCollisionSection } from './CollisionSection'
 import { EntityIdentityRows, InstanceChip } from './EntityIdentity'
-import { characterClipsWarning, clipsOf, driverWarning } from './component-meta'
+import { characterClipsWarning, driverWarning, knownClips } from './component-meta'
 import type { InspectorProps } from './inspector-props'
 import { UpdateScheduleContext, UpdateScheduleError, updateScheduleFor } from './update-schedule'
 
@@ -201,7 +201,7 @@ function EntityBehaviours({
       warning={driverWarning(components, archetype)}
       canRemove={(c) => !prefabOwns(entity, c.type, prefabs)}
       machine={{
-        clips: split.appearance ? Object.keys(clipsOf(split.appearance)) : [],
+        clips: knownClips(split.appearance, components),
         stateFiles: props.stateFiles,
         roleFiles: props.roleFiles,
         onPatch: (patch) =>

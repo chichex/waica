@@ -18,7 +18,7 @@ beforeEach(() => installArchetype({ roles: { player: TOPDOWN_PLAYER_ROLE } }))
 const { initial, states } = TOPDOWN_PLAYER_STATE_GRAPH
 
 function withSignals(...signals: string[]): TriggerEnv {
-  return { justPressed: () => false, elapsed: 0, signals: new Set(signals) }
+  return { justPressed: () => false, elapsed: 0, signals: new Set(signals), clipFinished: false }
 }
 
 describe('TOPDOWN_PLAYER_STATE_GRAPH', () => {
@@ -42,7 +42,7 @@ describe('TOPDOWN_PLAYER_STATE_GRAPH', () => {
     expect(nextTransition(states, 'idle', withSignals('death'))?.to).toBe('dead')
     expect(nextTransition(states, 'walk', withSignals('death'))?.to).toBe('dead')
     expect(
-      nextTransition(states, 'dead', { justPressed: () => false, elapsed: 0.9, signals: new Set() })
+      nextTransition(states, 'dead', { justPressed: () => false, elapsed: 0.9, signals: new Set(), clipFinished: false })
         ?.to,
     ).toBe('idle')
   })

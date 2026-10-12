@@ -59,7 +59,7 @@ export function lightsOcclusion(n: number): ScenarioPlan {
   return {
     scene: { waicaScene: 3, render: { lighting: { ambient: { intensity: 0.25 } } }, entities: [walls, ...torches] },
     registry: { components: { Tilemap, Light } },
-    textures: [],
+    preload: [],
     steps: LIGHT_STEPS,
   }
 }

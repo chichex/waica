@@ -26,7 +26,7 @@ describe('bulletHell', () => {
     const bullet = plan.registry.prefabs?.['bench/hell-bullet']
     expect(bullet?.components?.map((component) => component.type)).toEqual(['Sprite', 'Hitbox', 'BenchBullet'])
     expect(bullet?.components?.[1]?.props).toMatchObject({ layer: 'bullet', collidesWith: ['player'] })
-    expect(plan.textures).toEqual(['tex'])
+    expect(plan.preload).toEqual(['tex'])
     expect(plan.perStep).toBeTypeOf('function')
   })
 })

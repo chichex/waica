@@ -46,6 +46,7 @@ function makeEntity(game: Game, name: string): StubEntity {
       ;(entity as unknown as { alive: boolean }).alive = false
       game.time.cancelOwnedBy(entity as unknown as Entity)
     }),
+    components,
     get(Class: new () => Component) {
       return components.find((component) => component instanceof Class)
     },

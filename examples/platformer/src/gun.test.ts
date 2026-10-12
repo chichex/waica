@@ -71,6 +71,7 @@ describe('Gun update scheduling', () => {
       alive: true,
       position: new THREE.Vector3(),
       scale: new THREE.Vector3(1, 1, 1),
+      components,
       get<T extends Component>(Class: ComponentClass<T>): T | undefined {
         return components.find((component) => component instanceof Class) as T | undefined
       },
