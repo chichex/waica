@@ -14,8 +14,8 @@ describe('skinnedCharacters (issue #166 CA-19)', () => {
     expect(plan.scene.camera?.kind).toBe('perspective')
     expect(plan.steps).toBe(60)
     expect(plan.perStep).toBeUndefined()
-    expect(plan.textures).toHaveLength(1)
-    expect(plan.textures[0]).toMatch(/rig/)
+    expect(plan.preload).toHaveLength(1)
+    expect(plan.preload[0]).toMatch(/rig/)
     expect(componentTypes(plan.scene.entities.find((entity) => entity.name === 'Daylight'))).toEqual(['Sun'])
   })
 
@@ -27,7 +27,7 @@ describe('skinnedCharacters (issue #166 CA-19)', () => {
       expect(keys.size).toBe(n)
       for (const character of characters) {
         expect(componentTypes(character)).toEqual(['Model', 'Animator'])
-        expect(character.components?.[0]?.props?.src).toBe(skinnedCharacters(n).textures[0])
+        expect(character.components?.[0]?.props?.src).toBe(skinnedCharacters(n).preload[0])
         expect(character.components?.[1]?.props).toEqual({ initialClip: 'walk' })
       }
     }

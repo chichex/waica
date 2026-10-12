@@ -12,7 +12,7 @@ import assert from 'node:assert/strict'
 import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { CLIPS, POSE_HASH_FRAME, animationOf, clipDuration, exerciseIdle, poseHashOf, session } from './runtime-e2e-animation.mjs'
+import { CLIPS, animationOf, clipDuration, exerciseIdle, poseHashOf, session } from './runtime-e2e-animation.mjs'
 import { brightness, expectsBlankLighting, maxChannelDifference, rewriteScene, samplesInPage } from './runtime-e2e-lighting.mjs'
 
 const EXAMPLE = fileURLToPath(new URL('../examples/smoke-3d/', import.meta.url))
@@ -116,7 +116,7 @@ async function exerciseJump({ control, look }) {
  * physics-determinism.test.ts and animator-determinism.test.ts, not by Chrome.
  */
 async function exerciseSimulation({ helpers, client, project, gravity, inspector, renderBackend, keep, idleDuration }) {
-  const run = session({ helpers, client, project })
+  const run = session({ helpers, client, project, canvas: CANVAS })
   const falling = await run.look('Crate')
   assert.equal(falling.physics?.state, 'ready', `the physics world must be ready; ${JSON.stringify(falling.physics)}`)
   assert.deepEqual(falling.physics.gravity, gravity, 'the snapshot reports the scene gravity')
@@ -166,7 +166,8 @@ async function capture({ helpers, client, project, chrome, simulation = null }) 
       image: shot.image,
       snapshot: inspected.structuredContent.snapshot,
       physics: simulated,
-      poseHashAt: { frame: POSE_HASH_FRAME, hash: poseHashOf(inspected.structuredContent.snapshot) },
+      // The frame the snapshot above was taken at: the one every leg steps to, so the legs compare hashes of the same frame.
+      poseHashAt: { frame: FRAME, hash: poseHashOf(inspected.structuredContent.snapshot) },
       // The swap answers once the incoming scene's art settled: the glb is in these numbers, not in start_project's.
       assets: { booted: start.structuredContent.assets, swapped: swapped.structuredContent.assets },
     }
@@ -242,12 +243,17 @@ async function assertPlatformerMotorMismatch({ helpers, client, project }) {
   }
 }
 
-/** The glbs loaded: after the swap nothing is pending or failed, and two more assets loaded than at boot (the tree and the knight). */
+/**
+ * The glbs loaded: after the swap nothing is pending or failed, and exactly
+ * three more assets loaded than at boot — the tree, the knight and the Rapier
+ * module, which the first 3D scene loads and counts as an asset (the demo
+ * boots on a 2D scene). `>= 2` would hold with the tree and Rapier alone.
+ */
 function assertGlbLoaded({ booted, swapped }) {
   assert.ok(booted && swapped, `start_project and the scene swap must carry assets; ${JSON.stringify({ booted, swapped })}`)
   assert.equal(swapped.failed, 0, `the glbs must load; ${JSON.stringify({ booted, swapped })}`)
   assert.equal(swapped.pending, 0, `the swap must wait for the glbs; ${JSON.stringify({ booted, swapped })}`)
-  assert.ok(swapped.loaded >= booted.loaded + 2, `the swap must have loaded the tree and the knight; ${JSON.stringify({ booted, swapped })}`)
+  assert.equal(swapped.loaded, booted.loaded + 3, `the swap must have loaded the tree, the knight and the Rapier module; ${JSON.stringify({ booted, swapped })}`)
 }
 
 /** The snapshot of the 3D scene: space, view, a model off the ground plane, the Sun and the Point Light. */

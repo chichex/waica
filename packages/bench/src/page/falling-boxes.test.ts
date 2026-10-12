@@ -38,7 +38,7 @@ describe('fallingBoxes (issue #159 CA-24)', () => {
     expect(plan.scene.render?.space).toBe('3d')
     expect(plan.scene.camera?.kind).toBe('perspective')
     expect(plan.steps).toBe(300)
-    expect(plan.textures).toEqual([])
+    expect(plan.preload).toEqual([])
     expect(plan.perStep).toBeUndefined()
   })
 

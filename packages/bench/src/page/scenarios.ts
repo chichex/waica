@@ -10,8 +10,8 @@ import { SHEET_FRAMES, sheetTexture, squareTexture } from './fixture-art.ts'
 export interface ScenarioPlan {
   scene: SceneJson
   registry: SceneRegistry
-  /** Every texture the scenario draws, preloaded so no load lands mid-run. */
-  textures: string[]
+  /** Every asset the scenario draws — textures, and a glb for a skinned scene — preloaded through `game.assets.preload` so no load lands mid-run. */
+  preload: string[]
   steps: number
   /** Runs inside every Simulation Step (game.onUpdate), `step` counting from 1. */
   perStep?: (game: Game, step: number) => void
@@ -49,7 +49,7 @@ function staticSprites(n: number): ScenarioPlan {
   return {
     scene: { waicaScene: 3, entities },
     registry: { components: REGISTRY_COMPONENTS },
-    textures: [texture],
+    preload: [texture],
     steps: STILL_STEPS,
   }
 }
@@ -76,7 +76,7 @@ function spawnChurn(perStepCount: number): ScenarioPlan {
       'bench/bullet': { waicaPrefab: 1, type: 'object', components: [{ type: 'Sprite', props: spriteProps(texture, slots) }] },
     },
   }
-  return { scene: { waicaScene: 3, entities: [] }, registry, textures: [texture], steps: CHURN_STEPS, perStep }
+  return { scene: { waicaScene: 3, entities: [] }, registry, preload: [texture], steps: CHURN_STEPS, perStep }
 }
 
 function animatedSprites(n: number): ScenarioPlan {
@@ -96,7 +96,7 @@ function animatedSprites(n: number): ScenarioPlan {
   return {
     scene: { waicaScene: 3, entities },
     registry: { components: REGISTRY_COMPONENTS },
-    textures: [texture],
+    preload: [texture],
     steps: STILL_STEPS,
   }
 }

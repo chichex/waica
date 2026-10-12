@@ -53,7 +53,7 @@ async function startScenarioGame(name: ScenarioName): Promise<{ game: Game; rend
   const renderer = capture.current
   if (!renderer) throw new Error('bench: the Game built no WebGPURenderer')
   await game.ready()
-  await game.assets.preload(plan.textures)
+  await game.assets.preload(plan.preload)
   let step = 0
   game.onUpdate(() => plan.perStep?.(game, ++step))
   loadScene(game, plan.scene, plan.registry)

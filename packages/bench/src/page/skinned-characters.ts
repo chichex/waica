@@ -42,8 +42,7 @@ export function skinnedCharacters(n: number): ScenarioPlan {
       entities: [sun, ...characters],
     },
     registry: { components: { Model, Animator, StateMachine, Sun } },
-    // Not a texture: game.assets.preload routes a .glb to the model cache, so the file is in before the first step.
-    textures: [rigUrl],
+    preload: [rigUrl],
     steps: SKINNED_STEPS,
   }
 }

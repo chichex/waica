@@ -1,20 +1,36 @@
 // Trims a self-contained glb to the clips and parts a scene uses (issue #166
 // CA-17): keeps the named animations, drops the named nodes (gear a character
-// pack hangs off its hand slots), prunes everything nothing references any
-// more, and repacks the binary chunk. No three, no dependency — the same
-// header and chunk layout scripts/generate-smoke-3d-model.mjs writes, so the
-// result stays a plain glb with its texture embedded. Deterministic.
+// pack hangs off its hand slots) with everything under them, keeps only the
+// meshes a node still in a scene draws and the accessors and buffer views the
+// kept meshes, skins and animations reference, and repacks the binary chunk.
+// Materials, textures and images are kept as they are (one shared texture is
+// the common case), and the dropped nodes stay in `nodes`, orphaned, so the
+// indices of everything else hold. No three, no dependency — the same header
+// and chunk layout scripts/generate-smoke-3d-model.mjs writes, so the result
+// stays a plain glb with its texture embedded. Deterministic.
 // Usage: node scripts/trim-character-glb.mjs <in.glb> <out.glb> --keep-clips Idle,Walking_A --drop-nodes Badge_Shield,2H_Sword
 import { readFile, writeFile } from 'node:fs/promises'
 
+const USAGE = 'usage: trim-character-glb.mjs <in.glb> <out.glb> [--keep-clips a,b] [--drop-nodes x,y]'
+
+/** The two positional paths and the two list options, each option needing a value that is not another flag. */
 function parseArgs(argv) {
-  const [input, output] = argv
-  const option = (name) => {
-    const index = argv.indexOf(name)
-    return index === -1 ? [] : argv[index + 1].split(',').filter(Boolean)
+  const positional = []
+  const options = { '--keep-clips': [], '--drop-nodes': [] }
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index]
+    if (!argument.startsWith('--')) {
+      positional.push(argument)
+      continue
+    }
+    const value = argv[index + 1]
+    if (!(argument in options) || value === undefined || value.startsWith('--')) throw new Error(`${USAGE}\n${argument} needs a comma-separated value`)
+    options[argument] = value.split(',').filter(Boolean)
+    index += 1
   }
-  if (!input || !output) throw new Error('usage: trim-character-glb.mjs <in.glb> <out.glb> [--keep-clips a,b] [--drop-nodes x,y]')
-  return { input, output, keepClips: option('--keep-clips'), dropNodes: option('--drop-nodes') }
+  const [input, output] = positional
+  if (!input || !output || positional.length > 2) throw new Error(USAGE)
+  return { input, output, keepClips: options['--keep-clips'], dropNodes: options['--drop-nodes'] }
 }
 
 function readGlb(bytes) {
@@ -42,9 +58,15 @@ function writeGlb(json, binary) {
   return Buffer.concat([header, chunkHeader(jsonChunk.length, 'JSON'), jsonChunk, chunkHeader(binChunk.length, 'BIN\0'), binChunk])
 }
 
-/** Removes the named nodes from the graph: from every parent's children and from the scenes. */
+/** Removes the named nodes and their descendants from the graph: from every parent's children, from the scenes, and from what draws. */
 function dropNodes(json, names) {
-  const dropped = new Set(json.nodes.flatMap((node, index) => (names.includes(node.name) ? [index] : [])))
+  const dropped = new Set()
+  const drop = (index) => {
+    if (dropped.has(index)) return
+    dropped.add(index)
+    for (const child of json.nodes[index].children ?? []) drop(child)
+  }
+  for (const [index, node] of json.nodes.entries()) if (names.includes(node.name)) drop(index)
   for (const node of json.nodes) if (node.children) node.children = node.children.filter((child) => !dropped.has(child))
   for (const scene of json.scenes) scene.nodes = scene.nodes.filter((root) => !dropped.has(root))
   for (const index of dropped) {
@@ -53,6 +75,18 @@ function dropNodes(json, names) {
     delete node.skin
   }
   return dropped
+}
+
+/** The nodes a scene reaches: the roots and everything under them. */
+function reachableNodes(json) {
+  const reached = new Set()
+  const visit = (index) => {
+    if (reached.has(index)) return
+    reached.add(index)
+    for (const child of json.nodes[index].children ?? []) visit(child)
+  }
+  for (const scene of json.scenes) for (const root of scene.nodes) visit(root)
+  return reached
 }
 
 /** The accessor indices one mesh primitive references: its attributes, indices and morph targets. */
@@ -93,8 +127,10 @@ function renumberAccessors(json, renumber) {
   }
 }
 
-/** Keeps only the meshes some node still draws, renumbering the nodes' references. */
+/** Keeps only the meshes a node a scene reaches still draws, renumbering the nodes' references; an orphaned node loses its mesh. */
 function pruneMeshes(json) {
+  const reached = reachableNodes(json)
+  for (const [index, node] of json.nodes.entries()) if (!reached.has(index)) delete node.mesh
   const kept = [...new Set(json.nodes.flatMap((node) => (node.mesh === undefined ? [] : [node.mesh])))].sort((a, b) => a - b)
   const remap = new Map(kept.map((index, newIndex) => [index, newIndex]))
   json.meshes = kept.map((index) => json.meshes[index])
@@ -124,20 +160,30 @@ function repack(json, binary) {
   const used = usedAccessors(json)
   const { copy, views, binary: packed } = copier(json, binary)
   const viewRemap = new Map()
+  /** The new index of a buffer view, copied on its first use so two users share one copy. */
+  const remapView = (viewIndex) => {
+    if (!viewRemap.has(viewIndex)) viewRemap.set(viewIndex, copy(viewIndex))
+    return viewRemap.get(viewIndex)
+  }
   const accessorRemap = new Map()
   const accessors = []
   for (const [index, accessor] of json.accessors.entries()) {
     if (!used.has(index)) continue
     const copied = { ...accessor }
-    if (accessor.bufferView !== undefined) {
-      if (!viewRemap.has(accessor.bufferView)) viewRemap.set(accessor.bufferView, copy(accessor.bufferView))
-      copied.bufferView = viewRemap.get(accessor.bufferView)
+    if (accessor.bufferView !== undefined) copied.bufferView = remapView(accessor.bufferView)
+    // A sparse accessor (morph targets, often) keeps its indices and values in views of their own.
+    if (accessor.sparse) {
+      copied.sparse = {
+        ...accessor.sparse,
+        indices: { ...accessor.sparse.indices, bufferView: remapView(accessor.sparse.indices.bufferView) },
+        values: { ...accessor.sparse.values, bufferView: remapView(accessor.sparse.values.bufferView) },
+      }
     }
     accessorRemap.set(index, accessors.length)
     accessors.push(copied)
   }
   // Images keep their own views (never through an accessor).
-  for (const image of json.images ?? []) if (image.bufferView !== undefined) image.bufferView = copy(image.bufferView)
+  for (const image of json.images ?? []) if (image.bufferView !== undefined) image.bufferView = remapView(image.bufferView)
   renumberAccessors(json, (value) => accessorRemap.get(value))
   json.accessors = accessors
   json.bufferViews = views

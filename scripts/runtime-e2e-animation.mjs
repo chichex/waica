@@ -9,8 +9,6 @@ import { expectsBlankLighting } from './runtime-e2e-lighting.mjs'
 
 /** The clips the smoke Player's states play (examples/smoke-3d/src/scenes/main.scene.json). */
 export const CLIPS = { idle: 'Idle', walk: 'Walking_A', jump: 'Jump_Start' }
-/** The frame the pose hash both Render Backend legs must agree on is read at. */
-export const POSE_HASH_FRAME = 13
 /** How many decoded pixels two idle frames 20 frames apart must differ in, where the frame draws. */
 const MIN_IDLE_DIFFERING_PIXELS = 50
 
@@ -27,8 +25,8 @@ export async function clipDuration(file, name) {
 /** The seconds from clip time `from` to clip time `to` on a looping clip of `duration`. */
 const forwardDelta = (from, to, duration) => (((to - from) % duration) + duration) % duration
 
-/** The Runtime Bridge operations and snapshot reads one Run Session needs, each asserting it succeeded. */
-export function session({ helpers, client, project }) {
+/** The Runtime Bridge operations and snapshot reads one Run Session needs, each asserting it succeeded; `canvas` is the size every screenshot must have. */
+export function session({ helpers, client, project, canvas }) {
   const { call } = helpers
   const control = async (operation, extra = {}) => {
     const result = await call(client, 'control_runtime', { project_path: project, operation, ...extra })
@@ -50,7 +48,7 @@ export function session({ helpers, client, project }) {
       animator: stateOf('Animator'),
     }
   }
-  const screenshot = async () => helpers.assertScreenshot(await call(client, 'capture_screenshot', { project_path: project }), 'paused', { width: 640, height: 360 }).image
+  const screenshot = async () => helpers.assertScreenshot(await call(client, 'capture_screenshot', { project_path: project }), 'paused', canvas).image
   return { control, look, screenshot }
 }
 

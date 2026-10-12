@@ -95,7 +95,7 @@ export function bulletHell(perStep: number, texture: string, components: SceneRe
   return {
     scene: { waicaScene: 3, entities },
     registry,
-    textures: [texture],
+    preload: [texture],
     steps: BULLET_HELL_STEPS,
     perStep: perStepFn,
   }

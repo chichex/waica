@@ -7,7 +7,7 @@
 - **License:** CC0 1.0 Universal (Creative Commons Zero) — http://creativecommons.org/publicdomain/zero/1.0/ — "free to use in personal, educational and commercial projects" (the pack's `LICENSE.txt`); crediting the author is not mandatory, and this file does it anyway.
 - **Source file:** `addons/kaykit_character_pack_adventures/Characters/gltf/Knight.glb` of the pack's Godot distribution, https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0 at commit `672074b73ba276876a19e8816ecdc5241817ab47` (the archive the Godot Asset Library entry 2129 points at). The file is a self-contained glb (its texture is embedded) of 3,659,532 bytes with 76 clips.
 - **Clips the scene uses:** `Idle` (the `idle` state), `Walking_A` (`walk`), `Jump_Start` (`jump`, played once), `Jump_Idle` (`fall`). `Jump_Land` is kept for a later state.
-- **One-off conversion:** the committed `knight.glb` (499,496 bytes) keeps those five clips and drops the surplus gear hanging off the hand slots (four of the five shields and two of the three swords), so the character carries one sword and one shield; the body, helmet and cape are untouched. Reproduced from the source file with the repository's dependency-free trimmer:
+- **One-off conversion:** the committed `knight.glb` (499,496 bytes) keeps those five clips and drops the surplus gear hanging off the hand slots (three of the four shields and two of the three swords), so the character carries one sword and one shield; the body, helmet and cape are untouched. Reproduced from the source file with the repository's dependency-free trimmer:
 
   ```sh
   node scripts/trim-character-glb.mjs Knight.glb examples/smoke-3d/art/knight.glb \
