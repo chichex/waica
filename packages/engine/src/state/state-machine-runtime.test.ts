@@ -62,6 +62,31 @@ function otherEntity(name: string): Entity {
   return { name, alive: true } as unknown as Entity
 }
 
+const DT = 1 / 60
+
+/** A machine in `attack` beside a mounted sprite whose 4-frame 8 fps attack clip loops or not; both stepped in schedule order (issue #166 CA-2). */
+function attackMachine(loop: boolean): { machine: StateMachine; step: () => void } {
+  const sprite = new AnimatedSprite()
+  sprite.clips = { attack: { frames: [0, 1, 2, 3], fps: 8, loop }, idle: { frames: [0], fps: 1 } }
+  sprite.entity = { node: { add: () => {} } } as unknown as Entity
+  sprite.game = {} as Game
+  sprite.onReady()
+  const { machine } = makeMachine(
+    {
+      attack: { transitions: [{ on: 'clip:end', to: 'idle' }] },
+      idle: {},
+    },
+    sprite,
+  )
+  machine.onReady()
+  // The schedule: the machine, then the sprite (updateAfter: ['StateMachine']).
+  const step = (): void => {
+    machine.onUpdate(DT)
+    sprite.onUpdate(DT)
+  }
+  return { machine, step }
+}
+
 beforeEach(() => resetRegistries())
 
 describe('StateMachine runtime characterization', () => {
@@ -332,31 +357,6 @@ describe('StateMachine runtime characterization', () => {
 })
 
 describe('StateMachine clip:end through the Clip Target (issue #166 CA-2)', () => {
-  const DT = 1 / 60
-
-  /** A machine in `attack` beside a mounted sprite whose 4-frame 8 fps attack clip loops or not; both stepped in schedule order. */
-  function attackMachine(loop: boolean): { machine: StateMachine; step: () => void } {
-    const sprite = new AnimatedSprite()
-    sprite.clips = { attack: { frames: [0, 1, 2, 3], fps: 8, loop }, idle: { frames: [0], fps: 1 } }
-    sprite.entity = { node: { add: () => {} } } as unknown as Entity
-    sprite.game = {} as Game
-    sprite.onReady()
-    const { machine } = makeMachine(
-      {
-        attack: { transitions: [{ on: 'clip:end', to: 'idle' }] },
-        idle: {},
-      },
-      sprite,
-    )
-    machine.onReady()
-    // The schedule: the machine, then the sprite (updateAfter: ['StateMachine']).
-    const step = (): void => {
-      machine.onUpdate(DT)
-      sprite.onUpdate(DT)
-    }
-    return { machine, step }
-  }
-
   it('leaves attack on the step the one-shot clip finishes and enters idle on the next: step 30 attack, step 31 idle', () => {
     const { machine, step } = attackMachine(false)
     for (let n = 1; n <= 30; n += 1) step()
