@@ -1,6 +1,7 @@
 import * as THREE from 'three/webgpu'
 import { Component, type ComponentSpace } from '../component.js'
 import { ClipPlayer, type ClipDef } from '../animation/clip-player.js'
+import type { ClipTarget } from '../animation/clip-target.js'
 import { locateFrame, sheetCell, type SheetCell, type SheetDef } from '../animation/sheet.js'
 import type { YSortParticipant } from '../render-sort.js'
 import { spritePlacement } from '../sprite-placement.js'
@@ -24,7 +25,7 @@ const clampAnchor = (value: number): number => Math.min(1, Math.max(0, value))
  * per frame, anchored bottom-center — width/height size the sheet's largest
  * frame and smaller ones keep their feet planted.
  */
-export class AnimatedSprite extends Component implements YSortParticipant {
+export class AnimatedSprite extends Component implements YSortParticipant, ClipTarget {
   static override componentName = 'AnimatedSprite'
   static override space: ComponentSpace = '2d'
   static override updateAfter: readonly string[] = ['StateMachine']

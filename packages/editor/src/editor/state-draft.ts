@@ -9,19 +9,31 @@ import type { MachineProps } from '../project/states'
 
 /** One transition row being edited, as friendly parts of 'kind:arg → to'. */
 export interface EdgeDraft {
-  kind: 'input' | 'timer' | 'signal'
+  kind: 'input' | 'timer' | 'signal' | 'clip'
   arg: string
   to: string
+}
+
+/** Every trigger kind the runtime evaluates; an unknown one folds into `signal`, the free-text kind. */
+const EDGE_KINDS: readonly EdgeDraft['kind'][] = ['input', 'timer', 'signal', 'clip']
+
+function isEdgeKind(kind: string): kind is EdgeDraft['kind'] {
+  return (EDGE_KINDS as readonly string[]).includes(kind)
 }
 
 export function parseEdge(t: StateTransitionJson): EdgeDraft {
   const sep = t.on.indexOf(':')
   const kind = sep > 0 ? t.on.slice(0, sep) : 'signal'
   return {
-    kind: kind === 'input' || kind === 'timer' ? kind : 'signal',
+    kind: isEdgeKind(kind) ? kind : 'signal',
     arg: sep > 0 ? t.on.slice(sep + 1) : t.on,
     to: t.to,
   }
+}
+
+/** The row patch for a freshly picked kind: `clip` has the one fixed argument `end`, the rest start empty and are typed in. */
+export function kindPatch(kind: EdgeDraft['kind']): Pick<EdgeDraft, 'kind' | 'arg'> {
+  return { kind, arg: kind === 'clip' ? 'end' : '' }
 }
 
 function serializeEdge(e: EdgeDraft): StateTransitionJson {
@@ -33,6 +45,7 @@ export function describeTrigger(on: string): string {
   const e = parseEdge({ on, to: '' })
   if (e.kind === 'input') return `key press ${e.arg}`
   if (e.kind === 'timer') return `after ${e.arg}s`
+  if (e.kind === 'clip') return e.arg === 'end' ? 'clip ends' : `clip ${e.arg}`
   return `signal ${e.arg}`
 }
 
@@ -44,6 +57,7 @@ export const ARG_HINTS: Record<EdgeDraft['kind'], string> = {
   input: 'action…',
   timer: 'seconds…',
   signal: 'signal name…',
+  clip: 'end',
 }
 
 /** The edited state as the modal holds it before saving. */

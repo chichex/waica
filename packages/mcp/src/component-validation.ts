@@ -50,10 +50,25 @@ export function classMetadata(Class: ComponentClass): ComponentMetadata {
   return { Class, params: Class.params ?? {}, defaults: classDefaults(Class) }
 }
 
-/** Clip names declared by the sibling AnimatedSprite, or undefined when there is none (no animation contract to check). */
-export function siblingClips(siblings: SceneComponentJson[]): Set<string> | undefined {
+/**
+ * The loop flag of every clip the sibling AnimatedSprite declares (a ClipDef
+ * loops unless `loop` is false), or undefined when there is none (no
+ * animation contract to check).
+ */
+export function siblingClipLoops(siblings: SceneComponentJson[]): ReadonlyMap<string, boolean> | undefined {
   const animated = siblings.find((component) => component.type === 'AnimatedSprite')
-  return animated ? new Set(Object.keys(objectRecord(animated.props?.clips))) : undefined
+  if (!animated) return undefined
+  const loops = new Map<string, boolean>()
+  for (const [name, definition] of Object.entries(objectRecord(animated.props?.clips))) {
+    loops.set(name, objectRecord(definition).loop !== false)
+  }
+  return loops
+}
+
+/** Clip names declared by the sibling AnimatedSprite, or undefined when there is none. */
+export function siblingClips(siblings: SceneComponentJson[]): Set<string> | undefined {
+  const loops = siblingClipLoops(siblings)
+  return loops && new Set(loops.keys())
 }
 
 export interface ParamReferenceEntry {

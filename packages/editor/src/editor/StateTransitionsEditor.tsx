@@ -1,6 +1,6 @@
 import { roleDefinition } from '@waica/engine'
 import { stateNames, type MachineProps } from '../project/states'
-import { ARG_HINTS, describeTrigger, type EdgeDraft } from './state-draft'
+import { ARG_HINTS, describeTrigger, kindPatch, type EdgeDraft } from './state-draft'
 
 // The Transitions section of the StateEditorModal: how the state is reached
 // and the 'trigger → target' rows that leave it, edited with pickers so no
@@ -106,11 +106,12 @@ function TransitionRow({
     <div className="ed-sm-edge">
       <select
         value={edge.kind}
-        onChange={(e) => onChange({ kind: e.target.value as EdgeDraft['kind'], arg: '' })}
+        onChange={(e) => onChange(kindPatch(e.target.value as EdgeDraft['kind']))}
       >
         <option value="input">key press</option>
         <option value="timer">after (s)</option>
         <option value="signal">signal</option>
+        <option value="clip">clip ends</option>
       </select>
       <TriggerArgField
         edge={edge}
@@ -145,8 +146,9 @@ interface TriggerArgFieldProps {
   onChange: (arg: string) => void
 }
 
-/** The trigger's argument, in the control its kind needs: an action, seconds or a signal name. */
+/** The trigger's argument, in the control its kind needs: an action, seconds or a signal name; `clip ends` takes none. */
 function TriggerArgField({ edge, inputActions, suggestSignals, onChange }: TriggerArgFieldProps) {
+  if (edge.kind === 'clip') return null
   if (edge.kind === 'input') {
     return (
       <select value={edge.arg} onChange={(e) => onChange(e.target.value)}>

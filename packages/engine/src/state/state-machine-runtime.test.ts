@@ -87,6 +87,23 @@ function attackMachine(loop: boolean): { machine: StateMachine; step: () => void
   return { machine, step }
 }
 
+/**
+ * A mounted sprite whose frame is readable from its texture offset (4-column
+ * grid, no sheet url so game.assets is never touched), beside a machine with
+ * `states`; both stepped in schedule order.
+ */
+function mountedSprite(clips: AnimatedSprite['clips']): { sprite: AnimatedSprite; frame: () => number } {
+  const sprite = new AnimatedSprite()
+  sprite.cols = 4
+  sprite.clips = clips
+  const added: unknown[] = []
+  sprite.entity = { node: { add: (child: unknown) => added.push(child) } } as unknown as Entity
+  sprite.game = {} as Game
+  sprite.onReady()
+  const mesh = added[0] as { material: { map: { offset: { x: number } } } }
+  return { sprite, frame: () => Math.round(mesh.material.map.offset.x * 4) }
+}
+
 beforeEach(() => resetRegistries())
 
 describe('StateMachine runtime characterization', () => {
@@ -377,15 +394,29 @@ describe('StateMachine clip:end through the Clip Target (issue #166 CA-2)', () =
     for (let n = 1; n <= 60; n += 1) machine.onUpdate(DT)
     expect(machine.current).toBe('attack')
   })
+
 })
 
-describe('StateMachine directional clip resolution', () => {
-  const DIRECTIONAL: DirectionalAnimation = {
-    directions: ['n', 's', 'e', 'w'],
-    fallbacks: { w: { dir: 'e', flip: true } },
-    contract: { required: ['idle'], fallbacks: { walk: 'idle' } },
-  }
+const DIRECTIONAL: DirectionalAnimation = {
+  directions: ['n', 's', 'e', 'w'],
+  fallbacks: { w: { dir: 'e', flip: true } },
+  contract: { required: ['idle'], fallbacks: { walk: 'idle' } },
+}
 
+/** A Clip Target with one east-facing clip and no mirror (`setFlipX`), like an Animator. */
+class NoMirrorTarget extends Component {
+  static override componentName = 'NoMirrorTarget'
+  current: string | undefined
+  readonly clipNames = ['walk-e']
+  clipFinished = false
+  readonly played: string[] = []
+  play(name: string): void {
+    this.played.push(name)
+    this.current = name
+  }
+}
+
+describe('StateMachine directional clip resolution', () => {
   interface DirectionalHarness {
     machine: StateMachine
     play: MockInstance<AnimatedSprite['play']>
@@ -508,5 +539,78 @@ describe('StateMachine directional clip resolution', () => {
       '[waica] "Walker": no clip "walk" for state "walk" — keeping "none"',
     )
     warn.mockRestore()
+  })
+})
+
+describe('StateMachine clip:end reads only the requested clip (review of PR #167)', () => {
+  it('reports only the clip the current state asked for: a state with no clip of its own never inherits the finished one-shot (review of PR #167)', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { sprite } = mountedSprite({ attack: { frames: [0, 1, 2, 3], fps: 8, loop: false }, idle: { frames: [0], fps: 1 } })
+    const { machine } = makeMachine(
+      {
+        attack: { transitions: [{ on: 'clip:end', to: 'recover' }] },
+        recover: { transitions: [{ on: 'clip:end', to: 'idle' }] },
+        idle: {},
+      },
+      sprite,
+    )
+    machine.onReady()
+    const step = (): void => {
+      machine.onUpdate(DT)
+      sprite.onUpdate(DT)
+    }
+
+    for (let n = 1; n <= 31; n += 1) step()
+    expect(machine.current).toBe('recover')
+    for (let n = 1; n <= 60; n += 1) step()
+    expect(machine.current).toBe('recover')
+    expect(warn).toHaveBeenCalledWith('[waica] "Test character": no clip "recover" for state "recover" — keeping "attack"')
+    warn.mockRestore()
+  })
+})
+
+describe('StateMachine facing re-resolution (review of PR #167)', () => {
+  it('warns once per state when a mirrored clip meets a target without setFlipX, and still plays it (review of PR #167)', () => {
+    installDirectionalAnimation(DIRECTIONAL)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const target = new NoMirrorTarget()
+    let facing = 'w'
+    const { machine } = makeMachine({ walk: {} }, undefined, [target, { getAnimationFacing: () => facing } as unknown as Component])
+
+    machine.onReady()
+    facing = 'e'
+    machine.onUpdate(DT)
+    facing = 'w'
+    machine.onUpdate(DT)
+
+    expect(target.played).toEqual(['walk-e'])
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn).toHaveBeenCalledWith(
+      '[waica] "Test character": clip "walk-e" is mirrored for facing "w", but the Clip Target cannot flip — playing it unmirrored',
+    )
+    warn.mockRestore()
+  })
+
+  it('keeps a finished one-shot on its last frame when a turn only mirrors it (review of PR #167)', () => {
+    installDirectionalAnimation(DIRECTIONAL)
+    const { sprite, frame } = mountedSprite({ 'cast-e': { frames: [0, 1, 2, 3], fps: 8, loop: false }, idle: { frames: [0], fps: 1 } })
+    let facing = 'e'
+    const { machine } = makeMachine({ cast: {} }, sprite, [{ getAnimationFacing: () => facing } as unknown as Component])
+    const setFlipX = vi.spyOn(sprite, 'setFlipX')
+    machine.onReady()
+    const step = (): void => {
+      machine.onUpdate(DT)
+      sprite.onUpdate(DT)
+    }
+
+    for (let n = 1; n <= 30; n += 1) step()
+    expect(frame()).toBe(3)
+    expect(sprite.clipFinished).toBe(true)
+    facing = 'w'
+    step()
+
+    expect(setFlipX).toHaveBeenLastCalledWith(true)
+    expect(frame()).toBe(3)
+    expect(sprite.clipFinished).toBe(true)
   })
 })
