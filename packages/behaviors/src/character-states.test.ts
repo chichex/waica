@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+/// <reference path="../../engine/src/test-fixtures.d.ts" />
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The engine's own copy of three, by path: this package does not depend on three.
