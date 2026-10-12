@@ -9,8 +9,8 @@ vi.mock(
     (await import('../../../packages/engine/src/test-renderer.js')).withFakeRenderer(await importOriginal<Record<string, unknown>>()),
 )
 
-import { CharacterMotor } from '@waica/behaviors'
-import { authoringDefaults, Collider, Game, Model, PointLight, RigidBody, Sun, THREE, type SceneEntityJson, type SceneJson, type SceneRegistry } from '@waica/engine'
+import { CHARACTER_ROLE, CharacterMotor } from '@waica/behaviors'
+import { Animator, authoringDefaults, Collider, defineRole, Game, Model, PointLight, RigidBody, StateMachine, Sun, THREE, type SceneEntityJson, type SceneJson, type SceneRegistry } from '@waica/engine'
 import { FakeModelBackend } from '../../../packages/engine/src/assets/test-helpers.js'
 import { defined } from '../../../packages/engine/src/test-support.js'
 import { renderFrame, stepFrame } from '../../../packages/engine/src/test-sprite-batches.js'
@@ -49,11 +49,13 @@ const scene: SceneJson = (() => {
   return sceneFile
 })()
 
-const REGISTRY: SceneRegistry = { components: { Model, Sun, PointLight, Collider, RigidBody, CharacterMotor }, resolveAsset: (uri) => uri }
+const REGISTRY: SceneRegistry = { components: { Model, Animator, StateMachine, Sun, PointLight, Collider, RigidBody, CharacterMotor }, resolveAsset: (uri) => uri }
 
 beforeEach(() => {
   document.body.innerHTML = ''
   vi.stubGlobal('ResizeObserver', ResizeObserverStub)
+  // As main.ts does: the Player's machine runs the character role.
+  defineRole('character', CHARACTER_ROLE)
 })
 
 afterEach(() => {
@@ -81,7 +83,7 @@ describe('examples/smoke-3d main scene (CA-17)', () => {
     expect(scene.render?.lighting?.ambient).toBeDefined()
   })
 
-  it('holds the ground, a box, a sphere, a glTF, a player, a step, a wall and a crate as Models, one Sun and one Point Light, and no 2D component', () => {
+  it('holds the ground, a box, a sphere, two glTFs (the tree and the knight), a step, a wall and a crate as Models, one Sun and one Point Light, and no 2D component', () => {
     const modelProps = scene.entities
       .flatMap((entity) => entity.components ?? [])
       .filter((component) => component.type === 'Model')
@@ -91,22 +93,23 @@ describe('examples/smoke-3d main scene (CA-17)', () => {
       'box',
       'box',
       'box',
-      'box',
+      'glb',
       'glb',
       'plane',
       'sphere',
     ])
     expect(scene.entities.filter((entity) => typesOf(entity).includes('Sun'))).toHaveLength(1)
     expect(scene.entities.filter((entity) => typesOf(entity).includes('PointLight'))).toHaveLength(1)
-    const allowed = new Set(['Model', 'Sun', 'PointLight', 'Collider', 'RigidBody', 'CharacterMotor'])
+    const allowed = new Set(['Model', 'Animator', 'StateMachine', 'Sun', 'PointLight', 'Collider', 'RigidBody', 'CharacterMotor'])
     expect(scene.entities.flatMap(typesOf).every((type) => allowed.has(type))).toBe(true)
   })
 
-  it('ships the glb its Model names, and says where it came from', () => {
-    const glb = scene.entities.flatMap((entity) => entity.components ?? []).find((component) => typeof component.props?.src === 'string')
-    expect(glb?.props).toMatchObject({ src: 'src/art/tree.glb' })
-    expect(Object.keys(artFiles)).toContain('../art/tree.glb')
+  it('ships every glb its Models name, and says where each came from', () => {
+    const sources = scene.entities.flatMap((entity) => entity.components ?? []).flatMap((component) => (typeof component.props?.src === 'string' ? [component.props.src] : []))
+    expect(sources.sort()).toEqual(['src/art/knight.glb', 'src/art/tree.glb'])
+    expect(Object.keys(artFiles).sort()).toEqual(['../art/knight.glb', '../art/tree.glb'])
     expect(Object.values(attribution).join('')).toMatch(/tree\.glb/)
+    expect(Object.values(attribution).join('')).toMatch(/knight\.glb[\s\S]*KayKit[\s\S]*Kay Lousberg[\s\S]*CC0[\s\S]*trim-character-glb/)
   })
 })
 
@@ -125,9 +128,12 @@ describe('examples/smoke-3d simulates (issue #159 CA-22)', () => {
     expect(propsOf('Sphere', 'Collider')).toEqual({ shape: 'sphere', radius: 1 })
     expect(typesOf(byName('Tree'))).toEqual(['Model', 'Collider'])
     expect(propsOf('Tree', 'Collider')).toMatchObject({ shape: 'box' })
-    expect(typesOf(byName('Player'))).toEqual(['Model', 'Collider', 'RigidBody', 'CharacterMotor'])
+    expect(typesOf(byName('Player'))).toEqual(['Model', 'Animator', 'StateMachine', 'Collider', 'RigidBody', 'CharacterMotor'])
     expect(propsOf('Player', 'RigidBody')).toEqual({ type: 'kinematic' })
-    expect(byName('Player').position).toEqual([-1, 0.9, 3])
+    // The knight stands 2.3 units tall with its feet at the origin: the capsule covers it from the ground up.
+    expect(byName('Player').position).toEqual([-1, 0, 3])
+    expect(byName('Player').scale).toBeUndefined()
+    expect(propsOf('Player', 'Collider')).toEqual({ shape: 'capsule', radius: 0.5, height: 2.3, offset: [0, 1.15, 0] })
     expect(typesOf(byName('Step'))).toEqual(['Model', 'Collider'])
     expect(typesOf(byName('Wall'))).toEqual(['Model', 'Collider'])
     expect(typesOf(byName('Crate'))).toEqual(['Model', 'Collider', 'RigidBody'])
@@ -153,7 +159,7 @@ describe('examples/smoke-3d plays (issue #159 CA-22)', () => {
 
     expect(defined(game.find('Crate')).position.y).toBeCloseTo(0.5, 2)
     expect(defined(defined(game.find('Player')).get(RigidBody)).grounded).toBe(true)
-    expect(defined(game.find('Player')).position.y).toBeCloseTo(0.9, 1)
+    expect(defined(game.find('Player')).position.y).toBeCloseTo(0, 1)
     game.dispose()
   })
 
@@ -165,12 +171,12 @@ describe('examples/smoke-3d plays (issue #159 CA-22)', () => {
 
     // 20 frames at 6 units a second: x = 1, over the Step (x from 0 to 2).
     for (let frame = 0; frame < 20; frame += 1) stepFrame(game)
-    expect(defined(game.find('Player')).position.y).toBeCloseTo(0.3 + 0.9, 1)
+    expect(defined(game.find('Player')).position.y).toBeCloseTo(0.3, 1)
 
     for (let frame = 0; frame < 190; frame += 1) stepFrame(game)
-    // The Wall's face is at x = 4.35 and the capsule's radius is 0.4.
-    expect(defined(game.find('Player')).position.x).toBeGreaterThan(4.35 - 0.4 - 0.05)
-    expect(defined(game.find('Player')).position.x).toBeLessThan(4.35 - 0.4 + 0.001)
+    // The Wall's face is at x = 4.35 and the capsule's radius is 0.5.
+    expect(defined(game.find('Player')).position.x).toBeGreaterThan(4.35 - 0.5 - 0.05)
+    expect(defined(game.find('Player')).position.x).toBeLessThan(4.35 - 0.5 + 0.001)
     game.dispose()
   })
 })
@@ -184,9 +190,9 @@ describe('examples/smoke-3d boots like main.ts (CA-17)', () => {
     expect(game.camera).toBeInstanceOf(THREE.PerspectiveCamera)
     expect(game.camera.position.toArray()).toEqual([0, 5.5, 11])
     expect(game.entities.map((entity) => entity.name)).toEqual(['Ground', 'Box', 'Sphere', 'Tree', 'Daylight', 'Lamp', 'Player', 'Step', 'Wall', 'Crate'])
-    expect(models.loadCalls).toEqual(['src/art/tree.glb'])
-    // The glb, and the Rapier module the 3D scene loads (issue #159 CA-8 counts it as an asset).
-    expect(game.assets.status).toEqual({ pending: 0, loaded: 2, failed: 0 })
+    expect(models.loadCalls).toEqual(['src/art/tree.glb', 'src/art/knight.glb'])
+    // The two glbs, and the Rapier module the 3D scene loads (issue #159 CA-8 counts it as an asset).
+    expect(game.assets.status).toEqual({ pending: 0, loaded: 3, failed: 0 })
     game.dispose()
   })
 
