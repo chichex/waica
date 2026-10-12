@@ -240,3 +240,49 @@ describe('AnimatedSprite failure rule (CA-4)', () => {
     expect(mesh.material.map).toBeNull()
   })
 })
+
+describe('AnimatedSprite as a Clip Target (issue #166 CA-3)', () => {
+  const DT = 1 / 60
+  const SWING = { frames: [0, 1, 2, 3], fps: 8, loop: false }
+
+  /** A sprite with no sheet url (so game.assets is never touched) whose 4-column grid makes the frame readable from the texture offset. */
+  function swingSprite(): { sprite: AnimatedSprite; frame: () => number } {
+    const sprite = new AnimatedSprite()
+    sprite.cols = 4
+    sprite.clips = { swing: SWING, stand: { frames: [0], fps: 1 } }
+    const mesh = mount(sprite)
+    return { sprite, frame: () => Math.round(defined(mesh.material.map).offset.x * 4) }
+  }
+
+  it('lists its clip names and mirrors the player: finished after 30 steps of a 4-frame 8 fps one-shot, not after 29', () => {
+    const { sprite } = swingSprite()
+    expect(sprite.clipNames).toEqual(['swing', 'stand'])
+    sprite.play('swing')
+    for (let step = 0; step < 29; step += 1) sprite.onUpdate(DT)
+    expect(sprite.clipFinished).toBe(false)
+    sprite.onUpdate(DT)
+    expect(sprite.clipFinished).toBe(true)
+  })
+
+  it('keeps play(current) a no-op while the clip runs: the frame does not restart', () => {
+    const { sprite, frame } = swingSprite()
+    sprite.play('swing')
+    for (let step = 0; step < 10; step += 1) sprite.onUpdate(DT)
+    expect(frame()).toBe(1)
+    sprite.play('swing')
+    sprite.onUpdate(DT)
+    expect(frame()).toBe(1)
+  })
+
+  it('restarts a finished clip on play(current): frame 0 again and clipFinished cleared', () => {
+    const { sprite, frame } = swingSprite()
+    sprite.play('swing')
+    for (let step = 0; step < 30; step += 1) sprite.onUpdate(DT)
+    expect(frame()).toBe(3)
+    expect(sprite.clipFinished).toBe(true)
+    sprite.play('swing')
+    expect(sprite.clipFinished).toBe(false)
+    sprite.onUpdate(DT)
+    expect(frame()).toBe(0)
+  })
+})

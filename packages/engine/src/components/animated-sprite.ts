@@ -162,6 +162,16 @@ export class AnimatedSprite extends Component implements YSortParticipant {
   /** Clip currently playing. */
   current?: string
 
+  /** The names a StateMachine can ask for (the Clip Target seam, issue #166). */
+  get clipNames(): readonly string[] {
+    return Object.keys(this.clips)
+  }
+
+  /** True once a non-looping clip has held its last frame for its whole duration; false after `play`. */
+  get clipFinished(): boolean {
+    return this.player.finished
+  }
+
   private readonly player = new ClipPlayer()
   private sheets: SheetDef[] = []
   private texs: THREE.Texture[] = []
@@ -216,9 +226,14 @@ export class AnimatedSprite extends Component implements YSortParticipant {
     if (this.initialClip) this.play(this.initialClip)
   }
 
-  /** Switches clip; repeating the same name doesn't restart the animation. */
+  /**
+   * Switches clip. Repeating the running clip's name doesn't restart it; once
+   * a non-looping clip has finished it does (issue #166 CA-3), so a state
+   * re-entered after its one-shot clip ended replays it instead of reporting
+   * `clip:end` on every step.
+   */
   play(name: string): void {
-    if (this.current === name) return
+    if (this.current === name && !this.player.finished) return
     const clip = this.clips[name]
     if (!clip) return
     this.player.set(clip)
