@@ -11,6 +11,7 @@ export type FindingCode =
   | 'override-key-not-in-prefab'
   | 'missing-clip'
   | 'clip-end-on-looping-clip'
+  | 'animator-without-model'
   | 'missing-sound'
   | 'dangling-transition-target'
   | 'unreachable-state'
@@ -77,6 +78,8 @@ export interface ValidationContext {
   soundRefs: ReadonlySet<string>
   /** Every uri a `kind: 'model'` param (Model.src) may validly name — see projectModelRefs. */
   modelRefs: ReadonlySet<string>
+  /** The clip names of every readable model file under src/art, by its project path — see projectModelClips. */
+  modelClips: ReadonlyMap<string, readonly string[]>
   uiPieces: ReadonlySet<string>
   /** The stock Anchored Pieces, plus pieces a component names through a `ref: 'ui'` param. */
   anchoredPieces: Set<string>

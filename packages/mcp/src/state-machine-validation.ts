@@ -1,6 +1,7 @@
 import type { SceneComponentJson, StateJson } from '@waica/engine'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
+import { animatorClipLoops, animatorClips } from './animator-validation.js'
 import { isPlayableClip } from './clip-resolution.js'
 import { siblingClips } from './component-validation.js'
 import { objectRecord } from './component-metadata.js'
@@ -13,7 +14,7 @@ interface MachineScope {
   readonly file: string
   readonly ref: string | undefined
   readonly context: ValidationContext
-  readonly clips: Set<string> | undefined
+  readonly clips: ReadonlySet<string> | undefined
   /** Whether each declared clip loops (an AnimatedSprite ClipDef's `loop`, default true); undefined with no sibling target. */
   readonly clipLoops: ReadonlyMap<string, boolean> | undefined
 }
@@ -88,7 +89,14 @@ export function validateStateMachines(
   ref: string | undefined,
   context: ValidationContext,
 ): void {
-  const scope: MachineScope = { file, ref, context, clips: siblingClips(components), clipLoops: siblingClipLoops(components) }
+  // The clips of the entity's Clip Target: its AnimatedSprite's, or its Animator's from the glb its Model names (issue #166 CA-9).
+  const scope: MachineScope = {
+    file,
+    ref,
+    context,
+    clips: siblingClips(components) ?? animatorClips(components, context),
+    clipLoops: siblingClipLoops(components) ?? animatorClipLoops(components, context),
+  }
   for (const machine of components.filter((component) => component.type === 'StateMachine')) {
     validateMachine(machine, scope)
   }

@@ -29,6 +29,7 @@ import {
 import { directFiles, requireWaicaProject } from './project-path.js'
 import { validatePrefabSceneTransition } from './scene-transition-validation.js'
 import { validateScene } from './scene-validation.js'
+import { projectModelClips, validateAnimator } from './animator-validation.js'
 import { projectRoleStateSources, validateStateMachines } from './state-machine-validation.js'
 import { stockAnchoredPieces, uiBindingFindings } from './ui-binding-validation.js'
 import {
@@ -103,6 +104,7 @@ function validatePrefab(
     file,
     context,
   )
+  validateAnimator(components, { file, ref, context })
   validateStateMachines(components, file, ref, context)
   validateComponentUpdateSchedule(components, file, ref, context)
 }
@@ -295,6 +297,7 @@ async function validationContext(
   // archetype's own declared sound art plus whatever actually lives under
   // the project's src/art/ (see param-reference-resolution.ts).
   const artRefs = await projectArtRefs(projectPath, manifest.art)
+  const modelClips = await projectModelClips(projectPath)
   const { componentRegistry, componentMetadata } = componentCatalog(manifest, sources)
   return {
     findings,
@@ -310,6 +313,7 @@ async function validationContext(
     roleStateSources: sources.roleStateSources,
     bindings: controlBindings(fixed.get('src/controls.json')),
     ...artRefs,
+    modelClips,
     uiPieces: inputs.uiPieces,
     anchoredPieces: new Set(stockAnchoredPieces(sources.behaviors.module)),
   }

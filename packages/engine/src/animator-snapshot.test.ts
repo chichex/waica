@@ -17,11 +17,20 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-/** The Animator's state of the one rig entity in a snapshot, as inspect_runtime projects it. */
+/** The Animator's state of the one rig entity in a snapshot, as inspect_runtime projects it, read field by field. */
 function animatorStateOf(snapshot: RuntimeSnapshot): AnimatorState {
   const entity = defined(snapshot.entities.find((candidate) => candidate.name === 'Walker'))
   const component = defined(entity.components.find((candidate) => candidate.type === 'Animator'))
-  return component.state as AnimatorState
+  const state = component.state
+  if (typeof state !== 'object' || state === null || Array.isArray(state)) throw new Error('the Animator state must be an object')
+  const record: Record<string, unknown> = state
+  return {
+    loaded: record.loaded === true,
+    current: typeof record.current === 'string' ? record.current : null,
+    time: typeof record.time === 'number' ? record.time : Number.NaN,
+    playing: record.playing === true,
+    poseHash: typeof record.poseHash === 'string' ? record.poseHash : '?',
+  }
 }
 
 describe('Animator in the Runtime Snapshot (issue #166 CA-10)', () => {

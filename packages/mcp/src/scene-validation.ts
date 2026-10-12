@@ -20,6 +20,7 @@ import {
 import { physicsCompositionFindings } from './physics-param-validation.js'
 import { validateEntitySpace, validateSceneSimulation, validateSceneSpace } from './space-validation.js'
 import { validateEntitySceneTransition } from './scene-transition-validation.js'
+import { validateAnimator } from './animator-validation.js'
 import { validateStateMachines } from './state-machine-validation.js'
 import { add, type LooseSceneEntity, type ValidationContext } from './validation-context.js'
 
@@ -53,7 +54,7 @@ interface EntityComposition {
 
 type ReferenceScopes = Map<SceneComponentJson, ReadonlySet<string> | undefined>
 
-const STATE_BEHAVIOR_TYPES = new Set(['StateMachine', 'AnimatedSprite'])
+const STATE_BEHAVIOR_TYPES = new Set(['StateMachine', 'AnimatedSprite', 'Animator', 'Model'])
 
 function resolvedEntityComponents(
   entity: LooseSceneEntity,
@@ -139,6 +140,7 @@ function validateSceneEntity(
   // In a 2D scene the physics components are already space mismatches; a second finding would ask for a Collider that could not run there either.
   if (space === '3d') {
     context.findings.push(...physicsCompositionFindings(effectiveComponents(composition), file, entityRef))
+    validateAnimator(effectiveComponents(composition), { file, ref: entityRef, context })
   }
   validateEntityParamReferences(composition, scope)
 

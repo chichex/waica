@@ -102,17 +102,22 @@ export interface StateIssue {
   detail: string
 }
 
-/** Everything worth flagging about one state, most severe first. */
+/**
+ * Everything worth flagging about one state, most severe first. `clips` is
+ * the sprite's clip list, or null when the clips are unknown to the editor —
+ * an entity drawing a Model plays the clips of its glb, which the editor does
+ * not parse (issue #166 CA-11) — so no clip warning is raised then.
+ */
 export function stateIssues(
   name: string,
   machine: MachineProps,
-  clips: string[],
+  clips: readonly string[] | null,
   stateFiles: string[],
 ): StateIssue[] {
   const issues: StateIssue[] = []
   const def = machine.states[name]
   const clip = def?.clip ?? name
-  if (!clips.includes(clip)) {
+  if (clips !== null && !clips.includes(clip)) {
     issues.push({
       level: 'warn',
       text: 'No animation for this state',
