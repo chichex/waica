@@ -114,7 +114,9 @@ export class StateMachine extends Component {
     'instanceHooks',
     'signals',
     'warnedClips',
+    'warnedFlips',
     'lastFacing',
+    'requestedClip',
   ]
 
   /** The character's role — names the logic set providing its state code. */
@@ -131,8 +133,17 @@ export class StateMachine extends Component {
   private readonly instanceHooks = new Map<string, StateHooks[]>()
   private readonly signals = new Set<string>()
   private readonly warnedClips = new Set<string>()
+  /** States already warned that their mirrored clip met a target that cannot flip. */
+  private readonly warnedFlips = new Set<string>()
   /** Facing last used to resolve a directional clip — detects a turn mid-state. */
   private lastFacing: string | undefined
+  /**
+   * The clip the current state asked its Clip Target for, undefined when it
+   * asked for nothing (no target, or a clip the target lacks). `clip:end`
+   * reads only this clip: a one-shot left finished by an earlier state never
+   * counts for a state that could not play its own.
+   */
+  private requestedClip: string | undefined
 
   override onReady(): void {
     if (this.role && !logicSet(this.role)) {
@@ -170,10 +181,12 @@ export class StateMachine extends Component {
     this.run('*', 'onUpdate', dt)
     this.run(this.current, 'onUpdate', dt)
     this.elapsed += dt
+    // The target is found once per step: entering a state never changes it.
+    const target = this.clipTarget()
     // Chained transitions settle within the frame (e.g. land → idle → run),
     // capped so a degenerate cyclic graph can't hang the loop.
     for (let hops = 0; hops < MAX_CHAINED_HOPS; hops++) {
-      const edge = nextTransition(this.states, this.current, this.env())
+      const edge = nextTransition(this.states, this.current, this.env(target))
       // A '*' edge is re-merged against whatever state the loop just
       // entered, so a still-queued signal (signals.clear() only runs after
       // this loop) keeps firing every remaining hop. Without this guard
@@ -202,13 +215,14 @@ export class StateMachine extends Component {
     this.runCollision(state, other)
   }
 
-  private env(): TriggerEnv {
+  private env(target: ClipTarget | undefined): TriggerEnv {
     return {
       justPressed: (action) =>
         this.game.input.justPressed(action) && !this.game.input.consumed(action),
       elapsed: this.elapsed,
       signals: this.signals,
-      clipFinished: this.clipTarget()?.clipFinished ?? false,
+      clipFinished:
+        this.requestedClip !== undefined && target?.current === this.requestedClip && target.clipFinished,
     }
   }
 
@@ -243,12 +257,14 @@ export class StateMachine extends Component {
   }
 
   private playClip(state: string): void {
+    this.requestedClip = undefined
     const target = this.clipTarget()
     if (!target) return
     const clip = this.states[state]?.clip ?? state
     if (this.playDirectionalClip(target, clip)) return
     if (target.clipNames.includes(clip)) {
       target.play(clip)
+      this.requestedClip = clip
     } else if (!this.warnedClips.has(state)) {
       this.warnedClips.add(state)
       console.warn(
@@ -269,18 +285,44 @@ export class StateMachine extends Component {
    * to keep the name-based path — no contract, no facing, no playable clip.
    */
   private playDirectionalClip(target: ClipTarget, clip: string): boolean {
+    const resolved = this.resolveFacingClip(target, clip)
+    if (!resolved) return false
+    this.mirror(target, resolved)
+    target.play(resolved.clip)
+    this.requestedClip = resolved.clip
+    return true
+  }
+
+  /** State × facing through the installed contract and the target's clips, remembering the facing used; undefined keeps the name-based path. */
+  private resolveFacingClip(target: ClipTarget, clip: string): { clip: string; flip: boolean } | undefined {
     const animation = installedDirectionalAnimation()
-    if (!animation) return false
+    if (!animation) return undefined
     const provider = this.facingProvider()
-    if (!provider) return false
+    if (!provider) return undefined
     const facing = provider.getAnimationFacing()
     this.lastFacing = facing
-    const resolved = resolveDirectionalClip(animation, target.clipNames, clip, facing)
-    if (!resolved.clip || !target.clipNames.includes(resolved.clip)) return false
-    // A target without a mirror (an Animator) is never flipped: 3D faces by turning.
-    target.setFlipX?.(resolved.flip)
-    target.play(resolved.clip)
-    return true
+    const names = target.clipNames
+    const resolved = resolveDirectionalClip(animation, names, clip, facing)
+    if (!resolved.clip || !names.includes(resolved.clip)) return undefined
+    return { clip: resolved.clip, flip: resolved.flip }
+  }
+
+  /**
+   * Applies the resolved mirror. A target without `setFlipX` (an Animator:
+   * 3D faces by turning) plays a mirrored clip unmirrored and warns once
+   * per state, so a 2D target that forgot its mirror is not silent.
+   */
+  private mirror(target: ClipTarget, resolved: { clip: string; flip: boolean }): void {
+    if (target.setFlipX) {
+      target.setFlipX(resolved.flip)
+      return
+    }
+    if (!resolved.flip || this.warnedFlips.has(this.current)) return
+    this.warnedFlips.add(this.current)
+    console.warn(
+      `[waica] "${this.entity.name}": clip "${resolved.clip}" is mirrored for facing "${this.lastFacing ?? ''}", ` +
+        'but the Clip Target cannot flip — playing it unmirrored',
+    )
   }
 
   private facingProvider(): (Component & AnimationFacingProvider) | undefined {
@@ -293,9 +335,11 @@ export class StateMachine extends Component {
    * playDirectionalClip only runs at enter() time (via playClip), so a
    * facing change that doesn't cross a state boundary — turning while
    * still walking, say — never re-resolves the clip on its own. Catch that
-   * here every frame: same state, new facing, re-run the resolution.
-   * A target's play() no-ops on an unchanged running clip name, so this is
-   * cheap when facing hasn't moved the resolved clip.
+   * here every frame: same state, new facing, re-run the resolution. A
+   * turn that only mirrors (west playing east flipped) re-applies the
+   * mirror and leaves the clip alone — a running one keeps its frame and a
+   * finished one-shot keeps its last — so only a turn onto another clip
+   * name plays, as re-entering the state would.
    */
   private reresolveOnFacingChange(): void {
     if (!this.current || !installedDirectionalAnimation()) return
@@ -303,6 +347,11 @@ export class StateMachine extends Component {
     if (!target) return
     const provider = this.facingProvider()
     if (!provider || provider.getAnimationFacing() === this.lastFacing) return
-    this.playDirectionalClip(target, this.states[this.current]?.clip ?? this.current)
+    const resolved = this.resolveFacingClip(target, this.states[this.current]?.clip ?? this.current)
+    if (!resolved) return
+    this.mirror(target, resolved)
+    if (resolved.clip === target.current) return
+    target.play(resolved.clip)
+    this.requestedClip = resolved.clip
   }
 }
