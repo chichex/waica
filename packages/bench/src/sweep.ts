@@ -2,7 +2,8 @@
  * The benchmark sweep: every scenario id with the workload kind it runs and
  * its size. Static and animated sizes are sprite counts; churn and
  * bullet-hell sizes are spawns per Simulation Step; lights-occlusion sizes
- * are Light counts; falling-boxes sizes are dynamic box counts. One baseline file per id.
+ * are Light counts; falling-boxes sizes are dynamic box counts;
+ * skinned-characters sizes are animated rig counts. One baseline file per id.
  */
 export const SCENARIOS = [
   'static-sprites-1000',
@@ -20,6 +21,8 @@ export const SCENARIOS = [
   'lights-occlusion-32',
   'falling-boxes-200',
   'falling-boxes-1000',
+  'skinned-characters-50',
+  'skinned-characters-200',
 ] as const
 export type ScenarioName = (typeof SCENARIOS)[number]
 
@@ -30,6 +33,7 @@ export type ScenarioKind =
   | 'bullet-hell'
   | 'lights-occlusion'
   | 'falling-boxes'
+  | 'skinned-characters'
 
 export interface SweepEntry {
   kind: ScenarioKind
@@ -52,6 +56,8 @@ export const SWEEP: Record<ScenarioName, SweepEntry> = {
   'lights-occlusion-32': { kind: 'lights-occlusion', n: 32 },
   'falling-boxes-200': { kind: 'falling-boxes', n: 200 },
   'falling-boxes-1000': { kind: 'falling-boxes', n: 1000 },
+  'skinned-characters-50': { kind: 'skinned-characters', n: 50 },
+  'skinned-characters-200': { kind: 'skinned-characters', n: 200 },
 }
 
 /** The view the grid fills: the default 10-unit-high camera, 16:9, with a margin. */

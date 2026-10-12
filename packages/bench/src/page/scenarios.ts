@@ -3,6 +3,7 @@ import { SWEEP, cellSize, gridShape, type ScenarioKind, type ScenarioName } from
 import { bulletHell } from './bullet-hell.ts'
 import { fallingBoxes } from './falling-boxes.ts'
 import { lightsOcclusion } from './lights-occlusion.ts'
+import { skinnedCharacters } from './skinned-characters.ts'
 import { SHEET_FRAMES, sheetTexture, squareTexture } from './fixture-art.ts'
 
 /** One deterministic workload: a scene, how many Simulation Steps to run, and per-step work. */
@@ -107,6 +108,7 @@ export const PLAN_BY_KIND: Record<ScenarioKind, (n: number) => ScenarioPlan> = {
   'bullet-hell': (n) => bulletHell(n, squareTexture(), REGISTRY_COMPONENTS),
   'lights-occlusion': lightsOcclusion,
   'falling-boxes': fallingBoxes,
+  'skinned-characters': skinnedCharacters,
 }
 
 /** Builds the plan of one sweep entry; art is generated here, in the page. */
