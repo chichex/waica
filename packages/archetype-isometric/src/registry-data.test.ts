@@ -69,6 +69,8 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     forwardAction: 'up',
     backAction: 'down',
     jumpAction: 'jump',
+    // Issue #166 CA-14: the motor turns toward its walk.
+    turnSpeed: 540,
   },
   // Issue #166 CA-10: every archetype registers the Animator, the 3D Clip Target.
   Animator: { initialClip: '', fade: 0.15, clips: {} },
