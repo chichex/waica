@@ -1,5 +1,4 @@
 // @vitest-environment happy-dom
-/// <reference path="../../engine/src/test-fixtures.d.ts" />
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The engine's own copy of three, by path: this package does not depend on three.
@@ -80,7 +79,7 @@ describe('CHARACTER_STATE_GRAPH (issue #166 CA-15)', () => {
   it('names its driver, its signals and runs characterUpdate in every default state', () => {
     expect(CHARACTER_ROLE.driver).toBe('CharacterMotor')
     expect(Object.keys(roleDefinition('character')?.signals ?? {})).toEqual(['move', 'stop', 'rise', 'fall', 'land'])
-    for (const state of ['default', 'idle', 'walk', 'jump', 'fall']) expect(CHARACTER_ROLE.states?.[state]?.onUpdate, state).toBe(characterUpdate)
+    for (const state of ['default', 'idle', 'walk', 'jump', 'fall']) expect(Reflect.get(defined(CHARACTER_ROLE.states?.[state]), 'onUpdate'), state).toBe(characterUpdate)
   })
 })
 

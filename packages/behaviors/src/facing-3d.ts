@@ -12,6 +12,7 @@ const wrap = (radians: number): number => Math.atan2(Math.sin(radians), Math.cos
  * `dt` seconds; `turnSpeed` 0 snaps. A zero direction changes nothing. Shared
  * by the CharacterMotor and any later mover.
  */
+// eslint-disable-next-line max-params -- the signature spec #166 fixes: a node, a planar direction, a turn rate and the step; bundling them would be an unrelated bag
 export function turnYawToward(node: THREE.Object3D, dirX: number, dirZ: number, turnSpeed: number, dt: number): void {
   if (dirX === 0 && dirZ === 0) return
   const target = Math.atan2(dirX, dirZ)
