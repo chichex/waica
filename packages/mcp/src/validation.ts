@@ -29,7 +29,7 @@ import {
 import { directFiles, requireWaicaProject } from './project-path.js'
 import { validatePrefabSceneTransition } from './scene-transition-validation.js'
 import { validateScene } from './scene-validation.js'
-import { validateAnimator } from './animator-validation.js'
+import { validateAnimatorClips } from './animator-validation.js'
 import { projectRoleStateSources, validateStateMachines } from './state-machine-validation.js'
 import { stockAnchoredPieces, uiBindingFindings } from './ui-binding-validation.js'
 import {
@@ -104,7 +104,7 @@ function validatePrefab(
     file,
     context,
   )
-  validateAnimator(components, { file, ref, context })
+  validateAnimatorClips(components, { file, ref, context })
   validateStateMachines(components, file, ref, context)
   validateComponentUpdateSchedule(components, file, ref, context)
 }

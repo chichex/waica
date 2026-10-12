@@ -45,13 +45,17 @@ export class Animator extends Component implements ClipTarget {
     initialClip: { label: 'Initial clip' },
     fade: { label: 'Fade (s)', min: 0, max: 1, step: 0.05 },
   } satisfies Record<string, ParamSpec>
-  static override transient = ['current', 'mixer', 'actions', 'active', 'requested', 'finished', 'root', 'warned', 'attached']
+  static override transient = ['current', 'mixer', 'actions', 'active', 'requested', 'finished', 'root', 'warned', 'attached', 'handle', 'names', 'pending']
 
   /** The clip that plays once the model settles, when nothing asked for one before. */
   initialClip = ''
   /** Crossfade between clips, in seconds; 0 cuts. */
   fade = 0.15
-  /** Per-clip overrides by glTF clip name (authored in JSON, like AnimatedSprite.clips). */
+  /**
+   * Per-clip overrides by glTF clip name (authored in JSON, like
+   * AnimatedSprite.clips). Read when the actions are built, as the model
+   * settles: a change after that applies on the next build (a Model rebuild).
+   */
   clips: Record<string, AnimatorClipOverride> = {}
 
   /** The clip playing now; undefined before the first play. */
@@ -66,17 +70,28 @@ export class Animator extends Component implements ClipTarget {
   private root: THREE.Object3D | null = null
   private readonly warned = new Set<string>()
   private attached = false
+  /** The Model handle the mixer was built over, or is waiting on: a Model rebuild replaces it (review of PR #168). */
+  private handle: ModelHandle | null = null
+  /** The clip names, computed once per build: the StateMachine reads them every step. */
+  private names: readonly string[] = []
+  /** True while clips are expected but not listed yet (the glb is loading); false once built, or once no Model can provide them. */
+  private pending = false
 
   get clipNames(): readonly string[] {
-    return [...this.actions.keys()]
+    return this.names
   }
 
   get clipFinished(): boolean {
     return this.finished
   }
 
+  get clipsPending(): boolean {
+    return this.pending
+  }
+
   override onReady(): void {
     if (this.game.space !== '3d') return
+    this.pending = true
     this.attach()
   }
 
@@ -105,17 +120,17 @@ export class Animator extends Component implements ClipTarget {
 
   override onUpdate(dt: number): void {
     if (this.game.space !== '3d') return
+    // A rebuilt Model (a new src or shape) draws a new clone: the mixer over
+    // the old one would animate a graph nobody draws, so it is torn down and
+    // the clip it was playing is asked for again on the new one.
+    if (this.attached && (this.entity.get(Model)?.handle ?? null) !== this.handle) this.detach()
     if (!this.attached) this.attach(true)
     this.mixer?.update(dt)
   }
 
   override onDestroy(): void {
-    this.mixer?.stopAllAction()
-    if (this.mixer && this.root) this.mixer.uncacheRoot(this.root)
-    this.mixer = null
-    this.active = null
-    this.actions.clear()
-    this.root = null
+    this.release()
+    this.pending = false
   }
 
   override inspectState(): AnimatorState {
@@ -140,17 +155,42 @@ export class Animator extends Component implements ClipTarget {
     if (!handle) {
       if ((model && !model.src) || final) {
         this.attached = true
+        this.pending = false
         this.warnOnce('model', `[waica] "${this.entity.name}": Animator needs a Model with a src beside it; nothing plays`)
       }
       return
     }
     this.attached = true
+    this.handle = handle
     reportRejection(
       handle.settled.then((outcome) => {
-        if (outcome === 'loaded' && this.entity.alive && !this.mixer) this.build(handle)
+        // Only the handle still attached builds: a Model rebuilt meanwhile has a newer one.
+        if (outcome === 'loaded' && this.entity.alive && !this.mixer && this.handle === handle) this.build(handle)
       }),
       'animator model settle',
     )
+  }
+
+  /** Forgets the Model's old clone and keeps the clip it played as the request for the next build. */
+  private detach(): void {
+    this.requested = this.current ?? this.requested
+    this.release()
+    this.attached = false
+    this.pending = true
+  }
+
+  /** Stops and drops the mixer, its actions and the clone they ran over. */
+  private release(): void {
+    this.mixer?.stopAllAction()
+    if (this.mixer && this.root) this.mixer.uncacheRoot(this.root)
+    this.mixer = null
+    this.active = null
+    this.current = undefined
+    this.finished = false
+    this.actions.clear()
+    this.names = []
+    this.root = null
+    this.handle = null
   }
 
   private build(handle: ModelHandle): void {
@@ -158,6 +198,8 @@ export class Animator extends Component implements ClipTarget {
     this.mixer = mixer
     this.root = handle.root
     for (const clip of handle.animations) this.actions.set(clip.name, this.configure(mixer.clipAction(clip), clip.name))
+    this.names = [...this.actions.keys()]
+    this.pending = false
     mixer.addEventListener('finished', (event) => {
       if (event.action === this.active) this.finished = true
     })

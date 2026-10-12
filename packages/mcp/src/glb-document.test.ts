@@ -4,18 +4,23 @@ import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { clipNamesOf, parseGlbDocument, readModelDocument, skinsOf } from './glb-document.js'
 
-/** A glb holding `json` as its JSON chunk and an empty BIN chunk, the way the generator scripts write one. */
-function glbOf(json: unknown, magic = 'glTF'): Uint8Array {
+/** A glb holding `json` as its JSON chunk and a BIN chunk of `binaryBytes` zeros (none by default), the way the generator scripts write one. */
+function glbOf(json: unknown, magic = 'glTF', binaryBytes = 0): Uint8Array {
   const text = Buffer.from(JSON.stringify(json), 'utf8')
   const jsonChunk = Buffer.concat([text, Buffer.alloc((4 - (text.length % 4)) % 4, 0x20)])
+  const binChunk = binaryBytes > 0 ? Buffer.concat([chunkHeaderOf(binaryBytes, 'BIN\0'), Buffer.alloc(binaryBytes)]) : Buffer.alloc(0)
   const header = Buffer.alloc(12)
   header.write(magic, 0, 'ascii')
   header.writeUInt32LE(2, 4)
-  header.writeUInt32LE(12 + 8 + jsonChunk.length, 8)
+  header.writeUInt32LE(12 + 8 + jsonChunk.length + binChunk.length, 8)
+  return new Uint8Array(Buffer.concat([header, chunkHeaderOf(jsonChunk.length, 'JSON'), jsonChunk, binChunk]))
+}
+
+function chunkHeaderOf(length: number, type: string): Buffer {
   const chunkHeader = Buffer.alloc(8)
-  chunkHeader.writeUInt32LE(jsonChunk.length, 0)
-  chunkHeader.write('JSON', 4, 'latin1')
-  return new Uint8Array(Buffer.concat([header, chunkHeader, jsonChunk]))
+  chunkHeader.writeUInt32LE(length, 0)
+  chunkHeader.write(type, 4, 'latin1')
+  return chunkHeader
 }
 
 const DOCUMENT = {
@@ -63,5 +68,18 @@ describe('readModelDocument (issue #166 CA-9)', () => {
     expect(await readModelDocument(path.join(root, 'rig.gltf'))).toEqual(DOCUMENT)
     expect(await readModelDocument(path.join(root, 'broken.gltf'))).toBeNull()
     expect(await readModelDocument(path.join(root, 'missing.glb'))).toBeNull()
+  })
+
+  it('reads the JSON chunk of a .glb with a large BIN chunk behind it, and gives null for a file cut short of its JSON chunk (review of PR #168)', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'waica-glb-'))
+    roots.push(root)
+    const whole = glbOf(DOCUMENT, 'glTF', 1 << 20)
+    await writeFile(path.join(root, 'heavy.glb'), whole)
+    await writeFile(path.join(root, 'cut.glb'), whole.subarray(0, 40))
+    await writeFile(path.join(root, 'header-only.glb'), whole.subarray(0, 12))
+
+    expect(await readModelDocument(path.join(root, 'heavy.glb'))).toEqual(DOCUMENT)
+    expect(await readModelDocument(path.join(root, 'cut.glb'))).toBeNull()
+    expect(await readModelDocument(path.join(root, 'header-only.glb'))).toBeNull()
   })
 })

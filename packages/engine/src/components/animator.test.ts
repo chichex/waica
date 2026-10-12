@@ -43,16 +43,20 @@ describe('Animator plays the clips of the Model beside it (issue #166 CA-7)', ()
     expect(authoringDefaults(Animator)).toEqual({ initialClip: '', fade: 0.15, clips: {} })
   })
 
-  it('lists the clips once loaded and moves leg.L away from its bind pose and from leg.R after 48 steps of walk', async () => {
+  it('lists the clips once loaded and swings the legs in opposite phase: 12 steps of walk reach the 15° keyframe', async () => {
     const { game, animator, bones } = await readyRig({})
     expect(animator.clipNames).toEqual(['idle', 'walk', 'jump'])
     expect(animator.current).toBeUndefined()
 
     animator.play('walk')
     expect(animator.current).toBe('walk')
-    step(game, 48)
+    // 48 steps would be one whole 0.8 s cycle, back on an identity keyframe (review of PR #168).
+    step(game, 12)
 
     const [, legL, legR] = bones.map(quaternionOf)
+    // The walk keyframe at 0.2 s: a 15° half-angle about X, each leg the other way (SWING in scripts/generate-rig-fixture.mjs).
+    expect(defined(legL)[0]).toBeCloseTo(0.2588, 3)
+    expect(defined(legR)[0]).toBeCloseTo(-0.2588, 3)
     expect(legL).not.toEqual(BIND)
     expect(legL).not.toEqual(legR)
   })
@@ -140,6 +144,7 @@ describe('Animator pending plays and unknown clips (issue #166 CA-7)', () => {
     step(game, 20)
     expect(quaternionOf(defined(bonesOf(defined(game.find('Early')))[1]))).not.toEqual(BIND)
   })
+
 
   it('warns once for an unknown clip and changes nothing', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})

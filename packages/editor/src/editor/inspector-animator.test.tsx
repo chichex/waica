@@ -2,8 +2,9 @@
 import { cleanup, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { SceneEntityJson } from '@waica/engine'
-import { characterClipsWarning } from './inspector/component-meta'
+import { characterClipsWarning, clipsUnknown } from './inspector/component-meta'
 import { renderInspector, section } from './inspector-test-support'
+import { defined } from '../../../engine/src/test-support'
 
 afterEach(cleanup)
 
@@ -38,5 +39,13 @@ describe('characterClipsWarning beside a Model (issue #166 CA-11)', () => {
     const components = RIG.components ?? []
     expect(characterClipsWarning({ type: 'AnimatedSprite', props: { clips: {} } }, components)).toBeUndefined()
     expect(characterClipsWarning({ type: 'AnimatedSprite', props: { clips: {} } }, components.filter((c) => c.type !== 'Model'))).toBe('missing clips: Idle, Walking_A')
+  })
+
+  it('treats the clips as unknown only beside a Model that names a file, not a primitive (review of PR #168)', () => {
+    const machine = defined((RIG.components ?? []).find((c) => c.type === 'StateMachine'))
+    expect(clipsUnknown([{ type: 'Model', props: { src: 'src/art/hero.glb' } }])).toBe(true)
+    expect(clipsUnknown([{ type: 'Model', props: { shape: 'box' } }])).toBe(false)
+    expect(clipsUnknown([{ type: 'Model' }])).toBe(false)
+    expect(characterClipsWarning({ type: 'AnimatedSprite', props: { clips: {} } }, [{ type: 'Model', props: { shape: 'box' } }, machine])).toBe('missing clips: Idle, Walking_A')
   })
 })
