@@ -260,6 +260,17 @@ A scene declares its space (ADR 0027): `render.space: '2d'` (the default) or `'3
 - **Runtime Snapshot.** `space`, `view` (`{ kind: 'orthographic', position, zoom }` or `{ kind: 'perspective', position, target, fov }`) and, in a 3D scene, `lighting.sun[]` and `lighting.pointLights[]`, and `physics: { state: 'loading' | 'ready' | 'failed', gravity, bodies: [{ entity, id, type: 'fixed' | 'dynamic' | 'kinematic', velocity, grounded }] }` (bodies in spawn order, never filtered).
 - **Editor.** A 3D scene opens read-only: the viewport draws it through its perspective camera (the one Play uses) with no gesture, grid or gizmo; the inspector edits X/Y/Z, rotation and scale, and a perspective camera's position, target and fov.
 
+## State machines
+
+A `StateMachine` owns a character's per-frame logic: its `states` and their `transitions` are prefab data, the state code comes from the role's logic set (`defineRole`, `defineStates`), and `current` names the active state. Each transition is `{ on, to }`; a trigger is one of:
+
+- `input:<action>` — an unconsumed press of the action this Simulation Step; the transition spends it.
+- `timer:<seconds>` — the state has been active for at least that long (exact at the fixed step: `timer:0.3` is 18 steps).
+- `signal:<name>` — the state code queued `fsm.signal(name)` this step or the last.
+- `clip:end` — the Clip Target reports its non-looping clip finished (issue #166). It fires on the step after the clip's last frame has been held for its whole duration, and never for a looping clip (`validate_project` warns `clip-end-on-looping-clip`). Re-entering a state whose one-shot clip already ended replays it.
+
+Entering a state plays the clip of its name (or its `clip` override) through the entity's **Clip Target**: the first sibling component that plays clips — an `AnimatedSprite` in a 2D scene, an `Animator` in a 3D one — found by `isClipTarget` (a `play` function and a `clipNames` array), not by class. The directional contract resolves `<state>-<dir>` against the target's `clipNames` and mirrors only a target that defines `setFlipX`. A clip the target lacks warns once and keeps the previous one.
+
 ## Component lifecycle
 
 Waica keeps the lifecycle boundaries distinct:

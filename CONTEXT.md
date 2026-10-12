@@ -23,6 +23,10 @@ _Avoid_: clip list, animation set
 The compass direction (`n`, `ne`, `e`, …) an entity reports so its current state resolves to a directional clip. It is read off motion as seen on screen — a motor's screen-relative input or a patrol's projected rail — never off logical axes.
 _Avoid_: orientation, heading, direction
 
+**Clip Target**:
+The one sibling component a State Machine plays clips through: it asks for a clip by name on entering a state, reads which names exist and which one runs, and learns from it that a one-shot clip ended (the `clip:end` trigger). An Animated Sprite in a 2D scene, an **Animator** in a 3D one, found by what it can do, not by its class.
+_Avoid_: sprite (when the 3D one is meant), animation component, animator (for the 2D one)
+
 **Chassis**:
 The factory baseline something starts from and cannot shed: a prefab's core components (appearance, collision — configurable, never removable) and, by extension, the generic project skeleton every new project is created from.
 _Avoid_: boilerplate, skeleton
