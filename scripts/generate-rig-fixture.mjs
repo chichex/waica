@@ -101,8 +101,9 @@ function packer() {
     offset += padded.length
     return accessors.length - 1
   }
-  const floats = (values, type, extra = {}, target) =>
-    push(Buffer.from(new Float32Array(values).buffer), { componentType: FLOAT, count: values.length / SIZE[type], type, ...extra }, target)
+  /** A float accessor of `values` of the given type; `bounds` adds min/max, `target` marks a vertex attribute view. */
+  const floats = (values, type, { bounds = {}, target } = {}) =>
+    push(Buffer.from(new Float32Array(values).buffer), { componentType: FLOAT, count: values.length / SIZE[type], type, ...bounds }, target)
   return { floats, push, binary: () => Buffer.concat(chunks), bufferViews, accessors }
 }
 
@@ -118,13 +119,13 @@ const inverseBind = (x, y) => [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -x, -y, 0, 1]
 
 function build() {
   const pack = packer()
-  const position = pack.floats(MESH.positions, 'VEC3', bounds(MESH.positions, 3), ARRAY_BUFFER)
-  const normal = pack.floats(MESH.normals, 'VEC3', {}, ARRAY_BUFFER)
+  const position = pack.floats(MESH.positions, 'VEC3', { bounds: bounds(MESH.positions, 3), target: ARRAY_BUFFER })
+  const normal = pack.floats(MESH.normals, 'VEC3', { target: ARRAY_BUFFER })
   const joints = pack.push(Buffer.from(new Uint8Array(MESH.joints)), { componentType: UNSIGNED_BYTE, count: MESH.joints.length / 4, type: 'VEC4' }, ARRAY_BUFFER)
-  const weights = pack.floats(MESH.weights, 'VEC4', {}, ARRAY_BUFFER)
+  const weights = pack.floats(MESH.weights, 'VEC4', { target: ARRAY_BUFFER })
   const inverseBindMatrices = pack.floats([...inverseBind(0, 0), ...inverseBind(HIP.x, HIP.y), ...inverseBind(-HIP.x, HIP.y)], 'MAT4')
   const animations = CLIPS.map((clip) => {
-    const input = pack.floats(clip.times, 'SCALAR', bounds(clip.times, 1))
+    const input = pack.floats(clip.times, 'SCALAR', { bounds: bounds(clip.times, 1) })
     const samplers = clip.tracks.map((track) => ({ input, output: pack.floats(track.values.flat(), track.path === 'rotation' ? 'VEC4' : 'VEC3'), interpolation: 'LINEAR' }))
     return {
       name: clip.name,

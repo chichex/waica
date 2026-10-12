@@ -1,5 +1,6 @@
 import type { ArchetypeArt, SceneComponentJson } from '@waica/engine'
 import path from 'node:path'
+import { projectModelClips } from './animator-validation.js'
 import { objectRecord } from './component-metadata.js'
 import { filesDirectlyIn, projectSoundRefs } from './param-reference-resolution.js'
 import { add, type ValidationContext } from './validation-context.js'
@@ -26,14 +27,15 @@ export async function projectModelRefs(
   return refs
 }
 
-/** The sound and model uris a project's reference params may validly name. */
+/** The sound and model uris a project's reference params may validly name, and the clips its model files hold. */
 export async function projectArtRefs(
   projectPath: string,
   art: readonly ArchetypeArt[],
-): Promise<Pick<ValidationContext, 'soundRefs' | 'modelRefs'>> {
+): Promise<Pick<ValidationContext, 'soundRefs' | 'modelRefs' | 'modelClips'>> {
   return {
     soundRefs: await projectSoundRefs(projectPath, art),
     modelRefs: await projectModelRefs(projectPath, art),
+    modelClips: await projectModelClips(projectPath),
   }
 }
 

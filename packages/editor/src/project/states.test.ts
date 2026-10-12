@@ -106,13 +106,6 @@ describe('stateIssues', () => {
     expect(issues.filter((i) => i.level === 'warn')).toEqual([])
   })
 
-  it('raises no clip warning when the clips are unknown: a Model whose glb the editor does not parse (issue #166 CA-11)', () => {
-    const machine = machineProps({ type: 'StateMachine', props: { role: 'player', states: { idle: {}, dash: { clip: 'Dash' } } } })
-    expect(stateIssues('idle', machine, null, []).map((issue) => issue.text)).not.toContain('No animation for this state')
-    expect(stateIssues('dash', machine, null, []).map((issue) => issue.text)).not.toContain('No animation for this state')
-    expect(stateIssues('idle', machine, [], []).map((issue) => issue.text)).toContain('No animation for this state')
-  })
-
   it('warns about transitions to states that do not exist', () => {
     const broken = machine({
       states: { idle: { transitions: [{ on: 'signal:x', to: 'idel' }] } },
@@ -200,5 +193,14 @@ describe('listRoleFiles', () => {
   it('returns empty when the folder does not exist', async () => {
     const fs = new MemFS('demo', { 'src/main.ts': '// entry' })
     expect(await listRoleFiles(fs)).toEqual([])
+  })
+})
+
+describe('stateIssues beside a Model (issue #166 CA-11)', () => {
+  it('raises no clip warning when the clips are unknown: a glb the editor does not parse', () => {
+    const machine = machineProps({ type: 'StateMachine', props: { role: 'player', states: { idle: {}, dash: { clip: 'Dash' } } } })
+    expect(stateIssues('idle', machine, null, []).map((issue) => issue.text)).not.toContain('No animation for this state')
+    expect(stateIssues('dash', machine, null, []).map((issue) => issue.text)).not.toContain('No animation for this state')
+    expect(stateIssues('idle', machine, [], []).map((issue) => issue.text)).toContain('No animation for this state')
   })
 })

@@ -59,6 +59,9 @@ describe('validate_project knows the Animator (issue #166 CA-9)', () => {
     ])
   })
 
+})
+
+describe('validate_project knows the Animator: loops, .gltf, absent files, 2D (issue #166 CA-9)', () => {
   it('takes the loop source for clip-end-on-looping-clip from the clips overrides', async () => {
     const looping = await rigProject(scene3d([MODEL, { type: 'Animator' }, machine({ idle: {}, jump: { transitions: [{ on: 'clip:end', to: 'idle' }] } })]))
     expect(codes(looping, 'clip-end-on-looping-clip')).toHaveLength(1)
