@@ -17,7 +17,8 @@ export interface AnimatorClipOverride {
 /** What `inspect_runtime` shows of an Animator. */
 export interface AnimatorState {
   loaded: boolean
-  current: string | undefined
+  /** The playing clip; null before the first play (an undefined would project as an unsupported marker). */
+  current: string | null
   /** The current action's time in seconds (0 with none). */
   time: number
   /** False before the model loaded or with no clip playing. */
@@ -120,7 +121,7 @@ export class Animator extends Component implements ClipTarget {
   override inspectState(): AnimatorState {
     return {
       loaded: this.mixer !== null,
-      current: this.current,
+      current: this.current ?? null,
       time: this.active?.time ?? 0,
       playing: this.active !== null && this.active.isRunning(),
       poseHash: this.root ? poseHash(this.root) : '',

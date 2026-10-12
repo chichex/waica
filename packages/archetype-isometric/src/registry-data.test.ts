@@ -70,6 +70,8 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     backAction: 'down',
     jumpAction: 'jump',
   },
+  // Issue #166 CA-10: every archetype registers the Animator, the 3D Clip Target.
+  Animator: { initialClip: '', fade: 0.15, clips: {} },
   ParticleEmitter: {
     rate: 0,
     emitting: true,

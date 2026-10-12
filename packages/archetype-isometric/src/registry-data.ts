@@ -1,5 +1,6 @@
 import {
   AnimatedSprite,
+  Animator,
   Collider,
   Hitbox,
   Light,
@@ -52,6 +53,7 @@ export const ISOMETRIC_REGISTRY_DATA: SceneRegistry = {
     Collider,
     RigidBody,
     CharacterMotor,
+    Animator,
     Tilemap,
     Solid,
     Hitbox,

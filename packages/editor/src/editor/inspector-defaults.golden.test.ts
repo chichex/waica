@@ -15,7 +15,7 @@ import { componentDefaults, componentKeys } from './Inspector'
  * The archetype particle effects added DustPuffs, a new row. Issue #78
  * added the Light component and an `emissive` row to the three drawables.
  * Issue #154 added the 3D components Model, Sun and PointLight; issue #159
- * the physics components Collider and RigidBody.
+ * the physics components Collider and RigidBody; issue #166 the Animator.
  */
 const GOLDEN: Record<string, Record<string, unknown>> = {
   ParticleEmitter: {
@@ -101,6 +101,8 @@ const GOLDEN: Record<string, Record<string, unknown>> = {
     backAction: 'down',
     jumpAction: 'jump',
   },
+  // Issue #166 CA-11: the Animator's params reach the inspector through the generic rows.
+  Animator: { initialClip: '', fade: 0.15 },
   Sprite: { offsetX: 0, offsetY: 0, anchorX: 0.5, anchorY: 0.5, layer: 0, emissive: false },
   AnimatedSprite: { offsetX: 0, offsetY: 0, anchorX: 0.5, anchorY: 0.5, layer: 0, emissive: false },
   Solid: { offsetX: 0, offsetY: 0 },
@@ -148,7 +150,7 @@ const GOLDEN: Record<string, Record<string, unknown>> = {
 describe('Inspector component rows (golden, behavior preservation)', () => {
   const archetype = resolveArchetype('platformer')
 
-  it('lists exactly the 22 platformer registry components in the golden', () => {
+  it('lists exactly the 23 platformer registry components in the golden', () => {
     expect(Object.keys(archetype.registry.components).sort()).toEqual(
       Object.keys(GOLDEN).sort(),
     )
