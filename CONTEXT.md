@@ -174,6 +174,10 @@ _Avoid_: unlit, glow, fullbright
 What a scene's `z` axis and camera mean, declared as `render.space`. A `2d` scene (the default) is the orthographic world, where `z` only orders what is drawn; a `3d` scene makes `z` a world axis under a perspective camera, with a depth buffer deciding what is in front and no layer bands, y-sort, isometric projection, Sprite Batches or light-map. A scene is one or the other; 2D and 3D components do not mix in it.
 _Avoid_: mode, dimension, 2.5D
 
+**Editor Camera**:
+The editor's own perspective camera over a 3D scene being edited: it starts as the scene camera, orbits, pans and zooms without ever writing the scene's camera block, and is remembered per scene. The Game draws, picks and projects through it while it is set (`CameraRig.setViewCamera`); Play draws through the scene camera.
+_Avoid_: scene camera (the one Play uses), viewport camera, view (the 2D zoom)
+
 **Model**:
 A 3D thing an entity draws in a 3D scene: a glTF/glb file loaded once through `game.assets`, or a primitive shape (box, sphere, plane) with a color and a size. The entity's position, rotation and scale place it, a click can pick it, and an **Animator** beside it plays the file's clips.
 _Avoid_: mesh, 3D sprite, object
