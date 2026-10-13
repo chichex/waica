@@ -9,6 +9,12 @@ const MOUSE_BUTTON_CODES: ReadonlyMap<number, string> = new Map([
 
 const KNOWN_MOUSE_CODES = new Set(MOUSE_BUTTON_CODES.values())
 
+/** `PointerEvent.button` → its bit in `PointerEvent.buttons`, which tells a chorded press from a chorded release. */
+const MOUSE_BUTTON_BITS: ReadonlyMap<number, number> = new Map([
+  [0, 1],
+  [2, 2],
+])
+
 /** Wheel deltas reported in lines or pages, in CSS pixels (the units of `deltaMode` 0). */
 const WHEEL_LINE_PX = 16
 const WHEEL_PAGE_PX = 800
@@ -19,10 +25,11 @@ export interface MouseMovement {
   readonly y: number
 }
 
-/** What the mouse reports to the Input it belongs to: a button code going down or up. */
+/** What the mouse reports to the Input it belongs to: a button code going down or up, and whether an Action binds a code. */
 export interface MouseButtonSink {
   press(code: string): void
   release(code: string): void
+  binds(code: string): boolean
 }
 
 export interface MouseInputOptions {
@@ -65,9 +72,11 @@ export class MouseInput {
     this.canvas = options.canvas ?? null
     this.lockOnClick = options.lockOnClick ?? (() => false)
     this.canvas?.addEventListener('pointerdown', this.onPointerDown)
-    this.canvas?.addEventListener('pointerup', this.onPointerUp)
     this.canvas?.addEventListener('wheel', this.onWheel, { passive: false })
+    this.canvas?.addEventListener('contextmenu', this.onContextMenu)
+    // A release anywhere counts, so a button let go off the canvas never stays held.
     window.addEventListener('pointerup', this.onPointerUp)
+    window.addEventListener('pointermove', this.onPointerChord)
     document.addEventListener('mousemove', this.onMouseMove)
   }
 
@@ -121,10 +130,11 @@ export class MouseInput {
 
   dispose(): void {
     this.canvas?.removeEventListener('pointerdown', this.onPointerDown)
-    this.canvas?.removeEventListener('pointerup', this.onPointerUp)
     this.canvas?.removeEventListener('wheel', this.onWheel)
     window.removeEventListener('pointerup', this.onPointerUp)
     document.removeEventListener('mousemove', this.onMouseMove)
+    this.canvas?.removeEventListener('contextmenu', this.onContextMenu)
+    window.removeEventListener('pointermove', this.onPointerChord)
   }
 
   /** `document.pointerLockElement`, which a browser without the Pointer Lock API (or a test DOM) lacks. */
@@ -145,6 +155,23 @@ export class MouseInput {
   private onPointerUp = (event: PointerEvent): void => {
     const code = MOUSE_BUTTON_CODES.get(event.button)
     if (code) this.buttons.release(code)
+  }
+
+  /**
+   * A button going down or up while another is held fires `pointermove`, not
+   * `pointerdown`/`pointerup` (Pointer Events' chorded buttons). Its bit in
+   * `buttons` tells which; a press counts over the canvas only, like the first.
+   */
+  private onPointerChord = (event: PointerEvent): void => {
+    const bit = MOUSE_BUTTON_BITS.get(event.button)
+    if (bit === undefined) return
+    if ((event.buttons & bit) === 0) this.onPointerUp(event)
+    else if (event.target === this.canvas) this.onPointerDown(event)
+  }
+
+  /** The browser menu would swallow the release of a bound `Mouse:Right`; other games keep their menu. */
+  private onContextMenu = (event: MouseEvent): void => {
+    if (this.buttons.binds('Mouse:Right')) event.preventDefault()
   }
 
   private onWheel = (event: WheelEvent): void => {

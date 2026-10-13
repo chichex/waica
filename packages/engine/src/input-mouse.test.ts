@@ -32,6 +32,17 @@ function button(target: EventTarget, type: 'pointerdown' | 'pointerup', which: n
   target.dispatchEvent(new PointerEvent(type, { button: which, bubbles: true }))
 }
 
+/** A button going down or up while another is held: browsers report it as a pointermove carrying that button (chorded buttons). */
+function chord(target: EventTarget, which: number, buttons: number): void {
+  target.dispatchEvent(new PointerEvent('pointermove', { button: which, buttons, bubbles: true }))
+}
+
+function contextMenu(target: EventTarget): MouseEvent {
+  const event = new MouseEvent('contextmenu', { button: 2, cancelable: true, bubbles: true })
+  target.dispatchEvent(event)
+  return event
+}
+
 function move(x: number, y: number): void {
   document.dispatchEvent(new MouseEvent('mousemove', { movementX: x, movementY: y, bubbles: true }))
 }
@@ -84,6 +95,41 @@ it('maps the secondary button to Mouse:Right and keeps a tap between steps as on
   expect(input.justPressed('block')).toBe(true)
   expect(input.held('block')).toBe(false)
   expect(input.justPressed('attack')).toBe(false)
+})
+
+it('sees a button pressed or released while another is held, which browsers report as pointermove (CA-1)', () => {
+  const canvas = makeCanvas()
+  const input = makeInput({ attack: ['Mouse:Left'], block: ['Mouse:Right'] }, canvas)
+  const sidebar = document.createElement('aside')
+  document.body.append(sidebar)
+
+  button(canvas, 'pointerdown', 0)
+  chord(canvas, -1, 0b01)
+  expect(input.held('attack')).toBe(true)
+  chord(canvas, 2, 0b11)
+  expect(input.held('block')).toBe(true)
+  chord(canvas, 0, 0b10)
+  expect(input.held('attack')).toBe(false)
+  button(canvas, 'pointerup', 2)
+  expect(input.held('block')).toBe(false)
+  button(canvas, 'pointerdown', 0)
+  chord(sidebar, 2, 0b11)
+  expect(input.held('block')).toBe(false)
+  button(canvas, 'pointerup', 0)
+
+  input.endFrame()
+  button(canvas, 'pointerdown', 0)
+  expect(input.justPressed('attack')).toBe(true)
+})
+
+it('keeps the browser menu off the canvas when an Action binds Mouse:Right, so its release still arrives (CA-1)', () => {
+  const bound = makeCanvas()
+  makeInput({ block: ['Mouse:Right'] }, bound)
+  const unbound = makeCanvas()
+  makeInput({ attack: ['Mouse:Left'] }, unbound)
+
+  expect(contextMenu(bound).defaultPrevented).toBe(true)
+  expect(contextMenu(unbound).defaultPrevented).toBe(false)
 })
 
 it('reads mouse buttons on the game canvas only, never on other page elements (CA-1)', () => {

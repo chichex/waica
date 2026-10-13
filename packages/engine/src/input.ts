@@ -75,7 +75,11 @@ export class Input {
     this.deadZone = resolveGamepadDeadZone(options.gamepadDeadZone, (message) => {
       console.warn(message)
     })
-    const keyLike = { press: (code: string) => this.press(code), release: (code: string) => this.down.delete(code) }
+    const keyLike = {
+      press: (code: string) => this.press(code),
+      release: (code: string) => this.down.delete(code),
+      binds: (code: string) => [...this.bindings.values()].some((codes) => codes.has(code)),
+    }
     this.mouse = new MouseInput(keyLike, options)
     window.addEventListener('keydown', this.onKeyDown)
     window.addEventListener('keyup', this.onKeyUp)
