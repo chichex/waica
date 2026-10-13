@@ -44,7 +44,9 @@ const MODEL: SceneComponentJson = { type: 'Model', props: { shape: 'box' } }
  * its role's driver; an object is a sensor, a tile a fixed box. Never a
  * Sprite, Hitbox or Solid. No Animator either (maintainer decision): it needs
  * a Model with a glb `src` (`animator-without-model`), so it is added with
- * the glb that replaces the box.
+ * the glb that replaces the box. The editor's New prefab writes the same
+ * (packages/editor/src/project/chassis-3d.ts); scaffolds-3d.test.ts holds the
+ * two byte-identical.
  */
 export function prefabComponents3d(request: Scaffold3dRequest): SceneComponentJson[] {
   if (request.type === 'object') return [MODEL, { type: 'Collider', props: { sensor: true } }]

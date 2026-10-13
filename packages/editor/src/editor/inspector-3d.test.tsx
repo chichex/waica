@@ -150,3 +150,26 @@ describe('CameraInspector, field of view (CA-21)', () => {
     expect(slider().value).toBe(String(fov))
   })
 })
+
+describe('the component picker offers only what runs in the scene’s space (maintainer decision on issue #181)', () => {
+  /** The "+ behaviour…" picker's component names. */
+  const offered = (): string[] => {
+    const picker = screen.getAllByRole<HTMLSelectElement>('combobox').find((select) => select.options[0]?.textContent?.startsWith('+ '))
+    return [...defined(picker).options].slice(1).map((option) => option.value)
+  }
+
+  it('hides 2D components in a 3D scene and 3D ones in a 2D scene; both-space ones stay', () => {
+    renderInspector({ kind: 'entity', entity: { name: 'Bare' }, sceneName: 'main', space: '3d' })
+    const in3d = offered()
+    cleanup()
+    renderInspector({ kind: 'entity', entity: { name: 'Bare' }, sceneName: 'main' })
+    const in2d = offered()
+
+    expect(in3d).toEqual(expect.arrayContaining(['CharacterMotor', 'Collider', 'Health']))
+    expect(in3d).not.toContain('PlatformerMotor')
+    expect(in3d).not.toContain('Tilemap')
+    expect(in2d).toEqual(expect.arrayContaining(['PlatformerMotor', 'Health']))
+    expect(in2d).not.toContain('CharacterMotor')
+    expect(in2d).not.toContain('Collider')
+  })
+})

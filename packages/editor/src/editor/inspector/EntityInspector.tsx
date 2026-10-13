@@ -216,6 +216,7 @@ function EntityBehaviours({
       id={entity.name}
       comps={[...split.behaviours, ...split.extras].filter((comp) => comp.type !== 'Tilemap')}
       present={new Set(components.map((c) => c.type))}
+      space={props.space ?? '2d'}
       warning={driverWarning(components, archetype)}
       canRemove={(c) => !prefabOwns(entity, c.type, prefabs)}
       machine={entityMachineContext(props, clips)}

@@ -1,7 +1,10 @@
 import { afterEach, beforeAll, expect, it } from 'vitest'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import type { PrefabJson } from '@waica/engine'
+import { installArchetype, type PrefabJson } from '@waica/engine'
+import { ARCHETYPE as THIRD_PERSON } from '@waica/archetype-third-person/manifest'
+import type { CharacterIdentity } from '../../editor/src/project/chassis.js'
+import { newPrefabComponents3d } from '../../editor/src/project/chassis-3d.js'
 import { fallbackEntriesFor } from './project-component-fallbacks.js'
 import { scaffoldPrefab } from './scaffolds.js'
 import { validateProject } from './validation.js'
@@ -77,6 +80,25 @@ it('scaffolds a player and an enemy a 3D scene validates with zero errors: no An
   const { findings } = await validateProject(project)
   expect(findings.filter((finding) => finding.severity === 'error')).toEqual([])
 }, 60_000)
+
+it.each([
+  ['character', 'player', 'player'],
+  ['character', 'enemy', 'enemy'],
+  ['object', undefined, undefined],
+  ['tile', undefined, undefined],
+] as ReadonlyArray<[PrefabJson['type'], string | undefined, CharacterIdentity | undefined]>)(
+  'writes the exact bytes the editor writes for a 3D %s (role %s, identity %s) (CA-30)',
+  async (type, role, identity) => {
+    // The editor reads the role from the engine's registry, which a third-person project's bundle fills.
+    installArchetype(THIRD_PERSON.bundle)
+    const project = await thirdPersonProject()
+    const result = await scaffoldPrefab(project, 'thing', type, role, identity)
+
+    expect(await readFile(path.join(project, result.path), 'utf8')).toBe(
+      JSON.stringify({ waicaPrefab: 1, type, components: newPrefabComponents3d(type, role, identity) }, null, 2) + '\n',
+    )
+  },
+)
 
 it('still rejects a role the 3D archetype does not define (CA-30)', async () => {
   const project = await thirdPersonProject()

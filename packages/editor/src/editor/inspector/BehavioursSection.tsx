@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { roleDefinition, type SceneComponentJson } from '@waica/engine'
+import { roleDefinition, type SceneComponentJson, type SceneSpace } from '@waica/engine'
 import { useArchetype } from '../../project/archetype'
-import { behaviourTypes } from '../../project/chassis'
+import { behaviourTypesIn } from '../../project/chassis'
 import { machineProps, type MachineProps } from '../../project/states'
 import { StateMachineCard } from '../StateMachinePanel'
 import { ComponentCard } from './ComponentCard'
@@ -23,6 +23,8 @@ interface BehavioursSectionProps {
   id: string
   comps: SceneComponentJson[]
   present: Set<string>
+  /** The space of the scene the components run in: the picker hides the other space's. */
+  space: SceneSpace
   canRemove: (comp: SceneComponentJson) => boolean
   machine?: MachineCardContext
   /** Playability gap (e.g. logic without its driver), shown above the cards. */
@@ -37,7 +39,7 @@ interface BehavioursSectionProps {
 
 type BehaviourCardProps = Omit<
   BehavioursSectionProps,
-  'comps' | 'present' | 'machine' | 'warning' | 'onAdd'
+  'comps' | 'present' | 'space' | 'machine' | 'warning' | 'onAdd'
 > & { comp: SceneComponentJson }
 
 /** One behaviour's card, wired to the section's per-type callbacks. */
@@ -109,6 +111,7 @@ function roleDriver(
 export function BehavioursSection({
   comps,
   present,
+  space,
   machine,
   warning,
   onAdd,
@@ -129,17 +132,15 @@ export function BehavioursSection({
         }
         return <BehaviourCard key={comp.type} {...card} comp={comp} />
       })}
-      <AddComponentRow present={present} onAdd={onAdd} />
+      <AddComponentRow present={present} space={space} onAdd={onAdd} />
     </div>
   )
 }
 
-function AddComponentRow({ present, onAdd }: { present: Set<string>; onAdd: (type: string) => void }) {
+function AddComponentRow({ present, space, onAdd }: { present: Set<string>; space: SceneSpace; onAdd: (type: string) => void }) {
   const archetype = useArchetype()
   const [adding, setAdding] = useState('')
-  const available = behaviourTypes(Object.keys(archetype.registry.components)).filter(
-    (t) => !present.has(t),
-  )
+  const available = behaviourTypesIn(archetype.registry.components, space).filter((t) => !present.has(t))
   return (
     <div className="ed-add-comp">
       <select value={adding} onChange={(e) => setAdding(e.target.value)}>

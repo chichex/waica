@@ -1,6 +1,6 @@
 import type { PrefabJson, SceneComponentJson } from '@waica/engine'
 import { useArchetype, type ArchetypeManifest } from '../../project/archetype'
-import { CHASSIS, splitComponents } from '../../project/chassis'
+import { archetypeSpace, CHASSIS, splitComponents } from '../../project/chassis'
 import type { MachineProps } from '../../project/states'
 import { TilemapCard } from '../TilemapCard'
 import type { ArtItem, DroppedFile } from '../use-project-art'
@@ -134,6 +134,7 @@ function PrefabBehaviours(props: PrefabInspectorProps) {
       id={props.refName}
       comps={[...split.behaviours, ...split.extras].filter((comp) => comp.type !== 'Tilemap')}
       present={new Set(prefab.components.map((c) => c.type))}
+      space={archetypeSpace(archetype)}
       warning={driverWarning(prefab.components, archetype)}
       canRemove={() => true}
       machine={{

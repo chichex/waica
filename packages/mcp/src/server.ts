@@ -123,7 +123,7 @@ export const TOOLS: Tool[] = [
   },
   {
     name: 'scaffold_prefab',
-    description: 'Create the starter prefab for a character, object or tile: the editor-compatible 2D set, or the 3D set in a 3D archetype.',
+    description: 'Create the editor-compatible starter prefab for a character, object or tile (the 3D set in a 3D archetype).',
     inputSchema: schema(
       {
         name: { type: 'string', minLength: 1, description: 'Prefab file name, without the type suffix.' },

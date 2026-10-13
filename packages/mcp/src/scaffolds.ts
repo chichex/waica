@@ -251,10 +251,10 @@ function characterRole(projectPath: string, roleName: string, roles: Record<stri
 }
 
 /**
- * A starter prefab of the given type — for roles the active archetype
- * defines. In a 2D archetype it is byte-identical to what the editor writes
- * for the same inputs; in a 3D one it is the 3D set (prefabComponents3d,
- * issue #181 CA-30), which the editor's New prefab does not write yet. The
+ * A starter prefab of the given type, byte-identical to what the editor
+ * writes for the same inputs — for roles the active archetype defines. In a
+ * 3D archetype both write the 3D set (prefabComponents3d, issue #181 CA-30,
+ * and the editor's chassis-3d.ts; a test holds them byte-identical). The
  * editor also accepts a project's own custom roles (defineRole); this
  * function does not, and rejects them instead of guessing (see the
  * unknown-role error below). The caller names it: no auto-numbering, and an

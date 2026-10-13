@@ -8,6 +8,8 @@ import {
   type PrefabJson,
 } from '@waica/engine'
 import { PLATFORMER_BUNDLE } from '@waica/archetype-platformer'
+import { THIRD_PERSON_BUNDLE } from '@waica/archetype-third-person'
+import { newPrefabComponents3d } from './chassis-3d'
 import chassisSource from './chassis.ts?raw'
 import {
   appearanceKind,
@@ -448,5 +450,19 @@ describe('setCollisionEnabled', () => {
     const before = structuredClone(tile)
     setCollisionEnabled(tile, false)
     expect(tile).toEqual(before)
+  })
+})
+
+describe('newPrefabComponents in a 3D archetype (maintainer decision on issue #181: the MCP scaffold’s set)', () => {
+  beforeEach(() => installChassisArchetype(THIRD_PERSON_BUNDLE))
+
+  it('writes the 3D set: a box Model, a kinematic capsule body, the machine and its driver; no Sprite, Hitbox, Solid or Animator', () => {
+    const types = (components: PrefabJson['components']): string[] => components.map((component) => component.type)
+    const player = newPrefabComponents3d('character', 'player', 'player')
+    expect(types(player).slice(0, 5)).toEqual(['Model', 'RigidBody', 'Collider', 'StateMachine', 'CharacterMotor'])
+    expect(types(newPrefabComponents3d('character', 'enemy', 'enemy'))).toContain('MeleeAttack')
+    expect(types(newPrefabComponents3d('object'))).toEqual(['Model', 'Collider'])
+    expect(types(newPrefabComponents3d('tile'))).toEqual(['Model', 'Collider'])
+    for (const flat of ['Sprite', 'Hitbox', 'Solid', 'Animator', 'Hazard']) expect(types(player)).not.toContain(flat)
   })
 })

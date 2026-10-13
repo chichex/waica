@@ -1,11 +1,15 @@
 import {
+  componentSpaceOf,
   installArchetype,
   installDirectionalAnimation,
   roleDefinition,
   type ArchetypeBundle,
+  type ArchetypeManifest,
+  type ComponentClass,
   type DirectionalAnimation,
   type PrefabJson,
   type SceneComponentJson,
+  type SceneSpace,
 } from '@waica/engine'
 
 /**
@@ -189,6 +193,24 @@ export function splitComponents(components: SceneComponentJson[]): SplitComponen
 /** Registry names offered by "+ behaviour" and listed in the Explorer. */
 export function behaviourTypes(all: Iterable<string>): string[] {
   return [...all].filter((t) => !CORE_COMPONENT_TYPES.has(t))
+}
+
+/**
+ * The behaviours the "+ behaviour…" picker offers in a scene of `space`: a
+ * component of the other space would only be a component-space-mismatch
+ * there, so it is hidden (maintainer decision on issue #181).
+ */
+export function behaviourTypesIn(components: Readonly<Record<string, ComponentClass>>, space: SceneSpace): string[] {
+  return behaviourTypes(Object.keys(components)).filter((type) => {
+    const Class = components[type]
+    const own = Class ? componentSpaceOf(Class) : 'both'
+    return own === 'both' || own === space
+  })
+}
+
+/** The space an archetype's prefabs are made for: its demo scene's (issue #181 inference 23). */
+export function archetypeSpace(archetype: Pick<ArchetypeManifest, 'scene'>): SceneSpace {
+  return archetype.scene.render?.space === '3d' ? '3d' : '2d'
 }
 
 /**
