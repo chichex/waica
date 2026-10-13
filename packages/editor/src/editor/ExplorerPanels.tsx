@@ -1,5 +1,6 @@
+import { resolveSceneSpace } from '@waica/engine'
 import { useArchetype } from '../project/archetype'
-import { behaviourTypes } from '../project/chassis'
+import { archetypeSpace, behaviourTypesIn } from '../project/chassis'
 import type { MenuEntry } from './ContextMenu'
 import type { ExplorerProps, ExplorerView, OpenMenu } from './explorer-props'
 
@@ -67,6 +68,7 @@ export function UiPiecesPanel(panel: UiPiecesPanelProps) {
 /** The Explorer props the Components panel reads and calls. */
 export type ComponentsPanelProps = Pick<
   ExplorerProps,
+  | 'scene'
   | 'view'
   | 'customComponents'
   | 'stateFiles'
@@ -119,13 +121,17 @@ export function ComponentsPanel(panel: ComponentsPanelProps) {
   )
 }
 
-/** The archetype's behaviour components a project component doesn't shadow, each with viewable code. */
+/**
+ * The archetype's behaviour components a project component doesn't shadow,
+ * each with viewable code: only those that run in the loaded scene's space
+ * (the archetype's with no scene), as the "+ behaviour…" picker offers them
+ * (maintainer decision on issue #181).
+ */
 function BuiltinComponents({ panel }: { panel: ComponentsPanelProps }) {
   const archetype = useArchetype()
   const customNames = new Set(panel.customComponents.map(({ name }) => name))
-  const builtin = behaviourTypes(Object.keys(archetype.registry.components)).filter(
-    (name) => !customNames.has(name),
-  )
+  const space = panel.scene ? resolveSceneSpace(panel.scene.render) : archetypeSpace(archetype)
+  const builtin = behaviourTypesIn(archetype.registry.components, space).filter((name) => !customNames.has(name))
   return (
     <>
       <div className="ed-x-group-head">Built-in</div>

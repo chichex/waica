@@ -160,6 +160,22 @@ describe('Explorer library (characterization): UI pieces and components', () => 
   })
 })
 
+describe('Explorer library: built-in components per space', () => {
+  it('lists only the built-in components that run in the loaded scene’s space (maintainer decision on issue #181)', () => {
+    const builtin = (): string[] => screen.getAllByRole('button', { name: /^📜 / }).map((button) => (button.textContent ?? '').replace('📜', '').trim())
+    renderExplorer({ scene: { waicaScene: 3, render: { space: '3d' }, entities: [] }, customComponents: [], stateFiles: [], roleFiles: [] })
+    const in3d = builtin()
+    cleanup()
+    renderExplorer({ customComponents: [], stateFiles: [], roleFiles: [] })
+    const in2d = builtin()
+
+    expect(in3d).toEqual(expect.arrayContaining(['CharacterMotor', 'Health']))
+    expect(in3d).not.toContain('PlatformerMotor')
+    expect(in2d).toEqual(expect.arrayContaining(['PlatformerMotor', 'Health']))
+    expect(in2d).not.toContain('CharacterMotor')
+  })
+})
+
 describe('Explorer library (characterization): art', () => {
   it('shows art folders collapsed, expands them and opens an image', async () => {
     const user = userEvent.setup()
