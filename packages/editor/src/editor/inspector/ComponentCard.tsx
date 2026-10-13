@@ -1,8 +1,9 @@
-import type { SceneComponentJson } from '@waica/engine'
+import type { ParamSpec, SceneComponentJson } from '@waica/engine'
 import { useArchetype } from '../../project/archetype'
 import { collisionParamDiagnostics } from '../collision-category-diagnostics'
+import { AnimatorClipOverridesRow, AnimatorInitialClipRow } from './animator-clip-rows'
 import { componentDefaults, componentKeys, componentLabel } from './component-meta'
-import { PropRow } from './PropRow'
+import { OverridableName, PropRow } from './PropRow'
 import { ComponentUpdateSchedule } from './update-schedule'
 
 /** Callbacks a component's prop rows fire, keyed by prop name. */
@@ -12,14 +13,51 @@ export interface ComponentPropHandlers {
   onApply?: (key: string) => void
 }
 
+/** One prop's row: the Animator's clip rows (issue #173 CA-5, CA-6), else the generic PropRow. */
+function ComponentRow({
+  comp,
+  propKey,
+  value,
+  spec,
+  overridden,
+  onProp,
+  onReset,
+  onApply,
+}: ComponentPropHandlers & {
+  comp: SceneComponentJson
+  propKey: string
+  value: unknown
+  spec: ParamSpec | undefined
+  overridden: boolean
+}) {
+  const reset = onReset && (() => onReset(propKey))
+  const apply = onApply && (() => onApply(propKey))
+  const change = (next: unknown): void => onProp(propKey, next)
+  if (comp.type === 'Animator' && (propKey === 'clips' || propKey === 'initialClip')) {
+    const label = propKey === 'clips' ? 'Clip overrides' : (spec?.label ?? propKey)
+    const name = <OverridableName label={label} overridden={overridden} onReset={reset} onApply={apply} />
+    return propKey === 'clips' ? <AnimatorClipOverridesRow name={name} value={value} onChange={change} /> : <AnimatorInitialClipRow name={name} value={value} onChange={change} />
+  }
+  return (
+    <PropRow
+      label={propKey}
+      spec={spec}
+      value={value}
+      diagnostics={collisionParamDiagnostics(comp.type, propKey, value)}
+      overridden={overridden}
+      onChange={change}
+      onReset={reset}
+      onApply={apply}
+    />
+  )
+}
+
 export function ComponentRows({
   id,
   comp,
   keys,
   overridden,
-  onProp,
-  onReset,
-  onApply,
+  ...handlers
 }: ComponentPropHandlers & {
   /** Key prefix so React inputs reset when the owner changes. */
   id: string
@@ -29,27 +67,20 @@ export function ComponentRows({
 }) {
   const archetype = useArchetype()
   const defaults = componentDefaults(comp, archetype)
-  const specs = archetype.registry.components[comp.type]?.params ?? {}
+  const specs: Record<string, ParamSpec | undefined> = archetype.registry.components[comp.type]?.params ?? {}
   return (
     <>
-      {keys.map((key) => {
-        const value = comp.props && Object.hasOwn(comp.props, key)
-          ? comp.props[key]
-          : (defaults[key] ?? 0)
-        return (
-          <PropRow
-            key={`${id}.${comp.type}.${key}`}
-            label={key}
-            spec={specs[key]}
-            value={value}
-            diagnostics={collisionParamDiagnostics(comp.type, key, value)}
-            overridden={overridden?.has(key)}
-            onChange={(next) => onProp(key, next)}
-            onReset={onReset && (() => onReset(key))}
-            onApply={onApply && (() => onApply(key))}
-          />
-        )
-      })}
+      {keys.map((key) => (
+        <ComponentRow
+          key={`${id}.${comp.type}.${key}`}
+          comp={comp}
+          propKey={key}
+          value={comp.props && Object.hasOwn(comp.props, key) ? comp.props[key] : (defaults[key] ?? 0)}
+          spec={specs[key]}
+          overridden={overridden?.has(key) ?? false}
+          {...handlers}
+        />
+      ))}
     </>
   )
 }
@@ -62,10 +93,12 @@ interface ComponentCardProps extends ComponentPropHandlers {
   onRemove?: () => void
 }
 
-export function ComponentCard({ onRemove, ...rows }: ComponentCardProps) {
+export function ComponentCard({ onRemove, ...rowProps }: ComponentCardProps) {
   const archetype = useArchetype()
-  const { comp } = rows
+  const { comp } = rowProps
   const keys = componentKeys(comp, archetype)
+  // The Animator's clip overrides get a row even with none set (issue #173 CA-6): no param declares them.
+  const rows = comp.type === 'Animator' && !keys.includes('clips') ? [...keys, 'clips'] : keys
   return (
     <div className="ed-comp">
       <header
@@ -81,7 +114,7 @@ export function ComponentCard({ onRemove, ...rows }: ComponentCardProps) {
         )}
       </header>
       {keys.length === 0 && <div className="ed-hint">no parameters</div>}
-      <ComponentRows {...rows} keys={keys} />
+      <ComponentRows {...rowProps} keys={rows} />
     </div>
   )
 }

@@ -11,6 +11,7 @@ export { AssetLoader } from './assets/asset-loader.js'
 export type { AssetStatus } from './assets/asset-loader.js'
 export type { TextureBackend } from './assets/texture-backend.js'
 export { GltfModelBackend } from './assets/model-backend.js'
+export { glbClipNames } from './assets/glb-clip-names.js'
 export type { LoadedModel, ModelBackend } from './assets/model-backend.js'
 export type { ModelHandle, ModelOutcome } from './assets/model-cache.js'
 export { AudioSubsystem } from './audio/audio-subsystem.js'
@@ -121,6 +122,8 @@ export {
 } from './gamepad.js'
 export type { GamepadControl } from './gamepad.js'
 export { Pointer } from './pointer.js'
+export { raycastPick } from './pointer-raycast.js'
+export type { PickedTarget, PickTarget, RaycastPick, ViewportFraction } from './pointer-raycast.js'
 export type { PointerCamera, PointerDeps, PointerPick, PointerResolution } from './pointer.js'
 export {
   RUNTIME_BRIDGE_CAPABILITIES,

@@ -6,10 +6,11 @@ import { prefabOwns, resolveComponents } from '../../scene/ops'
 import { cameraViewSize } from '../box-math'
 import { TilemapCard } from '../TilemapCard'
 import { AppearanceSection } from './AppearanceSection'
-import { BehavioursSection } from './BehavioursSection'
+import { BehavioursSection, type MachineCardContext } from './BehavioursSection'
 import { CollisionSection, InlineCollisionSection } from './CollisionSection'
 import { EntityIdentityRows, InstanceChip } from './EntityIdentity'
-import { characterClipsWarning, driverWarning, knownClips } from './component-meta'
+import { useKnownClips } from '../glb-clips'
+import { characterClipsWarning, driverWarning } from './component-meta'
 import type { InspectorProps } from './inspector-props'
 import { UpdateScheduleContext, UpdateScheduleError, updateScheduleFor } from './update-schedule'
 
@@ -183,6 +184,25 @@ function EntityTilemap({
   )
 }
 
+/**
+ * The Role card's context for an entity. State structure is shared truth:
+ * edits land on the prefab when it owns the machine (like the animation
+ * editor), else on the entity.
+ */
+function entityMachineContext(props: EntityInspectorProps, clips: readonly string[] | null): MachineCardContext {
+  const { entity, prefabs } = props
+  const machineRef = entity.prefab && prefabOwns(entity, 'StateMachine', prefabs) ? entity.prefab : null
+  return {
+    clips,
+    stateFiles: props.stateFiles,
+    roleFiles: props.roleFiles,
+    onPatch: (patch) => (machineRef ? props.onPrefabMachinePatch(machineRef, patch) : props.onMachinePatch(entity.name, patch)),
+    onCreateRoleFile: props.onCreateRoleFile,
+    onEditState: (state) =>
+      props.onEditState(machineRef ? { kind: 'prefab', ref: machineRef, state } : { kind: 'entity', name: entity.name, state }),
+  }
+}
+
 function EntityBehaviours({
   components,
   ...props
@@ -190,9 +210,7 @@ function EntityBehaviours({
   const archetype = useArchetype()
   const { entity, prefabs } = props
   const split = splitComponents(components)
-  // State structure is shared truth: edits land on the prefab when it
-  // owns the machine (like the animation editor), else on the entity.
-  const machineRef = entity.prefab && prefabOwns(entity, 'StateMachine', prefabs) ? entity.prefab : null
+  const clips = useKnownClips(split.appearance, components)
   return (
     <BehavioursSection
       id={entity.name}
@@ -200,22 +218,7 @@ function EntityBehaviours({
       present={new Set(components.map((c) => c.type))}
       warning={driverWarning(components, archetype)}
       canRemove={(c) => !prefabOwns(entity, c.type, prefabs)}
-      machine={{
-        clips: knownClips(split.appearance, components),
-        stateFiles: props.stateFiles,
-        roleFiles: props.roleFiles,
-        onPatch: (patch) =>
-          machineRef
-            ? props.onPrefabMachinePatch(machineRef, patch)
-            : props.onMachinePatch(entity.name, patch),
-        onCreateRoleFile: props.onCreateRoleFile,
-        onEditState: (state) =>
-          props.onEditState(
-            machineRef
-              ? { kind: 'prefab', ref: machineRef, state }
-              : { kind: 'entity', name: entity.name, state },
-          ),
-      }}
+      machine={entityMachineContext(props, clips)}
       overriddenFor={instanceOverrides(entity, props.onResetProp, props.onApplyProp).overridesOf}
       onProp={(type, key, value) => props.onProp(entity.name, type, key, value)}
       onRemove={(type) => props.onRemoveComponent(entity.name, type)}

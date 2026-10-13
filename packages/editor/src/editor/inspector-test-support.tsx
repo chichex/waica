@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { vi, type Mock } from 'vitest'
 import { ArchetypeContext, resolveArchetype } from '../project/archetype'
+import { GlbClipsContext, type GlbClipCache } from './glb-clips'
 import { Inspector, type InspectorSelection } from './Inspector'
 import type { ArtItem } from './use-project-art'
 import { defined } from '../../../engine/src/test-support'
@@ -122,6 +123,28 @@ export function renderInspector(
     { reactStrictMode: true },
   )
   return props
+}
+
+/**
+ * Renders the platformer Inspector under StrictMode with glb clips read
+ * through `clips`, as the Editor provides them; returns its spied props and
+ * a rerender for another (or the same) selection.
+ */
+export function renderInspectorWithClips(
+  selection: InspectorSelection,
+  clips: GlbClipCache,
+  overrides: Partial<SpiedInspectorProps> = {},
+) {
+  const props = inspectorProps(selection, overrides)
+  const tree = (next: InspectorSelection) => (
+    <ArchetypeContext.Provider value={resolveArchetype('platformer')}>
+      <GlbClipsContext.Provider value={clips}>
+        <Inspector {...props} selection={next} />
+      </GlbClipsContext.Provider>
+    </ArchetypeContext.Provider>
+  )
+  const view = render(tree(selection), { reactStrictMode: true })
+  return { props, rerender: (next: InspectorSelection = selection) => view.rerender(tree(next)) }
 }
 
 /** The section whose header shows `title` (Appearance, Collision, Framing…). */

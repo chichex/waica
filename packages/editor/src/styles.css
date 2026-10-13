@@ -708,6 +708,24 @@ button.ed-crumb:hover {
   color: var(--accent);
 }
 
+/* The 3D gizmo's row (issue #173): under the grid tools. */
+.ed-vp-tools.is-transform {
+  top: 48px;
+}
+
+.ed-vp-tools button.is-wide {
+  width: auto;
+  padding: 0 8px;
+}
+
+.ed-vp-snap {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
 .ed-vp-tools input {
   width: 56px;
   height: 30px;
@@ -1995,6 +2013,46 @@ button.ed-crumb:hover {
 .ed-row input[type='checkbox'] {
   justify-self: start;
   accent-color: var(--accent);
+}
+
+/* Animator clip overrides (issue #173): one line per clip, outside .ed-row. */
+.ed-clip-override {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: 12px;
+}
+
+.ed-clip-override-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ed-clip-override label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-dim);
+}
+
+.ed-clip-override input[type='checkbox'] {
+  accent-color: var(--accent);
+}
+
+.ed-clip-override input[type='number'] {
+  width: 56px;
+  background: #0e0e16;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 7px;
+  font-size: 12px;
+}
+
+.ed-clip-override.is-missing .ed-clip-override-name {
+  color: var(--gold);
 }
 
 .ed-row input[type='color'] {

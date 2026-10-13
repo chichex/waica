@@ -148,7 +148,7 @@ export class Pointer {
   private pickAt(at: ViewportFraction | null): PointerPick | null {
     const camera = this.liveCamera()
     if (!at) return null
-    if (isPerspectiveCamera(camera)) return raycastPick(camera, at, this.deps.entities)
+    if (isPerspectiveCamera(camera)) return raycastPick<Entity>(camera, at, this.deps.entities)
     const renderX = camera.position.x + camera.left + at.nx * (camera.right - camera.left)
     const renderY = camera.position.y + camera.top - at.ny * (camera.top - camera.bottom)
     return this.resolveRenderPoint(renderX, renderY)

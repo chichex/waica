@@ -1,7 +1,8 @@
 import { applyTransformJson, loadScene, type Game, type SceneCameraJson } from '@waica/engine'
 import { useEffect, useEffectEvent, useImperativeHandle, useLayoutEffect, useRef, type Ref, type RefObject } from 'react'
 import { createFrameOverlays, type OverlayHost } from './viewport-frame-overlays'
-import { isReadOnlyView } from './viewport-camera'
+import { createEditView3d, type EditView3d, type ScenePoses } from './viewport-3d-view'
+import { isThreeDView } from './viewport-camera'
 import { createViewportGame, liveComponent, mountGameCanvas, restoreEditCamera, startFailureMessage } from './viewport-game'
 import type { EditCamera, ViewportHandle, ViewportLive } from './viewport-live'
 
@@ -65,17 +66,24 @@ function useLiveSceneCamera(gameRef: RefObject<Game | null>, camera: SceneCamera
   }, [gameRef, camera])
 }
 
+/** The editor's own views of a live Game: the 2D pan and zoom it remembers and, in edit mode, the 3D edit view. */
+interface EditorViews {
+  cam: RefObject<EditCamera>
+  view3d: EditView3d | null
+}
+
 /**
  * Runs the Game, once its renderer is ready, with the editor overlays drawn every frame, remembering the
- * edit camera's pan as it moves; returns what disposes both.
+ * edit camera's pan as it moves (in 3D, the edit view keeps the Editor Camera); returns what disposes them.
  */
-function startEditorLoop(game: Game, host: OverlayHost, camRef: RefObject<EditCamera>): () => void {
+function startEditorLoop(game: Game, host: OverlayHost, { cam, view3d }: EditorViews): () => void {
   const overlays = createFrameOverlays(game, host)
   game.onUpdate(() => {
+    view3d?.sync()
     overlays.update()
-    if (host.live.current.mode !== 'edit' || isReadOnlyView(game)) return
-    camRef.current.x = game.camera.position.x
-    camRef.current.y = game.camera.position.y
+    if (host.live.current.mode !== 'edit' || isThreeDView(game)) return
+    cam.current.x = game.camera.position.x
+    cam.current.y = game.camera.position.y
   })
   let disposed = false
   // The first frame waits for the renderer (ADR 0025). A Game disposed in
@@ -92,8 +100,28 @@ function startEditorLoop(game: Game, host: OverlayHost, camRef: RefObject<EditCa
   return () => {
     disposed = true
     overlays.dispose()
+    view3d?.dispose()
     game.dispose()
   }
+}
+
+interface EditViewRefs {
+  cam: RefObject<EditCamera>
+  /** Set once the 2D view was framed like the scene camera: once per mount. */
+  camSeeded: RefObject<boolean>
+  live: RefObject<ViewportLive>
+  pose3d: RefObject<ScenePoses>
+  showCamera: boolean
+}
+
+/** The edit views of a new edit-mode Game: the 2D pan and zoom put back (framed like the scene camera the first time), and the 3D edit view. */
+function startEditViews(game: Game, canvas: HTMLCanvasElement, refs: EditViewRefs): EditView3d {
+  // loadScene framed the scene camera (centered on its follow target): the 2D view starts there, once per mount.
+  const seed = !refs.camSeeded.current && refs.showCamera && refs.live.current.scene.camera != null && !isThreeDView(game)
+  refs.camSeeded.current = true
+  if (seed) refs.cam.current = { x: game.camera.position.x, y: game.camera.position.y, view: game.view }
+  restoreEditCamera(game, refs.cam.current)
+  return createEditView3d(game, canvas, { live: refs.live, pose: refs.pose3d })
 }
 
 /**
@@ -143,6 +171,10 @@ export function useViewportGame(inputs: ViewportLive, options: ViewportGameOptio
    * was opened" and reload the whole thing, clearing the selection mid-drag.
    */
   const lastLoadedScenePathRef = useRef<string | null>(null)
+  /** The edit view of a 3D scene, one per edit-mode Game (issue #173). */
+  const view3dRef = useRef<EditView3d | null>(null)
+  /** The Editor Camera's last pose and its scene, kept across Game rebuilds (Play, structural edits). */
+  const pose3dRef = useRef<ScenePoses>(new Map())
 
   // The game loop and pointer handlers read the latest committed props
   // through liveRef. Written after commit (never during render), before
@@ -158,19 +190,14 @@ export function useViewportGame(inputs: ViewportLive, options: ViewportGameOptio
     const game = createViewportGame(canvas, liveRef.current, { mode, background, viewHeight: camRef.current.view })
     gameRef.current = game
     lastLoadedScenePathRef.current = liveRef.current.scenePath ?? null
-    if (mode === 'edit') {
-      // loadScene framed the scene camera (centered on its follow target):
-      // the editor view starts there, once per mount.
-      const seed = !camSeededRef.current && showCamera && liveRef.current.scene.camera != null && !isReadOnlyView(game)
-      camSeededRef.current = true
-      if (seed) camRef.current = { x: game.camera.position.x, y: game.camera.position.y, view: game.view }
-      restoreEditCamera(game, camRef.current)
-    }
+    const editRefs = { cam: camRef, camSeeded: camSeededRef, live: liveRef, pose3d: pose3dRef, showCamera }
+    const view3d = (view3dRef.current = mode === 'edit' ? startEditViews(game, canvas, editRefs) : null)
     const host = { canvas, live: liveRef, cameraDrag: camLiveRef, frameBox: uiFrameRef, scaleBox: uiScaleRef }
-    const stop = startEditorLoop(game, { ...host, showCamera, mode }, camRef)
+    const stop = startEditorLoop(game, { ...host, showCamera, mode }, { cam: camRef, view3d })
     return () => {
       stop()
       gameRef.current = null
+      view3dRef.current = null
       release()
     }
     // Every other input is read live through liveRef; background and
@@ -179,7 +206,7 @@ export function useViewportGame(inputs: ViewportLive, options: ViewportGameOptio
 
   useSceneFileSwap(inputs.scenePath, { gameRef, liveRef, camRef, lastLoadedScenePathRef, onSelect })
   useLiveSceneCamera(gameRef, inputs.scene.camera)
-  return { surfaceRef, canvasRef, uiFrameRef, uiScaleRef, gameRef, liveRef, camRef, camLiveRef }
+  return { surfaceRef, canvasRef, uiFrameRef, uiScaleRef, gameRef, liveRef, camRef, camLiveRef, view3dRef }
 }
 
 /** The Viewport's imperative handle: live edits applied straight to the running Game. */

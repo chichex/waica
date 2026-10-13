@@ -32,8 +32,8 @@ export function addPrefabToScene(core: EditorCore, ref: string): void {
   core.selection.selectEntity(name)
 }
 
-/** A prefab dragged from the library onto the viewport, at the (already snapped) drop point. */
-export function dropPrefab(core: EditorCore, data: string, world: [number, number]): void {
+/** Places the prefab `data` names at `world`: a 2D point (rounded to 0.01), or a 3D scene's point as the viewport placed it. */
+export function dropPrefab(core: EditorCore, data: string, world: [number, number] | [number, number, number]): void {
   const { scene } = core.scenes
   if (!scene) return
   const [prefabLib] = core.library.prefabLib
@@ -41,7 +41,8 @@ export function dropPrefab(core: EditorCore, data: string, world: [number, numbe
   const ref = prefabLib[data] ? data : Object.keys(prefabLib).find((r) => refBase(r) === data)
   if (!ref) return
   const name = ops.uniqueName(scene, capitalized(refBase(ref)))
-  const position: [number, number] = [Math.round(world[0] * 100) / 100, Math.round(world[1] * 100) / 100]
+  const position: [number, number] | [number, number, number] =
+    world.length === 3 ? world : [Math.round(world[0] * 100) / 100, Math.round(world[1] * 100) / 100]
   core.commit(ops.addEntity(scene, { name, prefab: ref, position }), true)
   core.selection.selectEntity(name)
 }

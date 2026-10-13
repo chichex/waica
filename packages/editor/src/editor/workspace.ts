@@ -1,5 +1,5 @@
 import type { ExplorerView } from './Explorer'
-import { readJsonObject } from '../json-object'
+import { isJsonObject, readJsonObject } from '../json-object'
 
 /**
  * Where the user was in a project — open scene and centered view — kept in
@@ -14,25 +14,66 @@ export interface WorkspaceState {
   view: WorkspaceView | null
 }
 
+/** The editor camera over a 3D scene (issue #173 CA-12): where it sits and the point it orbits. */
+export interface CameraPose {
+  position: [number, number, number]
+  target: [number, number, number]
+}
+
 const keyFor = (project: string): string => `waica:workspace:${project}`
+
+/** The project's stored workspace entry, or null when there is none, it is unreadable or storage throws. */
+function readEntry(project: string): Record<string, unknown> | null {
+  try {
+    const text = localStorage.getItem(keyFor(project))
+    const raw = text ? readJsonObject(text) : null
+    return raw?.waicaWorkspace === 1 ? raw : null
+  } catch {
+    return null
+  }
+}
+
+/** Writes the entry; a storage that throws costs only the memory, never the edit. */
+function writeEntry(project: string, entry: Record<string, unknown>): void {
+  try {
+    localStorage.setItem(keyFor(project), JSON.stringify({ ...entry, waicaWorkspace: 1 }))
+  } catch {
+    // Storage unavailable: the project still opens, just at its default view.
+  }
+}
 
 export function saveWorkspace(
   project: string,
   openScenePath: string | null,
   view: ExplorerView | null,
 ): void {
-  try {
-    localStorage.setItem(
-      keyFor(project),
-      JSON.stringify({
-        waicaWorkspace: 1,
-        openScenePath,
-        view: view && view.kind !== 'art' ? view : null,
-      }),
-    )
-  } catch {
-    // Storage unavailable: the project still opens, just at its default view.
-  }
+  // The camera poses ride along (CA-12): saving the view must not forget them.
+  const cameras = readEntry(project)?.cameras
+  writeEntry(project, {
+    openScenePath,
+    view: view && view.kind !== 'art' ? view : null,
+    ...(cameras === undefined ? {} : { cameras }),
+  })
+}
+
+/** Remembers the editor camera's pose for one scene of the project. */
+export function saveCameraPose(project: string, scenePath: string, pose: CameraPose): void {
+  const entry = readEntry(project) ?? { openScenePath: null, view: null }
+  const cameras = isJsonObject(entry.cameras) ? entry.cameras : {}
+  writeEntry(project, { ...entry, cameras: { ...cameras, [scenePath]: pose } })
+}
+
+function isVector3(value: unknown): value is [number, number, number] {
+  return Array.isArray(value) && value.length === 3 && value.every((n) => typeof n === 'number' && Number.isFinite(n))
+}
+
+/** The editor camera's remembered pose for one scene, or null: none, malformed, or storage throws. */
+export function loadCameraPose(project: string, scenePath: string): CameraPose | null {
+  const cameras = readEntry(project)?.cameras
+  const pose = isJsonObject(cameras) && Object.hasOwn(cameras, scenePath) ? cameras[scenePath] : undefined
+  if (!isJsonObject(pose)) return null
+  const { position, target } = pose
+  return isVector3(position) && isVector3(target) ? { position: [...position], target: [...target] } : null
 }
 
 /** Everything read back is untrusted: unknown kinds and bad shapes drop to null. */

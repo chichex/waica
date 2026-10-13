@@ -250,8 +250,26 @@ async function assertRapierStaysLazy() {
   }
 }
 
+/**
+ * The editor's DEV-only e2e hook (issue #173 inference 19) never ships: a
+ * production build drops every `import.meta.env.DEV` path, so neither the
+ * built editor nor the copy the CLI bundles names `__waicaEditor`.
+ */
+async function assertEditorDropsDevHook() {
+  for (const distRoot of [join(root, 'packages/editor/dist'), join(root, 'packages/cli/dist/editor')]) {
+    const scripts = (await filesBelow(distRoot)).filter((path) => path.endsWith('.js'))
+    assert.ok(scripts.length > 0, `${relative(root, distRoot)} holds no script`)
+    const holding = []
+    for (const path of scripts) {
+      if ((await readFile(path, 'utf8')).includes('__waicaEditor')) holding.push(relative(root, path))
+    }
+    assert.deepEqual(holding, [], `the built editor must not carry the DEV hook window.__waicaEditor; found it in ${holding.join(', ')}`)
+  }
+}
+
 try {
   await assertRapierStaysLazy()
+  await assertEditorDropsDevHook()
   await mkdir(join(nodeModules, '@waica'), { recursive: true })
   const packedManifests = new Map()
 
@@ -795,6 +813,7 @@ try {
     includeBatchParity: false,
     includeLighting: false,
     includeSmoke3d: false,
+    includeEditor3d: false,
     includeSceneFade: false,
   })
 

@@ -1,5 +1,7 @@
 # A scene declares its space, and z is a world axis only in 3D
 
+> Superseded in part by [ADR 0030](./0030-the-editor-edits-3d-scenes-through-its-own-view-camera.md): the editor no longer opens a 3D scene read-only; it edits it through its own view camera. Everything else here stands.
+
 A scene says `render.space: '2d' | '3d'` and the Game follows it. In a `2d` scene (the default) nothing changes: an orthographic camera, `z` as draw order (layer bands, y-sort, the isometric projection), Sprite Batches and the light-map. In a `3d` scene `z` is a world axis (Y up, the ground is the XZ plane) under a perspective camera, the frame is drawn straight to the canvas with a depth buffer deciding what is in front, and none of those 2D mechanisms runs. Lights are three's own (an ambient light the Game owns, a `Sun` and a `PointLight` per entity), not a light-map. `game.camera` is whichever camera the live scene uses; code that needs a point on the screen asks `game.worldToScreen`.
 
 ## Considered Options

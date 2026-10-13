@@ -26,12 +26,17 @@ export interface CameraFollowHost {
 /**
  * The Game's cameras. The orthographic one is built with the Game and frames
  * every 2D scene; a 3D scene swaps in a perspective one (built on first use).
- * `camera` is whichever the loaded scene uses (ADR 0027).
+ * `sceneCamera` is whichever the loaded scene uses (ADR 0027); `camera` is
+ * that one, or the host's view camera over a 3D scene while one is set.
  */
 export class CameraRig {
   readonly orthographic = new THREE.OrthographicCamera()
   private perspective: THREE.PerspectiveCamera | null = null
   private current: GameCamera = this.orthographic
+  /** A host-owned camera drawn through instead of the scene's (the editor's, issue #173). */
+  private view: THREE.PerspectiveCamera | null = null
+  /** Set once the 2D-scene warning of setViewCamera was logged. */
+  private warnedFlatView = false
   private aspect = 1
   /** How far the perspective camera's declared target was from its declared position. */
   private distance = 1
@@ -42,8 +47,38 @@ export class CameraRig {
     this.orthographic.layers.enable(EMISSIVE_LAYER)
   }
 
+  /**
+   * The camera the frame draws, the Pointer picks and `worldToScreen`
+   * projects through: the view camera over a 3D scene while one is set,
+   * else the scene camera.
+   */
   get camera(): GameCamera {
+    return this.view && this.current === this.perspective ? this.view : this.current
+  }
+
+  /** The camera placed from the scene's JSON, whatever view camera is set; `adopt` keeps updating it. */
+  get sceneCamera(): GameCamera {
     return this.current
+  }
+
+  /**
+   * Draws a 3D scene through `camera` instead of the scene camera, until
+   * cleared with null (issue #173 CA-1): the editor's own camera, which game
+   * code never sees because the editor's Game does not simulate. The rig fits
+   * its aspect to the view and lets it see the Emissive layer, as it does the
+   * scene camera. Over a 2D scene (or none yet) it has no effect and warns
+   * once; the camera is still kept, so it takes over when a 3D scene loads.
+   */
+  setViewCamera(camera: THREE.PerspectiveCamera | null): void {
+    if (camera && this.current !== this.perspective && !this.warnedFlatView) {
+      console.warn('[waica] setViewCamera has no effect over a 2D scene or none: its camera is orthographic')
+      this.warnedFlatView = true
+    }
+    this.view = camera
+    if (!camera) return
+    camera.layers.enable(EMISSIVE_LAYER)
+    camera.aspect = this.aspect
+    camera.updateProjectionMatrix()
   }
 
   /** The distance from the perspective camera to the point it was aimed at; a snapshot reports its target from it. */
@@ -84,9 +119,11 @@ export class CameraRig {
     camera.top = halfH
     camera.bottom = -halfH
     camera.updateProjectionMatrix()
-    if (!this.perspective) return
-    this.perspective.aspect = aspect
-    this.perspective.updateProjectionMatrix()
+    for (const lens of [this.perspective, this.view]) {
+      if (!lens) continue
+      lens.aspect = aspect
+      lens.updateProjectionMatrix()
+    }
   }
 
   /** One Simulation Step of the orthographic follow camera (deadzone, lookahead, smoothing, limits). */

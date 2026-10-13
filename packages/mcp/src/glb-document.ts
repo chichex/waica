@@ -56,6 +56,17 @@ export async function readModelDocument(file: string): Promise<Record<string, un
 }
 
 async function readGlbDocument(file: string): Promise<Record<string, unknown> | null> {
+  const head = await readGlbHead(file)
+  return head && parseGlbDocument(head)
+}
+
+/**
+ * A `.glb`'s header and JSON chunk, read in place — the 20 bytes of headers,
+ * then only the chunk the headers announce, never the binary chunk that makes
+ * up most of a file (review of PR #168) — or null when the file is absent,
+ * unreadable or not a glb.
+ */
+export async function readGlbHead(file: string): Promise<Uint8Array | null> {
   let handle: FileHandle
   try {
     handle = await open(file, 'r')
@@ -67,15 +78,20 @@ async function readGlbDocument(file: string): Promise<Record<string, unknown> | 
     const chunk = (await handle.read(head, 0, head.byteLength, 0)).bytesRead === head.byteLength ? jsonChunkOf(head) : null
     // The announced length is bounded by the file before anything is allocated for it.
     if (!chunk || chunk.start + chunk.length > (await handle.stat()).size) return null
-    const text = new Uint8Array(chunk.length)
-    if ((await handle.read(text, 0, chunk.length, chunk.start)).bytesRead !== chunk.length) return null
-    return jsonObjectOf(new TextDecoder().decode(text))
+    const bytes = new Uint8Array(chunk.start + chunk.length)
+    bytes.set(head)
+    if ((await handle.read(bytes, chunk.start, chunk.length, chunk.start)).bytesRead !== chunk.length) return null
+    return bytes
   } finally {
     await handle.close()
   }
 }
 
-/** The clip names a loader gives the document's animations: their `name`, or `animation_<index>` like three does. */
+/**
+ * The clip names a loader gives a `.gltf` document's animations: their
+ * `name`, or `animation_<index>` like three does. A `.glb`'s clips are read by
+ * the engine's `glbClipNames` (issue #173 CA-3).
+ */
 export function clipNamesOf(document: Record<string, unknown>): string[] {
   const animations = Array.isArray(document.animations) ? (document.animations as unknown[]) : []
   return animations.map((animation, index) => {

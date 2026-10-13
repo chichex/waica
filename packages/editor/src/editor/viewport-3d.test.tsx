@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, fireEvent, screen } from '@testing-library/react'
+import { act, createEvent, fireEvent, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock(
@@ -10,11 +10,13 @@ vi.mock(
     ),
 )
 
-import { THREE, type Game, type SceneJson } from '@waica/engine'
+import { THREE, type SceneJson } from '@waica/engine'
 import { fakeRendering } from '../../../engine/src/test-renderer'
-import { at, drag, GRID, HERO_AND_FOE, installViewportHost, liveGame, mountViewport, REGISTRY, removeViewportHost } from './test-viewport'
+import { defined } from '../../../engine/src/test-support'
+import { at, GRID, HERO_AND_FOE, installViewportHost, liveGame, mountViewport, REGISTRY, removeViewportHost } from './test-viewport'
 import { frameEditView } from './viewport-game'
 import type { EditCamera, ViewportLive } from './viewport-live'
+import { loadCameraPose, saveCameraPose } from './workspace'
 
 const SCENE_3D: SceneJson = {
   waicaScene: 3,
@@ -22,8 +24,20 @@ const SCENE_3D: SceneJson = {
   camera: { kind: 'perspective', position: [0, 4, 12], target: [0, 0, 0], fov: 50 },
   entities: [{ name: 'Hero', position: [0, 0, 0] }, { name: 'Foe', position: [4, 0, -2], rotation: [0, 45, 0], scale: [1, 2, 1] }],
 }
+const SCENE_PATH = 'src/scenes/main.scene.json'
 
-beforeEach(installViewportHost)
+const storage = new Map<string, string>()
+
+beforeEach(() => {
+  installViewportHost()
+  storage.clear()
+  vi.stubGlobal('localStorage', {
+    getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: string) => void storage.set(key, value),
+    removeItem: (key: string) => void storage.delete(key),
+    clear: () => storage.clear(),
+  })
+})
 afterEach(removeViewportHost)
 
 const liveLoop = (): ((time: number) => void) | null | undefined =>
@@ -47,105 +61,241 @@ async function tick(): Promise<void> {
   act(() => loop(16))
 }
 
-function perspectiveOf(game: Game): THREE.PerspectiveCamera {
-  if (!(game.camera instanceof THREE.PerspectiveCamera)) throw new Error('expected the perspective camera')
-  return game.camera
+function perspectiveOf(camera: unknown): THREE.PerspectiveCamera {
+  if (!(camera instanceof THREE.PerspectiveCamera)) throw new Error('expected a perspective camera')
+  return camera
 }
 
-describe('Viewport on a 3D scene (CA-21)', () => {
-  it('builds the Game with the scene camera: perspective, untouched by the edit pan and zoom', async () => {
-    const mounted = mountViewport({ scene: SCENE_3D, showCamera: true, viewHeight: 12 })
-    await tick()
-    const game = liveGame(mounted)
-    expect(game.space).toBe('3d')
-    const camera = perspectiveOf(game)
-    expect(camera.position.toArray()).toEqual([0, 4, 12])
-    expect(camera.fov).toBe(50)
-    expect(camera.aspect).toBeCloseTo(800 / 600)
+const round = (values: readonly number[]): number[] => values.map((value) => Math.round(value * 1000) / 1000 + 0)
+const surface = (): HTMLElement => defined(document.querySelector<HTMLElement>('.ed-viewport'), 'the viewport element')
+const targetOf = (camera: THREE.PerspectiveCamera, distance: number): number[] =>
+  round(camera.position.clone().addScaledVector(camera.getWorldDirection(new THREE.Vector3()), distance).toArray())
+
+/** Presses `key` on the focused viewport element. */
+function press(key: string, modifiers: { shiftKey?: boolean } = {}): void {
+  surface().focus()
+  fireEvent.keyDown(surface(), { key, ...modifiers })
+}
+
+async function mount3d(overrides: Parameters<typeof mountViewport>[0] = {}) {
+  const mounted = mountViewport({ scene: SCENE_3D, scenePath: SCENE_PATH, project: 'game', showCamera: true, onGridChange: () => {}, ...overrides })
+  await tick()
+  return { mounted, game: liveGame(mounted) }
+}
+
+describe('the editor camera over a 3D scene (issue #173 CA-9)', () => {
+  it('draws edit mode through an editor-owned camera that starts as the scene camera', async () => {
+    const { game } = await mount3d()
+    const editor = perspectiveOf(game.camera)
+    const scene = perspectiveOf(game.cameraRig.sceneCamera)
+
+    expect(editor).not.toBe(scene)
+    expect(round(editor.position.toArray())).toEqual([0, 4, 12])
+    expect(targetOf(editor, Math.hypot(4, 12))).toEqual([0, 0, 0])
+    expect([editor.fov, editor.near, editor.far]).toEqual([50, 0.1, 1000])
+    expect(defined(fakeRendering.draws.at(-1), 'a render call').camera).toBe(editor)
   })
 
-  it('runs the scene in Play with the same camera', async () => {
-    const mounted = mountViewport({ scene: SCENE_3D, mode: 'play' })
-    await tick()
-    const game = liveGame(mounted)
+  it('draws Play through the scene camera, with no view camera', async () => {
+    const { game } = await mount3d({ mode: 'play' })
     expect(game.simulate).toBe(true)
-    expect(perspectiveOf(game).position.toArray()).toEqual([0, 4, 12])
+    expect(game.camera).toBe(game.cameraRig.sceneCamera)
+    expect(perspectiveOf(game.camera).position.toArray()).toEqual([0, 4, 12])
   })
 
 })
 
-describe('Viewport gestures on a 3D scene (CA-21)', () => {
-  it('selects and moves nothing: clicks, drags and the marquee yield no gesture', async () => {
-    const onSelect = vi.fn()
-    const onMoved = vi.fn()
-    const onRangeSelect = vi.fn()
+describe('the scene camera beside the editor camera (issue #173 CA-9)', () => {
+  it("navigates without touching the scene JSON's camera or the scene camera", async () => {
     const onCameraMoved = vi.fn()
-    const mounted = mountViewport({ scene: SCENE_3D, showCamera: true, onSelect, onMoved, onRangeSelect, onCameraMoved })
+    const onMoved = vi.fn()
+    const before = structuredClone(SCENE_3D)
+    const { mounted, game } = await mount3d({ onCameraMoved, onMoved })
+
+    press('ArrowRight')
+    fireEvent.pointerDown(mounted.canvas, { ...at(0, 0), button: 1, pointerId: 1, pointerType: 'mouse' })
+    fireEvent.pointerMove(mounted.canvas, { ...at(2, 1), button: 1, pointerId: 1, pointerType: 'mouse' })
+    fireEvent.pointerUp(mounted.canvas, { ...at(2, 1), button: 1, pointerId: 1, pointerType: 'mouse' })
     await tick()
-    drag(mounted.canvas, { from: [0, 0], to: [1, -2] })
-    drag(mounted.canvas, { from: [-2, 2], to: [2, -2], shiftKey: true })
-    fireEvent.pointerDown(mounted.canvas, { ...at(4, 0), pointerId: 1 })
-    fireEvent.pointerUp(mounted.canvas, { ...at(4, 0), pointerId: 1 })
-    expect(onSelect).not.toHaveBeenCalled()
-    expect(onMoved).not.toHaveBeenCalled()
-    expect(onRangeSelect).not.toHaveBeenCalled()
+
+    expect(round(perspectiveOf(game.camera).position.toArray())).not.toEqual([0, 4, 12])
+    expect(perspectiveOf(game.cameraRig.sceneCamera).position.toArray()).toEqual([0, 4, 12])
+    expect(SCENE_3D).toEqual(before)
     expect(onCameraMoved).not.toHaveBeenCalled()
-    expect(perspectiveOf(liveGame(mounted)).position.toArray()).toEqual([0, 4, 12])
+    expect(onMoved).not.toHaveBeenCalled()
   })
 
-  it('does not zoom the view on the wheel', async () => {
-    const mounted = mountViewport({ scene: SCENE_3D })
+  it('re-places the scene camera, not the editor camera, when the camera block is edited', async () => {
+    const { mounted, game } = await mount3d()
+    const editor = game.camera
+    mounted.rerender({ scene: { ...SCENE_3D, camera: { kind: 'perspective', position: [3, 2, 1], target: [0, 1, 0], fov: 30 } } })
     await tick()
-    const camera = perspectiveOf(liveGame(mounted))
-    const before = [...camera.projectionMatrix.elements, ...camera.position.toArray()]
-    fireEvent.wheel(mounted.canvas, { deltaY: 120 })
-    fireEvent.wheel(mounted.canvas, { deltaY: -120 })
-    expect([...camera.projectionMatrix.elements, ...camera.position.toArray()]).toEqual(before)
+
+    expect(perspectiveOf(game.cameraRig.sceneCamera).position.toArray()).toEqual([3, 2, 1])
+    expect(game.camera).toBe(editor)
+    expect(round(perspectiveOf(editor).position.toArray())).toEqual([0, 4, 12])
   })
 
 })
 
-describe('Viewport chrome on a 3D scene (CA-21)', () => {
-  it('hides the grid and navigation tools', async () => {
-    const mounted = mountViewport({ scene: SCENE_3D, showCamera: true, onGridChange: () => {} })
+describe('scene swaps under the editor camera (issue #173 CA-9)', () => {
+  it('opens a 3D scene over a 2D one and back: orthographic in 2D, the editor camera in 3D', async () => {
+    const mounted = mountViewport({ scene: HERO_AND_FOE, scenePath: 'src/scenes/a.scene.json', project: 'game' })
     await tick()
-    expect(mounted.canvas).toBeTruthy()
-    expect(screen.queryByTitle('Show grid')).toBeNull()
-    expect(screen.queryByTitle('Zoom in')).toBeNull()
-    expect(screen.queryByTitle("Go to the scene camera's framing")).toBeNull()
+    const game = liveGame(mounted)
+    expect(game.camera).toBeInstanceOf(THREE.OrthographicCamera)
+    mounted.rerender({ scene: SCENE_3D, scenePath: 'src/scenes/b.scene.json' })
+    await tick()
+    expect(liveGame(mounted)).toBe(game)
+    expect(game.camera).not.toBe(game.cameraRig.sceneCamera)
+    expect(round(perspectiveOf(game.camera).position.toArray())).toEqual([0, 4, 12])
+    mounted.rerender({ scene: HERO_AND_FOE, scenePath: 'src/scenes/a.scene.json' })
+    await tick()
+    expect(game.camera).toBeInstanceOf(THREE.OrthographicCamera)
+  })
+})
+
+describe('keyboard navigation on the focused viewport (issue #173 CA-11)', () => {
+  it('is focusable', async () => {
+    await mount3d()
+    expect(surface().tabIndex).toBe(0)
   })
 
-  it('shows those tools on a 2D scene, as before', async () => {
+  it('orbits 5° per arrow, pans 0.5 u per Shift+arrow and zooms ×1.1 per + and -', async () => {
+    const { game } = await mount3d()
+    const camera = perspectiveOf(game.camera)
+    const distance = Math.hypot(4, 12)
+
+    press('ArrowRight')
+    expect(THREE.MathUtils.radToDeg(Math.atan2(camera.position.x, camera.position.z))).toBeCloseTo(5, 6)
+    press('ArrowLeft')
+    expect(round(camera.position.toArray())).toEqual([0, 4, 12])
+    press('ArrowRight', { shiftKey: true })
+    expect(round(camera.position.toArray())).toEqual([0.5, 4, 12])
+    press('ArrowLeft', { shiftKey: true })
+    press('+')
+    expect(camera.position.length()).toBeCloseTo(distance / 1.1, 6)
+    press('-')
+    press('-')
+    expect(camera.position.length()).toBeCloseTo(distance * 1.1, 6)
+  })
+
+  it('ignores the keys while the viewport does not have focus', async () => {
+    const { game } = await mount3d()
+    fireEvent.keyDown(document.body, { key: 'ArrowRight' })
+    expect(round(perspectiveOf(game.camera).position.toArray())).toEqual([0, 4, 12])
+  })
+})
+
+describe('the remembered pose (issue #173 CA-12)', () => {
+  it('stores the pose per scene and restores it when the scene opens again', async () => {
+    const first = await mount3d()
+    press('ArrowRight', { shiftKey: true })
+    expect(loadCameraPose('game', SCENE_PATH)).toEqual({ position: [0.5, 4, 12], target: [0.5, 0, 0] })
+    first.mounted.rerender({ mode: 'play' })
+    await tick()
+    first.mounted.rerender({ mode: 'edit' })
+    await tick()
+    expect(round(perspectiveOf(liveGame(first.mounted).camera).position.toArray())).toEqual([0.5, 4, 12])
+    removeViewportHost()
+    installViewportHost()
+
+    saveCameraPose('game', SCENE_PATH, { position: [7, 7, 7], target: [1, 0, 1] })
+    const { game } = await mount3d()
+
+    expect(round(perspectiveOf(game.camera).position.toArray())).toEqual([7, 7, 7])
+  })
+
+  it("starts at the scene camera's pose when storage throws", async () => {
+    vi.stubGlobal('localStorage', {
+      getItem: () => {
+        throw new Error('denied')
+      },
+      setItem: () => {
+        throw new Error('denied')
+      },
+    })
+    const { game } = await mount3d()
+    press('ArrowRight')
+    expect(round(perspectiveOf(game.camera).position.toArray())).not.toEqual([0, 4, 12])
+  })
+
+  it("goes back to the scene camera's pose on 🎥", async () => {
+    const { game } = await mount3d()
+    press('ArrowRight', { shiftKey: true })
+    fireEvent.click(screen.getByTitle("Go to the scene camera's pose"))
+    expect(round(perspectiveOf(game.camera).position.toArray())).toEqual([0, 4, 12])
+    expect(loadCameraPose('game', SCENE_PATH)).toEqual({ position: [0, 4, 12], target: [0, 0, 0] })
+  })
+})
+
+describe('framing the selection with F (issue #173 CA-15)', () => {
+  it('aims at the selection and backs off to fit it', async () => {
+    const { game } = await mount3d({ selected: 'Foe' })
+    const camera = perspectiveOf(game.camera)
+    fireEvent.keyDown(document.body, { key: 'f' })
+
+    // Foe has no mesh: its bounds are a unit cube around (4, 0, -2), sphere radius √0.75, distance √0.75 / sin 25°.
+    expect(targetOf(camera, Math.sqrt(0.75) / Math.sin(THREE.MathUtils.degToRad(25)))).toEqual([4, 0, -2])
+  })
+
+  it('does nothing with no selection, or with focus in a text field', async () => {
+    const { game } = await mount3d()
+    fireEvent.keyDown(document.body, { key: 'f' })
+    expect(round(perspectiveOf(game.camera).position.toArray())).toEqual([0, 4, 12])
+    const { game: selected } = await mount3d({ selected: 'Foe' })
+    const input = document.body.appendChild(document.createElement('input'))
+    fireEvent.keyDown(input, { key: 'f' })
+    expect(round(perspectiveOf(selected.camera).position.toArray())).toEqual([0, 4, 12])
+  })
+
+  it('frames from the toolbar too', async () => {
+    const { game } = await mount3d({ selected: 'Foe' })
+    fireEvent.click(screen.getByTitle('Frame selection (F)'))
+    expect(targetOf(perspectiveOf(game.camera), Math.sqrt(0.75) / Math.sin(THREE.MathUtils.degToRad(25)))).toEqual([4, 0, -2])
+  })
+})
+
+describe('the viewport tools over a 3D scene (issue #173 CA-16, CA-17)', () => {
+  it('shows the grid toggle and size, the helpers toggle and the navigation buttons, not the 2D snap button', async () => {
+    await mount3d()
+    expect(screen.getByTitle('Show grid')).toBeDefined()
+    expect(screen.getByTitle('Grid cell size (world units)')).toBeDefined()
+    expect(screen.getByTitle('Show helpers')).toBeDefined()
+    expect(screen.queryByTitle('Snap to grid (hold Shift to invert)')).toBeNull()
+    expect(screen.getByTitle('Zoom in')).toBeDefined()
+    expect(screen.getByTitle('Zoom out')).toBeDefined()
+  })
+
+  it('shows the 2D tools on a 2D scene, as before', async () => {
     mountViewport({ scene: HERO_AND_FOE, showCamera: true, onGridChange: () => {} })
     await tick()
     expect(screen.queryByTitle('Show grid')).not.toBeNull()
     expect(screen.queryByTitle('Zoom in')).not.toBeNull()
+    expect(screen.getByTitle('Snap to grid (hold Shift to invert)')).toBeDefined()
+    expect(screen.getByTitle("Go to the scene camera's framing")).toBeDefined()
+    expect(screen.queryByTitle('Show helpers')).toBeNull()
+    expect(screen.queryByTitle('Frame selection (F)')).toBeNull()
   })
 
-  it('draws no grid, gizmo or UI preview: every overlay stays hidden', async () => {
-    const mounted = mountViewport({ scene: SCENE_3D, showCamera: true, selected: 'Hero', grid: { ...GRID, show: true } })
-    await tick()
-    const game = liveGame(mounted)
-    const owned = new Set<THREE.Object3D>(game.entities.map((entity) => entity.node))
-    // The Game's own Ambient Light is not drawn over the scene by the editor.
-    const overlays = game.scene.children.filter(
-      (child) => !owned.has(child) && child.name !== 'waica:sprite-batches' && !(child instanceof THREE.Light),
-    )
-    expect(overlays.length).toBeGreaterThan(0)
-    for (const overlay of overlays) expect(overlay.visible, overlay.type).toBe(false)
-    expect(document.querySelector<HTMLElement>('.ed-vp-ui')).toBeNull()
+  it('zooms the editor camera from the toolbar', async () => {
+    const { game } = await mount3d()
+    fireEvent.click(screen.getByTitle('Zoom in'))
+    expect(perspectiveOf(game.camera).position.length()).toBeCloseTo(Math.hypot(4, 12) / 1.25, 6)
   })
-
 })
 
-describe('Viewport drops and scene swaps on a 3D scene (CA-21)', () => {
-  it('ignores a prefab drop', async () => {
+describe('drops, and what the 3D editor leaves as it was (issue #173)', () => {
+  it('drops a prefab on a 3D scene at the 3D point it lands on, not a 2D one (CA-22, viewport-3d-gizmo.test.tsx)', async () => {
     const onDropPrefab = vi.fn()
     const mounted = mountViewport({ scene: SCENE_3D, onDropPrefab })
     await tick()
     const dataTransfer = { getData: (type: string) => (type === 'waica/prefab' ? 'objects/crate' : ''), dropEffect: 'none' }
-    fireEvent.drop(mounted.canvas, { ...at(1, 1), dataTransfer })
-    expect(onDropPrefab).not.toHaveBeenCalled()
+    const at3d = defined(liveGame(mounted).worldToScreen({ x: 1, y: 0, z: 1 }), 'a visible point')
+    const event = createEvent.drop(mounted.canvas, { dataTransfer })
+    Object.defineProperties(event, { clientX: { value: at3d.x }, clientY: { value: at3d.y } })
+    fireEvent(mounted.canvas, event)
+    expect(onDropPrefab).toHaveBeenCalledWith('objects/crate', [1, 0, 1])
   })
 
   it('still accepts a prefab drop on a 2D scene', async () => {
@@ -157,42 +307,15 @@ describe('Viewport drops and scene swaps on a 3D scene (CA-21)', () => {
     expect(onDropPrefab).toHaveBeenCalledWith('objects/crate', expect.any(Array))
   })
 
-  it('opens a 3D scene over a 2D one and back, framing each with its own camera', async () => {
-    const mounted = mountViewport({ scene: HERO_AND_FOE, scenePath: 'src/scenes/a.scene.json' })
-    await tick()
-    const game = liveGame(mounted)
-    expect(game.camera).toBeInstanceOf(THREE.OrthographicCamera)
-    mounted.rerender({ scene: SCENE_3D, scenePath: 'src/scenes/b.scene.json' })
-    await tick()
-    expect(liveGame(mounted)).toBe(game)
-    expect(perspectiveOf(game).position.toArray()).toEqual([0, 4, 12])
-    mounted.rerender({ scene: HERO_AND_FOE, scenePath: 'src/scenes/a.scene.json' })
-    await tick()
-    expect(game.camera).toBeInstanceOf(THREE.OrthographicCamera)
-  })
 })
 
-describe('Viewport camera edits on a 3D scene (CA-21)', () => {
-  it('places the live perspective camera when the scene camera block changes', async () => {
-    const mounted = mountViewport({ scene: SCENE_3D })
-    await tick()
-    const game = liveGame(mounted)
-    mounted.rerender({ scene: { ...SCENE_3D, camera: { kind: 'perspective', position: [3, 2, 1], target: [0, 1, 0], fov: 30 } } })
-    await tick()
-    expect(liveGame(mounted)).toBe(game)
-    const camera = perspectiveOf(game)
-    expect(camera.position.toArray()).toEqual([3, 2, 1])
-    expect(camera.fov).toBe(30)
-  })
-
-  it('does not re-place the camera for an edit that leaves the camera block alone', async () => {
-    const mounted = mountViewport({ scene: SCENE_3D })
-    await tick()
-    const game = liveGame(mounted)
-    perspectiveOf(game).position.x = 9
+describe('what layer 3 leaves as it was: cameras (issue #173)', () => {
+  it('does not re-place the scene camera for an edit that leaves the camera block alone', async () => {
+    const { mounted, game } = await mount3d()
+    perspectiveOf(game.cameraRig.sceneCamera).position.x = 9
     mounted.rerender({ scene: { ...SCENE_3D, entities: [...SCENE_3D.entities, { name: 'Extra', position: [1, 1, 1] }] } })
     await tick()
-    expect(perspectiveOf(game).position.x).toBe(9)
+    expect(perspectiveOf(game.cameraRig.sceneCamera).position.x).toBe(9)
   })
 
   it('leaves a 2D scene to its overlays: a camera edit does not move the live camera', async () => {
@@ -204,10 +327,8 @@ describe('Viewport camera edits on a 3D scene (CA-21)', () => {
     await tick()
     expect(game.camera.position.toArray()).toEqual(before)
   })
-})
 
-describe('frameEditView on a 3D scene (CA-21)', () => {
-  it('leaves the edit camera alone: the perspective pose is not an EditCamera', async () => {
+  it('frameEditView leaves the 2D edit camera alone over a 3D scene: the perspective pose is not an EditCamera', async () => {
     const mounted = mountViewport({ scene: SCENE_3D })
     await tick()
     const live: ViewportLive = {

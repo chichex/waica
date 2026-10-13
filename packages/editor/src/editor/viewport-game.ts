@@ -5,7 +5,7 @@ import { Game, loadScene, type Component } from '@waica/engine'
 import type { RefObject } from 'react'
 import { resolveOrthographicCamera } from '../scene/camera-block'
 import { projectionOf } from './viewport-boxes'
-import { isReadOnlyView } from './viewport-camera'
+import { isThreeDView } from './viewport-camera'
 import type { EditCamera, ViewportLive } from './viewport-live'
 import { renderPoint } from './viewport-space'
 
@@ -70,8 +70,8 @@ export function startFailureMessage(game: Game): string {
 
 /** Puts the editor's own pan/zoom back over whatever loadScene framed. */
 export function restoreEditCamera(game: Game, cam: EditCamera): void {
-  // A 3D scene is viewed through its own perspective camera, never panned or zoomed.
-  if (isReadOnlyView(game)) return
+  // A 3D scene is seen through the Editor Camera, which has a pose, not a 2D pan and zoom.
+  if (isThreeDView(game)) return
   game.camera.position.x = cam.x
   game.camera.position.y = cam.y
   game.setViewHeight(cam.view)
@@ -88,7 +88,7 @@ export function liveComponent(game: Game | null, entityName: string, componentTy
 
 /** Zooms the edit view by `factor`, remembering the result as the editor's own zoom. */
 function zoomEditCamera(game: Game, cam: EditCamera, factor: number): void {
-  if (isReadOnlyView(game)) return
+  if (isThreeDView(game)) return
   game.setViewHeight(game.view * factor)
   cam.view = game.view
 }
@@ -123,7 +123,7 @@ export function zoomEditView({ gameRef, liveRef, camRef }: EditViewSession, fact
 /** Jumps the edit view to the scene camera's framing; a no-op outside edit mode. */
 export function frameEditView({ gameRef, liveRef, camRef }: EditViewSession): void {
   const game = gameRef.current
-  // A read-only (3D) view has no pan to remember; its pose is not an EditCamera.
-  if (!game || liveRef.current.mode !== 'edit' || isReadOnlyView(game)) return
+  // A 3D view has no 2D pan to remember: its Editor Camera pose is not an EditCamera.
+  if (!game || liveRef.current.mode !== 'edit' || isThreeDView(game)) return
   camRef.current = frameSceneCamera(game, liveRef.current)
 }

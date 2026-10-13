@@ -86,22 +86,36 @@ export function intersectedClipComponents(
   ]
 }
 
-/** Whether the entity's clips live in a glb the editor does not parse: it draws a Model that names a file (issue #166 CA-11); a primitive Model has no clips to hide. */
+/** Whether the entity's clips live in a glb (known or not yet read): it draws a Model that names a file (issue #166 CA-11); a primitive Model has no clips. */
 export function clipsUnknown(components: readonly SceneComponentJson[]): boolean {
   return components.some((c) => c.type === 'Model' && typeof c.props?.src === 'string' && c.props.src !== '')
 }
 
-/** The clip names a machine's states can be checked against: the sprite's, or null when they are unknown (a Model's glb). */
-export function knownClips(appearance: SceneComponentJson | null, components: readonly SceneComponentJson[]): string[] | null {
-  if (clipsUnknown(components)) return null
+/** The `src` of the entity's Model; undefined without one. */
+export function modelSrcOf(components: readonly SceneComponentJson[]): unknown {
+  return components.find((c) => c.type === 'Model')?.props?.src
+}
+
+/**
+ * The clip names a machine's states can be checked against: beside a Model
+ * that names a file, its glb's (`modelClips`, issue #173 CA-7), or null while
+ * they are unknown (unreadable or still reading); otherwise the sprite's.
+ */
+export function knownClips(
+  appearance: SceneComponentJson | null,
+  components: readonly SceneComponentJson[],
+  modelClips: readonly string[] | null,
+): readonly string[] | null {
+  if (clipsUnknown(components)) return modelClips
   return appearance ? Object.keys(clipsOf(appearance)) : []
 }
 
 /**
  * Clips the character's states expect but its sprite is missing, as an
  * inline warning. Each StateMachine state plays the clip of its own name
- * (or its `clip` override) on enter. Nothing beside a Model: its clips are
- * the glb's, which the editor does not parse.
+ * (or its `clip` override) on enter. Nothing beside a Model that names a
+ * file: its clips are the glb's, which the state list checks on its own
+ * (`knownClips`, from the glb read in the editor).
  */
 export function characterClipsWarning(
   appearance: SceneComponentJson,

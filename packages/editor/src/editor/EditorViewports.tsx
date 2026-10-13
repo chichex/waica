@@ -30,11 +30,9 @@ export function SceneViewport({
   stage: StageProps
   viewportRef: ViewportRef
 }) {
-  const { settings } = core
   const [sceneLibrary] = core.stage.sceneLibrary
   const [visibility] = core.stage.visibility
   const [tilemapBrush] = core.stage.tilemapBrush
-  const resolution = settings.gameSettings?.resolution
   return (
     <Viewport
       ref={viewportRef}
@@ -44,20 +42,30 @@ export function SceneViewport({
       registry={stage.registry}
       epoch={stage.epoch}
       mode={core.view.mode}
-      bindings={settings.controls ?? undefined}
-      stats={settings.stats ?? undefined}
-      music={core.code.archetype.music}
-      resolution={resolution?.mode === 'fixed' ? resolution : undefined}
       showCamera
-      grid={settings.editorSettings?.grid}
-      onGridChange={settings.commitGrid}
       componentVisibility={visibility}
       tilemapBrush={tilemapBrush}
+      {...projectSettingsProps(core)}
       {...sceneSelectHandlers(core, scene.path)}
       {...sceneMoveHandlers(core, scene.scene)}
       {...sceneShapeHandlers(core, scene.scene)}
     />
   )
+}
+
+/** What the project gives the stage: its controls, stats, music, resolution and grid, and its name (the 3D pose memory's key). */
+function projectSettingsProps(core: EditorCore) {
+  const { settings } = core
+  const resolution = settings.gameSettings?.resolution
+  return {
+    bindings: settings.controls ?? undefined,
+    stats: settings.stats ?? undefined,
+    music: core.code.archetype.music,
+    resolution: resolution?.mode === 'fixed' ? resolution : undefined,
+    grid: settings.editorSettings?.grid,
+    onGridChange: settings.commitGrid,
+    project: core.fs.name,
+  } satisfies Partial<ViewportProps>
 }
 
 /** Picking on the stage: entities, the multi-selection and the scene camera. */
@@ -86,6 +94,8 @@ function sceneMoveHandlers(core: EditorCore, scene: SceneJson) {
     },
     onCameraMoved: (position) => core.commit(ops.moveCamera(scene, position)),
     onDropPrefab: (data, world) => dropPrefab(core, data, world),
+    // A released 3D gizmo drag: every dragged entity's transform as one commit, one undo (issue #173 CA-19, CA-21).
+    onTransformed: (changes) => core.commit(changes.reduce((next, { name, transform }) => ops.setEntityTransform(next, name, transform), scene)),
   } satisfies Partial<ViewportProps>
 }
 
