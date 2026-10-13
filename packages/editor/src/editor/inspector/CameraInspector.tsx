@@ -1,9 +1,7 @@
 import {
   isPerspectiveCameraJson,
-  resolvePerspectiveCamera,
   resolveSceneCamera,
   type ParamSpec,
-  type PerspectiveSceneCameraJson,
   type ResolvedSceneCamera,
   type SceneCameraJson,
   type SceneSpace,
@@ -11,8 +9,8 @@ import {
 import type { ResolutionSetting } from '../../project/game'
 import { cameraViewSize } from '../box-math'
 import { NumberField } from '../NumberField'
+import { PerspectiveCameraInspector } from './PerspectiveCameraInspector'
 import { PropRow, RoRow } from './PropRow'
-import { Vec3Row } from './Vec3Row'
 
 /** Inspector metadata for the camera's tunable numbers (sliders). */
 const CAMERA_SPECS: Record<string, ParamSpec> = {
@@ -23,9 +21,6 @@ const CAMERA_SPECS: Record<string, ParamSpec> = {
   lookaheadY: { label: 'Lookahead (vertical)', min: 0, max: 6, step: 0.25 },
   smoothing: { label: 'Smoothing', min: 1, max: 20, step: 0.5 },
 }
-
-/** The perspective camera's field of view, in degrees: the span `validate_project` accepts, (0, 180), so no valid lens is shown pinned to an end. */
-const FOV_SPEC: ParamSpec = { label: 'Field of view', min: 1, max: 179, step: 1 }
 
 /** Fresh limits when the user turns them on: roomy around the origin. */
 const DEFAULT_LIMITS = { minX: -20, maxX: 20, minY: -12, maxY: 12 }
@@ -186,23 +181,6 @@ function LimitsSection({ cam, onProp }: CameraSectionProps) {
   )
 }
 
-/** A 3D scene's camera: where it sits, what it looks at and its lens. */
-function PerspectiveCameraInspector({ camera, onProp }: { camera: PerspectiveSceneCameraJson | undefined; onProp: CameraProp }) {
-  const cam = resolvePerspectiveCamera(camera)
-  return (
-    <div className="ed-pad">
-      <Vec3Row label="position" value={cam.position} step={0.5} onChange={(value) => onProp('position', value)} />
-      <Vec3Row label="target" value={cam.target} step={0.5} onChange={(value) => onProp('target', value)} />
-      <PropRow
-        label="fov"
-        spec={FOV_SPEC}
-        value={cam.fov}
-        onChange={(value) => onProp('fov', value)}
-      />
-    </div>
-  )
-}
-
 export function CameraInspector({
   camera,
   entityNames,
@@ -219,8 +197,8 @@ export function CameraInspector({
   pixelsPerUnit: number
   resolution: ResolutionSetting
 }) {
-  if (isPerspectiveCameraJson(camera)) return <PerspectiveCameraInspector camera={camera} onProp={onProp} />
-  if (space === '3d') return <PerspectiveCameraInspector camera={undefined} onProp={onProp} />
+  if (isPerspectiveCameraJson(camera)) return <PerspectiveCameraInspector camera={camera} entityNames={entityNames} onProp={onProp} />
+  if (space === '3d') return <PerspectiveCameraInspector camera={undefined} entityNames={entityNames} onProp={onProp} />
   const cam = resolveSceneCamera(camera)
   return (
     <div className="ed-pad">

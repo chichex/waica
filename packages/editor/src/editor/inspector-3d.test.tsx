@@ -107,10 +107,10 @@ describe('CameraInspector, perspective camera (CA-21)', () => {
     expect(fields('target').map((field) => field.value)).toEqual(['0', '0', '0'])
   })
 
-  it('has no zoom, follow or limits sections', () => {
+  it('has no zoom or limits sections, and the orbit Follow section (issue #181 CA-33)', () => {
     renderInspector({ kind: 'camera', camera, entityNames: ['Hero'] })
     expect(screen.queryByText('Framing', { selector: 'header, header > span' })).toBeNull()
-    expect(screen.queryByText('Follow', { selector: 'header, header > span' })).toBeNull()
+    expect(within(section('Follow')).getByRole('combobox', { name: 'follow' })).toBeDefined()
     expect(screen.queryByText('Limits', { selector: 'header, header > span' })).toBeNull()
   })
 
@@ -126,7 +126,7 @@ describe('CameraInspector, a 3D scene without a camera block (CA-21)', () => {
     expect(fields('position').map((field) => field.value)).toEqual(['0', '5', '10'])
     expect(fields('target').map((field) => field.value)).toEqual(['0', '0', '0'])
     expect(screen.queryByText('Framing', { selector: 'header, header > span' })).toBeNull()
-    expect(screen.queryByText('Follow', { selector: 'header, header > span' })).toBeNull()
+    expect(within(section('Follow')).getByRole('combobox', { name: 'follow' })).toBeDefined()
     expect(screen.queryByText('Limits', { selector: 'header, header > span' })).toBeNull()
   })
 
