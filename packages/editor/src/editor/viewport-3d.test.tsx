@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, fireEvent, screen } from '@testing-library/react'
+import { act, createEvent, fireEvent, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock(
@@ -285,14 +285,17 @@ describe('the viewport tools over a 3D scene (issue #173 CA-16, CA-17)', () => {
   })
 })
 
-describe('what layer 3 leaves as it was (issue #173)', () => {
-  it('still ignores a prefab drop on a 3D scene', async () => {
+describe('drops, and what the 3D editor leaves as it was (issue #173)', () => {
+  it('drops a prefab on a 3D scene at the 3D point it lands on, not a 2D one (CA-22, viewport-3d-gizmo.test.tsx)', async () => {
     const onDropPrefab = vi.fn()
     const mounted = mountViewport({ scene: SCENE_3D, onDropPrefab })
     await tick()
     const dataTransfer = { getData: (type: string) => (type === 'waica/prefab' ? 'objects/crate' : ''), dropEffect: 'none' }
-    fireEvent.drop(mounted.canvas, { ...at(1, 1), dataTransfer })
-    expect(onDropPrefab).not.toHaveBeenCalled()
+    const at3d = defined(liveGame(mounted).worldToScreen({ x: 1, y: 0, z: 1 }), 'a visible point')
+    const event = createEvent.drop(mounted.canvas, { dataTransfer })
+    Object.defineProperties(event, { clientX: { value: at3d.x }, clientY: { value: at3d.y } })
+    fireEvent(mounted.canvas, event)
+    expect(onDropPrefab).toHaveBeenCalledWith('objects/crate', [1, 0, 1])
   })
 
   it('still accepts a prefab drop on a 2D scene', async () => {
