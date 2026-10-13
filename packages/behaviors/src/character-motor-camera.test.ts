@@ -107,7 +107,12 @@ it('runs only on the ground, and an unbound run Action changes nothing (CA-13)',
   expect(body.grounded).toBe(false)
   expect(Math.hypot(body.desiredVelocity.x, body.desiredVelocity.z)).toBeCloseTo(6, 6)
 
+  // The run key held down for real, with no Action bound to it: the walk speed stays.
   const withoutRun = Object.fromEntries(Object.entries(BINDINGS).filter(([action]) => action !== 'run'))
   const unbound = await playground({}, undefined, withoutRun)
-  expect(moved(unbound, ['right'], 60).dx).toBeLessThan(6 * 1.05)
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ShiftLeft' }))
+  const walked = moved(unbound, ['right'], 60).dx
+  window.dispatchEvent(new KeyboardEvent('keyup', { code: 'ShiftLeft' }))
+  expect(walked).toBeGreaterThan(6 * 0.95)
+  expect(walked).toBeLessThan(6 * 1.05)
 })

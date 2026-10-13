@@ -1,12 +1,14 @@
 import {
   Animator,
   RigidBody,
+  SIMULATION_TIME_EPSILON,
   type RoleDefinition,
   type RoleGraph,
   type StateContext,
   type StateMachine,
   type StateTransitionJson,
 } from '@waica/engine'
+import { playsOwnOneShot, takesTrigger } from './own-one-shot-clip.js'
 import { CharacterMotor } from './character-motor.js'
 import { MeleeAttack } from './melee-attack.js'
 
@@ -16,7 +18,7 @@ const MOVE_THRESHOLD = 0.1
 /** How far through its clip the attack lands (issue #181 inference 10). */
 const STRIKE_AT = 0.4
 
-/** Seconds an attack lasts with no Animator beside it, which would never report clip:end. */
+/** Seconds an attack lasts without a one-shot clip of its own, which would never report clip:end. */
 const ATTACK_WITHOUT_CLIP = 0.5
 
 /**
@@ -77,10 +79,15 @@ export const CHARACTER_STATE_GRAPH: RoleGraph = {
   },
 }
 
-/** An attack press beside a MeleeAttack, taken (consumed) here so it does one thing. */
-function takesAttack({ entity, game }: StateContext, motor: CharacterMotor | undefined): boolean {
+/**
+ * An attack press beside a MeleeAttack, taken (consumed) here so it does one
+ * thing — only by a state with a `signal:attack` edge, so a graph's own
+ * `input:attack` edge still sees the press.
+ */
+function takesAttack({ entity, fsm, game }: StateContext, motor: CharacterMotor | undefined): boolean {
   const action = motor?.attackAction ?? 'attack'
-  if (!entity.get(MeleeAttack) || !game.input.justPressed(action) || game.input.consumed(action)) return false
+  if (!entity.get(MeleeAttack) || !takesTrigger(fsm, 'signal:attack')) return false
+  if (!game.input.justPressed(action) || game.input.consumed(action)) return false
   game.input.consume(action)
   return true
 }
@@ -103,6 +110,8 @@ export function characterUpdate(context: StateContext): void {
   if (body?.type !== 'kinematic') return
   const motor = entity.get(CharacterMotor)
   if (motor?.rolling) {
+    // A roll starts on the ground: on the landing step of a jump, land first so the air state hands over to it.
+    if (body.grounded) fsm.signal('land')
     fsm.signal('roll')
     return
   }
@@ -128,16 +137,17 @@ function groundSignals(context: StateContext, motor: CharacterMotor | undefined,
 /** Machines whose current attack has already struck: one blow per attack. */
 const struckThisAttack = new WeakSet<StateMachine>()
 
-/** The attack's strike: once, as its clip passes STRIKE_AT (or at once with no Animator). */
+/** The attack's strike: once, as its own one-shot clip passes STRIKE_AT, or at once without one. */
 function attackUpdate({ entity, fsm }: StateContext): void {
   const animator = entity.get(Animator)
-  const progress = animator ? animator.clipProgress : 1
+  const clip = animator && playsOwnOneShot(animator, fsm) ? animator : null
+  const progress = clip ? clip.clipProgress : 1
   if (!struckThisAttack.has(fsm) && progress >= STRIKE_AT) {
     struckThisAttack.add(fsm)
     entity.get(MeleeAttack)?.strike()
   }
-  // Without an Animator nothing ever reports clip:end: the attack ends on time instead.
-  if (!animator && fsm.elapsed >= ATTACK_WITHOUT_CLIP) fsm.goto('idle')
+  // Without its own one-shot clip nothing ever reports clip:end: the attack ends on time instead.
+  if (!clip && fsm.elapsed + SIMULATION_TIME_EPSILON >= ATTACK_WITHOUT_CLIP) fsm.goto('idle')
 }
 
 /** The attack holds the character in place while it lasts (CharacterMotor.acting). */

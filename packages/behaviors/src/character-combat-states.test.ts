@@ -8,7 +8,17 @@ vi.mock(
     (await import('../../engine/src/test-renderer.js')).withFakeRenderer(await importOriginal<Record<string, unknown>>()),
 )
 
-import { Animator, GltfModelBackend, installArchetype, Model, StateMachine, type SceneComponentJson, type SceneEntityJson } from '@waica/engine'
+import {
+  Animator,
+  GltfModelBackend,
+  installArchetype,
+  Model,
+  RigidBody,
+  StateMachine,
+  type SceneComponentJson,
+  type SceneEntityJson,
+  type StateJson,
+} from '@waica/engine'
 import { use3dTestEnvironment } from '../../engine/src/test-game-3d.js'
 import { FLOOR, physicsFixture, type PhysicsFixture } from '../../engine/src/test-physics-3d.js'
 import { RIG_URL, serveRig } from '../../engine/src/test-rig.js'
@@ -30,25 +40,40 @@ const { initial, states } = CHARACTER_STATE_GRAPH
 /** The rig fixture has idle, walk and jump: run and roll play walk, and attack plays jump once. */
 const RIG_STATES = { ...states, run: { ...states.run, clip: 'walk' }, roll: { ...states.roll, clip: 'walk' }, attack: { ...states.attack, clip: 'jump' } }
 
-function player(extra: SceneComponentJson[]): SceneEntityJson {
+/** What a test changes in the Player: its graph's states, its Animator's clip overrides, or no Model and Animator at all. */
+interface PlayerShape {
+  states?: Record<string, StateJson>
+  clips?: Record<string, { loop?: boolean }>
+  animated?: boolean
+}
+
+function player(extra: SceneComponentJson[], shape: PlayerShape = {}): SceneEntityJson {
+  const { states: graph = RIG_STATES, clips = { jump: { loop: false } }, animated = true } = shape
+  const animation: SceneComponentJson[] = [
+    { type: 'Model', props: { src: RIG_URL } },
+    { type: 'Animator', props: { fade: 0, clips } },
+  ]
   return {
     name: 'Player',
     position: [0, 0.9, 0],
     components: [
-      { type: 'Model', props: { src: RIG_URL } },
-      { type: 'Animator', props: { fade: 0, clips: { jump: { loop: false } } } },
+      ...(animated ? animation : []),
       { type: 'Collider', props: { shape: 'capsule', radius: 0.4, height: 1.8 } },
       { type: 'RigidBody', props: { type: 'kinematic' } },
       { type: 'CharacterMotor' },
-      { type: 'StateMachine', props: { role: 'character', initial, states: RIG_STATES } },
+      { type: 'StateMachine', props: { role: 'character', initial, states: graph } },
       ...extra,
     ],
   }
 }
 
-async function playground(extra: SceneComponentJson[] = [{ type: 'MeleeAttack' }], bindings: Record<string, string[]> = BINDINGS): Promise<PhysicsFixture> {
+async function playground(
+  extra: SceneComponentJson[] = [{ type: 'MeleeAttack' }],
+  bindings: Record<string, string[]> = BINDINGS,
+  shape: PlayerShape = {},
+): Promise<PhysicsFixture> {
   serveRig()
-  const fixture = await physicsFixture([FLOOR, player(extra)], {
+  const fixture = await physicsFixture([FLOOR, player(extra, shape)], {
     components: { CharacterMotor, StateMachine, Model, Animator, MeleeAttack },
     game: { bindings, models: new GltfModelBackend() },
   })
@@ -145,4 +170,53 @@ it('never enters attack without a MeleeAttack, nor any new state with the new Ac
   act(fixture, 'press', 'jump')
   const jumped = statesOver(fixture, 120)
   expect(new Set([...walked, ...jumped])).toEqual(new Set(['walk', 'jump', 'fall', 'idle']))
+})
+
+it('ends an attack on time when its Animator plays no one-shot of its own: a missing clip or a looping one (CA-15)', async () => {
+  vi.spyOn(console, 'warn').mockImplementation(() => {})
+  const missing = { ...RIG_STATES, attack: { ...states.attack } }
+  for (const shape of [{ states: missing }, { clips: {} }]) {
+    const fixture = await playground(undefined, BINDINGS, shape)
+    const strike = vi.spyOn(defined(defined(fixture.game.find('Player')).get(MeleeAttack)), 'strike').mockReturnValue([])
+    act(fixture, 'press', 'attack')
+
+    expect(statesOver(fixture, 45)).toEqual(['attack', 'idle'])
+    expect(strike).toHaveBeenCalledTimes(1)
+  }
+})
+
+it('ends an attack without an Animator once its 0.5 s have passed, not a step later (CA-15)', async () => {
+  const fixture = await playground(undefined, BINDINGS, { animated: false })
+  act(fixture, 'press', 'attack')
+
+  let attacking = 0
+  for (let frame = 0; frame < 45; frame += 1) {
+    fixture.step(1)
+    if (stateOf(fixture) === 'attack') attacking += 1
+  }
+  // The press step, then 30 steps of 1/60 s.
+  expect(attacking).toBe(31)
+})
+
+it('leaves an attack press to a custom input:attack edge of the graph (CA-15)', async () => {
+  const custom = { ...RIG_STATES, idle: { transitions: [{ on: 'input:attack', to: 'slash' }] }, slash: {} }
+  const fixture = await playground(undefined, BINDINGS, { states: custom })
+  act(fixture, 'press', 'attack')
+  fixture.step(1)
+
+  expect(stateOf(fixture)).toBe('slash')
+})
+
+it('rolls when the roll starts on the landing step of a jump (CA-15)', async () => {
+  const fixture = await playground()
+  const body = defined(defined(fixture.game.find('Player')).get(RigidBody))
+  act(fixture, 'press', 'jump')
+  fixture.step(1)
+  for (let frame = 0; frame < 120 && !body.grounded; frame += 1) fixture.step(1)
+  expect(body.grounded).toBe(true)
+  act(fixture, 'press', 'dodge')
+  fixture.step(1)
+
+  expect(defined(defined(fixture.game.find('Player')).get(CharacterMotor)).rolling).toBe(true)
+  expect(stateOf(fixture)).toBe('roll')
 })
