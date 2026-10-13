@@ -50,8 +50,11 @@ importers:
         specifier: ^8.3.2
         version: 8.3.2(@types/node@26.6.4)
 
-  examples/smoke-3d:
+  examples/third-person:
     dependencies:
+      '@waica/archetype-third-person':
+        specifier: workspace:*
+        version: link:../../packages/archetype-third-person
       '@waica/behaviors':
         specifier: workspace:*
         version: link:../../packages/behaviors

@@ -1,0 +1,255 @@
+{
+  "waicaPrefab": 1,
+  "type": "character",
+  "components": [
+    {
+      "type": "Model",
+      "props": {
+        "src": "src/art/knight.glb"
+      }
+    },
+    {
+      "type": "Animator",
+      "props": {
+        "initialClip": "Idle",
+        "clips": {
+          "Jump_Start": {
+            "loop": false
+          },
+          "1H_Melee_Attack_Chop": {
+            "loop": false
+          },
+          "Dodge_Forward": {
+            "loop": false
+          },
+          "Death_A": {
+            "loop": false
+          }
+        }
+      }
+    },
+    {
+      "type": "StateMachine",
+      "props": {
+        "role": "player",
+        "initial": "idle",
+        "states": {
+          "idle": {
+            "transitions": [
+              {
+                "on": "signal:attack",
+                "to": "attack"
+              },
+              {
+                "on": "signal:roll",
+                "to": "roll"
+              },
+              {
+                "on": "signal:move",
+                "to": "walk"
+              },
+              {
+                "on": "signal:run",
+                "to": "run"
+              },
+              {
+                "on": "signal:rise",
+                "to": "jump"
+              },
+              {
+                "on": "signal:fall",
+                "to": "fall"
+              }
+            ],
+            "clip": "Idle"
+          },
+          "walk": {
+            "transitions": [
+              {
+                "on": "signal:attack",
+                "to": "attack"
+              },
+              {
+                "on": "signal:roll",
+                "to": "roll"
+              },
+              {
+                "on": "signal:stop",
+                "to": "idle"
+              },
+              {
+                "on": "signal:run",
+                "to": "run"
+              },
+              {
+                "on": "signal:rise",
+                "to": "jump"
+              },
+              {
+                "on": "signal:fall",
+                "to": "fall"
+              }
+            ],
+            "clip": "Walking_A"
+          },
+          "jump": {
+            "transitions": [
+              {
+                "on": "signal:fall",
+                "to": "fall"
+              },
+              {
+                "on": "signal:land",
+                "to": "idle"
+              }
+            ],
+            "clip": "Jump_Start"
+          },
+          "fall": {
+            "transitions": [
+              {
+                "on": "signal:rise",
+                "to": "jump"
+              },
+              {
+                "on": "signal:land",
+                "to": "idle"
+              }
+            ],
+            "clip": "Jump_Idle"
+          },
+          "run": {
+            "transitions": [
+              {
+                "on": "signal:attack",
+                "to": "attack"
+              },
+              {
+                "on": "signal:roll",
+                "to": "roll"
+              },
+              {
+                "on": "signal:stop",
+                "to": "idle"
+              },
+              {
+                "on": "signal:move",
+                "to": "walk"
+              },
+              {
+                "on": "signal:rise",
+                "to": "jump"
+              },
+              {
+                "on": "signal:fall",
+                "to": "fall"
+              }
+            ],
+            "clip": "Running_A"
+          },
+          "attack": {
+            "transitions": [
+              {
+                "on": "clip:end",
+                "to": "idle"
+              }
+            ],
+            "clip": "1H_Melee_Attack_Chop"
+          },
+          "die": {
+            "clip": "Death_A"
+          },
+          "*": {
+            "transitions": [
+              {
+                "on": "signal:death",
+                "to": "die"
+              }
+            ]
+          },
+          "roll": {
+            "transitions": [
+              {
+                "on": "signal:stop",
+                "to": "idle"
+              },
+              {
+                "on": "signal:move",
+                "to": "walk"
+              },
+              {
+                "on": "signal:run",
+                "to": "run"
+              },
+              {
+                "on": "signal:rise",
+                "to": "jump"
+              },
+              {
+                "on": "signal:fall",
+                "to": "fall"
+              }
+            ],
+            "clip": "Dodge_Forward"
+          }
+        }
+      }
+    },
+    {
+      "type": "Collider",
+      "props": {
+        "shape": "capsule",
+        "radius": 0.5,
+        "height": 2.3,
+        "offset": [
+          0,
+          1.15,
+          0
+        ],
+        "layer": "player",
+        "collidesWith": [
+          "enemy"
+        ]
+      }
+    },
+    {
+      "type": "RigidBody",
+      "props": {
+        "type": "kinematic"
+      }
+    },
+    {
+      "type": "CharacterMotor",
+      "props": {
+        "relativeTo": "camera"
+      }
+    },
+    {
+      "type": "Health",
+      "props": {
+        "max": 6,
+        "invulnerability": 1
+      }
+    },
+    {
+      "type": "MeleeAttack",
+      "props": {
+        "damage": 1,
+        "range": 1.6,
+        "width": 1.4
+      }
+    },
+    {
+      "type": "Respawnable"
+    },
+    {
+      "type": "HeartsHud"
+    },
+    {
+      "type": "ControlsHint"
+    },
+    {
+      "type": "HitShake"
+    }
+  ]
+}

@@ -15,7 +15,8 @@ import { fileURLToPath } from 'node:url'
 import { CLIPS, animationOf, clipDuration, exerciseIdle, poseHashOf, session } from './runtime-e2e-animation.mjs'
 import { brightness, expectsBlankLighting, maxChannelDifference, rewriteScene, samplesInPage } from './runtime-e2e-lighting.mjs'
 
-const EXAMPLE = fileURLToPath(new URL('../examples/smoke-3d/', import.meta.url))
+// The former examples/smoke-3d scene and art (issue #181 CA-31 removed the example; layer 7 moves this leg to the third-person demo).
+const EXAMPLE = fileURLToPath(new URL('./e2e-fixtures/smoke-3d/', import.meta.url))
 /** The copied scene's name in the generated Project (its file stem). */
 const SCENE = 'smoke-3d'
 /** The frame every variant is captured at, as the other screenshot legs do. */
@@ -186,9 +187,9 @@ async function capture({ helpers, client, project, chrome, simulation = null }) 
 async function copyExample(project) {
   await mkdir(path.join(project, 'src/art'), { recursive: true })
   await mkdir(path.join(project, 'src/roles'), { recursive: true })
-  await copyFile(path.join(EXAMPLE, 'src/scenes/main.scene.json'), path.join(project, `src/scenes/${SCENE}.scene.json`))
-  await copyFile(path.join(EXAMPLE, 'art/tree.glb'), path.join(project, 'src/art/tree.glb'))
-  await copyFile(path.join(EXAMPLE, 'art/knight.glb'), path.join(project, 'src/art/knight.glb'))
+  await copyFile(path.join(EXAMPLE, 'main.scene.json'), path.join(project, `src/scenes/${SCENE}.scene.json`))
+  await copyFile(path.join(EXAMPLE, 'tree.glb'), path.join(project, 'src/art/tree.glb'))
+  await copyFile(path.join(EXAMPLE, 'knight.glb'), path.join(project, 'src/art/knight.glb'))
   await writeFile(
     path.join(project, 'src/roles/character.ts'),
     "import { CHARACTER_ROLE } from '@waica/behaviors'\nimport { defineRole } from '@waica/engine'\n\ndefineRole('character', CHARACTER_ROLE)\n",

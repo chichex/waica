@@ -1,0 +1,698 @@
+{
+  "waicaScene": 3,
+  "render": {
+    "space": "3d",
+    "lighting": {
+      "ambient": {
+        "color": "#b8c8ff",
+        "intensity": 0.55
+      }
+    }
+  },
+  "simulation": {
+    "gravity": [
+      0,
+      -9.81,
+      0
+    ]
+  },
+  "camera": {
+    "kind": "perspective",
+    "position": [
+      0,
+      4.5,
+      13
+    ],
+    "target": [
+      0,
+      1.2,
+      7
+    ],
+    "fov": 55,
+    "follow": "Player",
+    "distance": 6,
+    "pitch": 20
+  },
+  "entities": [
+    {
+      "name": "Sun",
+      "components": [
+        {
+          "type": "Sun",
+          "props": {
+            "direction": [
+              -0.5,
+              -1,
+              -0.35
+            ],
+            "intensity": 2.2
+          }
+        }
+      ]
+    },
+    {
+      "name": "Floor -8 -8",
+      "prefab": "tiles/floor",
+      "position": [
+        -8,
+        0,
+        -8
+      ]
+    },
+    {
+      "name": "Floor -8 -4",
+      "prefab": "tiles/floor",
+      "position": [
+        -8,
+        0,
+        -4
+      ]
+    },
+    {
+      "name": "Floor -8 0",
+      "prefab": "tiles/floor",
+      "position": [
+        -8,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Floor -8 4",
+      "prefab": "tiles/floor",
+      "position": [
+        -8,
+        0,
+        4
+      ]
+    },
+    {
+      "name": "Floor -8 8",
+      "prefab": "tiles/floor",
+      "position": [
+        -8,
+        0,
+        8
+      ]
+    },
+    {
+      "name": "Floor -4 -8",
+      "prefab": "tiles/floor",
+      "position": [
+        -4,
+        0,
+        -8
+      ]
+    },
+    {
+      "name": "Floor -4 -4",
+      "prefab": "tiles/floor",
+      "position": [
+        -4,
+        0,
+        -4
+      ]
+    },
+    {
+      "name": "Floor -4 0",
+      "prefab": "tiles/floor",
+      "position": [
+        -4,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Floor -4 4",
+      "prefab": "tiles/floor",
+      "position": [
+        -4,
+        0,
+        4
+      ]
+    },
+    {
+      "name": "Floor -4 8",
+      "prefab": "tiles/floor",
+      "position": [
+        -4,
+        0,
+        8
+      ]
+    },
+    {
+      "name": "Floor 0 -8",
+      "prefab": "tiles/floor",
+      "position": [
+        0,
+        0,
+        -8
+      ]
+    },
+    {
+      "name": "Floor 0 -4",
+      "prefab": "tiles/floor",
+      "position": [
+        0,
+        0,
+        -4
+      ]
+    },
+    {
+      "name": "Floor 0 0",
+      "prefab": "tiles/floor",
+      "position": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Floor 0 4",
+      "prefab": "tiles/floor",
+      "position": [
+        0,
+        0,
+        4
+      ]
+    },
+    {
+      "name": "Floor 0 8",
+      "prefab": "tiles/floor",
+      "position": [
+        0,
+        0,
+        8
+      ]
+    },
+    {
+      "name": "Floor 4 -8",
+      "prefab": "tiles/floor",
+      "position": [
+        4,
+        0,
+        -8
+      ]
+    },
+    {
+      "name": "Floor 4 -4",
+      "prefab": "tiles/floor",
+      "position": [
+        4,
+        0,
+        -4
+      ]
+    },
+    {
+      "name": "Floor 4 0",
+      "prefab": "tiles/floor",
+      "position": [
+        4,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Floor 4 4",
+      "prefab": "tiles/floor",
+      "position": [
+        4,
+        0,
+        4
+      ]
+    },
+    {
+      "name": "Floor 4 8",
+      "prefab": "tiles/floor",
+      "position": [
+        4,
+        0,
+        8
+      ]
+    },
+    {
+      "name": "Floor 8 -8",
+      "prefab": "tiles/floor",
+      "position": [
+        8,
+        0,
+        -8
+      ]
+    },
+    {
+      "name": "Floor 8 -4",
+      "prefab": "tiles/floor",
+      "position": [
+        8,
+        0,
+        -4
+      ]
+    },
+    {
+      "name": "Floor 8 0",
+      "prefab": "tiles/floor",
+      "position": [
+        8,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Floor 8 4",
+      "prefab": "tiles/floor",
+      "position": [
+        8,
+        0,
+        4
+      ]
+    },
+    {
+      "name": "Floor 8 8",
+      "prefab": "tiles/floor",
+      "position": [
+        8,
+        0,
+        8
+      ]
+    },
+    {
+      "name": "Wall N -8",
+      "prefab": "tiles/wall",
+      "position": [
+        -8,
+        0,
+        -10
+      ]
+    },
+    {
+      "name": "Wall S -8",
+      "prefab": "tiles/wall",
+      "position": [
+        -8,
+        0,
+        10
+      ],
+      "rotation": [
+        0,
+        180,
+        0
+      ]
+    },
+    {
+      "name": "Wall W -8",
+      "prefab": "tiles/wall",
+      "position": [
+        -10,
+        0,
+        -8
+      ],
+      "rotation": [
+        0,
+        90,
+        0
+      ]
+    },
+    {
+      "name": "Wall E -8",
+      "prefab": "tiles/wall",
+      "position": [
+        10,
+        0,
+        -8
+      ],
+      "rotation": [
+        0,
+        -90,
+        0
+      ]
+    },
+    {
+      "name": "Wall N -4",
+      "prefab": "tiles/wall",
+      "position": [
+        -4,
+        0,
+        -10
+      ]
+    },
+    {
+      "name": "Wall S -4",
+      "prefab": "tiles/wall",
+      "position": [
+        -4,
+        0,
+        10
+      ],
+      "rotation": [
+        0,
+        180,
+        0
+      ]
+    },
+    {
+      "name": "Wall W -4",
+      "prefab": "tiles/wall",
+      "position": [
+        -10,
+        0,
+        -4
+      ],
+      "rotation": [
+        0,
+        90,
+        0
+      ]
+    },
+    {
+      "name": "Wall E -4",
+      "prefab": "tiles/wall",
+      "position": [
+        10,
+        0,
+        -4
+      ],
+      "rotation": [
+        0,
+        -90,
+        0
+      ]
+    },
+    {
+      "name": "Wall N 0",
+      "prefab": "tiles/wall",
+      "position": [
+        0,
+        0,
+        -10
+      ]
+    },
+    {
+      "name": "Wall S 0",
+      "prefab": "tiles/wall",
+      "position": [
+        0,
+        0,
+        10
+      ],
+      "rotation": [
+        0,
+        180,
+        0
+      ]
+    },
+    {
+      "name": "Wall W 0",
+      "prefab": "tiles/wall",
+      "position": [
+        -10,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        90,
+        0
+      ]
+    },
+    {
+      "name": "Wall E 0",
+      "prefab": "tiles/wall",
+      "position": [
+        10,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        -90,
+        0
+      ]
+    },
+    {
+      "name": "Wall N 4",
+      "prefab": "tiles/wall",
+      "position": [
+        4,
+        0,
+        -10
+      ]
+    },
+    {
+      "name": "Wall S 4",
+      "prefab": "tiles/wall",
+      "position": [
+        4,
+        0,
+        10
+      ],
+      "rotation": [
+        0,
+        180,
+        0
+      ]
+    },
+    {
+      "name": "Wall W 4",
+      "prefab": "tiles/wall",
+      "position": [
+        -10,
+        0,
+        4
+      ],
+      "rotation": [
+        0,
+        90,
+        0
+      ]
+    },
+    {
+      "name": "Wall E 4",
+      "prefab": "tiles/wall",
+      "position": [
+        10,
+        0,
+        4
+      ],
+      "rotation": [
+        0,
+        -90,
+        0
+      ]
+    },
+    {
+      "name": "Wall N 8",
+      "prefab": "tiles/wall",
+      "position": [
+        8,
+        0,
+        -10
+      ]
+    },
+    {
+      "name": "Wall S 8",
+      "prefab": "tiles/wall",
+      "position": [
+        8,
+        0,
+        10
+      ],
+      "rotation": [
+        0,
+        180,
+        0
+      ]
+    },
+    {
+      "name": "Wall W 8",
+      "prefab": "tiles/wall",
+      "position": [
+        -10,
+        0,
+        8
+      ],
+      "rotation": [
+        0,
+        90,
+        0
+      ]
+    },
+    {
+      "name": "Wall E 8",
+      "prefab": "tiles/wall",
+      "position": [
+        10,
+        0,
+        8
+      ],
+      "rotation": [
+        0,
+        -90,
+        0
+      ]
+    },
+    {
+      "name": "Column West",
+      "prefab": "tiles/column",
+      "position": [
+        -6,
+        0,
+        -6
+      ]
+    },
+    {
+      "name": "Column East",
+      "prefab": "tiles/column",
+      "position": [
+        -2,
+        0,
+        3
+      ]
+    },
+    {
+      "name": "Platform",
+      "prefab": "tiles/step",
+      "position": [
+        6,
+        0,
+        -6
+      ],
+      "scale": [
+        2,
+        0.25,
+        2
+      ]
+    },
+    {
+      "name": "Step",
+      "prefab": "tiles/step",
+      "position": [
+        6,
+        0,
+        -2.6
+      ],
+      "scale": [
+        1,
+        0.125,
+        1
+      ]
+    },
+    {
+      "name": "Torch NW",
+      "prefab": "tiles/torch",
+      "position": [
+        -4,
+        2.5,
+        -9.5
+      ]
+    },
+    {
+      "name": "Torch NE",
+      "prefab": "tiles/torch",
+      "position": [
+        4,
+        2.5,
+        -9.5
+      ]
+    },
+    {
+      "name": "Torch SW",
+      "prefab": "tiles/torch",
+      "position": [
+        -4,
+        2.5,
+        9.5
+      ],
+      "rotation": [
+        0,
+        180,
+        0
+      ]
+    },
+    {
+      "name": "Torch SE",
+      "prefab": "tiles/torch",
+      "position": [
+        4,
+        2.5,
+        9.5
+      ],
+      "rotation": [
+        0,
+        180,
+        0
+      ]
+    },
+    {
+      "name": "Checkpoint West",
+      "prefab": "objects/checkpoint",
+      "position": [
+        -7,
+        0,
+        6
+      ]
+    },
+    {
+      "name": "Checkpoint North",
+      "prefab": "objects/checkpoint",
+      "position": [
+        -2,
+        0,
+        -4
+      ]
+    },
+    {
+      "name": "Goal Chest",
+      "prefab": "objects/goal-chest",
+      "position": [
+        6,
+        0.5,
+        -6
+      ]
+    },
+    {
+      "name": "Skeleton West",
+      "prefab": "characters/skeleton",
+      "position": [
+        -5,
+        0,
+        -2
+      ]
+    },
+    {
+      "name": "Skeleton East",
+      "prefab": "characters/skeleton",
+      "position": [
+        4,
+        0,
+        2
+      ],
+      "rotation": [
+        0,
+        -90,
+        0
+      ]
+    },
+    {
+      "name": "Skeleton Gate",
+      "prefab": "characters/skeleton",
+      "position": [
+        0,
+        0,
+        -7
+      ]
+    },
+    {
+      "name": "Player",
+      "prefab": "characters/player",
+      "position": [
+        0,
+        0,
+        7
+      ]
+    }
+  ],
+  "ui": [
+    "player-health",
+    "controls-hint"
+  ]
+}

@@ -1,4 +1,4 @@
-# Attribution — examples/smoke-3d
+# Attribution — scripts/e2e-fixtures/smoke-3d (formerly examples/smoke-3d)
 
 ## `art/knight.glb` — KayKit Character Pack: Adventurers (1.0), by Kay Lousberg
 
@@ -10,7 +10,7 @@
 - **One-off conversion:** the committed `knight.glb` (499,496 bytes) keeps those five clips and drops the surplus gear hanging off the hand slots (three of the four shields and two of the three swords), so the character carries one sword and one shield; the body, helmet and cape are untouched. Reproduced from the source file with the repository's dependency-free trimmer:
 
   ```sh
-  node scripts/trim-character-glb.mjs Knight.glb examples/smoke-3d/art/knight.glb \
+  node scripts/trim-character-glb.mjs Knight.glb scripts/e2e-fixtures/smoke-3d/knight.glb \
     --keep-clips Idle,Walking_A,Jump_Start,Jump_Idle,Jump_Land \
     --drop-nodes 1H_Sword_Offhand,Badge_Shield,Rectangle_Shield,Spike_Shield,2H_Sword
   ```

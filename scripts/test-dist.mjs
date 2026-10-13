@@ -241,7 +241,7 @@ async function materializeExternalDependencies(pkg, manifest) {
  * `base: '/'`, which every example uses.
  */
 async function assertRapierStaysLazy() {
-  for (const example of ['platformer', 'topdown', 'isometric', 'smoke-3d']) {
+  for (const example of ['platformer', 'topdown', 'isometric', 'third-person']) {
     const distRoot = join(root, 'examples', example, 'dist')
     const scripts = (await filesBelow(distRoot)).filter((path) => path.endsWith('.js'))
     const holding = []

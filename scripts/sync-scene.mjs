@@ -89,6 +89,7 @@ const TARGETS = [
   join(root, 'examples', 'platformer', 'src'),
   join(root, 'examples', 'topdown', 'src'),
   join(root, 'examples', 'isometric', 'src'),
+  join(root, 'examples', 'third-person', 'src'),
   join(root, 'packages', 'editor', 'template', 'src'),
 ]
 for (const srcDir of TARGETS) {

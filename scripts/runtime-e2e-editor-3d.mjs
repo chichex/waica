@@ -13,7 +13,8 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { expectsBlankLighting } from './runtime-e2e-lighting.mjs'
 
-const EXAMPLE = fileURLToPath(new URL('../examples/smoke-3d', import.meta.url))
+// The former examples/smoke-3d scene and art (issue #181 CA-31 removed the example; layer 7 moves this leg to the third-person demo).
+const EXAMPLE = fileURLToPath(new URL('./e2e-fixtures/smoke-3d', import.meta.url))
 const PROJECT = 'waica-editor-3d'
 const SCENE_PATH = 'src/scenes/main.scene.json'
 const VIEWPORT = { width: 1280, height: 800 }
@@ -47,10 +48,10 @@ async function startEditor({ root, viteBin }) {
 
 /** The in-memory project: a platformer game.json, the smoke scene, its glbs (base64) and the character role. */
 async function projectFiles() {
-  const base64 = async (file) => ({ base64: (await readFile(path.join(EXAMPLE, 'art', file))).toString('base64') })
+  const base64 = async (file) => ({ base64: (await readFile(path.join(EXAMPLE, file))).toString('base64') })
   return {
     'src/game.json': JSON.stringify({ waicaGame: 1, archetype: 'platformer', resolution: { mode: 'fill', width: 640, height: 360 }, pixelsPerUnit: 16 }),
-    [SCENE_PATH]: await readFile(path.join(EXAMPLE, 'src/scenes/main.scene.json'), 'utf8'),
+    [SCENE_PATH]: await readFile(path.join(EXAMPLE, 'main.scene.json'), 'utf8'),
     'src/art/knight.glb': await base64('knight.glb'),
     'src/art/tree.glb': await base64('tree.glb'),
     'src/roles/character.ts': "import { CHARACTER_ROLE } from '@waica/behaviors'\nimport { defineRole } from '@waica/engine'\n\ndefineRole('character', CHARACTER_ROLE)\n",

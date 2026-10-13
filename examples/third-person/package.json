@@ -1,5 +1,5 @@
 {
-  "name": "@waica/example-smoke-3d",
+  "name": "@waica/example-third-person",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@waica/archetype-third-person": "workspace:*",
     "@waica/behaviors": "workspace:*",
     "@waica/engine": "workspace:*"
   },

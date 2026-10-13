@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { expectsBlankLighting } from './runtime-e2e-lighting.mjs'
 
-/** The clips the smoke Player's states play (examples/smoke-3d/src/scenes/main.scene.json). */
+/** The clips the smoke Player's states play (scripts/e2e-fixtures/smoke-3d/main.scene.json). */
 export const CLIPS = { idle: 'Idle', walk: 'Walking_A', jump: 'Jump_Start' }
 /** How many decoded pixels two idle frames 20 frames apart must differ in, where the frame draws. */
 const MIN_IDLE_DIFFERING_PIXELS = 50

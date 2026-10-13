@@ -1,0 +1,17 @@
+{
+  "waicaControls": 1,
+  "bindings": {
+    "up": ["KeyW", "ArrowUp", "Gamepad:LeftStickUp"],
+    "down": ["KeyS", "ArrowDown", "Gamepad:LeftStickDown"],
+    "left": ["KeyA", "ArrowLeft", "Gamepad:LeftStickLeft"],
+    "right": ["KeyD", "ArrowRight", "Gamepad:LeftStickRight"],
+    "jump": ["Space", "Gamepad:A"],
+    "attack": ["Mouse:Left", "KeyJ", "Gamepad:X"],
+    "run": ["ShiftLeft", "ShiftRight", "Gamepad:LB"],
+    "dodge": ["KeyC", "Gamepad:B"],
+    "look_left": ["KeyQ", "Gamepad:RightStickLeft"],
+    "look_right": ["KeyE", "Gamepad:RightStickRight"],
+    "look_up": ["Gamepad:RightStickUp"],
+    "look_down": ["Gamepad:RightStickDown"]
+  }
+}

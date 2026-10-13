@@ -3,12 +3,15 @@ import { act, cleanup, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { PrefabJson, SceneComponentJson, SceneEntityJson } from '@waica/engine'
-import knight from '../../../../examples/smoke-3d/art/knight.glb?inline'
+import knight from '../../../archetype-third-person/assets/knight.glb?inline'
 import rig from '../../../engine/fixtures/rig.glb?inline'
 import { MemFS } from '../fs/project-fs'
 import { GlbClipCache, observeWrites } from './glb-clips'
 import { knownClips } from './inspector/component-meta'
 import { renderInspectorWithClips, section } from './inspector-test-support'
+
+/** The third-person archetype Knight's clips, in file order (issue #181 CA-24). */
+const KNIGHT_CLIPS = ['1H_Melee_Attack_Chop', 'Death_A', 'Dodge_Forward', 'Idle', 'Jump_Idle', 'Jump_Start', 'Running_A', 'Walking_A']
 
 afterEach(cleanup)
 
@@ -78,7 +81,7 @@ describe('reading a Model glb clips (issue #173 CA-4)', () => {
     await act(async () => writes.writeFile(RIG_PATH, bytesOf(knight)))
 
     await vi.waitFor(() =>
-      expect(optionsOf(screen.getByRole('combobox', { name: 'Initial clip' }))).toEqual(['(none)', 'Idle', 'Jump_Idle', 'Jump_Land', 'Jump_Start', 'Walking_A']),
+      expect(optionsOf(screen.getByRole('combobox', { name: 'Initial clip' }))).toEqual(['(none)', ...KNIGHT_CLIPS]),
     )
     expect(readFile).toHaveBeenCalledTimes(2)
   })

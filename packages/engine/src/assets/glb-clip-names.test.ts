@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import knight from '../../../../examples/smoke-3d/art/knight.glb?inline'
+import knight from '../../../archetype-third-person/assets/knight.glb?inline'
 import rig from '../../fixtures/rig.glb?inline'
 import unitBox from '../../fixtures/unit-box.glb?inline'
 import * as engine from '../index.js'
@@ -30,8 +30,17 @@ describe('glbClipNames (issue #173 CA-3)', () => {
     expect(glbClipNames(bytesOf(rig))).toEqual(['idle', 'walk', 'jump'])
   })
 
-  it("lists the smoke example Knight's clips in file order", () => {
-    expect(glbClipNames(bytesOf(knight))).toEqual(['Idle', 'Jump_Idle', 'Jump_Land', 'Jump_Start', 'Walking_A'])
+  it("lists the third-person archetype Knight's clips in file order", () => {
+    expect(glbClipNames(bytesOf(knight))).toEqual([
+      '1H_Melee_Attack_Chop',
+      'Death_A',
+      'Dodge_Forward',
+      'Idle',
+      'Jump_Idle',
+      'Jump_Start',
+      'Running_A',
+      'Walking_A',
+    ])
   })
 
   it('gives an empty list for a glb with no animations', () => {
