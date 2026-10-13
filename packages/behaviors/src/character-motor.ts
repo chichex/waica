@@ -1,10 +1,7 @@
-import { Component, RigidBody, type ComponentSpace, type Input } from '@waica/engine'
+import { Component, RigidBody, SIMULATION_TIME_EPSILON, type ComponentSpace, type Input } from '@waica/engine'
 import { turnYawToward } from './facing-3d.js'
 import { Health } from './health.js'
 import { clearKnockback, knockbackVelocity, type PlanarVelocity } from './knockback-3d.js'
-
-/** Below this many seconds a roll is over: steps of 1/60 s never land exactly on 0. */
-const TIME_EPSILON = 1e-9
 
 const DEGREES = Math.PI / 180
 
@@ -171,7 +168,7 @@ export class CharacterMotor extends Component {
     body.desiredVelocity = { x: x * this.dodgeSpeed, z: z * this.dodgeSpeed }
     turnYawToward(this.entity.node, x, z, this.turnSpeed, dt)
     this.rollLeft -= dt
-    if (this.rollLeft > TIME_EPSILON) return
+    if (this.rollLeft > SIMULATION_TIME_EPSILON) return
     this.rollLeft = 0
     this.cooldownLeft = this.dodgeCooldown
   }

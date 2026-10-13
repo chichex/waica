@@ -37,6 +37,7 @@ export type FindingCode =
   | 'invalid-rigid-body-param'
   | 'rigid-body-without-collider'
   | 'character-motor-without-body'
+  | 'mover-without-body'
   | 'invalid-character-motor-param'
   | 'invalid-light-param'
   | 'invalid-sun-param'

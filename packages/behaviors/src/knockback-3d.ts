@@ -1,10 +1,7 @@
-import type { Entity } from '@waica/engine'
+import { SIMULATION_TIME_EPSILON, type Entity } from '@waica/engine'
 
 /** How long a 3D melee knockback pushes, in seconds (issue #181 CA-17). */
 export const KNOCKBACK_SECONDS = 0.15
-
-/** Float slack on the push's end: steps of 1/60 s never land exactly on it. */
-const TIME_EPSILON = 1e-9
 
 /** A planar velocity on the ground plane, in units per second. */
 export interface PlanarVelocity {
@@ -12,8 +9,8 @@ export interface PlanarVelocity {
   z: number
 }
 
-/** The push on each knocked-back entity and the Game Time it lasts until. */
-const pushes = new WeakMap<Entity, { velocity: PlanarVelocity; until: number }>()
+/** The push on each knocked-back entity: the Game Time of the hit, and the one it lasts until. */
+const pushes = new WeakMap<Entity, { velocity: PlanarVelocity; since: number; until: number }>()
 
 /**
  * Pushes `target` straight away from `from` on xz at `speed` for
@@ -28,9 +25,11 @@ export function knockBackFrom(target: Entity, from: Entity, speed: number): void
   const dz = target.position.z - from.position.z
   const length = Math.hypot(dx, dz)
   if (length === 0 || !(speed > 0)) return
+  const { now } = target.game.time
   pushes.set(target, {
     velocity: { x: (dx / length) * speed, z: (dz / length) * speed },
-    until: target.game.time.now + KNOCKBACK_SECONDS,
+    since: now,
+    until: now + KNOCKBACK_SECONDS,
   })
 }
 
@@ -38,7 +37,10 @@ export function knockBackFrom(target: Entity, from: Entity, speed: number): void
 export function knockbackVelocity(entity: Entity): PlanarVelocity | null {
   const push = pushes.get(entity)
   if (!push) return null
-  if (entity.game.time.now <= push.until + TIME_EPSILON) return push.velocity
+  const { now } = entity.game.time
+  // The hit's own step pushes nobody, whether the target updates before or after its attacker: every push starts on the next step and lasts as long.
+  if (now <= push.since) return null
+  if (now <= push.until + SIMULATION_TIME_EPSILON) return push.velocity
   pushes.delete(entity)
   return null
 }

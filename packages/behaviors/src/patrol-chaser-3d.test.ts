@@ -13,7 +13,8 @@ import { use3dTestEnvironment } from '../../engine/src/test-game-3d.js'
 import { FLOOR, physicsFixture, type PhysicsFixture } from '../../engine/src/test-physics-3d.js'
 import { defined } from '../../engine/src/test-support.js'
 import { Chaser } from './chaser.js'
-import { Patrol } from './patrol.js'
+import { Health } from './health.js'
+import { Patrol, PATROLLER_ROLE, PATROLLER_STATE_GRAPH } from './patrol.js'
 
 // Issue #181 CA-19: Patrol and Chaser in a 3D scene, through the kinematic body.
 
@@ -50,7 +51,7 @@ const prey = (at: [number, number]): SceneEntityJson => ({
 })
 
 async function arena(entities: SceneEntityJson[]): Promise<PhysicsFixture> {
-  const fixture = await physicsFixture([FLOOR, ...entities], { components: { Patrol, Chaser, Driver, StateMachine } })
+  const fixture = await physicsFixture([FLOOR, ...entities], { components: { Patrol, Chaser, Driver, StateMachine, Health } })
   fixture.step(1)
   return fixture
 }
@@ -125,4 +126,45 @@ it('lets a wall stop a Chaser (CA-19)', async () => {
   const seen = track(fixture, 'Ghoul', 90)
 
   expect(defined(seen.at(-1)).z).toBeLessThan(2 - 0.1 - 0.4 + 0.02)
+})
+
+it('turns a Patrol around when something blocks its rail before the end (CA-19)', async () => {
+  const wall: SceneEntityJson = { name: 'Wall', position: [1.5, 1, 0], components: [{ type: 'Collider', props: { size: [0.2, 2, 4] } }] }
+  const fixture = await arena([walker('Rat', [0, 0], { type: 'Patrol', props: { axis: 'horizontal', distance: 3, speed: 4 } }), wall])
+
+  const xs = track(fixture, 'Rat', 150).map(({ x }) => x)
+
+  expect(Math.max(...xs)).toBeLessThan(1.5 - 0.1 - 0.4 + 0.02)
+  expect(Math.min(...xs)).toBeLessThan(-3 + 0.1)
+})
+
+it('stands the patroller role still in 3D while it flinches and while it dies (CA-19)', async () => {
+  installArchetype({ roles: { player: { description: 'The prey Chaser looks for.', states: {} }, patroller: PATROLLER_ROLE } })
+  const rat: SceneEntityJson = {
+    name: 'Rat',
+    position: [0, 0.9, 0],
+    components: [
+      { type: 'Collider', props: { shape: 'capsule', radius: 0.4, height: 1.8 } },
+      { type: 'RigidBody', props: { type: 'kinematic' } },
+      { type: 'Patrol', props: { axis: 'horizontal', distance: 3, speed: 4 } },
+      { type: 'Health', props: { max: 3 } },
+      { type: 'StateMachine', props: { role: 'patroller', ...PATROLLER_STATE_GRAPH } },
+    ],
+  }
+  const fixture = await arena([rat])
+  fixture.step(10)
+  const entity = defined(fixture.game.find('Rat'))
+  const body = defined(entity.get(RigidBody))
+  expect(Math.abs(body.desiredVelocity.x)).toBeCloseTo(4, 6)
+
+  defined(entity.get(Health)).damage(1)
+  fixture.step(2)
+  expect(defined(entity.get(StateMachine)).current).toBe('hurt')
+  expect(body.desiredVelocity).toEqual({ x: 0, z: 0 })
+
+  fixture.step(30)
+  defined(entity.get(Health)).damage(Number.POSITIVE_INFINITY)
+  fixture.step(2)
+  expect(defined(entity.get(StateMachine)).current).toBe('dead')
+  expect(body.desiredVelocity).toEqual({ x: 0, z: 0 })
 })

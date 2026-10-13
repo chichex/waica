@@ -11,6 +11,7 @@ import { Respawnable } from './respawnable.js'
  */
 export class Checkpoint extends Component {
   static override componentName = 'Checkpoint'
+  static override transient = ['active']
 
   /** True for the checkpoint the player touched last. */
   active = false

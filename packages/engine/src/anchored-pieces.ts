@@ -272,12 +272,13 @@ export class AnchoredPieces {
     for (const instance of this.instances) followGameTime(instance)
     const byDepth: Array<[Instance, number]> = []
     for (const instance of this.instances) {
-      const placement = locate(instance, view)
+      const anchor = anchorPoint(instance, view.projection)
+      const placement = locate(instance, view, anchor)
       instance.placed = placement
       instance.host.style.left = `${placement.x}px`
       instance.host.style.top = `${placement.y}px`
       instance.host.style.visibility = placement.behind ? 'hidden' : ''
-      placeUnit(instance, view)
+      placeUnit(instance, view, anchor)
       byDepth.push([instance, placement.depth])
     }
     // Lower on screen draws on top, like y-sort; the sort is stable, so
@@ -374,18 +375,18 @@ function anchorPoint(instance: Instance, projection: 'isometric' | null): WorldP
  * #181 CA-22): a piece twice as far is half as wide. Under an orthographic
  * camera the piece inherits the layer's unit, so it carries none of its own.
  */
-function placeUnit(instance: Instance, { camera, viewport, projection }: AnchorView): void {
+function placeUnit(instance: Instance, { camera, viewport }: AnchorView, anchor: WorldPoint): void {
   const { style } = instance.host
   if (!isPerspectiveCamera(camera)) style.removeProperty('--waica-unit')
-  else style.setProperty('--waica-unit', `${pixelsPerUnit(camera, viewport.height, anchorPoint(instance, projection))}px`)
+  else style.setProperty('--waica-unit', `${pixelsPerUnit(camera, viewport.height, anchor)}px`)
 }
 
 /**
  * The anchor point in whole CSS px from the game viewport's top-left
  * corner: the exact inverse of the Pointer's screen→world mapping.
  */
-function locate(instance: Instance, view: AnchorView): Placement {
-  const at = worldToNormalized(view.camera, anchorPoint(instance, view.projection))
+function locate(instance: Instance, view: AnchorView, anchor = anchorPoint(instance, view.projection)): Placement {
+  const at = worldToNormalized(view.camera, anchor)
   // Behind a perspective camera there is no place on screen to put it.
   if (!at) return { x: 0, y: 0, clipped: true, depth: 1, behind: true }
   const { nx, ny } = at

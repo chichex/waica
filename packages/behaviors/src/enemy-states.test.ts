@@ -42,12 +42,13 @@ const RIG_STATES = {
 
 const capsule = { type: 'Collider', props: { shape: 'capsule', radius: 0.4, height: 1.8 } }
 
-const SKELETON: SceneEntityJson = {
+/** The Skeleton, with its Animator's clip overrides (the rig's jump plays once by default). */
+const skeletonWith = (clips: Record<string, { loop?: boolean }>): SceneEntityJson => ({
   name: 'Skeleton',
   position: [0, 0.9, 0],
   components: [
     { type: 'Model', props: { src: RIG_URL } },
-    { type: 'Animator', props: { fade: 0, clips: { jump: { loop: false } } } },
+    { type: 'Animator', props: { fade: 0, clips } },
     capsule,
     { type: 'RigidBody', props: { type: 'kinematic' } },
     { type: 'Patrol', props: { axis: 'horizontal', distance: 1, speed: 1 } },
@@ -56,17 +57,21 @@ const SKELETON: SceneEntityJson = {
     { type: 'Health', props: { max: 3 } },
     { type: 'StateMachine', props: { role: 'enemy', initial, states: RIG_STATES } },
   ],
-}
+})
+const SKELETON = skeletonWith({ jump: { loop: false } })
+
+/** A player that stays in the scene when it dies, in a die state, as the character role's does. */
+const MORTAL_PLAYER = { idle: {}, die: {}, '*': { transitions: [{ on: 'signal:death', to: 'die' }] } }
 
 const playerAt = (x: number, z: number): SceneEntityJson => ({
   name: 'Player',
   position: [x, 0.9, z],
-  components: [capsule, { type: 'RigidBody', props: { type: 'kinematic' } }, { type: 'Health', props: { max: 6 } }, { type: 'StateMachine', props: { role: 'player', states: { idle: {} } } }],
+  components: [capsule, { type: 'RigidBody', props: { type: 'kinematic' } }, { type: 'Health', props: { max: 6 } }, { type: 'StateMachine', props: { role: 'player', initial: 'idle', states: MORTAL_PLAYER } }],
 })
 
-async function arena(playerX: number): Promise<PhysicsFixture> {
+async function arena(playerX: number, skeletonEntity: SceneEntityJson = SKELETON): Promise<PhysicsFixture> {
   serveRig()
-  const fixture = await physicsFixture([FLOOR, SKELETON, playerAt(playerX, 0)], {
+  const fixture = await physicsFixture([FLOOR, skeletonEntity, playerAt(playerX, 0)], {
     components: { Model, Animator, StateMachine, Patrol, Chaser, MeleeAttack, Health },
     game: { models: new GltfModelBackend() },
   })
@@ -147,4 +152,35 @@ it('enters die on a Health death and stops the body (CA-20)', async () => {
   expect(stateOf(fixture)).toBe('die')
   expect(skeleton(fixture).alive).toBe(true)
   expect(defined(skeleton(fixture).get(RigidBody)).desiredVelocity).toEqual({ x: 0, z: 0 })
+})
+
+it('leaves hurt and attack on time when its Animator plays no one-shot of its own (CA-20)', async () => {
+  const looping = skeletonWith({})
+  const hurtFixture = await arena(4, looping)
+  hurtFixture.step(2)
+  defined(skeleton(hurtFixture).get(Health)).damage(1)
+  hurtFixture.step(1)
+  expect(stateOf(hurtFixture)).toBe('hurt')
+  hurtFixture.step(40)
+  expect(stateOf(hurtFixture)).not.toBe('hurt')
+
+  const attackFixture = await arena(3, looping)
+  const seen: string[] = []
+  for (let frame = 0; frame < 150; frame += 1) {
+    attackFixture.step(1)
+    if (seen.at(-1) !== stateOf(attackFixture)) seen.push(stateOf(attackFixture))
+  }
+  expect(seen.slice(0, 4)).toEqual(['chase', 'windup', 'attack', 'chase'])
+})
+
+it('stops chasing a player whose Health is down, while it lies in its die state (CA-20)', async () => {
+  const fixture = await arena(4)
+  fixture.step(2)
+  expect(stateOf(fixture)).toBe('chase')
+
+  defined(defined(fixture.game.find('Player')).get(Health)).damage(Number.POSITIVE_INFINITY)
+  fixture.step(3)
+
+  expect(defined(fixture.game.find('Player')).alive).toBe(true)
+  expect(stateOf(fixture)).toBe('patrol')
 })

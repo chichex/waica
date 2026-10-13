@@ -1,15 +1,17 @@
-import { Animator, type Entity, type RoleDefinition, type RoleGraph, type StateContext } from '@waica/engine'
+import { Animator, SIMULATION_TIME_EPSILON, type Entity, type RoleDefinition, type RoleGraph, type StateContext } from '@waica/engine'
 import { Chaser } from './chaser.js'
 import { turnYawToward } from './facing-3d.js'
+import { Health } from './health.js'
 import { knockbackVelocity } from './knockback-3d.js'
 import { MeleeAttack } from './melee-attack.js'
 import { drive3d, MOVER_TURN_SPEED } from './mover-3d.js'
+import { playsOwnOneShot } from './own-one-shot-clip.js'
 import { Patrol } from './patrol.js'
 
 /** Seconds the enemy stands still, facing the player, before it strikes (issue #181 inference 15). */
 export const ENEMY_WINDUP_SECONDS = 0.6
 
-/** Seconds a one-shot state lasts with no Animator beside it, which would never report clip:end. */
+/** Seconds a one-shot state lasts without a one-shot clip of its own, which would never report clip:end. */
 const WITHOUT_CLIP = 0.5
 
 /**
@@ -43,10 +45,13 @@ export const ENEMY_STATE_GRAPH: RoleGraph = {
   },
 }
 
+/** A player whose Health is spent (lying in its die state until it respawns) is no prey. */
+const isDown = (target: Entity): boolean => target.get(Health)?.current === 0
+
 /** What the enemy sees this step: `see` or `lose` the player, and `near` once they are within its strike. */
 function decide({ entity, fsm }: StateContext): void {
   const target = entity.get(Chaser)?.inSight()
-  if (!target) {
+  if (!target || isDown(target)) {
     fsm.signal('lose')
     return
   }
@@ -65,9 +70,11 @@ function standFacing(entity: Entity, dt: number): void {
   turnYawToward(entity.node, target.position.x - entity.position.x, target.position.z - entity.position.z, MOVER_TURN_SPEED, dt)
 }
 
-/** A one-shot state without an Animator ends on time, as no clip:end will come. */
+/** A one-shot state whose Animator plays no one-shot clip of its own (or that has none) ends on time, as no clip:end will come. */
 function endWithoutClip({ entity, fsm }: StateContext, next: string): void {
-  if (!entity.get(Animator) && fsm.elapsed >= WITHOUT_CLIP) fsm.goto(next)
+  const animator = entity.get(Animator)
+  if (animator && playsOwnOneShot(animator, fsm)) return
+  if (fsm.elapsed + SIMULATION_TIME_EPSILON >= WITHOUT_CLIP) fsm.goto(next)
 }
 
 export const ENEMY_ROLE: RoleDefinition = {

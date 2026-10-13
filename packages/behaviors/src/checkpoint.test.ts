@@ -8,7 +8,18 @@ vi.mock(
     (await import('../../engine/src/test-renderer.js')).withFakeRenderer(await importOriginal<Record<string, unknown>>()),
 )
 
-import { Animator, componentSpaceOf, GltfModelBackend, installArchetype, Model, RigidBody, StateMachine, type SceneEntityJson } from '@waica/engine'
+import {
+  Animator,
+  authoringDefaults,
+  componentSpaceOf,
+  GltfModelBackend,
+  installArchetype,
+  Model,
+  RigidBody,
+  StateMachine,
+  type SceneEntityJson,
+  type StateJson,
+} from '@waica/engine'
 import { use3dTestEnvironment } from '../../engine/src/test-game-3d.js'
 import { FLOOR, physicsFixture, type PhysicsFixture } from '../../engine/src/test-physics-3d.js'
 import { RIG_URL, serveRig } from '../../engine/src/test-rig.js'
@@ -30,7 +41,8 @@ afterEach(() => {
 const BINDINGS = { left: ['KeyA'], right: ['KeyD'], up: ['KeyW'], down: ['KeyS'], jump: ['Space'], dodge: ['KeyC'] }
 const { initial, states } = CHARACTER_STATE_GRAPH
 
-const PLAYER: SceneEntityJson = {
+/** The Player with its graph's states: by default the rig has no death clip, so die plays jump once. */
+const playerWith = (graph: Record<string, StateJson>): SceneEntityJson => ({
   name: 'Player',
   position: [0, 0.9, 0],
   components: [
@@ -41,10 +53,10 @@ const PLAYER: SceneEntityJson = {
     { type: 'CharacterMotor' },
     { type: 'Health', props: { max: 6 } },
     { type: 'Respawnable' },
-    // The rig has no death clip: the die state plays jump once.
-    { type: 'StateMachine', props: { role: 'player', initial, states: { ...states, die: { ...states.die, clip: 'jump' } } } },
+    { type: 'StateMachine', props: { role: 'player', initial, states: graph } },
   ],
-}
+})
+const PLAYER = playerWith({ ...states, die: { ...states.die, clip: 'jump' } })
 
 const checkpoint = (name: string, x: number): SceneEntityJson => ({
   name,
@@ -52,9 +64,9 @@ const checkpoint = (name: string, x: number): SceneEntityJson => ({
   components: [{ type: 'Collider', props: { size: [1, 2, 2], sensor: true } }, { type: 'Checkpoint' }],
 })
 
-async function course(): Promise<PhysicsFixture> {
+async function course(playerEntity: SceneEntityJson = PLAYER): Promise<PhysicsFixture> {
   serveRig()
-  const fixture = await physicsFixture([FLOOR, PLAYER, checkpoint('First', 3), checkpoint('Second', 6)], {
+  const fixture = await physicsFixture([FLOOR, playerEntity, checkpoint('First', 3), checkpoint('Second', 6)], {
     components: { Model, Animator, StateMachine, CharacterMotor, Health, Respawnable, Checkpoint },
     game: { bindings: BINDINGS, models: new GltfModelBackend() },
   })
@@ -73,8 +85,9 @@ function walkPast(fixture: PhysicsFixture, x: number): void {
   fixture.step(10)
 }
 
-it('runs in both spaces (CA-21)', () => {
+it('runs in both spaces, with active as runtime state, not an authored field (CA-21)', () => {
   expect(componentSpaceOf(Checkpoint)).toBe('both')
+  expect(authoringDefaults(Checkpoint)).not.toHaveProperty('active')
 })
 
 it('activates when the player enters its sensor and makes it the respawn point, the last one winning (CA-21)', async () => {
@@ -127,4 +140,43 @@ it('plays die, fades out, respawns at the checkpoint with full health and fades 
   expect(health.current).toBe(6)
   expect(player(fixture).position.x).toBeCloseTo(3, 1)
   expect(defined(player(fixture).get(StateMachine)).current).toBe('idle')
+})
+
+it('holds the death pose when die has no clip of its own, even after an earlier one-shot finished (CA-21)', async () => {
+  vi.spyOn(console, 'warn').mockImplementation(() => {})
+  // Idle plays the rig's jump once, so it stands finished; die asks for a clip the rig lacks.
+  const fixture = await course(playerWith({ ...states, idle: { ...states.idle, clip: 'jump' } }))
+  fixture.step(60)
+  defined(player(fixture).get(Health)).damage(Number.POSITIVE_INFINITY)
+
+  let firstDark = -1
+  for (let frame = 0; frame < 120 && firstDark < 0; frame += 1) {
+    fixture.step(1)
+    if (fixture.game.cameraEffects.state.fade.opacity > 0) firstDark = frame
+  }
+
+  expect(firstDark).toBeGreaterThanOrEqual(58)
+})
+
+it('clears a death fade left halfway when die is left another way, and the next death fades again (CA-21)', async () => {
+  const fixture = await course()
+  const fsm = defined(player(fixture).get(StateMachine))
+  const health = defined(player(fixture).get(Health))
+  health.damage(Number.POSITIVE_INFINITY)
+  for (let frame = 0; frame < 240 && fixture.game.cameraEffects.state.fade.opacity === 0; frame += 1) fixture.step(1)
+  expect(fixture.game.cameraEffects.state.fade.opacity).toBeGreaterThan(0)
+
+  health.heal(Number.POSITIVE_INFINITY)
+  fsm.goto('idle')
+  fixture.step(40)
+  expect(fixture.game.cameraEffects.state.fade.opacity).toBe(0)
+
+  health.damage(Number.POSITIVE_INFINITY)
+  let darkest = 0
+  for (let frame = 0; frame < 240 && health.current === 0; frame += 1) {
+    fixture.step(1)
+    darkest = Math.max(darkest, fixture.game.cameraEffects.state.fade.opacity)
+  }
+  expect(health.current).toBe(6)
+  expect(darkest).toBe(1)
 })

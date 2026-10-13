@@ -8,7 +8,7 @@ vi.mock(
     (await import('../../engine/src/test-renderer.js')).withFakeRenderer(await importOriginal<Record<string, unknown>>()),
 )
 
-import { authoringDefaults, componentSpaceOf, StateMachine, type SceneComponentJson, type SceneEntityJson } from '@waica/engine'
+import { authoringDefaults, Component, componentSpaceOf, RigidBody, StateMachine, type SceneComponentJson, type SceneEntityJson } from '@waica/engine'
 import { use3dTestEnvironment } from '../../engine/src/test-game-3d.js'
 import { FLOOR, physicsFixture, type PhysicsFixture } from '../../engine/src/test-physics-3d.js'
 import { defined } from '../../engine/src/test-support.js'
@@ -111,4 +111,33 @@ it('lets a wall stop the push (CA-17)', async () => {
   fixture.step(30)
 
   expect(defined(fixture.game.find('Front')).position.z).toBeLessThan(2 - 0.1 - 0.4 + 0.02)
+})
+
+/** Strikes with the entity's MeleeAttack from inside the 11th Simulation Step after it is ready. */
+class StepStriker extends Component {
+  static override componentName = 'StepStriker'
+  private steps = 0
+  override onUpdate(): void {
+    this.steps += 1
+    if (this.steps === 11) this.entity.get(MeleeAttack)?.strike()
+  }
+}
+
+it('pushes for the same 9 steps whether the hit body updates before or after the attacker (CA-17)', async () => {
+  const hero = body('Hero', { x: 0, z: 0, layer: 'player' }, [{ type: 'MeleeAttack', props: { range: 1.5, width: 1 } }, { type: 'StepStriker' }])
+  const front = body('Front', { x: 0, z: 1.2, layer: 'enemy' }, [{ type: 'CharacterMotor' }])
+  const counts: number[] = []
+  // Entities update in scene order: the hit body after the attacker, then before it.
+  for (const entities of [[hero, front], [front, hero]]) {
+    const fixture = await physicsFixture([FLOOR, ...entities], { components: { MeleeAttack, Health, CharacterMotor, StateMachine, StepStriker } })
+    const pushed = defined(defined(fixture.game.find('Front')).get(RigidBody))
+    let steps = 0
+    for (let frame = 0; frame < 40; frame += 1) {
+      fixture.step(1)
+      if (pushed.desiredVelocity.z > 7) steps += 1
+    }
+    counts.push(steps)
+  }
+
+  expect(counts).toEqual([9, 9])
 })

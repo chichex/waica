@@ -26,7 +26,7 @@ const ATTACK_WITHOUT_CLIP = 0.5
 /** The death sequence (issue #181 inference 17): each fade's seconds, and how long a death clip may take at most. */
 const DEATH_FADE_SECONDS = 0.4
 const DEATH_CLIP_LIMIT = 3
-/** Seconds the death pose lasts with no Animator beside it. */
+/** Seconds the death pose lasts without a death clip of its own to wait for. */
 const DEATH_WITHOUT_CLIP = 1
 
 /**
@@ -166,11 +166,12 @@ function attackUpdate({ entity, fsm }: StateContext): void {
 /** The Game Time (fsm.elapsed) each dying machine started its fade-out at. */
 const fadingSince = new WeakMap<StateMachine, number>()
 
-/** Whether the death pose is over: its one-shot clip finished, or its time is up. */
+/** Whether the death pose is over: its own one-shot clip finished, or its time is up. */
 function deathPoseOver({ entity, fsm }: StateContext): boolean {
   const animator = entity.get(Animator)
-  if (!animator) return fsm.elapsed >= DEATH_WITHOUT_CLIP
-  return animator.clipFinished || fsm.elapsed >= DEATH_CLIP_LIMIT
+  if (animator && playsOwnOneShot(animator, fsm)) return animator.clipFinished || fsm.elapsed >= DEATH_CLIP_LIMIT
+  // No death clip of its own (none, missing, looping or not loaded): a one-shot an earlier state left finished does not count.
+  return fsm.elapsed + SIMULATION_TIME_EPSILON >= DEATH_WITHOUT_CLIP
 }
 
 /**
@@ -194,6 +195,18 @@ function dieUpdate(context: StateContext): void {
   entity.get(Health)?.heal(Number.POSITIVE_INFINITY)
   game.cameraEffects.fade({ to: 'clear', seconds: DEATH_FADE_SECONDS })
   fsm.goto('idle')
+}
+
+/** Entering die starts a fresh sequence, whatever an earlier one left behind. */
+function enterDie(context: StateContext): void {
+  holdStill(true)(context)
+  fadingSince.delete(context.fsm)
+}
+
+/** Leaving die another way halfway through its fade (a goto, a project's edge) clears the screen it darkened. */
+function exitDie(context: StateContext): void {
+  holdStill(false)(context)
+  if (fadingSince.delete(context.fsm)) context.game.cameraEffects.fade({ to: 'clear', seconds: DEATH_FADE_SECONDS })
 }
 
 /** The attack holds the character in place while it lasts (CharacterMotor.acting). */
@@ -234,6 +247,6 @@ export const CHARACTER_ROLE: RoleDefinition = {
     run: { onUpdate: characterUpdate },
     roll: { onUpdate: characterUpdate },
     attack: { onEnter: holdStill(true), onUpdate: attackUpdate, onExit: holdStill(false) },
-    die: { onEnter: holdStill(true), onUpdate: dieUpdate, onExit: holdStill(false) },
+    die: { onEnter: enterDie, onUpdate: dieUpdate, onExit: exitDie },
   },
 }
