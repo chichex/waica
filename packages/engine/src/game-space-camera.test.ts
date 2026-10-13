@@ -122,14 +122,14 @@ function inspectOf(game: Game) {
   return defined(registered[0]).inspect({})
 }
 
-describe('Camera Effects shake in a 3d scene (spec decision 24)', () => {
-  it('reports zero shake in the snapshot, since nothing moves', async () => {
+describe('Camera Effects shake in a 3d scene (issue #181 CA-11, superseding spec decision 24)', () => {
+  it('reports the shake offset in the snapshot, since the perspective camera now shakes', async () => {
     const game = await readyGame()
     loadScene(game, scene3d(), REGISTRY)
     game.cameraEffects.shake({ intensity: 2, seconds: 1 })
     for (let step = 0; step < 3; step += 1) (game as unknown as { runFrame(steps: number): void }).runFrame(1)
     expect(game.cameraEffects.state.shake).not.toEqual({ x: 0, y: 0 })
-    expect(inspectOf(game).camera.shake).toEqual({ x: 0, y: 0 })
+    expect(inspectOf(game).camera.shake).toEqual(game.cameraEffects.state.shake)
   })
 
   it('still reports the shake offset in a 2d scene', async () => {

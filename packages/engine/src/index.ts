@@ -73,6 +73,9 @@ export type {
   SceneFieldIssue,
   Vec3Json,
 } from './scene-camera-3d.js'
+export { ORBIT_DEFAULTS, resolveOrbit } from './scene-camera-orbit.js'
+export type { OrbitCameraJson, ResolvedOrbit } from './scene-camera-orbit.js'
+export type { OrbitView } from './orbit-camera.js'
 export { isPerspectiveCamera, worldToNormalized } from './camera-projection.js'
 export type { GameCamera, NormalizedPoint, ViewCamera, WorldPoint } from './camera-projection.js'
 export {

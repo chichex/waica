@@ -193,6 +193,9 @@ export class Game {
     find: (name) => this.find(name),
     renderPoint: (x, y) => this.renderPoint(x, y),
     viewHeight: () => this.viewHeight,
+    input: () => this.input,
+    rayDistance: ({ origin, direction, maxDistance, exclude }) =>
+      this.query.ray(origin, direction, maxDistance, { exclude })?.distance ?? null,
   }
   private renderSort: 'y' | null = null
   private sceneProjection: 'isometric' | null = null
@@ -221,7 +224,12 @@ export class Game {
     this.baseViewHeight = viewHeight
     this.viewHeight = viewHeight
     this.resolution = options.resolution ?? null
-    this.input = new Input(options.bindings, { gamepadDeadZone: options.gamepadDeadZone, canvas })
+    this.input = new Input(options.bindings, {
+      gamepadDeadZone: options.gamepadDeadZone,
+      canvas,
+      // A click takes the pointer lock only while an orbit camera plays (never in the editor's edit mode).
+      lockOnClick: () => this.simulate && this.cameraRig.orbiting,
+    })
     this.query = createSpatialQuery(this)
     this.stats = new Stats(options.stats)
     this.ui = new GameUi(this.stats, () => canvas.parentElement ?? document.body)
@@ -783,25 +791,19 @@ export class Game {
     // The shake offset exists only while drawing (ADR 0020): Anchored Pieces
     // and the render see the drawn center, then the base comes back exactly,
     // so follow smoothing never starts from its own jitter.
-    const { x, y } = this.camera.position
-    // A perspective camera does not shake: the offset is in orthographic world units.
-    const shake = this.sceneSpace === '3d' ? { x: 0, y: 0 } : this.cameraEffects.state.shake
-    this.camera.position.x = x + shake.x
-    this.camera.position.y = y + shake.y
+    const restoreBase = this.cameraRig.shake(this.cameraEffects.state.shake, this.viewHeight)
     try {
       anchoredPiecesOf(this.ui).place()
       // Before ready() the frame simulated, but three cannot draw yet.
       if (!this.readiness.isReady) return
       this.frame.draw()
     } finally {
-      this.camera.position.x = x
-      this.camera.position.y = y
+      restoreBase()
     }
   }
 
   private updateSceneCamera(dt: number): void {
-    if (!this.sceneCamera) return
-    this.cameraRig.follow(this.sceneCamera, this.followHost, dt)
+    this.cameraRig.step(this.sceneCamera, this.followHost, dt)
   }
 
   private renderPoint(x: number, y: number): { x: number; y: number } {
