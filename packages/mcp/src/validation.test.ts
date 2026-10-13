@@ -153,6 +153,11 @@ export class PassiveTarget extends Component {
           source: 'bundled',
         },
         {
+          package: '@waica/archetype-third-person',
+          version: await workspaceVersion('archetype-third-person'),
+          source: 'bundled',
+        },
+        {
           package: '@waica/archetype-topdown',
           version: await workspaceVersion('archetype-topdown'),
           source: 'bundled',

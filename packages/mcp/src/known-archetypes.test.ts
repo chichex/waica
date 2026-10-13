@@ -31,6 +31,14 @@ describe('known archetypes', () => {
     })
   })
 
+  it('lists third-person with its package and workspace directory (issue #181 CA-28)', () => {
+    expect(knownArchetype('third-person')).toEqual({
+      id: 'third-person',
+      packageName: '@waica/archetype-third-person',
+      directory: 'archetype-third-person',
+    })
+  })
+
   it('returns undefined for an unknown id', () => {
     expect(knownArchetype('banana')).toBeUndefined()
     expect(knownArchetype('toString')).toBeUndefined()

@@ -11,6 +11,7 @@ import {
   readdir,
   realpath,
   rm,
+  stat,
   symlink,
   writeFile,
 } from 'node:fs/promises'
@@ -36,6 +37,7 @@ const packages = [
   { directory: 'archetype-platformer', name: '@waica/archetype-platformer', entry: 'index.js' },
   { directory: 'archetype-topdown', name: '@waica/archetype-topdown', entry: 'index.js' },
   { directory: 'archetype-isometric', name: '@waica/archetype-isometric', entry: 'index.js' },
+  { directory: 'archetype-third-person', name: '@waica/archetype-third-person', entry: 'index.js' },
   { directory: 'cli', name: '@waica/cli', entry: 'cli.js', bundled: ['editor', 'mcp'] },
 ]
 const vendoredLibraries = [
@@ -44,7 +46,11 @@ const vendoredLibraries = [
   '@waica/archetype-platformer',
   '@waica/archetype-topdown',
   '@waica/archetype-isometric',
+  '@waica/archetype-third-person',
 ]
+
+/** The third-person archetype's assets/ cap (issue #181 CA-24): its glbs and attribution, packed. */
+const THIRD_PERSON_ASSETS_CAP = 3_145_728
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -393,6 +399,30 @@ try {
   await access(join(nodeModules, '@waica/archetype-isometric/dist/manifest.js'))
   await access(join(nodeModules, '@waica/archetype-isometric/dist/manifest.d.ts'))
 
+  const thirdPersonSource = JSON.parse(
+    await readFile(join(root, 'packages/archetype-third-person/package.json'), 'utf8'),
+  )
+  const thirdPersonPacked = packedManifests.get('@waica/archetype-third-person')
+  assert.deepEqual(
+    thirdPersonSource.publishConfig?.exports?.['./manifest'],
+    expectedManifestExport,
+    'third-person publishConfig.exports must map ./manifest to the built manifest files',
+  )
+  assert.deepEqual(
+    thirdPersonPacked.exports?.['./manifest'],
+    expectedManifestExport,
+    'the packed third-person package must expose the published ./manifest mapping',
+  )
+  await access(join(nodeModules, '@waica/archetype-third-person/dist/manifest.js'))
+  await access(join(nodeModules, '@waica/archetype-third-person/dist/manifest.d.ts'))
+  const thirdPersonAssets = join(nodeModules, '@waica/archetype-third-person/assets')
+  const assetBytes = (await Promise.all((await readdir(thirdPersonAssets)).map(async (file) => (await stat(join(thirdPersonAssets, file))).size)))
+    .reduce((sum, size) => sum + size, 0)
+  assert.ok(
+    assetBytes <= THIRD_PERSON_ASSETS_CAP,
+    `the packed third-person assets/ must stay within ${THIRD_PERSON_ASSETS_CAP} bytes; it holds ${assetBytes}`,
+  )
+
   // The server is never packed on its own, so its dist is verified where it is
   // built; the packed CLI below then runs that same dist, copied.
   const mcpRoot = join(root, 'packages/mcp')
@@ -473,6 +503,9 @@ try {
   await access(
     join(packedCliRoot, 'dist/mcp/node_modules/@waica/archetype-isometric/assets/waica-iso-hero.png'),
   )
+  await access(
+    join(packedCliRoot, 'dist/mcp/node_modules/@waica/archetype-third-person/assets/knight.glb'),
+  )
 
   for (const pkg of packages) {
     await materializeExternalDependencies(pkg, packedManifests.get(pkg.name))
@@ -531,6 +564,12 @@ try {
       "if (isometricNode.ARCHETYPE.registry.resolveAsset?.('waica:iso-hero') !== 'assets/waica-iso-hero.png') throw new Error('isometric Node-safe registry cannot resolve package assets')",
       "if (isometricRoot.ARCHETYPE.registry.components.ParticleEmitter?.componentName !== 'ParticleEmitter' || isometricNode.ARCHETYPE.registry.components.ParticleEmitter?.componentName !== 'ParticleEmitter') throw new Error('isometric package has no ParticleEmitter')",
       "if (isometricRoot.ARCHETYPE.registry.components.Light?.componentName !== 'Light' || !isometricNode.ARCHETYPE.extraScenes.dungeon) throw new Error('isometric package has no Light or no dungeon')",
+      "const thirdPersonRoot = await import('@waica/archetype-third-person')",
+      "const thirdPersonNode = await import('@waica/archetype-third-person/manifest')",
+      "if (thirdPersonRoot.ARCHETYPE?.id !== 'third-person' || thirdPersonNode.ARCHETYPE?.id !== 'third-person') throw new Error('invalid third-person manifests')",
+      "if ('artUrls' in thirdPersonNode.ARCHETYPE) throw new Error('third-person Node-safe manifest contains browser art URLs')",
+      "if (thirdPersonNode.ARCHETYPE.registry.resolveAsset?.('waica:tp-knight') !== 'assets/knight.glb') throw new Error('third-person Node-safe registry cannot resolve package assets')",
+      "if (thirdPersonNode.ARCHETYPE.scene.render?.space !== '3d' || thirdPersonNode.ARCHETYPE.scene.camera?.follow !== 'Player') throw new Error('third-person demo is not a following 3D scene')",
     ].join('\n'),
   )
   run(process.execPath, [probe], { cwd: sandbox })
@@ -570,7 +609,7 @@ try {
     )
 
     await mkdir(join(sourceTarget, 'node_modules/@waica'), { recursive: true })
-    for (const directory of ['engine', 'behaviors', 'archetype-platformer', 'archetype-topdown', 'archetype-isometric']) {
+    for (const directory of ['engine', 'behaviors', 'archetype-platformer', 'archetype-topdown', 'archetype-isometric', 'archetype-third-person']) {
       await symlink(
         join(root, 'packages', directory),
         join(sourceTarget, 'node_modules/@waica', directory),

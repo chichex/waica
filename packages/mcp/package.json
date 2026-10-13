@@ -27,6 +27,7 @@
     "@modelcontextprotocol/sdk": "^1.32.1",
     "@waica/archetype-isometric": "workspace:^",
     "@waica/archetype-platformer": "workspace:^",
+    "@waica/archetype-third-person": "workspace:^",
     "@waica/archetype-topdown": "workspace:^",
     "@waica/behaviors": "workspace:^",
     "@waica/engine": "workspace:^",

@@ -198,6 +198,7 @@ describe('listComponents', () => {
       '@waica/behaviors',
       '@waica/archetype-isometric',
       '@waica/archetype-platformer',
+      '@waica/archetype-third-person',
       '@waica/archetype-topdown',
     ])
   })
@@ -342,6 +343,7 @@ describe('describeArchetype', () => {
     })
     expect(result.installedArchetypes).toEqual([
       { id: 'isometric', label: 'Isometric', status: 'installed, not active' },
+      { id: 'third-person', label: 'Third person', status: 'installed, not active' },
       { id: 'topdown', label: 'Top-down', status: 'installed, not active' },
     ])
   })
@@ -390,6 +392,7 @@ module.exports.ARCHETYPE = {
     expect(active.installedArchetypes).toEqual([
       { id: 'isometric', label: 'Isometric', status: 'installed, not active' },
       { id: 'platformer', label: 'Platformer', status: 'installed, not active' },
+      { id: 'third-person', label: 'Third person', status: 'installed, not active' },
       { id: 'topdown', label: 'Top-down', status: 'installed, not active' },
     ])
 
