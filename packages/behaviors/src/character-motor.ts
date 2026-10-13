@@ -25,7 +25,7 @@ const DEGREES = Math.PI / 180
  * rolls (issue #181 CA-14): `dodgeDuration` seconds at `dodgeSpeed` along the
  * input, or the facing with none, ignoring other movement and opening a
  * beside `Health`'s invulnerability for as long, then `dodgeCooldown` seconds
- * before the next. A melee hit pushes it (knockBackFrom). With no
+ * before the next. A melee hit pushes it (knockBackFrom), except mid-roll. With no
  * kinematic body beside it, it does nothing (`validate_project` reports it).
  * Actions with no binding read 0, so a Game without bindings stands still.
  */
@@ -110,7 +110,9 @@ export class CharacterMotor extends Component {
     this.cooldownLeft = Math.max(0, this.cooldownLeft - dt)
     this.runningNow = false
     const push = knockbackVelocity(this.entity)
-    if (push) {
+    // A roll ignores a push as its i-frames ignore damage: dropped, not saved for after the roll (maintainer decision).
+    if (push && this.rolling) clearKnockback(this.entity)
+    else if (push) {
       body.desiredVelocity = { ...push }
       return
     }

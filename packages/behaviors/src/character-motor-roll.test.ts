@@ -8,12 +8,13 @@ vi.mock(
     (await import('../../engine/src/test-renderer.js')).withFakeRenderer(await importOriginal<Record<string, unknown>>()),
 )
 
-import { authoringDefaults, Component, StateMachine, type SceneComponentJson, type SceneEntityJson, type SceneRegistry } from '@waica/engine'
+import { authoringDefaults, Component, RigidBody, StateMachine, type SceneComponentJson, type SceneEntityJson, type SceneRegistry } from '@waica/engine'
 import { use3dTestEnvironment } from '../../engine/src/test-game-3d.js'
 import { FLOOR, physicsFixture, type PhysicsFixture } from '../../engine/src/test-physics-3d.js'
 import { defined } from '../../engine/src/test-support.js'
 import { CharacterMotor } from './character-motor.js'
 import { Health } from './health.js'
+import { knockBackFrom } from './knockback-3d.js'
 
 // Issue #181 CA-14: the roll.
 
@@ -132,4 +133,26 @@ it('consumes the press only when a roll starts: not in the air, not while coolin
   fixture.step(1)
   expect(motorOf(fixture).rolling).toBe(true)
   expect(probe.log).toEqual([false, true, false, true])
+})
+
+it('ignores a knockback while it rolls, as its i-frames ignore damage: the roll goes on and no push follows it (CA-14, CA-17)', async () => {
+  const fixture = await playground()
+  act(fixture, 'press', 'dodge')
+  fixture.step(3)
+  const motor = motorOf(fixture)
+  expect(motor.rolling).toBe(true)
+  const player = defined(fixture.game.find('Player'))
+  const body = defined(player.get(RigidBody))
+  const rollVelocity = { ...body.desiredVelocity }
+  const pusher = fixture.game.spawn('Pusher')
+  pusher.position.set(player.position.x + 1, player.position.y, player.position.z)
+
+  knockBackFrom(player, pusher, 8)
+  fixture.step(2)
+  expect(motor.rolling).toBe(true)
+  expect(body.desiredVelocity).toEqual(rollVelocity)
+  fixture.step(40)
+
+  expect(motor.rolling).toBe(false)
+  expect(Math.hypot(body.desiredVelocity.x, body.desiredVelocity.z)).toBe(0)
 })
