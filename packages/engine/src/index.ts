@@ -255,7 +255,7 @@ export type {
   SpatialQuery,
   SpatialQueryFilter,
 } from './spatial-query.js'
-export type { Point3d, QueryVolume3d, RayHit3d } from './spatial-query-3d.js'
+export type { Point3d, QueryColliders3d, QueryVolume3d, RayHit3d } from './spatial-query-3d.js'
 export { Emitter } from './events.js'
 export { loadScene, spawnFromJson, resolveEntityComponents, resolveProps } from './scene.js'
 export type {

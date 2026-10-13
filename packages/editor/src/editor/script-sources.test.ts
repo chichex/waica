@@ -24,7 +24,8 @@ describe('scriptSource', () => {
 
     expect(script.file).toBe('melee-attack.ts')
     expect(script.source).toContain('export class MeleeAttack')
-    expect(script.source).toContain('strike(facing: string)')
+    // Issue #181 CA-16: a 3D strike takes no facing.
+    expect(script.source).toContain('strike(facing?: string)')
   })
 
   it.each([

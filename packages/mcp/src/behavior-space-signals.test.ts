@@ -99,7 +99,6 @@ describe('behavior sources that assume 2D carry the marker (issue #159 CA-2)', (
       'dust-puffs.ts',
       'dust-trail.ts',
       'grid-motor.ts',
-      'melee-attack.ts',
       'platformer-motor.ts',
       'swing-sparks.ts',
     ])

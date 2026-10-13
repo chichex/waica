@@ -29,6 +29,7 @@ export { Chaser, CHASER_ROLE, CHASER_STATE_GRAPH, type ChaserMode } from './chas
 export { NPC_ROLE, NPC_STATE_GRAPH } from './npc.js'
 export { Hazard, resolveHazardTouch, type HazardTouch } from './hazard.js'
 export { MeleeAttack } from './melee-attack.js'
+export { KNOCKBACK_SECONDS, knockBackFrom, type KnockbackReceiver, type PlanarVelocity } from './knockback-3d.js'
 export { Health, declaresDeathHandling, deathTargets } from './health.js'
 export { HEALTH_UI } from './health-ui.js'
 export { ANCHORED_UI_PIECES } from './anchored-ui-pieces.js'

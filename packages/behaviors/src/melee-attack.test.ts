@@ -325,14 +325,17 @@ describe('MeleeAttack authoring surface', () => {
     expect(MeleeAttack.updateAfter).toBeUndefined()
   })
 
-  it('exposes damage, range, width and swingSound with the documented defaults', () => {
+  it('exposes damage, range, width, height, knockbackSpeed and swingSound with the documented defaults', () => {
     expect(Object.keys(MeleeAttack.params ?? {}).sort()).toEqual([
       'damage',
+      'height',
+      'knockbackSpeed',
       'range',
       'swingSound',
       'width',
     ])
-    expect(authoringDefaults(MeleeAttack)).toEqual({ damage: 1, range: 1, width: 1, swingSound: '' })
+    // Issue #181 CA-16, CA-17: height and knockbackSpeed are read only in a 3D scene.
+    expect(authoringDefaults(MeleeAttack)).toEqual({ damage: 1, range: 1, width: 1, height: 2, knockbackSpeed: 8, swingSound: '' })
   })
 
   it('exposes the swing sound as a typed sound reference for the inspector', () => {

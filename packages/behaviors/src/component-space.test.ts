@@ -45,7 +45,6 @@ const TWO_D_BEHAVIORS = [
   'Hazard',
   'Interactable',
   'IsoMotor',
-  'MeleeAttack',
   'Patrol',
   'PlatformerMotor',
   'SwingSparks',
@@ -55,7 +54,8 @@ const TWO_D_BEHAVIORS = [
 /** The behaviors that need a 3D scene: the character motor drives a kinematic RigidBody. */
 const THREE_D_BEHAVIORS = ['CharacterMotor']
 
-const NEUTRAL_BEHAVIORS = ['Collectible', 'Health', 'Lifetime', 'OutOfBounds', 'Respawnable', 'SceneTransition']
+// Issue #181 CA-16: MeleeAttack strikes in both spaces.
+const NEUTRAL_BEHAVIORS = ['Collectible', 'Health', 'Lifetime', 'MeleeAttack', 'OutOfBounds', 'Respawnable', 'SceneTransition']
 
 describe('behavior component space markers (CA-2)', () => {
   it('tags exactly the 2D-only behaviors', () => {
