@@ -33,10 +33,10 @@ function ComponentRow({
   const reset = onReset && (() => onReset(propKey))
   const apply = onApply && (() => onApply(propKey))
   const change = (next: unknown): void => onProp(propKey, next)
-  if (comp.type === 'Animator' && propKey === 'clips') return <AnimatorClipOverridesRow value={value} onChange={change} />
-  if (comp.type === 'Animator' && propKey === 'initialClip') {
-    const name = <OverridableName label={spec?.label ?? propKey} overridden={overridden} onReset={reset} onApply={apply} />
-    return <AnimatorInitialClipRow name={name} value={value} onChange={change} />
+  if (comp.type === 'Animator' && (propKey === 'clips' || propKey === 'initialClip')) {
+    const label = propKey === 'clips' ? 'Clip overrides' : (spec?.label ?? propKey)
+    const name = <OverridableName label={label} overridden={overridden} onReset={reset} onApply={apply} />
+    return propKey === 'clips' ? <AnimatorClipOverridesRow name={name} value={value} onChange={change} /> : <AnimatorInitialClipRow name={name} value={value} onChange={change} />
   }
   return (
     <PropRow

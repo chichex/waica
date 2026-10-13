@@ -11,12 +11,12 @@ vi.mock(
 )
 
 import { TransformControls } from 'three/addons/controls/TransformControls.js'
-import { Model, THREE, type Game, type SceneJson, type SceneRegistry } from '@waica/engine'
+import { Model, PointLight, THREE, type Game, type SceneJson, type SceneRegistry } from '@waica/engine'
 import { fakeRendering } from '../../../engine/src/test-renderer'
 import { defined } from '../../../engine/src/test-support'
 import { installViewportHost, liveGame, mountViewport, removeViewportHost, type MountedViewport } from './test-viewport'
 
-const REGISTRY_3D: SceneRegistry = { components: { Model } }
+const REGISTRY_3D: SceneRegistry = { components: { Model, PointLight } }
 
 const SCENE: SceneJson = {
   waicaScene: 3,
@@ -25,6 +25,7 @@ const SCENE: SceneJson = {
   entities: [
     { name: 'Knight', position: [-1, 0, 0], rotation: [0, 10, 0], components: [{ type: 'Model', props: { shape: 'box', size: 1 } }] },
     { name: 'Crate', position: [3, 0, 0], scale: [2, 1, 1], components: [{ type: 'Model', props: { shape: 'box', size: 2 } }] },
+    { name: 'Lamp', position: [-6, 2, 0], components: [{ type: 'PointLight', props: { distance: 6 } }] },
   ],
 }
 
@@ -184,6 +185,24 @@ describe('a drag commits once (issue #173 CA-19)', () => {
   })
 })
 
+describe('a click on a handle without moving (issue #173 CA-19)', () => {
+  it('commits nothing: no empty undo entry, no rounding of a hand-written pose', async () => {
+    const { game, onTransformed } = await mount()
+    drag(gizmoOf(game), () => {})
+    expect(onTransformed).not.toHaveBeenCalled()
+  })
+})
+
+describe('the gizmo toolbar for assistive technology (issue #173 CA-18)', () => {
+  it('names each mode button and the space toggle, and hides the snap glyphs', async () => {
+    await mount()
+    expect(screen.getByRole('button', { name: 'Move (W)' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Rotate (E)' }).getAttribute('aria-pressed')).toBe('false')
+    expect(screen.getByRole('button', { name: 'Transform space: world (click for local)' })).toBeDefined()
+    expect(document.querySelectorAll('.ed-vp-snap [aria-hidden="true"]')).toHaveLength(3)
+  })
+})
+
 describe('snapping while Ctrl is held (issue #173 CA-20)', () => {
   /** A pointer event on the canvas, with or without Ctrl. */
   const press = (mounted: MountedViewport, ctrlKey: boolean): void => {
@@ -226,23 +245,46 @@ describe('a group transform (issue #173 CA-21)', () => {
   })
 })
 
+const dataTransfer = { getData: (type: string) => (type === 'waica/prefab' ? 'objects/crate' : ''), dropEffect: 'none' }
+
+/** Drops the crate prefab at a client point (happy-dom's DragEvent leaves clientX/clientY out of its init: they are set on the event). */
+const dropAtClient = (mounted: MountedViewport, clientX: number, clientY: number): void => {
+  fireEvent.dragOver(mounted.canvas, { dataTransfer })
+  const event = createEvent.drop(mounted.canvas, { dataTransfer })
+  Object.defineProperties(event, { clientX: { value: clientX }, clientY: { value: clientY } })
+  fireEvent(mounted.canvas, event)
+}
+
+/** Drops the crate prefab where the world point is drawn. */
+const dropAt = (mounted: MountedViewport, point: { x: number; y: number; z: number }): void => {
+  const at = defined(liveGame(mounted).worldToScreen(point), 'a visible point')
+  dropAtClient(mounted, at.x, at.y)
+}
+
+describe('a prefab dragged over the 3D viewport (issue #173 CA-22)', () => {
+  it('lands on the surface behind a light icon, not on the icon', async () => {
+    const onDropPrefab = vi.fn<(ref: string, world: number[]) => void>()
+    const { mounted } = await mount({ onDropPrefab })
+    dropAt(mounted, { x: -6, y: 2, z: 0 })
+    // The ray through the Lamp's icon meets the ground, not the icon at y=2.
+    expect(onDropPrefab.mock.lastCall?.[1][1]).toBe(0)
+  })
+
+  it('refuses the drag over the sky and accepts it over the ground', async () => {
+    const level: SceneJson = { ...SCENE, camera: { kind: 'perspective', position: [0, 1, 12], target: [0, 1, 0], fov: 50 } }
+    const { mounted } = await mount({ scene: level, onDropPrefab: vi.fn() })
+    const over = (clientX: number, clientY: number) => {
+      const event = createEvent.dragOver(mounted.canvas, { dataTransfer: { ...dataTransfer } })
+      Object.defineProperties(event, { clientX: { value: clientX }, clientY: { value: clientY } })
+      fireEvent(mounted.canvas, event)
+      return event.defaultPrevented
+    }
+    expect(over(400, 2)).toBe(false)
+    expect(over(400, 590)).toBe(true)
+  })
+})
+
 describe('a prefab dropped on a 3D viewport (issue #173 CA-22)', () => {
-  const dataTransfer = { getData: (type: string) => (type === 'waica/prefab' ? 'objects/crate' : ''), dropEffect: 'none' }
-
-  /** Drops the crate prefab at a client point (happy-dom's DragEvent leaves clientX/clientY out of its init: they are set on the event). */
-  const dropAtClient = (mounted: MountedViewport, clientX: number, clientY: number): void => {
-    fireEvent.dragOver(mounted.canvas, { dataTransfer })
-    const event = createEvent.drop(mounted.canvas, { dataTransfer })
-    Object.defineProperties(event, { clientX: { value: clientX }, clientY: { value: clientY } })
-    fireEvent(mounted.canvas, event)
-  }
-
-  /** Drops the crate prefab where the world point is drawn. */
-  const dropAt = (mounted: MountedViewport, point: { x: number; y: number; z: number }): void => {
-    const at = defined(liveGame(mounted).worldToScreen(point), 'a visible point')
-    dropAtClient(mounted, at.x, at.y)
-  }
-
   it("places it on a Model's surface, else on the y=0 plane", async () => {
     const onDropPrefab = vi.fn()
     const { mounted } = await mount({ onDropPrefab })

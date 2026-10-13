@@ -40,11 +40,12 @@ function iconMaterial(kind: IconKind): THREE.SpriteMaterial {
   return material
 }
 
-/** What an entity's icon shows; null when its Model is what a click hits. */
+/** What an entity's icon shows; null when its mesh is what a click hits (a Model with no mesh yet, loading or broken, still gets one). */
 function iconKindOf(entity: Entity): IconKind | null {
   if (entity.components.some((component) => component instanceof Sun)) return 'sun'
   if (entity.components.some((component) => component instanceof PointLight)) return 'light'
-  return entity.components.some((component) => component instanceof Model) ? null : 'entity'
+  if (!entity.components.some((component) => component instanceof Model)) return 'entity'
+  return new THREE.Box3().setFromObject(entity.node).isEmpty() ? 'entity' : null
 }
 
 /** Icon sprites of each kind over the Game's scene, sharing one material per kind. */
@@ -57,6 +58,13 @@ function iconSprites(game: Game) {
   }
   return {
     materialFor,
+    dispose(): void {
+      for (const material of materials.values()) {
+        material.map?.dispose()
+        material.dispose()
+      }
+      materials.clear()
+    },
     create(kind: IconKind): THREE.Sprite {
       const icon = new THREE.Sprite(materialFor(kind))
       icon.name = ICON_NAME
@@ -68,34 +76,51 @@ function iconSprites(game: Game) {
   }
 }
 
+/** The icon kind of each live entity that gets one. */
+function iconKinds(game: Game): Map<Entity, IconKind> {
+  const kinds = new Map<Entity, IconKind>()
+  for (const entity of game.entities.filter((candidate) => candidate.alive)) {
+    const kind = iconKindOf(entity)
+    if (kind) kinds.set(entity, kind)
+  }
+  return kinds
+}
+
 export function createIcons3d(game: Game) {
   const sprites = iconSprites(game)
   const camera = sprites.create('camera')
   const icons = new Map<Entity, THREE.Sprite>()
 
-  /** Places one icon per meshless entity (dropping those of entities gone), and the camera's. */
+  /** Places one icon per meshless entity (dropping those of entities gone), and the camera's; hides them all when not `visible`. */
   const sync = (live: ViewportLive, visible: boolean): void => {
-    const live3d = new Set(game.entities.filter((entity) => entity.alive))
+    if (!visible) {
+      for (const icon of icons.values()) icon.visible = false
+      camera.visible = false
+      return
+    }
+    const kinds = iconKinds(game)
     for (const [entity, icon] of icons) {
-      if (live3d.has(entity) && iconKindOf(entity)) continue
+      if (kinds.has(entity)) continue
       icon.removeFromParent()
       icons.delete(entity)
     }
-    for (const entity of live3d) {
-      const kind = iconKindOf(entity)
-      if (!kind) continue
+    for (const [entity, kind] of kinds) {
       const icon = icons.get(entity) ?? sprites.create(kind)
       icons.set(entity, icon)
       icon.material = sprites.materialFor(kind)
       entity.node.getWorldPosition(icon.position)
-      icon.visible = visible
+      icon.visible = true
     }
     camera.position.set(...resolvePerspectiveCamera(live.scene.camera?.kind === 'perspective' ? live.scene.camera : undefined).position)
-    camera.visible = visible
+    camera.visible = true
   }
 
   return {
     sync,
+    /** Frees the glyph textures and materials. */
+    dispose(): void {
+      sprites.dispose()
+    },
     /** The icons a click can hit: each entity's, and the scene camera's. */
     targets: (): PickTarget[] => [
       ...[...icons].filter(([, icon]) => icon.visible).map(([entity, icon]) => ({ object: icon, entity })),

@@ -139,7 +139,7 @@ function AddClipOverride({ clips, taken, onAdd }: { clips: readonly string[] | n
  * loop and speed, a remove button, and the control that adds one. Every
  * change writes the whole `clips` object once, so it is one commit.
  */
-export function AnimatorClipOverridesRow({ value, onChange }: Omit<ClipRowProps, 'name'>) {
+export function AnimatorClipOverridesRow({ name: rowName, value, onChange }: ClipRowProps) {
   const clips = useInspectedModelClips()
   const overrides = overridesOf(value)
   const names = Object.keys(overrides)
@@ -147,7 +147,7 @@ export function AnimatorClipOverridesRow({ value, onChange }: Omit<ClipRowProps,
   return (
     <div className="ed-param-block ed-clip-overrides" role="group" aria-label="Clip overrides">
       <div className="ed-row">
-        <span>Clip overrides</span>
+        {rowName}
         <AddClipOverride clips={clips} taken={names} onAdd={(name) => onChange({ ...overrides, [name]: {} })} />
       </div>
       {names.map((name) => (

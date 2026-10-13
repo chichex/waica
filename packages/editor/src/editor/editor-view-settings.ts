@@ -24,7 +24,7 @@ export interface GizmoSettings {
 }
 
 export interface EditorViewSettings {
-  /** Draws the scene camera's frustum and the lights' and colliders' helpers (CA-17). */
+  /** Draws the scene camera's frustum, the lights' and colliders' helpers (CA-17); the icons stay, they are how a light or the camera is picked. */
   helpers: boolean
   snap: SnapSteps
 }

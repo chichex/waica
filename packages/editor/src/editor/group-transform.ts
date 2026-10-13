@@ -16,7 +16,7 @@ export interface Pose {
 const STEP = 1000
 
 /** A value rounded to 0.001, with -0 read as 0. */
-const rounded = (value: number): number => Math.round(value * STEP) / STEP + 0
+export const rounded = (value: number): number => Math.round(value * STEP) / STEP + 0
 
 const triple = (x: number, y: number, z: number): [number, number, number] => [rounded(x), rounded(y), rounded(z)]
 
@@ -64,7 +64,13 @@ export function draggedTransforms(
   pivotNow: Pose,
 ): Array<{ name: string; transform: TransformJson }> {
   const turn = pivotNow.quaternion.clone().multiply(pivotStart.quaternion.clone().invert())
-  const stretch = pivotNow.scale.clone().divide(pivotStart.scale)
+  // An axis the pivot starts flat on (scale 0) cannot be stretched: it keeps its offsets, not a 0/0.
+  const ratio = (now: number, start: number): number => (start === 0 ? 1 : now / start)
+  const stretch = new THREE.Vector3(
+    ratio(pivotNow.scale.x, pivotStart.scale.x),
+    ratio(pivotNow.scale.y, pivotStart.scale.y),
+    ratio(pivotNow.scale.z, pivotStart.scale.z),
+  )
   return entities.map(({ name, start, rotation }) => {
     const offset = start.position.clone().sub(pivotStart.position).multiply(stretch).applyQuaternion(turn)
     const position = pivotNow.position.clone().add(offset)

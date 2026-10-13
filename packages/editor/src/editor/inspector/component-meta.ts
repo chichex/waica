@@ -86,7 +86,7 @@ export function intersectedClipComponents(
   ]
 }
 
-/** Whether the entity's clips live in a glb: it draws a Model that names a file (issue #166 CA-11); a primitive Model has no clips. */
+/** Whether the entity's clips live in a glb (known or not yet read): it draws a Model that names a file (issue #166 CA-11); a primitive Model has no clips. */
 export function clipsUnknown(components: readonly SceneComponentJson[]): boolean {
   return components.some((c) => c.type === 'Model' && typeof c.props?.src === 'string' && c.props.src !== '')
 }
@@ -105,16 +105,17 @@ export function knownClips(
   appearance: SceneComponentJson | null,
   components: readonly SceneComponentJson[],
   modelClips: readonly string[] | null,
-): string[] | null {
-  if (clipsUnknown(components)) return modelClips && [...modelClips]
+): readonly string[] | null {
+  if (clipsUnknown(components)) return modelClips
   return appearance ? Object.keys(clipsOf(appearance)) : []
 }
 
 /**
  * Clips the character's states expect but its sprite is missing, as an
  * inline warning. Each StateMachine state plays the clip of its own name
- * (or its `clip` override) on enter. Nothing beside a Model: its clips are
- * the glb's, which the editor does not parse.
+ * (or its `clip` override) on enter. Nothing beside a Model that names a
+ * file: its clips are the glb's, which the state list checks on its own
+ * (`knownClips`, from the glb read in the editor).
  */
 export function characterClipsWarning(
   appearance: SceneComponentJson,

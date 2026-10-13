@@ -23,6 +23,20 @@ function wireSphere(): THREE.BufferGeometry {
   return new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(points, 3))
 }
 
+/** Frees the GPU resources of `object` and everything under it (a shared geometry is simply uploaded again on its next use). */
+export function disposeObject(object: THREE.Object3D): void {
+  object.traverse((node) => {
+    if (node instanceof THREE.Sprite) {
+      node.material.map?.dispose()
+      node.material.dispose()
+      return
+    }
+    if (!('geometry' in node && 'material' in node)) return
+    if (node.geometry instanceof THREE.BufferGeometry) node.geometry.dispose()
+    for (const material of [node.material].flat()) if (material instanceof THREE.Material) material.dispose()
+  })
+}
+
 /** Every live component of `Class`, with its entity. */
 function liveComponents<T extends Component>(game: Game, Class: abstract new (...args: never[]) => T): Array<{ entity: Entity; component: T }> {
   return game.entities.filter((entity) => entity.alive).flatMap((entity) => entity.components.filter((c): c is T => c instanceof Class).map((component) => ({ entity, component })))
@@ -36,6 +50,7 @@ function perComponent<T extends Component, O extends THREE.Object3D>(game: Game,
     for (const [component, object] of objects) {
       if (present.has(component)) continue
       object.removeFromParent()
+      disposeObject(object)
       objects.delete(component)
     }
     return live.map(({ entity, component }) => {
@@ -52,7 +67,8 @@ function createFrustum(game: Game) {
   const lens = new THREE.PerspectiveCamera()
   const helper = new THREE.CameraHelper(lens)
   helper.name = 'waica:editor-frustum'
-  const material = helper.material as THREE.LineBasicMaterial
+  const material = helper.material
+  if (!(material instanceof THREE.LineBasicMaterial)) throw new Error('CameraHelper no longer draws with a LineBasicMaterial')
   material.transparent = true
   material.opacity = 0.45
   addOverlay(game, helper)
@@ -83,6 +99,28 @@ function colliderWire(collider: Collider): THREE.LineSegments {
   return new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(...collider.size)), material)
 }
 
+/** The fields of a Collider that decide its wire's geometry. */
+interface WireShape {
+  shape: Collider['shape']
+  size: [number, number, number]
+  radius: number
+  height: number
+}
+
+const shapeOf = (collider: Collider): WireShape => ({ shape: collider.shape, size: [...collider.size], radius: collider.radius, height: collider.height })
+
+/** True when `holder`'s wire was built for the Collider's current shape. */
+function wireMatches(holder: THREE.Object3D, collider: Collider): boolean {
+  const built = holder.userData.shape as WireShape | undefined
+  return (
+    built !== undefined &&
+    built.shape === collider.shape &&
+    built.radius === collider.radius &&
+    built.height === collider.height &&
+    built.size.every((value, axis) => value === collider.size[axis])
+  )
+}
+
 /** Each Collider's wire, rebuilt when its shape changes, riding its entity's world transform. */
 function createColliderWires(game: Game) {
   const place = perComponent<Collider, THREE.Group>(game, () => {
@@ -95,11 +133,11 @@ function createColliderWires(game: Game) {
     for (const { entity, component, object } of place(liveComponents(game, Collider))) {
       object.visible = visible
       if (!visible) continue
-      const key = JSON.stringify([component.shape, component.size, component.radius, component.height])
-      if (object.userData.shapeKey !== key) {
+      if (!wireMatches(object, component)) {
+        for (const stale of object.children) disposeObject(stale)
         object.clear()
         object.add(colliderWire(component))
-        object.userData.shapeKey = key
+        object.userData.shape = shapeOf(component)
       }
       object.children[0]?.position.set(...component.offset)
       entity.node.updateWorldMatrix(true, false)
