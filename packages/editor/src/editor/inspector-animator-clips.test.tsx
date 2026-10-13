@@ -2,7 +2,7 @@
 import { act, cleanup, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { SceneComponentJson, SceneEntityJson } from '@waica/engine'
+import type { PrefabJson, SceneComponentJson, SceneEntityJson } from '@waica/engine'
 import knight from '../../../../examples/smoke-3d/art/knight.glb?inline'
 import rig from '../../../engine/fixtures/rig.glb?inline'
 import { MemFS } from '../fs/project-fs'
@@ -113,6 +113,45 @@ describe('the initial clip select (issue #173 CA-5)', () => {
   })
 })
 
+describe('a glb written while the Inspector shows it (PR #175 findings 1 and 6)', () => {
+  it('reads a path that was missing once a file is written there, though nothing it shows changed', async () => {
+    const fs = await rigProject()
+    const cache = new GlbClipCache(fs)
+    const writes = observeWrites(fs, (path) => cache.invalidate(path))
+    inspectHero(hero('src/art/late.glb', { initialClip: 'idle' }), cache)
+    await screen.findByRole('textbox', { name: 'Initial clip' })
+    await settle()
+
+    await act(async () => writes.writeFile('src/art/late.glb', bytesOf(rig)))
+
+    expect(await screen.findByRole('combobox', { name: 'Initial clip' })).toBeDefined()
+  })
+
+  it('keeps showing the previous clips while a written file is read again', async () => {
+    const fs = await rigProject()
+    const cache = new GlbClipCache(fs)
+    const writes = observeWrites(fs, (path) => cache.invalidate(path))
+    inspectHero(hero(RIG_PATH), cache)
+    await screen.findByRole('combobox', { name: 'Initial clip' })
+    const read = fs.readFile.bind(fs)
+    let release = (): void => {}
+    vi.spyOn(fs, 'readFile').mockImplementation(async (path) => {
+      await new Promise<void>((resolve) => (release = resolve))
+      return read(path)
+    })
+
+    await act(async () => writes.writeFile(RIG_PATH, bytesOf(knight)))
+
+    expect(screen.getByRole('combobox', { name: 'Initial clip' })).toBeDefined()
+    expect(screen.queryByRole('textbox', { name: 'Initial clip' })).toBeNull()
+    await act(async () => {
+      release()
+      await settle()
+    })
+    await vi.waitFor(() => expect(optionsOf(screen.getByRole('combobox', { name: 'Initial clip' }))).toContain('Walking_A'))
+  })
+})
+
 const overrides = (): HTMLElement => screen.getByRole('group', { name: 'Clip overrides' })
 
 describe('the clip overrides row (issue #173 CA-6)', () => {
@@ -142,6 +181,31 @@ describe('the clip overrides row (issue #173 CA-6)', () => {
     expect(props.onProp).toHaveBeenCalledWith('Hero', 'Animator', 'clips', { walk: { speed: 2 }, jump: {} })
   })
 
+})
+
+describe('the clip overrides row on a prefab instance (PR #175 finding 2)', () => {
+  it('marks the override and resets or applies it', async () => {
+    const fs = await rigProject()
+    const prefab: PrefabJson = {
+      waicaPrefab: 1,
+      type: 'object',
+      components: [
+        { type: 'Model', props: { src: RIG_PATH } },
+        { type: 'Animator', props: { initialClip: 'idle' } },
+      ],
+    }
+    const entity: SceneEntityJson = { name: 'Hero 1', prefab: 'objects/hero', overrides: { Animator: { clips: { walk: {} } } } }
+    const { props } = renderInspectorWithClips({ kind: 'entity', entity, sceneName: 'main', space: '3d' }, new GlbClipCache(fs), {
+      prefabs: { 'objects/hero': prefab },
+    })
+    await screen.findByRole('combobox', { name: 'Initial clip' })
+    const user = userEvent.setup()
+
+    await user.click(within(overrides()).getByTitle("Reset to the prefab's value"))
+    expect(props.onResetProp).toHaveBeenCalledWith('Hero 1', 'Animator', 'clips')
+    await user.click(within(overrides()).getByTitle('Apply to the prefab — every instance gets this value'))
+    expect(props.onApplyProp).toHaveBeenCalledWith('Hero 1', 'Animator', 'clips')
+  })
 })
 
 describe('editing the clip overrides row (issue #173 CA-6)', () => {

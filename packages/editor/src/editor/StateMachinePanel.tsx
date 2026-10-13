@@ -23,7 +23,7 @@ export type StateTarget =
 interface StateMachineCardProps {
   comp: SceneComponentJson
   /** Clip names on the sibling AnimatedSprite, for the warnings. */
-  clips: string[] | null
+  clips: readonly string[] | null
   /** Basenames in src/states/, for the code ⓘ. */
   stateFiles: string[]
   /** Basenames in src/roles/, for the custom-role status. */
@@ -165,7 +165,7 @@ function RoleSummary({ role, roleFiles, onCreateRoleFile }: RoleSummaryProps) {
 
 interface StateListProps {
   machine: MachineProps
-  clips: string[] | null
+  clips: readonly string[] | null
   stateFiles: string[]
   onEditState: (state: string) => void
   onDeleteState: (state: string) => void

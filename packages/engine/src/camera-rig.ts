@@ -66,13 +66,13 @@ export class CameraRig {
    * cleared with null (issue #173 CA-1): the editor's own camera, which game
    * code never sees because the editor's Game does not simulate. The rig fits
    * its aspect to the view and lets it see the Emissive layer, as it does the
-   * scene camera. Over a 2D scene the call is ignored, with one warning.
+   * scene camera. Over a 2D scene (or none yet) it has no effect and warns
+   * once; the camera is still kept, so it takes over when a 3D scene loads.
    */
   setViewCamera(camera: THREE.PerspectiveCamera | null): void {
-    if (camera && this.current !== this.perspective) {
-      if (!this.warnedFlatView) console.warn('[waica] setViewCamera is ignored in a 2D scene: its camera is orthographic')
+    if (camera && this.current !== this.perspective && !this.warnedFlatView) {
+      console.warn('[waica] setViewCamera has no effect over a 2D scene or none: its camera is orthographic')
       this.warnedFlatView = true
-      return
     }
     this.view = camera
     if (!camera) return

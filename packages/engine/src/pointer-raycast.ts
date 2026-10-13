@@ -48,13 +48,22 @@ function ownerOf<Picked extends PickedTarget>(object: THREE.Object3D, owners: Re
   return null
 }
 
+/** Whether `target` is drawn and still picks something: itself and every ancestor visible, and its entity alive. */
+function isPickable(target: PickTarget): boolean {
+  if (target.entity !== 'camera' && !target.entity.alive) return false
+  for (let node: THREE.Object3D | null = target.object; node; node = node.parent) {
+    if (!node.visible) return false
+  }
+  return true
+}
+
 /** The extra targets' hits: tested whatever their layers, since an editor overlay lives on the Emissive layer alone. */
 function extraHits(targets: readonly PickTarget[]): THREE.Intersection[] {
   if (targets.length === 0) return []
   const own = raycaster.layers.mask
   raycaster.layers.enableAll()
   try {
-    return raycaster.intersectObjects(targets.map((target) => target.object), true)
+    return raycaster.intersectObjects(targets.filter(isPickable).map((target) => target.object), true)
   } finally {
     raycaster.layers.mask = own
   }
@@ -65,7 +74,8 @@ function extraHits(targets: readonly PickTarget[]): THREE.Intersection[] {
  * letterboxed point, intersected with the roots of every live Model
  * (recursively, so a glTF's meshes count, posed where its skeleton is, and a
  * glTF still loading does not) and with the `extra` targets a host adds (the
- * editor's icons, issue #173 CA-2). The nearest hit wins, with its
+ * editor's icons, issue #173 CA-2; one that is hidden, or whose entity is
+ * dead, is skipped). The nearest hit wins, with its
  * world-space point. With no hit the pick has no entity and the point where
  * the ray meets the ground plane y = 0; a ray that never meets it (it looks
  * at the sky) yields no pick.

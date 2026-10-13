@@ -578,7 +578,7 @@ export class Game {
     return this.sceneSpace
   }
 
-  /** The camera the live scene draws with: orthographic in 2D scenes, perspective in 3D ones. */
+  /** The camera the live scene draws with: orthographic in 2D scenes, perspective in 3D ones, or a host's view camera over a 3D one (`cameraRig.setViewCamera`). */
   get camera(): GameCamera {
     return this.cameraRig.camera
   }
