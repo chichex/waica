@@ -1,7 +1,7 @@
 import { applyTransformJson, loadScene, type Game, type SceneCameraJson } from '@waica/engine'
 import { useEffect, useEffectEvent, useImperativeHandle, useLayoutEffect, useRef, type Ref, type RefObject } from 'react'
 import { createFrameOverlays, type OverlayHost } from './viewport-frame-overlays'
-import { createEditView3d, type EditView3d, type ScenePose } from './viewport-3d-view'
+import { createEditView3d, type EditView3d, type ScenePoses } from './viewport-3d-view'
 import { isThreeDView } from './viewport-camera'
 import { createViewportGame, liveComponent, mountGameCanvas, restoreEditCamera, startFailureMessage } from './viewport-game'
 import type { EditCamera, ViewportHandle, ViewportLive } from './viewport-live'
@@ -110,7 +110,7 @@ interface EditViewRefs {
   /** Set once the 2D view was framed like the scene camera: once per mount. */
   camSeeded: RefObject<boolean>
   live: RefObject<ViewportLive>
-  pose3d: RefObject<ScenePose | null>
+  pose3d: RefObject<ScenePoses>
   showCamera: boolean
 }
 
@@ -174,7 +174,7 @@ export function useViewportGame(inputs: ViewportLive, options: ViewportGameOptio
   /** The edit view of a 3D scene, one per edit-mode Game (issue #173). */
   const view3dRef = useRef<EditView3d | null>(null)
   /** The Editor Camera's last pose and its scene, kept across Game rebuilds (Play, structural edits). */
-  const pose3dRef = useRef<ScenePose | null>(null)
+  const pose3dRef = useRef<ScenePoses>(new Map())
 
   // The game loop and pointer handlers read the latest committed props
   // through liveRef. Written after commit (never during render), before

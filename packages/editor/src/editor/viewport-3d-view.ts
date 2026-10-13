@@ -5,24 +5,21 @@
 import { raycastPick, type Game, type PickedTarget, type RaycastPick } from '@waica/engine'
 import type { RefObject } from 'react'
 import { EditorCamera } from './editor-camera'
-import { createOverlays3d, selectionBounds } from './viewport-3d-overlays'
+import { createOverlays3d, selectionBounds, type Overlays3d } from './viewport-3d-overlays'
 import type { ViewportLive } from './viewport-live'
 import { loadCameraPose, saveCameraPose, type CameraPose } from './workspace'
 
-/** The pose the editor camera last settled at, for the scene it was in: kept across Game rebuilds. */
-export interface ScenePose {
-  scenePath: string | null
-  pose: CameraPose
-}
+/** The pose the editor camera last settled at, per scene path: kept across Game rebuilds. */
+export type ScenePoses = Map<string | null, CameraPose>
 
 export interface EditView3dHost {
   live: RefObject<ViewportLive>
-  pose: RefObject<ScenePose | null>
+  pose: RefObject<ScenePoses>
 }
 
 /**
  * The pose the Editor Camera keeps per scene (CA-12): every pose it settles at
- * is remembered for the session and stored under the project; seeding a
+ * is remembered for the session, per scene path and stored under the project; seeding a
  * scene takes the scene camera's lens, then this session's pose, else the
  * stored one, else the scene camera's own.
  */
@@ -32,7 +29,7 @@ function scenePoseMemory(editor: EditorCamera, host: EditView3dHost) {
   editor.onPoseChange((pose) => {
     if (seeding) return
     const path = scenePath()
-    host.pose.current = { scenePath: path, pose }
+    host.pose.current.set(path, pose)
     const project = host.live.current.project
     if (project && path) saveCameraPose(project, path, pose)
   })
@@ -40,7 +37,7 @@ function scenePoseMemory(editor: EditorCamera, host: EditView3dHost) {
     seed(): void {
       const path = scenePath()
       const project = host.live.current.project
-      const kept = host.pose.current?.scenePath === path ? host.pose.current.pose : project && path ? loadCameraPose(project, path) : null
+      const kept = host.pose.current.get(path) ?? (project && path ? loadCameraPose(project, path) : null)
       seeding = true
       try {
         editor.adoptSceneCamera(host.live.current.scene.camera)
@@ -81,12 +78,15 @@ export type EditView3d = ReturnType<typeof createEditView3d>
 export function createEditView3d(game: Game, canvas: HTMLCanvasElement, host: EditView3dHost) {
   const editor = new EditorCamera(canvas)
   const syncCamera = cameraSession(game, editor, host)
-  const overlays = createOverlays3d(game)
+  // Built when the live scene first is 3D: a 2D scene (and the prefab stage) pays nothing for it.
+  let overlays: Overlays3d | null = null
   const isActive = (): boolean => game.space === '3d' && host.live.current.mode === 'edit'
   /** Once per frame: the camera the Game draws through, and the overlays of an edited 3D scene. */
   const sync = (): void => {
     syncCamera()
-    overlays.update(host.live.current, isActive())
+    const active = isActive()
+    if (active) overlays ??= createOverlays3d(game)
+    overlays?.update(host.live.current, active)
   }
 
   sync()
@@ -98,7 +98,7 @@ export function createEditView3d(game: Game, canvas: HTMLCanvasElement, host: Ed
     /** What a click at a client point hits through the editor camera: a Model, an icon, the ground, or nothing (CA-13, CA-14). */
     pick: (clientX: number, clientY: number): RaycastPick<PickedTarget> | null => {
       const at = isActive() ? editor.fractionAt(clientX, clientY) : null
-      return at && raycastPick(editor.camera, at, game.entities, overlays.targets())
+      return at && raycastPick(editor.camera, at, game.entities, overlays?.targets() ?? [])
     },
     /** Zooms the Editor Camera by `factor` (the toolbar's ＋ and −). */
     zoom: (factor: number): void => {
@@ -115,6 +115,7 @@ export function createEditView3d(game: Game, canvas: HTMLCanvasElement, host: Ed
     },
     dispose: (): void => {
       if (game.camera === editor.camera) game.cameraRig.setViewCamera(null)
+      overlays?.dispose()
       editor.dispose()
     },
   }

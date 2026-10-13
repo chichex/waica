@@ -7,7 +7,7 @@ import { isJsonObject, readJsonObject } from '../json-object'
 const KEY = 'waica:editor:view'
 
 export interface EditorViewSettings {
-  /** Draws the scene camera's frustum, the lights' and colliders' helpers and the icons (CA-17). */
+  /** Draws the scene camera's frustum, the lights' and colliders' helpers (CA-17); the icons stay, they are how a light or the camera is picked. */
   helpers: boolean
 }
 

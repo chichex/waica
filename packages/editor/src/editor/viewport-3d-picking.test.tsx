@@ -98,6 +98,15 @@ describe('picking in 3D edit mode (issue #173 CA-13)', () => {
     expect(onSelect).toHaveBeenCalledWith(null)
   })
 
+  it('leaves the selection alone on a touch press: a finger orbits (PR #176 finding 2)', async () => {
+    const { mounted, onSelect, onToggleSelect } = await mount({ selected: 'Crate' })
+    const event = { clientX: 4, clientY: 4, pointerId: 2, pointerType: 'touch', button: 0 }
+    fireEvent.pointerDown(mounted.canvas, event)
+    fireEvent.pointerUp(mounted.canvas, event)
+    expect(onSelect).not.toHaveBeenCalled()
+    expect(onToggleSelect).not.toHaveBeenCalled()
+  })
+
   it('picks nothing on an Alt+left, middle or right press: they navigate', async () => {
     const { mounted, onSelect, onToggleSelect } = await mount()
     clickWorld(mounted, { x: -3, y: 1, z: 1 }, { altKey: true })
@@ -156,6 +165,17 @@ describe('icons for meshless entities and the camera (issue #173 CA-14)', () => 
     await tick()
     clickWorld(mounted, { x: 0, y: 6, z: 12 })
     expect(onSelectCamera).toHaveBeenCalledTimes(1)
+  })
+
+  it('draws an icon for a Model with no mesh yet, so a broken one can still be clicked (PR #176 finding 3)', async () => {
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
+    const scene: SceneJson = { ...SCENE, entities: [...SCENE.entities, { name: 'Broken', position: [0, 0, 6], components: [{ type: 'Model', props: { src: 'missing.glb' } }] }] }
+    const { mounted, game, onSelect } = await mount({ scene })
+    const icons = overlaysNamed(game, 'waica:editor-icon').filter((object) => object.visible).map((icon) => icon.position.toArray())
+    expect(icons).toContainEqual([0, 0, 6])
+    clickWorld(mounted, { x: 0, y: 0, z: 6 })
+    expect(onSelect).toHaveBeenLastCalledWith('Broken')
+    vi.unstubAllGlobals()
   })
 
   it('draws no icon, box or helper in Play', async () => {

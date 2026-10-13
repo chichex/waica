@@ -43,7 +43,7 @@ export function isTypingTarget(target: EventTarget | null): boolean {
 export function useViewport3dShortcuts(view3dRef: RefObject<EditView3d | null>): void {
   const onKey = useEffectEvent((event: KeyboardEvent): void => {
     const view = view3dRef.current
-    if (!view || event.ctrlKey || event.metaKey || event.altKey || isTypingTarget(event.target)) return
+    if (!view?.isActive() || event.ctrlKey || event.metaKey || event.altKey || isTypingTarget(event.target)) return
     if (event.key.toLowerCase() !== 'f') return
     event.preventDefault()
     view.frameSelection()
