@@ -114,6 +114,7 @@ export type {
 } from './component-update-schedule.js'
 export { Input, DEFAULT_BINDINGS } from './input.js'
 export type { ActionName, InjectedActionOperation, InputBindings, InputOptions } from './input.js'
+export type { MouseMovement } from './input-mouse.js'
 export {
   ACTION_HELD_THRESHOLD,
   firstStandardPadValues,

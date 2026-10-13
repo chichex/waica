@@ -7,11 +7,12 @@ import {
   GamepadSlot,
   resolveGamepadDeadZone,
 } from './gamepad.js'
+import { isUnknownMouseCode, MouseInput, type MouseInputOptions, type MouseMovement } from './input-mouse.js'
 
 export type ActionName = string
 export type InjectedActionOperation = 'press' | 'hold' | 'release'
 
-/** Action → source codes: `KeyboardEvent.code` values and `Gamepad:<control>` codes (ADR 0023). */
+/** Action → source codes: `KeyboardEvent.code` values, `Gamepad:<control>` codes (ADR 0023) and `Mouse:Left`/`Mouse:Right`. */
 export type InputBindings = Record<string, string[]>
 
 /** Neutral engine baseline; archetypes own their action vocabulary. */
@@ -33,15 +34,17 @@ export function checkInjectedValue(operation: InjectedActionOperation, value: un
   return { value }
 }
 
-export interface InputOptions {
+export interface InputOptions extends MouseInputOptions {
   /** Radial stick dead zone in [0, 1); absent or invalid means 0.2. */
   gamepadDeadZone?: number
 }
 
 /**
- * Action-based input with archetype default bindings. Sources are keys and
- * player 1's standard gamepad (ADR 0023); every Action has a 0..1 value, the
- * max across its sources, and is held at 0.5 or above. Touch is still TODO.
+ * Action-based input with archetype default bindings. Sources are keys,
+ * player 1's standard gamepad (ADR 0023) and the mouse buttons on the game
+ * canvas; every Action has a 0..1 value, the max across its sources, and is
+ * held at 0.5 or above. The mouse also reports its locked movement and the
+ * wheel per Simulation Step (issue #181). Touch is still TODO.
  */
 export class Input {
   private readonly bindings = new Map<string, Set<string>>()
@@ -59,17 +62,21 @@ export class Input {
   private readonly disarmed = new Set<string>()
   /** Actions held when the last step closed: a press is a step that starts from none of them (CA-5). */
   private heldAtStepEnd = new Set<ActionName>()
+  /** Mouse buttons press `Mouse:` codes into the same sets keys use, so they behave exactly as keys. */
+  private readonly mouse: MouseInput
 
   /** Installs exactly the action map supplied by the active archetype/project. */
   constructor(bindings: Readonly<InputBindings> = DEFAULT_BINDINGS, options: InputOptions = {}) {
     const warned = new Set<string>()
     for (const [action, codes] of Object.entries(bindings)) {
       this.bindings.set(action, new Set(codes))
-      for (const code of codes) warnUnknownPadCode(code, warned)
+      for (const code of codes) warnUnknownCode(code, warned)
     }
     this.deadZone = resolveGamepadDeadZone(options.gamepadDeadZone, (message) => {
       console.warn(message)
     })
+    const keyLike = { press: (code: string) => this.press(code), release: (code: string) => this.down.delete(code) }
+    this.mouse = new MouseInput(keyLike, options)
     window.addEventListener('keydown', this.onKeyDown)
     window.addEventListener('keyup', this.onKeyUp)
     window.addEventListener('blur', this.releaseAll)
@@ -186,6 +193,36 @@ export class Input {
     this.padValues = raw
   }
 
+  /** Freezes the mouse movement and wheel since the last step; the Game calls this beside pollGamepad(). */
+  pollMouse(): void {
+    this.mouse.poll()
+  }
+
+  /** The mouse movement of this Simulation Step while the pointer is locked to the canvas, in CSS px; zero between steps. */
+  mouseMovement(): MouseMovement {
+    return this.mouse.movement()
+  }
+
+  /** The wheel delta of this Simulation Step over the canvas, in CSS px (positive scrolls down); zero between steps. */
+  wheelDelta(): number {
+    return this.mouse.wheelDelta()
+  }
+
+  /** Adds a mouse movement to the next step as if the pointer were locked (the Runtime Bridge's `look`). */
+  injectLook(dx: number, dy: number): void {
+    this.mouse.inject(dx, dy)
+  }
+
+  /** Asks the browser to lock the pointer to the game canvas. */
+  requestPointerLock(): void {
+    this.mouse.requestLock()
+  }
+
+  /** Is the pointer locked to the game canvas? */
+  get pointerLocked(): boolean {
+    return this.mouse.locked
+  }
+
   /**
    * Marks this frame's press of the action as spent, so consumers that
    * honor consumption (state-machine 'input:' triggers) ignore it. One
@@ -207,6 +244,7 @@ export class Input {
     this.injectedJustDown.clear()
     this.injectedPresses.clear()
     this.used.clear()
+    this.mouse.endStep()
     this.heldAtStepEnd = new Set(this.heldActions())
   }
 
@@ -214,6 +252,7 @@ export class Input {
     this.injectedHolds.clear()
     this.injectedJustDown.clear()
     this.injectedPresses.clear()
+    this.mouse.dispose()
     window.removeEventListener('keydown', this.onKeyDown)
     window.removeEventListener('keyup', this.onKeyUp)
     window.removeEventListener('blur', this.releaseAll)
@@ -247,8 +286,13 @@ export class Input {
 
   private onKeyDown = (e: KeyboardEvent): void => {
     if (e.repeat) return
-    this.down.add(e.code)
-    this.justDown.add(e.code)
+    this.press(e.code)
+  }
+
+  /** A key or mouse button went down. */
+  private press(code: string): void {
+    this.down.add(code)
+    this.justDown.add(code)
   }
 
   private onKeyUp = (e: KeyboardEvent): void => {
@@ -256,9 +300,11 @@ export class Input {
   }
 }
 
-/** An unknown `Gamepad:` code never matches; it is reported once per code per Input. */
-function warnUnknownPadCode(code: string, warned: Set<string>): void {
-  if (!code.startsWith(GAMEPAD_CODE_PREFIX) || warned.has(code) || gamepadControl(code)) return
+/** An unknown `Gamepad:` or `Mouse:` code never matches; it is reported once per code per Input. */
+function warnUnknownCode(code: string, warned: Set<string>): void {
+  if (warned.has(code)) return
+  const unknownPad = code.startsWith(GAMEPAD_CODE_PREFIX) && !gamepadControl(code)
+  if (!unknownPad && !isUnknownMouseCode(code)) return
   warned.add(code)
-  console.warn(`[waica] unknown gamepad binding "${code}": it never matches.`)
+  console.warn(`[waica] unknown ${unknownPad ? 'gamepad' : 'mouse'} binding "${code}": it never matches.`)
 }

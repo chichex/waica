@@ -10,9 +10,9 @@ import type { ResolvedSceneCamera, SceneCameraJson } from './camera.js'
 import { worldToNormalized, type GameCamera, type WorldPoint } from './camera-projection.js'
 import { CameraRig, type CameraFollowHost } from './camera-rig.js'
 import { advanceCameraEffects, CameraEffects, layoutCameraEffects } from './camera-effects.js'
-import type { Component, ComponentClass } from './component.js'
-import { implementsOnUpdate, resolveComponentUpdateSchedule } from './component-update-schedule.js'
+import type { Component } from './component.js'
 import { Entity } from './entity.js'
+import { EntityUpdateSchedules } from './entity-update-schedules.js'
 import type { PositionJson } from './entity-transform.js'
 import { Emitter } from './events.js'
 import {
@@ -123,15 +123,6 @@ export type ParamOverrides = Record<
   Record<string, Record<string, number | boolean | string | string[]>>
 >
 
-/** Maps a resolved update order back to the entity's components; the order only names components it was built from. */
-function componentsInOrder(order: readonly string[], byName: ReadonlyMap<string, Component>): Component[] {
-  return order.map((name) => {
-    const component = byName.get(name)
-    if (!component) throw new Error(`Component update schedule names "${name}", which is not on the entity`)
-    return component
-  })
-}
-
 /**
  * Engine core: loop, unified 2D/3D three scene, orthographic camera,
  * entities with components, and input. See DESIGN.md.
@@ -185,18 +176,8 @@ export class Game {
   /** Off, lit or through the Post Effects: how each frame is drawn (ADR 0026). */
   private readonly frame: FrameComposer
   private readonly updateFns = new Set<UpdateFn>()
-  private readonly invalidUpdateCompositions = new WeakMap<Entity, string>()
-  /**
-   * componentUpdateSchedule's result for the last composition signature seen
-   * per entity: the resolve (Tarjan SCC + Kahn sort) it's built from is pure
-   * for a fixed composition, so a signature match skips it entirely. Only
-   * ever holds a successful resolution — an invalid composition is never
-   * cached, since invalidUpdateCompositions already dedupes its console.error.
-   */
-  private readonly updateScheduleCache = new WeakMap<
-    Entity,
-    { signature: string; order: readonly string[] }
-  >()
+  /** Each entity's Component Update Schedule (ADR 0004), resolved once per composition. */
+  private readonly updateSchedules = new EntityUpdateSchedules()
   private readonly resolution: GameResolution | null
   /** The constructor's viewHeight — unloadScene() restores it. */
   private readonly baseViewHeight: number
@@ -240,7 +221,7 @@ export class Game {
     this.baseViewHeight = viewHeight
     this.viewHeight = viewHeight
     this.resolution = options.resolution ?? null
-    this.input = new Input(options.bindings, { gamepadDeadZone: options.gamepadDeadZone })
+    this.input = new Input(options.bindings, { gamepadDeadZone: options.gamepadDeadZone, canvas })
     this.query = createSpatialQuery(this)
     this.stats = new Stats(options.stats)
     this.ui = new GameUi(this.stats, () => canvas.parentElement ?? document.body)
@@ -528,6 +509,7 @@ export class Game {
           resume: (onStep) => this.resumeRuntime(onStep),
           pause: () => this.stop(),
           injectAction: (action, operation, value) => this.input.injectAction(action, operation, value),
+          look: (dx, dy) => this.input.injectLook(dx, dy),
           availableActions: () => this.input.availableActions(),
           heldActions: () => this.input.heldActions(),
           actionValues: () => this.input.actionValues(),
@@ -733,19 +715,20 @@ export class Game {
   }
 
   /**
-   * One Simulation Step: the pad is read first (issue #75 CA-6), then
+   * One Simulation Step: the pad and the mouse are read first (issue #75 CA-6, issue #181 CA-2), then
    * game.time's start-of-step pass (ADR 0017, CA-3), then the Component Update Schedule (ADR 0004) in full,
    * collisions, the scene camera and the host's callbacks, every one of
    * them handed exactly SIMULATION_STEP (CA-1); then the input frame ends.
    */
   private simulateStep(): void {
     this.input.pollGamepad()
+    this.input.pollMouse()
     advanceGameTime(this.time)
     // Existing drains advance before entity updates, so one detached during
     // this step begins on the next Simulation Step (ADR 0022).
     sceneDrainsOf(this).advance(SIMULATION_STEP)
     for (const entity of [...this.entities]) {
-      const schedule = this.componentUpdateSchedule(entity)
+      const schedule = this.updateSchedules.of(entity, this.registry?.components)
       if (!schedule) continue
       for (const component of schedule) component.onUpdate?.(SIMULATION_STEP)
     }
@@ -814,56 +797,6 @@ export class Game {
       this.camera.position.x = x
       this.camera.position.y = y
     }
-  }
-
-  private componentUpdateSchedule(entity: Entity): Component[] | null {
-    const components = [...entity.components]
-    const byName = new Map<string, Component>()
-    const names: string[] = []
-    const signatureParts: string[] = []
-    for (const component of components) {
-      const Class = componentClassOf(component)
-      const name = Class.componentName
-      names.push(name)
-      byName.set(name, component)
-      signatureParts.push(
-        `${name}:${implementsOnUpdate(Class) ? 'updates' : 'passive'}:` +
-          [...new Set(Class.updateAfter ?? [])].sort().join(','),
-      )
-    }
-    const signature = signatureParts.sort().join('|')
-
-    // The resolve below (duplicate check + Tarjan SCC + Kahn sort) is pure
-    // for a fixed composition, and this method now runs once per entity per
-    // Simulation Step rather than once per rendered frame: skip it entirely
-    // when nothing about this entity's components changed since last time.
-    const cached = this.updateScheduleCache.get(entity)
-    if (cached && cached.signature === signature) {
-      return componentsInOrder(cached.order, byName)
-    }
-
-    const registry: Record<string, ComponentClass> = {
-      ...(this.registry?.components ?? {}),
-    }
-    for (const component of components) {
-      const Class = componentClassOf(component)
-      registry[Class.componentName] = Class
-    }
-    const result = resolveComponentUpdateSchedule(names, registry)
-    if (!result.ok) {
-      this.updateScheduleCache.delete(entity)
-      if (this.invalidUpdateCompositions.get(entity) !== signature) {
-        this.invalidUpdateCompositions.set(entity, signature)
-        console.error(
-          `[waica] invalid component update schedule for "${entity.name}": ` +
-            result.issues.map((issue) => issue.cause).join(' '),
-        )
-      }
-      return null
-    }
-    this.invalidUpdateCompositions.delete(entity)
-    this.updateScheduleCache.set(entity, { signature, order: result.order })
-    return componentsInOrder(result.order, byName)
   }
 
   private updateSceneCamera(dt: number): void {
