@@ -12,7 +12,8 @@ interface StateEditorModalProps {
   title: string
   machine: MachineProps
   state: string
-  clips: string[]
+  /** The clips a state can play; null while they are unknown (a glb the editor cannot read): the clip is then typed. */
+  clips: readonly string[] | null
   /** Action names from src/controls.json, for the input trigger picker. */
   inputActions: string[]
   stateFiles: string[]
@@ -118,13 +119,22 @@ function StateNameField({ name, nextName, renameTaken, onChange }: StateNameFiel
 
 interface StateAnimationFieldProps {
   clip: string
-  clips: string[]
+  clips: readonly string[] | null
   nextName: string
   onChange: (clip: string) => void
 }
 
 /** The state's clip override (empty = the clip named like the state), with the no-animation warning. */
 function StateAnimationField({ clip, clips, nextName, onChange }: StateAnimationFieldProps) {
+  if (!clips) {
+    // Unknown clips are not checked: no warning, the name is typed (issue #173 CA-7).
+    return (
+      <label className="ed-row">
+        <span>animation</span>
+        <input type="text" value={clip} placeholder={nextName} onChange={(e) => onChange(e.target.value)} />
+      </label>
+    )
+  }
   const clipMissing = clip !== '' && !clips.includes(clip)
   return (
     <>

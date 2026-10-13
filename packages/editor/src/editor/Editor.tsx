@@ -9,6 +9,7 @@ import { EditorExplorer } from './EditorExplorer'
 import { EditorInspector } from './EditorInspector'
 import { EditorModals } from './EditorModals'
 import { EditorToolbar } from './EditorToolbar'
+import { GlbClipsContext, useGlbClipSession } from './glb-clips'
 import { stepHistory } from './history-commands'
 import { duplicateSelection, groupSelection } from './scene-tree-commands'
 import { useEditorShortcuts, type EditorShortcut } from './use-editor-shortcuts'
@@ -21,7 +22,8 @@ import { useViewportHandle } from './use-viewport-handle'
  * in editor-commits.ts, and the panels below only wire them to the UI.
  */
 export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
-  const state = useEditorState(fs)
+  const clips = useGlbClipSession(fs)
+  const state = useEditorState(clips.fs)
   const core: EditorCore = { ...state, ...createCommits(state) }
   const [viewportRef, viewport] = useViewportHandle()
   useEditorShortcuts((shortcut) => runShortcut(core, shortcut))
@@ -33,24 +35,26 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const { view } = core.view
   return (
     <ArchetypeContext.Provider value={core.code.editorArchetype}>
-      <div className="ed-root">
-        <EditorToolbar core={core} onClose={onClose} />
-        <div className="ed-body">
-          <aside className="ed-left">
-            <EditorExplorer core={core} />
-          </aside>
-          <main className={`ed-center ${view ? '' : 'is-empty'}`}>
-            <EditorCrumbs core={core} />
-            <div className={`ed-stage ${view?.kind === 'prefab' ? 'is-prefab' : ''}`}>
-              <EditorCenter core={core} viewportRef={viewportRef} />
-            </div>
-          </main>
-          <aside className="ed-right">
-            <EditorInspector core={core} viewport={viewport} />
-          </aside>
+      <GlbClipsContext.Provider value={clips.cache}>
+        <div className="ed-root">
+          <EditorToolbar core={core} onClose={onClose} />
+          <div className="ed-body">
+            <aside className="ed-left">
+              <EditorExplorer core={core} />
+            </aside>
+            <main className={`ed-center ${view ? '' : 'is-empty'}`}>
+              <EditorCrumbs core={core} />
+              <div className={`ed-stage ${view?.kind === 'prefab' ? 'is-prefab' : ''}`}>
+                <EditorCenter core={core} viewportRef={viewportRef} />
+              </div>
+            </main>
+            <aside className="ed-right">
+              <EditorInspector core={core} viewport={viewport} />
+            </aside>
+          </div>
+          <EditorModals core={core} />
         </div>
-        <EditorModals core={core} />
-      </div>
+      </GlbClipsContext.Provider>
     </ArchetypeContext.Provider>
   )
 }

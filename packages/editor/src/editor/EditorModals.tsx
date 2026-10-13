@@ -5,6 +5,7 @@ import { reportRejection } from '../report-rejection'
 import { AnimationEditor } from './AnimationEditor'
 import { createStateFile } from './code-file-commands'
 import type { EditorCore } from './editor-commits'
+import { useKnownClips } from './glb-clips'
 import type { AnimTarget } from './Inspector'
 import { saveAnimationClips, saveStateMachinePatch } from './modal-commands'
 import { spawnPrefab, suggestedIdentity } from './prefab-commands'
@@ -82,16 +83,17 @@ function AnimationModal({ core, target }: { core: EditorCore; target: AnimTarget
 function StateModal({ core, target }: { core: EditorCore; target: StateTarget }) {
   const [, setStateTarget] = core.modals.stateTarget
   const comps = targetComponents(core, target)
+  // Beside a Model that names a file the clips are its glb's (issue #173 CA-7); null while unknown.
+  const clips = useKnownClips(comps?.find((c) => c.type === 'AnimatedSprite') ?? null, comps ?? [])
   const comp = comps?.find((c) => c.type === 'StateMachine')
   if (!comp) return null
-  const sprite = comps?.find((c) => c.type === 'AnimatedSprite')
   const machine = machineProps(comp)
   return (
     <StateEditorModal
       title={target.kind === 'prefab' ? target.ref : target.name}
       machine={machine}
       state={target.state}
-      clips={Object.keys((sprite?.props?.clips as Record<string, unknown>) ?? {})}
+      clips={clips}
       inputActions={Object.keys(core.settings.controls ?? {})}
       stateFiles={core.code.stateFiles}
       onCreateFile={(state) => reportRejection(createStateFile(core, machine.role, state), 'create state file')}

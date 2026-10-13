@@ -86,14 +86,27 @@ export function intersectedClipComponents(
   ]
 }
 
-/** Whether the entity's clips live in a glb the editor does not parse: it draws a Model that names a file (issue #166 CA-11); a primitive Model has no clips to hide. */
+/** Whether the entity's clips live in a glb: it draws a Model that names a file (issue #166 CA-11); a primitive Model has no clips. */
 export function clipsUnknown(components: readonly SceneComponentJson[]): boolean {
   return components.some((c) => c.type === 'Model' && typeof c.props?.src === 'string' && c.props.src !== '')
 }
 
-/** The clip names a machine's states can be checked against: the sprite's, or null when they are unknown (a Model's glb). */
-export function knownClips(appearance: SceneComponentJson | null, components: readonly SceneComponentJson[]): string[] | null {
-  if (clipsUnknown(components)) return null
+/** The `src` of the entity's Model; undefined without one. */
+export function modelSrcOf(components: readonly SceneComponentJson[]): unknown {
+  return components.find((c) => c.type === 'Model')?.props?.src
+}
+
+/**
+ * The clip names a machine's states can be checked against: beside a Model
+ * that names a file, its glb's (`modelClips`, issue #173 CA-7), or null while
+ * they are unknown (unreadable or still reading); otherwise the sprite's.
+ */
+export function knownClips(
+  appearance: SceneComponentJson | null,
+  components: readonly SceneComponentJson[],
+  modelClips: readonly string[] | null,
+): string[] | null {
+  if (clipsUnknown(components)) return modelClips && [...modelClips]
   return appearance ? Object.keys(clipsOf(appearance)) : []
 }
 

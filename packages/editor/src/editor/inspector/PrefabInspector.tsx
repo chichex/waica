@@ -8,7 +8,8 @@ import type { ViewportComponentVisibility } from '../Viewport'
 import { AppearanceSection } from './AppearanceSection'
 import { BehavioursSection } from './BehavioursSection'
 import { CollisionSection } from './CollisionSection'
-import { characterClipsWarning, driverWarning, knownClips, touchBehaviourNames } from './component-meta'
+import { useKnownClips } from '../glb-clips'
+import { characterClipsWarning, driverWarning, touchBehaviourNames } from './component-meta'
 import { UpdateScheduleContext, UpdateScheduleError, updateScheduleFor } from './update-schedule'
 
 /** The prefab inspector's callbacks, already bound to the selected prefab ref. */
@@ -127,6 +128,7 @@ function PrefabBehaviours(props: PrefabInspectorProps) {
   const archetype = useArchetype()
   const { prefab } = props
   const split = splitComponents(prefab.components)
+  const clips = useKnownClips(split.appearance, prefab.components)
   return (
     <BehavioursSection
       id={props.refName}
@@ -135,7 +137,7 @@ function PrefabBehaviours(props: PrefabInspectorProps) {
       warning={driverWarning(prefab.components, archetype)}
       canRemove={() => true}
       machine={{
-        clips: knownClips(split.appearance, prefab.components),
+        clips,
         stateFiles: props.stateFiles,
         roleFiles: props.roleFiles,
         onPatch: props.onMachinePatch,
