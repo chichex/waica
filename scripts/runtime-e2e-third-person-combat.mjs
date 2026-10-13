@@ -4,7 +4,12 @@
 // Player's own strikes kill the skeleton, and a Player killed after touching a
 // checkpoint comes back there with full health.
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 import { withSession } from './runtime-e2e-third-person-play.mjs'
+
+/** Steps per second of simulation (the engine's fixed 1/60 s step). */
+const STEPS_PER_SECOND = 60
 
 /** What the fight reads each step: each named entity's state, health and position, from one snapshot. */
 async function peek({ helpers, client, project }, names) {
@@ -14,7 +19,13 @@ async function peek({ helpers, client, project }, names) {
   const read = (name) => {
     const entity = inspected.structuredContent.snapshot.entities.find((candidate) => candidate.name === name)
     assert.ok(entity, `the snapshot must hold ${name}`)
-    return { state: stateOf(entity, 'StateMachine')?.current, health: stateOf(entity, 'Health'), checkpoint: stateOf(entity, 'Checkpoint'), position: entity.transform.position }
+    return {
+      state: stateOf(entity, 'StateMachine')?.current,
+      health: stateOf(entity, 'Health'),
+      checkpoint: stateOf(entity, 'Checkpoint'),
+      motor: stateOf(entity, 'CharacterMotor'),
+      position: entity.transform.position,
+    }
   }
   return Object.fromEntries(names.map((name) => [name, read(name)]))
 }
@@ -40,10 +51,10 @@ function toward(from, to) {
   return dz > 0 ? 'down' : 'up'
 }
 
-/** One skeleton 2.5 in front of the Player, which can take twenty hits. */
+/** One skeleton 2.5 in front of the Player (which stands at z 3.5 facing -z), and a Player that can take twenty hits. */
 const duel = (scene) => {
   scene.entities = scene.entities.filter((entity) => entity.prefab !== 'characters/skeleton' || entity.name === 'Skeleton Gate')
-  scene.entities.find((entity) => entity.name === 'Skeleton Gate').position = [0, 0, 4.5]
+  scene.entities.find((entity) => entity.name === 'Skeleton Gate').position = [0, 0, 1]
   scene.entities.find((entity) => entity.name === 'Player').overrides = { Health: { max: 20 } }
 }
 
@@ -55,11 +66,22 @@ async function strikeLands(context, run) {
   return health.current
 }
 
+/** The skeleton's windup, in seconds: the `timer:` edge out of `windup` in the Project's own skeleton prefab, which the Game runs. */
+async function windupSeconds({ project }) {
+  const prefab = JSON.parse(await readFile(path.join(project, 'src/characters/skeleton.character.json'), 'utf8'))
+  const machine = prefab.components.find((component) => component.type === 'StateMachine')
+  const edge = machine?.props?.states?.windup?.transitions?.find((transition) => transition.on.startsWith('timer:'))
+  assert.ok(edge, `the skeleton prefab's windup must end on a timer; ${JSON.stringify(machine?.props?.states?.windup)}`)
+  return Number(edge.on.slice('timer:'.length))
+}
+
 /** The next strike meets the Player mid-roll, dodging into the skeleton so the strike still reaches it: its health stays as it was. */
 async function rollThroughStrike(context, run, health) {
   const winding = await stepUntil(context, run, { names: FIGHTERS, done: (seen) => seen['Skeleton Gate'].state === 'windup', limit: 400, what: 'the next windup' })
-  // The strike comes 36 steps into the windup; a 30-step roll started 6 before it covers it.
-  await run.control('step', { frames: 30 })
+  // The strike comes at the end of the skeleton's windup; a roll started a fifth of its length before it covers it.
+  const strikeAt = Math.round((await windupSeconds(context)) * STEPS_PER_SECOND)
+  const rollSteps = Math.round(winding.Player.motor.dodgeDuration * STEPS_PER_SECOND)
+  await run.control('step', { frames: strikeAt - Math.round(rollSteps / 5) })
   const action = toward(winding.Player.position, winding['Skeleton Gate'].position)
   await run.control('hold', { action })
   await run.control('press', { action: 'dodge' })

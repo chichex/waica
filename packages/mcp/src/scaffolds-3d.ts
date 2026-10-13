@@ -14,10 +14,10 @@ export interface Scaffold3dRequest {
 /**
  * What a 3D character is born with per identity: the extras that work in a 3D
  * scene. Hazard is 2D: an enemy hurts with a MeleeAttack instead, whose range
- * is what the enemy role winds up within.
+ * is what the enemy role winds up within. OutOfBounds works in both spaces.
  */
 const IDENTITY_EXTRAS_3D: Readonly<Record<Identity, readonly SceneComponentJson[]>> = {
-  player: [{ type: 'Respawnable' }, { type: 'Health', props: { invulnerability: 1 } }],
+  player: [{ type: 'Respawnable' }, { type: 'Health', props: { invulnerability: 1 } }, { type: 'OutOfBounds' }],
   enemy: [{ type: 'MeleeAttack' }, { type: 'Health', props: { max: 1 } }],
   npc: [],
   custom: [],

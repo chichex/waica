@@ -61,8 +61,9 @@ const SKELETONS: SceneEntityJson[] = [
  * The demo (issue #181 CA-26): a walled dungeon courtyard. A raised platform
  * in the north-east corner, reached by a step, holds the goal chest; three
  * Skeleton Warriors patrol the yard; two checkpoints and four wall torches;
- * the Player starts in the south half, out of the skeletons' sight, with the
- * camera behind it clear of the south wall.
+ * the Player starts in the south half, out of every skeleton's sight at its
+ * spawn (Skeleton West's patrol brings it within Chaser.range within the
+ * first second), with the camera behind it clear of the south wall.
  */
 export const THIRD_PERSON_SCENE: SceneJson = threeDScene([
   SUN,

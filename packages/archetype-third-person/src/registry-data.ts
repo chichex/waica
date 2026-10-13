@@ -2,6 +2,7 @@ import {
   AnimatedSprite,
   Animator,
   Collider,
+  DynamicBody,
   Hitbox,
   Model,
   PointLight,
@@ -13,7 +14,7 @@ import {
   type EntityTemplate,
   type SceneRegistry,
 } from '@waica/engine'
-import { CharacterMotor, Chaser, Checkpoint, Health, MeleeAttack, Patrol, PlatformerMotor, Respawnable } from '@waica/behaviors'
+import { CharacterMotor, Chaser, Checkpoint, Health, MeleeAttack, OutOfBounds, Patrol, PlatformerMotor, Respawnable } from '@waica/behaviors'
 import { THIRD_PERSON_ART } from './art.js'
 import { ControlsHint } from './controls-hint.js'
 import { GoalChest } from './goal-chest.js'
@@ -39,6 +40,8 @@ export const THIRD_PERSON_REGISTRY_DATA: SceneRegistry = {
     MeleeAttack,
     Health,
     Respawnable,
+    // A fall off the level kills, and the death respawns the Player (the blank start is an open floor).
+    OutOfBounds,
     Patrol,
     Chaser,
     Checkpoint,
@@ -46,14 +49,17 @@ export const THIRD_PERSON_REGISTRY_DATA: SceneRegistry = {
     HeartsHud,
     ControlsHint,
     HitShake,
-    // The 2D basics, kept out of every scene and prefab (the conformance suite checks it): known here so
-    // validate_project reports one in a 3D scene as a component-space-mismatch, not an unknown component
-    // (issue #181 CA-35), as the 2D archetypes register the 3D components.
+    // A subset of the 2D components, kept out of every scene and prefab (the conformance suite checks
+    // it): the ones a 2D prefab is built from, the 2D motor, and DynamicBody, which OutOfBounds updates
+    // after (an update target must be known). Known here so validate_project reports one in a 3D scene
+    // as a component-space-mismatch, not an unknown component (issue #181 CA-35). Any other 2D
+    // component (Tilemap, Light, Hazard, the other motors…) stays unknown here.
     Sprite,
     AnimatedSprite,
     Hitbox,
     Solid,
     PlatformerMotor,
+    DynamicBody,
   },
   resolveAsset: (uri) => PACKAGE_ASSETS[uri] ?? uri,
   prefabs: THIRD_PERSON_PREFABS,

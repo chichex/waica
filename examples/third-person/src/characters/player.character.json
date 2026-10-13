@@ -243,6 +243,9 @@
       "type": "Respawnable"
     },
     {
+      "type": "OutOfBounds"
+    },
+    {
       "type": "HeartsHud"
     },
     {

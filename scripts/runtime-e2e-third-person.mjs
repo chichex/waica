@@ -67,16 +67,22 @@ async function capture({ helpers, client, project, chrome, inspector }, edit) {
     assert.equal(start.isError, undefined, `start_project failed: ${JSON.stringify(start)}`)
     const swapped = await call(client, 'control_runtime', { project_path: project, operation: 'scene', scene: SCENE })
     assert.equal(swapped.isError, undefined, `scene:'${SCENE}' failed: ${JSON.stringify(swapped)}`)
-    await call(client, 'control_runtime', { project_path: project, operation: 'step', frames: FRAME })
+    const stepped = await call(client, 'control_runtime', { project_path: project, operation: 'step', frames: FRAME })
+    assert.equal(stepped.isError, undefined, `step in capture failed: ${JSON.stringify(stepped)}`)
     const image = assertScreenshot(await call(client, 'capture_screenshot', { project_path: project }), 'paused', CANVAS).image
-    const snapshot = (await call(client, 'inspect_runtime', { project_path: project })).structuredContent.snapshot
+    const inspected = await call(client, 'inspect_runtime', { project_path: project })
+    assert.equal(inspected.isError, undefined, `inspect_runtime failed: ${JSON.stringify(inspected)}`)
+    const snapshot = inspected.structuredContent.snapshot
     const samples = await inspector.evaluate(samplesInPage, { base64: image, points: await samplePoints(snapshot.view) })
     return { image, snapshot, samples, assets: { booted: start.structuredContent.assets, swapped: swapped.structuredContent.assets } }
   } finally {
     const stopped = await call(client, 'stop_project', { project_path: project })
     await restore()
-    assert.equal(stopped.structuredContent.stopped, true)
-    await assertUrlClosed(start.structuredContent.url)
+    // A start that failed has no session to stop: its error above is the one to see.
+    if (start.isError === undefined) {
+      assert.equal(stopped.structuredContent.stopped, true)
+      await assertUrlClosed(start.structuredContent.url)
+    }
   }
 }
 

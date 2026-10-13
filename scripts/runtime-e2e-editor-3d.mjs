@@ -47,6 +47,9 @@ async function startEditor({ root, viteBin }) {
   return { url: `http://127.0.0.1:${port}/`, close: () => server.close() }
 }
 
+/** The file extensions the in-memory project receives as text. */
+const TEXT_FILES = new Set(['.json', '.html', '.css'])
+
 /** The in-memory project: the example's JSON, UI pieces and glbs (base64), under src/ as a generated project holds them; not its code. */
 async function projectFiles() {
   const files = {}
@@ -54,7 +57,8 @@ async function projectFiles() {
     if (!entry.isFile() || entry.name.endsWith('.ts')) continue
     const file = path.join(entry.parentPath, entry.name)
     const key = `src/${path.relative(EXAMPLE, file).split(path.sep).join('/')}`
-    files[key] = entry.name.endsWith('.glb') ? { base64: (await readFile(file)).toString('base64') } : await readFile(file, 'utf8')
+    // Only known text formats go as text: any other file (a glb, a png, audio, a .bin) goes as base64, so its bytes survive.
+    files[key] = TEXT_FILES.has(path.extname(entry.name)) ? await readFile(file, 'utf8') : { base64: (await readFile(file)).toString('base64') }
   }
   return files
 }

@@ -96,3 +96,21 @@ it('pauses a skeleton caught winding up when the Player reaches the chest: no st
 it('keeps reached as runtime state, not an authored field (CA-26)', () => {
   expect(authoringDefaults(GoalChest)).not.toHaveProperty('reached')
 })
+
+it('brings the Player back to its spawn with full health once it walks off the blank floor (G-32)', async () => {
+  const { game, bridge } = await play(THIRD_PERSON_BLANK_SCENE)
+  const player = defined(game.find('Player'))
+  const health = defined(player.get(Health))
+  player.position.set(30, 0, 0)
+
+  let lowest = 0
+  for (let frame = 0; frame < 900; frame += 1) {
+    bridge.control({ operation: 'step' })
+    lowest = Math.min(lowest, player.position.y)
+    if (lowest < -12 && Math.abs(player.position.x) < 0.5 && health.current === health.max) break
+  }
+
+  expect(lowest).toBeLessThan(-12)
+  expect(health.current).toBe(health.max)
+  expect(Math.hypot(player.position.x, player.position.z)).toBeLessThan(0.5)
+})

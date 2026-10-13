@@ -57,6 +57,7 @@ const PLAYER: PrefabJson = {
     { type: 'Health', props: { max: 6, invulnerability: 1 } },
     { type: 'MeleeAttack', props: { damage: 1, range: 1.6, width: 1.4 } },
     { type: 'Respawnable' },
+    { type: 'OutOfBounds' },
     { type: 'HeartsHud' },
     { type: 'ControlsHint' },
     { type: 'HitShake' },

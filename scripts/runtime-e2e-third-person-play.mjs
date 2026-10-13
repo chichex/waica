@@ -30,8 +30,11 @@ export async function withSession({ helpers, client, project, chrome }, edit, bo
   } finally {
     const stopped = await helpers.call(client, 'stop_project', { project_path: project })
     await restore()
-    assert.equal(stopped.structuredContent.stopped, true)
-    await helpers.assertUrlClosed(start.structuredContent.url)
+    // A start that failed has no session to stop: its error above is the one to see.
+    if (start.isError === undefined) {
+      assert.equal(stopped.structuredContent.stopped, true)
+      await helpers.assertUrlClosed(start.structuredContent.url)
+    }
   }
 }
 

@@ -137,3 +137,9 @@ it('scaffolds an object or a tile with no resolvable archetype exactly as before
     expect(actual, type).toBe(expected)
   }
 })
+
+it('gives a 3D player an OutOfBounds, so falling off a level ends in its death and respawn (CA-30)', async () => {
+  const project = await thirdPersonProject()
+
+  expect(typesOf(await scaffolded(project, 'hero', 'player'))).toContain('OutOfBounds')
+})
