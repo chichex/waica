@@ -33,6 +33,7 @@ export { clearKnockback, KNOCKBACK_SECONDS, knockBackFrom, knockbackVelocity, ty
 export { drive3d, MOVER_TURN_SPEED } from './mover-3d.js'
 export { ENEMY_ROLE, ENEMY_STATE_GRAPH, ENEMY_WINDUP_SECONDS } from './enemy-states.js'
 export { Checkpoint } from './checkpoint.js'
+export { isPlayer } from './player-identity.js'
 export { Health, declaresDeathHandling, deathTargets } from './health.js'
 export { HEALTH_UI } from './health-ui.js'
 export { ANCHORED_UI_PIECES } from './anchored-ui-pieces.js'
