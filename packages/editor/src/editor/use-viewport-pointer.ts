@@ -1,6 +1,7 @@
-import type { Game } from '@waica/engine'
+import type { Game, PickedTarget, RaycastPick } from '@waica/engine'
 import { useRef, useState, type PointerEvent, type RefObject, type WheelEvent } from 'react'
 import type { ScreenRect } from './viewport-entity-gesture'
+import type { EditView3d } from './viewport-3d-view'
 import { isThreeDView } from './viewport-camera'
 import { zoomEditView } from './viewport-game'
 import { beginGesture, dragGesture, endGesture, type Gesture, type GestureCallbacks, type PointerStep } from './viewport-gestures'
@@ -13,7 +14,29 @@ export interface ViewportPointerSession {
   liveRef: RefObject<ViewportLive>
   camRef: RefObject<EditCamera>
   camLiveRef: RefObject<{ x: number; y: number } | null>
+  /** The 3D edit view of an edit-mode Game; a 3D scene picks through it. */
+  view3dRef: RefObject<EditView3d | null>
   showCamera: boolean
+}
+
+/**
+ * A click's pick in a 3D scene (issue #173 CA-13, CA-14): an entity selects
+ * it (Shift toggles it in the multi-selection), the camera icon opens the
+ * camera inspector, and empty space clears the selection (Shift keeps it).
+ */
+function select3d(pick: RaycastPick<PickedTarget> | null, shiftKey: boolean, callbacks: GestureCallbacks): void {
+  const picked = pick?.entity ?? null
+  if (picked === 'camera') callbacks.onSelectCamera?.()
+  else if (picked && shiftKey) callbacks.onToggleSelect?.(picked.name)
+  else if (picked) callbacks.onSelect(picked.name)
+  else if (!shiftKey) callbacks.onSelect(null)
+}
+
+/** A press over an edited 3D scene: a plain left click picks, the rest navigates the Editor Camera. True when it was one. */
+function press3d(view3d: EditView3d | null, e: PointerEvent<HTMLElement>, callbacks: GestureCallbacks): boolean {
+  if (!view3d?.isActive()) return false
+  if (e.button === 0 && !e.altKey) select3d(view3d.pick(e.clientX, e.clientY), e.shiftKey, callbacks)
+  return true
 }
 
 /** Shows `cursor` on the live Game's canvas inside the viewport surface, where the cursor always was. */
@@ -28,7 +51,7 @@ function showHoverCursor(surface: HTMLElement, cursor: string): void {
  * pointer-up, hover cursors in between, and wheel zoom.
  */
 export function useViewportPointer(session: ViewportPointerSession, callbacks: GestureCallbacks) {
-  const { canvasRef, gameRef, liveRef, camRef, camLiveRef, showCamera } = session
+  const { canvasRef, gameRef, liveRef, camRef, camLiveRef, view3dRef, showCamera } = session
   const gestureRef = useRef<Gesture | null>(null)
   /** Marquee selection rectangle on screen, while one is dragged. */
   const [marqueeRect, setMarqueeRect] = useState<ScreenRect | null>(null)
@@ -46,7 +69,8 @@ export function useViewportPointer(session: ViewportPointerSession, callbacks: G
   }
 
   const onPointerDown = (e: PointerEvent<HTMLElement>): void => {
-    const step = editStep(e)
+    // A press over an edited 3D scene picks or navigates; anywhere else it may start a 2D gesture.
+    const step = press3d(view3dRef.current, e, callbacks) ? null : editStep(e)
     if (!step) return
     try {
       e.currentTarget.setPointerCapture(e.pointerId)

@@ -85,6 +85,13 @@ export class EditorCamera {
     this.move(sphere.center.clone().addScaledVector(direction, distance), sphere.center)
   }
 
+  /** A client point as fractions of the element the camera navigates on, or null while it has no size. */
+  fractionAt(clientX: number, clientY: number): { nx: number; ny: number } | null {
+    const rect = this.element.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return null
+    return { nx: (clientX - rect.left) / rect.width, ny: (clientY - rect.top) / rect.height }
+  }
+
   /** `listener` hears every pose the camera settles at: a gesture's end, a step, a frame, a reset. */
   onPoseChange(listener: (pose: CameraPose) => void): () => void {
     this.listeners.add(listener)

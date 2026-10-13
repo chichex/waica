@@ -2,9 +2,10 @@
 // the Editor Camera the Game draws through while the live scene is 3D, its
 // first pose (remembered for the scene, else the scene camera's), the pose it
 // remembers per scene, and the moves the viewport's keys and buttons make.
-import { THREE, type Entity, type Game } from '@waica/engine'
+import { raycastPick, type Game, type PickedTarget, type RaycastPick } from '@waica/engine'
 import type { RefObject } from 'react'
 import { EditorCamera } from './editor-camera'
+import { createOverlays3d, selectionBounds } from './viewport-3d-overlays'
 import type { ViewportLive } from './viewport-live'
 import { loadCameraPose, saveCameraPose, type CameraPose } from './workspace'
 
@@ -17,31 +18,6 @@ export interface ScenePose {
 export interface EditView3dHost {
   live: RefObject<ViewportLive>
   pose: RefObject<ScenePose | null>
-}
-
-/** Half the side of the cube that stands for an entity with no mesh. */
-const MESHLESS_HALF = 0.5
-
-/** An entity's world bounds: its meshes', or a unit cube around it when it has none (issue #173 inference 23). */
-export function entityBounds3d(entity: Entity): THREE.Box3 {
-  const box = new THREE.Box3().setFromObject(entity.node)
-  if (!box.isEmpty()) return box
-  const center = entity.node.getWorldPosition(new THREE.Vector3())
-  return new THREE.Box3().setFromCenterAndSize(center, new THREE.Vector3().setScalar(MESHLESS_HALF * 2))
-}
-
-/** The names the selection holds: the multi-selection when it has several, else the single one. */
-export function selectedNames(live: ViewportLive): string[] {
-  const multi = live.multiSelected ?? []
-  if (multi.length > 1) return multi
-  return live.selected ? [live.selected] : []
-}
-
-/** The union bounds of the selection's live entities; null with nothing to frame. */
-export function selectionBounds(game: Game, live: ViewportLive): THREE.Box3 | null {
-  const entities = selectedNames(live).map((name) => game.find(name)).filter((entity) => entity !== undefined)
-  if (entities.length === 0) return null
-  return entities.reduce((box, entity) => box.union(entityBounds3d(entity)), new THREE.Box3())
 }
 
 /**
@@ -76,31 +52,42 @@ function scenePoseMemory(editor: EditorCamera, host: EditView3dHost) {
   }
 }
 
-export type EditView3d = ReturnType<typeof createEditView3d>
-
-export function createEditView3d(game: Game, canvas: HTMLCanvasElement, host: EditView3dHost) {
-  const editor = new EditorCamera(canvas)
+/**
+ * Keeps the Game drawing through the Editor Camera while its scene is 3D, and
+ * through its own camera while it is 2D; seeds the pose when another scene opens.
+ */
+function cameraSession(game: Game, editor: EditorCamera, host: EditView3dHost) {
   const memory = scenePoseMemory(editor, host)
   /** The scene path the pose was seeded for; undefined while the live scene is 2D. */
   let seededFor: string | null | undefined
-  const scenePath = (): string | null => host.live.current.scenePath ?? null
-
-  /** Draws a 3D scene through the editor camera and a 2D one through its own; reseeds when another scene opens. */
-  const sync = (): void => {
+  return (): void => {
     const threeD = game.space === '3d'
     editor.controls.enabled = threeD
     if (!threeD) {
       seededFor = undefined
       return
     }
-    if (seededFor !== scenePath()) {
+    const path = host.live.current.scenePath ?? null
+    if (seededFor !== path) {
       memory.seed()
-      seededFor = scenePath()
+      seededFor = path
     }
     if (game.camera !== editor.camera) game.cameraRig.setViewCamera(editor.camera)
   }
+}
 
+export type EditView3d = ReturnType<typeof createEditView3d>
+
+export function createEditView3d(game: Game, canvas: HTMLCanvasElement, host: EditView3dHost) {
+  const editor = new EditorCamera(canvas)
+  const syncCamera = cameraSession(game, editor, host)
+  const overlays = createOverlays3d(game)
   const isActive = (): boolean => game.space === '3d' && host.live.current.mode === 'edit'
+  /** Once per frame: the camera the Game draws through, and the overlays of an edited 3D scene. */
+  const sync = (): void => {
+    syncCamera()
+    overlays.update(host.live.current, isActive())
+  }
 
   sync()
   return {
@@ -108,6 +95,11 @@ export function createEditView3d(game: Game, canvas: HTMLCanvasElement, host: Ed
     sync,
     /** True while the live scene is 3D and edited: the moves below apply. */
     isActive,
+    /** What a click at a client point hits through the editor camera: a Model, an icon, the ground, or nothing (CA-13, CA-14). */
+    pick: (clientX: number, clientY: number): RaycastPick<PickedTarget> | null => {
+      const at = isActive() ? editor.fractionAt(clientX, clientY) : null
+      return at && raycastPick(editor.camera, at, game.entities, overlays.targets())
+    },
     /** Zooms the Editor Camera by `factor` (the toolbar's ＋ and −). */
     zoom: (factor: number): void => {
       if (isActive()) editor.zoom(factor)
