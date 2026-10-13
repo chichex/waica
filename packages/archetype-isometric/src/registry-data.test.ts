@@ -71,6 +71,15 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     jumpAction: 'jump',
     // Issue #166 CA-14: the motor turns toward its walk.
     turnSpeed: 540,
+    // Issue #181 CA-12 to CA-15: camera-relative walking, run, roll and the attack Action.
+    relativeTo: 'world',
+    runAction: 'run',
+    runSpeed: 10,
+    dodgeAction: 'dodge',
+    dodgeSpeed: 10,
+    dodgeDuration: 0.5,
+    dodgeCooldown: 0.8,
+    attackAction: 'attack',
   },
   // Issue #166 CA-10: every archetype registers the Animator, the 3D Clip Target.
   Animator: { initialClip: '', fade: 0.15, clips: {} },
@@ -187,7 +196,8 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     hitboxWidth: 0.9,
     hitboxHeight: 0.9,
   },
-  MeleeAttack: { damage: 1, range: 1, width: 1, swingSound: '' },
+  // Issue #181 CA-16, CA-17: height and knockbackSpeed are read only in a 3D scene.
+  MeleeAttack: { damage: 1, range: 1, width: 1, height: 2, knockbackSpeed: 8, swingSound: '' },
   Interactable: { line: 'Hello, traveler!', radius: 1.5 },
   Collectible: { value: 1, stat: 'points' },
   Patrol: { axis: 'horizontal', distance: 3, speed: 2 },

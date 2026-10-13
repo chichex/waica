@@ -51,6 +51,18 @@ const hold = (fixture: PhysicsFixture, action: string): void => {
   fixture.bridge.control({ operation: 'hold', action })
 }
 
+/** Issue #181 CA-12 to CA-15: camera-relative walking, run, roll and the attack Action. */
+const ISSUE_181_DEFAULTS = {
+  relativeTo: 'world',
+  runAction: 'run',
+  runSpeed: 10,
+  dodgeAction: 'dodge',
+  dodgeSpeed: 10,
+  dodgeDuration: 0.5,
+  dodgeCooldown: 0.8,
+  attackAction: 'attack',
+}
+
 describe('CharacterMotor (CA-20)', () => {
   it('declares the 3D space and the documented defaults', () => {
     expect(CharacterMotor.space).toBe('3d')
@@ -62,7 +74,7 @@ describe('CharacterMotor (CA-20)', () => {
       forwardAction: 'up',
       backAction: 'down',
       jumpAction: 'jump',
-      turnSpeed: 540,
+      turnSpeed: 540, ...ISSUE_181_DEFAULTS,
     })
     expect(CharacterMotor.params.turnSpeed).toEqual({ label: 'Turn speed (deg/s)', min: 0, max: 1440, step: 30 })
   })

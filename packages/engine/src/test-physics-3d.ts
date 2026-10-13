@@ -2,6 +2,7 @@
 // real deterministic Rapier (through the GameOptions.physics seam), a scene
 // of Colliders and RigidBodies loaded and paused behind a Runtime Bridge, and
 // whole Simulation Steps taken through that bridge.
+import type { SceneCameraJson } from './camera.js'
 import { Collider } from './components/collider.js'
 import { RigidBody } from './components/rigid-body.js'
 import type { Game, GameOptions } from './game.js'
@@ -29,6 +30,8 @@ export interface PhysicsFixtureOptions {
   game?: Partial<GameOptions>
   /** Wait for the Rapier module before returning (the default); false returns while it may still be loading. */
   settle?: boolean
+  /** The scene's camera block; test-game-3d's fixed CAMERA_3D by default. */
+  camera?: SceneCameraJson
 }
 
 /** A 3D scene with `entities` loaded in a paused Game, its physics world ready. */
@@ -39,7 +42,7 @@ export async function physicsFixture(
   const { game } = await ready3dGame(undefined, undefined, options.game)
   const registry = registryOf({ Collider, RigidBody, ...options.components })
   const bridge = runtimeBridgeOf(game)
-  loadScene(game, { ...scene3d(entities), ...(options.simulation ? { simulation: options.simulation } : {}) }, registry)
+  loadScene(game, { ...scene3d(entities, {}, options.camera), ...(options.simulation ? { simulation: options.simulation } : {}) }, registry)
   if (options.settle !== false) await game.assets.ready()
   return {
     game,

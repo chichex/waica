@@ -572,6 +572,15 @@ export class Game {
     return this.sceneProjection
   }
 
+  /**
+   * The yaw of the scene's orbit camera in degrees — 0 looks toward -z, 90
+   * toward +x — or null when the scene camera follows nothing (issue #181);
+   * what a camera-relative mover rotates its input by.
+   */
+  get cameraYaw(): number | null {
+    return this.cameraRig.orbitView?.yaw ?? null
+  }
+
   /** The live scene's space (`render.space`); `'2d'` with no scene (ADR 0027). */
   get space(): SceneSpace {
     return this.sceneSpace
