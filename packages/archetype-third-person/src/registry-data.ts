@@ -1,15 +1,19 @@
 import {
+  AnimatedSprite,
   Animator,
   Collider,
+  Hitbox,
   Model,
   PointLight,
   RigidBody,
+  Solid,
+  Sprite,
   StateMachine,
   Sun,
   type EntityTemplate,
   type SceneRegistry,
 } from '@waica/engine'
-import { CharacterMotor, Chaser, Checkpoint, Health, MeleeAttack, Patrol, Respawnable } from '@waica/behaviors'
+import { CharacterMotor, Chaser, Checkpoint, Health, MeleeAttack, Patrol, PlatformerMotor, Respawnable } from '@waica/behaviors'
 import { THIRD_PERSON_ART } from './art.js'
 import { ControlsHint } from './controls-hint.js'
 import { GoalChest } from './goal-chest.js'
@@ -42,6 +46,14 @@ export const THIRD_PERSON_REGISTRY_DATA: SceneRegistry = {
     HeartsHud,
     ControlsHint,
     HitShake,
+    // The 2D basics, kept out of every scene and prefab (the conformance suite checks it): known here so
+    // validate_project reports one in a 3D scene as a component-space-mismatch, not an unknown component
+    // (issue #181 CA-35), as the 2D archetypes register the 3D components.
+    Sprite,
+    AnimatedSprite,
+    Hitbox,
+    Solid,
+    PlatformerMotor,
   },
   resolveAsset: (uri) => PACKAGE_ASSETS[uri] ?? uri,
   prefabs: THIRD_PERSON_PREFABS,

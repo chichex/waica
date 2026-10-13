@@ -20,13 +20,13 @@
     "kind": "perspective",
     "position": [
       0,
-      4.5,
-      13
+      3.25,
+      9.14
     ],
     "target": [
       0,
       1.2,
-      7
+      3.5
     ],
     "fov": 55,
     "follow": "Player",
@@ -543,9 +543,9 @@
       "name": "Column East",
       "prefab": "tiles/column",
       "position": [
-        -2,
+        5,
         0,
-        3
+        1
       ]
     },
     {
@@ -662,9 +662,9 @@
       "name": "Skeleton East",
       "prefab": "characters/skeleton",
       "position": [
-        4,
+        5,
         0,
-        2
+        -3
       ],
       "rotation": [
         0,
@@ -687,7 +687,7 @@
       "position": [
         0,
         0,
-        7
+        3.5
       ]
     }
   ],

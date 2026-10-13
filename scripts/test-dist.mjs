@@ -851,7 +851,7 @@ try {
     includeSceneSwap: false,
     includeBatchParity: false,
     includeLighting: false,
-    includeSmoke3d: false,
+    includeThirdPerson: false,
     includeEditor3d: false,
     includeSceneFade: false,
   })

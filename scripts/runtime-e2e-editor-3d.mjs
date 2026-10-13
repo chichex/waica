@@ -1,20 +1,21 @@
-// The editor-3d leg of the runtime e2e (issue #173 CA-23): the editor's own
-// Vite dev server, a real Chrome on the leg's Render Backend, and the smoke
-// example's scene with its two glbs opened as an in-memory project through the
-// DEV-only `globalThis.__waicaEditor` hook. It clicks the Knight to select it,
+// The editor-3d leg of the runtime e2e (issue #173 CA-23, moved to the
+// third-person demo by issue #181 CA-35): the editor's own Vite dev server, a
+// real Chrome on the leg's Render Backend, and examples/third-person's project
+// (the archetype's demo courtyard, its prefabs, UI and glbs) opened as an
+// in-memory project through the DEV-only `globalThis.__waicaEditor` hook. It clicks the Knight to select it,
 // drags the gizmo's X arrow with the real mouse, undoes the drag, reads the
 // Animator's clip dropdown, and orbits with a middle drag, all checked in the
 // file the editor saves. Pixels are compared only where the frame draws (not
 // on CI's Linux WebGPU, issue #151).
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { readdir, readFile } from 'node:fs/promises'
 import { createServer as createNetServer } from 'node:net'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { expectsBlankLighting } from './runtime-e2e-lighting.mjs'
 
-// The former examples/smoke-3d scene and art (issue #181 CA-31 removed the example; layer 7 moves this leg to the third-person demo).
-const EXAMPLE = fileURLToPath(new URL('./e2e-fixtures/smoke-3d', import.meta.url))
+/** The third-person example's sources: a synced copy of the archetype's demo (scripts/sync-scene.mjs). */
+const EXAMPLE = fileURLToPath(new URL('../examples/third-person/src', import.meta.url))
 const PROJECT = 'waica-editor-3d'
 const SCENE_PATH = 'src/scenes/main.scene.json'
 const VIEWPORT = { width: 1280, height: 800 }
@@ -46,16 +47,16 @@ async function startEditor({ root, viteBin }) {
   return { url: `http://127.0.0.1:${port}/`, close: () => server.close() }
 }
 
-/** The in-memory project: a platformer game.json, the smoke scene, its glbs (base64) and the character role. */
+/** The in-memory project: the example's JSON, UI pieces and glbs (base64), under src/ as a generated project holds them; not its code. */
 async function projectFiles() {
-  const base64 = async (file) => ({ base64: (await readFile(path.join(EXAMPLE, file))).toString('base64') })
-  return {
-    'src/game.json': JSON.stringify({ waicaGame: 1, archetype: 'platformer', resolution: { mode: 'fill', width: 640, height: 360 }, pixelsPerUnit: 16 }),
-    [SCENE_PATH]: await readFile(path.join(EXAMPLE, 'main.scene.json'), 'utf8'),
-    'src/art/knight.glb': await base64('knight.glb'),
-    'src/art/tree.glb': await base64('tree.glb'),
-    'src/roles/character.ts': "import { CHARACTER_ROLE } from '@waica/behaviors'\nimport { defineRole } from '@waica/engine'\n\ndefineRole('character', CHARACTER_ROLE)\n",
+  const files = {}
+  for (const entry of await readdir(EXAMPLE, { recursive: true, withFileTypes: true })) {
+    if (!entry.isFile() || entry.name.endsWith('.ts')) continue
+    const file = path.join(entry.parentPath, entry.name)
+    const key = `src/${path.relative(EXAMPLE, file).split(path.sep).join('/')}`
+    files[key] = entry.name.endsWith('.glb') ? { base64: (await readFile(file)).toString('base64') } : await readFile(file, 'utf8')
   }
+  return files
 }
 
 /** The scene as the editor saved it. */

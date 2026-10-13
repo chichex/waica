@@ -1,11 +1,15 @@
 import type { PerspectiveSceneCameraJson, SceneEntityJson, SceneJson } from '@waica/engine'
 
-/** The orbit camera every scene follows the Player with; `position`/`target` frame the editor's first look. */
+/**
+ * The orbit camera every scene follows the Player with. `position`/`target`
+ * frame the editor's first look: where the orbit starts behind a Player at
+ * (0, 0, 3.5), whose camera then clears the south wall.
+ */
 function orbitCamera(): PerspectiveSceneCameraJson {
   return {
     kind: 'perspective',
-    position: [0, 4.5, 13],
-    target: [0, 1.2, 7],
+    position: [0, 3.25, 9.14],
+    target: [0, 1.2, 3.5],
     fov: 55,
     follow: 'Player',
     distance: 6,
@@ -49,7 +53,7 @@ function walls(): SceneEntityJson[] {
 
 const SKELETONS: SceneEntityJson[] = [
   { name: 'Skeleton West', prefab: 'characters/skeleton', position: [-5, 0, -2] },
-  { name: 'Skeleton East', prefab: 'characters/skeleton', position: [4, 0, 2], rotation: [0, -90, 0] },
+  { name: 'Skeleton East', prefab: 'characters/skeleton', position: [5, 0, -3], rotation: [0, -90, 0] },
   { name: 'Skeleton Gate', prefab: 'characters/skeleton', position: [0, 0, -7] },
 ]
 
@@ -57,14 +61,15 @@ const SKELETONS: SceneEntityJson[] = [
  * The demo (issue #181 CA-26): a walled dungeon courtyard. A raised platform
  * in the north-east corner, reached by a step, holds the goal chest; three
  * Skeleton Warriors patrol the yard; two checkpoints and four wall torches;
- * the Player starts at the south end with the camera behind it.
+ * the Player starts in the south half, out of the skeletons' sight, with the
+ * camera behind it clear of the south wall.
  */
 export const THIRD_PERSON_SCENE: SceneJson = threeDScene([
   SUN,
   ...floorTiles(),
   ...walls(),
   { name: 'Column West', prefab: 'tiles/column', position: [-6, 0, -6] },
-  { name: 'Column East', prefab: 'tiles/column', position: [-2, 0, 3] },
+  { name: 'Column East', prefab: 'tiles/column', position: [5, 0, 1] },
   { name: 'Platform', prefab: 'tiles/step', position: [6, 0, -6], scale: [2, 0.25, 2] },
   { name: 'Step', prefab: 'tiles/step', position: [6, 0, -2.6], scale: [1, 0.125, 1] },
   { name: 'Torch NW', prefab: 'tiles/torch', position: [-4, 2.5, -9.5] },
@@ -75,7 +80,7 @@ export const THIRD_PERSON_SCENE: SceneJson = threeDScene([
   { name: 'Checkpoint North', prefab: 'objects/checkpoint', position: [-2, 0, -4] },
   { name: 'Goal Chest', prefab: 'objects/goal-chest', position: [6, 0.5, -6] },
   ...SKELETONS,
-  { name: 'Player', prefab: 'characters/player', position: [0, 0, 7] },
+  { name: 'Player', prefab: 'characters/player', position: [0, 0, 3.5] },
 ])
 
 /** The blank scene (CA-26): a ground plane, a Sun, the playable Knight and the orbit camera. */

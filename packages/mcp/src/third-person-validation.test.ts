@@ -45,6 +45,20 @@ it.each(Object.keys(ARCHETYPE.prefabs))('validates the %s prefab in a 3D scene w
   expect(await errorsFor({ waicaScene: 3, render, simulation, camera, entities })).toEqual([])
 }, 60_000)
 
+it('reports a 2D PlatformerMotor added to the 3D Player as one component-space-mismatch (CA-35)', async () => {
+  const scene = structuredClone(ARCHETYPE.scene)
+  const player = scene.entities.find((entity) => entity.name === 'Player')
+  if (!player) throw new Error('the demo has no Player')
+  player.components = [{ type: 'PlatformerMotor' }]
+  await errorsFor(scene)
+  const { findings } = await validateProject(project)
+
+  const mismatches = findings.filter((finding) => finding.code === 'component-space-mismatch')
+  expect(mismatches).toHaveLength(1)
+  expect(mismatches[0]?.message).toContain('PlatformerMotor')
+  expect(findings.filter((finding) => finding.code === 'unknown-component')).toEqual([])
+}, 60_000)
+
 it.each([
   ['demo', ARCHETYPE.scene],
   ['blank', ARCHETYPE.blankScene],

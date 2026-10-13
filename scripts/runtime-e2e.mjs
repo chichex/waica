@@ -21,7 +21,7 @@ import { promisify } from 'node:util'
 import { stdioRpc } from './stdio-rpc.mjs'
 import { runLightingLeg } from './runtime-e2e-lighting.mjs'
 import { runEditor3dLeg } from './runtime-e2e-editor-3d.mjs'
-import { runSmoke3dLeg } from './runtime-e2e-smoke-3d.mjs'
+import { runThirdPersonLeg } from './runtime-e2e-third-person.mjs'
 
 const execFileAsync = promisify(execFile)
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
@@ -1995,7 +1995,7 @@ export async function runRuntimeE2e({
   includeSceneFade = true,
   includeBatchParity = true,
   includeLighting = true,
-  includeSmoke3d = true,
+  includeThirdPerson = true,
   includeEditor3d = true,
   includeSignalShutdown = true,
   renderLeg,
@@ -2115,8 +2115,9 @@ export async function runRuntimeE2e({
           renderBackend: renderLeg?.backend,
         })
       : {}
-    const smoke3dResult = includeSmoke3d
-      ? await runSmoke3dLeg({
+    // The third-person demo (issue #181 CA-35, CA-36): the 3D invariants of the former smoke leg, then the demo played.
+    const thirdPersonResult = includeThirdPerson
+      ? await runThirdPersonLeg({
           client,
           root,
           parent: temporaryParent,
@@ -2154,7 +2155,7 @@ export async function runRuntimeE2e({
       ...sceneFadeResult,
       ...batchParityResult,
       ...lightingResult,
-      ...smoke3dResult,
+      ...thirdPersonResult,
       ...editor3dResult,
       ...signalShutdownResult,
     }
