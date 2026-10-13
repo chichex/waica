@@ -215,8 +215,20 @@ What makes a **Collider** move: `dynamic` falls, bounces and stacks under the sc
 _Avoid_: body, DynamicBody (the 2D component), physics object
 
 **Character Motor**:
-The behavior that turns the player's actions into a kinematic **Rigid Body**'s walking and jumping on the world axes (`-z` is forward) and turns the model toward where it walks at a turn speed; it moves nothing itself. Not the 2D motors, which resolve their own collisions against **Solids**.
+The behavior that turns the player's actions into a kinematic **Rigid Body**'s walking, running, rolling and jumping — on the world axes (`-z` is forward) or relative to the **Orbit Camera** — and turns the model toward where it walks at a turn speed; it moves nothing itself. Not the 2D motors, which resolve their own collisions against **Solids**.
 _Avoid_: character controller (Rapier's, which the engine drives), player movement
+
+**Orbit Camera**:
+A 3D scene's perspective camera when its block names an entity to `follow`: it looks at that entity from a distance, a yaw and a pitch it keeps until the player turns it — with the locked mouse, the orbit Actions or the wheel — and once per Simulation Step it moves in front of whatever stands between it and the entity. A camera-relative mover walks "forward" away from it.
+_Avoid_: follow camera (the 2D one), chase camera, third-person camera
+
+**Checkpoint**:
+A place the player comes back to: when the player overlaps its trigger it becomes the active one, every other turns inactive, and the player's Respawnable respawns there from then on, after a death.
+_Avoid_: save point, spawn point (where a Respawnable started)
+
+**Enemy role**:
+The `enemy` role of a 3D melee foe: it patrols (with a Patrol) until the player comes within its Chaser's range, chases, winds up still and facing the player within its MeleeAttack's range, strikes once, flinches in `hurt` when hit and stays down in `die`.
+_Avoid_: AI, mob, chaser (the 2D role)
 
 **Light**:
 An entity-owned source of 2D light: a radius in logical world space (an ellipse on an isometric screen), a color, an intensity, a falloff that is smooth or split into bands, and a shadow edge that is hard or soft. Solid tiles stop it, but the face of the tile it reaches is lit. Lights brighten what Ambient Light leaves dark; they never darken.
