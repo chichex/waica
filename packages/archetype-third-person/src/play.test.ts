@@ -7,12 +7,13 @@ vi.mock(
     (await import('../../engine/src/test-renderer.js')).withFakeRenderer(await importOriginal<Record<string, unknown>>()),
 )
 
-import { Chaser, Health } from '@waica/behaviors'
-import { installArchetype, loadScene, type Game, type RuntimeBridge, type SceneJson } from '@waica/engine'
+import { Chaser, Health, MeleeAttack } from '@waica/behaviors'
+import { authoringDefaults, installArchetype, loadScene, StateMachine, type Game, type RuntimeBridge, type SceneJson } from '@waica/engine'
 import { ready3dGame, runtimeBridgeOf, use3dTestEnvironment } from '../../engine/src/test-game-3d.js'
 import { defined } from '../../engine/src/test-support.js'
 import { THIRD_PERSON_BUNDLE } from './bundle'
 import { THIRD_PERSON_BINDINGS } from './controls'
+import { GoalChest } from './goal-chest'
 import { THIRD_PERSON_REGISTRY_DATA } from './registry-data'
 import { THIRD_PERSON_BLANK_SCENE, THIRD_PERSON_SCENE } from './scene-default'
 
@@ -76,4 +77,22 @@ it('shows "You win" and quiets the skeletons once the Player enters the goal che
   const skeletons = game.entities.filter((entity) => entity.name.startsWith('Skeleton'))
   expect(skeletons).toHaveLength(3)
   for (const skeleton of skeletons) expect(defined(skeleton.get(Chaser)).range).toBe(0)
+})
+
+it('pauses a skeleton caught winding up when the Player reaches the chest: no strike after "You win" (CA-26)', async () => {
+  const { game, bridge } = await play(THIRD_PERSON_SCENE)
+  const skeleton = defined(game.find('Skeleton West'))
+  const strike = vi.spyOn(defined(skeleton.get(MeleeAttack)), 'strike')
+  defined(skeleton.get(StateMachine)).goto('windup')
+
+  defined(game.find('Player')).position.set(6, 0.6, -6)
+  bridge.control({ operation: 'step', frames: 60 })
+
+  expect(game.ui.isVisible('you-win')).toBe(true)
+  expect(strike).not.toHaveBeenCalled()
+  expect(defined(skeleton.get(StateMachine)).current).toBe('patrol')
+})
+
+it('keeps reached as runtime state, not an authored field (CA-26)', () => {
+  expect(authoringDefaults(GoalChest)).not.toHaveProperty('reached')
 })

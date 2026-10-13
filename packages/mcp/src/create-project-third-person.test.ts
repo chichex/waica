@@ -38,7 +38,17 @@ it('copies the demo’s art to src/art/ and rewrites its uris there (CA-29)', as
   const project = await created('demo')
 
   const art = (await readdir(path.join(project, 'src/art'))).sort()
-  expect(art).toEqual(['dungeon-banner.glb', 'dungeon-chest.glb', 'dungeon-floor.glb', 'dungeon-foundation.glb', 'dungeon-pillar.glb', 'dungeon-torch.glb', 'knight.glb', 'skeleton-warrior.glb'].concat('dungeon-wall.glb').sort())
+  expect(art).toEqual([
+    'dungeon-banner.glb',
+    'dungeon-chest.glb',
+    'dungeon-floor.glb',
+    'dungeon-foundation.glb',
+    'dungeon-pillar.glb',
+    'dungeon-torch.glb',
+    'dungeon-wall.glb',
+    'knight.glb',
+    'skeleton-warrior.glb',
+  ])
   const player = await readFile(path.join(project, 'src/characters/player.character.json'), 'utf8')
   expect(player).toContain('"src/art/knight.glb"')
   expect(player).not.toContain('waica:')

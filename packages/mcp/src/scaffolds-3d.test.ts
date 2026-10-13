@@ -75,3 +75,21 @@ it('makes a 3D object a sensor Model and a 3D tile a fixed one (CA-30)', async (
   ])
   expect((await read('block', 'tile')).components).toEqual([{ type: 'Model', props: { shape: 'box' } }, { type: 'Collider' }])
 })
+
+it('gives a 3D enemy a MeleeAttack, so the enemy role can wind up and strike (CA-30)', async () => {
+  const project = await thirdPersonProject()
+
+  expect(typesOf(await scaffolded(project, 'ghoul', 'enemy'))).toContain('MeleeAttack')
+})
+
+it('scaffolds an object or a tile with no resolvable archetype exactly as before: the 2D set (CA-30)', async () => {
+  const platformer = await makeProject()
+  const unknown = await makeProject({ 'src/game.json': JSON.stringify({ waicaGame: 1 }) })
+  roots.push(platformer, unknown)
+  for (const type of ['object', 'tile']) {
+    const [expected, actual] = await Promise.all(
+      [platformer, unknown].map(async (project) => readFile(path.join(project, (await scaffoldPrefab(project, 'thing', type)).path), 'utf8')),
+    )
+    expect(actual, type).toBe(expected)
+  }
+})

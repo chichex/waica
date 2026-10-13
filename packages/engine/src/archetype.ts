@@ -1,6 +1,7 @@
 import type { DirectionalAnimation } from './animation/directional.js'
+import { authoringDefaults } from './authoring-defaults.js'
 import type { InputBindings } from './input.js'
-import type { PrefabJson, SceneEntityJson, SceneJson, SceneRegistry } from './scene.js'
+import type { PrefabJson, SceneComponentJson, SceneEntityJson, SceneJson, SceneRegistry } from './scene.js'
 import type { ArchetypeBundle } from './state/hooks.js'
 
 /** One entity template exposed in an archetype's editor palette. */
@@ -63,9 +64,32 @@ export interface SceneArchetypeNeeds {
   art: string[]
 }
 
+/** The UI piece one `ref: 'ui'` param of `component` names: its prop, or its class's default; null for none. */
+function namedPiece(component: SceneComponentJson, key: string, defaults: Readonly<Record<string, unknown>>): string | null {
+  const value = component.props?.[key] ?? defaults[key]
+  return typeof value === 'string' && value ? value : null
+}
+
+/** The UI pieces the `ref: 'ui'` params of `components` name (a Health's `healthBar`, a HUD's `piece`). */
+function uiPiecesNamed(components: readonly SceneComponentJson[], registry: SceneRegistry): Set<string> {
+  const names = new Set<string>()
+  for (const component of components) {
+    const Class = registry.components[component.type]
+    const keys = Object.entries(Class?.params ?? {}).flatMap(([key, spec]) => (spec.ref === 'ui' ? [key] : []))
+    if (!Class || keys.length === 0) continue
+    const defaults = authoringDefaults(Class)
+    for (const key of keys) {
+      const piece = namedPiece(component, key, defaults)
+      if (piece) names.add(piece)
+    }
+  }
+  return names
+}
+
 /**
  * What `scene` uses from `archetype` (issue #181 CA-29): the prefabs its
- * entities spawn, the UI pieces it lists, and the art those prefabs or the
+ * entities spawn, the UI pieces it lists or its components name (the
+ * `ref: 'ui'` params of the prefabs' and inline components), and the art those prefabs or the
  * scene refer to by uri — what a project needs as files to run the scene
  * without the archetype's own catalogs (a blank start of an archetype whose
  * blank scene is not empty). Names the archetype does not have are left out.
@@ -76,7 +100,8 @@ export function sceneArchetypeNeeds(
 ): SceneArchetypeNeeds {
   const spawned = new Set(scene.entities.flatMap((entity) => (entity.prefab ? [entity.prefab] : [])))
   const prefabs = Object.keys(archetype.prefabs).filter((ref) => spawned.has(ref))
-  const listed = new Set(scene.ui ?? [])
+  const components = [...prefabs.flatMap((ref) => archetype.prefabs[ref]?.components ?? []), ...scene.entities.flatMap((entity) => entity.components ?? [])]
+  const listed = new Set([...(scene.ui ?? []), ...uiPiecesNamed(components, archetype.registry)])
   const ui = Object.keys(archetype.registry.ui ?? {}).filter((name) => listed.has(name))
   const text = JSON.stringify([scene, prefabs.map((ref) => archetype.prefabs[ref])])
   const art = archetype.art.filter((row) => text.includes(JSON.stringify(row.uri))).map((row) => row.file)

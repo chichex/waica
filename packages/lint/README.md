@@ -1,7 +1,7 @@
 # @waica/lint
 
 Private ESLint toolchain for the waica monorepo. It is never published and is
-not part of the six-package release lockstep.
+not part of the seven-package release lockstep.
 
 Run it from the repository root:
 

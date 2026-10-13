@@ -11,10 +11,14 @@ export interface Scaffold3dRequest {
   identity?: Identity
 }
 
-/** What a 3D character is born with per identity: the extras that work in a 3D scene (Hazard is 2D). */
+/**
+ * What a 3D character is born with per identity: the extras that work in a 3D
+ * scene. Hazard is 2D: an enemy hurts with a MeleeAttack instead, whose range
+ * is what the enemy role winds up within.
+ */
 const IDENTITY_EXTRAS_3D: Readonly<Record<Identity, readonly SceneComponentJson[]>> = {
   player: [{ type: 'Respawnable' }, { type: 'Health', props: { invulnerability: 1 } }],
-  enemy: [{ type: 'Health', props: { max: 1 } }],
+  enemy: [{ type: 'MeleeAttack' }, { type: 'Health', props: { max: 1 } }],
   npc: [],
   custom: [],
 }
@@ -27,7 +31,11 @@ const CATEGORIES: Readonly<Record<Identity, Record<string, unknown>>> = {
   custom: {},
 }
 
-/** The placeholder every 3D starter prefab draws until a glb replaces it. */
+/**
+ * The placeholder every 3D starter prefab draws until a glb replaces it: a
+ * unit box centred on the entity's origin, only a marker. The character's
+ * capsule stands on that origin (the feet), as a glb character's does.
+ */
 const MODEL: SceneComponentJson = { type: 'Model', props: { shape: 'box' } }
 
 /**

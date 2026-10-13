@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest'
 import { sceneArchetypeNeeds, type ArchetypeManifest } from './archetype.js'
+import { Component } from './component.js'
 
 // Issue #181 CA-29: what a scene uses from its archetype, so a blank start can ship exactly that.
 
@@ -33,3 +34,25 @@ it('names the prefabs a scene spawns, the UI it lists and the art either refers 
 it('needs nothing for an empty scene (CA-29)', () => {
   expect(sceneArchetypeNeeds(FIXTURE, { waicaScene: 3, entities: [] })).toEqual({ prefabs: [], ui: [], art: [] })
 })
+
+/** A component whose `ref: 'ui'` params name UI pieces, one by default. */
+class Banner extends Component {
+  static override componentName = 'Banner'
+  static override params = { piece: { label: 'Piece', ref: 'ui' as const }, label: { label: 'Label' } }
+  piece = 'menu'
+  label = 'hud'
+}
+
+it('also names the UI pieces the ref ui params of the components it uses hold, declared or by default (CA-29)', () => {
+  const archetype = {
+    ...FIXTURE,
+    prefabs: { ...FIXTURE.prefabs, 'objects/sign': { waicaPrefab: 1 as const, type: 'object' as const, components: [{ type: 'Banner' }] } },
+    registry: { components: { Banner }, ui: { hud: '<p>hud</p>', menu: '<p>menu</p>', toast: '<p>toast</p>' } },
+  }
+  const scene = (entities: ArchetypeScene['entities']) => ({ waicaScene: 3 as const, entities })
+
+  expect(sceneArchetypeNeeds(archetype, scene([{ name: 'Sign', prefab: 'objects/sign' }])).ui).toEqual(['menu'])
+  expect(sceneArchetypeNeeds(archetype, scene([{ name: 'Inline', components: [{ type: 'Banner', props: { piece: 'toast' } }] }])).ui).toEqual(['toast'])
+})
+
+type ArchetypeScene = Parameters<typeof sceneArchetypeNeeds>[1]
