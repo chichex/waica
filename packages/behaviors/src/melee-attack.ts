@@ -15,7 +15,8 @@ const maskNames = (mask: readonly string[], layer: string): boolean => mask.incl
  * the caller names from the attacker's hitbox — under the isometric
  * projection that is the diamond diagonal screen-east maps to, so "in front"
  * matches the screen. In a 3D scene (issue #181) it is a `range` × `height`
- * × `width` box in front of the attacker's yaw, from its position up,
+ * × `width` box in front of the attacker's yaw, centred on its Collider
+ * (its origin without one), whatever the prefab's origin convention,
  * against every collider whose layer the attacker's Collider mask names, and
  * each body it hurts is pushed away at `knockbackSpeed` for 0.15 s.
  */
@@ -37,7 +38,7 @@ export class MeleeAttack extends Component {
   range = 1
   /** How wide the blow is, across the facing. */
   width = 1
-  /** How tall the blow is in a 3D scene, from the attacker's position up. */
+  /** How tall the blow is in a 3D scene, centred on the attacker's Collider. */
   height = 2
   /** How fast a 3D hit pushes the body it hurts away, in units per second, for 0.15 s. */
   knockbackSpeed = 8
@@ -82,13 +83,13 @@ export class MeleeAttack extends Component {
   private strike3d(): Entity[] {
     if (this.swingSound) this.game.audio.play(this.swingSound, { at: this.entity })
     const yaw = this.entity.node.rotation.y
-    const { x, y, z } = this.entity.position
+    const { x, y, z } = colliderCentre(this.entity, yaw)
     const half = this.range / 2
     const mask = this.entity.get(Collider)?.collidesWith ?? ['*']
     const targets = this.game.query.area(
       {
         shape: 'box',
-        center: { x: x + Math.sin(yaw) * half, y: y + this.height / 2, z: z + Math.cos(yaw) * half },
+        center: { x: x + Math.sin(yaw) * half, y, z: z + Math.cos(yaw) * half },
         size: { x: this.width, y: this.height, z: this.range },
         yaw: (yaw * 180) / Math.PI,
         colliders: 'all',
@@ -107,4 +108,16 @@ export class MeleeAttack extends Component {
     }
     return struck
   }
+}
+
+/**
+ * Where the attacker's Collider sits in the world, for anchoring the 3D blow
+ * (issue #181, maintainer decision): its origin plus the Collider's `offset`,
+ * scaled and turned by the entity's yaw; the origin itself with no Collider.
+ */
+function colliderCentre(entity: Entity, yaw: number): { x: number; y: number; z: number } {
+  const { x, y, z } = entity.position
+  const offset = entity.get(Collider)?.offset ?? [0, 0, 0]
+  const [ox, oy, oz] = [offset[0] * entity.scale.x, offset[1] * entity.scale.y, offset[2] * entity.scale.z]
+  return { x: x + ox * Math.cos(yaw) + oz * Math.sin(yaw), y: y + oy, z: z - ox * Math.sin(yaw) + oz * Math.cos(yaw) }
 }

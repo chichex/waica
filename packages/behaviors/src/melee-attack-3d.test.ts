@@ -64,6 +64,22 @@ it('damages a target in front of the attacker’s yaw and not one behind it (CA-
   expect(strike(fixture)).toEqual(['Behind'])
 })
 
+it('anchors the box on the attacker’s collider, so a low target in front is hit whatever the origin (CA-16)', async () => {
+  // A slime 0.6 tall standing in front: the Hero's capsule is centred on its origin at y 0.9, so a box from the origin up would pass over it.
+  const slime: SceneEntityJson = {
+    name: 'Slime',
+    position: [0, 0.3, 1.2],
+    components: [
+      { type: 'Collider', props: { shape: 'box', size: [0.8, 0.6, 0.8], layer: 'enemy', collidesWith: ['player'] } },
+      { type: 'RigidBody', props: { type: 'kinematic' } },
+      { type: 'Health', props: { max: 3 } },
+    ],
+  }
+  const fixture = await arena([slime])
+
+  expect(strike(fixture)).toEqual(['Slime'])
+})
+
 it('reaches range forward and width across, and respects the attacker’s collision mask (CA-16)', async () => {
   const fixture = await arena([
     body('Far', { x: 0, z: 2.4, layer: 'enemy' }),
