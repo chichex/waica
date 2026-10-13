@@ -22,7 +22,8 @@ export class EditorCamera {
   readonly controls: OrbitControls
   private readonly listeners = new Set<(pose: CameraPose) => void>()
 
-  constructor(private readonly element: HTMLElement) {
+  /** The element navigation listens on: the Game's canvas. */
+  constructor(readonly element: HTMLElement) {
     // Before OrbitControls listens: Alt arms the left button for the drag it starts.
     element.addEventListener('pointerdown', this.armLeftButton, { capture: true })
     this.controls = new OrbitControls(this.camera, element)
@@ -88,7 +89,7 @@ export class EditorCamera {
   /** A client point as fractions of the element the camera navigates on, or null while it has no size. */
   fractionAt(clientX: number, clientY: number): { nx: number; ny: number } | null {
     const rect = this.element.getBoundingClientRect()
-    if (rect.width === 0 || rect.height === 0) return null
+    if (rect.width === 0 || rect.height === 0 || !Number.isFinite(clientX) || !Number.isFinite(clientY)) return null
     return { nx: (clientX - rect.left) / rect.width, ny: (clientY - rect.top) / rect.height }
   }
 

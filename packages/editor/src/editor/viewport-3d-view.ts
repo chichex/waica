@@ -5,6 +5,7 @@
 import { raycastPick, type Game, type PickedTarget, type RaycastPick } from '@waica/engine'
 import type { RefObject } from 'react'
 import { EditorCamera } from './editor-camera'
+import { createGizmo3d } from './viewport-3d-gizmo'
 import { createOverlays3d, selectionBounds } from './viewport-3d-overlays'
 import type { ViewportLive } from './viewport-live'
 import { loadCameraPose, saveCameraPose, type CameraPose } from './workspace'
@@ -82,11 +83,13 @@ export function createEditView3d(game: Game, canvas: HTMLCanvasElement, host: Ed
   const editor = new EditorCamera(canvas)
   const syncCamera = cameraSession(game, editor, host)
   const overlays = createOverlays3d(game)
+  const gizmo = createGizmo3d(game, editor, host.live)
   const isActive = (): boolean => game.space === '3d' && host.live.current.mode === 'edit'
-  /** Once per frame: the camera the Game draws through, and the overlays of an edited 3D scene. */
+  /** Once per frame: the camera the Game draws through, then the overlays and the gizmo of an edited 3D scene. */
   const sync = (): void => {
     syncCamera()
     overlays.update(host.live.current, isActive())
+    gizmo.sync(isActive())
   }
 
   sync()
@@ -95,6 +98,8 @@ export function createEditView3d(game: Game, canvas: HTMLCanvasElement, host: Ed
     sync,
     /** True while the live scene is 3D and edited: the moves below apply. */
     isActive,
+    /** True while the gizmo holds or hovers a handle: a press there drags it. */
+    grabbing: gizmo.grabbing,
     /** What a click at a client point hits through the editor camera: a Model, an icon, the ground, or nothing (CA-13, CA-14). */
     pick: (clientX: number, clientY: number): RaycastPick<PickedTarget> | null => {
       const at = isActive() ? editor.fractionAt(clientX, clientY) : null
@@ -115,6 +120,7 @@ export function createEditView3d(game: Game, canvas: HTMLCanvasElement, host: Ed
     },
     dispose: (): void => {
       if (game.camera === editor.camera) game.cameraRig.setViewCamera(null)
+      gizmo.dispose()
       editor.dispose()
     },
   }

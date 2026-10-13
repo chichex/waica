@@ -1,19 +1,28 @@
 // Test support: accessible stand-ins for the Editor's three.js viewport,
 // Monaco and the play runner (excluded from builds). It imports nothing from
 // the Editor, so vi.mock factories can load it without a module cycle.
-import type { SceneJson } from '@waica/engine'
+import type { SceneJson, TransformJson } from '@waica/engine'
 
 interface ViewportStubProps {
   scene: SceneJson
   mode: 'edit' | 'play'
   onMoved: (name: string, position: [number, number]) => void
   onDropPrefab?: (data: string, world: [number, number]) => void
+  onTransformed?: (changes: Array<{ name: string; transform: TransformJson }>) => void
+}
+
+/** What the stub's gizmo drag leaves: the first two entities lifted, the first one also turned. */
+function stubGizmoDrag(scene: SceneJson): Array<{ name: string; transform: TransformJson }> {
+  return scene.entities.slice(0, 2).map((entity, index) => ({
+    name: entity.name,
+    transform: { position: [index * 2 + 1.5, 2, -3], rotation: [0, index === 0 ? 90 : 0, 0], scale: [1, 1, 1] },
+  }))
 }
 
 /** Module factory for './Viewport'. */
 export function viewportStubModule() {
   return {
-    Viewport: ({ scene, mode, onMoved, onDropPrefab }: ViewportStubProps) => (
+    Viewport: ({ scene, mode, onMoved, onDropPrefab, onTransformed }: ViewportStubProps) => (
       <section aria-label="viewport">
         <p>{`viewport mode: ${mode}`}</p>
         <ul aria-label="viewport entities">
@@ -32,6 +41,7 @@ export function viewportStubModule() {
         {onDropPrefab && (
           <button onClick={() => onDropPrefab('objects/crate', [1.234, 2.345])}>drop crate</button>
         )}
+        {onTransformed && <button onClick={() => onTransformed(stubGizmoDrag(scene))}>gizmo drag</button>}
       </section>
     ),
   }

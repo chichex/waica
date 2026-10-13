@@ -1,5 +1,6 @@
 import type { CollisionPoint, Game, GameResolution, InputBindings, SceneJson, SceneRegistry, StatValue, TransformJson } from '@waica/engine'
 import type { GridSettings } from '../project/editor-settings'
+import type { GizmoSettings } from './editor-view-settings'
 import type { TilemapBrushSelection } from './tilemap-brush'
 
 export interface ViewportHandle {
@@ -40,8 +41,18 @@ export interface ViewportLive {
   tilemapBrush?: TilemapBrushSelection | null
   /** The project's name: its 3D scenes remember the editor camera's pose under it (issue #173 CA-12). */
   project?: string
-  /** Draws the 3D helpers (camera frustum, lights, colliders) and icons in edit mode (issue #173 CA-17). */
+  /** Draws the 3D helpers (camera frustum, lights, colliders) in edit mode (issue #173 CA-17). */
   helpers3d?: boolean
+  /** The 3D gizmo's mode, space and snap steps (issue #173 CA-18, CA-20). */
+  gizmo?: GizmoSettings
+  /** Commits the transforms a released gizmo drag left (issue #173 CA-19, CA-21). */
+  onTransformed?: (changes: TransformChange[]) => void
+}
+
+/** One entity's transform after a gizmo drag, as scene JSON. */
+export interface TransformChange {
+  name: string
+  transform: TransformJson
 }
 
 /** The editor's own pan/zoom, kept across Game rebuilds and scene swaps. */

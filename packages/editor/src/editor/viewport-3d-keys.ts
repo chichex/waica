@@ -1,7 +1,9 @@
 // The keyboard of the 3D edit view (issue #173): arrows, Shift+arrows, + and -
 // navigate while the viewport element has focus (CA-11); F frames the
-// selection from anywhere but a field being typed in (CA-15, inference 9).
+// selection and W, E, R pick the gizmo's mode from anywhere but a field being
+// typed in (CA-15, CA-18, inference 9).
 import { useEffect, useEffectEvent, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from 'react'
+import type { GizmoMode } from './editor-view-settings'
 import type { EditView3d } from './viewport-3d-view'
 
 /** One key's move: an orbit or pan step (yaw/right, pitch/up), or a zoom factor. */
@@ -39,14 +41,23 @@ export function isTypingTarget(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest('input, textarea, select, [contenteditable], .monaco-editor') !== null
 }
 
-/** The 3D edit view's single-letter shortcuts, on the window: F frames the selection. */
-export function useViewport3dShortcuts(view3dRef: RefObject<EditView3d | null>): void {
+const GIZMO_KEYS: Readonly<Record<string, GizmoMode>> = { w: 'translate', e: 'rotate', r: 'scale' }
+
+/**
+ * The 3D edit view's single-letter shortcuts, on the window, while a 3D scene
+ * is edited: F frames the selection (CA-15); W, E and R pick the gizmo's
+ * move, rotate and scale (CA-18).
+ */
+export function useViewport3dShortcuts(view3dRef: RefObject<EditView3d | null>, onGizmoMode: (mode: GizmoMode) => void): void {
   const onKey = useEffectEvent((event: KeyboardEvent): void => {
     const view = view3dRef.current
-    if (!view || event.ctrlKey || event.metaKey || event.altKey || isTypingTarget(event.target)) return
-    if (event.key.toLowerCase() !== 'f') return
+    if (!view?.isActive() || event.ctrlKey || event.metaKey || event.altKey || isTypingTarget(event.target)) return
+    const key = event.key.toLowerCase()
+    const mode = GIZMO_KEYS[key]
+    if (key !== 'f' && !mode) return
     event.preventDefault()
-    view.frameSelection()
+    if (mode) onGizmoMode(mode)
+    else view.frameSelection()
   })
   useEffect(() => {
     const listener = (event: KeyboardEvent): void => onKey(event)

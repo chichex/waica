@@ -94,6 +94,8 @@ function sceneMoveHandlers(core: EditorCore, scene: SceneJson) {
     },
     onCameraMoved: (position) => core.commit(ops.moveCamera(scene, position)),
     onDropPrefab: (data, world) => dropPrefab(core, data, world),
+    // A released 3D gizmo drag: every dragged entity's transform as one commit, one undo (issue #173 CA-19, CA-21).
+    onTransformed: (changes) => core.commit(changes.reduce((next, { name, transform }) => ops.setEntityTransform(next, name, transform), scene)),
   } satisfies Partial<ViewportProps>
 }
 

@@ -35,7 +35,8 @@ function select3d(pick: RaycastPick<PickedTarget> | null, shiftKey: boolean, cal
 /** A press over an edited 3D scene: a plain left click picks, the rest navigates the Editor Camera. True when it was one. */
 function press3d(view3d: EditView3d | null, e: PointerEvent<HTMLElement>, callbacks: GestureCallbacks): boolean {
   if (!view3d?.isActive()) return false
-  if (e.button === 0 && !e.altKey) select3d(view3d.pick(e.clientX, e.clientY), e.shiftKey, callbacks)
+  // A press on a gizmo handle drags it (CA-18): it picks nothing.
+  if (e.button === 0 && !e.altKey && !view3d.grabbing()) select3d(view3d.pick(e.clientX, e.clientY), e.shiftKey, callbacks)
   return true
 }
 

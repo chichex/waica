@@ -708,6 +708,24 @@ button.ed-crumb:hover {
   color: var(--accent);
 }
 
+/* The 3D gizmo's row (issue #173): under the grid tools. */
+.ed-vp-tools.is-transform {
+  top: 48px;
+}
+
+.ed-vp-tools button.is-wide {
+  width: auto;
+  padding: 0 8px;
+}
+
+.ed-vp-snap {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
 .ed-vp-tools input {
   width: 56px;
   height: 30px;

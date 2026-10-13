@@ -2,7 +2,7 @@ import { forwardRef } from 'react'
 import type { CollisionPoint, GameResolution, InputBindings, SceneJson, SceneRegistry, StatValue } from '@waica/engine'
 import { DEFAULT_EDITOR_SETTINGS, type GridSettings } from '../project/editor-settings'
 import { effectiveGrid } from './effective-grid'
-import { useEditorViewSettings, type EditorViewSettings } from './editor-view-settings'
+import { useViewport3dSettings, type Viewport3dSettings } from './editor-view-settings'
 import type { TilemapBrushSelection } from './tilemap-brush'
 import { usePrefabDrop } from './use-prefab-drop'
 import { useViewportGame, useViewportHandle } from './use-viewport-game'
@@ -10,8 +10,8 @@ import { useViewportPointer } from './use-viewport-pointer'
 import { navigate3d, useViewport3dShortcuts } from './viewport-3d-keys'
 import { isThreeDScene } from './viewport-camera'
 import { frameEditView, zoomEditView } from './viewport-game'
-import type { ViewportComponentVisibility, ViewportHandle } from './viewport-live'
-import { ViewportGridTools, ViewportNavTools } from './ViewportTools'
+import type { TransformChange, ViewportComponentVisibility, ViewportHandle } from './viewport-live'
+import { ViewportGridTools, ViewportNavTools, ViewportTransformTools } from './ViewportTools'
 
 export type { ViewportComponentVisibility, ViewportHandle } from './viewport-live'
 
@@ -94,8 +94,10 @@ interface Props {
   onBoxMoved?(name: string, componentType: string, offset: [number, number]): void
   /** Reports freeform collision vertices after a polygon handle drag. */
   onPolygonChanged?(name: string, componentType: string, points: CollisionPoint[]): void
-  /** Accepts 'waica/prefab' drops (refs); omit to reject drops (prefab stage). */
-  onDropPrefab?(ref: string, world: [number, number]): void
+  /** Accepts 'waica/prefab' drops (refs) at a 2D point, or a 3D one in a 3D scene; omit to reject drops (prefab stage). */
+  onDropPrefab?(ref: string, world: [number, number] | [number, number, number]): void
+  /** Commits the transforms a released 3D gizmo drag left, all at once (issue #173 CA-19, CA-21). */
+  onTransformed?: (changes: TransformChange[]) => void
 }
 
 interface ChromeProps {
@@ -105,19 +107,18 @@ interface ChromeProps {
   showCamera: boolean
   grid: GridSettings
   onGridChange?: (next: GridSettings) => void
-  view: EditorViewSettings
-  onHelpersChange: (helpers: boolean) => void
+  settings3d: Viewport3dSettings
 }
 
-/** The floating tools over the edit viewport: the grid's (and, in 3D, the helpers toggle), and navigation. */
-function ViewportChrome({ session, mode, threeD, showCamera, grid, onGridChange, view, onHelpersChange }: ChromeProps) {
+/** The floating tools over the edit viewport: the grid's (and, in 3D, the helpers toggle and the gizmo's), and navigation. */
+function ViewportChrome({ session, mode, threeD, showCamera, grid, onGridChange, settings3d }: ChromeProps) {
   if (mode !== 'edit') return null
   const { view3dRef } = session
+  const helpers = { helpers: settings3d.helpers, onHelpersChange: settings3d.setHelpers }
   return (
     <>
-      {onGridChange && (
-        <ViewportGridTools grid={grid} onGridChange={onGridChange} threeD={threeD ? { helpers: view.helpers, onHelpersChange } : undefined} />
-      )}
+      {onGridChange && <ViewportGridTools grid={grid} onGridChange={onGridChange} threeD={threeD ? helpers : undefined} />}
+      {threeD && <ViewportTransformTools gizmo={settings3d.gizmo} onGizmoChange={settings3d.setGizmo} />}
       {threeD ? (
         <ViewportNavTools
           onZoom={(factor) => view3dRef.current?.zoom(factor)}
@@ -132,15 +133,15 @@ function ViewportChrome({ session, mode, threeD, showCamera, grid, onGridChange,
 }
 
 export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
-  { scene, scenePath, sceneCatalog, registry, epoch, mode, bindings, stats, music, viewHeight = 12, background = 0x1a1a2e, resolution, showCamera = false, grid = DEFAULT_EDITOR_SETTINGS.grid, onGridChange, componentVisibility = DEFAULT_COMPONENT_VISIBILITY, tilemapBrush, onTilemapStroke, project, selected, multiSelected, onSelect, onToggleSelect, onRangeSelect, onSelectCamera, onMoved, onMovedMany, onCameraMoved, onBoxResized, onBoxMoved, onPolygonChanged, onDropPrefab },
+  { scene, scenePath, sceneCatalog, registry, epoch, mode, bindings, stats, music, viewHeight = 12, background = 0x1a1a2e, resolution, showCamera = false, grid = DEFAULT_EDITOR_SETTINGS.grid, onGridChange, componentVisibility = DEFAULT_COMPONENT_VISIBILITY, tilemapBrush, onTilemapStroke, project, selected, multiSelected, onSelect, onToggleSelect, onRangeSelect, onSelectCamera, onMoved, onMovedMany, onCameraMoved, onBoxResized, onBoxMoved, onPolygonChanged, onDropPrefab, onTransformed },
   ref,
 ) {
-  const [view, setHelpers] = useEditorViewSettings()
-  const live = { scene, scenePath, sceneCatalog, registry, bindings, stats, music, resolution, selected, multiSelected, mode, grid: effectiveGrid(scene, grid), componentVisibility, tilemapBrush, project, helpers3d: view.helpers }
+  const settings3d = useViewport3dSettings()
+  const live = { scene, scenePath, sceneCatalog, registry, bindings, stats, music, resolution, selected, multiSelected, mode, grid: effectiveGrid(scene, grid), componentVisibility, tilemapBrush, project, helpers3d: settings3d.helpers, gizmo: settings3d.gizmo, onTransformed }
   const session = useViewportGame(live, { epoch, mode, background, showCamera, viewHeight, onSelect })
   const { surfaceRef, uiFrameRef, uiScaleRef, gameRef, view3dRef } = session
   useViewportHandle(ref, gameRef)
-  useViewport3dShortcuts(view3dRef)
+  useViewport3dShortcuts(view3dRef, (gizmoMode) => settings3d.setGizmo({ ...settings3d.gizmo, mode: gizmoMode }))
   const pointer = useViewportPointer(
     { ...session, showCamera },
     { onSelect, onToggleSelect, onRangeSelect, onSelectCamera, onMoved, onMovedMany, onCameraMoved, onBoxResized, onBoxMoved, onPolygonChanged, onTilemapStroke },
@@ -164,7 +165,7 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
           <div ref={uiScaleRef} />
         </div>
       )}
-      <ViewportChrome session={session} mode={mode} threeD={threeD} showCamera={showCamera} grid={grid} onGridChange={onGridChange} view={view} onHelpersChange={setHelpers} />
+      <ViewportChrome session={session} mode={mode} threeD={threeD} showCamera={showCamera} grid={grid} onGridChange={onGridChange} settings3d={settings3d} />
     </>
   )
 })
