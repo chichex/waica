@@ -11,7 +11,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { CLIPS, clipDuration, poseHashOf } from './runtime-e2e-animation.mjs'
-import { brightness, expectsBlankLighting, maxChannelDifference, rewriteScene, samplesInPage } from './runtime-e2e-lighting.mjs'
+import { brightness, maxChannelDifference, rewriteScene, samplesInPage } from './runtime-e2e-lighting.mjs'
 import { exerciseCombat, exerciseRespawn } from './runtime-e2e-third-person-combat.mjs'
 import { exerciseCameraCollision, exerciseSimulation, SCENE } from './runtime-e2e-third-person-play.mjs'
 
@@ -159,13 +159,8 @@ async function assertDepthOrder(context) {
   return { differingPixels: compared.differing, blocker: first.samples.blocker }
 }
 
-/** The pixel checks, where the frame draws (not CI's Linux WebGPU, issue #151, which asserts its blank frame instead). */
+/** The pixel checks, on both Render Backends: this frame draws on CI's Linux WebGPU too (issue #151 no longer blanks it), so no blank-frame exception applies. */
 async function assertPixels(context, shipped) {
-  if (expectsBlankLighting(context.renderBackend)) {
-    const { min, max } = await context.inspector.range(shipped.image)
-    assert.ok([...min, ...max].every((value) => value === 255), `issue #151 is fixed for 3D frames: remove the expectsBlankLighting exception from runtime-e2e-third-person.mjs; ${JSON.stringify({ min, max })}`)
-    return { expectedBlank: 'https://github.com/chichex/waica/issues/151' }
-  }
   const pool = await assertFrame({ inspector: context.inspector, image: shipped.image, samples: shipped.samples })
   const dark = await capture(context, torchesOff)
   const darkPool = warmth(dark.samples.underTorch) - warmth(dark.samples.farFromTorches)
