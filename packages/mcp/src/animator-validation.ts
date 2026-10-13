@@ -1,8 +1,18 @@
 import path from 'node:path'
-import type { SceneComponentJson } from '@waica/engine'
+import { glbClipNames, type SceneComponentJson } from '@waica/engine'
 import { objectRecord } from './component-metadata.js'
-import { clipNamesOf, readModelDocument } from './glb-document.js'
+import { clipNamesOf, readGlbHead, readModelDocument } from './glb-document.js'
 import { add, type ValidationContext, type ValidationFinding } from './validation-context.js'
+
+/** A model file's clip names: a `.glb`'s through the engine's reader of its JSON chunk (issue #173 CA-3), a `.gltf`'s from its document; null when unreadable. */
+async function modelClipNames(file: string): Promise<readonly string[] | null> {
+  if (/\.glb$/i.test(file)) {
+    const head = await readGlbHead(file)
+    return head && glbClipNames(head)
+  }
+  const document = await readModelDocument(file)
+  return document && clipNamesOf(document)
+}
 
 /**
  * The clip names of the given model files directly under the project's
@@ -15,8 +25,8 @@ import { add, type ValidationContext, type ValidationFinding } from './validatio
 export async function projectModelClips(projectPath: string, modelFiles: readonly string[]): Promise<ReadonlyMap<string, readonly string[]>> {
   const clips = new Map<string, readonly string[]>()
   for (const file of modelFiles) {
-    const document = await readModelDocument(path.join(projectPath, 'src/art', file))
-    if (document) clips.set(`src/art/${file}`, clipNamesOf(document))
+    const names = await modelClipNames(path.join(projectPath, 'src/art', file))
+    if (names) clips.set(`src/art/${file}`, names)
   }
   return clips
 }
