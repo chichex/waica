@@ -270,6 +270,8 @@ describe('the viewport tools over a 3D scene (issue #173 CA-16, CA-17)', () => {
   it('shows the 2D tools on a 2D scene, as before', async () => {
     mountViewport({ scene: HERO_AND_FOE, showCamera: true, onGridChange: () => {} })
     await tick()
+    expect(screen.queryByTitle('Show grid')).not.toBeNull()
+    expect(screen.queryByTitle('Zoom in')).not.toBeNull()
     expect(screen.getByTitle('Snap to grid (hold Shift to invert)')).toBeDefined()
     expect(screen.getByTitle("Go to the scene camera's framing")).toBeDefined()
     expect(screen.queryByTitle('Show helpers')).toBeNull()
