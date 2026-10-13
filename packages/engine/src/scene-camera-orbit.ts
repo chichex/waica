@@ -152,16 +152,56 @@ function rangeIssue(block: Record<string, unknown>, [low, high]: readonly [strin
   })
 }
 
+/** A declared value or its default, when it is a number its rule accepts (else the field is already an error). */
+function numberOr(block: Record<string, unknown>, field: keyof typeof ORBIT_DEFAULTS): number | null {
+  const fallback: Readonly<Record<string, unknown>> = ORBIT_DEFAULTS
+  const value = block[field] ?? fallback[field]
+  const rule = NUMBER_RULES.find((entry) => entry.field === field)
+  return isFiniteNumber(value) && (rule?.accepts(value) ?? true) ? value : null
+}
+
+/** The range each initial orbit number starts inside. */
+const START_RANGES = {
+  distance: ['minDistance', 'maxDistance'],
+  pitch: ['minPitch', 'maxPitch'],
+} as const satisfies Record<string, readonly [keyof typeof ORBIT_DEFAULTS, keyof typeof ORBIT_DEFAULTS]>
+
+/**
+ * A following camera's declared initial `distance` or `pitch` outside its
+ * valid range [low, high]: the camera clamps it, so it starts elsewhere than
+ * the scene says, a warning (issue #181, maintainer decision). An invalid
+ * value or an inverted range is already an error and is not repeated.
+ */
+function startIssue(block: Record<string, unknown>, field: keyof typeof START_RANGES): SceneFieldIssue | null {
+  const [low, high] = START_RANGES[field]
+  const value = block[field] === undefined ? null : numberOr(block, field)
+  const min = numberOr(block, low)
+  const max = numberOr(block, high)
+  if (!block.follow || value === null || min === null || max === null || min > max) return null
+  if (value >= min && value <= max) return null
+  return {
+    field: `camera.${field}`,
+    message: `camera.${field} (${value}) is outside [camera.${low} (${min}), camera.${high} (${max})]; the camera starts at ${Math.min(Math.max(value, min), max)}.`,
+    severity: 'warning',
+  }
+}
+
 /**
  * Every orbit field of a perspective block outside its range: the numbers
  * (distances above 0, pitches in (-89, 89), speeds at least 0), `invertY`,
- * the Action names, and a `minDistance` or `minPitch` above its maximum.
- * Whether `follow` names an entity of the scene is the scene validator's.
+ * the Action names, and a `minDistance` or `minPitch` above its maximum
+ * (errors); and a following camera's initial `distance` or `pitch` outside
+ * its own range (warnings). Whether `follow` names an entity of the scene is
+ * the scene validator's.
  */
 export function orbitCameraIssues(block: Record<string, unknown>): SceneFieldIssue[] {
   const issues: SceneFieldIssue[] = []
   fieldIssues(block, issues)
   rangeIssue(block, ['minDistance', 'maxDistance'], issues)
   rangeIssue(block, ['minPitch', 'maxPitch'], issues)
+  for (const field of ['distance', 'pitch'] as const) {
+    const start = startIssue(block, field)
+    if (start) issues.push(start)
+  }
   return issues
 }

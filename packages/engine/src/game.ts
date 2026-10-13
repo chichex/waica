@@ -15,6 +15,7 @@ import { Entity } from './entity.js'
 import { EntityUpdateSchedules } from './entity-update-schedules.js'
 import type { PositionJson } from './entity-transform.js'
 import { Emitter } from './events.js'
+import { RigidBody } from './components/rigid-body.js'
 import {
   consumeSimulationSteps,
   MAX_CHAINED_HOPS,
@@ -194,8 +195,9 @@ export class Game {
     renderPoint: (x, y) => this.renderPoint(x, y),
     viewHeight: () => this.viewHeight,
     input: () => this.input,
+    // Fixed level geometry only (a Collider with no RigidBody): a character or a crate crossing behind the Player never moves the camera.
     rayDistance: ({ origin, direction, maxDistance, exclude }) =>
-      this.query.ray(origin, direction, maxDistance, { exclude })?.distance ?? null,
+      this.query.ray(origin, direction, maxDistance, { exclude, without: [RigidBody] })?.distance ?? null,
   }
   private renderSort: 'y' | null = null
   private sceneProjection: 'isometric' | null = null
@@ -229,6 +231,8 @@ export class Game {
       canvas,
       // A click takes the pointer lock only while an orbit camera plays (never in the editor's edit mode).
       lockOnClick: () => this.orbitPlays,
+      // The wheel zooms the orbit; any other scene leaves the page's scroll alone (CA-2 as amended).
+      preventsWheelScroll: () => this.orbitPlays,
     })
     this.query = createSpatialQuery(this)
     this.stats = new Stats(options.stats)

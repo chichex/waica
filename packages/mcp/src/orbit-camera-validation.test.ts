@@ -40,3 +40,15 @@ it('reports inverted ranges and a pitch outside (-89, 89) as invalid-scene-camer
     { severity: 'error', code: 'invalid-scene-camera', ref: 'camera.minPitch' },
   ])
 })
+
+it('warns, without an error, about an initial distance or pitch outside its range, which the camera clamps (CA-5)', async () => {
+  expect(await cameraFindings({ follow: 'Player', distance: 15, pitch: 75 })).toEqual([
+    { severity: 'warning', code: 'invalid-scene-camera', ref: 'camera.distance' },
+    { severity: 'warning', code: 'invalid-scene-camera', ref: 'camera.pitch' },
+  ])
+  expect(await cameraFindings({ follow: 'Player', distance: 3, minDistance: 4, pitch: 10, minPitch: 15, maxPitch: 60 })).toEqual([
+    { severity: 'warning', code: 'invalid-scene-camera', ref: 'camera.distance' },
+    { severity: 'warning', code: 'invalid-scene-camera', ref: 'camera.pitch' },
+  ])
+  expect(await cameraFindings({ distance: 15, position: [0, 4, 8] })).toEqual([])
+})

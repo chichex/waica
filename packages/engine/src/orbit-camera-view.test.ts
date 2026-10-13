@@ -97,6 +97,22 @@ it('gives the pointer lock back once the orbit stops: a pause or a swap to a fix
   expect([game.input.pointerLocked, exits()]).toEqual([false, 1])
 })
 
+it('keeps the page from scrolling under the wheel only while the camera orbits (CA-2, CA-8)', async () => {
+  const cancelled = (canvas: HTMLCanvasElement): boolean => {
+    const event = new WheelEvent('wheel', { deltaY: 100, deltaMode: 0, cancelable: true, bubbles: true })
+    canvas.dispatchEvent(event)
+    return event.defaultPrevented
+  }
+  const following = await sceneWith({ kind: 'perspective', follow: 'Player' })
+  expect(cancelled(following.canvas)).toBe(true)
+  following.game.simulate = false
+  expect(cancelled(following.canvas)).toBe(false)
+
+  document.body.innerHTML = ''
+  const fixed = await sceneWith({ kind: 'perspective', position: [0, 4, 8] })
+  expect(cancelled(fixed.canvas)).toBe(false)
+})
+
 it('never asks for the lock under a fixed perspective camera (CA-7)', async () => {
   const fixed = await sceneWith({ kind: 'perspective', position: [0, 4, 8] })
   const requests = stubLock(fixed.canvas)

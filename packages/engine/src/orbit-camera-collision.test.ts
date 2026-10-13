@@ -82,3 +82,22 @@ it('ignores the followed entity’s own colliders and sensors (CA-9)', async () 
 
   expect(view(bridge)).toMatchObject({ distance: 6, distanceActual: 6 })
 })
+
+it('is pulled in by fixed level geometry only: characters and dynamic bodies between never move it (CA-9)', async () => {
+  const skeleton: SceneEntityJson = {
+    name: 'Skeleton',
+    position: [0, 0, 3],
+    components: [
+      { type: 'Collider', props: { shape: 'capsule', radius: 0.5, height: 1.8, offset: [0, 0.9, 0] } },
+      { type: 'RigidBody', props: { type: 'kinematic' } },
+    ],
+  }
+  const crate: SceneEntityJson = {
+    name: 'Crate',
+    position: [0, 1, 4.5],
+    components: [{ type: 'Collider', props: { shape: 'box', size: [1, 1, 1] } }, { type: 'RigidBody' }],
+  }
+  const { bridge } = await behind([skeleton, crate])
+
+  expect(view(bridge).distanceActual).toBe(6)
+})

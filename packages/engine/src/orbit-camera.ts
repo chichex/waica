@@ -30,7 +30,7 @@ export interface OrbitRay {
 export interface OrbitHost {
   find(name: string): Entity | undefined
   input(): Input
-  /** The distance to the first solid collider along the ray (sensors never block it); null when nothing is hit. */
+  /** The distance to the first fixed collider along the ray (level geometry: sensors, characters and dynamic bodies never block it); null when nothing is hit. */
   rayDistance(ray: OrbitRay): number | null
 }
 

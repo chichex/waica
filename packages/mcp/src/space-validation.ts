@@ -24,7 +24,7 @@ interface SpaceScope {
 export function validateSceneSpace(scene: SceneJson, scope: SpaceScope): void {
   for (const issue of sceneSpaceIssues(scene.render, scene.camera)) {
     const code = issue.field.startsWith('camera.') ? 'invalid-scene-camera' : 'invalid-scene-render'
-    add(scope.context, 'error', code, issue.message, scope.file, issue.field)
+    add(scope.context, issue.severity ?? 'error', code, issue.message, scope.file, issue.field)
   }
 }
 

@@ -5,10 +5,12 @@
  * perspective camera that imports them.
  */
 
-/** One field of a scene's render, camera or entity transform that is invalid, for validate_project. */
+/** One field of a scene's render, camera or entity transform that is invalid, for validate_project: an error unless it is a `'warning'`. */
 export interface SceneFieldIssue {
   field: string
   message: string
+  /** A field the runtime accepts as written but adjusts (a clamp): reported as a warning. */
+  severity?: 'warning'
 }
 
 /** A JSON value as a message quotes it: strings in quotes, everything else as `String()` shows it. */
