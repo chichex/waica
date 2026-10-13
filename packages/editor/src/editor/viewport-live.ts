@@ -41,7 +41,7 @@ export interface ViewportLive {
   tilemapBrush?: TilemapBrushSelection | null
   /** The project's name: its 3D scenes remember the editor camera's pose under it (issue #173 CA-12). */
   project?: string
-  /** Draws the 3D helpers (camera frustum, lights, colliders) in edit mode (issue #173 CA-17). */
+  /** Draws the 3D helpers (camera frustum, lights, colliders) in edit mode; the icons do not follow it (issue #173 CA-17). */
   helpers3d?: boolean
   /** The 3D gizmo's mode, space and snap steps (issue #173 CA-18, CA-20). */
   gizmo?: GizmoSettings

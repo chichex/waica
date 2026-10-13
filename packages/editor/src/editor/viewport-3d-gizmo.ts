@@ -105,6 +105,8 @@ function followDrags(gizmo: TransformControls, pivot: THREE.Object3D, scope: { g
   })
 }
 
+export type Gizmo3d = ReturnType<typeof createGizmo3d>
+
 export function createGizmo3d(game: Game, editor: EditorCamera, live: RefObject<ViewportLive>) {
   let controls: TransformControls | null = null
   const unsnap = snapOnCtrl(editor.element, live, () => controls)

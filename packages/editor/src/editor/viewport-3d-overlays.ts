@@ -5,7 +5,7 @@
 // view, and so this, is never built.
 import { THREE, type Entity, type Game, type PickTarget } from '@waica/engine'
 import type { GridSettings } from '../project/editor-settings'
-import { createHelpers3d } from './viewport-3d-helpers'
+import { createHelpers3d, disposeObject } from './viewport-3d-helpers'
 import { createIcons3d } from './viewport-3d-icons'
 import type { ViewportLive } from './viewport-live'
 import { addOverlay, SELECTION_AMBER } from './viewport-selection-gizmos'
@@ -108,6 +108,18 @@ export function createOverlays3d(game: Game) {
       selection.sync(live, active)
       icons.sync(live, active)
       helpers.sync(live, active && live.helpers3d !== false)
+    },
+    /** Removes every overlay from the scene and frees its GPU resources. */
+    dispose(): void {
+      const overlays: THREE.Object3D[] = []
+      game.scene.traverse((object) => {
+        if (object.name.startsWith('waica:editor-')) overlays.push(object)
+      })
+      for (const overlay of overlays) {
+        overlay.removeFromParent()
+        disposeObject(overlay)
+      }
+      icons.dispose()
     },
     /** The extra targets a click is tested against beside the Model roots. */
     targets: (): PickTarget[] => icons.targets(),

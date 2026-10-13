@@ -21,7 +21,8 @@ function vector(value: THREE.Vector3): Vec3Json {
 }
 
 export function viewSnapshot(game: Game): RuntimeSnapshotView {
-  const camera = game.camera
+  // The scene's own camera: a host's view camera is not part of the simulated game, and `lookDistance` is the scene camera's.
+  const camera = game.cameraRig.sceneCamera
   if (!isPerspectiveCamera(camera)) {
     return { kind: 'orthographic', position: [clean(camera.position.x), clean(camera.position.y)], zoom: game.view }
   }

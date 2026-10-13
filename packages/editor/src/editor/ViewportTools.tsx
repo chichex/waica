@@ -45,7 +45,7 @@ export function ViewportGridTools({ grid, onGridChange, threeD }: GridToolsProps
   )
 }
 
-/** 👁: the 3D helpers and icons on or off (issue #173 CA-17). */
+/** 👁: the 3D helpers on or off (the icons stay: they pick lights and the camera) (issue #173 CA-17). */
 function HelpersToggle({ helpers, onHelpersChange }: NonNullable<GridToolsProps['threeD']>) {
   return (
     <button title="Show helpers" aria-pressed={helpers} className={helpers ? 'is-on' : ''} onClick={() => onHelpersChange(!helpers)}>

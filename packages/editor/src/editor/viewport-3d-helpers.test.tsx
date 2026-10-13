@@ -77,6 +77,15 @@ function shown(game: Game, name: string): THREE.Object3D[] {
   return found
 }
 
+/** Every object of the scene with `name`, visible or not. */
+function overlaysOf(game: Game, name: string): THREE.Object3D[] {
+  const found: THREE.Object3D[] = []
+  game.scene.traverse((object) => {
+    if (object.name === name) found.push(object)
+  })
+  return found
+}
+
 const round = (values: readonly number[]): number[] => values.map((value) => Math.round(value * 1000) / 1000 + 0)
 
 /** The grid object, with its vertex positions and colors as flat xyz / rgb lists. */
@@ -138,6 +147,9 @@ describe('the 3D grid (issue #173 CA-16)', () => {
     mounted.rerender({ grid: { ...GRID, show: true, size: 2 } })
     await tick()
     expect(defined(shown(game, 'waica:editor-grid-3d')[0]).scale.toArray()).toEqual([2, 1, 2])
+    // The icons are how a light or the camera is picked: 👁 leaves them (PR #176 finding 4).
+    expect(shown(game, 'waica:editor-icon').length).toBeGreaterThan(0)
+
     const play = await mount({ mode: 'play' })
     expect(shown(play.game, 'waica:editor-grid-3d')).toHaveLength(0)
   })
@@ -171,6 +183,28 @@ describe('the helpers (issue #173 CA-17)', () => {
     expect(round(along.toArray())).toEqual([0, -0.6, 0.8])
   })
 
+})
+
+describe('freeing what the helpers drew (PR #176 finding 5)', () => {
+  it("disposes a collider's old wire when its shape changes, and every overlay with the edit view", async () => {
+    const { game, mounted } = await mount()
+    const before = overlaysOf(game, 'waica:editor-collider')
+    const geometries = before.flatMap((holder) => holder.children).filter((child): child is THREE.LineSegments => child instanceof THREE.LineSegments).map((line) => line.geometry)
+    const disposed = geometries.map(() => vi.fn())
+    geometries.forEach((geometry, index) => geometry.addEventListener('dispose', defined(disposed[index], 'listener')))
+    const collider = defined(game.find('Wall')?.components.find((component) => component instanceof Collider), 'collider')
+    collider.size = [4, 4, 4]
+    await tick()
+    expect(disposed.filter((listener) => listener.mock.calls.length > 0)).toHaveLength(1)
+
+    const kept = overlaysOf(game, 'waica:editor-grid-3d').map((grid) => (grid as THREE.LineSegments).geometry)
+    const gone = kept.map(() => vi.fn())
+    kept.forEach((geometry, index) => geometry.addEventListener('dispose', defined(gone[index], 'listener')))
+    mounted.rerender({ mode: 'play' })
+    await tick()
+    expect(gone.every((listener) => listener.mock.calls.length === 1)).toBe(true)
+    expect(overlaysOf(game, 'waica:editor-grid-3d')).toHaveLength(0)
+  })
 })
 
 describe('the light, collider and toggle helpers (issue #173 CA-17)', () => {

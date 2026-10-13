@@ -11,7 +11,7 @@ import { ComponentUpdateSchedule } from './update-schedule'
 /** Context the Role card needs beyond the generic behaviour plumbing. */
 export interface MachineCardContext {
   /** The sprite's clip names, or null when they live in a glb the editor does not parse. */
-  clips: string[] | null
+  clips: readonly string[] | null
   stateFiles: string[]
   roleFiles: string[]
   onPatch: (patch: Partial<MachineProps>) => void
