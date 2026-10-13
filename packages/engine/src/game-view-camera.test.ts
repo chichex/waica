@@ -73,7 +73,6 @@ describe('a view camera over a 3D scene (issue #173 CA-1)', () => {
     expect(view.fov).toBe(70)
     expect(game.camera).toBe(view)
   })
-
 })
 
 describe('clearing or fitting a view camera (issue #173 CA-1)', () => {
@@ -131,5 +130,20 @@ describe('a view camera over a 2D scene (issue #173 CA-1)', () => {
     expect(lastDrawnCamera()).toBe(orthographic)
     expect(warn).toHaveBeenCalledTimes(1)
     expect(String(warn.mock.calls[0]?.[0])).toContain('setViewCamera')
+  })
+})
+
+describe('a view camera set before the 3D scene arrives (issue #173 CA-1)', () => {
+  it('is kept and takes over once a 3D scene loads, whatever the order of the calls', async () => {
+    const { game } = await ready3dGame()
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const view = viewCamera()
+
+    game.cameraRig.setViewCamera(view)
+    loadScene(game, scene3d([], {}, SCENE_CAMERA), registryOf({}))
+    renderFrame(game)
+
+    expect(game.camera).toBe(view)
+    expect(lastDrawnCamera()).toBe(view)
   })
 })
