@@ -1,4 +1,4 @@
-import { pixelsPerUnit, worldToNormalized, type ViewCamera, type WorldPoint } from './camera-projection.js'
+import { isPerspectiveCamera, pixelsPerUnit, worldToNormalized, type ViewCamera, type WorldPoint } from './camera-projection.js'
 import type { Entity } from './entity.js'
 import type { TimerHandle } from './game-time.js'
 import type { PointerResolution } from './pointer.js'
@@ -264,7 +264,9 @@ export class AnchoredPieces {
     layer.style.top = `${viewport.y}px`
     layer.style.width = `${viewport.width}px`
     layer.style.height = `${viewport.height}px`
-    // Orthographic: the camera frames exactly viewHeight world units vertically (Game.resize).
+    // Every piece inherits this unit: an orthographic camera's, the same at any
+    // depth, or a perspective camera's at the world origin, which placeUnit()
+    // refines per piece at its own anchor's depth (issue #181 CA-22).
     layer.style.setProperty('--waica-unit', `${pixelsPerUnit(camera, viewport.height)}px`)
     // Before any instance's style writes below: getAnimations() flushes style.
     for (const instance of this.instances) followGameTime(instance)
@@ -275,6 +277,7 @@ export class AnchoredPieces {
       instance.host.style.left = `${placement.x}px`
       instance.host.style.top = `${placement.y}px`
       instance.host.style.visibility = placement.behind ? 'hidden' : ''
+      placeUnit(instance, view)
       byDepth.push([instance, placement.depth])
     }
     // Lower on screen draws on top, like y-sort; the sort is stable, so
@@ -364,6 +367,17 @@ function anchorPoint(instance: Instance, projection: 'isometric' | null): WorldP
   const { x, y, z } = instance.entity.position
   const render = projection === 'isometric' ? projectIsometric(x, y) : { x, y }
   return { x: render.x + instance.offset[0], y: render.y + instance.offset[1], z }
+}
+
+/**
+ * A perspective camera's `--waica-unit` at the piece's own anchor (issue
+ * #181 CA-22): a piece twice as far is half as wide. Under an orthographic
+ * camera the piece inherits the layer's unit, so it carries none of its own.
+ */
+function placeUnit(instance: Instance, { camera, viewport, projection }: AnchorView): void {
+  const { style } = instance.host
+  if (!isPerspectiveCamera(camera)) style.removeProperty('--waica-unit')
+  else style.setProperty('--waica-unit', `${pixelsPerUnit(camera, viewport.height, anchorPoint(instance, projection))}px`)
 }
 
 /**
