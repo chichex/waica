@@ -86,9 +86,9 @@ describe('render.space and the camera block (CA-13)', () => {
 })
 
 describe('perspective camera fields and 2D-only render options (CA-13, CA-14)', () => {
-  it('reports the 2D camera fields on a perspective block', async () => {
+  it('reports the 2D camera fields on a perspective block, but not follow (issue #181 CA-5)', async () => {
     const findings = await spaceFindings({ render: { space: '3d' }, camera: { kind: 'perspective', follow: 'Player', zoom: 9 } })
-    expect(refs(findings)).toEqual(['camera.follow', 'camera.zoom'])
+    expect(refs(findings)).toEqual(['camera.zoom'])
   })
 
   it('reports render.sort, render.projection and render.batch in a 3d scene, and none in a 2d one', async () => {

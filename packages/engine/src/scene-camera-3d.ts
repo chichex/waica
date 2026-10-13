@@ -1,13 +1,16 @@
 import type * as THREE from 'three/webgpu'
+import { orbitCameraIssues, resolveOrbit, type OrbitCameraJson, type ResolvedOrbit } from './scene-camera-orbit.js'
 
 /** A world-space point or direction as scene JSON stores it. */
 export type Vec3Json = [number, number, number]
 
 /**
- * A scene's perspective camera (3D scenes, ADR 0027). Fixed by the scene; game
- * code may move it. Y is up and the camera looks from `position` at `target`.
+ * A scene's perspective camera (3D scenes, ADR 0027). Without `follow` it is
+ * fixed by the scene and game code may move it: Y is up and the camera looks
+ * from `position` at `target`. With `follow` it orbits that entity once per
+ * Simulation Step (issue #181, ADR 0031; the orbit fields are OrbitCameraJson's).
  */
-export interface PerspectiveSceneCameraJson {
+export interface PerspectiveSceneCameraJson extends OrbitCameraJson {
   kind: 'perspective'
   /** Where the camera sits. Default `[0, 5, 10]`. */
   position?: Vec3Json
@@ -20,9 +23,8 @@ export interface PerspectiveSceneCameraJson {
   /** Far clipping plane, above `near`. Default 1000. */
   far?: number
   // The orthographic block's fields, declared as absent: a perspective block
-  // cannot follow, zoom or clamp, and reading them off the union stays legal.
+  // cannot zoom, smooth or clamp, and reading them off the union stays legal.
   zoom?: never
-  follow?: never
   deadzoneWidth?: never
   deadzoneHeight?: never
   lookahead?: never
@@ -38,6 +40,8 @@ export interface ResolvedPerspectiveCamera {
   fov: number
   near: number
   far: number
+  /** The orbit around `follow`; absent for a fixed camera. */
+  orbit?: ResolvedOrbit
 }
 
 export const PERSPECTIVE_DEFAULTS = {
@@ -62,7 +66,13 @@ export function resolvePerspectiveCamera(json: PerspectiveSceneCameraJson = { ki
     fov: json.fov ?? PERSPECTIVE_DEFAULTS.fov,
     near: json.near ?? PERSPECTIVE_DEFAULTS.near,
     far: json.far ?? PERSPECTIVE_DEFAULTS.far,
+    ...orbitOf(json),
   }
+}
+
+function orbitOf(json: PerspectiveSceneCameraJson): { orbit?: ResolvedOrbit } {
+  const orbit = resolveOrbit(json)
+  return orbit ? { orbit } : {}
 }
 
 /** Points `camera` as the resolved block says, at the given aspect ratio. */
@@ -135,9 +145,8 @@ function planeIssues(near: unknown, far: unknown, issues: SceneFieldIssue[]): vo
   }
 }
 
-/** The orthographic block's fields, which a perspective block does not accept. */
+/** The orthographic block's fields, which a perspective block does not accept (`follow` it does, issue #181). */
 const ORTHOGRAPHIC_ONLY_FIELDS = [
-  'follow',
   'zoom',
   'deadzoneWidth',
   'deadzoneHeight',
@@ -156,9 +165,10 @@ function orthographicFieldIssues(block: Record<string, unknown>, issues: SceneFi
 
 /**
  * Every field of a perspective camera block outside its range: `fov` in
- * (0, 180), `near` above 0, `far` above `near`, and `position` and `target`
- * three finite numbers, and none of the orthographic block's fields. Anything
- * that is not a perspective block reports none.
+ * (0, 180), `near` above 0, `far` above `near`, `position` and `target`
+ * three finite numbers, the orbit fields (orbitCameraIssues), and none of the
+ * orthographic block's other fields. Anything that is not a perspective block
+ * reports none.
  */
 export function perspectiveCameraIssues(camera: unknown): SceneFieldIssue[] {
   if (typeof camera !== 'object' || camera === null) return []
@@ -171,5 +181,6 @@ export function perspectiveCameraIssues(camera: unknown): SceneFieldIssue[] {
   aimIssue(block, issues)
   planeIssues(block.near, block.far, issues)
   orthographicFieldIssues(block, issues)
+  issues.push(...orbitCameraIssues(block))
   return issues
 }
