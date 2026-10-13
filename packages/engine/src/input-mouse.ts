@@ -35,7 +35,7 @@ export interface MouseButtonSink {
 export interface MouseInputOptions {
   /** The game canvas: buttons, the wheel and the pointer lock are read on it. Without one, only injected movement counts. */
   canvas?: HTMLCanvasElement
-  /** Asked on a press over the canvas while it is unlocked: true takes the lock with that press, which then presses nothing (CA-3). */
+  /** Asked on a press over the canvas while it is unlocked: true asks for the lock with that press, which presses nothing once granted (CA-3) and goes through when refused. */
   lockOnClick?: () => boolean
   /** Asked on each wheel over the canvas: true keeps the page from scrolling (an orbit camera zooms with it); false by default (CA-2). */
   preventsWheelScroll?: () => boolean
@@ -72,6 +72,8 @@ export class MouseInput {
   private readonly lockOnClick: () => boolean
   /** Set by dispose(): a lock the browser grants after it is given straight back. */
   private disposed = false
+  /** The codes whose press asked for the lock, awaiting the browser's answer: true while still held. */
+  private readonly askedLock = new Map<string, boolean>()
 
   constructor(
     private readonly buttons: MouseButtonSink,
@@ -132,20 +134,40 @@ export class MouseInput {
   /** Asks the browser to lock the pointer to the game canvas; a refusal (or no Pointer Lock API) leaves it unlocked. */
   requestLock(): void {
     const canvas = this.canvas
-    if (!canvas || !('requestPointerLock' in canvas)) return
+    if (!canvas || !('requestPointerLock' in canvas)) {
+      this.pressRefused()
+      return
+    }
     try {
       Promise.resolve(canvas.requestPointerLock()).then(
         () => {
+          // The press that asked took the lock, and presses nothing (CA-3).
+          this.askedLock.clear()
           // Granted after this Input went away (the editor's Play stopped meanwhile): the lock is no longer the game's.
           if (this.disposed) this.releaseLock()
         },
         () => {
-          // Refused (no user gesture, or the page lost focus): the next click asks again.
+          // Refused (no user gesture, a sandboxed iframe, the cooldown after Esc): the press goes through; the next click asks again.
+          this.pressRefused()
         },
       )
     } catch {
       // Older browsers throw synchronously instead of rejecting; same outcome.
+      this.pressRefused()
     }
+  }
+
+  /**
+   * The presses that asked for a lock the browser refused (or cannot give)
+   * reach their `Mouse:` codes after all (maintainer decision on issue #181):
+   * still held, or as a tap when the button was let go before the answer.
+   */
+  private pressRefused(): void {
+    for (const [code, held] of this.askedLock) {
+      this.buttons.press(code)
+      if (!held) this.buttons.release(code)
+    }
+    this.askedLock.clear()
   }
 
   /** Stops listening, and releases the pointer lock if this canvas holds it (a Game that goes away, the editor's Play stopping). */
@@ -167,19 +189,23 @@ export class MouseInput {
 
   private onPointerDown = (event: PointerEvent): void => {
     if (!fromMouse(event)) return
+    const code = MOUSE_BUTTON_CODES.get(event.button)
     if (!this.locked && this.lockOnClick()) {
-      // This press only takes the lock (G-17): it never reaches `Mouse:Left`.
+      // This press asks for the lock (G-17): it reaches its code only if the browser refuses.
+      if (code) this.askedLock.set(code, true)
       this.requestLock()
       return
     }
-    const code = MOUSE_BUTTON_CODES.get(event.button)
     if (code) this.buttons.press(code)
   }
 
   private onPointerUp = (event: PointerEvent): void => {
     if (!fromMouse(event)) return
     const code = MOUSE_BUTTON_CODES.get(event.button)
-    if (code) this.buttons.release(code)
+    if (!code) return
+    // Let go before the lock's answer: a refusal then delivers a tap.
+    if (this.askedLock.has(code)) this.askedLock.set(code, false)
+    this.buttons.release(code)
   }
 
   /**

@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, within } from '@testing-library/react'
 import { afterEach, expect, it } from 'vitest'
 import type { SceneCameraJson } from '@waica/engine'
-import { renderInspector, section } from './inspector-test-support'
+import { renderInspector, row, section } from './inspector-test-support'
 import { defined } from '../../../engine/src/test-support'
 
 // Issue #181 CA-33: the perspective camera's Follow section.
@@ -108,4 +108,31 @@ it('shows a follow that names a missing entity as missing, not as none (CA-33)',
   expect(follow()).toHaveProperty('value', 'Ghost')
   const options = within(follow()).getAllByRole<HTMLOptionElement>('option').map((option) => option.textContent)
   expect(options).toEqual(['none — fixed camera', 'Ghost (missing)', 'Player', 'Skeleton'])
+})
+
+it('edits the initial yaw and pitch and the look height, the pitch kept inside its limits (CA-33)', () => {
+  const props = inspect({ ...FOLLOWING, minPitch: 5, maxPitch: 60 })
+
+  expect([slider(/^Yaw/).min, slider(/^Yaw/).max]).toEqual(['-180', '180'])
+  expect([slider(/^Pitch/).min, slider(/^Pitch/).max, slider(/^Pitch/).value]).toEqual(['5', '60', '20'])
+  expect(slider(/^Look height/).value).toBe('1.2')
+  fireEvent.change(slider(/^Yaw/), { target: { value: '90' } })
+  expect(props.onCameraProp).toHaveBeenLastCalledWith('yaw', 90)
+  fireEvent.change(slider(/^Look height/), { target: { value: '1.6' } })
+  expect(props.onCameraProp).toHaveBeenLastCalledWith('lookHeight', 1.6)
+  fireEvent.change(slider(/^Pitch/), { target: { value: '75' } })
+  expect(props.onCameraProp).toHaveBeenLastCalledWith('pitch', 60)
+})
+
+it('shows position and target read-only, with a hint, while the camera follows; editable again without follow (CA-33)', () => {
+  inspect(FOLLOWING)
+  for (const label of ['position', 'target']) {
+    expect(within(row(label)).queryAllByRole('spinbutton'), label).toEqual([])
+    expect(row(label).textContent).toContain(label === 'position' ? '0, 4, 10' : '0, 1, 0')
+  }
+  expect(document.body.textContent).toContain('the orbit places the camera while playing')
+  cleanup()
+
+  inspect(FIXED)
+  expect(within(row('position')).getAllByRole('spinbutton')).toHaveLength(3)
 })

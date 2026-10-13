@@ -166,3 +166,37 @@ it('gives back a lock the browser grants only after the Input was disposed (CA-3
   expect(exit).toHaveBeenCalledOnce()
   expect(locked).toBeNull()
 })
+
+it('hands the press that asked for a refused lock to Mouse:Left, held or as a tap; no Pointer Lock API presses at once (CA-3)', async () => {
+  const refusing = document.createElement('canvas')
+  document.body.append(refusing)
+  Object.defineProperty(refusing, 'requestPointerLock', {
+    configurable: true,
+    value: () => Promise.reject(new DOMException('denied', 'NotAllowedError')),
+  })
+  const input = new Input({ attack: ['Mouse:Left'] }, { canvas: refusing, lockOnClick: () => true })
+  inputs.push(input)
+  const settle = async (): Promise<void> => {
+    for (let tick = 0; tick < 4; tick += 1) await Promise.resolve()
+  }
+
+  press(refusing)
+  expect(input.held('attack')).toBe(false)
+  await settle()
+  expect([input.held('attack'), input.justPressed('attack')]).toEqual([true, true])
+  refusing.dispatchEvent(new PointerEvent('pointerup', { button: 0, bubbles: true }))
+  input.endFrame()
+
+  press(refusing)
+  refusing.dispatchEvent(new PointerEvent('pointerup', { button: 0, bubbles: true }))
+  await settle()
+  expect([input.held('attack'), input.justPressed('attack')]).toEqual([false, true])
+  input.endFrame()
+
+  const bare = document.createElement('canvas')
+  document.body.append(bare)
+  const plain = new Input({ attack: ['Mouse:Left'] }, { canvas: bare, lockOnClick: () => true })
+  inputs.push(plain)
+  press(bare)
+  expect(plain.held('attack')).toBe(true)
+})

@@ -5,7 +5,7 @@ import {
   type PerspectiveSceneCameraJson,
 } from '@waica/engine'
 import type { CameraProp } from './inspector-props'
-import { PropRow } from './PropRow'
+import { PropRow, RoRow } from './PropRow'
 import { Vec3Row } from './Vec3Row'
 
 /** The perspective camera's field of view, in degrees: the span `validate_project` accepts, (0, 180), so no valid lens is shown pinned to an end. */
@@ -16,8 +16,11 @@ const ORBIT_SPECS = {
   distance: { label: 'Distance', min: 0.5, max: 30, step: 0.5 },
   minDistance: { label: 'Min distance', min: 0.5, max: 30, step: 0.5 },
   maxDistance: { label: 'Max distance', min: 0.5, max: 30, step: 0.5 },
+  yaw: { label: 'Yaw (°)', min: -180, max: 180, step: 1 },
+  pitch: { label: 'Pitch (°)', min: -88, max: 88, step: 1 },
   minPitch: { label: 'Min pitch', min: -88, max: 88, step: 1 },
   maxPitch: { label: 'Max pitch', min: -88, max: 88, step: 1 },
+  lookHeight: { label: 'Look height', min: 0, max: 5, step: 0.1 },
   sensitivity: { label: 'Sensitivity (°/px)', min: 0, max: 2, step: 0.05 },
   orbitSpeed: { label: 'Orbit speed (°/s)', min: 0, max: 720, step: 10 },
 } satisfies Record<string, ParamSpec>
@@ -43,6 +46,7 @@ function orbitSpec(field: OrbitNumber, orbit: ResolvedOrbitNumbers): ParamSpec {
   if (field === 'minDistance') return { ...spec, max: orbit.maxDistance }
   if (field === 'maxDistance') return { ...spec, min: orbit.minDistance }
   if (field === 'distance') return { ...spec, min: orbit.minDistance, max: orbit.maxDistance }
+  if (field === 'pitch') return { ...spec, min: orbit.minPitch, max: orbit.maxPitch }
   if (field === 'minPitch') return { ...spec, max: orbit.maxPitch }
   if (field === 'maxPitch') return { ...spec, min: orbit.minPitch }
   return spec
@@ -105,13 +109,31 @@ function FollowSection({ camera, entityNames, onProp }: PerspectiveCameraProps) 
   )
 }
 
-/** A 3D scene's camera: where it sits, what it looks at, its lens, and the orbit around a followed entity. */
+/** A point the orbit overrides in Play, shown as written. */
+const shownPoint = (point: readonly number[]): string => point.join(', ')
+
+/**
+ * A 3D scene's camera: where it sits, what it looks at, its lens, and the
+ * orbit around a followed entity. While it follows, position and target are
+ * read-only (maintainer decision on issue #181): the orbit places the camera.
+ */
 export function PerspectiveCameraInspector({ camera, entityNames, onProp }: PerspectiveCameraProps) {
   const cam = resolvePerspectiveCamera(camera)
+  const follows = Boolean(camera?.follow)
   return (
     <div className="ed-pad">
-      <Vec3Row label="position" value={cam.position} step={0.5} onChange={(value) => onProp('position', value)} />
-      <Vec3Row label="target" value={cam.target} step={0.5} onChange={(value) => onProp('target', value)} />
+      {follows ? (
+        <>
+          <RoRow label="position" value={shownPoint(cam.position)} />
+          <RoRow label="target" value={shownPoint(cam.target)} />
+          <div className="ed-hint">the orbit places the camera while playing; pick “none” to set position and target by hand</div>
+        </>
+      ) : (
+        <>
+          <Vec3Row label="position" value={cam.position} step={0.5} onChange={(value) => onProp('position', value)} />
+          <Vec3Row label="target" value={cam.target} step={0.5} onChange={(value) => onProp('target', value)} />
+        </>
+      )}
       <PropRow label="fov" spec={FOV_SPEC} value={cam.fov} onChange={(value) => onProp('fov', value)} />
       <FollowSection camera={camera} entityNames={entityNames} onProp={onProp} />
     </div>
