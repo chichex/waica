@@ -2,6 +2,7 @@ import { access, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { PrefabJson, RoleDefinition, SceneComponentJson } from '@waica/engine'
 import { activeArchetypeId, discoverArchetypes, pickArchetype } from './archetypes.js'
+import { prefabComponents3d } from './scaffolds-3d.js'
 import { WaicaToolError, assertSafeSlug } from './project-path.js'
 
 function nameWords(name: string): string[] {
@@ -191,8 +192,8 @@ function prefabComponents(
   }
 }
 
-/** The active archetype's roles — the only ones a scaffolded character may adopt. */
-async function archetypeRoles(projectPath: string): Promise<Record<string, RoleDefinition>> {
+/** The active archetype's roles — the only ones a scaffolded character may adopt — and whether its scenes are 3D. */
+async function activeArchetype(projectPath: string): Promise<{ roles: Record<string, RoleDefinition>; threeD: boolean }> {
   const activeId = await activeArchetypeId(projectPath)
   const available = await discoverArchetypes(
     projectPath,
@@ -200,7 +201,9 @@ async function archetypeRoles(projectPath: string): Promise<Record<string, RoleD
     [],
     activeId ? [activeId] : [],
   )
-  return pickArchetype(available, activeId, projectPath).manifest.bundle.roles
+  const { manifest } = pickArchetype(available, activeId, projectPath)
+  // A 3D archetype is one whose demo scene is 3D (issue #181 inference 23).
+  return { roles: manifest.bundle.roles, threeD: manifest.scene.render?.space === '3d' }
 }
 
 function invalidInput(projectPath: string, message: string): WaicaToolError {
@@ -245,8 +248,7 @@ export async function scaffoldComponent(
 }
 
 /** The active archetype's definition of a character role. */
-async function characterRole(projectPath: string, roleName: string): Promise<RoleDefinition> {
-  const roles = await archetypeRoles(projectPath)
+function characterRole(projectPath: string, roleName: string, roles: Record<string, RoleDefinition>): RoleDefinition {
   const definition = roles[roleName]
   if (!definition) {
     // Falling back to an empty graph would write a character that stands
@@ -309,18 +311,13 @@ export async function scaffoldPrefab(
   }
   // Same default the editor's creation dialog starts from.
   const roleName = role ?? 'player'
-  const definition =
-    prefabType === 'character' ? await characterRole(projectPath, roleName) : undefined
-  const prefab: PrefabJson = {
-    waicaPrefab: 1,
-    type: prefabType,
-    components: prefabComponents(
-      prefabType,
-      roleName,
-      definition,
-      identity as CharacterIdentity | undefined,
-    ),
-  }
+  const { roles, threeD } = await activeArchetype(projectPath)
+  const definition = prefabType === 'character' ? characterRole(projectPath, roleName, roles) : undefined
+  const knownIdentity = identity as CharacterIdentity | undefined
+  const components = threeD
+    ? prefabComponents3d({ type: prefabType, role: roleName, definition, identity: knownIdentity })
+    : prefabComponents(prefabType, roleName, definition, knownIdentity)
+  const prefab: PrefabJson = { waicaPrefab: 1, type: prefabType, components }
   return writeOnce(
     projectPath,
     `src/${directory}/${name}.${prefabType}.json`,
