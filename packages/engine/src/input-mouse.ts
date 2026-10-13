@@ -140,7 +140,9 @@ export class MouseInput {
     }
   }
 
+  /** Stops listening, and releases the pointer lock if this canvas holds it (a Game that goes away, the editor's Play stopping). */
   dispose(): void {
+    if (this.locked && 'exitPointerLock' in document) document.exitPointerLock()
     this.canvas?.removeEventListener('pointerdown', this.onPointerDown)
     this.canvas?.removeEventListener('wheel', this.onWheel)
     window.removeEventListener('pointerup', this.onPointerUp)

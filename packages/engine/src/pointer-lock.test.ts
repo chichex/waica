@@ -114,3 +114,22 @@ it('survives a browser that refuses the lock or has no Pointer Lock API (CA-3)',
   await Promise.resolve()
   expect(refusing.pointerLocked).toBe(false)
 })
+
+it('releases a lock it holds when it is disposed, and leaves another element’s lock alone (CA-34)', () => {
+  const { canvas } = lockableCanvas()
+  const exit = vi.fn(() => {
+    locked = null
+  })
+  Object.defineProperty(document, 'exitPointerLock', { configurable: true, value: exit })
+  const other = new Input({}, { canvas: document.createElement('canvas') })
+  const input = new Input({}, { canvas })
+  input.requestPointerLock()
+
+  other.dispose()
+  expect(exit).not.toHaveBeenCalled()
+  input.dispose()
+
+  expect(exit).toHaveBeenCalledOnce()
+  expect(input.pointerLocked).toBe(false)
+  Reflect.deleteProperty(document, 'exitPointerLock')
+})
