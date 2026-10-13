@@ -78,7 +78,8 @@ describe('CHARACTER_STATE_GRAPH (issue #166 CA-15)', () => {
 
   it('names its driver, its signals and runs characterUpdate in every default state', () => {
     expect(CHARACTER_ROLE.driver).toBe('CharacterMotor')
-    expect(Object.keys(roleDefinition('character')?.signals ?? {})).toEqual(['move', 'stop', 'rise', 'fall', 'land'])
+    // Issue #181 CA-15 adds run, roll and attack after the original five.
+    expect(Object.keys(roleDefinition('character')?.signals ?? {})).toEqual(['move', 'stop', 'rise', 'fall', 'land', 'run', 'roll', 'attack'])
     for (const state of ['default', 'idle', 'walk', 'jump', 'fall']) expect(Reflect.get(defined(CHARACTER_ROLE.states?.[state]), 'onUpdate'), state).toBe(characterUpdate)
   })
 })
