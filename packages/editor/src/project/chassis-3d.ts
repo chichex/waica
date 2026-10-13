@@ -5,11 +5,12 @@ import type { CharacterIdentity } from './chassis'
  * What a 3D character is born with per identity, beyond its role package: the
  * extras that work in a 3D scene. Hazard is 2D: an enemy hurts with a
  * MeleeAttack instead, whose range is what the enemy role winds up within.
+ * OutOfBounds works in both spaces.
  * The MCP's scaffold_prefab writes the same (packages/mcp/src/scaffolds-3d.ts);
  * its test holds the two byte-identical.
  */
 const IDENTITY_EXTRAS_3D: Readonly<Record<CharacterIdentity, readonly SceneComponentJson[]>> = {
-  player: [{ type: 'Respawnable' }, { type: 'Health', props: { invulnerability: 1 } }],
+  player: [{ type: 'Respawnable' }, { type: 'Health', props: { invulnerability: 1 } }, { type: 'OutOfBounds' }],
   enemy: [{ type: 'MeleeAttack' }, { type: 'Health', props: { max: 1 } }],
   npc: [],
   custom: [],
