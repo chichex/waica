@@ -93,7 +93,6 @@ describe('behavior sources that assume 2D carry the marker (issue #159 CA-2)', (
 
   it('does see the signals it greps for, in code and not in comments or quoted names', () => {
     expect(flaggedSources().map(({ file }) => file)).toEqual([
-      'chaser.ts',
       'click-to-move.ts',
       'damage-puff.ts',
       'dust-puffs.ts',

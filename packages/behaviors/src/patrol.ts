@@ -4,11 +4,11 @@ import {
   projectIsometric,
   SIMULATION_TIME_EPSILON,
   type AnimationFacingProvider,
-  type ComponentSpace,
   type RoleDefinition,
   type RoleGraph,
 } from '@waica/engine'
 import { facingForInput } from './facing.js'
+import { drive3d } from './mover-3d.js'
 
 export type PatrolAxis = 'horizontal' | 'vertical'
 
@@ -23,19 +23,22 @@ const DEATH_SECONDS = 0.5
  * at the ends. It reports which way it walks as seen on screen, so a
  * directional contract picks the matching clip; without one, walking
  * sideways flips the sprite by scale instead.
+ * In 3D (issue #181), with a kinematic RigidBody, it paces the ground plane
+ * through the body's desired velocity: `horizontal` along x, `vertical`
+ * along z, turning its yaw toward the walk.
  * Passive like a motor: no onUpdate of its own — the 'patroller' logic
  * set's walk state calls step(dt), so the StateMachine stays the single
  * owner of the frame.
  */
 export class Patrol extends Component implements AnimationFacingProvider {
   static override componentName = 'Patrol'
-  static override space: ComponentSpace = '2d'
+  // No space marker: it paces in both spaces (issue #181 CA-19).
   static override params = {
     axis: { label: 'Axis', options: ['horizontal', 'vertical'] },
     distance: { label: 'Distance', min: 0.5, max: 20, step: 0.5 },
     speed: { label: 'Speed', min: 0.5, max: 15, step: 0.5 },
   }
-  static override transient = ['originX', 'originY', 'dir']
+  static override transient = ['originX', 'originY', 'originZ', 'dir']
 
   axis: PatrolAxis = 'horizontal'
   distance = 3
@@ -44,11 +47,13 @@ export class Patrol extends Component implements AnimationFacingProvider {
   // Both origins are captured so a live axis switch keeps a valid rail.
   private originX = 0
   private originY = 0
+  private originZ = 0
   private dir = 1
 
   override onReady(): void {
     this.originX = this.entity.position.x
     this.originY = this.entity.position.y
+    this.originZ = this.entity.position.z
   }
 
   /**
@@ -64,8 +69,12 @@ export class Patrol extends Component implements AnimationFacingProvider {
     return facingForInput(Math.sign(screen.x), Math.sign(screen.y)) ?? 's'
   }
 
-  /** One patrol step: advance, turn at the rail's ends, flip the sprite. */
+  /** One patrol step: advance, turn at the rail's ends, flip the sprite; in 3D, through the body. */
   step(dt: number): void {
+    if (this.game.space === '3d') {
+      this.step3d(dt)
+      return
+    }
     const pos = this.entity.position
     const vertical = this.axis === 'vertical'
     const key = vertical ? 'y' : 'x'
@@ -82,6 +91,17 @@ export class Patrol extends Component implements AnimationFacingProvider {
     // With a directional contract installed the clip carries the mirroring
     // (flipX); a scale flip on top would undo it.
     if (!vertical && !installedDirectionalAnimation()) this.entity.scale.x = this.dir
+  }
+
+  /** 3D pacing (D-2): `horizontal` is x and `vertical` is z, between origin ± distance. */
+  private step3d(dt: number): void {
+    const vertical = this.axis === 'vertical'
+    const at = vertical ? this.entity.position.z : this.entity.position.x
+    const origin = vertical ? this.originZ : this.originX
+    if (at >= origin + this.distance) this.dir = -1
+    else if (at <= origin - this.distance) this.dir = 1
+    const speed = this.dir * this.speed
+    drive3d(this.entity, vertical ? { x: 0, z: speed } : { x: speed, z: 0 }, dt)
   }
 }
 

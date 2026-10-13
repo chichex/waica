@@ -1,9 +1,9 @@
 import { Component, RigidBody, type ComponentSpace, type Input } from '@waica/engine'
 import { turnYawToward } from './facing-3d.js'
 import { Health } from './health.js'
-import type { KnockbackReceiver, PlanarVelocity } from './knockback-3d.js'
+import { clearKnockback, knockbackVelocity, type PlanarVelocity } from './knockback-3d.js'
 
-/** Below this many seconds a roll or a push is over: steps of 1/60 s never land exactly on 0. */
+/** Below this many seconds a roll is over: steps of 1/60 s never land exactly on 0. */
 const TIME_EPSILON = 1e-9
 
 const DEGREES = Math.PI / 180
@@ -28,11 +28,11 @@ const DEGREES = Math.PI / 180
  * rolls (issue #181 CA-14): `dodgeDuration` seconds at `dodgeSpeed` along the
  * input, or the facing with none, ignoring other movement and opening a
  * beside `Health`'s invulnerability for as long, then `dodgeCooldown` seconds
- * before the next. A melee hit pushes it (KnockbackReceiver). With no
+ * before the next. A melee hit pushes it (knockBackFrom). With no
  * kinematic body beside it, it does nothing (`validate_project` reports it).
  * Actions with no binding read 0, so a Game without bindings stands still.
  */
-export class CharacterMotor extends Component implements KnockbackReceiver {
+export class CharacterMotor extends Component {
   static override componentName = 'CharacterMotor'
   static override space: ComponentSpace = '3d'
   static override params = {
@@ -53,7 +53,7 @@ export class CharacterMotor extends Component implements KnockbackReceiver {
     dodgeCooldown: { label: 'Dodge cooldown (s)', min: 0, max: 5, step: 0.05 },
     attackAction: { label: 'Attack action' },
   }
-  static override transient = ['acting', 'rollLeft', 'cooldownLeft', 'rollDirection', 'pushLeft', 'push', 'runningNow']
+  static override transient = ['acting', 'rollLeft', 'cooldownLeft', 'rollDirection', 'runningNow']
 
   /** Walking speed in units per second. */
   speed = 6
@@ -86,8 +86,6 @@ export class CharacterMotor extends Component implements KnockbackReceiver {
   private rollLeft = 0
   private cooldownLeft = 0
   private rollDirection: PlanarVelocity = { x: 0, z: 0 }
-  private pushLeft = 0
-  private push: PlanarVelocity = { x: 0, z: 0 }
   private runningNow = false
 
   /** True while a roll lasts. */
@@ -100,9 +98,13 @@ export class CharacterMotor extends Component implements KnockbackReceiver {
     return this.runningNow
   }
 
-  knockBack(velocity: PlanarVelocity, seconds: number): void {
-    this.push = { ...velocity }
-    this.pushLeft = seconds
+  /** Stops dead (issue #181 CA-21, a respawn): no walk, no roll, no push until new input. */
+  halt(): void {
+    this.rollLeft = 0
+    this.runningNow = false
+    clearKnockback(this.entity)
+    const body = this.entity.get(RigidBody)
+    if (body) body.desiredVelocity = { x: 0, z: 0 }
   }
 
   override onUpdate(dt: number): void {
@@ -110,9 +112,9 @@ export class CharacterMotor extends Component implements KnockbackReceiver {
     if (body?.type !== 'kinematic') return
     this.cooldownLeft = Math.max(0, this.cooldownLeft - dt)
     this.runningNow = false
-    if (this.pushLeft > TIME_EPSILON) {
-      body.desiredVelocity = { ...this.push }
-      this.pushLeft -= dt
+    const push = knockbackVelocity(this.entity)
+    if (push) {
+      body.desiredVelocity = { ...push }
       return
     }
     const wish = this.wishDirection(this.game.input)
