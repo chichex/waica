@@ -10,7 +10,9 @@ import {
 } from '@waica/engine'
 import { playsOwnOneShot, takesTrigger } from './own-one-shot-clip.js'
 import { CharacterMotor } from './character-motor.js'
+import { Health } from './health.js'
 import { MeleeAttack } from './melee-attack.js'
+import { Respawnable } from './respawnable.js'
 
 /** Planar speed, in units per second, above which a grounded character is moving rather than standing. */
 const MOVE_THRESHOLD = 0.1
@@ -21,13 +23,21 @@ const STRIKE_AT = 0.4
 /** Seconds an attack lasts without a one-shot clip of its own, which would never report clip:end. */
 const ATTACK_WITHOUT_CLIP = 0.5
 
+/** The death sequence (issue #181 inference 17): each fade's seconds, and how long a death clip may take at most. */
+const DEATH_FADE_SECONDS = 0.4
+const DEATH_CLIP_LIMIT = 3
+/** Seconds the death pose lasts with no Animator beside it. */
+const DEATH_WITHOUT_CLIP = 1
+
 /**
  * The 'character' role (issue #166 CA-15): the 3D character you control. Its
  * four default states share one observer; they differ only in the edges
  * their prefab data declares, and an Animator beside the machine plays the
  * clip of each state. Issue #181 adds `run`, `attack` and `roll`: they are
  * entered only when the motor runs or rolls, or on an attack press beside a
- * MeleeAttack, so a character without them stays in the first four.
+ * MeleeAttack, so a character without them stays in the first four; and
+ * `die`, entered on a Health death, which respawns a Respawnable character
+ * behind a fade (CA-21).
  */
 
 /** The ground states' ways into the actions: attack and roll first, so a press wins over walking on. */
@@ -68,6 +78,9 @@ export const CHARACTER_STATE_GRAPH: RoleGraph = {
       transitions: [...ACTIONS, { on: 'signal:stop', to: 'idle' }, { on: 'signal:move', to: 'walk' }, ...AIRBORNE],
     },
     attack: { transitions: [{ on: 'clip:end', to: 'idle' }] },
+    die: {},
+    // A Health death hands the character to die instead of destroying it.
+    '*': { transitions: [{ on: 'signal:death', to: 'die' }] },
     roll: {
       transitions: [
         { on: 'signal:stop', to: 'idle' },
@@ -150,6 +163,39 @@ function attackUpdate({ entity, fsm }: StateContext): void {
   if (!clip && fsm.elapsed + SIMULATION_TIME_EPSILON >= ATTACK_WITHOUT_CLIP) fsm.goto('idle')
 }
 
+/** The Game Time (fsm.elapsed) each dying machine started its fade-out at. */
+const fadingSince = new WeakMap<StateMachine, number>()
+
+/** Whether the death pose is over: its one-shot clip finished, or its time is up. */
+function deathPoseOver({ entity, fsm }: StateContext): boolean {
+  const animator = entity.get(Animator)
+  if (!animator) return fsm.elapsed >= DEATH_WITHOUT_CLIP
+  return animator.clipFinished || fsm.elapsed >= DEATH_CLIP_LIMIT
+}
+
+/**
+ * The die state (CA-21): the death clip, then, beside a Respawnable, a fade
+ * to black, the respawn with full health and a fade back, ending in idle.
+ * Without a Respawnable the character stays down.
+ */
+function dieUpdate(context: StateContext): void {
+  const { entity, fsm, game } = context
+  if (!entity.get(Respawnable)) return
+  const since = fadingSince.get(fsm)
+  if (since === undefined) {
+    if (!deathPoseOver(context)) return
+    fadingSince.set(fsm, fsm.elapsed)
+    game.cameraEffects.fade({ to: 'black', seconds: DEATH_FADE_SECONDS })
+    return
+  }
+  if (fsm.elapsed - since + 1e-9 < DEATH_FADE_SECONDS) return
+  fadingSince.delete(fsm)
+  entity.get(Respawnable)?.respawn()
+  entity.get(Health)?.heal(Number.POSITIVE_INFINITY)
+  game.cameraEffects.fade({ to: 'clear', seconds: DEATH_FADE_SECONDS })
+  fsm.goto('idle')
+}
+
 /** The attack holds the character in place while it lasts (CharacterMotor.acting). */
 function holdStill(acting: boolean): (context: StateContext) => void {
   return ({ entity, fsm }) => {
@@ -188,5 +234,6 @@ export const CHARACTER_ROLE: RoleDefinition = {
     run: { onUpdate: characterUpdate },
     roll: { onUpdate: characterUpdate },
     attack: { onEnter: holdStill(true), onUpdate: attackUpdate, onExit: holdStill(false) },
+    die: { onEnter: holdStill(true), onUpdate: dieUpdate, onExit: holdStill(false) },
   },
 }
