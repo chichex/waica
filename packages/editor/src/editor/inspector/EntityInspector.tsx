@@ -189,7 +189,7 @@ function EntityTilemap({
  * edits land on the prefab when it owns the machine (like the animation
  * editor), else on the entity.
  */
-function entityMachineContext(props: EntityInspectorProps, clips: string[] | null): MachineCardContext {
+function entityMachineContext(props: EntityInspectorProps, clips: readonly string[] | null): MachineCardContext {
   const { entity, prefabs } = props
   const machineRef = entity.prefab && prefabOwns(entity, 'StateMachine', prefabs) ? entity.prefab : null
   return {

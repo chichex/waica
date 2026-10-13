@@ -26,6 +26,10 @@ type ClipRead = { readonly state: 'reading' } | { readonly state: 'read'; readon
 /** The glb clip names of project files by path, each read once until the path is written again (issue #173 inference 4). */
 export class GlbClipCache {
   private readonly reads = new Map<string, ClipRead>()
+  /** The names a path's last settled read gave, shown while it is read again so the UI does not flicker. */
+  private readonly previous = new Map<string, readonly string[] | null>()
+  /** Bumped by every invalidation, so a hook rereads a path whose visible clips did not change. */
+  private readonly versions = new Map<string, number>()
   private readonly listeners = new Set<() => void>()
 
   constructor(private readonly fs: Pick<ProjectFS, 'readFile'>) {}
@@ -36,10 +40,16 @@ export class GlbClipCache {
     return () => this.listeners.delete(listener)
   }
 
-  /** The clip names read for `path`; null while unread, reading, or unreadable. */
+  /** The clip names read for `path` (the previous read's while it is read again); null while unread, or unreadable. */
   peek(path: string): readonly string[] | null {
     const read = this.reads.get(path)
-    return read?.state === 'read' ? read.names : null
+    if (read?.state === 'read') return read.names
+    return this.previous.get(path) ?? null
+  }
+
+  /** How many times `path` was invalidated. */
+  version(path: string): number {
+    return this.versions.get(path) ?? 0
   }
 
   /** Starts reading `path` unless it is read or being read. */
@@ -51,6 +61,7 @@ export class GlbClipCache {
       // A write while reading dropped this read: its bytes may be stale.
       if (this.reads.get(path) !== reading) return
       this.reads.set(path, { state: 'read', names })
+      this.previous.delete(path)
       this.notify()
     }
     reportRejection(
@@ -64,7 +75,12 @@ export class GlbClipCache {
 
   /** Forgets `path`'s read, so the next `load` reads the file again. */
   invalidate(path: string): void {
-    if (this.reads.delete(path)) this.notify()
+    const read = this.reads.get(path)
+    if (!read) return
+    if (read.state === 'read') this.previous.set(path, read.names)
+    this.reads.delete(path)
+    this.versions.set(path, this.version(path) + 1)
+    this.notify()
   }
 
   private notify(): void {
@@ -138,10 +154,15 @@ export function useGlbClips(src: unknown): readonly string[] | null {
     // Rendered to a string (no effects ever run), nothing has been read.
     () => null,
   )
-  // Unknown clips are (re)read: on first sight, and after a write invalidated them; load() skips a read in flight or done.
+  const version = useSyncExternalStore(
+    cache?.subscribe ?? NO_SUBSCRIPTION,
+    () => (cache && path ? cache.version(path) : 0),
+    () => 0,
+  )
+  // Read on first sight and again after a write invalidated the path, even when what it showed did not change; load() skips a read in flight or done.
   useEffect(() => {
-    if (cache && path && clips === null) cache.load(path)
-  }, [cache, path, clips])
+    if (cache && path) cache.load(path)
+  }, [cache, path, version])
   return clips
 }
 
@@ -150,6 +171,6 @@ export function useGlbClips(src: unknown): readonly string[] | null {
  * (issue #173 CA-7): its Model's glb clips when it names a file (null while
  * unknown), else its sprite's.
  */
-export function useKnownClips(appearance: SceneComponentJson | null, components: readonly SceneComponentJson[]): string[] | null {
+export function useKnownClips(appearance: SceneComponentJson | null, components: readonly SceneComponentJson[]): readonly string[] | null {
   return knownClips(appearance, components, useGlbClips(modelSrcOf(components)))
 }
