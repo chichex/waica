@@ -40,9 +40,11 @@ const MODEL: SceneComponentJson = { type: 'Model', props: { shape: 'box' } }
 
 /**
  * A 3D archetype's starter prefab (issue #181 CA-30, D-4): a primitive Model,
- * and for a character a kinematic body with a capsule, an Animator for the
- * glb that replaces the box, its State Machine and its role's driver; an
- * object is a sensor, a tile a fixed box. Never a Sprite, Hitbox or Solid.
+ * and for a character a kinematic body with a capsule, its State Machine and
+ * its role's driver; an object is a sensor, a tile a fixed box. Never a
+ * Sprite, Hitbox or Solid. No Animator either (maintainer decision): it needs
+ * a Model with a glb `src` (`animator-without-model`), so it is added with
+ * the glb that replaces the box.
  */
 export function prefabComponents3d(request: Scaffold3dRequest): SceneComponentJson[] {
   if (request.type === 'object') return [MODEL, { type: 'Collider', props: { sensor: true } }]
@@ -57,7 +59,6 @@ function characterComponents3d({ role, definition, identity }: Scaffold3dRequest
     MODEL,
     { type: 'RigidBody', props: { type: 'kinematic' } },
     { type: 'Collider', props: { shape: 'capsule', radius: 0.4, height: 1.8, offset: [0, 0.9, 0], ...categories } },
-    { type: 'Animator' },
     { type: 'StateMachine', props: { role, initial: graph?.initial ?? '', states: graph?.states ?? {} } },
     ...(definition?.driver ? [{ type: definition.driver }] : []),
     ...(identity ? IDENTITY_EXTRAS_3D[identity] : []),

@@ -1,9 +1,10 @@
 import { afterEach, beforeAll, expect, it } from 'vitest'
-import { readFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { PrefabJson } from '@waica/engine'
 import { fallbackEntriesFor } from './project-component-fallbacks.js'
 import { scaffoldPrefab } from './scaffolds.js'
+import { validateProject } from './validation.js'
 import { cleanup, makeProject } from './test-helpers.js'
 
 // Issue #181 CA-30 (D-4): scaffold_prefab in a 3D archetype emits a 3D component set.
@@ -35,14 +36,15 @@ async function scaffolded(project: string, name: string, role: 'player' | 'enemy
 
 const typesOf = (prefab: PrefabJson): string[] => prefab.components.map((component) => component.type)
 
-it('gives a 3D player a Model, a kinematic body, a capsule, an Animator, its machine and its motor (CA-30)', async () => {
+it('gives a 3D player a Model, a kinematic body, a capsule, its machine and its motor, and no Animator (CA-30)', async () => {
   const project = await thirdPersonProject()
   const prefab = await scaffolded(project, 'hero', 'player')
 
-  expect(typesOf(prefab).slice(0, 6)).toEqual(['Model', 'RigidBody', 'Collider', 'Animator', 'StateMachine', 'CharacterMotor'])
+  expect(typesOf(prefab).slice(0, 5)).toEqual(['Model', 'RigidBody', 'Collider', 'StateMachine', 'CharacterMotor'])
+  expect(typesOf(prefab)).not.toContain('Animator')
   expect(prefab.components[1]?.props).toEqual({ type: 'kinematic' })
   expect(prefab.components[2]?.props).toMatchObject({ shape: 'capsule' })
-  expect(prefab.components[4]?.props).toMatchObject({ role: 'player', initial: 'idle' })
+  expect(prefab.components[3]?.props).toMatchObject({ role: 'player', initial: 'idle' })
 })
 
 it('drives a 3D enemy with Chaser, and emits no Sprite, Hitbox or Solid for either (CA-30)', async () => {
@@ -50,11 +52,31 @@ it('drives a 3D enemy with Chaser, and emits no Sprite, Hitbox or Solid for eith
   const enemy = await scaffolded(project, 'ghoul', 'enemy')
   const player = await scaffolded(project, 'hero', 'player')
 
-  expect(typesOf(enemy).slice(0, 6)).toEqual(['Model', 'RigidBody', 'Collider', 'Animator', 'StateMachine', 'Chaser'])
+  expect(typesOf(enemy).slice(0, 5)).toEqual(['Model', 'RigidBody', 'Collider', 'StateMachine', 'Chaser'])
   for (const prefab of [enemy, player]) {
     for (const flat of ['Sprite', 'Hitbox', 'Solid', 'Hazard', 'AnimatedSprite']) expect(typesOf(prefab)).not.toContain(flat)
   }
 })
+
+it('scaffolds a player and an enemy a 3D scene validates with zero errors: no Animator until a glb replaces the box (CA-30)', async () => {
+  const project = await thirdPersonProject()
+  await scaffolded(project, 'hero', 'player')
+  await scaffolded(project, 'ghoul', 'enemy')
+  const scene = {
+    waicaScene: 3,
+    render: { space: '3d' },
+    camera: { kind: 'perspective', follow: 'Hero' },
+    entities: [
+      { name: 'Hero', prefab: 'characters/hero', position: [0, 0, 0] },
+      { name: 'Ghoul', prefab: 'characters/ghoul', position: [3, 0, 3] },
+    ],
+  }
+  await mkdir(path.join(project, 'src/scenes'), { recursive: true })
+  await writeFile(path.join(project, 'src/scenes/main.scene.json'), JSON.stringify(scene))
+
+  const { findings } = await validateProject(project)
+  expect(findings.filter((finding) => finding.severity === 'error')).toEqual([])
+}, 60_000)
 
 it('still rejects a role the 3D archetype does not define (CA-30)', async () => {
   const project = await thirdPersonProject()
