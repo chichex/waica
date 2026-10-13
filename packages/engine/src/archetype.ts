@@ -56,6 +56,33 @@ export interface ArchetypeManifest {
   music?: string
 }
 
+/** What a scene takes from its archetype: prefab refs, UI piece names and art file names, each in the archetype's order. */
+export interface SceneArchetypeNeeds {
+  prefabs: string[]
+  ui: string[]
+  art: string[]
+}
+
+/**
+ * What `scene` uses from `archetype` (issue #181 CA-29): the prefabs its
+ * entities spawn, the UI pieces it lists, and the art those prefabs or the
+ * scene refer to by uri — what a project needs as files to run the scene
+ * without the archetype's own catalogs (a blank start of an archetype whose
+ * blank scene is not empty). Names the archetype does not have are left out.
+ */
+export function sceneArchetypeNeeds(
+  archetype: Pick<ArchetypeManifest, 'prefabs' | 'art' | 'registry'>,
+  scene: SceneJson,
+): SceneArchetypeNeeds {
+  const spawned = new Set(scene.entities.flatMap((entity) => (entity.prefab ? [entity.prefab] : [])))
+  const prefabs = Object.keys(archetype.prefabs).filter((ref) => spawned.has(ref))
+  const listed = new Set(scene.ui ?? [])
+  const ui = Object.keys(archetype.registry.ui ?? {}).filter((name) => listed.has(name))
+  const text = JSON.stringify([scene, prefabs.map((ref) => archetype.prefabs[ref])])
+  const art = archetype.art.filter((row) => text.includes(JSON.stringify(row.uri))).map((row) => row.file)
+  return { prefabs, ui, art }
+}
+
 /** Browser manifest enriched with URLs produced by an asset-aware bundler. */
 export interface BrowserArchetypeManifest extends ArchetypeManifest {
   artUrls: Readonly<Record<string, string>>

@@ -173,7 +173,9 @@ export type {
   ArchetypeManifest,
   BrowserArchetypeManifest,
   EntityTemplate,
+  SceneArchetypeNeeds,
 } from './archetype.js'
+export { sceneArchetypeNeeds } from './archetype.js'
 export { Stats } from './stats.js'
 export type { StatValue } from './stats.js'
 export { GameUi } from './ui.js'
