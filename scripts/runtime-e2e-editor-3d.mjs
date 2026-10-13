@@ -23,6 +23,8 @@ const KNIGHT_CLIPS = ['Idle', 'Walking_A', 'Jump_Start']
 const DRAG_PX = 100
 const ORBIT_PX = 120
 const MIN_DIFFERING_PIXELS = 50
+/** Longer than the editor's 600 ms save debounce, with margin. */
+const SAVE_SETTLE_MS = 1500
 
 /** A port nothing listens on, for the editor's dev server. */
 async function freePort() {
@@ -110,7 +112,7 @@ async function selectKnight(page) {
   const [x, y, z] = playerOf(await savedScene(page)).position
   const at = await pagePoint(page, { x, y: y + 0.9, z })
   await page.mouse.click(at.x, at.y)
-  const name = page.getByRole('textbox', { name: 'name' })
+  const name = page.getByRole('textbox', { name: 'name', exact: true })
   const deadline = Date.now() + 10_000
   while (!((await name.count()) > 0 && (await name.first().inputValue()) === 'Player')) {
     assert.ok(Date.now() < deadline, 'a click on the Knight must show the Player in the Inspector')
@@ -177,7 +179,8 @@ async function orbit(page) {
   await page.mouse.up({ button: 'middle' })
   const after = await camera()
   assert.notDeepEqual(after, before, 'a middle drag must move the editor camera')
-  await page.waitForTimeout(500)
+  // Every editor write is debounced by WRITE_DELAY_MS (600 ms, write-scheduler.ts): wait well past it, or a camera write would land after the read.
+  await page.waitForTimeout(SAVE_SETTLE_MS)
   assert.equal(JSON.stringify((await savedScene(page)).camera), sceneCamera, "navigating must leave the scene's camera block alone")
   return { before, after }
 }
@@ -191,11 +194,14 @@ async function canvasShot(page) {
 /** The whole editor-3d leg; `helpers` are runtime-e2e.mjs's own. */
 export async function runEditor3dLeg({ root, viteBin, chrome, playwright, label, helpers, renderLeg }) {
   const startedAt = Date.now()
-  const editor = await startEditor({ root, viteBin })
-  const browser = await playwright.chromium.launch({ executablePath: chrome.executablePath, headless: true, args: renderLeg?.chromeArgs ?? [] })
-  const inspector = await helpers.openPngInspector(playwright, chrome.executablePath)
+  let editor = null
+  let browser = null
+  let inspector = null
   const pageErrors = []
   try {
+    editor = await startEditor({ root, viteBin })
+    browser = await playwright.chromium.launch({ executablePath: chrome.executablePath, headless: true, args: renderLeg?.chromeArgs ?? [] })
+    inspector = await helpers.openPngInspector(playwright, chrome.executablePath)
     const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1 })
     page.on('pageerror', (error) => pageErrors.push(String(error)))
     await page.goto(editor.url)
@@ -217,8 +223,9 @@ export async function runEditor3dLeg({ root, viteBin, chrome, playwright, label,
     assert.deepEqual(pageErrors, [], 'the editor must raise no page error')
     return { editor3d: { durationMs: Date.now() - startedAt, drag, clips, camera, differingAfterOrbit: differing } }
   } finally {
-    await inspector.close()
-    await browser.close()
-    await editor.close()
+    // Each resource closes on its own, so one failing close leaves no other open.
+    const closers = [inspector && (() => inspector.close()), browser && (() => browser.close()), editor && (() => editor.close())]
+    const results = await Promise.allSettled(closers.filter(Boolean).map((close) => close()))
+    for (const result of results) if (result.status === 'rejected') console.error(`editor-3d leg: a resource failed to close: ${String(result.reason)}`)
   }
 }

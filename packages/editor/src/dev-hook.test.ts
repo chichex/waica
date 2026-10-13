@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
+import { renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Game } from '@waica/engine'
 import type { ProjectFS } from './fs/project-fs'
-import { installEditorDevHook, registerViewportGame, type EditorDevHook } from './dev-hook'
+import { installEditorDevHook, registerViewportGame, useDevViewportGame, useEditorDevHook, type EditorDevHook } from './dev-hook'
 
 afterEach(() => {
   Reflect.deleteProperty(window, '__waicaEditor')
@@ -43,5 +44,37 @@ describe('the editor DEV hook (issue #173 inference 19)', () => {
     expect(hook().viewportGame()).toBe(game)
     unregister()
     expect(hook().viewportGame()).toBeNull()
+  })
+})
+
+describe('the editor DEV hook as React hooks under StrictMode', () => {
+  it('useEditorDevHook installs the hook, opens projects through the latest open, and removes it on unmount', async () => {
+    const first = vi.fn<(fs: ProjectFS) => void>()
+    const second = vi.fn<(fs: ProjectFS) => void>()
+    const { rerender, unmount } = renderHook(({ open }) => useEditorDevHook(open), { reactStrictMode: true, initialProps: { open: first } })
+    expect(Reflect.get(window, '__waicaEditor')).toBeDefined()
+
+    rerender({ open: second })
+    await hook().openMemoryProject('later', { 'src/game.json': '{}' })
+
+    expect(first).not.toHaveBeenCalled()
+    expect(second).toHaveBeenCalledTimes(1)
+    expect(second.mock.calls[0]?.[0].name).toBe('later')
+
+    unmount()
+    expect(Reflect.get(window, '__waicaEditor')).toBeUndefined()
+  })
+
+  it('useDevViewportGame answers the Game while mounted and forgets it on unmount', () => {
+    const game = {} as Game
+    const { unmount } = renderHook(() => {
+      useEditorDevHook(() => {})
+      useDevViewportGame(() => game)
+    }, { reactStrictMode: true })
+    expect(hook().viewportGame()).toBe(game)
+
+    const hookBeforeUnmount = hook()
+    unmount()
+    expect(hookBeforeUnmount.viewportGame()).toBeNull()
   })
 })
