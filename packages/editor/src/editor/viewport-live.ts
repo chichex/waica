@@ -38,6 +38,10 @@ export interface ViewportLive {
   grid: GridSettings
   componentVisibility: ViewportComponentVisibility
   tilemapBrush?: TilemapBrushSelection | null
+  /** The project's name: its 3D scenes remember the editor camera's pose under it (issue #173 CA-12). */
+  project?: string
+  /** Draws the 3D helpers (camera frustum, lights, colliders) and icons in edit mode (issue #173 CA-17). */
+  helpers3d?: boolean
 }
 
 /** The editor's own pan/zoom, kept across Game rebuilds and scene swaps. */

@@ -2,7 +2,7 @@ import type { Game } from '@waica/engine'
 import { useState, type DragEvent, type RefObject } from 'react'
 import { snapActive, snapPoint } from './grid'
 import { logicalAt } from './viewport-boxes'
-import { isReadOnlyView } from './viewport-camera'
+import { isThreeDView } from './viewport-camera'
 import type { ViewportLive } from './viewport-live'
 import { toWorld } from './viewport-pointer-targets'
 
@@ -17,8 +17,8 @@ export interface PrefabDropTarget {
 /** Dropping a prefab from the Explorer onto the edit viewport, at the (snapped) logical point. */
 export function usePrefabDrop({ canvasRef, gameRef, liveRef, onDropPrefab }: PrefabDropTarget) {
   const [dropHover, setDropHover] = useState(false)
-  /** A 3D scene is read-only: nothing is dropped into it. */
-  const readOnly = (): boolean => gameRef.current != null && isReadOnlyView(gameRef.current)
+  /** A 3D scene takes no drop at a 2D point. */
+  const readOnly = (): boolean => gameRef.current != null && isThreeDView(gameRef.current)
 
   const onDragOver = (e: DragEvent<HTMLElement>): void => {
     if (!onDropPrefab || liveRef.current.mode !== 'edit' || readOnly()) return

@@ -2,10 +2,12 @@ import { forwardRef } from 'react'
 import type { CollisionPoint, GameResolution, InputBindings, SceneJson, SceneRegistry, StatValue } from '@waica/engine'
 import { DEFAULT_EDITOR_SETTINGS, type GridSettings } from '../project/editor-settings'
 import { effectiveGrid } from './effective-grid'
+import { useEditorViewSettings, type EditorViewSettings } from './editor-view-settings'
 import type { TilemapBrushSelection } from './tilemap-brush'
 import { usePrefabDrop } from './use-prefab-drop'
 import { useViewportGame, useViewportHandle } from './use-viewport-game'
 import { useViewportPointer } from './use-viewport-pointer'
+import { navigate3d, useViewport3dShortcuts } from './viewport-3d-keys'
 import { isThreeDScene } from './viewport-camera'
 import { frameEditView, zoomEditView } from './viewport-game'
 import type { ViewportComponentVisibility, ViewportHandle } from './viewport-live'
@@ -60,6 +62,8 @@ interface Props {
   componentVisibility?: ViewportComponentVisibility
   tilemapBrush?: TilemapBrushSelection | null
   onTilemapStroke?(name: string, cells: number[]): void
+  /** The project's name: a 3D scene remembers the Editor Camera's pose under it (issue #173 CA-12). */
+  project?: string
   /** The selected entity name, or CAMERA_NODE for the scene camera. */
   selected: string | null
   /** Names in the multi-selection; dragging any member moves the whole group. */
@@ -94,43 +98,73 @@ interface Props {
   onDropPrefab?(ref: string, world: [number, number]): void
 }
 
+interface ChromeProps {
+  session: ReturnType<typeof useViewportGame>
+  mode: 'edit' | 'play'
+  threeD: boolean
+  showCamera: boolean
+  grid: GridSettings
+  onGridChange?: (next: GridSettings) => void
+  view: EditorViewSettings
+  onHelpersChange: (helpers: boolean) => void
+}
+
+/** The floating tools over the edit viewport: the grid's (and, in 3D, the helpers toggle), and navigation. */
+function ViewportChrome({ session, mode, threeD, showCamera, grid, onGridChange, view, onHelpersChange }: ChromeProps) {
+  if (mode !== 'edit') return null
+  const { view3dRef } = session
+  return (
+    <>
+      {onGridChange && (
+        <ViewportGridTools grid={grid} onGridChange={onGridChange} threeD={threeD ? { helpers: view.helpers, onHelpersChange } : undefined} />
+      )}
+      {threeD ? (
+        <ViewportNavTools
+          onZoom={(factor) => view3dRef.current?.zoom(factor)}
+          onFrameCamera={() => view3dRef.current?.resetToScene()}
+          onFrameSelection={() => view3dRef.current?.frameSelection()}
+        />
+      ) : (
+        <ViewportNavTools onZoom={(factor) => zoomEditView(session, factor)} onFrameCamera={showCamera ? () => frameEditView(session) : undefined} />
+      )}
+    </>
+  )
+}
+
 export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
-  { scene, scenePath, sceneCatalog, registry, epoch, mode, bindings, stats, music, viewHeight = 12, background = 0x1a1a2e, resolution, showCamera = false, grid = DEFAULT_EDITOR_SETTINGS.grid, onGridChange, componentVisibility = DEFAULT_COMPONENT_VISIBILITY, tilemapBrush, onTilemapStroke, selected, multiSelected, onSelect, onToggleSelect, onRangeSelect, onSelectCamera, onMoved, onMovedMany, onCameraMoved, onBoxResized, onBoxMoved, onPolygonChanged, onDropPrefab },
+  { scene, scenePath, sceneCatalog, registry, epoch, mode, bindings, stats, music, viewHeight = 12, background = 0x1a1a2e, resolution, showCamera = false, grid = DEFAULT_EDITOR_SETTINGS.grid, onGridChange, componentVisibility = DEFAULT_COMPONENT_VISIBILITY, tilemapBrush, onTilemapStroke, project, selected, multiSelected, onSelect, onToggleSelect, onRangeSelect, onSelectCamera, onMoved, onMovedMany, onCameraMoved, onBoxResized, onBoxMoved, onPolygonChanged, onDropPrefab },
   ref,
 ) {
-  const live = { scene, scenePath, sceneCatalog, registry, bindings, stats, music, resolution, selected, multiSelected, mode, grid: effectiveGrid(scene, grid), componentVisibility, tilemapBrush }
+  const [view, setHelpers] = useEditorViewSettings()
+  const live = { scene, scenePath, sceneCatalog, registry, bindings, stats, music, resolution, selected, multiSelected, mode, grid: effectiveGrid(scene, grid), componentVisibility, tilemapBrush, project, helpers3d: view.helpers }
   const session = useViewportGame(live, { epoch, mode, background, showCamera, viewHeight, onSelect })
-  const { surfaceRef, uiFrameRef, uiScaleRef, gameRef } = session
+  const { surfaceRef, uiFrameRef, uiScaleRef, gameRef, view3dRef } = session
   useViewportHandle(ref, gameRef)
+  useViewport3dShortcuts(view3dRef)
   const pointer = useViewportPointer(
     { ...session, showCamera },
     { onSelect, onToggleSelect, onRangeSelect, onSelectCamera, onMoved, onMovedMany, onCameraMoved, onBoxResized, onBoxMoved, onPolygonChanged, onTilemapStroke },
   )
   const drop = usePrefabDrop({ ...session, onDropPrefab })
-  // A 3D scene is only looked at (ADR 0027): no 2D frame, grid or zoom tools over it.
-  const flat = !isThreeDScene(scene)
+  // A 3D scene is seen through the Editor Camera (ADR 0030): a focusable surface the keyboard navigates.
+  const threeD = isThreeDScene(scene)
+  const surface = { ref: surfaceRef, className: `ed-viewport ${mode === 'edit' ? 'is-edit' : 'is-play'} ${drop.dropHover ? 'is-dropping' : ''}`, ...pointer.handlers, ...drop.handlers }
 
   return (
     <>
-      <div
-        ref={surfaceRef}
-        className={`ed-viewport ${mode === 'edit' ? 'is-edit' : 'is-play'} ${drop.dropHover ? 'is-dropping' : ''}`}
-        {...pointer.handlers}
-        {...drop.handlers}
-      />
+      {threeD ? (
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex -- the 3D view is a keyboard-operated widget (issue #173 CA-11); `application` is ARIA's role for one, which jsx-a11y counts as non-interactive
+        <div {...surface} role="application" aria-label="3D viewport" tabIndex={0} onKeyDown={(event) => view3dRef.current && navigate3d(view3dRef.current, event)} />
+      ) : (
+        <div {...surface} />
+      )}
       {pointer.marqueeRect && <div className="ed-marquee" style={pointer.marqueeRect} />}
-      {mode === 'edit' && showCamera && flat && (
+      {mode === 'edit' && showCamera && !threeD && (
         <div ref={uiFrameRef} className="ed-vp-ui">
           <div ref={uiScaleRef} />
         </div>
       )}
-      {mode === 'edit' && flat && onGridChange && <ViewportGridTools grid={grid} onGridChange={onGridChange} />}
-      {mode === 'edit' && flat && (
-        <ViewportNavTools
-          onZoom={(factor) => zoomEditView(session, factor)}
-          onFrameCamera={showCamera ? () => frameEditView(session) : undefined}
-        />
-      )}
+      <ViewportChrome session={session} mode={mode} threeD={threeD} showCamera={showCamera} grid={grid} onGridChange={onGridChange} view={view} onHelpersChange={setHelpers} />
     </>
   )
 })

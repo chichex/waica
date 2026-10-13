@@ -40,7 +40,7 @@ function createGridOverlay(game: Game) {
   return {
     sync(grid: GridSettings, editing: boolean): void {
       const c = orthographicCamera(game.camera)
-      // No grid under a perspective camera: a 3D scene is only looked at.
+      // No 2D grid under a perspective camera: a 3D scene draws its own (viewport-3d-overlays).
       lines.visible = editing && grid.show && c != null
       if (!c || !lines.visible) return
       const rect = {
@@ -78,7 +78,7 @@ export function createFrameOverlays(game: Game, host: OverlayHost) {
     uiPreview?.sync(live, frame)
   }
 
-  /** A 3D scene is read-only: nothing is drawn over it, and whatever a 2D scene left is hidden. */
+  /** The 2D overlays over a 3D scene: hidden, whatever a 2D scene left (the 3D ones are the edit view's). */
   const hideAll = (live: ViewportLive): void => {
     grid.sync(live.grid, false)
     selection.sync({ ...live, mode: 'play', multiSelected: [] })
