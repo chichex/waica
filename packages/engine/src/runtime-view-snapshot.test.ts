@@ -5,6 +5,7 @@ vi.mock('three/webgpu', async (importOriginal) =>
   (await import('./test-renderer.js')).withFakeRenderer(await importOriginal()),
 )
 
+import { PerspectiveCamera } from 'three/webgpu'
 import { FakeTextureBackend } from './assets/test-helpers.js'
 import { Game } from './game.js'
 import { RUNTIME_BRIDGE_SYMBOL, type RuntimeBridge, type RuntimeBridgeActivation } from './runtime-bridge.js'
@@ -42,6 +43,19 @@ const SCENE_3D: SceneJson = {
 }
 
 describe('Runtime Snapshot space and view (CA-16)', () => {
+  it('reports the scene camera in a 3D scene even while a host view camera is drawn (issue #173 CA-1)', () => {
+    const game = makeGame()
+    loadScene(game, SCENE_3D, REGISTRY)
+    const view = new PerspectiveCamera(70, 1, 0.5, 500)
+    view.position.set(-6, 3, 2)
+    view.lookAt(0, 0, 0)
+    game.cameraRig.setViewCamera(view)
+
+    const snapshot = bridgeOf(game).inspect({})
+
+    expect(snapshot.view).toEqual({ kind: 'perspective', position: [0, 4, 12], target: [0, 1, 0], fov: 50 })
+  })
+
   it('reports a 2d scene as orthographic: position and zoom', () => {
     const game = makeGame()
     loadScene(game, { waicaScene: 3, camera: { position: [3, 4], zoom: 12 }, entities: [] }, REGISTRY)

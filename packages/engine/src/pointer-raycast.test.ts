@@ -165,37 +165,73 @@ describe('raycastPick as public API (issue #173 CA-2)', () => {
     expect(pick.entity?.name).toBe('Crate')
     expect(pick.point.z).toBeCloseTo(1, 4)
   })
-
 })
 
 describe('raycastPick with extra targets (issue #173 CA-2)', () => {
   it('hits an extra target and answers with what it picks: an entity, or the camera', async () => {
     const { game } = await setup([box('Crate', [2, 0, 0])])
-    const sun = defined(game.find('Crate'))
-    const sunIcon = icon([-3, 1, 0])
+    const crate = defined(game.find('Crate'))
+    const crateIcon = icon([-3, 1, 0])
     const cameraIcon = icon([3, 3, -2])
     const extra: PickTarget[] = [
-      { object: sunIcon, entity: sun },
+      { object: crateIcon, entity: crate },
       { object: cameraIcon, entity: 'camera' },
     ]
 
-    const onSun = defined(raycastPick(lensOf(game), fractionAt(game, { x: -3, y: 1, z: 0 }), game.entities, extra), 'a pick')
+    const onCrateIcon = defined(raycastPick(lensOf(game), fractionAt(game, { x: -3, y: 1, z: 0 }), game.entities, extra), 'a pick')
     const onCamera = defined(raycastPick(lensOf(game), fractionAt(game, { x: 3, y: 3, z: -2 }), game.entities, extra), 'a pick')
 
-    expect(onSun.entity).toBe(sun)
+    expect(onCrateIcon.entity).toBe(crate)
     expect(onCamera.entity).toBe('camera')
   })
 
   it('takes the nearest hit across Model roots and extra targets', async () => {
     const { game } = await setup([box('Crate', [0, 0, 0], 2)])
+    const lens = lensOf(game)
     const front = icon([0, 0.5, 3])
-    const behind = icon([0, 0.5, -3])
-
-    const pickFront = defined(raycastPick(lensOf(game), fractionAt(game, { x: 0, y: 0.5, z: 3 }), game.entities, [{ object: front, entity: 'camera' }]), 'a pick')
-    const pickBehind = defined(raycastPick(lensOf(game), fractionAt(game, { x: 0, y: 0.5, z: 1 }), game.entities, [{ object: behind, entity: 'camera' }]), 'a pick')
+    const pickFront = defined(raycastPick(lens, fractionAt(game, { x: 0, y: 0.5, z: 3 }), game.entities, [{ object: front, entity: 'camera' }]), 'a pick')
 
     expect(pickFront.entity).toBe('camera')
+  })
+
+})
+
+describe('raycastPick ordering and visibility of extra targets (issue #173 CA-2)', () => {
+  it('does not pick an extra target hidden behind a Model on the same ray', async () => {
+    const { game } = await setup([box('Crate', [0, 0, 0], 2)])
+    const lens = lensOf(game)
+    // Past the Crate's back face (z = -1), on the very ray that hits the Crate's front.
+    const ray = new THREE.Ray(lens.position.clone(), new THREE.Vector3(0, 0.5, 1).sub(lens.position).normalize())
+    const hidden = ray.at(lens.position.distanceTo(new THREE.Vector3(0, 0.5, 1)) * 1.6, new THREE.Vector3())
+    const behind = icon([hidden.x, hidden.y, hidden.z])
+
+    const pickBehind = defined(raycastPick(lens, fractionAt(game, { x: 0, y: 0.5, z: 1 }), game.entities, [{ object: behind, entity: 'camera' }]), 'a pick')
+    const behindAlone = defined(raycastPick(lens, fractionAt(game, { x: 0, y: 0.5, z: 1 }), [], [{ object: behind, entity: 'camera' }]), 'a pick')
+
+    expect(hidden.z).toBeLessThan(-1)
+    expect(behindAlone.entity).toBe('camera')
     expect(pickBehind.entity).toBe(game.find('Crate'))
+  })
+
+  it('skips an extra target that is not drawn: hidden itself or under a hidden parent', async () => {
+    const { game } = await setup([])
+    const hiddenIcon = icon([1, 1, 0])
+    hiddenIcon.visible = false
+    const parent = new THREE.Group()
+    const child = icon([-1, 1, 0])
+    parent.add(child)
+    parent.visible = false
+    parent.updateMatrixWorld(true)
+    const extra: PickTarget[] = [
+      { object: hiddenIcon, entity: 'camera' },
+      { object: parent, entity: 'camera' },
+    ]
+
+    const onHidden = defined(raycastPick(lensOf(game), fractionAt(game, { x: 1, y: 1, z: 0 }), game.entities, extra), 'a pick')
+    const onChild = defined(raycastPick(lensOf(game), fractionAt(game, { x: -1, y: 1, z: 0 }), game.entities, extra), 'a pick')
+
+    expect(onHidden.entity).toBeNull()
+    expect(onChild.entity).toBeNull()
   })
 
   it('tests an extra target whatever its layers: an editor overlay lives on the Emissive layer', async () => {
