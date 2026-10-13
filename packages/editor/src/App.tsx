@@ -1,3 +1,4 @@
+import { useEditorDevHook } from './dev-hook'
 import { Home } from './home/Home'
 import { Editor } from './editor/Editor'
 import { reportRejection } from './report-rejection'
@@ -5,6 +6,7 @@ import { useProjectSession } from './use-project-session'
 
 export function App() {
   const session = useProjectSession()
+  useEditorDevHook(session.open)
   if (!session.checked && !session.project) return null
   return session.project ? (
     <Editor fs={session.project} onClose={session.close} />

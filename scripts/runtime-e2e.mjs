@@ -20,6 +20,7 @@ import path from 'node:path'
 import { promisify } from 'node:util'
 import { stdioRpc } from './stdio-rpc.mjs'
 import { runLightingLeg } from './runtime-e2e-lighting.mjs'
+import { runEditor3dLeg } from './runtime-e2e-editor-3d.mjs'
 import { runSmoke3dLeg } from './runtime-e2e-smoke-3d.mjs'
 
 const execFileAsync = promisify(execFile)
@@ -1995,6 +1996,7 @@ export async function runRuntimeE2e({
   includeBatchParity = true,
   includeLighting = true,
   includeSmoke3d = true,
+  includeEditor3d = true,
   includeSignalShutdown = true,
   renderLeg,
 }) {
@@ -2127,6 +2129,10 @@ export async function runRuntimeE2e({
           renderBackend: renderLeg?.backend,
         })
       : {}
+    // The editor's 3D edit view, driven in its dev server with the real mouse (issue #173 CA-23).
+    const editor3dResult = includeEditor3d
+      ? await runEditor3dLeg({ root, viteBin, chrome, playwright, label, helpers: { keepScreenshot, openPngInspector }, renderLeg })
+      : {}
     if (negative) await runNegativeReadiness({ client, fixture: negative, chrome })
     let signalShutdownResult = {}
     if (includeSignalShutdown) {
@@ -2149,6 +2155,7 @@ export async function runRuntimeE2e({
       ...batchParityResult,
       ...lightingResult,
       ...smoke3dResult,
+      ...editor3dResult,
       ...signalShutdownResult,
     }
     console.log(`waica runtime e2e (${label}): ${JSON.stringify(result)}`)

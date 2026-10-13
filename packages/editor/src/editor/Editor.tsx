@@ -1,3 +1,5 @@
+import { useCallback } from 'react'
+import { useDevViewportGame } from '../dev-hook'
 import { reportRejection } from '../report-rejection'
 import { ArchetypeContext } from '../project/archetype'
 import type { ProjectFS } from '../fs/project-fs'
@@ -26,6 +28,7 @@ export function Editor({ fs, onClose }: { fs: ProjectFS; onClose(): void }) {
   const state = useEditorState(clips.fs)
   const core: EditorCore = { ...state, ...createCommits(state) }
   const [viewportRef, viewport] = useViewportHandle()
+  useDevViewportGame(useCallback(() => viewport()?.game() ?? null, [viewport]))
   useEditorShortcuts((shortcut) => runShortcut(core, shortcut))
 
   if (core.code.archetypeFailed) {
