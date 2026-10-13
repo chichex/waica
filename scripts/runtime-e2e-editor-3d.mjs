@@ -191,6 +191,36 @@ async function orbit(page) {
   return { before, after }
 }
 
+/** Polls a project file the editor saves (on a debounce) until it exists; its text. */
+async function savedText(page, filePath) {
+  const deadline = Date.now() + 10_000
+  while (Date.now() < deadline) {
+    const text = await page.evaluate((target) => globalThis.__waicaEditor.readText(target), filePath)
+    if (text !== null) return text
+    await page.waitForTimeout(100)
+  }
+  throw new Error(`the editor never saved ${filePath}`)
+}
+
+/**
+ * The Explorer's New object writes, in this third-person project, the bytes
+ * scaffold_prefab writes for an object in a fresh third-person project
+ * (maintainer decision on issue #181: the editor's New prefab and the MCP
+ * scaffold write the same 3D set).
+ */
+async function newObjectMatchesScaffold(page, { call, client, parent, label }) {
+  const project = path.join(parent, `waica-editor-3d-scaffold-${label}`)
+  const created = await call(client, 'create_project', { project_path: project, start: 'blank', archetype: 'third-person' })
+  assert.equal(created.isError, undefined, `create_project failed: ${JSON.stringify(created)}`)
+  const scaffolded = await call(client, 'scaffold_prefab', { project_path: project, name: 'crate', type: 'object' })
+  assert.equal(scaffolded.isError, undefined, `scaffold_prefab failed: ${JSON.stringify(scaffolded)}`)
+  const expected = await readFile(path.join(project, scaffolded.structuredContent.path), 'utf8')
+  await page.getByTitle('New object').click()
+  const written = await savedText(page, 'src/objects/object-1.object.json')
+  assert.equal(written, expected, "the editor's New object must write scaffold_prefab's bytes")
+  return { scaffold: scaffolded.structuredContent.path, bytes: written.length }
+}
+
 /** The canvas as a PNG (base64), after two frames so the last change is drawn. */
 async function canvasShot(page) {
   await page.evaluate(() => new Promise((resolve) => globalThis.requestAnimationFrame(() => globalThis.requestAnimationFrame(resolve))))
@@ -198,7 +228,7 @@ async function canvasShot(page) {
 }
 
 /** The whole editor-3d leg; `helpers` are runtime-e2e.mjs's own. */
-export async function runEditor3dLeg({ root, viteBin, chrome, playwright, label, helpers, renderLeg }) {
+export async function runEditor3dLeg({ root, viteBin, chrome, playwright, label, helpers, renderLeg, mcp }) {
   const startedAt = Date.now()
   let editor = null
   let browser = null
@@ -220,14 +250,15 @@ export async function runEditor3dLeg({ root, viteBin, chrome, playwright, label,
     const afterOrbit = await canvasShot(page)
     await helpers.keepScreenshot(`${label}-editor-3d-before-orbit.png`, beforeOrbit)
     await helpers.keepScreenshot(`${label}-editor-3d-after-orbit.png`, afterOrbit)
+    const newPrefab = await newObjectMatchesScaffold(page, { ...mcp, label })
     // CI's Linux WebGPU draws a blank frame (issue #151): its pixels, and the page errors its backend raises, are only reported there.
     if (expectsBlankLighting(renderLeg?.backend)) {
-      return { editor3d: { durationMs: Date.now() - startedAt, drag, clips, camera, pageErrors, expectedBlank: 'https://github.com/chichex/waica/issues/151' } }
+      return { editor3d: { durationMs: Date.now() - startedAt, drag, clips, camera, newPrefab, pageErrors, expectedBlank: 'https://github.com/chichex/waica/issues/151' } }
     }
     const { differing } = await inspector.compare(beforeOrbit, afterOrbit)
     assert.ok(differing >= MIN_DIFFERING_PIXELS, `orbiting must change at least ${MIN_DIFFERING_PIXELS} pixels where the frame draws; ${differing} did`)
     assert.deepEqual(pageErrors, [], 'the editor must raise no page error')
-    return { editor3d: { durationMs: Date.now() - startedAt, drag, clips, camera, differingAfterOrbit: differing } }
+    return { editor3d: { durationMs: Date.now() - startedAt, drag, clips, camera, newPrefab, differingAfterOrbit: differing } }
   } finally {
     // Each resource closes on its own, so one failing close leaves no other open.
     const closers = [inspector && (() => inspector.close()), browser && (() => browser.close()), editor && (() => editor.close())]

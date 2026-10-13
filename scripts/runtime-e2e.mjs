@@ -2132,7 +2132,7 @@ export async function runRuntimeE2e({
       : {}
     // The editor's 3D edit view, driven in its dev server with the real mouse (issue #173 CA-23).
     const editor3dResult = includeEditor3d
-      ? await runEditor3dLeg({ root, viteBin, chrome, playwright, label, helpers: { keepScreenshot, openPngInspector }, renderLeg })
+      ? await runEditor3dLeg({ root, viteBin, chrome, playwright, label, helpers: { keepScreenshot, openPngInspector }, renderLeg, mcp: { call, client, parent: temporaryParent } })
       : {}
     if (negative) await runNegativeReadiness({ client, fixture: negative, chrome })
     let signalShutdownResult = {}
