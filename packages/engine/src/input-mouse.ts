@@ -37,7 +37,12 @@ export interface MouseInputOptions {
   canvas?: HTMLCanvasElement
   /** Asked on a press over the canvas while it is unlocked: true takes the lock with that press, which then presses nothing (CA-3). */
   lockOnClick?: () => boolean
+  /** Asked on each wheel over the canvas: true keeps the page from scrolling (an orbit camera zooms with it); false by default (CA-2). */
+  preventsWheelScroll?: () => boolean
 }
+
+/** Touch and pen pointers are not the mouse: `Mouse:` codes ignore them (no mobile support, issue #181). */
+const fromMouse = (event: PointerEvent): boolean => event.pointerType !== 'touch' && event.pointerType !== 'pen'
 
 /** True for a `Mouse:` code no button reports, which therefore never matches. */
 export function isUnknownMouseCode(code: string): boolean {
@@ -62,6 +67,7 @@ export class MouseInput {
   private pendingWheel = 0
   private move: MouseMovement = { x: 0, y: 0 }
   private wheel = 0
+  private readonly preventsWheelScroll: () => boolean
   private readonly canvas: HTMLCanvasElement | null
   private readonly lockOnClick: () => boolean
 
@@ -71,6 +77,7 @@ export class MouseInput {
   ) {
     this.canvas = options.canvas ?? null
     this.lockOnClick = options.lockOnClick ?? (() => false)
+    this.preventsWheelScroll = options.preventsWheelScroll ?? (() => false)
     this.canvas?.addEventListener('pointerdown', this.onPointerDown)
     this.canvas?.addEventListener('wheel', this.onWheel, { passive: false })
     this.canvas?.addEventListener('contextmenu', this.onContextMenu)
@@ -143,6 +150,7 @@ export class MouseInput {
   }
 
   private onPointerDown = (event: PointerEvent): void => {
+    if (!fromMouse(event)) return
     if (!this.locked && this.lockOnClick()) {
       // This press only takes the lock (G-17): it never reaches `Mouse:Left`.
       this.requestLock()
@@ -153,6 +161,7 @@ export class MouseInput {
   }
 
   private onPointerUp = (event: PointerEvent): void => {
+    if (!fromMouse(event)) return
     const code = MOUSE_BUTTON_CODES.get(event.button)
     if (code) this.buttons.release(code)
   }
@@ -164,7 +173,7 @@ export class MouseInput {
    */
   private onPointerChord = (event: PointerEvent): void => {
     const bit = MOUSE_BUTTON_BITS.get(event.button)
-    if (bit === undefined) return
+    if (bit === undefined || !fromMouse(event)) return
     if ((event.buttons & bit) === 0) this.onPointerUp(event)
     else if (event.target === this.canvas) this.onPointerDown(event)
   }
@@ -175,8 +184,8 @@ export class MouseInput {
   }
 
   private onWheel = (event: WheelEvent): void => {
-    // Over the game canvas only, so the page around it still scrolls.
-    event.preventDefault()
+    // Over the game canvas only, and only while something zooms with it (an orbit camera, issue #181): otherwise the page still scrolls.
+    if (this.preventsWheelScroll()) event.preventDefault()
     this.pendingWheel += wheelPixels(event)
   }
 

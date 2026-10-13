@@ -132,6 +132,19 @@ it('keeps the browser menu off the canvas when an Action binds Mouse:Right, so i
   expect(contextMenu(unbound).defaultPrevented).toBe(false)
 })
 
+it('ignores touch and pen pointers: Mouse: codes are the mouse’s (CA-1)', () => {
+  const canvas = makeCanvas()
+  const input = makeInput({ attack: ['Mouse:Left'] }, canvas)
+
+  for (const pointerType of ['touch', 'pen']) {
+    canvas.dispatchEvent(new PointerEvent('pointerdown', { button: 0, pointerType, bubbles: true }))
+    expect(input.held('attack'), pointerType).toBe(false)
+  }
+  canvas.dispatchEvent(new PointerEvent('pointerdown', { button: 0, pointerType: 'mouse', bubbles: true }))
+  canvas.dispatchEvent(new PointerEvent('pointerup', { button: 0, pointerType: 'touch', bubbles: true }))
+  expect(input.held('attack')).toBe(true)
+})
+
 it('reads mouse buttons on the game canvas only, never on other page elements (CA-1)', () => {
   const canvas = makeCanvas()
   const input = makeInput({ attack: ['Mouse:Left'] }, canvas)
@@ -202,19 +215,27 @@ it('freezes the movement and wheel at the step start and clears them in endFrame
   expect(input.mouseMovement()).toEqual({ x: 100, y: 100 })
 })
 
-it('counts the wheel over the canvas and prevents its page scroll only there (CA-2)', () => {
-  const canvas = makeCanvas()
-  const input = makeInput({}, canvas)
+it('counts the wheel over the canvas, and prevents its page scroll only there while preventsWheelScroll says so (CA-2)', () => {
   const page = document.createElement('section')
   document.body.append(page)
+  const plain = makeCanvas()
+  const plainInput = makeInput({}, plain)
+  const orbiting = makeCanvas()
+  let orbits = true
+  const orbitInput = new Input({}, { canvas: orbiting, preventsWheelScroll: () => orbits })
+  inputs.push(orbitInput)
 
-  const overCanvas = wheel(canvas, -240)
+  const overPlain = wheel(plain, -240)
+  const overOrbit = wheel(orbiting, 120)
   const overPage = wheel(page, 500)
-  input.pollMouse()
+  orbits = false
+  const afterOrbit = wheel(orbiting, 60)
+  plainInput.pollMouse()
+  orbitInput.pollMouse()
 
-  expect(input.wheelDelta()).toBe(-240)
-  expect(overCanvas.defaultPrevented).toBe(true)
-  expect(overPage.defaultPrevented).toBe(false)
+  expect(plainInput.wheelDelta()).toBe(-240)
+  expect(orbitInput.wheelDelta()).toBe(180)
+  expect([overPlain, overOrbit, overPage, afterOrbit].map((event) => event.defaultPrevented)).toEqual([false, true, false, false])
 })
 
 /** Records, per Simulation Step, the locked mouse movement and wheel a behavior reads. */
