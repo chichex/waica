@@ -180,3 +180,23 @@ it('clears a death fade left halfway when die is left another way, and the next 
   expect(health.current).toBe(6)
   expect(darkest).toBe(1)
 })
+
+it('reports the death sequence’s phase in the Respawnable snapshot: the pose, the fade-out, then none (CA-21)', async () => {
+  const fixture = await course()
+  const phase = (): unknown => {
+    const entity = fixture.bridge.inspect().entities.find((candidate) => candidate.name === 'Player')
+    const state = entity?.components.find((component) => component.type === 'Respawnable')?.state
+    return state && typeof state === 'object' && !Array.isArray(state) ? Reflect.get(state, 'respawnPhase') : undefined
+  }
+  expect(phase()).toBeNull()
+
+  defined(player(fixture).get(Health)).damage(Number.POSITIVE_INFINITY)
+  fixture.step(2)
+  const seen: unknown[] = [phase()]
+  for (let frame = 0; frame < 200 && defined(player(fixture).get(StateMachine)).current === 'die'; frame += 1) {
+    fixture.step(1)
+    if (seen.at(-1) !== phase()) seen.push(phase())
+  }
+
+  expect(seen).toEqual(['pose', 'fade-out', null])
+})

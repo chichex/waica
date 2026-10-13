@@ -141,3 +141,24 @@ it('pushes for the same 9 steps whether the hit body updates before or after the
 
   expect(counts).toEqual([9, 9])
 })
+
+/** One entity's component state in a Runtime Snapshot, as inspect_runtime reports it. */
+function snapshotState(fixture: PhysicsFixture, name: string, type: string): Record<string, unknown> {
+  const entity = fixture.bridge.inspect().entities.find((candidate) => candidate.name === name)
+  const state = entity?.components.find((component) => component.type === type)?.state
+  return state && typeof state === 'object' && !Array.isArray(state) ? state : {}
+}
+
+it('reports a pending push in the hit body’s Health snapshot, and nothing once it is over (CA-17)', async () => {
+  const fixture = await arena([body('Front', { x: 0, z: 1.2, layer: 'enemy' }, [{ type: 'CharacterMotor' }])])
+  expect(snapshotState(fixture, 'Front', 'Health')).not.toHaveProperty('knockback')
+
+  strike(fixture)
+  fixture.step(1)
+  const pushed = snapshotState(fixture, 'Front', 'Health').knockback as { x: number; z: number; until: number }
+  expect(pushed.x).toBeCloseTo(0, 6)
+  expect(pushed.z).toBeCloseTo(8, 6)
+  expect(pushed.until).toBeGreaterThan(fixture.game.time.now)
+  fixture.step(20)
+  expect(snapshotState(fixture, 'Front', 'Health')).not.toHaveProperty('knockback')
+})

@@ -7,6 +7,7 @@ import {
   type TimerHandle,
 } from '@waica/engine'
 import { anchorHeight } from './anchor-height.js'
+import { pendingKnockback } from './knockback-3d.js'
 
 /**
  * Below this, current is treated as exactly zero. Repeated fractional
@@ -146,7 +147,10 @@ export class Health extends Component {
    * scene node along and bury the numbers that matter.
    */
   override inspectState(): Record<string, unknown> {
+    // The push a 3D hit started, while it lasts (issue #181): absent otherwise, so a 2D snapshot reads as before.
+    const knockback = pendingKnockback(this.entity)
     return {
+      ...(knockback && { knockback }),
       max: this.max,
       invulnerability: this.invulnerability,
       stat: this.stat,

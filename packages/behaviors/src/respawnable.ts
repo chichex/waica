@@ -14,7 +14,16 @@ import { PlatformerMotor } from './platformer-motor.js'
 export class Respawnable extends Component {
   static override componentName = 'Respawnable'
   static override displayName = 'Respawn'
-  static override transient = ['spawn']
+  static override transient = ['spawn', 'respawnPhase', 'fadeOutSince']
+
+  /**
+   * Where the character role's die state is in the respawn sequence (issue
+   * #181): the death pose, the fade-out, or null outside it. The role writes
+   * it; a Runtime Snapshot shows it.
+   */
+  respawnPhase: 'pose' | 'fade-out' | null = null
+  /** The die state's elapsed seconds when its fade-out began; null outside the fade-out. */
+  fadeOutSince: number | null = null
 
   private spawn = new THREE.Vector3()
 

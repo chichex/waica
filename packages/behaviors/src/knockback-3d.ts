@@ -45,6 +45,17 @@ export function knockbackVelocity(entity: Entity): PlanarVelocity | null {
   return null
 }
 
+/**
+ * The push `entity` is under or about to be under, without spending it: its
+ * velocity and the Game Time it lasts until; null with none, or once it is
+ * over. What a Runtime Snapshot reports (maintainer decision on issue #181).
+ */
+export function pendingKnockback(entity: Entity): { x: number; z: number; until: number } | null {
+  const push = pushes.get(entity)
+  if (!push || entity.game.time.now > push.until + SIMULATION_TIME_EPSILON) return null
+  return { ...push.velocity, until: push.until }
+}
+
 /** Ends any push on `entity` at once (a respawn). */
 export function clearKnockback(entity: Entity): void {
   pushes.delete(entity)

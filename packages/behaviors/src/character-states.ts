@@ -164,8 +164,6 @@ function attackUpdate({ entity, fsm }: StateContext): void {
 }
 
 /** The Game Time (fsm.elapsed) each dying machine started its fade-out at. */
-const fadingSince = new WeakMap<StateMachine, number>()
-
 /** Whether the death pose is over: its own one-shot clip finished, or its time is up. */
 function deathPoseOver({ entity, fsm }: StateContext): boolean {
   const animator = entity.get(Animator)
@@ -181,32 +179,46 @@ function deathPoseOver({ entity, fsm }: StateContext): boolean {
  */
 function dieUpdate(context: StateContext): void {
   const { entity, fsm, game } = context
-  if (!entity.get(Respawnable)) return
-  const since = fadingSince.get(fsm)
-  if (since === undefined) {
+  const respawnable = entity.get(Respawnable)
+  if (!respawnable) return
+  const since = respawnable.fadeOutSince
+  if (since === null) {
     if (!deathPoseOver(context)) return
-    fadingSince.set(fsm, fsm.elapsed)
+    respawnable.respawnPhase = 'fade-out'
+    respawnable.fadeOutSince = fsm.elapsed
     game.cameraEffects.fade({ to: 'black', seconds: DEATH_FADE_SECONDS })
     return
   }
   if (fsm.elapsed - since + 1e-9 < DEATH_FADE_SECONDS) return
-  fadingSince.delete(fsm)
-  entity.get(Respawnable)?.respawn()
+  endSequence(respawnable)
+  respawnable.respawn()
   entity.get(Health)?.heal(Number.POSITIVE_INFINITY)
   game.cameraEffects.fade({ to: 'clear', seconds: DEATH_FADE_SECONDS })
   fsm.goto('idle')
 }
 
-/** Entering die starts a fresh sequence, whatever an earlier one left behind. */
+/** The sequence is over (or abandoned): the Respawnable reports no phase. */
+function endSequence(respawnable: Respawnable): void {
+  respawnable.respawnPhase = null
+  respawnable.fadeOutSince = null
+}
+
+/** Entering die starts a fresh sequence on its death pose, whatever an earlier one left behind. */
 function enterDie(context: StateContext): void {
   holdStill(true)(context)
-  fadingSince.delete(context.fsm)
+  const respawnable = context.entity.get(Respawnable)
+  if (!respawnable) return
+  endSequence(respawnable)
+  respawnable.respawnPhase = 'pose'
 }
 
 /** Leaving die another way halfway through its fade (a goto, a project's edge) clears the screen it darkened. */
 function exitDie(context: StateContext): void {
   holdStill(false)(context)
-  if (fadingSince.delete(context.fsm)) context.game.cameraEffects.fade({ to: 'clear', seconds: DEATH_FADE_SECONDS })
+  const respawnable = context.entity.get(Respawnable)
+  if (!respawnable) return
+  if (respawnable.fadeOutSince !== null) context.game.cameraEffects.fade({ to: 'clear', seconds: DEATH_FADE_SECONDS })
+  endSequence(respawnable)
 }
 
 /** The attack holds the character in place while it lasts (CharacterMotor.acting). */
