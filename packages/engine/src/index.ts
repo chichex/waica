@@ -121,6 +121,8 @@ export {
 } from './gamepad.js'
 export type { GamepadControl } from './gamepad.js'
 export { Pointer } from './pointer.js'
+export { raycastPick } from './pointer-raycast.js'
+export type { PickedTarget, PickTarget, RaycastPick, ViewportFraction } from './pointer-raycast.js'
 export type { PointerCamera, PointerDeps, PointerPick, PointerResolution } from './pointer.js'
 export {
   RUNTIME_BRIDGE_CAPABILITIES,
