@@ -45,6 +45,9 @@ export interface OrbitView {
 
 const clamp = (value: number, low: number, high: number): number => Math.min(Math.max(value, low), high)
 
+/** A yaw in degrees wrapped to (-180, 180], so two equal views report the same number. */
+const wrapYaw = (degrees: number): number => degrees - 360 * Math.ceil((degrees - 180) / 360)
+
 /**
  * A perspective camera orbiting a followed entity (issue #181, ADR 0031): the
  * locked mouse, the orbit Actions and the wheel turn and zoom it once per
@@ -60,22 +63,36 @@ export class OrbitCamera {
   distanceActual: number
 
   constructor(readonly settings: ResolvedOrbit) {
-    this.yaw = settings.yaw
+    this.yaw = wrapYaw(settings.yaw)
     this.pitch = clamp(settings.pitch, settings.minPitch, settings.maxPitch)
     this.distance = clamp(settings.distance, settings.minDistance, settings.maxDistance)
     this.distanceActual = this.distance
   }
 
-  /** One Simulation Step: turn and zoom by this step's input, then place `camera`. No followed entity: nothing moves. */
-  step(camera: THREE.PerspectiveCamera, host: OrbitHost, dt: number): void {
+  /** One Simulation Step: turn and zoom by this step's input, then place `camera`. No followed entity: nothing moves, and false. */
+  step(camera: THREE.PerspectiveCamera, host: OrbitHost, dt: number): boolean {
     const followed = host.find(this.settings.follow)
-    if (!followed) return
+    if (!followed) return false
     this.turn(host.input(), dt)
     this.distance = clamp(
       this.distance + host.input().wheelDelta() * ORBIT_WHEEL_ZOOM,
       this.settings.minDistance,
       this.settings.maxDistance,
     )
+    this.placeAround(camera, host, followed)
+    return true
+  }
+
+  /** Places `camera` on the orbit as it stands, with no input (a scene load); false, and nothing moves, with no followed entity. */
+  place(camera: THREE.PerspectiveCamera, host: OrbitHost): boolean {
+    const followed = host.find(this.settings.follow)
+    if (!followed) return false
+    this.placeAround(camera, host, followed)
+    return true
+  }
+
+  /** The camera at the chosen distance from the look point, or in front of what the ray hits (CA-9). */
+  private placeAround(camera: THREE.PerspectiveCamera, host: OrbitHost, followed: Entity): void {
     const look = this.lookPoint(followed)
     const away = this.awayFromLook()
     const hit = host.rayDistance({ origin: look, direction: away, maxDistance: this.distance, exclude: followed })
@@ -101,7 +118,7 @@ export class OrbitCamera {
     const { sensitivity, orbitSpeed, invertY, minPitch, maxPitch } = this.settings
     const mouse = input.mouseMovement()
     const actions = this.actionTurn(input)
-    this.yaw += mouse.x * sensitivity + actions.yaw * orbitSpeed * dt
+    this.yaw = wrapYaw(this.yaw + mouse.x * sensitivity + actions.yaw * orbitSpeed * dt)
     const mousePitch = (invertY ? -mouse.y : mouse.y) * sensitivity
     this.pitch = clamp(this.pitch + mousePitch + actions.pitch * orbitSpeed * dt, minPitch, maxPitch)
   }

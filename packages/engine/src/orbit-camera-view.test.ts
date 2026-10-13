@@ -18,6 +18,7 @@ use3dTestEnvironment()
 
 afterEach(() => {
   Reflect.deleteProperty(document, 'pointerLockElement')
+  Reflect.deleteProperty(document, 'exitPointerLock')
 })
 
 async function sceneWith(camera: PerspectiveSceneCameraJson): Promise<{ game: Game; bridge: RuntimeBridge; canvas: HTMLCanvasElement }> {
@@ -36,6 +37,23 @@ function stubLock(canvas: HTMLCanvasElement): () => number {
   })
   Object.defineProperty(canvas, 'requestPointerLock', { configurable: true, value: request })
   return () => request.mock.calls.length
+}
+
+/** A stubbed `document.exitPointerLock` that frees the lock, as the browser does; returns its call count. */
+function stubExit(): () => number {
+  const exit = vi.fn(() => {
+    Object.defineProperty(document, 'pointerLockElement', { configurable: true, get: () => null })
+  })
+  Object.defineProperty(document, 'exitPointerLock', { configurable: true, value: exit })
+  return () => exit.mock.calls.length
+}
+
+/** The orbit fields of a following camera's view, which narrowing on `follow` must type as numbers (CA-10). */
+function orbitDistance(bridge: RuntimeBridge): number {
+  const view = bridge.inspect().view
+  if (view.kind !== 'perspective' || !('follow' in view)) throw new Error('expected a following camera view')
+  const distance: number = view.distance
+  return distance
 }
 
 function click(canvas: HTMLCanvasElement): void {
@@ -58,6 +76,27 @@ it('asks for the pointer lock on a canvas click while simulating a following cam
   expect(requests()).toBe(1)
 })
 
+it('gives the pointer lock back once the orbit stops: a pause or a swap to a fixed camera (CA-7)', async () => {
+  const { game, bridge, canvas } = await sceneWith({ kind: 'perspective', follow: 'Player' })
+  stubLock(canvas)
+  let exits = stubExit()
+  click(canvas)
+  bridge.control({ operation: 'step' })
+  expect([game.input.pointerLocked, exits()]).toEqual([true, 0])
+
+  game.simulate = false
+  bridge.control({ operation: 'step' })
+  expect([game.input.pointerLocked, exits()]).toEqual([false, 1])
+
+  game.simulate = true
+  stubLock(canvas)
+  exits = stubExit()
+  click(canvas)
+  loadScene(game, scene3d([{ name: 'Player' }], {}, { kind: 'perspective', position: [0, 4, 8] }), registryOf({}))
+  bridge.control({ operation: 'step' })
+  expect([game.input.pointerLocked, exits()]).toEqual([false, 1])
+})
+
 it('never asks for the lock under a fixed perspective camera (CA-7)', async () => {
   const fixed = await sceneWith({ kind: 'perspective', position: [0, 4, 8] })
   const requests = stubLock(fixed.canvas)
@@ -69,7 +108,7 @@ it('never asks for the lock under a fixed perspective camera (CA-7)', async () =
 
 it('zooms the chosen distance by the step’s wheel, clamped to [minDistance, maxDistance] (CA-8)', async () => {
   const { bridge, canvas } = await sceneWith({ kind: 'perspective', follow: 'Player', distance: 5, minDistance: 3, maxDistance: 9 })
-  const distance = (): unknown => Reflect.get(bridge.inspect().view, 'distance')
+  const distance = (): number => orbitDistance(bridge)
 
   wheel(canvas, 150)
   bridge.control({ operation: 'step' })

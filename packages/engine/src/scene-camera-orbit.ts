@@ -1,3 +1,5 @@
+import { isFiniteNumber, shown, type SceneFieldIssue } from './scene-field-issues.js'
+
 /**
  * The orbit fields of a scene's perspective camera block (issue #181, ADR
  * 0031): with `follow`, the camera orbits that entity instead of staying
@@ -96,12 +98,6 @@ function resolveControls(json: OrbitCameraJson): Pick<ResolvedOrbit, 'sensitivit
   }
 }
 
-/** One invalid orbit field: its `camera.<field>` path and why. */
-export interface OrbitFieldIssue {
-  field: string
-  message: string
-}
-
 /** The rule each numeric orbit field must meet, and how its message says it. */
 const NUMBER_RULES: ReadonlyArray<{ field: keyof OrbitCameraJson; accepts: (value: number) => boolean; rule: string }> = [
   { field: 'distance', accepts: (value) => value > 0, rule: 'a number above 0' },
@@ -116,10 +112,7 @@ const NUMBER_RULES: ReadonlyArray<{ field: keyof OrbitCameraJson; accepts: (valu
   { field: 'orbitSpeed', accepts: (value) => value >= 0, rule: 'a number of at least 0' },
 ]
 
-const shown = (value: unknown): string => (typeof value === 'string' ? JSON.stringify(value) : String(value))
-const isFiniteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
-
-function numberIssues(block: Record<string, unknown>, issues: OrbitFieldIssue[]): void {
+function numberIssues(block: Record<string, unknown>, issues: SceneFieldIssue[]): void {
   for (const { field, accepts, rule } of NUMBER_RULES) {
     const value = block[field]
     if (value === undefined || (isFiniteNumber(value) && accepts(value))) continue
@@ -127,7 +120,7 @@ function numberIssues(block: Record<string, unknown>, issues: OrbitFieldIssue[])
   }
 }
 
-function actionIssues(block: Record<string, unknown>, issues: OrbitFieldIssue[]): void {
+function actionIssues(block: Record<string, unknown>, issues: SceneFieldIssue[]): void {
   for (const field of ACTION_FIELDS) {
     const value = block[field]
     if (value === undefined || (typeof value === 'string' && value.length > 0)) continue
@@ -135,7 +128,7 @@ function actionIssues(block: Record<string, unknown>, issues: OrbitFieldIssue[])
   }
 }
 
-function fieldIssues(block: Record<string, unknown>, issues: OrbitFieldIssue[]): void {
+function fieldIssues(block: Record<string, unknown>, issues: SceneFieldIssue[]): void {
   if (block.follow !== undefined && typeof block.follow !== 'string') {
     issues.push({ field: 'camera.follow', message: `camera.follow must be an entity name; got ${shown(block.follow)}.` })
   }
@@ -146,7 +139,7 @@ function fieldIssues(block: Record<string, unknown>, issues: OrbitFieldIssue[]):
   actionIssues(block, issues)
 }
 
-function rangeIssue(block: Record<string, unknown>, [low, high]: readonly [string, string], issues: OrbitFieldIssue[]): void {
+function rangeIssue(block: Record<string, unknown>, [low, high]: readonly [string, string], issues: SceneFieldIssue[]): void {
   const min = block[low]
   const max = block[high]
   const fallback: Readonly<Record<string, unknown>> = ORBIT_DEFAULTS
@@ -165,8 +158,8 @@ function rangeIssue(block: Record<string, unknown>, [low, high]: readonly [strin
  * the Action names, and a `minDistance` or `minPitch` above its maximum.
  * Whether `follow` names an entity of the scene is the scene validator's.
  */
-export function orbitCameraIssues(block: Record<string, unknown>): OrbitFieldIssue[] {
-  const issues: OrbitFieldIssue[] = []
+export function orbitCameraIssues(block: Record<string, unknown>): SceneFieldIssue[] {
+  const issues: SceneFieldIssue[] = []
   fieldIssues(block, issues)
   rangeIssue(block, ['minDistance', 'maxDistance'], issues)
   rangeIssue(block, ['minPitch', 'maxPitch'], issues)

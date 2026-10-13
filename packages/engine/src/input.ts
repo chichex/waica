@@ -217,6 +217,11 @@ export class Input {
     this.mouse.inject(dx, dy)
   }
 
+  /** Gives the pointer back if it is locked to the game canvas; a lock elsewhere is not the game's. */
+  releasePointerLock(): void {
+    this.mouse.releaseLock()
+  }
+
   /** Asks the browser to lock the pointer to the game canvas. */
   requestPointerLock(): void {
     this.mouse.requestLock()

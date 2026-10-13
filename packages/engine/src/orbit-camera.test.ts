@@ -70,10 +70,40 @@ it('moves once per Simulation Step, never between steps (CA-6)', async () => {
   const before = cameraPosition(run.game)
 
   defined(run.game.find('Player')).position.x = 3
+  // A frame that draws without simulating: the camera must not follow until the next step.
+  run.game.simulate = false
+  run.step()
+  run.game.simulate = true
   expect(cameraPosition(run.game)).toEqual(before)
   run.step()
 
   expectNear(cameraPosition(run.game), [3, before[1], before[2]])
+})
+
+it('sits on its orbit as soon as the scene loads, before the first step (CA-6, CA-10)', async () => {
+  const run = await orbitScene({ yaw: 90, distance: 4 })
+
+  expectNear(cameraPosition(run.game), [-4 * Math.cos(20 * RAD), 1.2 + 4 * Math.sin(20 * RAD), 0])
+  expect(run.view()).toMatchObject({ distance: 4, distanceActual: 4 })
+  expectNear(run.view().target as number[], [0, 1.2, 0], 5)
+})
+
+it('keeps the declared pose and its target while the followed entity does not exist (CA-10)', async () => {
+  const run = await orbitScene({ follow: 'Nobody', position: [0, 5, 10], target: [0, 0, 0] })
+  run.step()
+
+  expect(run.view()).toMatchObject({ position: [0, 5, 10], target: [0, 0, 0] })
+})
+
+it('reports the yaw wrapped to (-180, 180], from the scene and after turning (CA-10)', async () => {
+  const declared = await orbitScene({ yaw: 270 })
+  declared.step()
+  expect(declared.view().yaw).toBe(-90)
+
+  const run = await orbitScene()
+  run.bridge.control({ operation: 'hold', action: 'look_right' })
+  run.step(120)
+  expect(run.view().yaw).toBeCloseTo(-120, 6)
 })
 
 /** One scripted run of the orbit: mouse looks, an orbit Action, a wheel turn, step by step. */

@@ -122,6 +122,11 @@ export class MouseInput {
     this.pendingMove.y += dy
   }
 
+  /** Exits the pointer lock when the game canvas holds it; a lock on any other element is left alone. */
+  releaseLock(): void {
+    if (this.locked && 'exitPointerLock' in document) document.exitPointerLock()
+  }
+
   /** Asks the browser to lock the pointer to the game canvas; a refusal (or no Pointer Lock API) leaves it unlocked. */
   requestLock(): void {
     const canvas = this.canvas

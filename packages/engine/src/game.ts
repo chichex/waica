@@ -228,7 +228,7 @@ export class Game {
       gamepadDeadZone: options.gamepadDeadZone,
       canvas,
       // A click takes the pointer lock only while an orbit camera plays (never in the editor's edit mode).
-      lockOnClick: () => this.simulate && this.cameraRig.orbiting,
+      lockOnClick: () => this.orbitPlays,
     })
     this.query = createSpatialQuery(this)
     this.stats = new Stats(options.stats)
@@ -506,6 +506,11 @@ export class Game {
     this.setViewHeight(cam.zoom)
   }
 
+  /** Puts a following perspective camera on its orbit; loadScene calls it after the spawns, so the first frame is framed (issue #181). */
+  placeSceneCamera(): void {
+    this.cameraRig.placeOrbit(this.followHost)
+  }
+
   start(): void {
     if (this.disposed) return
     const activation = activeRuntimeBridgeHook()
@@ -708,6 +713,8 @@ export class Game {
         this.finishStep()
       }
       this.audio.setActive(this.simulate)
+      // The pointer lock belongs to a playing orbit: a pause, a swap or an unload gives the cursor back.
+      if (!this.orbitPlays) this.input.releasePointerLock()
       // Positional audio (CA-8): recomputed every frame, on this same pass —
       // never a second walk of `this.entities`, since `this.audio` already
       // holds direct references to whichever entities are tracked.
@@ -800,6 +807,11 @@ export class Game {
     } finally {
       restoreBase()
     }
+  }
+
+  /** True while a simulating scene's camera orbits a followed entity: what the pointer lock is for. */
+  private get orbitPlays(): boolean {
+    return this.simulate && this.cameraRig.orbiting
   }
 
   private updateSceneCamera(dt: number): void {

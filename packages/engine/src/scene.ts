@@ -258,12 +258,13 @@ export function loadScene(game: Game, scene: SceneJson, registry: SceneRegistry)
   game.registry = registry
   game.setSceneRender(scene.render)
   game.setSceneSimulation(scene.simulation)
-  // A perspective camera has no follow target to wait for: components see it from their first onReady.
+  // A perspective camera is adopted first, so components see it from their first onReady.
   const adoptsBeforeSpawns = game.space === '3d'
   if (adoptsBeforeSpawns) game.setSceneCamera(scene.camera)
   for (const entityJson of scene.entities) spawnFromJson(game, entityJson, registry)
-  // After the spawns: with a follow target, the orthographic camera starts centered on it.
-  if (!adoptsBeforeSpawns) game.setSceneCamera(scene.camera)
+  // After the spawns, with a follow target: the orthographic camera starts centered on it, an orbit camera on its orbit.
+  if (adoptsBeforeSpawns) game.placeSceneCamera()
+  else game.setSceneCamera(scene.camera)
   if (registry.ui) game.ui.defineAll(registry.ui)
   // Scene-scoped: Game.unloadScene() unmounts these along with the entities.
   for (const name of scene.ui ?? []) game.ui.show(name, { scope: 'scene' })

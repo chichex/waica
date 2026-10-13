@@ -24,6 +24,8 @@ export interface CameraFollowHost extends OrbitHost {
   viewHeight(): number
 }
 
+const noShake = (): void => {}
+
 /**
  * The Game's cameras. The orthographic one is built with the Game and frames
  * every 2D scene; a 3D scene swaps in a perspective one (built on first use).
@@ -129,11 +131,21 @@ export class CameraRig {
    */
   step(cam: ResolvedSceneCamera | null, host: CameraFollowHost, dt: number): void {
     if (this.orbit && this.perspective && this.current === this.perspective) {
-      this.orbit.step(this.perspective, host, dt)
-      this.distance = this.orbit.distanceActual
+      // Only a placed camera looks at the orbit's distance; with no followed entity it keeps its declared pose.
+      if (this.orbit.step(this.perspective, host, dt)) this.distance = this.orbit.distanceActual
       return
     }
     if (cam) this.follow(cam, host, dt)
+  }
+
+  /**
+   * Puts a following perspective camera on its orbit without input, so the
+   * first frame and snapshot of a loaded scene are framed (issue #181);
+   * loadScene calls it once the followed entity has spawned.
+   */
+  placeOrbit(host: CameraFollowHost): void {
+    if (!this.orbit || !this.perspective || this.current !== this.perspective) return
+    if (this.orbit.place(this.perspective, host)) this.distance = this.orbit.distanceActual
   }
 
   /**
@@ -144,6 +156,8 @@ export class CameraRig {
    * would under an orthographic camera `viewHeight` tall.
    */
   shake(offset: { x: number; y: number }, viewHeight: number): () => void {
+    // Most frames do not shake: nothing to move, nothing to allocate.
+    if (offset.x === 0 && offset.y === 0) return noShake
     const camera = this.current === this.perspective ? this.perspective : null
     if (!camera) {
       const flat = this.orthographic

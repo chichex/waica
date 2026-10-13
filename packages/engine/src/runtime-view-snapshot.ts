@@ -1,6 +1,5 @@
 import * as THREE from 'three/webgpu'
 import { isPerspectiveCamera } from './camera-projection.js'
-import type { CameraEffectsState } from './camera-effects.js'
 import type { Game } from './game.js'
 import type { OrbitView } from './orbit-camera.js'
 import type { Vec3Json } from './scene-camera-3d.js'
@@ -12,7 +11,11 @@ import type { Vec3Json } from './scene-camera-3d.js'
  */
 export type RuntimeSnapshotView =
   | { kind: 'orthographic'; position: [number, number]; zoom: number }
-  | ({ kind: 'perspective'; position: Vec3Json; target: Vec3Json; fov: number } & Partial<OrbitView>)
+  | PerspectiveView
+  | (PerspectiveView & OrbitView)
+
+/** A perspective camera's pose; a following one adds its whole orbit (issue #181 CA-10), so `'follow' in view` narrows to it. */
+type PerspectiveView = { kind: 'perspective'; position: Vec3Json; target: Vec3Json; fov: number }
 
 /** Float noise off a pose, so a camera that did not move reports the numbers it was declared with. */
 const clean = (value: number): number => Math.round(value * 1e6) / 1e6 || 0
@@ -29,28 +32,21 @@ export function viewSnapshot(game: Game): RuntimeSnapshotView {
   }
   camera.updateMatrixWorld()
   const ahead = camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(game.cameraRig.lookDistance)
-  const orbit = game.cameraRig.orbitView
-  return {
+  const pose: PerspectiveView = {
     kind: 'perspective',
     position: vector(camera.position),
     target: vector(camera.position.clone().add(ahead)),
     fov: camera.fov,
-    // A following camera's orbit (issue #181 CA-10): the chosen distance and the placed one.
-    ...(orbit && {
-      follow: orbit.follow,
-      yaw: clean(orbit.yaw),
-      pitch: clean(orbit.pitch),
-      distance: clean(orbit.distance),
-      distanceActual: clean(orbit.distanceActual),
-    }),
   }
-}
-
-/**
- * `game.cameraEffects.state` as the snapshot reports it: the shake offset
- * applies in both spaces since a perspective camera shakes too (issue #181
- * CA-11, superseding spec decision 24 of issue #154).
- */
-export function cameraEffectsSnapshot(game: Game): CameraEffectsState {
-  return game.cameraEffects.state
+  const orbit = game.cameraRig.orbitView
+  if (!orbit) return pose
+  // A following camera's orbit (issue #181 CA-10): the chosen distance and the placed one.
+  return {
+    ...pose,
+    follow: orbit.follow,
+    yaw: clean(orbit.yaw),
+    pitch: clean(orbit.pitch),
+    distance: clean(orbit.distance),
+    distanceActual: clean(orbit.distanceActual),
+  }
 }

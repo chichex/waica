@@ -1,5 +1,6 @@
 import type * as THREE from 'three/webgpu'
 import { orbitCameraIssues, resolveOrbit, type OrbitCameraJson, type ResolvedOrbit } from './scene-camera-orbit.js'
+import { isFiniteNumber, shown, type SceneFieldIssue } from './scene-field-issues.js'
 
 /** A world-space point or direction as scene JSON stores it. */
 export type Vec3Json = [number, number, number]
@@ -91,18 +92,7 @@ export function placePerspectiveCamera(
   camera.updateMatrixWorld()
 }
 
-/** One field of a scene's render, camera or entity transform that is invalid, for validate_project. */
-export interface SceneFieldIssue {
-  field: string
-  message: string
-}
-
-/** A JSON value as a message quotes it: strings in quotes, everything else as `String()` shows it. */
-export const shown = (value: unknown): string => (typeof value === 'string' ? JSON.stringify(value) : String(value))
-
-export function isFiniteNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value)
-}
+export { isFiniteNumber, shown, type SceneFieldIssue } from './scene-field-issues.js'
 
 function vectorIssue(field: string, value: unknown, issues: SceneFieldIssue[]): void {
   if (value === undefined) return
