@@ -43,13 +43,15 @@ const REQUIRED_FIELD_NOUNS: Record<string, string> = { scene: 'scene name' }
  * Ignored unless the groups name exactly the fields the schema forbids.
  */
 const FORBIDDEN_FIELD_GROUPS: Record<string, readonly (readonly string[])[]> = {
-  step: [['action'], ['x', 'y', 'scene'], ['value']],
-  // `value` belongs to hold alone (issue #75); it is reported on its own so the
-  // older messages for the other fields stay exactly as hosts know them.
-  press: [['frames', 'x', 'y', 'scene'], ['value']],
-  release: [['frames', 'x', 'y', 'scene'], ['value']],
-  click: [['action', 'frames', 'scene'], ['value']],
-  scene: [['action', 'frames', 'x', 'y'], ['value']],
+  // `value` belongs to hold alone (issue #75) and `dx`/`dy` to look alone
+  // (issue #181); each is reported on its own so the older messages for the
+  // other fields stay exactly as hosts know them.
+  step: [['action'], ['x', 'y', 'scene'], ['value'], ['dx', 'dy']],
+  hold: [['frames', 'x', 'y', 'scene'], ['dx', 'dy']],
+  press: [['frames', 'x', 'y', 'scene'], ['value'], ['dx', 'dy']],
+  release: [['frames', 'x', 'y', 'scene'], ['value'], ['dx', 'dy']],
+  click: [['action', 'frames', 'scene'], ['value'], ['dx', 'dy']],
+  scene: [['action', 'frames', 'x', 'y'], ['value'], ['dx', 'dy']],
 }
 
 // Named before the generic unexpected-properties check, but only for `step`:

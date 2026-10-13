@@ -149,6 +149,13 @@ const CONTROL_REQUIREMENTS: readonly {
     applies: (input) => input.operation === 'scene',
   },
   {
+    capability: 'look',
+    feature: 'mouse look',
+    call: "operation:'look'",
+    noun: 'operation',
+    applies: (input) => input.operation === 'look',
+  },
+  {
     capability: 'analog-actions',
     feature: 'analog action values',
     call: "operation:'hold' with a value",

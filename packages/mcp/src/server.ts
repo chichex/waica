@@ -217,14 +217,15 @@ export const TOOLS: Tool[] = [
       'Inject a semantic action or a canvas click, or change deterministic frame control for a Run Session. ' +
       '`click` takes `x` and `y`: logical coordinates in a 2D scene, canvas CSS pixels in a 3D scene (nothing is picked on the letterbox bars or off the canvas). ' +
       '`hold` takes an optional analog `value` in (0, 1] (default 1; below 0.5 the action moves but is not held). ' +
-      '`step` advances whole Simulation Steps of 1/60 s each (`frames`, 1-600, default 1); it does not accept a `dt`.',
+      '`step` advances whole Simulation Steps of 1/60 s each (`frames`, 1-600, default 1); it does not accept a `dt`. ' +
+      '`look` takes `dx` and `dy`: CSS pixels of mouse movement the next Simulation Step reads as if the pointer were locked (an orbit camera turns by them).',
     inputSchema: {
       type: 'object',
       properties: {
         project_path: PROJECT_PATH,
         operation: {
           type: 'string',
-          enum: ['press', 'hold', 'release', 'pause', 'resume', 'step', 'click', 'scene'],
+          enum: ['press', 'hold', 'release', 'pause', 'resume', 'step', 'click', 'scene', 'look'],
         },
         action: { type: 'string', minLength: 1 },
         value: { type: 'number', exclusiveMinimum: 0, maximum: 1 },
@@ -232,30 +233,41 @@ export const TOOLS: Tool[] = [
         x: { type: 'number' },
         y: { type: 'number' },
         scene: { type: 'string', minLength: 1 },
+        dx: { type: 'number' },
+        dy: { type: 'number' },
       },
       required: ['project_path', 'operation'],
       additionalProperties: false,
       oneOf: [
-        { properties: { operation: { const: 'hold' } }, required: ['action'], ...forbidding('frames', 'x', 'y', 'scene') },
+        {
+          properties: { operation: { const: 'hold' } },
+          required: ['action'],
+          ...forbidding('frames', 'x', 'y', 'scene', 'dx', 'dy'),
+        },
         {
           properties: { operation: { enum: ['press', 'release'] } },
           required: ['action'],
-          ...forbidding('frames', 'x', 'y', 'scene', 'value'),
+          ...forbidding('frames', 'x', 'y', 'scene', 'value', 'dx', 'dy'),
         },
         {
           properties: { operation: { enum: ['pause', 'resume'] } },
-          ...forbidding('action', 'value', 'frames', 'x', 'y', 'scene'),
+          ...forbidding('action', 'value', 'frames', 'x', 'y', 'scene', 'dx', 'dy'),
         },
-        { properties: { operation: { const: 'step' } }, ...forbidding('action', 'x', 'y', 'scene', 'value') },
+        { properties: { operation: { const: 'step' } }, ...forbidding('action', 'x', 'y', 'scene', 'value', 'dx', 'dy') },
         {
           properties: { operation: { const: 'click' } },
           required: ['x', 'y'],
-          ...forbidding('action', 'frames', 'scene', 'value'),
+          ...forbidding('action', 'frames', 'scene', 'value', 'dx', 'dy'),
         },
         {
           properties: { operation: { const: 'scene' } },
           required: ['scene'],
-          ...forbidding('action', 'frames', 'x', 'y', 'value'),
+          ...forbidding('action', 'frames', 'x', 'y', 'value', 'dx', 'dy'),
+        },
+        {
+          properties: { operation: { const: 'look' } },
+          required: ['dx', 'dy'],
+          ...forbidding('action', 'value', 'frames', 'x', 'y', 'scene'),
         },
       ],
     },
@@ -475,6 +487,8 @@ function executeRuntimeTool(
         ...(typeof args.x === 'number' ? { x: args.x } : {}),
         ...(typeof args.y === 'number' ? { y: args.y } : {}),
         ...(typeof args.scene === 'string' ? { scene: args.scene } : {}),
+        ...(typeof args.dx === 'number' ? { dx: args.dx } : {}),
+        ...(typeof args.dy === 'number' ? { dy: args.dy } : {}),
       } as RuntimeControlInput, { signal })
     default:
       return runtime.captureScreenshot(projectPath, { signal })

@@ -201,7 +201,7 @@ describe('Runtime Bridge protocol', () => {
       mode: 'paused',
       frame: 0,
       simulationTime: 0,
-      capabilities: ['click', 'scene', 'fixed-step', 'assets', 'camera-effects', 'analog-actions', 'render-backend'],
+      capabilities: ['click', 'scene', 'fixed-step', 'assets', 'camera-effects', 'analog-actions', 'render-backend', 'look'],
       assets: { pending: 0, loaded: 0, failed: 0 },
       backend: 'webgpu',
     })
@@ -213,6 +213,7 @@ describe('Runtime Bridge protocol', () => {
       'camera-effects',
       'analog-actions',
       'render-backend',
+      'look',
     ])
     expect(registered[0]?.surface).toBe(document.querySelector('canvas'))
     expect(lastFakeRenderer().loop).toBeNull()

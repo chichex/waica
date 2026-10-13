@@ -58,6 +58,8 @@ export type RuntimeControlInput =
   | { projectPath: string; operation: 'step'; frames?: number }
   | { projectPath: string; operation: 'click'; x: number; y: number }
   | { projectPath: string; operation: 'scene'; scene: string }
+  /** A mouse delta the next Simulation Step reads as locked movement (issue #181). */
+  | { projectPath: string; operation: 'look'; dx: number; dy: number }
 
 export interface RuntimeScreenshotResult {
   metadata: Record<string, unknown>
