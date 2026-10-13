@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest'
 import type { SceneEntityJson } from '@waica/engine'
+import { THIRD_PERSON_PREFABS } from './prefabs'
 import { THIRD_PERSON_BLANK_SCENE, THIRD_PERSON_SCENE } from './scene-default'
 
 // Issue #181 CA-26: the blank scene and the dungeon courtyard demo.
@@ -42,3 +43,47 @@ it('gives the blank scene a ground plane, a Sun, the player and the following ca
   expect(entities[2]?.prefab).toBe('characters/player')
   expect(camera).toMatchObject({ kind: 'perspective', follow: 'Player' })
 })
+
+/** A skeleton's patrol rail on xz (its Patrol, prefab props under the entity's overrides) and its Chaser.range. */
+function railOf(skeleton: SceneEntityJson): { from: [number, number]; to: [number, number]; range: number } {
+  const prefab = THIRD_PERSON_PREFABS[skeleton.prefab ?? '']
+  const props = (type: string): Record<string, unknown> => ({
+    ...(prefab?.components.find((component) => component.type === type)?.props ?? {}),
+    ...(skeleton.overrides?.[type] ?? {}),
+  })
+  const patrol = props('Patrol')
+  const [x = 0, , z = 0] = skeleton.position ?? []
+  const reach = Number(patrol.distance ?? 3)
+  const vertical = patrol.axis === 'vertical'
+  return {
+    from: vertical ? [x, z - reach] : [x - reach, z],
+    to: vertical ? [x, z + reach] : [x + reach, z],
+    range: Number(props('Chaser').range ?? 0),
+  }
+}
+
+/** The nearest a point gets to a segment on xz. */
+function distanceToRail([px, pz]: [number, number], { from: [ax, az], to: [bx, bz] }: { from: [number, number]; to: [number, number] }): number {
+  const length = (bx - ax) ** 2 + (bz - az) ** 2
+  const t = length === 0 ? 0 : Math.min(1, Math.max(0, ((px - ax) * (bx - ax) + (pz - az) * (bz - az)) / length))
+  return Math.hypot(px - (ax + t * (bx - ax)), pz - (az + t * (bz - az)))
+}
+
+it('starts calm: no skeleton patrols within Chaser.range of the spawn or of either checkpoint (CA-26)', () => {
+  const { entities } = THIRD_PERSON_SCENE
+  const xz = (entity: SceneEntityJson): [number, number] => [entity.position?.[0] ?? 0, entity.position?.[2] ?? 0]
+  const quiet = [defined(entities.find((entity) => entity.name === 'Player')), ...byPrefab(entities, 'objects/checkpoint')]
+
+  for (const skeleton of byPrefab(entities, 'characters/skeleton')) {
+    const rail = railOf(skeleton)
+    expect(rail.range, skeleton.name).toBeGreaterThan(0)
+    for (const place of quiet) {
+      expect(distanceToRail(xz(place), rail), `${skeleton.name} to ${place.name}`).toBeGreaterThan(rail.range)
+    }
+  }
+})
+
+function defined<T>(value: T | undefined): T {
+  if (value === undefined) throw new Error('expected a value')
+  return value
+}

@@ -51,19 +51,24 @@ function walls(): SceneEntityJson[] {
   ])
 }
 
+/**
+ * The three guards, all in the north half (maintainer decision on issue #181):
+ * each patrol rail stays more than Chaser.range (7) from the spawn and from
+ * both checkpoints, so the yard starts calm. Skeleton East paces north-south
+ * beside the platform, guarding the step up to the chest.
+ */
 const SKELETONS: SceneEntityJson[] = [
-  { name: 'Skeleton West', prefab: 'characters/skeleton', position: [-5, 0, -2] },
-  { name: 'Skeleton East', prefab: 'characters/skeleton', position: [5, 0, -3], rotation: [0, -90, 0] },
-  { name: 'Skeleton Gate', prefab: 'characters/skeleton', position: [0, 0, -7] },
+  { name: 'Skeleton West', prefab: 'characters/skeleton', position: [-5, 0, -4.5] },
+  { name: 'Skeleton East', prefab: 'characters/skeleton', position: [3, 0, -6], overrides: { Patrol: { axis: 'vertical' } } },
+  { name: 'Skeleton Gate', prefab: 'characters/skeleton', position: [-1, 0, -7] },
 ]
 
 /**
  * The demo (issue #181 CA-26): a walled dungeon courtyard. A raised platform
  * in the north-east corner, reached by a step, holds the goal chest; three
- * Skeleton Warriors patrol the yard; two checkpoints and four wall torches;
- * the Player starts in the south half, out of every skeleton's sight at its
- * spawn (Skeleton West's patrol brings it within Chaser.range within the
- * first second), with the camera behind it clear of the south wall.
+ * Skeleton Warriors patrol its north half; two checkpoints and four wall
+ * torches; the Player starts in the south half, out of every skeleton's sight
+ * (as both checkpoints are), with the camera behind it clear of the south wall.
  */
 export const THIRD_PERSON_SCENE: SceneJson = threeDScene([
   SUN,
@@ -78,7 +83,7 @@ export const THIRD_PERSON_SCENE: SceneJson = threeDScene([
   { name: 'Torch SW', prefab: 'tiles/torch', position: [-4, 2.5, 9.5], rotation: [0, 180, 0] },
   { name: 'Torch SE', prefab: 'tiles/torch', position: [4, 2.5, 9.5], rotation: [0, 180, 0] },
   { name: 'Checkpoint West', prefab: 'objects/checkpoint', position: [-7, 0, 6] },
-  { name: 'Checkpoint North', prefab: 'objects/checkpoint', position: [-2, 0, -4] },
+  { name: 'Checkpoint East', prefab: 'objects/checkpoint', position: [8, 0, 3] },
   { name: 'Goal Chest', prefab: 'objects/goal-chest', position: [6, 0.5, -6] },
   ...SKELETONS,
   { name: 'Player', prefab: 'characters/player', position: [0, 0, 3.5] },

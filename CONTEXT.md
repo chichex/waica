@@ -219,7 +219,7 @@ The behavior that turns the player's actions into a kinematic **Rigid Body**'s w
 _Avoid_: character controller (Rapier's, which the engine drives), player movement
 
 **Orbit Camera**:
-A 3D scene's perspective camera when its block names an entity to `follow`: it looks at that entity from a distance, a yaw and a pitch it keeps until the player turns it — with the locked mouse, the orbit Actions or the wheel — and once per Simulation Step it moves in front of whatever stands between it and the entity. A camera-relative mover walks "forward" away from it.
+A 3D scene's perspective camera when its block names an entity to `follow`: it looks at that entity from a distance, a yaw and a pitch it keeps until the player turns it — with the locked mouse, the orbit Actions or the wheel — and once per Simulation Step it moves in front of any fixed level geometry between it and the entity (characters and moving bodies never push it). A camera-relative mover walks "forward" away from it.
 _Avoid_: follow camera (the 2D one), chase camera, third-person camera
 
 **Checkpoint**:
