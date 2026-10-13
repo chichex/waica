@@ -184,6 +184,26 @@ describe('Home characterization: creating a project', () => {
   })
 })
 
+describe('Home: creating a third-person project (issue #181 CA-32)', () => {
+  it.each(['Demo', 'Blank'])('scaffolds the third-person archetype with a %s start through createProject', async (start) => {
+    const parent = new FakeDir('games')
+    pickerStub.mockResolvedValue(asHandle(parent))
+    const { onOpen, user } = renderHome()
+
+    await user.click(screen.getByRole('button', { name: /Create project/ }))
+    await user.click(screen.getByRole('button', { name: '3D' }))
+    await user.click(screen.getByRole('button', { name: /Third person/ }))
+    await user.click(screen.getByRole('button', { name: new RegExp(start) }))
+    await user.click(screen.getByRole('button', { name: 'Pick a folder and create' }))
+
+    await vi.waitFor(() => expect(onOpen).toHaveBeenCalledOnce())
+    const project = defined(parent.dirs.get('my-game'))
+    expect(JSON.parse(defined(project.read('src/game.json')))).toMatchObject({ archetype: 'third-person' })
+    expect(defined(project.read('src/scenes/main.scene.json'))).toContain('"follow": "Player"')
+    expect(project.read('src/characters/player.character.json')).toContain('src/art/knight.glb')
+  })
+})
+
 describe('Home characterization: opening a folder', () => {
   it('opens a folder that has a main scene', async () => {
     const folder = new FakeDir('old-game')

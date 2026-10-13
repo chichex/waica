@@ -86,11 +86,11 @@ export const ARCHETYPE_CATALOG: Record<'2d' | '3d', ArchetypeCard[]> = {
   ],
   '3d': [
     {
-      id: 'thirdperson',
+      id: 'third-person',
       icon: '🎥',
       label: 'Third person',
       blurb: 'Orbit camera behind the character, camera-relative movement.',
-      status: 'soon',
+      status: 'ready',
     },
     {
       id: 'firstperson',

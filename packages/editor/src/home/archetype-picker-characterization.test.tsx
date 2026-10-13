@@ -30,13 +30,26 @@ describe('ArchetypePicker characterization: the archetype step', () => {
     expect(screen.getByRole('button', { name: /Flip screen/ })).toHaveProperty('disabled', true)
   })
 
-  it('switches to the 3D archetypes', async () => {
+  it('switches to the 3D archetypes, Third person ready and First person on the way (issue #181 CA-32)', async () => {
     const { user } = openPicker()
 
     await user.click(screen.getByRole('button', { name: '3D' }))
 
-    expect(screen.getByRole('button', { name: /Third person/ })).toHaveProperty('disabled', true)
+    expect(screen.getByRole('button', { name: /Third person/ })).toHaveProperty('disabled', false)
+    expect(screen.getByRole('button', { name: /First person/ })).toHaveProperty('disabled', true)
     expect(screen.queryByRole('button', { name: /Platformer/ })).toBeNull()
+  })
+
+  it('picks the third-person archetype with a Demo or Blank start (issue #181 CA-32)', async () => {
+    const { user, onPick } = openPicker()
+
+    await user.click(screen.getByRole('button', { name: '3D' }))
+    await user.click(screen.getByRole('button', { name: /Third person/ }))
+    expect(screen.getByText('New project — 🎥 Third person')).toBeDefined()
+    await user.click(screen.getByRole('button', { name: /Blank/ }))
+    await user.click(screen.getByRole('button', { name: 'Pick a folder and create' }))
+
+    expect(onPick).toHaveBeenCalledWith('third-person', 'my-game', 'blank')
   })
 })
 
