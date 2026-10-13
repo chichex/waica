@@ -110,16 +110,16 @@ export function ViewportTransformTools({ gizmo, onGizmoChange }: TransformToolsP
   return (
     <div className="ed-vp-tools is-transform">
       {MODE_BUTTONS.map(({ mode, title, glyph }) => (
-        <button key={mode} title={title} aria-pressed={gizmo.mode === mode} className={gizmo.mode === mode ? 'is-on' : ''} onClick={() => onGizmoChange({ ...gizmo, mode })}>
+        <button key={mode} title={title} aria-label={title} aria-pressed={gizmo.mode === mode} className={gizmo.mode === mode ? 'is-on' : ''} onClick={() => onGizmoChange({ ...gizmo, mode })}>
           {glyph}
         </button>
       ))}
-      <button className="is-wide" title={`Transform space: ${gizmo.space} (click for ${other})`} onClick={() => onGizmoChange({ ...gizmo, space: other })}>
+      <button className="is-wide" title={`Transform space: ${gizmo.space} (click for ${other})`} aria-label={`Transform space: ${gizmo.space} (click for ${other})`} onClick={() => onGizmoChange({ ...gizmo, space: other })}>
         {gizmo.space === 'world' ? '🌐 World' : '⌖ Local'}
       </button>
       {SNAP_FIELDS.map(({ step, label, glyph, increment }) => (
         <span key={step} className="ed-vp-snap" title={`${label} (hold Ctrl while dragging)`}>
-          {glyph}
+          <span aria-hidden="true">{glyph}</span>
           <NumberField
             aria-label={label}
             min={0}

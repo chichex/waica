@@ -76,6 +76,9 @@ function snapOnCtrl(element: HTMLElement, live: RefObject<ViewportLive>, control
   }
 }
 
+/** Whether a pivot is exactly where the drag found it: a click on a handle without moving commits nothing. */
+const samePose = (a: Pose, b: Pose): boolean => a.position.equals(b.position) && a.quaternion.equals(b.quaternion) && a.scale.equals(b.scale)
+
 /**
  * A drag's life (CA-18, CA-19, CA-21): grabbed, the orbit controls stop and the
  * selected entities' starts are kept; while the pivot moves, the live entities
@@ -93,7 +96,7 @@ function followDrags(gizmo: TransformControls, pivot: THREE.Object3D, scope: { g
       drag = { entities: entities.map(entityStart), pivot: poseOf(pivot) }
       return
     }
-    const changes = dragged()
+    const changes = drag && samePose(drag.pivot, poseOf(pivot)) ? [] : dragged()
     drag = null
     if (changes.length > 0) live.current.onTransformed?.(changes)
   })

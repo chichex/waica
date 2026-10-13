@@ -120,10 +120,10 @@ export function createEditView3d(game: Game, canvas: HTMLCanvasElement, host: Ed
     isActive,
     /** True while the gizmo holds or hovers a handle: a press there drags it. */
     grabbing: aids.grabbing,
-    /** What a click at a client point hits through the editor camera: a Model, an icon, the ground, or nothing (CA-13, CA-14). */
-    pick: (clientX: number, clientY: number): RaycastPick<PickedTarget> | null => {
+    /** What a click at a client point hits through the editor camera: a Model, an icon (unless `withIcons` is false), the ground, or nothing (CA-13, CA-14). */
+    pick: (clientX: number, clientY: number, withIcons = true): RaycastPick<PickedTarget> | null => {
       const at = isActive() ? editor.fractionAt(clientX, clientY) : null
-      return at && raycastPick(editor.camera, at, game.entities, aids.targets())
+      return at && raycastPick(editor.camera, at, game.entities, withIcons ? aids.targets() : [])
     },
     /** Zooms the Editor Camera by `factor` (the toolbar's ＋ and −). */
     zoom: (factor: number): void => {

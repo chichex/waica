@@ -1,5 +1,6 @@
 import type { Game } from '@waica/engine'
 import { useState, type DragEvent, type RefObject } from 'react'
+import { rounded } from './group-transform'
 import { snapActive, snapPoint } from './grid'
 import type { EditView3d } from './viewport-3d-view'
 import { logicalAt } from './viewport-boxes'
@@ -17,16 +18,14 @@ export interface PrefabDropTarget {
   onDropPrefab?: (ref: string, world: [number, number] | [number, number, number]) => void
 }
 
-/** 0.001, as a gizmo commit rounds (issue #173 inference 20). */
-const rounded = (value: number): number => Math.round(value * 1000) / 1000 + 0
-
 /**
  * Where a drop lands in an edited 3D scene (issue #173 CA-22): the point the
  * ray through the Editor Camera hits on a Model's surface, else on the y=0
- * plane; null when it meets neither.
+ * plane (the lights' and camera's icons do not catch it); null when it meets
+ * neither. Rounded to 0.001, as a gizmo commit rounds (inference 20).
  */
 function dropPoint3d(view3d: EditView3d, e: DragEvent<HTMLElement>): [number, number, number] | null {
-  const pick = view3d.pick(e.clientX, e.clientY)
+  const pick = view3d.pick(e.clientX, e.clientY, false)
   return pick && [rounded(pick.point.x), rounded(pick.point.y), rounded(pick.point.z)]
 }
 
@@ -36,6 +35,13 @@ export function usePrefabDrop({ canvasRef, gameRef, liveRef, view3dRef, onDropPr
 
   const onDragOver = (e: DragEvent<HTMLElement>): void => {
     if (!onDropPrefab || liveRef.current.mode !== 'edit') return
+    // Over a 3D scene, only where a drop would land (not at the sky).
+    const view3d = view3dRef.current
+    if (view3d?.isActive() && !dropPoint3d(view3d, e)) {
+      e.dataTransfer.dropEffect = 'none'
+      setDropHover(false)
+      return
+    }
     e.preventDefault()
     e.dataTransfer.dropEffect = 'copy'
     setDropHover(true)

@@ -65,3 +65,11 @@ describe('rotations past 90° (issue #173 CA-19)', () => {
     expect(around?.transform.rotation).toEqual([0, 190, 0])
   })
 })
+
+describe('an entity with a scale of 0 on an axis (issue #173 CA-19)', () => {
+  it('stays finite when dragged: the flat axis is not stretched', () => {
+    const flat = pose([0, 1, 0], [0, 0, 0], [1, 0, 1])
+    const [moved] = draggedTransforms([entity('Flat', flat, [0, 0, 0])], flat, pose([2, 1, 0], [0, 0, 0], [1, 0, 1]))
+    expect(moved?.transform).toEqual({ position: [2, 1, 0], rotation: [0, 0, 0], scale: [1, 0, 1] })
+  })
+})

@@ -32,7 +32,6 @@ export function addPrefabToScene(core: EditorCore, ref: string): void {
   core.selection.selectEntity(name)
 }
 
-/** A prefab dragged from the library onto the viewport, at the (already snapped) drop point. */
 /** Places the prefab `data` names at `world`: a 2D point (rounded to 0.01), or a 3D scene's point as the viewport placed it. */
 export function dropPrefab(core: EditorCore, data: string, world: [number, number] | [number, number, number]): void {
   const { scene } = core.scenes
