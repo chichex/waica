@@ -70,6 +70,8 @@ export class MouseInput {
   private readonly preventsWheelScroll: () => boolean
   private readonly canvas: HTMLCanvasElement | null
   private readonly lockOnClick: () => boolean
+  /** Set by dispose(): a lock the browser grants after it is given straight back. */
+  private disposed = false
 
   constructor(
     private readonly buttons: MouseButtonSink,
@@ -132,9 +134,15 @@ export class MouseInput {
     const canvas = this.canvas
     if (!canvas || !('requestPointerLock' in canvas)) return
     try {
-      Promise.resolve(canvas.requestPointerLock()).catch(() => {
-        // Refused (no user gesture, or the page lost focus): the next click asks again.
-      })
+      Promise.resolve(canvas.requestPointerLock()).then(
+        () => {
+          // Granted after this Input went away (the editor's Play stopped meanwhile): the lock is no longer the game's.
+          if (this.disposed) this.releaseLock()
+        },
+        () => {
+          // Refused (no user gesture, or the page lost focus): the next click asks again.
+        },
+      )
     } catch {
       // Older browsers throw synchronously instead of rejecting; same outcome.
     }
@@ -142,7 +150,8 @@ export class MouseInput {
 
   /** Stops listening, and releases the pointer lock if this canvas holds it (a Game that goes away, the editor's Play stopping). */
   dispose(): void {
-    if (this.locked && 'exitPointerLock' in document) document.exitPointerLock()
+    this.disposed = true
+    this.releaseLock()
     this.canvas?.removeEventListener('pointerdown', this.onPointerDown)
     this.canvas?.removeEventListener('wheel', this.onWheel)
     window.removeEventListener('pointerup', this.onPointerUp)

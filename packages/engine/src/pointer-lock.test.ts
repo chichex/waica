@@ -45,6 +45,7 @@ afterEach(() => {
   for (const input of inputs.splice(0)) input.dispose()
   for (const game of games.splice(0)) game.dispose()
   Reflect.deleteProperty(document, 'pointerLockElement')
+  Reflect.deleteProperty(document, 'exitPointerLock')
   vi.unstubAllGlobals()
 })
 
@@ -123,6 +124,7 @@ it('releases a lock it holds when it is disposed, and leaves another element’s
   Object.defineProperty(document, 'exitPointerLock', { configurable: true, value: exit })
   const other = new Input({}, { canvas: document.createElement('canvas') })
   const input = new Input({}, { canvas })
+  inputs.push(other, input)
   input.requestPointerLock()
 
   other.dispose()
@@ -131,5 +133,36 @@ it('releases a lock it holds when it is disposed, and leaves another element’s
 
   expect(exit).toHaveBeenCalledOnce()
   expect(input.pointerLocked).toBe(false)
-  Reflect.deleteProperty(document, 'exitPointerLock')
+})
+
+it('gives back a lock the browser grants only after the Input was disposed (CA-34)', async () => {
+  const canvas = document.createElement('canvas')
+  document.body.append(canvas)
+  let grant = (): void => {}
+  Object.defineProperty(canvas, 'requestPointerLock', {
+    configurable: true,
+    value: () =>
+      new Promise<void>((resolve) => {
+        grant = () => {
+          locked = canvas
+          resolve()
+        }
+      }),
+  })
+  const exit = vi.fn(() => {
+    locked = null
+  })
+  Object.defineProperty(document, 'exitPointerLock', { configurable: true, value: exit })
+  const input = new Input({}, { canvas })
+  inputs.push(input)
+
+  input.requestPointerLock()
+  input.dispose()
+  expect(exit).not.toHaveBeenCalled()
+  grant()
+  await Promise.resolve()
+  await Promise.resolve()
+
+  expect(exit).toHaveBeenCalledOnce()
+  expect(locked).toBeNull()
 })

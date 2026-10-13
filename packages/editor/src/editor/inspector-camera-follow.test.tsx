@@ -88,3 +88,24 @@ it('toggles invertY and picks each orbit Action from the project’s bindings (C
     expect(defined(within(section('Follow')).getByRole('combobox', { name }))).toBeDefined()
   }
 })
+
+it('keeps each minimum at or below its maximum and the distance between them, so no edit inverts a range (CA-33)', () => {
+  const props = inspect({ ...FOLLOWING, maxDistance: 9, minPitch: 5 })
+  const bounds = (name: RegExp): [string, string] => [slider(name).min, slider(name).max]
+
+  expect(bounds(/^Min distance/)).toEqual(['0.5', '9'])
+  expect(bounds(/^Max distance/)).toEqual(['2', '30'])
+  expect(bounds(/^Distance/)).toEqual(['2', '9'])
+  expect(bounds(/^Min pitch/)).toEqual(['-88', '70'])
+  expect(bounds(/^Max pitch/)).toEqual(['5', '88'])
+  fireEvent.change(slider(/^Min distance/), { target: { value: '14' } })
+  expect(props.onCameraProp).toHaveBeenLastCalledWith('minDistance', 9)
+})
+
+it('shows a follow that names a missing entity as missing, not as none (CA-33)', () => {
+  inspect({ ...FIXED, follow: 'Ghost' })
+
+  expect(follow()).toHaveProperty('value', 'Ghost')
+  const options = within(follow()).getAllByRole<HTMLOptionElement>('option').map((option) => option.textContent)
+  expect(options).toEqual(['none — fixed camera', 'Ghost (missing)', 'Player', 'Skeleton'])
+})

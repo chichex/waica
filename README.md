@@ -44,7 +44,7 @@ The Waica Editor runs in your browser, local-first: create a project into any em
 pnpm dev             # platformer archetype — ← → move · space jump
 pnpm dev:topdown     # topdown archetype — arrows/WASD move · E interact
 pnpm dev:isometric   # isometric archetype — screen-relative arrows/WASD · E interact
-pnpm dev:third-person  # third-person archetype — click to look around · WASD move · J attack · Shift run · C roll
+pnpm dev:third-person  # third-person archetype — click to look around · WASD move · Space jump · J attack · Shift run · C roll
 ```
 
 ## Packages

@@ -2,9 +2,7 @@ import {
   collectModuleComponents,
   Game,
   installArchetype,
-  installDirectionalAnimation,
   mergeRegistryComponents,
-  type BrowserArchetypeManifest,
   type PrefabJson,
   type SceneJson,
 } from '@waica/engine'
@@ -20,20 +18,17 @@ declare global {
   }
 }
 
-// The archetype as the generic manifest type, whose optional fields (animation, music) it leaves out.
-const MANIFEST: BrowserArchetypeManifest = ARCHETYPE
-
 // The example is a synced copy of @waica/archetype-third-person (scripts/sync-scene.mjs).
 // Your project's scenes (src/scenes/*.scene.json). One live scene at a
 // time (ADR 0011): the catalog lets a SceneTransition or a role ask for
-// another by name — game.loadSceneByName('cave').
+// another by name — game.loadSceneByName('crypt').
 const sceneFiles = import.meta.glob<SceneJson>('./scenes/*.scene.json', {
   eager: true,
   import: 'default',
 })
 const scenes: Record<string, SceneJson> = {}
 for (const [path, scene] of Object.entries(sceneFiles)) {
-  // './scenes/cave.scene.json' -> 'cave'
+  // './scenes/crypt.scene.json' -> 'crypt'
   scenes[path.slice('./scenes/'.length, -'.scene.json'.length)] = scene
 }
 
@@ -54,7 +49,7 @@ const prefabFiles = import.meta.glob<PrefabJson>(
 )
 const prefabs: Record<string, PrefabJson> = {}
 for (const [path, prefab] of Object.entries(prefabFiles)) {
-  // './characters/slime.character.json' -> 'characters/slime'
+  // './characters/skeleton.character.json' -> 'characters/skeleton'
   prefabs[path.slice(2, path.indexOf('.', 2))] = prefab
 }
 
@@ -67,12 +62,12 @@ const uiFiles = import.meta.glob<string>('./ui/*.html', {
 })
 const ui: Record<string, string> = {}
 for (const [path, html] of Object.entries(uiFiles)) {
-  // './ui/coin-counter.html' -> 'coin-counter'
+  // './ui/player-health.html' -> 'player-health'
   ui[path.slice('./ui/'.length, -'.html'.length)] = html
 }
 
-// Your art (src/art/*): texture props store the project path
-// ('src/art/hero.png'); this map turns each into a served, build-safe URL.
+// Your art (src/art/*): a Model's src stores the project path
+// ('src/art/knight.glb'); this map turns each into a served, build-safe URL.
 const artFiles = import.meta.glob<string>('./art/*', {
   eager: true,
   query: '?url',
@@ -80,7 +75,7 @@ const artFiles = import.meta.glob<string>('./art/*', {
 })
 const artUrls: Record<string, string> = {}
 for (const [path, url] of Object.entries(artFiles)) {
-  // './art/hero.png' -> 'src/art/hero.png'
+  // './art/knight.glb' -> 'src/art/knight.glb'
   artUrls[`src/${path.slice(2)}`] = url
 }
 
@@ -109,10 +104,8 @@ if (canvas.dataset.waica) {
 }
 
 async function main(canvas: HTMLCanvasElement): Promise<void> {
+  // The third-person archetype ships no directional animation contract and no music bed.
   installArchetype(ARCHETYPE.bundle)
-  // installArchetype resets the directional registry, so the contract goes
-  // right after it (archetypes without one install null — a no-op).
-  installDirectionalAnimation(MANIFEST.animation ?? null)
   const projectModules = await Promise.all(Object.values(projectCode).map((load) => load()))
   const registry = mergeRegistryComponents(
     registryBase,
@@ -134,19 +127,14 @@ async function main(canvas: HTMLCanvasElement): Promise<void> {
 
   // Your scenes: edit them with the Waica editor or by hand — they're just
   // JSON. Boots on "main"; its "ui" list mounts the UI pieces it starts
-  // with (the coin counter).
+  // with (the hearts and the controls hint).
   game.registerSceneCatalog({ scenes, registry })
   game.loadSceneByName('main')
   // Assets Ready (ADR 0019): the scene above spawned synchronously and its
-  // textures are still arriving; wait for them before the first frame so
-  // nothing pops in. A failed image is recorded, not thrown: this never
-  // rejects.
+  // glbs and the Rapier module are still arriving; wait for them before the
+  // first frame so nothing pops in. A failed load is recorded, not thrown:
+  // this never rejects.
   await game.assets.ready()
-
-  // The archetype's music bed, if it ships one (the third-person ships none).
-  if (MANIFEST.music) {
-    game.audio.play(MANIFEST.music, { channel: 'music', loop: true, scope: 'session' })
-  }
 
   if (import.meta.env.DEV) {
     window.__waica = { game }

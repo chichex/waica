@@ -9,6 +9,7 @@ import {
 import type { ResolutionSetting } from '../../project/game'
 import { cameraViewSize } from '../box-math'
 import { NumberField } from '../NumberField'
+import type { CameraProp } from './inspector-props'
 import { PerspectiveCameraInspector } from './PerspectiveCameraInspector'
 import { PropRow, RoRow } from './PropRow'
 
@@ -26,7 +27,6 @@ const CAMERA_SPECS: Record<string, ParamSpec> = {
 const DEFAULT_LIMITS = { minX: -20, maxX: 20, minY: -12, maxY: 12 }
 
 type ResolvedCamera = ResolvedSceneCamera
-type CameraProp = (key: string, value: unknown) => void
 
 interface CameraSectionProps {
   cam: ResolvedCamera

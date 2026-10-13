@@ -4,10 +4,9 @@ import {
   type ParamSpec,
   type PerspectiveSceneCameraJson,
 } from '@waica/engine'
+import type { CameraProp } from './inspector-props'
 import { PropRow } from './PropRow'
 import { Vec3Row } from './Vec3Row'
-
-type CameraProp = (key: string, value: unknown) => void
 
 /** The perspective camera's field of view, in degrees: the span `validate_project` accepts, (0, 180), so no valid lens is shown pinned to an end. */
 const FOV_SPEC: ParamSpec = { label: 'Field of view', min: 1, max: 179, step: 1 }
@@ -31,7 +30,30 @@ const ORBIT_ACTIONS = {
   orbitDownAction: { label: 'Orbit down', ref: 'action' },
 } satisfies Record<string, ParamSpec>
 
-interface FollowProps {
+type OrbitNumber = keyof typeof ORBIT_SPECS
+type ResolvedOrbitNumbers = Record<OrbitNumber, number>
+
+/**
+ * Each orbit number's slider range, narrowed by its counterpart as resolved
+ * now: a minimum never above its maximum and the distance between them, so no
+ * edit leaves a range `validate_project` reports inverted.
+ */
+function orbitSpec(field: OrbitNumber, orbit: ResolvedOrbitNumbers): ParamSpec {
+  const spec: ParamSpec = ORBIT_SPECS[field]
+  if (field === 'minDistance') return { ...spec, max: orbit.maxDistance }
+  if (field === 'maxDistance') return { ...spec, min: orbit.minDistance }
+  if (field === 'distance') return { ...spec, min: orbit.minDistance, max: orbit.maxDistance }
+  if (field === 'minPitch') return { ...spec, max: orbit.maxPitch }
+  if (field === 'maxPitch') return { ...spec, min: orbit.minPitch }
+  return spec
+}
+
+/** A typed or slid value kept inside the row's range. */
+function within({ min = -Infinity, max = Infinity }: ParamSpec, value: unknown): unknown {
+  return typeof value === 'number' ? Math.min(Math.max(value, min), max) : value
+}
+
+interface PerspectiveCameraProps {
   camera: PerspectiveSceneCameraJson | undefined
   entityNames: string[]
   onProp: CameraProp
@@ -44,9 +66,11 @@ interface FollowProps {
  * and the four orbit Actions. The rows show the engine defaults until set,
  * and stay disabled while the camera follows nothing.
  */
-function FollowSection({ camera, entityNames, onProp }: FollowProps) {
+function FollowSection({ camera, entityNames, onProp }: PerspectiveCameraProps) {
   const orbit = { ...ORBIT_DEFAULTS, ...camera }
   const follows = Boolean(camera?.follow)
+  // A follow whose entity was deleted or renamed away still shows, so the enabled rows do not contradict the select.
+  const missing = camera?.follow && !entityNames.includes(camera.follow) ? camera.follow : null
   return (
     <div className="ed-section">
       <header className="ed-sec-head">Follow</header>
@@ -54,6 +78,7 @@ function FollowSection({ camera, entityNames, onProp }: FollowProps) {
         <span>follow</span>
         <select value={camera?.follow ?? ''} onChange={(e) => onProp('follow', e.target.value || undefined)}>
           <option value="">none — fixed camera</option>
+          {missing && <option value={missing}>{missing} (missing)</option>}
           {entityNames.map((name) => (
             <option key={name} value={name}>
               {name}
@@ -63,9 +88,10 @@ function FollowSection({ camera, entityNames, onProp }: FollowProps) {
       </label>
       {/* A disabled fieldset disables every control inside it (the HTML rule), so the rows need no flag of their own. */}
       <fieldset className="ed-fieldset" aria-label="orbit" disabled={!follows}>
-        {Object.entries(ORBIT_SPECS).map(([field, spec]) => (
-          <PropRow key={field} label={field} spec={spec} value={orbit[field as keyof typeof ORBIT_SPECS]} onChange={(value) => onProp(field, value)} />
-        ))}
+        {(Object.keys(ORBIT_SPECS) as OrbitNumber[]).map((field) => {
+          const spec = orbitSpec(field, orbit)
+          return <PropRow key={field} label={field} spec={spec} value={orbit[field]} onChange={(value) => onProp(field, within(spec, value))} />
+        })}
         <label className="ed-row">
           <span>invert Y</span>
           <input type="checkbox" checked={orbit.invertY} onChange={(e) => onProp('invertY', e.target.checked)} />
@@ -80,7 +106,7 @@ function FollowSection({ camera, entityNames, onProp }: FollowProps) {
 }
 
 /** A 3D scene's camera: where it sits, what it looks at, its lens, and the orbit around a followed entity. */
-export function PerspectiveCameraInspector({ camera, entityNames, onProp }: FollowProps) {
+export function PerspectiveCameraInspector({ camera, entityNames, onProp }: PerspectiveCameraProps) {
   const cam = resolvePerspectiveCamera(camera)
   return (
     <div className="ed-pad">
