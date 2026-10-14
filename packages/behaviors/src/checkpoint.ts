@@ -19,9 +19,11 @@ export class Checkpoint extends Component {
   /** True for the checkpoint the player touched last. */
   active = false
   /**
-   * Where the player respawns, in this entity's local frame (turned and
-   * scaled with it, like a Collider's offset): a banner hung on a wall keeps
-   * its origin on the wall and its spawn on the floor in front of it.
+   * Where the player respawns, from this entity's position. In 3D it is in
+   * the entity's local frame, turned and scaled with it like a Collider's
+   * offset: a banner hung on a wall keeps its origin on the wall and its
+   * spawn on the floor in front of it. In 2D it is in world units, like a
+   * Hitbox's or a Solid's offset, whatever the node's scale or rotation.
    */
   spawnOffset: Vec3Json = [0, 0, 0]
 
@@ -35,10 +37,12 @@ export class Checkpoint extends Component {
     other.get(Respawnable)?.setSpawn(this.spawnPoint())
   }
 
-  /** This entity's position plus its spawnOffset, turned and scaled by its node. */
+  /** This entity's position plus its spawnOffset: turned and scaled by its node in 3D, as authored in 2D. */
   private spawnPoint(): THREE.Vector3 {
     const [x, y, z] = this.spawnOffset
+    const offset = new THREE.Vector3(x, y, z)
     const { node } = this.entity
-    return new THREE.Vector3(x, y, z).multiply(node.scale).applyQuaternion(node.quaternion).add(this.entity.position)
+    if (this.game.space === '3d') offset.multiply(node.scale).applyQuaternion(node.quaternion)
+    return offset.add(this.entity.position)
   }
 }

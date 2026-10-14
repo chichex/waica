@@ -1,4 +1,5 @@
 import type { PerspectiveSceneCameraJson, SceneEntityJson, SceneJson } from '@waica/engine'
+import { BANNER_INSET } from './prefabs.js'
 
 /**
  * The orbit camera every scene follows the Player with. `position`/`target`
@@ -42,12 +43,11 @@ function floorTiles(): SceneEntityJson[] {
 }
 
 /**
- * Where a checkpoint's wall banner hangs from the yard's centre: the banner
- * is modelled to hang on a wall, its cloth's back 0.378 in front of its
- * origin, so the origin sits 0.35 inside a wall whose inner face is
- * HALF - 0.5 away (the wall pieces are 1 thick) and the cloth lies flush on it.
+ * Where a checkpoint's wall banner hangs from the yard's centre: BANNER_INSET
+ * inside a wall whose inner face is HALF - 0.5 away (the wall pieces are 1
+ * thick), so its cloth lies flush on it.
  */
-const BANNER_AT = HALF - 0.5 + 0.35
+const BANNER_AT = HALF - 0.5 + BANNER_INSET
 
 /** The four sides of wall pieces, each turned to face the yard. */
 function walls(): SceneEntityJson[] {

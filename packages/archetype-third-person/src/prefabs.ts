@@ -84,11 +84,19 @@ const SKELETON: PrefabJson = {
 }
 
 /**
- * How far in front of a checkpoint banner's origin its 2-deep sensor and its
- * spawn sit: the origin is 0.35 inside the wall (scene-default.ts), so the
- * sensor starts at the wall's inner face and the Knight respawns 1 from it.
+ * How deep a checkpoint banner's origin sits inside the wall it hangs on: the
+ * banner is modelled to hang on a wall, its cloth's back 0.378 in front of
+ * its origin, so at this inset the cloth lies flush on the wall's inner face.
+ * The scene places the origin by it and the prefab its sensor and spawn.
  */
-const CHECKPOINT_REACH = 1.35
+export const BANNER_INSET = 0.35
+
+/**
+ * How far in front of a checkpoint banner's origin its 2-deep sensor and its
+ * spawn sit: the sensor starts at the wall's inner face and the Knight
+ * respawns 1 from it.
+ */
+const CHECKPOINT_REACH = BANNER_INSET + 1
 
 /**
  * The archetype's prefabs (issue #181 CA-25): the Knight and the Skeleton

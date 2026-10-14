@@ -25,7 +25,6 @@ async function peek({ helpers, client, project }, names) {
       checkpoint: stateOf(entity, 'Checkpoint'),
       motor: stateOf(entity, 'CharacterMotor'),
       position: entity.transform.position,
-      rotation: entity.transform.rotation,
     }
   }
   return Object.fromEntries(names.map((name) => [name, read(name)]))
@@ -133,14 +132,14 @@ const ambush = (scene) => {
 
 const RESPAWN = ['Player', 'Checkpoint West']
 
-/** Where a peeked checkpoint respawns the Player: its position plus its spawnOffset, turned by its yaw. */
-function spawnOf({ position, rotation, checkpoint }) {
-  assert.ok(Array.isArray(checkpoint?.spawnOffset), `the Checkpoint snapshot must hold its spawnOffset; ${JSON.stringify(checkpoint)}`)
-  const [x, , z] = checkpoint.spawnOffset
-  const sin = Math.sin(rotation.y)
-  const cos = Math.cos(rotation.y)
-  return { x: position.x + x * cos + z * sin, z: position.z - x * sin + z * cos }
-}
+/**
+ * Where Checkpoint West respawns the Player, as a literal: on the floor 1 in
+ * front of the west wall's inner face (x -9.5), level with the banner. Not
+ * derived from the Checkpoint's spawnOffset math, so a bug shared by the
+ * engine and this driver cannot pass; scene-checkpoints.test.ts ties the
+ * demo's banner, sensor and spawn to the walls.
+ */
+const WEST_SPAWN = { x: -8.5, y: 0, z: 4 }
 
 /** CA-36: the Player touches Checkpoint West, dies to the skeleton, and comes back there with full health. */
 export async function exerciseRespawn(context) {
@@ -150,9 +149,10 @@ export async function exerciseRespawn(context) {
     await run.control('release', { action: 'left' })
     await stepUntil(context, run, { names: RESPAWN, done: (seen) => seen.Player.state === 'die', limit: 600, what: "the Player's death" })
     const back = await stepUntil(context, run, { names: RESPAWN, done: (seen) => seen.Player.state === 'idle', limit: 400, what: 'the respawn' })
-    const checkpoint = spawnOf(touched['Checkpoint West'])
+    assert.ok(touched['Checkpoint West'].position.x < WEST_SPAWN.x, `Checkpoint West must hang on the west wall, behind its spawn; ${JSON.stringify(touched['Checkpoint West'].position)}`)
+    const checkpoint = WEST_SPAWN
     assert.ok(planar(back.Player.position, checkpoint) < 0.6, `the Player must come back at the checkpoint; ${JSON.stringify({ back, checkpoint })}`)
-    assert.ok(Math.abs(back.Player.position.y) < 0.1, `the Player must come back standing on the floor; ${JSON.stringify(back.Player.position)}`)
+    assert.ok(Math.abs(back.Player.position.y - WEST_SPAWN.y) < 0.1, `the Player must come back standing on the floor; ${JSON.stringify(back.Player.position)}`)
     assert.equal(back.Player.health.current, back.Player.health.max, `the Player must come back with full health; ${JSON.stringify(back.Player.health)}`)
     return { respawnedAt: back.Player.position, checkpoint, health: back.Player.health.current }
   })

@@ -39,6 +39,7 @@ export type FindingCode =
   | 'character-motor-without-body'
   | 'mover-without-body'
   | 'invalid-character-motor-param'
+  | 'invalid-checkpoint-param'
   | 'invalid-light-param'
   | 'invalid-sun-param'
   | 'invalid-scene-camera'
