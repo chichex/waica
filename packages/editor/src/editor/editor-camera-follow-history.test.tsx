@@ -34,7 +34,8 @@ async function openOnCamera() {
   return { fs, ...opened }
 }
 
-it('writes follow and an orbit number into the scene, and Ctrl+Z undoes each (CA-33)', async () => {
+// The whole editor saves four debounced edits; under CI's full-suite load that took 5.2 s once, past Vitest's 5 s default.
+it('writes follow and an orbit number into the scene, and Ctrl+Z undoes each (CA-33)', { timeout: 15_000 }, async () => {
   const { fs, user } = await openOnCamera()
   const follow = within(section('Follow')).getByRole('combobox', { name: 'follow' })
 
