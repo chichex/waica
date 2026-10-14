@@ -1,0 +1,157 @@
+{
+  "waicaPrefab": 1,
+  "type": "character",
+  "components": [
+    {
+      "type": "Model",
+      "props": {
+        "src": "src/art/skeleton-warrior.glb"
+      }
+    },
+    {
+      "type": "Animator",
+      "props": {
+        "initialClip": "Walking_A",
+        "clips": {
+          "1H_Melee_Attack_Chop": {
+            "loop": false
+          },
+          "Hit_A": {
+            "loop": false
+          },
+          "Death_A": {
+            "loop": false
+          }
+        }
+      }
+    },
+    {
+      "type": "StateMachine",
+      "props": {
+        "role": "enemy",
+        "initial": "patrol",
+        "states": {
+          "patrol": {
+            "transitions": [
+              {
+                "on": "signal:see",
+                "to": "chase"
+              }
+            ],
+            "clip": "Walking_A"
+          },
+          "chase": {
+            "transitions": [
+              {
+                "on": "signal:near",
+                "to": "windup"
+              },
+              {
+                "on": "signal:lose",
+                "to": "patrol"
+              }
+            ],
+            "clip": "Running_A"
+          },
+          "windup": {
+            "transitions": [
+              {
+                "on": "timer:0.6",
+                "to": "attack"
+              }
+            ],
+            "clip": "2H_Melee_Idle"
+          },
+          "attack": {
+            "transitions": [
+              {
+                "on": "clip:end",
+                "to": "chase"
+              }
+            ],
+            "clip": "1H_Melee_Attack_Chop"
+          },
+          "hurt": {
+            "transitions": [
+              {
+                "on": "clip:end",
+                "to": "chase"
+              }
+            ],
+            "clip": "Hit_A"
+          },
+          "die": {
+            "clip": "Death_A"
+          },
+          "*": {
+            "transitions": [
+              {
+                "on": "signal:death",
+                "to": "die"
+              },
+              {
+                "on": "signal:hurt",
+                "to": "hurt"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "Collider",
+      "props": {
+        "shape": "capsule",
+        "radius": 0.5,
+        "height": 2.2,
+        "offset": [
+          0,
+          1.1,
+          0
+        ],
+        "layer": "enemy",
+        "collidesWith": [
+          "player"
+        ]
+      }
+    },
+    {
+      "type": "RigidBody",
+      "props": {
+        "type": "kinematic"
+      }
+    },
+    {
+      "type": "Patrol",
+      "props": {
+        "axis": "horizontal",
+        "distance": 2.5,
+        "speed": 1.5
+      }
+    },
+    {
+      "type": "Chaser",
+      "props": {
+        "range": 7,
+        "speed": 3
+      }
+    },
+    {
+      "type": "MeleeAttack",
+      "props": {
+        "damage": 1,
+        "range": 1.5,
+        "width": 1.4
+      }
+    },
+    {
+      "type": "Health",
+      "props": {
+        "max": 3,
+        "invulnerability": 0.3,
+        "healthBar": "health-bar",
+        "damageNumber": "damage-number"
+      }
+    }
+  ]
+}

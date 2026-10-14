@@ -10,6 +10,7 @@ import tsconfigJson from '../../template/tsconfig.json?raw'
 import viteConfigTs from '../../template/vite.config.ts?raw'
 import readmeMd from '../../template/README.md?raw'
 import gitignore from '../../template/_gitignore?raw'
+import { sceneArchetypeNeeds } from '@waica/engine'
 import { archetypePackageName, resolveArchetype, type ArchetypeManifest } from './archetype'
 import enginePackage from '../../../engine/package.json'
 import { readJsonObject } from '../json-object'
@@ -69,20 +70,32 @@ function musicOverrideLiteral(start: ProjectStart, archetype: ArchetypeManifest)
 
 /**
  * Binary companions to projectFiles(): art to materialize, path → fetchable
- * URL (the archetype's bundled asset). Empty for blank projects.
+ * URL (the archetype's bundled asset). A blank project gets only the art its
+ * blank scene uses — none, unless the scene is not empty (issue #181).
  */
 export function projectArtFiles(
   start: ProjectStart = 'demo',
   archetypeId = 'platformer',
 ): Record<string, string> {
-  if (start === 'blank') return {}
   const archetype = resolveArchetype(archetypeId)
+  const used = start === 'blank' ? new Set(sceneArchetypeNeeds(archetype, archetype.blankScene).art) : null
   return Object.fromEntries(
-    archetype.art.map((art) => [
-      `src/art/${art.file}`,
-      archetype.artUrls[art.file] ?? art.uri,
-    ]),
+    archetype.art
+      .filter((art) => !used || used.has(art.file))
+      .map((art) => [`src/art/${art.file}`, archetype.artUrls[art.file] ?? art.uri]),
   )
+}
+
+/** The prefab and UI files a blank scene uses, so a blank project of a non-empty blank scene still runs it (issue #181). */
+function blankSceneFiles(archetype: ArchetypeManifest): Record<string, string> {
+  const needs = sceneArchetypeNeeds(archetype, archetype.blankScene)
+  const files: Record<string, string> = {}
+  for (const ref of needs.prefabs) {
+    const prefab = archetype.prefabs[ref]
+    if (prefab) files[`src/${ref}.${prefab.type}.json`] = projectJson(prefab, archetype)
+  }
+  for (const name of needs.ui) files[`src/ui/${name}.html`] = archetype.registry.ui?.[name] ?? ''
+  return files
 }
 
 /** Files for a fresh waica project, resolved from the picked archetype. */
@@ -125,10 +138,12 @@ export function projectFiles(
     'src/scenes/main.scene.json': projectJson(scene, archetype),
     'public/waica.params.json': '{}\n',
   }
-  // A blank project ships only the chassis: no prefab, UI or art files, and
-  // its scene is empty. It starts with nothing because it HAS nothing —
-  // no archetype default resolves behind the editor's back.
-  if (start === 'blank') return files
+  // A blank project ships only the chassis and what its blank scene uses: for
+  // most archetypes the scene is empty, so no prefab, UI or art files. It
+  // starts with nothing because it HAS nothing — no archetype default
+  // resolves behind the editor's back. The third-person blank scene holds the
+  // playable Knight (issue #181), so its prefab, HUD and art come along.
+  if (start === 'blank') return { ...files, ...blankSceneFiles(archetype) }
   // Additional demo scenes beyond "main" (CA-13): one file per entry, the
   // same as packages/mcp/src/create-project.ts's chassisFiles().
   for (const [sceneName, extra] of Object.entries(archetype.extraScenes ?? {})) {

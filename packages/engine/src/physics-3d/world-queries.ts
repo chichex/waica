@@ -9,10 +9,17 @@ export interface Point3d {
   z: number
 }
 
-/** A volume `game.query.area` tests sensor colliders against. */
+/**
+ * Which colliders `game.query.area` reads: the sensors (the default, ADR
+ * 0015's trigger domain) or every collider, solid ones included — what a
+ * melee strike hits (issue #181).
+ */
+export type QueryColliders3d = 'sensors' | 'all'
+
+/** A volume `game.query.area` tests colliders against; a box may turn by `yaw` degrees about +y. */
 export type QueryVolume3d =
-  | { shape: 'box'; center: Point3d; size: Point3d }
-  | { shape: 'sphere'; center: Point3d; radius: number }
+  | { shape: 'box'; center: Point3d; size: Point3d; yaw?: number; colliders?: QueryColliders3d }
+  | { shape: 'sphere'; center: Point3d; radius: number; colliders?: QueryColliders3d }
 
 /** One collider a ray reaches: whose it is, how far, where and which way its surface faces. */
 export interface WorldRayHit {
@@ -22,7 +29,11 @@ export interface WorldRayHit {
   normal: Point3d
 }
 
-const IDENTITY = { x: 0, y: 0, z: 0, w: 1 }
+/** The rotation of a box turned `yaw` degrees about +y (none for a sphere or an unturned box). */
+function rotationOf(volume: QueryVolume3d): { x: number; y: number; z: number; w: number } {
+  const half = volume.shape === 'box' ? ((volume.yaw ?? 0) * Math.PI) / 360 : 0
+  return { x: 0, y: Math.sin(half), z: 0, w: Math.cos(half) }
+}
 
 /**
  * Rapier's predicate for a query: only colliders whose body record `accepts`.
@@ -86,7 +97,7 @@ export function recordsInVolume(world: PhysicsWorld, volume: QueryVolume3d, acce
   const found: BodyRecord[] = []
   raw.intersectionsWithShape(
     volume.center,
-    IDENTITY,
+    rotationOf(volume),
     shape,
     (collider) => {
       const record = world.recordOfCollider(collider.handle)

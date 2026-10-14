@@ -114,7 +114,7 @@ export function characterMotorParamFindings(props: unknown, file: string, ref: s
   return toFindings(problems, { code: 'invalid-character-motor-param', component: 'CharacterMotor', file, ref })
 }
 
-const finding = (code: 'rigid-body-without-collider' | 'character-motor-without-body', message: string, where: { file: string; ref: string }): ValidationFinding => ({
+const finding = (code: 'rigid-body-without-collider' | 'character-motor-without-body' | 'mover-without-body', message: string, where: { file: string; ref: string }): ValidationFinding => ({
   severity: 'error',
   code,
   message,
@@ -130,7 +130,8 @@ function rigidBodyType(components: readonly SceneComponentJson[]): unknown {
 /**
  * Entity-level physics findings from the components it ends up with, prefab,
  * overrides and inline (issue #159 CA-14, CA-20): a RigidBody needs a Collider
- * beside it, and a CharacterMotor needs a Collider and a kinematic RigidBody.
+ * beside it, and a CharacterMotor, a Patrol or a Chaser needs a Collider and a
+ * kinematic RigidBody.
  */
 export function physicsCompositionFindings(components: readonly SceneComponentJson[], file: string, ref: string): ValidationFinding[] {
   const types = new Set(components.map((component) => component.type))
@@ -138,9 +139,17 @@ export function physicsCompositionFindings(components: readonly SceneComponentJs
   if (types.has('RigidBody') && !types.has('Collider')) {
     findings.push(finding('rigid-body-without-collider', `Entity "${ref}" has a RigidBody but no Collider; no body is created.`, { file, ref }))
   }
-  if (types.has('CharacterMotor') && !(types.has('Collider') && types.has('RigidBody') && rigidBodyType(components) === 'kinematic')) {
+  const kinematic = types.has('Collider') && types.has('RigidBody') && rigidBodyType(components) === 'kinematic'
+  if (types.has('CharacterMotor') && !kinematic) {
     findings.push(
       finding('character-motor-without-body', `Entity "${ref}" has a CharacterMotor, which needs a Collider and a kinematic RigidBody beside it; it does nothing without them.`, { file, ref }),
+    )
+  }
+  // In 3D, Patrol and Chaser walk through the same body (issue #181 CA-19); the caller runs this for 3D scenes only.
+  for (const mover of ['Patrol', 'Chaser']) {
+    if (!types.has(mover) || kinematic) continue
+    findings.push(
+      finding('mover-without-body', `Entity "${ref}" has a ${mover}, which in a 3D scene walks through a Collider and a kinematic RigidBody beside it; it does nothing without them.`, { file, ref }),
     )
   }
   return findings

@@ -1,7 +1,8 @@
 import { access, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { PrefabJson, RoleDefinition, SceneComponentJson } from '@waica/engine'
-import { activeArchetypeId, discoverArchetypes, pickArchetype } from './archetypes.js'
+import { activeArchetype, scaffoldsIn3d } from './scaffold-archetype.js'
+import { prefabComponents3d } from './scaffolds-3d.js'
 import { WaicaToolError, assertSafeSlug } from './project-path.js'
 
 function nameWords(name: string): string[] {
@@ -191,18 +192,7 @@ function prefabComponents(
   }
 }
 
-/** The active archetype's roles — the only ones a scaffolded character may adopt. */
-async function archetypeRoles(projectPath: string): Promise<Record<string, RoleDefinition>> {
-  const activeId = await activeArchetypeId(projectPath)
-  const available = await discoverArchetypes(
-    projectPath,
-    undefined,
-    [],
-    activeId ? [activeId] : [],
-  )
-  return pickArchetype(available, activeId, projectPath).manifest.bundle.roles
-}
-
+/** The active archetype's roles — the only ones a scaffolded character may adopt — and whether its scenes are 3D. */
 function invalidInput(projectPath: string, message: string): WaicaToolError {
   return new WaicaToolError({ code: 'invalid-input', message, projectPath })
 }
@@ -245,8 +235,7 @@ export async function scaffoldComponent(
 }
 
 /** The active archetype's definition of a character role. */
-async function characterRole(projectPath: string, roleName: string): Promise<RoleDefinition> {
-  const roles = await archetypeRoles(projectPath)
+function characterRole(projectPath: string, roleName: string, roles: Record<string, RoleDefinition>): RoleDefinition {
   const definition = roles[roleName]
   if (!definition) {
     // Falling back to an empty graph would write a character that stands
@@ -263,7 +252,9 @@ async function characterRole(projectPath: string, roleName: string): Promise<Rol
 
 /**
  * A starter prefab of the given type, byte-identical to what the editor
- * writes for the same inputs — for roles the active archetype defines. The
+ * writes for the same inputs — for roles the active archetype defines. In a
+ * 3D archetype both write the 3D set (prefabComponents3d, issue #181 CA-30,
+ * and the editor's chassis-3d.ts; a test holds them byte-identical). The
  * editor also accepts a project's own custom roles (defineRole); this
  * function does not, and rejects them instead of guessing (see the
  * unknown-role error below). The caller names it: no auto-numbering, and an
@@ -309,18 +300,14 @@ export async function scaffoldPrefab(
   }
   // Same default the editor's creation dialog starts from.
   const roleName = role ?? 'player'
-  const definition =
-    prefabType === 'character' ? await characterRole(projectPath, roleName) : undefined
-  const prefab: PrefabJson = {
-    waicaPrefab: 1,
-    type: prefabType,
-    components: prefabComponents(
-      prefabType,
-      roleName,
-      definition,
-      identity as CharacterIdentity | undefined,
-    ),
-  }
+  const archetype = prefabType === 'character' ? await activeArchetype(projectPath) : null
+  const definition = archetype ? characterRole(projectPath, roleName, archetype.roles) : undefined
+  const threeD = archetype ? archetype.threeD : await scaffoldsIn3d(projectPath)
+  const knownIdentity = identity as CharacterIdentity | undefined
+  const components = threeD
+    ? prefabComponents3d({ type: prefabType, role: roleName, definition, identity: knownIdentity })
+    : prefabComponents(prefabType, roleName, definition, knownIdentity)
+  const prefab: PrefabJson = { waicaPrefab: 1, type: prefabType, components }
   return writeOnce(
     projectPath,
     `src/${directory}/${name}.${prefabType}.json`,

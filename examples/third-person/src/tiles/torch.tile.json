@@ -1,0 +1,39 @@
+{
+  "waicaPrefab": 1,
+  "type": "tile",
+  "components": [
+    {
+      "type": "Model",
+      "props": {
+        "src": "src/art/dungeon-torch.glb"
+      }
+    },
+    {
+      "type": "Collider",
+      "props": {
+        "shape": "box",
+        "size": [
+          0.6,
+          1.1,
+          0.7
+        ],
+        "offset": [
+          0,
+          0.15,
+          0.3
+        ],
+        "layer": "world"
+      }
+    },
+    {
+      "type": "PointLight",
+      "props": {
+        "color": "#ffb060",
+        "intensity": 14,
+        "distance": 9,
+        "offsetY": 0.6,
+        "offsetZ": 0.6
+      }
+    }
+  ]
+}

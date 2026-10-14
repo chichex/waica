@@ -15,6 +15,9 @@ import type { TilemapBrushSelection } from '../tilemap-brush'
 import type { ArtItem, DroppedFile } from '../use-project-art'
 import type { ViewportComponentVisibility } from '../Viewport'
 
+/** Sets one prop of the open scene's camera block (undefined deletes it). */
+export type CameraProp = (key: string, value: unknown) => void
+
 /** What the inspector is editing, mirroring the explorer view. */
 export type InspectorSelection =
   | { kind: 'scene'; name: string; scene: SceneJson }
@@ -86,7 +89,7 @@ export interface InspectorProps {
   onPrefabSetCollision(ref: string, enabled: boolean): void
   onEditAnimation(target: AnimTarget): void
   /** Sets one prop of the open scene's camera block (undefined deletes it). */
-  onCameraProp(key: string, value: unknown): void
+  onCameraProp: CameraProp
   /** Sets one prop of the open scene's render block (undefined deletes it). */
   onRenderProp(key: string, value: unknown): void
   /** Project art scale (game.json), for pixel↔unit conversions. */

@@ -6,7 +6,7 @@ import type { PhysicsWorld } from './physics-3d/physics-world.js'
 import { recordsAtPoint, recordsInVolume, worldRayHits, type Point3d, type QueryVolume3d } from './physics-3d/world-queries.js'
 import type { ComponentClasses, NearestSpatialQueryFilter, SpatialQueryFilter } from './spatial-query.js'
 
-export type { Point3d, QueryVolume3d } from './physics-3d/world-queries.js'
+export type { Point3d, QueryColliders3d, QueryVolume3d } from './physics-3d/world-queries.js'
 
 /** The first solid collider a 3D ray reached, with its entity and the crossing (issue #159 CA-21). */
 export interface RayHit3d<T extends Entity = Entity> {
@@ -30,9 +30,17 @@ const isPoint3d = (value: unknown): value is Point3d =>
 
 const isExtent = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0
 
+/** An absent or known collider domain, and an absent or finite box yaw: the optional parts of a volume. */
+function hasValidOptions(value: object): boolean {
+  const colliders: unknown = Reflect.get(value, 'colliders')
+  const yaw: unknown = Reflect.get(value, 'yaw')
+  const knownDomain = colliders === undefined || colliders === 'sensors' || colliders === 'all'
+  return knownDomain && (yaw === undefined || (typeof yaw === 'number' && Number.isFinite(yaw)))
+}
+
 /** A finite box or sphere with a place: anything else is a volume Rapier cannot test. */
 function isVolume3d(value: unknown): value is QueryVolume3d {
-  if (typeof value !== 'object' || value === null || !isPoint3d(Reflect.get(value, 'center'))) return false
+  if (typeof value !== 'object' || value === null || !isPoint3d(Reflect.get(value, 'center')) || !hasValidOptions(value)) return false
   const shape: unknown = Reflect.get(value, 'shape')
   if (shape === 'sphere') return isExtent(Reflect.get(value, 'radius'))
   const size: unknown = Reflect.get(value, 'size')
@@ -49,7 +57,7 @@ interface NearestSearch {
   maxDistance: number
 }
 
-/** The 3D forms of `game.query` (ADR 0015's domains kept): `ray` reads solids, `area` and `point` read sensors, `nearest` reads transforms. */
+/** The 3D forms of `game.query` (ADR 0015's domains kept): `ray` reads solids, `area` and `point` read sensors (`area` every collider on request), `nearest` reads transforms. */
 export class SpatialQuery3d {
   constructor(
     private readonly game: Game,
@@ -73,7 +81,8 @@ export class SpatialQuery3d {
   area(volume: QueryVolume3d, filter?: Filter): Entity[] {
     const world = this.worldNow()
     if (!world || !isVolume3d(volume)) return []
-    return this.inEntityOrder(recordsInVolume(world, volume, (record) => this.eligible(record, filter, true)), filter)
+    const domain = volume.colliders === 'all' ? 'all' : true
+    return this.inEntityOrder(recordsInVolume(world, volume, (record) => this.eligible(record, filter, domain)), filter)
   }
 
   point(at: Point3d, filter?: Filter): Entity[] {
@@ -114,8 +123,9 @@ export class SpatialQuery3d {
    * for area and point) that passes the structural filter. Runs inside
    * Rapier's callback, so it reads the record and nothing else.
    */
-  private eligible(record: BodyRecord, filter: Filter, sensors: boolean): boolean {
-    return record.sensor === sensors && record.entity.alive && this.rules.matchesCommon(record.entity, filter)
+  private eligible(record: BodyRecord, filter: Filter, sensors: boolean | 'all'): boolean {
+    const inDomain = sensors === 'all' || record.sensor === sensors
+    return inDomain && record.entity.alive && this.rules.matchesCommon(record.entity, filter)
   }
 
   /** The user's `where`, run after Rapier has answered: it may throw, spawn or destroy without the world mid-query. */

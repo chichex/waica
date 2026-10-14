@@ -8,6 +8,7 @@ const BUILT_PACKAGE_SOURCES = [
   'packages/archetype-platformer/src',
   'packages/archetype-topdown/src',
   'packages/archetype-isometric/src',
+  'packages/archetype-third-person/src',
 ]
 
 function productionTypeScriptFiles(directory: string): string[] {

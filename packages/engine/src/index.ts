@@ -73,6 +73,9 @@ export type {
   SceneFieldIssue,
   Vec3Json,
 } from './scene-camera-3d.js'
+export { ORBIT_DEFAULTS, resolveOrbit } from './scene-camera-orbit.js'
+export type { OrbitCameraJson, ResolvedOrbit } from './scene-camera-orbit.js'
+export type { OrbitView } from './orbit-camera.js'
 export { isPerspectiveCamera, worldToNormalized } from './camera-projection.js'
 export type { GameCamera, NormalizedPoint, ViewCamera, WorldPoint } from './camera-projection.js'
 export {
@@ -114,6 +117,7 @@ export type {
 } from './component-update-schedule.js'
 export { Input, DEFAULT_BINDINGS } from './input.js'
 export type { ActionName, InjectedActionOperation, InputBindings, InputOptions } from './input.js'
+export type { MouseMovement } from './input-mouse.js'
 export {
   ACTION_HELD_THRESHOLD,
   firstStandardPadValues,
@@ -169,7 +173,9 @@ export type {
   ArchetypeManifest,
   BrowserArchetypeManifest,
   EntityTemplate,
+  SceneArchetypeNeeds,
 } from './archetype.js'
+export { sceneArchetypeNeeds } from './archetype.js'
 export { Stats } from './stats.js'
 export type { StatValue } from './stats.js'
 export { GameUi } from './ui.js'
@@ -251,7 +257,7 @@ export type {
   SpatialQuery,
   SpatialQueryFilter,
 } from './spatial-query.js'
-export type { Point3d, QueryVolume3d, RayHit3d } from './spatial-query-3d.js'
+export type { Point3d, QueryColliders3d, QueryVolume3d, RayHit3d } from './spatial-query-3d.js'
 export { Emitter } from './events.js'
 export { loadScene, spawnFromJson, resolveEntityComponents, resolveProps } from './scene.js'
 export type {

@@ -133,6 +133,7 @@ async function findingsOf(entities: unknown[], files: Record<string, string> = {
       'invalid-character-motor-param',
       'rigid-body-without-collider',
       'character-motor-without-body',
+      'mover-without-body',
       'component-space-mismatch',
       'unknown-component',
     ].includes(finding.code),
@@ -267,6 +268,25 @@ describe('validate_project on a CharacterMotor without its body (issue #159 CA-2
       { 'src/characters/hero.character.json': prefab },
     )
     expect(findings.filter((finding) => finding.code === 'character-motor-without-body').map((finding) => finding.ref)).toEqual(['MadeDynamic'])
+  })
+})
+
+describe('validate_project on a 3D Patrol or Chaser without its body (issue #181 CA-19)', () => {
+  const KINEMATIC = [{ type: 'Collider' }, { type: 'RigidBody', props: { type: 'kinematic' } }]
+
+  it('reports one with no kinematic RigidBody or no Collider, and accepts one beside both', async () => {
+    const findings = await findingsOf([
+      { name: 'Rat', components: [{ type: 'Patrol' }] },
+      { name: 'Ghoul', components: [{ type: 'Collider' }, { type: 'Chaser' }] },
+      { name: 'Bat', components: [...KINEMATIC, { type: 'Patrol' }, { type: 'Chaser' }] },
+    ])
+    const movers = findings.filter((finding) => finding.code === 'mover-without-body')
+    expect(movers.map((finding) => [finding.severity, finding.ref])).toEqual([
+      ['error', 'Rat'],
+      ['error', 'Ghoul'],
+    ])
+    expect(movers[0]?.message).toContain('Patrol')
+    expect(movers[1]?.message).toContain('Chaser')
   })
 })
 

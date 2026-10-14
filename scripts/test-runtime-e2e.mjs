@@ -31,9 +31,9 @@ if (failures.length > 0) {
 }
 
 // The animation is stepped by the simulation, not drawn by the backend (issue
-// #166 CA-18): the smoke Player's pose hash at the same frame is the same on
+// #166 CA-18): the third-person Player's pose hash at the same frame is the same on
 // webgl2 and webgpu.
-const poseHashes = results.map((result) => result.smoke3d?.animation?.poseHashAt)
-assert.ok(poseHashes.every((at) => at?.hash), `every leg must report the smoke Player's pose hash; ${JSON.stringify(poseHashes)}`)
+const poseHashes = results.map((result) => result.thirdPerson?.animation?.poseHashAt)
+assert.ok(poseHashes.every((at) => at?.hash), `every leg must report the third-person Player's pose hash; ${JSON.stringify(poseHashes)}`)
 assert.equal(new Set(poseHashes.map((at) => `${at.frame}:${at.hash}`)).size, 1, `both Render Backend legs must report the same pose hash at the same frame; ${JSON.stringify(poseHashes)}`)
-console.log(`waica runtime e2e: the smoke Player's pose hash agrees across ${results.length} Render Backend legs at frame ${poseHashes[0].frame}: ${poseHashes[0].hash}`)
+console.log(`waica runtime e2e: the third-person Player's pose hash agrees across ${results.length} Render Backend legs at frame ${poseHashes[0].frame}: ${poseHashes[0].hash}`)

@@ -1,19 +1,21 @@
-// The editor-3d leg of the runtime e2e (issue #173 CA-23): the editor's own
-// Vite dev server, a real Chrome on the leg's Render Backend, and the smoke
-// example's scene with its two glbs opened as an in-memory project through the
-// DEV-only `globalThis.__waicaEditor` hook. It clicks the Knight to select it,
+// The editor-3d leg of the runtime e2e (issue #173 CA-23, moved to the
+// third-person demo by issue #181 CA-35): the editor's own Vite dev server, a
+// real Chrome on the leg's Render Backend, and examples/third-person's project
+// (the archetype's demo courtyard, its prefabs, UI and glbs) opened as an
+// in-memory project through the DEV-only `globalThis.__waicaEditor` hook. It clicks the Knight to select it,
 // drags the gizmo's X arrow with the real mouse, undoes the drag, reads the
 // Animator's clip dropdown, and orbits with a middle drag, all checked in the
 // file the editor saves. Pixels are compared only where the frame draws (not
 // on CI's Linux WebGPU, issue #151).
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { readdir, readFile } from 'node:fs/promises'
 import { createServer as createNetServer } from 'node:net'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { expectsBlankLighting } from './runtime-e2e-lighting.mjs'
 
-const EXAMPLE = fileURLToPath(new URL('../examples/smoke-3d', import.meta.url))
+/** The third-person example's sources: a synced copy of the archetype's demo (scripts/sync-scene.mjs). */
+const EXAMPLE = fileURLToPath(new URL('../examples/third-person/src', import.meta.url))
 const PROJECT = 'waica-editor-3d'
 const SCENE_PATH = 'src/scenes/main.scene.json'
 const VIEWPORT = { width: 1280, height: 800 }
@@ -45,16 +47,20 @@ async function startEditor({ root, viteBin }) {
   return { url: `http://127.0.0.1:${port}/`, close: () => server.close() }
 }
 
-/** The in-memory project: a platformer game.json, the smoke scene, its glbs (base64) and the character role. */
+/** The file extensions the in-memory project receives as text. */
+const TEXT_FILES = new Set(['.json', '.html', '.css'])
+
+/** The in-memory project: the example's JSON, UI pieces and glbs (base64), under src/ as a generated project holds them; not its code. */
 async function projectFiles() {
-  const base64 = async (file) => ({ base64: (await readFile(path.join(EXAMPLE, 'art', file))).toString('base64') })
-  return {
-    'src/game.json': JSON.stringify({ waicaGame: 1, archetype: 'platformer', resolution: { mode: 'fill', width: 640, height: 360 }, pixelsPerUnit: 16 }),
-    [SCENE_PATH]: await readFile(path.join(EXAMPLE, 'src/scenes/main.scene.json'), 'utf8'),
-    'src/art/knight.glb': await base64('knight.glb'),
-    'src/art/tree.glb': await base64('tree.glb'),
-    'src/roles/character.ts': "import { CHARACTER_ROLE } from '@waica/behaviors'\nimport { defineRole } from '@waica/engine'\n\ndefineRole('character', CHARACTER_ROLE)\n",
+  const files = {}
+  for (const entry of await readdir(EXAMPLE, { recursive: true, withFileTypes: true })) {
+    if (!entry.isFile() || entry.name.endsWith('.ts')) continue
+    const file = path.join(entry.parentPath, entry.name)
+    const key = `src/${path.relative(EXAMPLE, file).split(path.sep).join('/')}`
+    // Only known text formats go as text: any other file (a glb, a png, audio, a .bin) goes as base64, so its bytes survive.
+    files[key] = TEXT_FILES.has(path.extname(entry.name)) ? await readFile(file, 'utf8') : { base64: (await readFile(file)).toString('base64') }
   }
+  return files
 }
 
 /** The scene as the editor saved it. */
@@ -185,6 +191,36 @@ async function orbit(page) {
   return { before, after }
 }
 
+/** Polls a project file the editor saves (on a debounce) until it exists; its text. */
+async function savedText(page, filePath) {
+  const deadline = Date.now() + 10_000
+  while (Date.now() < deadline) {
+    const text = await page.evaluate((target) => globalThis.__waicaEditor.readText(target), filePath)
+    if (text !== null) return text
+    await page.waitForTimeout(100)
+  }
+  throw new Error(`the editor never saved ${filePath}`)
+}
+
+/**
+ * The Explorer's New object writes, in this third-person project, the bytes
+ * scaffold_prefab writes for an object in a fresh third-person project
+ * (maintainer decision on issue #181: the editor's New prefab and the MCP
+ * scaffold write the same 3D set).
+ */
+async function newObjectMatchesScaffold(page, { call, client, parent, label }) {
+  const project = path.join(parent, `waica-editor-3d-scaffold-${label}`)
+  const created = await call(client, 'create_project', { project_path: project, start: 'blank', archetype: 'third-person' })
+  assert.equal(created.isError, undefined, `create_project failed: ${JSON.stringify(created)}`)
+  const scaffolded = await call(client, 'scaffold_prefab', { project_path: project, name: 'crate', type: 'object' })
+  assert.equal(scaffolded.isError, undefined, `scaffold_prefab failed: ${JSON.stringify(scaffolded)}`)
+  const expected = await readFile(path.join(project, scaffolded.structuredContent.path), 'utf8')
+  await page.getByTitle('New object').click()
+  const written = await savedText(page, 'src/objects/object-1.object.json')
+  assert.equal(written, expected, "the editor's New object must write scaffold_prefab's bytes")
+  return { scaffold: scaffolded.structuredContent.path, bytes: written.length }
+}
+
 /** The canvas as a PNG (base64), after two frames so the last change is drawn. */
 async function canvasShot(page) {
   await page.evaluate(() => new Promise((resolve) => globalThis.requestAnimationFrame(() => globalThis.requestAnimationFrame(resolve))))
@@ -192,7 +228,7 @@ async function canvasShot(page) {
 }
 
 /** The whole editor-3d leg; `helpers` are runtime-e2e.mjs's own. */
-export async function runEditor3dLeg({ root, viteBin, chrome, playwright, label, helpers, renderLeg }) {
+export async function runEditor3dLeg({ root, viteBin, chrome, playwright, label, helpers, renderLeg, mcp }) {
   const startedAt = Date.now()
   let editor = null
   let browser = null
@@ -214,14 +250,15 @@ export async function runEditor3dLeg({ root, viteBin, chrome, playwright, label,
     const afterOrbit = await canvasShot(page)
     await helpers.keepScreenshot(`${label}-editor-3d-before-orbit.png`, beforeOrbit)
     await helpers.keepScreenshot(`${label}-editor-3d-after-orbit.png`, afterOrbit)
+    const newPrefab = await newObjectMatchesScaffold(page, { ...mcp, label })
     // CI's Linux WebGPU draws a blank frame (issue #151): its pixels, and the page errors its backend raises, are only reported there.
     if (expectsBlankLighting(renderLeg?.backend)) {
-      return { editor3d: { durationMs: Date.now() - startedAt, drag, clips, camera, pageErrors, expectedBlank: 'https://github.com/chichex/waica/issues/151' } }
+      return { editor3d: { durationMs: Date.now() - startedAt, drag, clips, camera, newPrefab, pageErrors, expectedBlank: 'https://github.com/chichex/waica/issues/151' } }
     }
     const { differing } = await inspector.compare(beforeOrbit, afterOrbit)
     assert.ok(differing >= MIN_DIFFERING_PIXELS, `orbiting must change at least ${MIN_DIFFERING_PIXELS} pixels where the frame draws; ${differing} did`)
     assert.deepEqual(pageErrors, [], 'the editor must raise no page error')
-    return { editor3d: { durationMs: Date.now() - startedAt, drag, clips, camera, differingAfterOrbit: differing } }
+    return { editor3d: { durationMs: Date.now() - startedAt, drag, clips, camera, newPrefab, differingAfterOrbit: differing } }
   } finally {
     // Each resource closes on its own, so one failing close leaves no other open.
     const closers = [inspector && (() => inspector.close()), browser && (() => browser.close()), editor && (() => editor.close())]

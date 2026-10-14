@@ -1,0 +1,33 @@
+{
+  "waicaPrefab": 1,
+  "type": "object",
+  "components": [
+    {
+      "type": "Model",
+      "props": {
+        "src": "src/art/dungeon-banner.glb"
+      }
+    },
+    {
+      "type": "Collider",
+      "props": {
+        "shape": "box",
+        "size": [
+          2,
+          3,
+          2
+        ],
+        "offset": [
+          0,
+          1.5,
+          0
+        ],
+        "sensor": true,
+        "layer": "world"
+      }
+    },
+    {
+      "type": "Checkpoint"
+    }
+  ]
+}

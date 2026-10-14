@@ -1,0 +1,33 @@
+{
+  "waicaPrefab": 1,
+  "type": "object",
+  "components": [
+    {
+      "type": "Model",
+      "props": {
+        "src": "src/art/dungeon-chest.glb"
+      }
+    },
+    {
+      "type": "Collider",
+      "props": {
+        "shape": "box",
+        "size": [
+          2.4,
+          2,
+          2.4
+        ],
+        "offset": [
+          0,
+          1,
+          0
+        ],
+        "sensor": true,
+        "layer": "world"
+      }
+    },
+    {
+      "type": "GoalChest"
+    }
+  ]
+}

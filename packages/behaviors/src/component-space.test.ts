@@ -37,7 +37,6 @@ function exportedComponents(): ExportedComponent[] {
  * both spaces and declares nothing.
  */
 const TWO_D_BEHAVIORS = [
-  'Chaser',
   'ClickToMove',
   'DamagePuff',
   'DustPuffs',
@@ -45,8 +44,6 @@ const TWO_D_BEHAVIORS = [
   'Hazard',
   'Interactable',
   'IsoMotor',
-  'MeleeAttack',
-  'Patrol',
   'PlatformerMotor',
   'SwingSparks',
   'TopDownMotor',
@@ -55,7 +52,19 @@ const TWO_D_BEHAVIORS = [
 /** The behaviors that need a 3D scene: the character motor drives a kinematic RigidBody. */
 const THREE_D_BEHAVIORS = ['CharacterMotor']
 
-const NEUTRAL_BEHAVIORS = ['Collectible', 'Health', 'Lifetime', 'OutOfBounds', 'Respawnable', 'SceneTransition']
+// Issue #181: MeleeAttack (CA-16), Patrol and Chaser (CA-19) run in both spaces, as the new Checkpoint does (CA-21).
+const NEUTRAL_BEHAVIORS = [
+  'Chaser',
+  'Checkpoint',
+  'Collectible',
+  'Health',
+  'Lifetime',
+  'MeleeAttack',
+  'OutOfBounds',
+  'Patrol',
+  'Respawnable',
+  'SceneTransition',
+]
 
 describe('behavior component space markers (CA-2)', () => {
   it('tags exactly the 2D-only behaviors', () => {

@@ -1,29 +1,25 @@
-import {
-  Component,
-  Hitbox,
-  resolveSolidAxis,
-  type CollisionBody,
-  type ComponentSpace,
-  type Entity,
-  type RoleDefinition,
-  type RoleGraph,
-} from '@waica/engine'
+import { Component, type Entity, type RoleDefinition, type RoleGraph } from '@waica/engine'
+import { resolveChaserAxis } from './chaser-2d-body.js'
+import { drive3d } from './mover-3d.js'
 import { isPlayer } from './player-identity.js'
 
 export type ChaserMode = 'walker' | 'ghost' | 'flyer'
 
 /**
- * Pursuit toward the player while they are within sight range, in one of
- * three modes: a walker paces the ground (X only, gravity, blocked by
+ * Pursuit toward the player while they are within sight range. In 2D, in
+ * one of three modes: a walker paces the ground (X only, gravity, blocked by
  * Solids), a ghost floats straight at them through everything, a flyer
- * floats straight at them but walls and ceilings stop it.
+ * floats straight at them but walls and ceilings stop it. In 3D (issue #181),
+ * with a kinematic RigidBody, it walks straight at them on the ground plane
+ * through the body's desired velocity, whatever its mode: gravity, steps and
+ * walls are the character controller's.
  * Passive like a motor: no onUpdate of its own — the 'chaser' logic set's
  * chase state calls step(dt), so the StateMachine stays the single owner
  * of the frame.
  */
 export class Chaser extends Component {
   static override componentName = 'Chaser'
-  static override space: ComponentSpace = '2d'
+  // No space marker: it chases in both spaces (issue #181 CA-19).
   static override params = {
     mode: { label: 'Mode', options: ['walker', 'ghost', 'flyer'] },
     range: { label: 'Sight range', min: 1, max: 30, step: 0.5 },
@@ -48,10 +44,30 @@ export class Chaser extends Component {
     return this.target
   }
 
-  /** One chase step in the current mode, flipping the sprite toward prey. */
+  /** One chase step in the current mode, flipping the sprite toward prey; in 3D, a straight walk on xz. */
   step(dt: number): void {
-    if (this.mode === 'walker') this.stepWalker(dt)
+    if (this.game.space === '3d') this.step3d(dt)
+    else if (this.mode === 'walker') this.stepWalker(dt)
     else this.stepAirborne(dt)
+  }
+
+  /** The live player within `range` on the ground plane (a 3D scene's xz), or undefined. */
+  inSight(): Entity | undefined {
+    const target = this.findTarget()
+    if (!target) return undefined
+    const dx = target.position.x - this.entity.position.x
+    const dz = target.position.z - this.entity.position.z
+    return Math.hypot(dx, dz) <= this.range ? target : undefined
+  }
+
+  /** 3D pursuit: straight at the player on xz while in sight, still otherwise (and within 0.1 of it). */
+  private step3d(dt: number): void {
+    const target = this.inSight()
+    const dx = target ? target.position.x - this.entity.position.x : 0
+    const dz = target ? target.position.z - this.entity.position.z : 0
+    const distance = Math.hypot(dx, dz)
+    const speed = distance < 0.1 ? 0 : this.speed / distance
+    drive3d(this.entity, { x: dx * speed, z: dz * speed }, dt)
   }
 
   /** Ground pursuit: chase on X when in sight; gravity and Solids always rule. */
@@ -96,25 +112,7 @@ export class Chaser extends Component {
 
   /** Resolves this mode's body through the engine's shared Solid solver. */
   private resolveAxis(axis: 'x' | 'y', previous: number): void {
-    const collided = resolveSolidAxis({
-      entity: this.entity,
-      axis,
-      previous,
-      body: () => this.collisionBody(),
-    })
-    if (collided && axis === 'y') this.vy = 0
-  }
-
-  /** AABB sized by the sibling Hitbox (chassis default if none). */
-  private collisionBody(): CollisionBody {
-    const box = this.entity.get(Hitbox)
-    return {
-      x: this.entity.position.x + (box?.offsetX ?? 0),
-      y: this.entity.position.y + (box?.offsetY ?? 0),
-      width: box?.width ?? 0.9,
-      height: box?.height ?? 0.95,
-      shape: 'rectangle',
-    }
+    if (resolveChaserAxis(this.entity, axis, previous) && axis === 'y') this.vy = 0
   }
 }
 

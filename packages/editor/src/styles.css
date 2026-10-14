@@ -2603,3 +2603,14 @@ button.ed-crumb:hover {
   gap: 8px;
   margin-top: 16px;
 }
+
+/* The orbit rows of a perspective camera's Follow section (issue #181): a plain group, disabled while nothing is followed. */
+.ed-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.ed-fieldset:disabled {
+  opacity: 0.5;
+}

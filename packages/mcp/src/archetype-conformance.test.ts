@@ -5,6 +5,7 @@ import { COMPONENT_SPACES, componentSpaceOf, resolveDirectionalClip, type Browse
 import { ARCHETYPE as PLATFORMER } from '../../archetype-platformer/src/index.js'
 import { ARCHETYPE as TOPDOWN } from '../../archetype-topdown/src/index.js'
 import { ARCHETYPE as ISOMETRIC } from '../../archetype-isometric/src/index.js'
+import { ARCHETYPE as THIRD_PERSON } from '../../archetype-third-person/src/index.js'
 import { archetypePackageName } from '../../editor/src/project/archetype.js'
 import { knownArchetype } from './known-archetypes.js'
 import { defined } from '../../engine/src/test-support.js'
@@ -14,7 +15,26 @@ import { defined } from '../../engine/src/test-support.js'
  * must satisfy, run against each shipped manifest. A third archetype joins
  * by adding one entry here.
  */
-const MANIFESTS: BrowserArchetypeManifest[] = [PLATFORMER, TOPDOWN, ISOMETRIC]
+const MANIFESTS: BrowserArchetypeManifest[] = [PLATFORMER, TOPDOWN, ISOMETRIC, THIRD_PERSON]
+
+/** A scene's space, `'2d'` when it declares none. */
+const sceneSpace = (scene: BrowserArchetypeManifest['scene']): string => scene.render?.space ?? '2d'
+
+/** Every scene an archetype ships: its demo, its blank and its extra scenes. */
+function scenesOf(archetype: BrowserArchetypeManifest): BrowserArchetypeManifest['scene'][] {
+  return [archetype.scene, archetype.blankScene, ...Object.values(archetype.extraScenes ?? {})]
+}
+
+/** Every component an archetype's scenes and prefabs name, with where it is named. */
+function componentUses(archetype: BrowserArchetypeManifest): Array<[string, string]> {
+  const inScenes = scenesOf(archetype).flatMap((scene) =>
+    scene.entities.flatMap((entity) => (entity.components ?? []).map((component): [string, string] => [entity.name, component.type])),
+  )
+  const inPrefabs = Object.entries(archetype.prefabs).flatMap(([ref, prefab]) =>
+    prefab.components.map((component): [string, string] => [ref, component.type]),
+  )
+  return [...inScenes, ...inPrefabs]
+}
 
 interface StateMachineProps {
   role?: string
@@ -39,22 +59,17 @@ describe.each(MANIFESTS.map((manifest) => [manifest.id, manifest] as const))(
       }
     })
 
-    it('registers the 3D components and keeps them out of its own scenes and prefabs (issue #154 CA-10)', () => {
-      const threeD = new Set(
-        Object.entries(archetype.registry.components)
-          .filter(([, Class]) => componentSpaceOf(Class) === '3d')
-          .map(([name]) => name),
-      )
-      for (const name of ['Model', 'Sun', 'PointLight']) expect(threeD.has(name), name).toBe(true)
-      const inScenes = [archetype.scene, archetype.blankScene, ...Object.values(archetype.extraScenes ?? {})]
-      for (const scene of inScenes) {
-        for (const entity of scene.entities) {
-          for (const component of entity.components ?? []) expect(threeD.has(component.type), `${entity.name}: ${component.type}`).toBe(false)
-        }
+    it('registers the 3D components and keeps the other space’s out of its own scenes and prefabs (issue #154 CA-10, issue #181 CA-23)', () => {
+      const spaceOf = (name: string): string | undefined => {
+        const Class = archetype.registry.components[name]
+        return Class && componentSpaceOf(Class)
       }
-      for (const [ref, prefab] of Object.entries(archetype.prefabs)) {
-        for (const component of prefab.components) expect(threeD.has(component.type), `${ref}: ${component.type}`).toBe(false)
-      }
+      for (const name of ['Model', 'Sun', 'PointLight']) expect(spaceOf(name), name).toBe('3d')
+      // A 2D archetype keeps 3D components out; a 3D one (the third-person) keeps 2D ones out.
+      const space = sceneSpace(archetype.scene)
+      const other = space === '3d' ? '2d' : '3d'
+      for (const scene of scenesOf(archetype)) expect(sceneSpace(scene), 'every scene of an archetype shares its space').toBe(space)
+      for (const [where, type] of componentUses(archetype)) expect(spaceOf(type), `${where}: ${type}`).not.toBe(other)
     })
 
     it('gives every registered component a space marker in the union, or none (issue #159 CA-5)', () => {

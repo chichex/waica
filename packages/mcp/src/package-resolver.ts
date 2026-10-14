@@ -161,6 +161,10 @@ async function loadBundledModule(
       return import('@waica/archetype-isometric')
     case '@waica/archetype-isometric/manifest':
       return import('@waica/archetype-isometric/manifest')
+    case '@waica/archetype-third-person':
+      return import('@waica/archetype-third-person')
+    case '@waica/archetype-third-person/manifest':
+      return import('@waica/archetype-third-person/manifest')
     default:
       throw new PackageUnavailableError(specifier)
   }

@@ -15,6 +15,7 @@ const FALLBACK_PACKAGES = new Set([
   '@waica/archetype-platformer',
   '@waica/archetype-topdown',
   '@waica/archetype-isometric',
+  '@waica/archetype-third-person',
 ])
 // The engine draws with three's WebGPU build and writes its shaders in TSL (ADR 0025),
 // and loads glTF with two of three's addons (ADR 0027): mirrors THREE_SPECIFIERS in project-component-fallbacks.ts.

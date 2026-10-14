@@ -1,6 +1,7 @@
-import type { PrefabJson } from '@waica/engine'
+import type { ArchetypeManifest, PrefabJson } from '@waica/engine'
 import { PREFAB_DIRS, prefabPath } from '../fs/prefab-fs'
-import { newPrefabComponents, type CharacterIdentity } from '../project/chassis'
+import { archetypeSpace, newPrefabComponents, type CharacterIdentity } from '../project/chassis'
+import { newPrefabComponents3d } from '../project/chassis-3d'
 import type { MachineProps } from '../project/states'
 import type { EditorCore } from './editor-commits'
 import { refBase } from './Explorer'
@@ -21,6 +22,16 @@ export function setPrefabProp(
   }
 }
 
+/** A new prefab's factory components in the project's archetype: the 3D set in a 3D one, as the MCP scaffold writes it (maintainer decision on issue #181). */
+export function factoryComponents(
+  archetype: Pick<ArchetypeManifest, 'scene'>,
+  type: PrefabJson['type'],
+  character?: { role?: string; identity?: CharacterIdentity },
+): PrefabJson['components'] {
+  const build = archetypeSpace(archetype) === '3d' ? newPrefabComponents3d : newPrefabComponents
+  return build(type, character?.role, character?.identity)
+}
+
 /** Creates a prefab of `type` and opens it; a character is born with its identity. */
 export function spawnPrefab(
   core: EditorCore,
@@ -35,7 +46,7 @@ export function spawnPrefab(
   const ref = `${dir}/${type}-${n}`
   core.commitPrefab(
     ref,
-    { waicaPrefab: 1, type, components: newPrefabComponents(type, character?.role, character?.identity) },
+    { waicaPrefab: 1, type, components: factoryComponents(core.code.archetype, type, character) },
     true,
   )
   core.view.openView({ kind: 'prefab', ref })

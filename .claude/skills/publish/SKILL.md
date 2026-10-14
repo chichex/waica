@@ -1,29 +1,30 @@
 ---
 name: publish
-description: Release a new waica version to npm — the CLI (@waica/cli) plus five @waica libraries, which ship together on one version number. Bumps all six, runs the verification ladder, ships the bump through a PR, then tags the release so GitHub Actions publishes it via npm trusted publishing (no token, no 2FA prompt), and verifies the published packages end to end. Use whenever the user wants to publish, release or ship a new version, bump the package version, or says things like "publicá", "sacá una versión", "release the CLI", "ship 0.3.0" — even when they only mention npm or a version number loosely.
+description: Release a new waica version to npm — the CLI (@waica/cli) plus six @waica libraries, which ship together on one version number. Bumps all seven, runs the verification ladder, ships the bump through a PR, then tags the release so GitHub Actions publishes it via npm trusted publishing (no token, no 2FA prompt), and verifies the published packages end to end. Use whenever the user wants to publish, release or ship a new version, bump the package version, or says things like "publicá", "sacá una versión", "release the CLI", "ship 0.3.0" — even when they only mention npm or a version number loosely.
 ---
 
 # Publish a new waica version
 
-Releases six packages on one version number: `@waica/cli` (packages/cli)
-and five libraries generated projects install from — `@waica/engine`,
+Releases seven packages on one version number: `@waica/cli` (packages/cli)
+and six libraries generated projects install from — `@waica/engine`,
 `@waica/behaviors`, `@waica/archetype-platformer`,
-`@waica/archetype-topdown`, `@waica/archetype-isometric`. The CLI bundles the
+`@waica/archetype-topdown`, `@waica/archetype-isometric`,
+`@waica/archetype-third-person`. The CLI bundles the
 pre-built editor (`dist/editor`), the MCP server (`dist/mcp`) and vendored
 copies of those same libraries, so a release ships `waica`, `waica mcp`, and
 the packages `npm install` resolves inside a project the editor generated.
 
-**They move in lockstep — one number, one tag, always all six.** A generated
+**They move in lockstep — one number, one tag, always all seven.** A generated
 project depends on `^<that version>`, and the CLI's vendored copies claim it
 too; publishing a subset puts a CLI on npm that disagrees with the registry.
-`packages/cli/src/package.test.ts` fails if the eight workspace package versions ever diverge.
+`packages/cli/src/package.test.ts` fails if the nine workspace package versions ever diverge.
 
 The npm publish itself runs in CI: pushing a `vX.Y.Z` tag triggers
 `.github/workflows/publish.yml`, which publishes via npm trusted publishing
 (OIDC) — no npm login, no 2FA, no token. The whole flow is yours; no step
 needs the human's terminal.
 
-One-time prerequisite (relevant if publishes 404): **each** of the six
+One-time prerequisite (relevant if publishes 404): **each** of the seven
 published packages must list a Trusted Publisher on npmjs.com for GitHub Actions with
 repo `chichex/waica` and workflow `publish.yml`. This is configured per
 package, not per scope — a new library added to the release needs its own.
@@ -42,7 +43,8 @@ refuses to publish over an existing version, so a library hand-published at
 the release version would abort the workflow before it reaches the CLI.
 
 Hand it to the human one package at a time, in dependency order (engine,
-behaviors, archetype-platformer, archetype-topdown, archetype-isometric, then the CLI). Each
+behaviors, archetype-platformer, archetype-topdown, archetype-isometric,
+archetype-third-person, then the CLI). Each
 publish opens its own
 browser authorization, so a loop just makes it harder to tell which one failed:
 
@@ -82,10 +84,11 @@ Then they configure the Trusted Publisher on each new package's npm settings
 page (repo `chichex/waica`, workflow `publish.yml`). From the next release on,
 every package goes out through CI and nobody touches a token again.
 
-Done for all six published packages: the first four on 2026-08-05,
+Done for six of the seven published packages: the first four on 2026-08-05,
 `@waica/archetype-topdown` on 2026-08-21, `@waica/archetype-isometric` on
-2026-08-22. **Nothing is pending — skip §0 entirely unless the release set
-grows a package that has no npm page yet.** The `@waica` org exists and owns the scope, so no other account can publish `@waica/*` —
+2026-08-22. **Pending: `@waica/archetype-third-person` (issue #181) has no npm
+page yet — bootstrap it and configure its Trusted Publisher before the release
+that first ships it; otherwise skip §0 unless the release set grows again.** The `@waica` org exists and owns the scope, so no other account can publish `@waica/*` —
 names do not need to be squatted to be safe.
 
 ## 1. Preconditions
@@ -101,11 +104,11 @@ names do not need to be squatted to be safe.
 ## 2. Pick the version
 
 Argument: `patch` | `minor` | `major` | an explicit `x.y.z`. Invoked bare,
-ask which one. Bump all six published packages to the same number, even the
+ask which one. Bump all seven published packages to the same number, even the
 ones nothing touched — that is what lockstep means:
 
 ```sh
-for dir in cli engine behaviors archetype-platformer archetype-topdown archetype-isometric editor mcp; do
+for dir in cli engine behaviors archetype-platformer archetype-topdown archetype-isometric archetype-third-person editor mcp; do
   (cd "packages/$dir" && npm version X.Y.Z --no-git-tag-version)
 done
 ```
@@ -155,7 +158,7 @@ gh run watch --exit-status $(gh run list --workflow=publish.yml --limit 1 --json
 (If `gh run list` comes up empty, the run may not exist yet — retry after a
 few seconds.) The workflow re-runs the ladder, builds fresh, checks the tag
 matches the package version, lowers the libraries' manifests with
-`scripts/prepare-publish.mjs`, and publishes five libraries before the
+`scripts/prepare-publish.mjs`, and publishes six libraries before the
 CLI — in that order, so the CLI never lands pointing at versions npm does not
 have yet.
 
@@ -163,10 +166,10 @@ Error decoder:
 
 | Symptom | Meaning |
 | --- | --- |
-| `E404 Not Found - PUT …` from CI | NOT a missing package — the trusted publisher config on npmjs.com doesn't match this repo/workflow. Check WHICH package the failing step was publishing; each of the six is configured separately. |
+| `E404 Not Found - PUT …` from CI | NOT a missing package — the trusted publisher config on npmjs.com doesn't match this repo/workflow. Check WHICH package the failing step was publishing; each of the seven is configured separately. |
 | `tag vX.Y.Z does not match packages/cli@…` | The tag was pushed on a commit whose package.json has a different version — usually a missing `git pull` after the merge. Delete the tag (`git push origin :refs/tags/vX.Y.Z`), sync, re-tag. |
 | `403 … too similar to existing packages` | Only happens for NEW package names (it is why the CLI is scoped). Existing publishes never hit it. |
-| `You cannot publish over the previously published versions` | A previous run published part of the set. npm never takes a version twice, so this one is unrecoverable at that number: bump the patch on all six, re-run the flow from step 2, and release the new number. |
+| `You cannot publish over the previously published versions` | A previous run published part of the set. npm never takes a version twice, so this one is unrecoverable at that number: bump the patch on all seven, re-run the flow from step 2, and release the new number. |
 
 If the workflow failed **before any publish succeeded**, delete and re-push
 the tag to re-trigger it — never re-run the job against a stale commit. If it
@@ -174,10 +177,10 @@ failed **after** one package went out, do not retry the tag; bump and re-release
 
 ## 5. Verify like a real user
 
-- All six on the registry at the new version:
+- All seven on the registry at the new version:
 
   ```sh
-  for pkg in @waica/cli @waica/engine @waica/behaviors @waica/archetype-platformer @waica/archetype-topdown @waica/archetype-isometric; do
+  for pkg in @waica/cli @waica/engine @waica/behaviors @waica/archetype-platformer @waica/archetype-topdown @waica/archetype-isometric @waica/archetype-third-person; do
     echo "$pkg $(npm view "$pkg" version --prefer-online)"
   done
   ```

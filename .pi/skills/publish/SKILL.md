@@ -1,6 +1,6 @@
 ---
 name: publish
-description: Release a new Waica version to npm — the CLI (@waica/cli) plus five @waica libraries, which ship together on one version number. Bumps all eight workspace manifests, runs the verification ladder, ships the bump through a PR, tags the merge so GitHub Actions publishes through npm trusted publishing, and verifies the published packages end to end. Use whenever the user wants to publish, release, ship, or bump a Waica version.
+description: Release a new Waica version to npm — the CLI (@waica/cli) plus six @waica libraries, which ship together on one version number. Bumps all nine workspace manifests, runs the verification ladder, ships the bump through a PR, tags the merge so GitHub Actions publishes through npm trusted publishing, and verifies the published packages end to end. Use whenever the user wants to publish, release, ship, or bump a Waica version.
 compatibility: Requires the chichex/waica Git repository, Node.js, npm, pnpm, authenticated GitHub CLI (gh), write access to the repository, network access to npm, and the ask_user_question tool.
 ---
 

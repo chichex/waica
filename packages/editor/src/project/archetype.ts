@@ -1,6 +1,7 @@
 import { ARCHETYPE } from '@waica/archetype-platformer'
 import { ARCHETYPE as TOPDOWN_ARCHETYPE } from '@waica/archetype-topdown'
 import { ARCHETYPE as ISOMETRIC_ARCHETYPE } from '@waica/archetype-isometric'
+import { ARCHETYPE as THIRD_PERSON_ARCHETYPE } from '@waica/archetype-third-person'
 import type { BrowserArchetypeManifest } from '@waica/engine'
 import { createContext, useContext } from 'react'
 
@@ -17,6 +18,7 @@ const ARCHETYPES: Readonly<Record<string, ArchetypeManifest>> = {
   platformer: ARCHETYPE,
   topdown: TOPDOWN_ARCHETYPE,
   isometric: ISOMETRIC_ARCHETYPE,
+  'third-person': THIRD_PERSON_ARCHETYPE,
 }
 
 /**
@@ -84,11 +86,11 @@ export const ARCHETYPE_CATALOG: Record<'2d' | '3d', ArchetypeCard[]> = {
   ],
   '3d': [
     {
-      id: 'thirdperson',
+      id: 'third-person',
       icon: '🎥',
       label: 'Third person',
       blurb: 'Orbit camera behind the character, camera-relative movement.',
-      status: 'soon',
+      status: 'ready',
     },
     {
       id: 'firstperson',

@@ -83,6 +83,7 @@ describe('@waica/cli package contract', () => {
       'archetype-platformer',
       'archetype-topdown',
       'archetype-isometric',
+      'archetype-third-person',
       'editor',
       'mcp',
     ]

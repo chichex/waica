@@ -107,10 +107,10 @@ describe('CameraInspector, perspective camera (CA-21)', () => {
     expect(fields('target').map((field) => field.value)).toEqual(['0', '0', '0'])
   })
 
-  it('has no zoom, follow or limits sections', () => {
+  it('has no zoom or limits sections, and the orbit Follow section (issue #181 CA-33)', () => {
     renderInspector({ kind: 'camera', camera, entityNames: ['Hero'] })
     expect(screen.queryByText('Framing', { selector: 'header, header > span' })).toBeNull()
-    expect(screen.queryByText('Follow', { selector: 'header, header > span' })).toBeNull()
+    expect(within(section('Follow')).getByRole('combobox', { name: 'follow' })).toBeDefined()
     expect(screen.queryByText('Limits', { selector: 'header, header > span' })).toBeNull()
   })
 
@@ -126,7 +126,7 @@ describe('CameraInspector, a 3D scene without a camera block (CA-21)', () => {
     expect(fields('position').map((field) => field.value)).toEqual(['0', '5', '10'])
     expect(fields('target').map((field) => field.value)).toEqual(['0', '0', '0'])
     expect(screen.queryByText('Framing', { selector: 'header, header > span' })).toBeNull()
-    expect(screen.queryByText('Follow', { selector: 'header, header > span' })).toBeNull()
+    expect(within(section('Follow')).getByRole('combobox', { name: 'follow' })).toBeDefined()
     expect(screen.queryByText('Limits', { selector: 'header, header > span' })).toBeNull()
   })
 
@@ -148,5 +148,28 @@ describe('CameraInspector, field of view (CA-21)', () => {
   it.each([150, 5, 179, 1])('shows a valid fov of %s as it is, not pinned to an end of the slider', (fov) => {
     renderInspector({ kind: 'camera', camera: { kind: 'perspective', fov }, entityNames: [] })
     expect(slider().value).toBe(String(fov))
+  })
+})
+
+describe('the component picker offers only what runs in the scene’s space (maintainer decision on issue #181)', () => {
+  /** The "+ behaviour…" picker's component names. */
+  const offered = (): string[] => {
+    const picker = screen.getAllByRole<HTMLSelectElement>('combobox').find((select) => select.options[0]?.textContent?.startsWith('+ '))
+    return [...defined(picker).options].slice(1).map((option) => option.value)
+  }
+
+  it('hides 2D components in a 3D scene and 3D ones in a 2D scene; both-space ones stay', () => {
+    renderInspector({ kind: 'entity', entity: { name: 'Bare' }, sceneName: 'main', space: '3d' })
+    const in3d = offered()
+    cleanup()
+    renderInspector({ kind: 'entity', entity: { name: 'Bare' }, sceneName: 'main' })
+    const in2d = offered()
+
+    expect(in3d).toEqual(expect.arrayContaining(['CharacterMotor', 'Collider', 'Health']))
+    expect(in3d).not.toContain('PlatformerMotor')
+    expect(in3d).not.toContain('Tilemap')
+    expect(in2d).toEqual(expect.arrayContaining(['PlatformerMotor', 'Health']))
+    expect(in2d).not.toContain('CharacterMotor')
+    expect(in2d).not.toContain('Collider')
   })
 })

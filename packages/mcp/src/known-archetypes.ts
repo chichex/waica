@@ -30,6 +30,11 @@ export const KNOWN_ARCHETYPES: readonly KnownArchetype[] = [
     packageName: '@waica/archetype-isometric',
     directory: 'archetype-isometric',
   },
+  {
+    id: 'third-person',
+    packageName: '@waica/archetype-third-person',
+    directory: 'archetype-third-person',
+  },
 ]
 
 export function knownArchetype(id: string): KnownArchetype | undefined {

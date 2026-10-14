@@ -102,6 +102,15 @@ const GOLDEN: Record<string, Record<string, unknown>> = {
     jumpAction: 'jump',
     // Issue #166 CA-14: the motor turns toward its walk.
     turnSpeed: 540,
+    // Issue #181 CA-12 to CA-15: camera-relative walking, run, roll and the attack Action.
+    relativeTo: 'world',
+    runAction: 'run',
+    runSpeed: 10,
+    dodgeAction: 'dodge',
+    dodgeSpeed: 10,
+    dodgeDuration: 0.5,
+    dodgeCooldown: 0.8,
+    attackAction: 'attack',
   },
   // Issue #166 CA-11: the Animator's params reach the inspector through the generic rows.
   Animator: { initialClip: '', fade: 0.15 },

@@ -7,6 +7,7 @@ import {
   type TimerHandle,
 } from '@waica/engine'
 import { anchorHeight } from './anchor-height.js'
+import { pendingKnockback } from './knockback-3d.js'
 
 /**
  * Below this, current is treated as exactly zero. Repeated fractional
@@ -77,6 +78,7 @@ export class Health extends Component {
     'lastDamageSource',
     'windowHandle',
     'blinkHandle',
+    'guardHandle',
     'healthBarHandle',
   ]
 
@@ -115,6 +117,8 @@ export class Health extends Component {
    * destroy or scene unload leaves this present but inactive instead.
    */
   private blinkHandle: TimerHandle | null = null
+  /** A window opened by guard(): invulnerable like a hit's, but without the blink (issue #181). */
+  private guardHandle: TimerHandle | null = null
   /**
    * The healthBar instance while the entity is hurt but alive (issue #72,
    * CA-15); null at full health, at 0 and before the first hit. One the
@@ -125,6 +129,11 @@ export class Health extends Component {
   /** Whether the node is being flashed: exactly while a window is open. */
   get blinking(): boolean {
     return this.windowHandle?.active ?? false
+  }
+
+  /** Whether damage is ignored right now: a hit's window or a guard() window is open. */
+  get invulnerable(): boolean {
+    return this.blinking || (this.guardHandle?.active ?? false)
   }
 
   /** Whether the signalled death must be checked on this component's next update. */
@@ -138,12 +147,15 @@ export class Health extends Component {
    * scene node along and bury the numbers that matter.
    */
   override inspectState(): Record<string, unknown> {
+    // The push a 3D hit started, while it lasts (issue #181): absent otherwise, so a 2D snapshot reads as before.
+    const knockback = pendingKnockback(this.entity)
     return {
+      ...(knockback && { knockback }),
       max: this.max,
       invulnerability: this.invulnerability,
       stat: this.stat,
       current: this.current,
-      invulnerable: this.windowHandle?.remaining ?? 0,
+      invulnerable: Math.max(this.windowHandle?.remaining ?? 0, this.guardHandle?.remaining ?? 0),
       blinking: this.blinking,
       lastDamageSource: this.lastDamageSource?.name ?? null,
     }
@@ -196,7 +208,7 @@ export class Health extends Component {
     // too — every NaN comparison is false, so amount <= 0 lets it through
     // and poisons current (NaN - anything is NaN, and every guard against
     // it is false forever after).
-    if (!(amount > 0) || this.current <= 0 || this.blinking) return
+    if (!(amount > 0) || this.current <= 0 || this.invulnerable) return
     this.current = Math.max(0, this.current - amount)
     if (this.current < DEATH_EPSILON) this.current = 0
     this.lastDamageSource = source
@@ -218,6 +230,19 @@ export class Health extends Component {
     // Fire-and-forget, like death: a graph with no 'signal:hurt' edge simply
     // ignores it, so a stunned/knocked-back reaction is the role's to add.
     this.entity.get(StateMachine)?.signal('hurt')
+  }
+
+  /**
+   * Ignores damage for `seconds` without blinking (issue #181 CA-14: a
+   * roll's invulnerability). A new guard replaces an open one; 0 or less
+   * opens none. Owned by the entity, so its destruction cancels it.
+   */
+  guard(seconds: number): void {
+    if (!(seconds > 0)) return
+    this.guardHandle?.cancel()
+    this.guardHandle = this.game.time.after(seconds, () => {
+      this.guardHandle = null
+    }, { owner: this.entity })
   }
 
   /** Gives health back, capped at max. heal(Infinity) is a full restore. */

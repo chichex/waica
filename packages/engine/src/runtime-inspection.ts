@@ -1,7 +1,7 @@
 import type { AudioChannelState, LiveSoundInfo } from './audio/types.js'
 import type { CameraEffectsState } from './camera-effects.js'
 import type { SceneSpace } from './scene-space.js'
-import { cameraEffectsSnapshot, viewSnapshot, type RuntimeSnapshotView } from './runtime-view-snapshot.js'
+import { viewSnapshot, type RuntimeSnapshotView } from './runtime-view-snapshot.js'
 import type { Component } from './component.js'
 import type { Entity } from './entity.js'
 import type { Game } from './game.js'
@@ -502,7 +502,8 @@ export class RuntimeInspector {
       audio: this.audioSnapshot(),
       time: this.timeSnapshot(),
       ui: this.uiSnapshot(projectionIssues),
-      camera: cameraEffectsSnapshot(this.game),
+      // The shake offset applies in both spaces since a perspective camera shakes too (issue #181 CA-11).
+      camera: this.game.cameraEffects.state,
       space: this.game.space,
       view: viewSnapshot(this.game),
       lighting: lightingSnapshot(this.game, (entity) => this.idFor(entity)),

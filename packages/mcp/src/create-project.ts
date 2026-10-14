@@ -1,4 +1,4 @@
-import type { ArchetypeManifest } from '@waica/engine'
+import { sceneArchetypeNeeds, type ArchetypeManifest } from '@waica/engine'
 import { access, mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -180,6 +180,32 @@ async function validateTarget(target: string): Promise<{ exists: boolean; name: 
   }
 }
 
+/**
+ * The archetype's prefab, UI and art files a project starts with: all of them
+ * for a demo, and for a blank start only what its blank scene uses — nothing
+ * for an empty one, the playable Knight's for the third-person (issue #181
+ * CA-29). Mirrors packages/editor/src/project/template.ts.
+ */
+async function archetypeFiles(
+  archetype: ArchetypeManifest,
+  start: ProjectStart,
+  packageRoot: string,
+): Promise<Record<string, string | Uint8Array>> {
+  const needs = start === 'demo' ? null : sceneArchetypeNeeds(archetype, archetype.blankScene)
+  const files: Record<string, string | Uint8Array> = {}
+  for (const [ref, prefab] of Object.entries(archetype.prefabs)) {
+    if (!needs || needs.prefabs.includes(ref)) files[`src/${ref}.${prefab.type}.json`] = projectJson(prefab, archetype)
+  }
+  for (const [name, html] of Object.entries(archetype.registry.ui ?? {})) {
+    if (!needs || needs.ui.includes(name)) files[`src/ui/${name}.html`] = html
+  }
+  for (const art of archetype.art) {
+    if (needs && !needs.art.includes(art.file)) continue
+    files[`src/art/${art.file}`] = await readFile(path.join(packageRoot, 'assets', art.file))
+  }
+  return files
+}
+
 /** Creates one project without installing dependencies or overwriting files. */
 /** A bundled template JSON file; a non-object means the bundled template is broken. */
 function templateObject(text: string, file: string): Record<string, unknown> {
@@ -216,19 +242,7 @@ export async function createProject(
     archetype,
     known.packageName,
   )
-  if (start === 'demo') {
-    for (const [ref, prefab] of Object.entries(archetype.prefabs)) {
-      files[`src/${ref}.${prefab.type}.json`] = projectJson(prefab, archetype)
-    }
-    for (const [name, html] of Object.entries(archetype.registry.ui ?? {})) {
-      files[`src/ui/${name}.html`] = html
-    }
-    for (const art of archetype.art) {
-      files[`src/art/${art.file}`] = await readFile(
-        path.join(archetypePackage.packageRoot, 'assets', art.file),
-      )
-    }
-  }
+  Object.assign(files, await archetypeFiles(archetype, start, archetypePackage.packageRoot))
 
   if (!target.exists) await mkdir(projectPath)
   for (const [relative, contents] of Object.entries(files)) {

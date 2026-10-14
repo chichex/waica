@@ -1,5 +1,6 @@
-// Issue #166 CA-18: what the 3D smoke leg (runtime-e2e-smoke-3d.mjs) asks of
-// the smoke Player's animation through the Runtime Bridge: the Run Session
+// Issue #166 CA-18 (moved to the third-person demo by issue #181 CA-35): what
+// the third-person leg (runtime-e2e-third-person.mjs) asks of
+// the demo Player's animation through the Runtime Bridge: the Run Session
 // operations and snapshot reads it needs, the Player's animation as the
 // snapshot reports it, the idle phase (clip time, pose hash, moving pixels),
 // and the pose hash both Render Backend legs must agree on.
@@ -7,7 +8,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { expectsBlankLighting } from './runtime-e2e-lighting.mjs'
 
-/** The clips the smoke Player's states play (examples/smoke-3d/src/scenes/main.scene.json). */
+/** The clips the demo Knight's idle, walk and jump states play (the archetype's KNIGHT_CLIPS). */
 export const CLIPS = { idle: 'Idle', walk: 'Walking_A', jump: 'Jump_Start' }
 /** How many decoded pixels two idle frames 20 frames apart must differ in, where the frame draws. */
 const MIN_IDLE_DIFFERING_PIXELS = 50
@@ -63,7 +64,7 @@ export function animationOf(player) {
  * loaded on the idle clip; two snapshots 10 frames apart 10/60 s apart in clip
  * time (on the looping clip, so modulo its duration) and with different pose
  * hashes; and, where the frame draws, two screenshots 20 frames apart that
- * differ in pixels while nothing else in the scene moves (the Crate rests).
+ * differ in pixels (the demo plays it with no skeleton around).
  */
 export async function exerciseIdle({ control, look, screenshot }, { inspector, renderBackend, keep, idleDuration }) {
   const first = animationOf(await look('Player'))

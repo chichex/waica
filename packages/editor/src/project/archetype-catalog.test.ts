@@ -20,6 +20,18 @@ describe('ARCHETYPE_CATALOG', () => {
     })
   })
 
+  it('ships the third-person card ready, with its existing icon and blurb (issue #181 CA-32)', () => {
+    const card = ARCHETYPE_CATALOG['3d'].find((candidate) => candidate.id === 'third-person')
+    expect(card).toEqual({
+      id: 'third-person',
+      icon: '🎥',
+      label: 'Third person',
+      blurb: 'Orbit camera behind the character, camera-relative movement.',
+      status: 'ready',
+    })
+    expect(ARCHETYPE_CATALOG['3d'].find((candidate) => candidate.id === 'firstperson')?.status).toBe('soon')
+  })
+
   it('backs every ready card with a resolvable manifest of the same id', () => {
     const ready = Object.values(ARCHETYPE_CATALOG)
       .flat()

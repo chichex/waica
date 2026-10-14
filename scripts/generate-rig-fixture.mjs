@@ -3,7 +3,7 @@
 // body and two legs, one material) bound to three bones — root, leg.L and
 // leg.R — through one skin, and three clips: idle (1 s, the root bobs on y),
 // walk (0.8 s, the legs swing in opposite phase) and jump (0.5 s, the legs
-// tuck). GLB bytes assembled by hand like scripts/generate-smoke-3d-model.mjs:
+// tuck). GLB bytes assembled by hand, header and chunks written directly:
 // no three, no exporter, no transcendental function (the quaternions are
 // literals), so running it again rewrites the same bytes on every platform.
 // Usage: node scripts/generate-rig-fixture.mjs [out.glb]

@@ -10,36 +10,26 @@ function existsExcept(...missingFragments: string[]) {
     Promise.resolve(!missingFragments.some((fragment) => target.includes(fragment)))
 }
 
+/** The mappings of core plus each named archetype's root and manifest entries, sorted. */
+function mappingsWith(archetypes: string[]): string[] {
+  const entries = archetypes.flatMap((id) => [`@waica/archetype-${id}`, `@waica/archetype-${id}/manifest`])
+  return [...entries, '@waica/behaviors', '@waica/engine'].sort()
+}
+
 describe('planWorkspaceRuntime', () => {
   it('maps core and every built archetype when all dists exist', async () => {
     const plan = await planWorkspaceRuntime(ROOT, existsExcept())
     expect(plan).toBeDefined()
-    expect(Object.keys(defined(plan).mappings).sort()).toEqual([
-      '@waica/archetype-isometric',
-      '@waica/archetype-isometric/manifest',
-      '@waica/archetype-platformer',
-      '@waica/archetype-platformer/manifest',
-      '@waica/archetype-topdown',
-      '@waica/archetype-topdown/manifest',
-      '@waica/behaviors',
-      '@waica/engine',
-    ])
-    expect(defined(plan).parentPrefixes).toHaveLength(5)
+    expect(Object.keys(defined(plan).mappings).sort()).toEqual(mappingsWith(['isometric', 'platformer', 'third-person', 'topdown']))
+    expect(defined(plan).parentPrefixes).toHaveLength(6)
     expect(defined(plan).warnings).toEqual([])
   })
 
   it('skips only the archetype whose dist is missing, with a warning', async () => {
     const plan = await planWorkspaceRuntime(ROOT, existsExcept('archetype-topdown'))
     expect(plan).toBeDefined()
-    expect(Object.keys(defined(plan).mappings).sort()).toEqual([
-      '@waica/archetype-isometric',
-      '@waica/archetype-isometric/manifest',
-      '@waica/archetype-platformer',
-      '@waica/archetype-platformer/manifest',
-      '@waica/behaviors',
-      '@waica/engine',
-    ])
-    expect(defined(plan).parentPrefixes).toHaveLength(4)
+    expect(Object.keys(defined(plan).mappings).sort()).toEqual(mappingsWith(['isometric', 'platformer', 'third-person']))
+    expect(defined(plan).parentPrefixes).toHaveLength(5)
     expect(defined(plan).warnings).toHaveLength(1)
     expect(defined(plan).warnings[0]).toContain('@waica/archetype-topdown')
   })

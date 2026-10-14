@@ -17,6 +17,7 @@ export const PUBLISHED_LIBRARIES = [
   'archetype-platformer',
   'archetype-topdown',
   'archetype-isometric',
+  'archetype-third-person',
 ]
 
 export const packagesRoot = path.resolve(

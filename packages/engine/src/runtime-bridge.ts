@@ -31,7 +31,8 @@ export type RuntimeMode = 'paused' | 'real-time'
  * 0025) announces that every metadata carries `backend`: the Render Backend
  * once the renderer is ready, null before — a Run Session waits for it — and
  * that a renderer that fails to initialize reports through the activation's
- * `fail`.
+ * `fail`. `look` (issue #181) announces the `look` operation: a mouse delta
+ * the next Simulation Step reads as locked mouse movement.
  */
 export const RUNTIME_BRIDGE_CAPABILITIES = [
   'click',
@@ -41,6 +42,7 @@ export const RUNTIME_BRIDGE_CAPABILITIES = [
   'camera-effects',
   'analog-actions',
   'render-backend',
+  'look',
 ] as const
 
 export interface RuntimeMetadata {
@@ -65,6 +67,8 @@ export type RuntimeControlRequest =
   | { operation: 'step'; frames?: number }
   | { operation: 'click'; x: number; y: number }
   | { operation: 'scene'; scene: string }
+  /** Adds `dx`, `dy` CSS px of mouse movement to the next Simulation Step, as if the pointer were locked. */
+  | { operation: 'look'; dx: number; dy: number }
 
 export interface RuntimeControlResult extends RuntimeMetadata {
   heldActions: string[]
@@ -134,6 +138,8 @@ export interface RuntimeBridgeHost {
   resume(onStep: () => void): void
   pause(): void
   injectAction(action: string, operation: 'press' | 'hold' | 'release', value?: number): boolean
+  /** Adds a mouse movement to the next Simulation Step, as if the pointer were locked. */
+  look(dx: number, dy: number): void
   availableActions(): string[]
   heldActions(): string[]
   actionValues(): Record<string, number>
@@ -214,6 +220,9 @@ export class EngineRuntimeBridge implements RuntimeBridge {
       case 'scene':
         this.loadScene(request.scene)
         break
+      case 'look':
+        this.look(request)
+        break
       default: {
         const unsupported: never = request
         throw new RuntimeBridgeOperationError(
@@ -267,6 +276,13 @@ export class EngineRuntimeBridge implements RuntimeBridge {
     for (let index = 0; index < frames; index += 1) {
       this.host.step(() => this.advance())
     }
+  }
+
+  private look(request: Extract<RuntimeControlRequest, { operation: 'look' }>): void {
+    if (!Number.isFinite(request.dx) || !Number.isFinite(request.dy)) {
+      throw new RuntimeBridgeOperationError('runtime-operation-failed', 'dx and dy must be finite numbers.')
+    }
+    this.host.look(request.dx, request.dy)
   }
 
   private loadScene(scene: string): void {

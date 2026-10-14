@@ -86,9 +86,9 @@ describe('render.space and the camera block (CA-13)', () => {
 })
 
 describe('perspective camera fields and 2D-only render options (CA-13, CA-14)', () => {
-  it('reports the 2D camera fields on a perspective block', async () => {
+  it('reports the 2D camera fields on a perspective block, but not follow (issue #181 CA-5)', async () => {
     const findings = await spaceFindings({ render: { space: '3d' }, camera: { kind: 'perspective', follow: 'Player', zoom: 9 } })
-    expect(refs(findings)).toEqual(['camera.follow', 'camera.zoom'])
+    expect(refs(findings)).toEqual(['camera.zoom'])
   })
 
   it('reports render.sort, render.projection and render.batch in a 3d scene, and none in a 2d one', async () => {
@@ -187,11 +187,12 @@ describe('components per space: the marker is read from the registry class (CA-3
   it('reports a 2D behavior that comes from the entity prefab in a 3d scene (CA-3)', async () => {
     const findings = await spaceFindings(
       { ...THREE_D, entities: [{ name: 'Guard', prefab: 'objects/guard' }] },
-      { 'src/objects/guard.object.json': JSON.stringify({ waicaPrefab: 1, type: 'object', components: [{ type: 'Patrol' }] }) },
+      // Hazard, since Patrol runs in both spaces (issue #181 CA-19).
+      { 'src/objects/guard.object.json': JSON.stringify({ waicaPrefab: 1, type: 'object', components: [{ type: 'Hazard' }] }) },
     )
     const mismatches = findings.filter((finding) => finding.code === 'component-space-mismatch')
     expect(mismatches).toHaveLength(1)
-    expect(mismatches[0]?.message).toContain('"Patrol"')
+    expect(mismatches[0]?.message).toContain('"Hazard"')
   })
 
   it('does not flag a 2D behavior in a 2d scene, nor a type the registry does not know (CA-3)', async () => {

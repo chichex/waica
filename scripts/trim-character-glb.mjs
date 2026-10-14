@@ -6,7 +6,7 @@
 // Materials, textures and images are kept as they are (one shared texture is
 // the common case), and the dropped nodes stay in `nodes`, orphaned, so the
 // indices of everything else hold. No three, no dependency — the same header
-// and chunk layout scripts/generate-smoke-3d-model.mjs writes, so the result
+// and chunk layout scripts/generate-rig-fixture.mjs writes, so the result
 // stays a plain glb with its texture embedded. Deterministic.
 // Usage: node scripts/trim-character-glb.mjs <in.glb> <out.glb> --keep-clips Idle,Walking_A --drop-nodes Badge_Shield,2H_Sword
 import { readFile, writeFile } from 'node:fs/promises'

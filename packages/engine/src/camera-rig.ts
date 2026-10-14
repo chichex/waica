@@ -10,18 +10,21 @@ import {
 import type { GameCamera } from './camera-projection.js'
 import type { Component } from './component.js'
 import type { Entity } from './entity.js'
+import { OrbitCamera, type OrbitHost, type OrbitView } from './orbit-camera.js'
 import { EMISSIVE_LAYER } from './render-layers.js'
 import { placePerspectiveCamera, resolvePerspectiveCamera, type PerspectiveSceneCameraJson } from './scene-camera-3d.js'
 import type { SceneSpace } from './scene-space.js'
 
-/** What following an entity needs from the Game: the scene's entities and its render projection. */
-export interface CameraFollowHost {
+/** What following an entity needs from the Game: the scene's entities and its render projection, and the orbit's input and ray (OrbitHost). */
+export interface CameraFollowHost extends OrbitHost {
   find(name: string): Entity | undefined
   /** A logical point in render space (the isometric projection, when the scene has one). */
   renderPoint(x: number, y: number): { x: number; y: number }
   /** The visible world height, i.e. the orthographic zoom, as it is when called. */
   viewHeight(): number
 }
+
+const noShake = (): void => {}
 
 /**
  * The Game's cameras. The orthographic one is built with the Game and frames
@@ -38,8 +41,10 @@ export class CameraRig {
   /** Set once the 2D-scene warning of setViewCamera was logged. */
   private warnedFlatView = false
   private aspect = 1
-  /** How far the perspective camera's declared target was from its declared position. */
+  /** How far the perspective camera's look point is: the declared target's distance, or the orbit's placed distance. */
   private distance = 1
+  /** The orbit of a perspective block that follows an entity (issue #181); null for a fixed camera or a 2D scene. */
+  private orbit: OrbitCamera | null = null
 
   constructor() {
     this.orthographic.position.z = 10
@@ -86,6 +91,16 @@ export class CameraRig {
     return this.distance
   }
 
+  /** True while the scene's perspective camera orbits a followed entity. */
+  get orbiting(): boolean {
+    return this.orbit !== null && this.current === this.perspective
+  }
+
+  /** The orbit's yaw, pitch and distances for the Runtime Snapshot; null for any other camera. */
+  get orbitView(): OrbitView | null {
+    return this.orbiting && this.orbit ? this.orbit.view() : null
+  }
+
   /**
    * Adopts a scene's camera block for its space: a 3D scene gets the
    * perspective camera (the block's, or the defaults), a 2D scene the
@@ -99,6 +114,7 @@ export class CameraRig {
       return null
     }
     this.current = this.orthographic
+    this.orbit = null
     if (!json || json.kind === 'perspective') return null
     return resolveSceneCamera(json)
   }
@@ -106,6 +122,64 @@ export class CameraRig {
   /** Back to the orthographic camera, as a Game with no scene has it. */
   reset(): void {
     this.current = this.orthographic
+    this.orbit = null
+  }
+
+  /**
+   * One Simulation Step of the scene camera: the orbit of a following
+   * perspective camera (issue #181), else the orthographic follow of `cam`.
+   */
+  step(cam: ResolvedSceneCamera | null, host: CameraFollowHost, dt: number): void {
+    if (this.orbit && this.perspective && this.current === this.perspective) {
+      // Only a placed camera looks at the orbit's distance; with no followed entity it keeps its declared pose.
+      if (this.orbit.step(this.perspective, host, dt)) this.distance = this.orbit.distanceActual
+      return
+    }
+    if (cam) this.follow(cam, host, dt)
+  }
+
+  /**
+   * Puts a following perspective camera on its orbit without input, so the
+   * first frame and snapshot of a loaded scene are framed (issue #181);
+   * loadScene calls it once the followed entity has spawned.
+   */
+  placeOrbit(host: CameraFollowHost): void {
+    if (!this.orbit || !this.perspective || this.current !== this.perspective) return
+    if (this.orbit.place(this.perspective, host)) this.distance = this.orbit.distanceActual
+  }
+
+  /**
+   * Moves the scene camera by a Camera Effects shake `offset` for one draw
+   * and returns how to put it back (ADR 0020). The orthographic camera moves
+   * by the offset; a perspective one (issue #181 CA-11) along its own right
+   * and up, scaled so the look point's image moves as far on screen as it
+   * would under an orthographic camera `viewHeight` tall.
+   */
+  shake(offset: { x: number; y: number }, viewHeight: number): () => void {
+    // Most frames do not shake: nothing to move, nothing to allocate.
+    if (offset.x === 0 && offset.y === 0) return noShake
+    const camera = this.current === this.perspective ? this.perspective : null
+    if (!camera) {
+      const flat = this.orthographic
+      const { x, y } = flat.position
+      flat.position.x = x + offset.x
+      flat.position.y = y + offset.y
+      return () => {
+        flat.position.x = x
+        flat.position.y = y
+      }
+    }
+    const base = camera.position.clone()
+    camera.updateMatrixWorld()
+    const perUnit = (2 * this.distance * Math.tan((camera.fov * Math.PI) / 360)) / viewHeight
+    const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0)
+    const up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1)
+    camera.position.addScaledVector(right, offset.x * perUnit).addScaledVector(up, offset.y * perUnit)
+    camera.updateMatrixWorld()
+    return () => {
+      camera.position.copy(base)
+      camera.updateMatrixWorld()
+    }
   }
 
   /** Fits both cameras to the letterboxed view: the orthographic frame from `viewHeight`, the perspective aspect. */
@@ -159,6 +233,7 @@ export class CameraRig {
     const resolved = resolvePerspectiveCamera(json)
     placePerspectiveCamera(this.perspective, resolved, this.aspect)
     this.distance = new THREE.Vector3(...resolved.position).distanceTo(new THREE.Vector3(...resolved.target)) || 1
+    this.orbit = resolved.orbit ? new OrbitCamera(resolved.orbit) : null
     this.current = this.perspective
   }
 }

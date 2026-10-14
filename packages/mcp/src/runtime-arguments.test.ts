@@ -111,6 +111,8 @@ const VALID: ValidCase[] = [
   ['control_runtime', { operation: 'step', frames: 600 }, 'control', { projectPath: GAME, operation: 'step', frames: 600 }],
   ['control_runtime', { operation: 'click', x: 0, y: -3.5 }, 'control', { projectPath: GAME, operation: 'click', x: 0, y: -3.5 }],
   ['control_runtime', { operation: 'scene', scene: 'cave' }, 'control', { projectPath: GAME, operation: 'scene', scene: 'cave' }],
+  // Issue #181 CA-4: a mouse delta, as if the pointer were locked.
+  ['control_runtime', { operation: 'look', dx: 120.5, dy: -4 }, 'control', { projectPath: GAME, operation: 'look', dx: 120.5, dy: -4 }],
 ]
 
 type InvalidCase = [tool: string, args: Record<string, unknown>, message: string]
@@ -217,6 +219,33 @@ const INVALID_CONTROL_STAGE: InvalidCase[] = [
   ['control_runtime', { operation: 'step', value: 0.5 }, 'step does not accept value.'],
   ['control_runtime', { operation: 'click', x: 1, y: 2, value: 0.5 }, 'click does not accept value.'],
   ['control_runtime', { operation: 'scene', scene: 'cave', value: 0.5 }, 'scene does not accept value.'],
+  // Issue #181 CA-4: look takes a finite dx and dy and nothing else; no other operation takes them.
+  ['control_runtime', { operation: 'look', dy: 2 }, 'look requires a finite dx.'],
+  ['control_runtime', { operation: 'look', dx: '3', dy: 2 }, 'look requires a finite dx.'],
+  ['control_runtime', { operation: 'look', dx: 3 }, 'look requires a finite dy.'],
+  ['control_runtime', { operation: 'look', dx: 3, dy: null }, 'look requires a finite dy.'],
+  ...['action', 'value', 'frames', 'x', 'y', 'scene'].map((field): InvalidCase => [
+    'control_runtime',
+    { operation: 'look', dx: 1, dy: 2, [field]: 1 },
+    'look does not accept action, value, frames, x, y or scene.',
+  ]),
+  ...[
+    { operation: 'press', action: 'jump' },
+    { operation: 'hold', action: 'jump' },
+    { operation: 'release', action: 'jump' },
+    { operation: 'step' },
+    { operation: 'click', x: 1, y: 2 },
+    { operation: 'scene', scene: 'cave' },
+  ].map((args): InvalidCase => [
+    'control_runtime',
+    { ...args, dx: 1 },
+    `${args.operation} does not accept dx or dy.`,
+  ]),
+  ...['pause', 'resume'].map((operation): InvalidCase => [
+    'control_runtime',
+    { operation, dy: 1 },
+    `${operation} accepts no additional fields.`,
+  ]),
   ...[0, 601, 1.5, '2'].map((frames): InvalidCase => [
     'control_runtime',
     { operation: 'step', frames },

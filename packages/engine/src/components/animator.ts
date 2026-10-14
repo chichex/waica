@@ -89,6 +89,18 @@ export class Animator extends Component implements ClipTarget {
     return this.pending
   }
 
+  /**
+   * How far the playing clip is, from 0 at its start to 1 at its end (issue
+   * #181): its time over its duration, so a finished one-shot holds 1 and a
+   * loop starts over at 0. 0 while nothing plays.
+   */
+  get clipProgress(): number {
+    const action = this.active
+    if (!action) return 0
+    const { duration } = action.getClip()
+    return duration > 0 ? Math.min(action.time / duration, 1) : 1
+  }
+
   override onReady(): void {
     if (this.game.space !== '3d') return
     this.pending = true

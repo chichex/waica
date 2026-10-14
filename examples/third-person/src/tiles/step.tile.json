@@ -1,0 +1,29 @@
+{
+  "waicaPrefab": 1,
+  "type": "tile",
+  "components": [
+    {
+      "type": "Model",
+      "props": {
+        "src": "src/art/dungeon-foundation.glb"
+      }
+    },
+    {
+      "type": "Collider",
+      "props": {
+        "shape": "box",
+        "size": [
+          2.2,
+          2,
+          2.2
+        ],
+        "offset": [
+          0,
+          1,
+          0
+        ],
+        "layer": "world"
+      }
+    }
+  ]
+}

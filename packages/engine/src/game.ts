@@ -10,11 +10,12 @@ import type { ResolvedSceneCamera, SceneCameraJson } from './camera.js'
 import { worldToNormalized, type GameCamera, type WorldPoint } from './camera-projection.js'
 import { CameraRig, type CameraFollowHost } from './camera-rig.js'
 import { advanceCameraEffects, CameraEffects, layoutCameraEffects } from './camera-effects.js'
-import type { Component, ComponentClass } from './component.js'
-import { implementsOnUpdate, resolveComponentUpdateSchedule } from './component-update-schedule.js'
+import type { Component } from './component.js'
 import { Entity } from './entity.js'
+import { EntityUpdateSchedules } from './entity-update-schedules.js'
 import type { PositionJson } from './entity-transform.js'
 import { Emitter } from './events.js'
+import { RigidBody } from './components/rigid-body.js'
 import {
   consumeSimulationSteps,
   MAX_CHAINED_HOPS,
@@ -123,15 +124,6 @@ export type ParamOverrides = Record<
   Record<string, Record<string, number | boolean | string | string[]>>
 >
 
-/** Maps a resolved update order back to the entity's components; the order only names components it was built from. */
-function componentsInOrder(order: readonly string[], byName: ReadonlyMap<string, Component>): Component[] {
-  return order.map((name) => {
-    const component = byName.get(name)
-    if (!component) throw new Error(`Component update schedule names "${name}", which is not on the entity`)
-    return component
-  })
-}
-
 /**
  * Engine core: loop, unified 2D/3D three scene, orthographic camera,
  * entities with components, and input. See DESIGN.md.
@@ -185,18 +177,8 @@ export class Game {
   /** Off, lit or through the Post Effects: how each frame is drawn (ADR 0026). */
   private readonly frame: FrameComposer
   private readonly updateFns = new Set<UpdateFn>()
-  private readonly invalidUpdateCompositions = new WeakMap<Entity, string>()
-  /**
-   * componentUpdateSchedule's result for the last composition signature seen
-   * per entity: the resolve (Tarjan SCC + Kahn sort) it's built from is pure
-   * for a fixed composition, so a signature match skips it entirely. Only
-   * ever holds a successful resolution — an invalid composition is never
-   * cached, since invalidUpdateCompositions already dedupes its console.error.
-   */
-  private readonly updateScheduleCache = new WeakMap<
-    Entity,
-    { signature: string; order: readonly string[] }
-  >()
+  /** Each entity's Component Update Schedule (ADR 0004), resolved once per composition. */
+  private readonly updateSchedules = new EntityUpdateSchedules()
   private readonly resolution: GameResolution | null
   /** The constructor's viewHeight — unloadScene() restores it. */
   private readonly baseViewHeight: number
@@ -212,6 +194,10 @@ export class Game {
     find: (name) => this.find(name),
     renderPoint: (x, y) => this.renderPoint(x, y),
     viewHeight: () => this.viewHeight,
+    input: () => this.input,
+    // Fixed level geometry only (a Collider with no RigidBody): a character or a crate crossing behind the Player never moves the camera.
+    rayDistance: ({ origin, direction, maxDistance, exclude }) =>
+      this.query.ray(origin, direction, maxDistance, { exclude, without: [RigidBody] })?.distance ?? null,
   }
   private renderSort: 'y' | null = null
   private sceneProjection: 'isometric' | null = null
@@ -240,7 +226,14 @@ export class Game {
     this.baseViewHeight = viewHeight
     this.viewHeight = viewHeight
     this.resolution = options.resolution ?? null
-    this.input = new Input(options.bindings, { gamepadDeadZone: options.gamepadDeadZone })
+    this.input = new Input(options.bindings, {
+      gamepadDeadZone: options.gamepadDeadZone,
+      canvas,
+      // A click takes the pointer lock only while an orbit camera plays (never in the editor's edit mode).
+      lockOnClick: () => this.orbitPlays,
+      // The wheel zooms the orbit; any other scene leaves the page's scroll alone (CA-2 as amended).
+      preventsWheelScroll: () => this.orbitPlays,
+    })
     this.query = createSpatialQuery(this)
     this.stats = new Stats(options.stats)
     this.ui = new GameUi(this.stats, () => canvas.parentElement ?? document.body)
@@ -517,6 +510,11 @@ export class Game {
     this.setViewHeight(cam.zoom)
   }
 
+  /** Puts a following perspective camera on its orbit; loadScene calls it after the spawns, so the first frame is framed (issue #181). */
+  placeSceneCamera(): void {
+    this.cameraRig.placeOrbit(this.followHost)
+  }
+
   start(): void {
     if (this.disposed) return
     const activation = activeRuntimeBridgeHook()
@@ -528,6 +526,7 @@ export class Game {
           resume: (onStep) => this.resumeRuntime(onStep),
           pause: () => this.stop(),
           injectAction: (action, operation, value) => this.input.injectAction(action, operation, value),
+          look: (dx, dy) => this.input.injectLook(dx, dy),
           availableActions: () => this.input.availableActions(),
           heldActions: () => this.input.heldActions(),
           actionValues: () => this.input.actionValues(),
@@ -571,6 +570,15 @@ export class Game {
   /** The scene's render projection; null keeps logical and render space identical. */
   get projection(): 'isometric' | null {
     return this.sceneProjection
+  }
+
+  /**
+   * The yaw of the scene's orbit camera in degrees — 0 looks toward -z, 90
+   * toward +x — or null when the scene camera follows nothing (issue #181);
+   * what a camera-relative mover rotates its input by.
+   */
+  get cameraYaw(): number | null {
+    return this.cameraRig.orbitView?.yaw ?? null
   }
 
   /** The live scene's space (`render.space`); `'2d'` with no scene (ADR 0027). */
@@ -718,6 +726,8 @@ export class Game {
         this.finishStep()
       }
       this.audio.setActive(this.simulate)
+      // The pointer lock belongs to a playing orbit: a pause, a swap or an unload gives the cursor back.
+      if (!this.orbitPlays) this.input.releasePointerLock()
       // Positional audio (CA-8): recomputed every frame, on this same pass —
       // never a second walk of `this.entities`, since `this.audio` already
       // holds direct references to whichever entities are tracked.
@@ -733,19 +743,20 @@ export class Game {
   }
 
   /**
-   * One Simulation Step: the pad is read first (issue #75 CA-6), then
+   * One Simulation Step: the pad and the mouse are read first (issue #75 CA-6, issue #181 CA-2), then
    * game.time's start-of-step pass (ADR 0017, CA-3), then the Component Update Schedule (ADR 0004) in full,
    * collisions, the scene camera and the host's callbacks, every one of
    * them handed exactly SIMULATION_STEP (CA-1); then the input frame ends.
    */
   private simulateStep(): void {
     this.input.pollGamepad()
+    this.input.pollMouse()
     advanceGameTime(this.time)
     // Existing drains advance before entity updates, so one detached during
     // this step begins on the next Simulation Step (ADR 0022).
     sceneDrainsOf(this).advance(SIMULATION_STEP)
     for (const entity of [...this.entities]) {
-      const schedule = this.componentUpdateSchedule(entity)
+      const schedule = this.updateSchedules.of(entity, this.registry?.components)
       if (!schedule) continue
       for (const component of schedule) component.onUpdate?.(SIMULATION_STEP)
     }
@@ -800,75 +811,24 @@ export class Game {
     // The shake offset exists only while drawing (ADR 0020): Anchored Pieces
     // and the render see the drawn center, then the base comes back exactly,
     // so follow smoothing never starts from its own jitter.
-    const { x, y } = this.camera.position
-    // A perspective camera does not shake: the offset is in orthographic world units.
-    const shake = this.sceneSpace === '3d' ? { x: 0, y: 0 } : this.cameraEffects.state.shake
-    this.camera.position.x = x + shake.x
-    this.camera.position.y = y + shake.y
+    const restoreBase = this.cameraRig.shake(this.cameraEffects.state.shake, this.viewHeight)
     try {
       anchoredPiecesOf(this.ui).place()
       // Before ready() the frame simulated, but three cannot draw yet.
       if (!this.readiness.isReady) return
       this.frame.draw()
     } finally {
-      this.camera.position.x = x
-      this.camera.position.y = y
+      restoreBase()
     }
   }
 
-  private componentUpdateSchedule(entity: Entity): Component[] | null {
-    const components = [...entity.components]
-    const byName = new Map<string, Component>()
-    const names: string[] = []
-    const signatureParts: string[] = []
-    for (const component of components) {
-      const Class = componentClassOf(component)
-      const name = Class.componentName
-      names.push(name)
-      byName.set(name, component)
-      signatureParts.push(
-        `${name}:${implementsOnUpdate(Class) ? 'updates' : 'passive'}:` +
-          [...new Set(Class.updateAfter ?? [])].sort().join(','),
-      )
-    }
-    const signature = signatureParts.sort().join('|')
-
-    // The resolve below (duplicate check + Tarjan SCC + Kahn sort) is pure
-    // for a fixed composition, and this method now runs once per entity per
-    // Simulation Step rather than once per rendered frame: skip it entirely
-    // when nothing about this entity's components changed since last time.
-    const cached = this.updateScheduleCache.get(entity)
-    if (cached && cached.signature === signature) {
-      return componentsInOrder(cached.order, byName)
-    }
-
-    const registry: Record<string, ComponentClass> = {
-      ...(this.registry?.components ?? {}),
-    }
-    for (const component of components) {
-      const Class = componentClassOf(component)
-      registry[Class.componentName] = Class
-    }
-    const result = resolveComponentUpdateSchedule(names, registry)
-    if (!result.ok) {
-      this.updateScheduleCache.delete(entity)
-      if (this.invalidUpdateCompositions.get(entity) !== signature) {
-        this.invalidUpdateCompositions.set(entity, signature)
-        console.error(
-          `[waica] invalid component update schedule for "${entity.name}": ` +
-            result.issues.map((issue) => issue.cause).join(' '),
-        )
-      }
-      return null
-    }
-    this.invalidUpdateCompositions.delete(entity)
-    this.updateScheduleCache.set(entity, { signature, order: result.order })
-    return componentsInOrder(result.order, byName)
+  /** True while a simulating scene's camera orbits a followed entity: what the pointer lock is for. */
+  private get orbitPlays(): boolean {
+    return this.simulate && this.cameraRig.orbiting
   }
 
   private updateSceneCamera(dt: number): void {
-    if (!this.sceneCamera) return
-    this.cameraRig.follow(this.sceneCamera, this.followHost, dt)
+    this.cameraRig.step(this.sceneCamera, this.followHost, dt)
   }
 
   private renderPoint(x: number, y: number): { x: number; y: number } {
