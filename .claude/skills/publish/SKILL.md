@@ -171,6 +171,7 @@ Error decoder:
 | `tag vX.Y.Z does not match packages/cli@…` | The tag was pushed on a commit whose package.json has a different version — usually a missing `git pull` after the merge. Delete the tag (`git push origin :refs/tags/vX.Y.Z`), sync, re-tag. |
 | `403 … too similar to existing packages` | Only happens for NEW package names (it is why the CLI is scoped). Existing publishes never hit it. |
 | `You cannot publish over the previously published versions` | A previous run published part of the set. npm never takes a version twice, so this one is unrecoverable at that number: bump the patch on all seven, re-run the flow from step 2, and release the new number. |
+| The log printed `+ @waica/cli@X.Y.Z` but the version is absent from the registry (tarball 404, `latest` unchanged) for hours; the package page on npmjs.com shows the version with "Validating: Automated review hasn't finished. The version will remain unavailable until review completes." | npm's automated review is holding the version. It is published and nothing is wrong: do not re-tag, do not bump. Wait and poll `npm view @waica/cli@X.Y.Z version --prefer-online`. If it stays in Validating for many hours, contact npm support (https://www.npmjs.com/support). On 0.29.0 (2026-10-14) the CLI (~10 MB packed, 656 files) printed `+` at 01:04 UTC and appeared at 02:31 UTC; the libraries were not held. On 0.29.1 the CLI was not held, but two libraries lagged a few minutes. |
 
 If the workflow failed **before any publish succeeded**, delete and re-push
 the tag to re-trigger it — never re-run the job against a stale commit. If it
@@ -191,6 +192,9 @@ failed **after** one package went out, do not retry the tag; bump and re-release
   If the log shows the `+` line, it is registry propagation, not a failed
   publish: poll `npm view <pkg>@X.Y.Z version --prefer-online` before the
   smokes. Never re-tag over it.
+  A lag of hours with the package page showing "Validating" is npm's
+  automated review holding the version (0.29.0's CLI, 01:04 to 02:31 UTC):
+  see the decoder in step 4.
 - Editor smoke, from a scratch directory (never the repo):
   `npx -y @waica/cli@latest --no-open --port 5401 &`, then
   `curl http://127.0.0.1:5401/__waica.json` → JSON reporting the new version.
