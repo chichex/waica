@@ -41,6 +41,14 @@ function floorTiles(): SceneEntityJson[] {
   )
 }
 
+/**
+ * Where a checkpoint's wall banner hangs from the yard's centre: the banner
+ * is modelled to hang on a wall, its cloth's back 0.378 in front of its
+ * origin, so the origin sits 0.35 inside a wall whose inner face is
+ * HALF - 0.5 away (the wall pieces are 1 thick) and the cloth lies flush on it.
+ */
+const BANNER_AT = HALF - 0.5 + 0.35
+
 /** The four sides of wall pieces, each turned to face the yard. */
 function walls(): SceneEntityJson[] {
   return TILE_CENTERS.flatMap((at): SceneEntityJson[] => [
@@ -82,8 +90,9 @@ export const THIRD_PERSON_SCENE: SceneJson = threeDScene([
   { name: 'Torch NE', prefab: 'tiles/torch', position: [4, 2.5, -9.5] },
   { name: 'Torch SW', prefab: 'tiles/torch', position: [-4, 2.5, 9.5], rotation: [0, 180, 0] },
   { name: 'Torch SE', prefab: 'tiles/torch', position: [4, 2.5, 9.5], rotation: [0, 180, 0] },
-  { name: 'Checkpoint West', prefab: 'objects/checkpoint', position: [-7, 0, 6] },
-  { name: 'Checkpoint East', prefab: 'objects/checkpoint', position: [8, 0, 3] },
+  // Each banner hangs centred on a side wall's z 4 piece, turned like that wall to face the yard.
+  { name: 'Checkpoint West', prefab: 'objects/checkpoint', position: [-BANNER_AT, 0, 4], rotation: [0, 90, 0] },
+  { name: 'Checkpoint East', prefab: 'objects/checkpoint', position: [BANNER_AT, 0, 4], rotation: [0, -90, 0] },
   { name: 'Goal Chest', prefab: 'objects/goal-chest', position: [6, 0.5, -6] },
   ...SKELETONS,
   { name: 'Player', prefab: 'characters/player', position: [0, 0, 3.5] },

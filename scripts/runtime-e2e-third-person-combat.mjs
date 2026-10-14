@@ -25,6 +25,7 @@ async function peek({ helpers, client, project }, names) {
       checkpoint: stateOf(entity, 'Checkpoint'),
       motor: stateOf(entity, 'CharacterMotor'),
       position: entity.transform.position,
+      rotation: entity.transform.rotation,
     }
   }
   return Object.fromEntries(names.map((name) => [name, read(name)]))
@@ -123,14 +124,23 @@ export async function exerciseCombat(context) {
 /** One skeleton near Checkpoint West, and a Player one hit from death. */
 const ambush = (scene) => {
   scene.entities = scene.entities.filter((entity) => entity.prefab !== 'characters/skeleton' || entity.name === 'Skeleton West')
-  scene.entities.find((entity) => entity.name === 'Skeleton West').position = [-7, 0, 1]
+  scene.entities.find((entity) => entity.name === 'Skeleton West').position = [-7, 0, -1]
   const player = scene.entities.find((entity) => entity.name === 'Player')
-  // On Checkpoint West's line, so walking left enters its sensor.
-  player.position = [0, 0, 6]
+  // On Checkpoint West's line, so walking left enters its sensor, on the floor in front of the west wall's banner.
+  player.position = [0, 0, 4]
   player.overrides = { Health: { max: 1 } }
 }
 
 const RESPAWN = ['Player', 'Checkpoint West']
+
+/** Where a peeked checkpoint respawns the Player: its position plus its spawnOffset, turned by its yaw. */
+function spawnOf({ position, rotation, checkpoint }) {
+  assert.ok(Array.isArray(checkpoint?.spawnOffset), `the Checkpoint snapshot must hold its spawnOffset; ${JSON.stringify(checkpoint)}`)
+  const [x, , z] = checkpoint.spawnOffset
+  const sin = Math.sin(rotation.y)
+  const cos = Math.cos(rotation.y)
+  return { x: position.x + x * cos + z * sin, z: position.z - x * sin + z * cos }
+}
 
 /** CA-36: the Player touches Checkpoint West, dies to the skeleton, and comes back there with full health. */
 export async function exerciseRespawn(context) {
@@ -140,8 +150,9 @@ export async function exerciseRespawn(context) {
     await run.control('release', { action: 'left' })
     await stepUntil(context, run, { names: RESPAWN, done: (seen) => seen.Player.state === 'die', limit: 600, what: "the Player's death" })
     const back = await stepUntil(context, run, { names: RESPAWN, done: (seen) => seen.Player.state === 'idle', limit: 400, what: 'the respawn' })
-    const checkpoint = touched['Checkpoint West'].position
+    const checkpoint = spawnOf(touched['Checkpoint West'])
     assert.ok(planar(back.Player.position, checkpoint) < 0.6, `the Player must come back at the checkpoint; ${JSON.stringify({ back, checkpoint })}`)
+    assert.ok(Math.abs(back.Player.position.y) < 0.1, `the Player must come back standing on the floor; ${JSON.stringify(back.Player.position)}`)
     assert.equal(back.Player.health.current, back.Player.health.max, `the Player must come back with full health; ${JSON.stringify(back.Player.health)}`)
     return { respawnedAt: back.Player.position, checkpoint, health: back.Player.health.current }
   })

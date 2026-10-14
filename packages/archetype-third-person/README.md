@@ -22,12 +22,13 @@ npx @waica/cli            # New project → 3D → Third person
 - **Combat.** `MeleeAttack` strikes a box in front of the Knight's yaw;
   skeletons (the `enemy` role) patrol, chase, wind up, strike, flinch and
   die. Hits push back, blink the model and shake the camera.
-- **Checkpoints.** Touch a banner to make it your respawn point; dying fades
-  out and back in there with full health.
+- **Checkpoints.** Touch a banner hung on a wall to make it your respawn
+  point; dying fades out and back in on the floor in front of it with full
+  health (the Checkpoint's `spawnOffset`).
 - **The demo.** A walled courtyard with columns, wall torches (Point
-  Lights), three skeletons, two checkpoints and the goal chest on a raised
-  platform: reach it to win. The blank start is a ground plane, a Sun and
-  the playable Knight.
+  Lights), three skeletons, two checkpoint banners on the side walls and the
+  goal chest on a raised platform: reach it to win. The blank start is a
+  ground plane, a Sun and the playable Knight.
 
 ## Controls
 
