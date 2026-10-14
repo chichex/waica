@@ -28,11 +28,11 @@
   "dependencies": {
     "@dimforge/rapier3d-deterministic-compat": "0.21.0",
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "playwright-core": "^1.63.0",
+    "playwright-core": "^1.64.0",
     "three": "^0.186.1"
   },
   "devDependencies": {
-    "@types/node": "^26.6.4",
+    "@types/node": "^26.6.5",
     "@waica/editor": "workspace:^",
     "@waica/mcp": "workspace:^"
   }
