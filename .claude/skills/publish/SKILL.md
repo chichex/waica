@@ -84,11 +84,12 @@ Then they configure the Trusted Publisher on each new package's npm settings
 page (repo `chichex/waica`, workflow `publish.yml`). From the next release on,
 every package goes out through CI and nobody touches a token again.
 
-Done for six of the seven published packages: the first four on 2026-08-05,
+Done for all seven published packages: the first four on 2026-08-05,
 `@waica/archetype-topdown` on 2026-08-21, `@waica/archetype-isometric` on
-2026-08-22. **Pending: `@waica/archetype-third-person` (issue #181) has no npm
-page yet — bootstrap it and configure its Trusted Publisher before the release
-that first ships it; otherwise skip §0 unless the release set grows again.** The `@waica` org exists and owns the scope, so no other account can publish `@waica/*` —
+2026-08-22 and `@waica/archetype-third-person` on 2026-10-14 (bootstrapped at
+0.28.0, deprecated in favor of 0.29.0, its Trusted Publisher set through the
+npmjs.com settings page because `npm trust github` answered `E400`). Skip §0
+unless the release set grows again. The `@waica` org exists and owns the scope, so no other account can publish `@waica/*` —
 names do not need to be squatted to be safe.
 
 ## 1. Preconditions
