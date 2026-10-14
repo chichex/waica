@@ -626,18 +626,28 @@
       "name": "Checkpoint West",
       "prefab": "objects/checkpoint",
       "position": [
-        -7,
+        -9.85,
         0,
-        6
+        4
+      ],
+      "rotation": [
+        0,
+        90,
+        0
       ]
     },
     {
       "name": "Checkpoint East",
       "prefab": "objects/checkpoint",
       "position": [
-        8,
+        9.85,
         0,
-        3
+        4
+      ],
+      "rotation": [
+        0,
+        -90,
+        0
       ]
     },
     {

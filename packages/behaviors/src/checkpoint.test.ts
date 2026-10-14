@@ -200,3 +200,32 @@ it('reports the death sequence’s phase in the Respawnable snapshot: the pose, 
 
   expect(seen).toEqual(['pose', 'fade-out', null])
 })
+
+it('respawns at its spawnOffset, turned with the checkpoint: in front of a banner hung on a wall', async () => {
+  serveRig()
+  // Turned a quarter right, local +z points to world +x: the spawn lands 1.5 east of the checkpoint.
+  const banner: SceneEntityJson = {
+    name: 'Banner',
+    position: [3, 1, 0],
+    rotation: [0, 90, 0],
+    components: [{ type: 'Collider', props: { size: [2, 2, 1], sensor: true } }, { type: 'Checkpoint', props: { spawnOffset: [0, 0, 1.5] } }],
+  }
+  const fixture = await physicsFixture([FLOOR, PLAYER, banner], {
+    components: { Model, Animator, StateMachine, CharacterMotor, Health, Respawnable, Checkpoint },
+    game: { bindings: BINDINGS, models: new GltfModelBackend() },
+  })
+  fixture.step(20)
+  walkPast(fixture, 3)
+  expect(isActive(fixture, 'Banner')).toBe(true)
+
+  player(fixture).position.set(-4, 0.9, 2)
+  defined(player(fixture).get(Respawnable)).respawn()
+  fixture.step(2)
+  expect(player(fixture).position.x).toBeCloseTo(4.5, 1)
+  expect(player(fixture).position.z).toBeCloseTo(0, 1)
+})
+
+it('authors spawnOffset as a vector3 that defaults to the checkpoint itself', () => {
+  expect(authoringDefaults(Checkpoint)).toMatchObject({ spawnOffset: [0, 0, 0] })
+  expect(Checkpoint.params).toMatchObject({ spawnOffset: { kind: 'vector3' } })
+})

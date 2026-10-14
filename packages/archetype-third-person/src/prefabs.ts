@@ -84,8 +84,23 @@ const SKELETON: PrefabJson = {
 }
 
 /**
+ * How deep a checkpoint banner's origin sits inside the wall it hangs on: the
+ * banner is modelled to hang on a wall, its cloth's back 0.378 in front of
+ * its origin, so at this inset the cloth lies flush on the wall's inner face.
+ * The scene places the origin by it and the prefab its sensor and spawn.
+ */
+export const BANNER_INSET = 0.35
+
+/**
+ * How far in front of a checkpoint banner's origin its 2-deep sensor and its
+ * spawn sit: the sensor starts at the wall's inner face and the Knight
+ * respawns 1 from it.
+ */
+const CHECKPOINT_REACH = BANNER_INSET + 1
+
+/**
  * The archetype's prefabs (issue #181 CA-25): the Knight and the Skeleton
- * Warrior, a checkpoint and the goal chest (sensors), and the level pieces —
+ * Warrior, a checkpoint (a wall banner) and the goal chest (sensors), and the level pieces —
  * each a KayKit Dungeon Remastered model on a fixed Collider sized to it, the
  * torch with a warm Point Light. A step is the foundation block scaled flat.
  */
@@ -97,8 +112,9 @@ export const THIRD_PERSON_PREFABS: Record<string, PrefabJson> = {
     type: 'object',
     components: [
       { type: 'Model', props: { src: 'waica:tp-banner' } },
-      { type: 'Collider', props: { shape: 'box', size: [2, 3, 2], offset: [0, 1.5, 0], sensor: true, layer: 'world' } },
-      { type: 'Checkpoint' },
+      // A wall banner: its origin on the wall, its sensor and spawn on the floor in front of the wall (local +z).
+      { type: 'Collider', props: { shape: 'box', size: [2, 3, 2], offset: [0, 1.5, CHECKPOINT_REACH], sensor: true, layer: 'world' } },
+      { type: 'Checkpoint', props: { spawnOffset: [0, 0, CHECKPOINT_REACH] } },
     ],
   },
   'objects/goal-chest': {

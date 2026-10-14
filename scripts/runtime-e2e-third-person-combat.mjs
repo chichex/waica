@@ -123,14 +123,23 @@ export async function exerciseCombat(context) {
 /** One skeleton near Checkpoint West, and a Player one hit from death. */
 const ambush = (scene) => {
   scene.entities = scene.entities.filter((entity) => entity.prefab !== 'characters/skeleton' || entity.name === 'Skeleton West')
-  scene.entities.find((entity) => entity.name === 'Skeleton West').position = [-7, 0, 1]
+  scene.entities.find((entity) => entity.name === 'Skeleton West').position = [-7, 0, -1]
   const player = scene.entities.find((entity) => entity.name === 'Player')
-  // On Checkpoint West's line, so walking left enters its sensor.
-  player.position = [0, 0, 6]
+  // On Checkpoint West's line, so walking left enters its sensor, on the floor in front of the west wall's banner.
+  player.position = [0, 0, 4]
   player.overrides = { Health: { max: 1 } }
 }
 
 const RESPAWN = ['Player', 'Checkpoint West']
+
+/**
+ * Where Checkpoint West respawns the Player, as a literal: on the floor 1 in
+ * front of the west wall's inner face (x -9.5), level with the banner. Not
+ * derived from the Checkpoint's spawnOffset math, so a bug shared by the
+ * engine and this driver cannot pass; scene-checkpoints.test.ts ties the
+ * demo's banner, sensor and spawn to the walls.
+ */
+const WEST_SPAWN = { x: -8.5, y: 0, z: 4 }
 
 /** CA-36: the Player touches Checkpoint West, dies to the skeleton, and comes back there with full health. */
 export async function exerciseRespawn(context) {
@@ -140,8 +149,10 @@ export async function exerciseRespawn(context) {
     await run.control('release', { action: 'left' })
     await stepUntil(context, run, { names: RESPAWN, done: (seen) => seen.Player.state === 'die', limit: 600, what: "the Player's death" })
     const back = await stepUntil(context, run, { names: RESPAWN, done: (seen) => seen.Player.state === 'idle', limit: 400, what: 'the respawn' })
-    const checkpoint = touched['Checkpoint West'].position
+    assert.ok(touched['Checkpoint West'].position.x < WEST_SPAWN.x, `Checkpoint West must hang on the west wall, behind its spawn; ${JSON.stringify(touched['Checkpoint West'].position)}`)
+    const checkpoint = WEST_SPAWN
     assert.ok(planar(back.Player.position, checkpoint) < 0.6, `the Player must come back at the checkpoint; ${JSON.stringify({ back, checkpoint })}`)
+    assert.ok(Math.abs(back.Player.position.y - WEST_SPAWN.y) < 0.1, `the Player must come back standing on the floor; ${JSON.stringify(back.Player.position)}`)
     assert.equal(back.Player.health.current, back.Player.health.max, `the Player must come back with full health; ${JSON.stringify(back.Player.health)}`)
     return { respawnedAt: back.Player.position, checkpoint, health: back.Player.health.current }
   })

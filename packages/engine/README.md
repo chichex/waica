@@ -25,6 +25,13 @@ A `Game` draws through three's `WebGPURenderer` (ADR 0025): WebGPU when the brow
 - **Tests under happy-dom.** happy-dom has no GPU: a project test that builds a `Game` replaces `WebGPURenderer` from `three/webgpu` with a fake (it previously replaced `WebGLRenderer` from `three`), whose `init()` resolves.
 - **Run Sessions.** A Run Session waits for the Render Backend before it reports ready, steps or screenshots, and its snapshots carry `backend`. A renderer that cannot initialize ends `start_project` with a runtime error that names the failure.
 
+## Migrating to 0.29.1: checkpoint banners on the walls
+
+A fix release for the third-person demo, whose checkpoint banners stood free in the yard: KayKit's banner is single-sided and modelled to hang on a wall, so it floated and vanished from behind. Every existing scene file loads as it did; what changes:
+
+- **`Checkpoint.spawnOffset`** (new, a `vector3`, default `[0, 0, 0]`: unchanged) moves where the player respawns from the checkpoint's position. In a 3D scene it is in the entity's local frame, turned and scaled with it like a `Collider`'s `offset`; in 2D it is in world units, like a `Hitbox`'s or a `Solid`'s offset, whatever the node's scale or rotation. `validate_project` reports a `spawnOffset` that is not three finite numbers as `invalid-checkpoint-param`.
+- **`@waica/archetype-third-person`'s `objects/checkpoint` prefab is a wall banner.** Its origin goes 0.35 inside a wall's inner face (the cloth's back then lies flush on it), turned so its local +z faces away from the wall. Its sensor `Collider` moves to `offset: [0, 1.5, 1.35]` (same 2 × 3 × 2 size) and its `Checkpoint` gets `spawnOffset: [0, 0, 1.35]`, so the sensor starts at the wall's face and the player respawns standing on the floor 1 in front of it. A project created earlier keeps its own `src/objects/checkpoint.object.json` and behaves as before; one that takes the new prefab should hang its checkpoints on walls. The demo's checkpoints are now `Checkpoint West` at `(-9.85, 0, 4)` turned `[0, 90, 0]` and `Checkpoint East` at `(9.85, 0, 4)` turned `[0, -90, 0]`.
+
 ## Migrating to 0.29.0: third-person archetype
 
 The release adds `@waica/archetype-third-person` (issue #181, ADR 0031) and the engine and behavior pieces it needs. Every existing scene file loads as it did; what changes:

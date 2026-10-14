@@ -223,7 +223,7 @@ A 3D scene's perspective camera when its block names an entity to `follow`: it l
 _Avoid_: follow camera (the 2D one), chase camera, third-person camera
 
 **Checkpoint**:
-A place the player comes back to: when the player overlaps its trigger it becomes the active one, every other turns inactive, and the player's Respawnable respawns there from then on, after a death.
+A place the player comes back to: when the player overlaps its trigger it becomes the active one, every other turns inactive, and the player's Respawnable respawns there — moved by its spawn offset, in its own frame, so a banner hung on a wall respawns the player on the floor in front of it — from then on, after a death.
 _Avoid_: save point, spawn point (where a Respawnable started)
 
 **Enemy role**:

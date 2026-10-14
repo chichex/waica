@@ -1,4 +1,4 @@
-import { CharacterMotor } from '@waica/behaviors'
+import { CharacterMotor, type Checkpoint } from '@waica/behaviors'
 import { authoringDefaults, Collider, RigidBody, type ParamSpec, type SceneComponentJson } from '@waica/engine'
 import { colliderCategoryFindings } from './collision-category-validation.js'
 import { objectRecord } from './component-metadata.js'
@@ -38,7 +38,11 @@ function specProblem({ name, spec, numeric }: { name: string; spec: ParamSpec; n
 }
 
 /** The authored params of `Class` (those its inspector declares) that break their own spec, in the spec's order. */
-function specProblems(Class: typeof Collider | typeof RigidBody | typeof CharacterMotor, record: Record<string, unknown>, skip: readonly string[]): Array<[string, string]> {
+export function specProblems(
+  Class: typeof Collider | typeof RigidBody | typeof CharacterMotor | typeof Checkpoint,
+  record: Record<string, unknown>,
+  skip: readonly string[],
+): Array<[string, string]> {
   const defaults = authoringDefaults(Class)
   const params: Readonly<Record<string, ParamSpec>> = Class.params
   const found: Array<[string, string]> = []
@@ -71,7 +75,8 @@ function capsuleProblems(record: Record<string, unknown>, flagged: readonly stri
   return [['height', `height must be at least twice the radius for a capsule (${2 * radius}); got ${shown(height)}.`]]
 }
 
-function toFindings(problems: Array<[string, string]>, where: { code: FindingCode; component: string; file: string; ref: string }): ValidationFinding[] {
+/** One error finding per problem, at `<ref>:<component>.<field>`. */
+export function toFindings(problems: Array<[string, string]>, where: { code: FindingCode; component: string; file: string; ref: string }): ValidationFinding[] {
   const { code, component, file, ref } = where
   return problems.map(([field, message]) => ({ severity: 'error', code, message: `${component} ${message}`, file, ref: `${ref}:${component}.${field}` }))
 }
