@@ -14,8 +14,9 @@ Commands:
   mcp             serve the waica MCP server on stdio, for agent hosts:
                   claude mcp add waica -- npx -y @waica/cli mcp
   export desktop  package the project in [dir] (default .) as a desktop app,
-                  one folder and one .zip per platform, unsigned. Run
-                  npm install in the project first. Signing and store upload:
+                  one folder and one .zip per platform, unsigned. A project
+                  without node_modules is installed first (npm, pnpm or yarn,
+                  by its lockfile). Signing and store upload:
                   ${DESKTOP_GUIDE}
 
 Export options:
@@ -25,6 +26,7 @@ Export options:
   --icon <png>         app icon (default src/art/icon.png, else waica's)
   --steam-app-id <n>   Steam app id (default: game.json desktop.steam.appId)
   --no-steam           leave Steam out, even when game.json declares it
+  --no-install         fail instead of installing a missing node_modules
 
 Options:
   --port <n>   preferred port (default ${DEFAULT_PORT}; the next free one is used if taken)

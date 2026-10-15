@@ -5,6 +5,7 @@ import path from 'node:path'
 import type { ExportArgs, ExportPlatform } from './args.js'
 import { resolveShellConfig } from './desktop-config.js'
 import { prepareIcons } from './icons.js'
+import { detectPackageManager, installDependencies, type PackageManager } from './project-install.js'
 import { readDesktopProject } from './project.js'
 import { stageApp } from './stage.js'
 import { npmInstall, stageSteam } from './steam-install.js'
@@ -35,6 +36,8 @@ export interface PackagerCall {
 
 /** The export's boundaries: the Project's build, the packager and the console. Tests pass fakes. */
 export interface ExportDeps {
+  /** Runs `<manager> install` in the Project, for one without node_modules. */
+  installDependencies(dir: string, manager: PackageManager): Promise<void>
   build(project: string, outDir: string): Promise<void>
   packager(call: PackagerCall): Promise<string[]>
   /** Installs a package (`steamworks.js@0.4.0`) into the staged app's node_modules. */
@@ -77,6 +80,7 @@ export async function readElectronVersion(here = import.meta.dirname): Promise<s
 async function realDeps(): Promise<ExportDeps> {
   const { packager } = await import('@electron/packager')
   return {
+    installDependencies,
     build: viteBuild,
     packager: (call) => packager(call),
     installSteamworks: npmInstall,
@@ -137,6 +141,19 @@ async function packagePlatform(job: PlatformJob, deps: ExportDeps): Promise<void
   }
 }
 
+/**
+ * A Project without node_modules cannot run its own `vite build`: install its
+ * dependencies with the manager its lockfile names (the maintainer reversed
+ * H-20 of issue #200), or, under --no-install, stop and say which command to run.
+ */
+async function ensureInstalled(dir: string, install: boolean, deps: ExportDeps): Promise<void> {
+  if (existsSync(path.join(dir, 'node_modules'))) return
+  const manager = detectPackageManager(dir)
+  if (!install) throw new Error(`run ${manager} install in ${dir} first (or drop --no-install)`)
+  deps.log.info(`installing dependencies (${manager} install)…`)
+  await deps.installDependencies(dir, manager)
+}
+
 /** Packages the Project in `args.dir` once per platform (CA-7 to CA-13). */
 export async function exportDesktop(args: ExportArgs, deps?: ExportDeps): Promise<void> {
   const project = await readDesktopProject(args.dir)
@@ -144,6 +161,7 @@ export async function exportDesktop(args: ExportArgs, deps?: ExportDeps): Promis
   const name = fileSafeName(displayName)
   const config = resolveShellConfig(project.game, displayName, { enabled: args.steam, appId: args.steamAppId })
   const resolved = deps ?? (await realDeps())
+  await ensureInstalled(project.dir, args.install, resolved)
   const out = path.resolve(args.out ?? path.join(project.dir, 'export'))
   const work = await mkdtemp(path.join(os.tmpdir(), 'waica-export-'))
   try {
