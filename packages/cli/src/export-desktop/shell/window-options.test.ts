@@ -54,6 +54,17 @@ describe('the window (issue #200 CA-10)', () => {
 
 })
 
+describe("the window inside the screen's work area (review of #215)", () => {
+  it('shrinks to 90% of the work area, keeping the aspect, when resolution × scale is larger', () => {
+    const big = { ...CONFIG, resolution: { width: 1920, height: 1080 } }
+    expect(windowOptions(big, APP, { width: 1366, height: 728 })).toMatchObject({ width: 1165, height: 655 })
+  })
+
+  it('keeps resolution × scale when it already fits', () => {
+    expect(windowOptions(CONFIG, APP, { width: 1920, height: 1080 })).toMatchObject({ width: 1280, height: 720 })
+  })
+})
+
 describe('the fullscreen shortcut (issue #200 CA-10)', () => {
   it.each([
     [key({ key: 'F11' }), true],

@@ -245,19 +245,43 @@ async function smokeProject(context, spec) {
   })
 }
 
+/**
+ * In the packaged app's main process: steamworks.js loads from resources/app
+ * (its .node addon and libsteam_api link under this Electron), and only
+ * `init` fails, for want of a Steam client. A module that does not load
+ * would also leave achievements unavailable, so this tells the two apart.
+ */
+function steamworksInMain(app, resources) {
+  return app.evaluate((_electron, appDir) => {
+    const { createRequire } = process.getBuiltinModule('node:module')
+    const steamworks = createRequire(`${appDir}/package.json`)('steamworks.js')
+    const loaded = typeof steamworks.init === 'function' && typeof steamworks.electronEnableSteamOverlay === 'function'
+    try {
+      steamworks.init(480)
+      return { loaded, init: 'connected' }
+    } catch (error) {
+      return { loaded, init: `threw: ${error instanceof Error ? error.message : String(error)}` }
+    }
+  }, resources)
+}
+
 /** CA-16, CA-17 with the real modules: steamworks.js installed by npm, and no Steam client, so init fails and the game plays on. */
 async function steamLeg(context) {
   const spec = { ...PROJECTS[0], label: 'steam' }
   const { app, folder, name } = await launchExport(context, spec, ['--steam-app-id', '480'])
   const resources = path.join(folder, LAYOUT[process.platform].app(name))
-  const steamworks = JSON.parse(await readFile(path.join(resources, 'node_modules/steamworks.js/package.json'), 'utf8')).version
-  assert.equal(steamworks, '0.4.0', 'the export must install steamworks.js 0.4.0')
-  assert.equal(await readFile(path.join(resources, 'steam_appid.txt'), 'utf8'), '480')
+  // Inside withWindow, so a failed check still closes the launched app.
   return withWindow(app, async (page) => {
+    const steamworks = JSON.parse(await readFile(path.join(resources, 'node_modules/steamworks.js/package.json'), 'utf8')).version
+    assert.equal(steamworks, '0.4.0', 'the export must install steamworks.js 0.4.0')
+    assert.equal(await readFile(path.join(resources, 'steam_appid.txt'), 'utf8'), '480')
+    const main = await steamworksInMain(app, resources)
+    assert.equal(main.loaded, true, 'steamworks.js must load in the packaged main process')
+    assert.match(main.init, /^threw: /, 'with no Steam client running, steamworks.js init must fail')
     await assertPlays(page, spec)
     const available = await page.evaluate(() => globalThis.__waica.game.achievements.available)
     assert.equal(available, false, 'without a Steam client the achievements must be unavailable')
-    return { steamworks, available, quit: await assertQuits(app, page) }
+    return { steamworks, main, available, quit: await assertQuits(app, page) }
   })
 }
 

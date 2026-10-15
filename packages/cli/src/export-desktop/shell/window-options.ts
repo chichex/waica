@@ -15,14 +15,34 @@ export interface ShortcutInput {
 /** The window size when game.json declares no resolution (issue #200 inference 5). */
 const FALLBACK_SIZE = { width: 1280, height: 720 }
 
-/** The BrowserWindow options for the game (CA-10): resolution × scale, resizable, and the page cut off from Node. */
-export function windowOptions(config: DesktopShellConfig, appDir: string) {
+/** The usable part of a display (Electron's `workAreaSize`): the screen minus taskbars, docks and panels. */
+export interface WorkArea {
+  width: number
+  height: number
+}
+
+/** A window takes at most this share of the work area, so its frame and title bar stay on screen too. */
+const WORK_AREA_SHARE = 0.9
+
+/** `size` scaled down, keeping its aspect, to fit WORK_AREA_SHARE of the work area; never scaled up. */
+function fitWorkArea(size: WorkArea, workArea: WorkArea | undefined): WorkArea {
+  if (!workArea) return size
+  const factor = Math.min(1, (workArea.width * WORK_AREA_SHARE) / size.width, (workArea.height * WORK_AREA_SHARE) / size.height)
+  return { width: Math.round(size.width * factor), height: Math.round(size.height * factor) }
+}
+
+/**
+ * The BrowserWindow options for the game (CA-10): resolution × scale (inside
+ * the screen's work area when it is given), resizable, and the page cut off
+ * from Node.
+ */
+export function windowOptions(config: DesktopShellConfig, appDir: string, workArea?: WorkArea) {
   const { resolution, desktop } = config
   const size = resolution
     ? { width: Math.round(resolution.width * desktop.scale), height: Math.round(resolution.height * desktop.scale) }
     : FALLBACK_SIZE
   return {
-    ...size,
+    ...fitWorkArea(size, workArea),
     useContentSize: true,
     fullscreen: desktop.fullscreen,
     // macOS: Electron makes a window created with `fullscreen: false` non-fullscreenable unless this is set.

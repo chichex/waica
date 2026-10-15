@@ -1,10 +1,13 @@
 import path from 'node:path'
 import { readdir, readFile } from 'node:fs/promises'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { startShell } from './shell.js'
-import { appDir, cleanupShellDirs, fakeElectron, KEY, listener, started } from './test-shell.js'
+import { appDir, cleanupShellDirs, fakeElectron, gameEvent, KEY, listener, started } from './test-shell.js'
 
-afterEach(cleanupShellDirs)
+afterEach(async () => {
+  vi.useRealTimers()
+  await cleanupShellDirs()
+})
 
 describe('the shell main process (issue #200 CA-9, CA-10)', () => {
   it('registers app:// as privileged before the app is ready, then serves dist/ through it', async () => {
@@ -69,28 +72,49 @@ describe('the shell window (issue #200 CA-10)', () => {
 describe('the shell IPC (issue #200 CA-2, CA-3)', () => {
   it('answers the preload: quit, set and read fullscreen', async () => {
     const { ipc, calls, window } = await started()
-    listener(ipc, 'on:waica:quit')({})
+    listener(ipc, 'on:waica:quit')(gameEvent())
     expect(calls).toContainEqual(['app.quit'])
-    await listener(ipc, 'handle:waica:set-fullscreen')({}, true)
+    await listener(ipc, 'handle:waica:set-fullscreen')(gameEvent(), true)
     expect(window.fullscreen).toBe(true)
-    const event: { returnValue?: unknown } = {}
+    const event = gameEvent()
     listener(ipc, 'on:waica:is-fullscreen')(event)
     expect(event.returnValue).toBe(true)
-  })
-
-  it('resolves set-fullscreen only once a slow window reports it (macOS animates the change)', async () => {
-    const { ipc, window } = await started({ platform: 'darwin' })
-    const setFullScreen = window.setFullScreen.bind(window)
-    // A 1.5 s transition, as a macOS runner takes: the state flips only once the animation ends.
-    window.setFullScreen = (on) => void setTimeout(() => setFullScreen(on), 1500)
-    await listener(ipc, 'handle:waica:set-fullscreen')({}, true)
-    expect(window.isFullScreen()).toBe(true)
   })
 
   it('quits when the window closes, on every platform', async () => {
     const { ipc, calls } = await started({ platform: 'darwin' })
     listener(ipc, 'app:window-all-closed')()
     expect(calls).toContainEqual(['app.quit'])
+  })
+})
+
+describe('the shell settles set-fullscreen (issue #200 CA-3)', () => {
+  it('resolves set-fullscreen only once a slow window reports it (macOS animates the change)', async () => {
+    const { ipc, window } = await started({ platform: 'darwin' })
+    vi.useFakeTimers()
+    const setFullScreen = window.setFullScreen.bind(window)
+    // A 1.5 s transition, as a macOS runner takes: the state flips only once the animation ends.
+    window.setFullScreen = (on) => void setTimeout(() => setFullScreen(on), 1500)
+    let settled = false
+    const settling = Promise.resolve(listener(ipc, 'handle:waica:set-fullscreen')(gameEvent(), true)).then(() => (settled = true))
+    await vi.advanceTimersByTimeAsync(1400)
+    expect(settled).toBe(false)
+    await vi.advanceTimersByTimeAsync(200)
+    await settling
+    expect(window.isFullScreen()).toBe(true)
+  })
+
+  it('resolves set-fullscreen after 5 s when the window never reports the change', async () => {
+    const { ipc, window } = await started()
+    vi.useFakeTimers()
+    window.setFullScreen = () => {}
+    let settled = false
+    const settling = Promise.resolve(listener(ipc, 'handle:waica:set-fullscreen')(gameEvent(), true)).then(() => (settled = true))
+    await vi.advanceTimersByTimeAsync(4900)
+    expect(settled).toBe(false)
+    await vi.advanceTimersByTimeAsync(200)
+    await settling
+    expect(window.isFullScreen()).toBe(false)
   })
 })
 

@@ -1,6 +1,7 @@
 // Test support for the shell's main process, excluded from builds and never
-// staged: a fake Electron (app, protocol, ipcMain, BrowserWindow), a staged
-// app directory, and the renderer side of IPC wired to the fake main process.
+// staged: a fake Electron (app, protocol, ipcMain, BrowserWindow, Menu,
+// screen, shell), a staged app directory, and the renderer side of IPC wired
+// to the fake main process.
 import { mkdtemp, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -36,17 +37,29 @@ export async function appDir(config: DesktopShellConfig = CONFIG): Promise<strin
 }
 
 export type Listener = (...args: unknown[]) => unknown
-type WindowListener = (event: PreventableEvent, input: ShortcutInput) => void
+type WindowListener = (event: PreventableEvent & { url?: string }, input: ShortcutInput) => void
+type OpenHandler = (details: { url: string }) => { action: 'deny' }
+
+/** An IPC event as Electron hands it for a message from the game's own page. */
+export function gameEvent(): { returnValue: unknown; senderFrame: { url: string } } {
+  return { returnValue: undefined, senderFrame: { url: 'app://game/' } }
+}
 
 export class FakeWindow implements ShellWindow {
   static created: FakeWindow[] = []
   fullscreen = false
   menuRemoved = false
+  destroyed = false
   loaded: string[] = []
   readonly listeners = new Map<string, WindowListener>()
+  openHandler: OpenHandler | null = null
   readonly webContents = {
-    on: (event: string, listener: WindowListener) => {
-      this.listeners.set(`webContents:${event}`, listener)
+    // Every webContents event the shell listens to lands in one map; tests call each with the event it expects.
+    on: (event: string, listener: (...args: never[]) => void) => {
+      this.listeners.set(`webContents:${event}`, listener as WindowListener)
+    },
+    setWindowOpenHandler: (handler: OpenHandler) => {
+      this.openHandler = handler
     },
   }
   constructor(readonly options: Record<string, unknown>) {
@@ -60,7 +73,11 @@ export class FakeWindow implements ShellWindow {
     this.fullscreen = on
   }
   isFullScreen(): boolean {
+    if (this.destroyed) throw new TypeError('Object has been destroyed')
     return this.fullscreen
+  }
+  isDestroyed(): boolean {
+    return this.destroyed
   }
   removeMenu(): void {
     this.menuRemoved = true
@@ -70,7 +87,11 @@ export class FakeWindow implements ShellWindow {
   }
 }
 
-export function fakeElectron() {
+export interface FakeScreen {
+  workAreaSize: { width: number; height: number }
+}
+
+export function fakeElectron(screen: FakeScreen = { workAreaSize: { width: 1920, height: 1080 } }) {
   const calls: unknown[][] = []
   const ipc = new Map<string, Listener>()
   let ready: () => void = () => {}
@@ -91,9 +112,20 @@ export function fakeElectron() {
     },
     ipcMain: {
       on: (channel, listener) => ipc.set(`on:${channel}`, listener as Listener),
-      handle: (channel, listener) => ipc.set(`handle:${channel}`, listener),
+      handle: (channel, listener) => ipc.set(`handle:${channel}`, listener as Listener),
     },
     BrowserWindow: FakeWindow,
+    Menu: {
+      buildFromTemplate: (template) => ({ template }),
+      setApplicationMenu: (menu) => calls.push(['Menu.setApplicationMenu', menu]),
+    },
+    screen: { getPrimaryDisplay: () => screen },
+    shell: {
+      openExternal: (url) => {
+        calls.push(['shell.openExternal', url])
+        return Promise.resolve()
+      },
+    },
   }
   return { electron, calls, ipc, protocolHandlers, ready: () => ready() }
 }
@@ -108,14 +140,14 @@ export function listener<L>(map: Map<string, L>, key: string): L {
 export function rendererIpc(ipc: Map<string, Listener>): BridgeIpc {
   return {
     send: (channel, ...args) => {
-      listener(ipc, `on:${channel}`)({ returnValue: undefined }, ...args)
+      listener(ipc, `on:${channel}`)(gameEvent(), ...args)
     },
     sendSync: (channel, ...args) => {
-      const event: { returnValue?: unknown } = {}
+      const event = gameEvent()
       listener(ipc, `on:${channel}`)(event, ...args)
       return event.returnValue
     },
-    invoke: (channel, ...args) => Promise.resolve(listener(ipc, `handle:${channel}`)({}, ...args)),
+    invoke: (channel, ...args) => Promise.resolve(listener(ipc, `handle:${channel}`)(gameEvent(), ...args)),
   }
 }
 
@@ -123,11 +155,12 @@ export interface StartOptions {
   platform?: NodeJS.Platform
   config?: DesktopShellConfig
   loadSteamworks?: ShellHost['loadSteamworks']
+  screen?: FakeScreen
 }
 
 /** A started shell over the fake Electron: its window, IPC and warnings. */
 export async function started(options: StartOptions = {}) {
-  const fake = fakeElectron()
+  const fake = fakeElectron(options.screen)
   const dir = await appDir(options.config)
   const warnings: string[] = []
   const running = startShell(fake.electron, {

@@ -8,7 +8,8 @@ import path from 'node:path'
 import type { DesktopShellConfig, SteamSettings } from '../desktop-config.js'
 import { APP_ORIGIN, APP_SCHEME, APP_SCHEME_PRIVILEGES, resolveAppRequest } from './app-protocol.js'
 import { startSteam, type SteamBridge } from './steam.js'
-import { fullscreenShortcut, windowOptions, type ShortcutInput } from './window-options.js'
+import { keepOnGame, sentByGame, setGameMenu, type GuardedContents, type IpcEvent, type ShellMenu } from './window-guards.js'
+import { fullscreenShortcut, windowOptions, type ShortcutInput, type WorkArea } from './window-options.js'
 
 export interface PreventableEvent {
   preventDefault(): void
@@ -19,9 +20,11 @@ export interface ShellWindow {
   loadURL(url: string): Promise<void>
   setFullScreen(on: boolean): void
   isFullScreen(): boolean
+  /** True once the window closed: every other method throws then. */
+  isDestroyed(): boolean
   removeMenu(): void
   on(event: 'page-title-updated', listener: (event: PreventableEvent) => void): unknown
-  webContents: {
+  webContents: GuardedContents & {
     on(event: 'before-input-event', listener: (event: PreventableEvent, input: ShortcutInput) => void): unknown
   }
 }
@@ -38,10 +41,13 @@ export interface ShellElectron {
     handle(scheme: string, handler: (request: Request) => Promise<Response>): void
   }
   ipcMain: {
-    on(channel: string, listener: (event: { returnValue: unknown }, ...args: unknown[]) => void): unknown
-    handle(channel: string, listener: (event: unknown, ...args: unknown[]) => Promise<unknown>): void
+    on(channel: string, listener: (event: IpcEvent & { returnValue: unknown }, ...args: unknown[]) => void): unknown
+    handle(channel: string, listener: (event: IpcEvent, ...args: unknown[]) => Promise<unknown>): void
   }
   BrowserWindow: new (options: ReturnType<typeof windowOptions>) => ShellWindow
+  Menu: ShellMenu
+  screen: { getPrimaryDisplay(): { workAreaSize: WorkArea } }
+  shell: { openExternal(url: string): Promise<void> }
 }
 
 export interface ShellHost {
@@ -95,43 +101,59 @@ async function serveApp(dist: string, request: Request): Promise<Response> {
 /** How long a fullscreen change may take: macOS animates it, over more than a second on a slow machine. */
 const FULLSCREEN_SETTLE_MS = 5000
 
-/** Resolves once the window reached `on`, or after FULLSCREEN_SETTLE_MS if the platform never says so. */
+/**
+ * Resolves once the window reached `on`, or after FULLSCREEN_SETTLE_MS if the
+ * platform never says so, or as soon as the window is gone (a `quit()` right
+ * after the request, or the player closing it mid-animation).
+ */
 function settleFullscreen(window: ShellWindow, on: boolean): Promise<void> {
+  if (window.isDestroyed()) return Promise.resolve()
   window.setFullScreen(on)
   return new Promise((resolve) => {
     const started = Date.now()
     const poll = (): void => {
-      if (window.isFullScreen() === on || Date.now() - started > FULLSCREEN_SETTLE_MS) resolve()
+      if (window.isDestroyed() || window.isFullScreen() === on || Date.now() - started > FULLSCREEN_SETTLE_MS) resolve()
       else setTimeout(poll, 16)
     }
     poll()
   })
 }
 
-/** The preload's achievements (CA-18): availability is read once, synchronously, as the page loads. */
+/**
+ * The preload's achievements (CA-18): availability is read once,
+ * synchronously, as the page loads. Only the game's own page reaches Steam.
+ */
 function wireSteam(electron: ShellElectron, steam: SteamBridge): void {
   electron.ipcMain.on('waica:steam-available', (event) => {
-    event.returnValue = steam.available
+    event.returnValue = sentByGame(event) && steam.available
   })
-  electron.ipcMain.on('waica:achievement-unlock', (_event, id) => steam.unlock(id))
-  electron.ipcMain.on('waica:stat-set', (_event, id, value) => steam.setStat(id, value))
-  electron.ipcMain.handle('waica:stat-get', (_event, id) => Promise.resolve(steam.getStat(id)))
+  electron.ipcMain.on('waica:achievement-unlock', (event, id) => {
+    if (sentByGame(event)) steam.unlock(id)
+  })
+  electron.ipcMain.on('waica:stat-set', (event, id, value) => {
+    if (sentByGame(event)) steam.setStat(id, value)
+  })
+  electron.ipcMain.handle('waica:stat-get', (event, id) => Promise.resolve(sentByGame(event) ? steam.getStat(id) : undefined))
 }
 
 function wireWindow(electron: ShellElectron, window: ShellWindow, host: ShellHost): void {
-  // A shipped game has no File/Edit/View menu (and Alt would toggle one); macOS keeps its app menu for Cmd+Q.
-  if (host.platform !== 'darwin') window.removeMenu()
+  setGameMenu(electron.Menu, window, host.platform)
+  keepOnGame(window.webContents, (url) => electron.shell.openExternal(url), host.warn)
   window.on('page-title-updated', (event) => event.preventDefault())
   window.webContents.on('before-input-event', (event, input) => {
     if (!fullscreenShortcut(input)) return
     event.preventDefault()
     window.setFullScreen(!window.isFullScreen())
   })
-  electron.ipcMain.on('waica:quit', () => electron.app.quit())
-  electron.ipcMain.on('waica:is-fullscreen', (event) => {
-    event.returnValue = window.isFullScreen()
+  electron.ipcMain.on('waica:quit', (event) => {
+    if (sentByGame(event)) electron.app.quit()
   })
-  electron.ipcMain.handle('waica:set-fullscreen', (_event, on) => settleFullscreen(window, on === true))
+  electron.ipcMain.on('waica:is-fullscreen', (event) => {
+    event.returnValue = sentByGame(event) && !window.isDestroyed() && window.isFullScreen()
+  })
+  electron.ipcMain.handle('waica:set-fullscreen', (event, on) =>
+    sentByGame(event) ? settleFullscreen(window, on === true) : Promise.resolve(),
+  )
 }
 
 /**
@@ -148,7 +170,7 @@ export async function startShell(electron: ShellElectron, host: ShellHost): Prom
   const dist = path.join(host.appDir, 'dist')
   electron.protocol.handle(APP_SCHEME, (request) => serveApp(dist, request))
   electron.app.on('window-all-closed', () => electron.app.quit())
-  const window = new electron.BrowserWindow(windowOptions(config, host.appDir))
+  const window = new electron.BrowserWindow(windowOptions(config, host.appDir, electron.screen.getPrimaryDisplay().workAreaSize))
   wireWindow(electron, window, host)
   await window.loadURL(`${APP_ORIGIN}/`)
 }
