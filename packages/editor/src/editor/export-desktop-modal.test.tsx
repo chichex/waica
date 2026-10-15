@@ -2,14 +2,15 @@
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { SteamDeclaration } from './export-command'
 import { ExportDesktopModal } from './ExportDesktopModal'
 
 afterEach(cleanup)
 
-function renderModal(steamAppId: number | null = null) {
+function renderModal(steam: SteamDeclaration = null) {
   const user = userEvent.setup()
   const onClose = vi.fn<() => void>()
-  render(<ExportDesktopModal steamAppId={steamAppId} onClose={onClose} />, { reactStrictMode: true })
+  render(<ExportDesktopModal steam={steam} onClose={onClose} />, { reactStrictMode: true })
   return { user, onClose, dialog: screen.getByRole('dialog', { name: 'Export desktop' }) }
 }
 
@@ -42,7 +43,7 @@ describe('ExportDesktopModal builds the command (issue 200 CA-24)', () => {
 
 describe('ExportDesktopModal: Steam and the guide (issue 200 CA-24)', () => {
   it('offers Steam only when game.json declares it, on by default, and --no-steam when turned off', async () => {
-    const { user } = renderModal(480)
+    const { user } = renderModal({ appId: 480 })
     const steam = screen.getByRole('checkbox', { name: 'Include Steamworks (app 480)' })
     expect(steam).toHaveProperty('checked', true)
     expect(command()).toBe('npx @waica/cli export desktop .')
@@ -104,5 +105,26 @@ describe('ExportDesktopModal: the copy message follows the command (issue 200 CA
     expect(await screen.findByText('Copied')).toBeDefined()
     await user.click(screen.getByRole('checkbox', { name: 'macOS' }))
     expect(screen.queryByText('Copied')).toBeNull()
+  })
+})
+
+describe('ExportDesktopModal: Steam without an app id (review of PR 218)', () => {
+  it('still offers the toggle, says the id is missing, and --no-steam turns it off', async () => {
+    const { user } = renderModal({ appId: null })
+    const steam = screen.getByRole('checkbox', { name: /Include Steamworks \(no app id: set desktop\.steam\.appId in game\.json\)/ })
+    expect(steam).toHaveProperty('checked', true)
+    await user.click(steam)
+    expect(command()).toBe('npx @waica/cli export desktop . --no-steam')
+  })
+})
+
+describe('ExportDesktopModal: the focus (review of PR 218)', () => {
+  it('moves into the dialog as it opens, so Tab walks its controls and not the toolbar behind it', () => {
+    const opener = document.createElement('button')
+    document.body.append(opener)
+    opener.focus()
+    renderModal()
+    expect(document.activeElement).toBe(screen.getByRole('checkbox', { name: 'Linux' }))
+    opener.remove()
   })
 })

@@ -4,6 +4,7 @@ import { machineProps } from '../project/states'
 import { reportRejection } from '../report-rejection'
 import { AnimationEditor } from './AnimationEditor'
 import { createStateFile } from './code-file-commands'
+import { steamDeclaration } from './export-command'
 import { ExportDesktopModal } from './ExportDesktopModal'
 import type { EditorCore } from './editor-commits'
 import { useKnownClips } from './glb-clips'
@@ -34,17 +35,14 @@ export function EditorModals({ core }: { core: EditorCore }) {
         />
       )}
       {exportingDesktop && (
-        <ExportDesktopModal steamAppId={steamAppIdOf(core)} onClose={() => setExportingDesktop(false)} />
+        <ExportDesktopModal
+          steam={steamDeclaration(core.settings.gameSettings?.desktop)}
+          fs={core.fs}
+          onClose={() => setExportingDesktop(false)}
+        />
       )}
     </>
   )
-}
-
-/** game.json's `desktop.steam.appId`, or null when the project declares no Steam (issue 200 CA-24). */
-function steamAppIdOf(core: EditorCore): number | null {
-  const steam = core.settings.gameSettings?.desktop?.['steam']
-  if (typeof steam !== 'object' || steam === null || !('appId' in steam)) return null
-  return typeof steam.appId === 'number' ? steam.appId : null
 }
 
 /** The components of the prefab or scene entity a modal opened for. */

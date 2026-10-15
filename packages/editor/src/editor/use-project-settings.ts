@@ -120,7 +120,8 @@ function settingsWrites(fs: ProjectFS, schedule: Persistence['schedule'], state:
     },
     applyGameSettings: (next: GameSettings): void => {
       setGameSettings(next)
-      schedule('game', () => fs.writeText(GAME_PATH, serializeGameSettings(next)))
+      // Read when the write runs, not when the project opened: configure_desktop may have changed game.json since.
+      schedule('game', async () => fs.writeText(GAME_PATH, serializeGameSettings(next, await fs.readText(GAME_PATH))))
     },
     commitGrid: (grid: GridSettings): void => {
       const next = { ...(editorSettings ?? DEFAULT_EDITOR_SETTINGS), grid }
