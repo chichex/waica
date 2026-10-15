@@ -98,7 +98,10 @@ jobs:
   # Issue #200 CA-26: each OS exports a platformer and a third-person Project
   # for itself with `waica export desktop` and launches the packaged app
   # (scripts/runtime-e2e-desktop.mjs). Its checks are logical state, never
-  # pixels: a runner without a GPU can draw a blank frame (#151).
+  # pixels: a runner without a GPU can draw a blank frame (#151). `--steam`
+  # also exports with a real `npm install steamworks.js` and loads its native
+  # addon under the pinned Electron on each OS; Linux adds `--cross`, the
+  # Windows and macOS builds made from Linux (resedit, Info.plist).
   desktop:
     name: test:desktop (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -122,6 +125,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The cache key is the pinned Electron version alone: a release bump or
+      # another dependency of the CLI leaves the same zips valid.
+      - name: Read the pinned Electron version
+        id: electron
+        shell: bash
+        run: echo "version=$(node -p "require('./packages/cli/package.json').devDependencies.electron")" >> "$GITHUB_OUTPUT"
+
       # @electron/packager downloads each platform's Electron zip into
       # Electron's cache; the version is pinned in packages/cli/package.json.
       - name: Cache the Electron zips
@@ -131,7 +141,7 @@ jobs:
             ~/.cache/electron
             ~/Library/Caches/electron
             ~/AppData/Local/electron/Cache
-          key: electron-${{ runner.os }}-${{ hashFiles('packages/cli/package.json') }}
+          key: electron-${{ runner.os }}-${{ steps.electron.outputs.version }}
 
       # Linux has no display: Xvfb, with a window manager so the window can
       # go fullscreen (without one, X11 never grants it).
@@ -141,11 +151,11 @@ jobs:
 
       - name: Packaged desktop app smoke (Linux, under Xvfb)
         if: runner.os == 'Linux'
-        run: xvfb-run -a -s "-screen 0 1920x1080x24" bash -c 'openbox & pnpm test:desktop'
+        run: xvfb-run -a -s "-screen 0 1920x1080x24" bash -c 'openbox & pnpm test:desktop --cross --steam'
 
       - name: Packaged desktop app smoke
         if: runner.os != 'Linux'
-        run: pnpm test:desktop
+        run: pnpm test:desktop --steam
 
   verify:
     runs-on: ubuntu-latest
