@@ -52,6 +52,18 @@ A Run Session starts paused at frame 0, and — when the Project's `@waica/engin
 
 `stop_project` and MCP transport close both clean all browser and dev-process resources owned by the server. A reload reconnects to a fresh paused Game; failures terminate and clean the session.
 
+## Desktop export
+
+`waica export desktop` packages a Project as an Electron app, one folder and one `.zip` per platform, ready for Steam, itch.io or Epic:
+
+```sh
+cd my-game && npm install
+npx @waica/cli export desktop .                       # linux, win32 and darwin
+npx @waica/cli export desktop . --platform linux,win32
+```
+
+It runs the Project's own `vite build` and writes `export/<name>-linux-x64/`, `<name>-win32-x64/` and `<name>-darwin-arm64/`, each with its `.zip`, into the Project (or `--out <dir>`). Re-exporting one platform replaces only that platform's folder and zip. The app's name and version come from the Project's `package.json` (`--name` overrides the name), its icon is `--icon <png>`, else `src/art/icon.png`, else waica's own. The window opens at `game.json`'s `resolution` times `desktop.scale` (2 by default), `desktop.fullscreen` opens it fullscreen, and F11 or Alt+Enter toggles it. The game reaches the app through `game.quit()`, `game.canQuit`, `game.setFullscreen()` and `game.isFullscreen()` (see the engine README). Builds are unsigned: see [the signing and store guide](https://github.com/chichex/waica/blob/main/docs/desktop-export.md). The first export of each platform downloads that platform's Electron zip into Electron's cache.
+
 ## Editor options
 
 | Flag | What it does |
@@ -61,7 +73,7 @@ A Run Session starts paused at frame 0, and — when the Project's `@waica/engin
 | `--version` | Print the version. |
 | `--help` | Show help. |
 
-The only positional argument is `mcp`.
+The only commands are `mcp` and `export desktop`.
 
 ## Editor behavior
 
@@ -70,4 +82,4 @@ The only positional argument is `mcp`.
 
 ## What's in the box
 
-The published CLI contains the pre-built editor (`dist/editor`), its static server, the built MCP server (`dist/mcp`) and vendored published-shape copies of `@waica/engine`, `@waica/behaviors`, `@waica/archetype-platformer`, `@waica/archetype-topdown`, `@waica/archetype-isometric` and `@waica/archetype-third-person`. Normal package installation supplies `@modelcontextprotocol/sdk`, `playwright-core`, `three` and their transitive dependencies. No browser binary is bundled and nothing phones home.
+The published CLI contains the pre-built editor (`dist/editor`), its static server, the desktop export with its Electron shell (`dist/export-desktop`) and default icon (`assets/`), the built MCP server (`dist/mcp`) and vendored published-shape copies of `@waica/engine`, `@waica/behaviors`, `@waica/archetype-platformer`, `@waica/archetype-topdown`, `@waica/archetype-isometric` and `@waica/archetype-third-person`. Normal package installation supplies `@modelcontextprotocol/sdk`, `playwright-core`, `three`, `@electron/packager`, `png2icons`, `yazl` and their transitive dependencies. No browser binary is bundled and nothing phones home.
