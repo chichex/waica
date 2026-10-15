@@ -168,8 +168,6 @@ export class Game {
   readonly post = new GamePost()
   /** The live 3D scene's Rapier world and bodies (ADR 0028); package-internal, read by the physics components and the Runtime Snapshot. */
   readonly physics: PhysicsHost
-  /** Store achievements and stats (ADR 0032): unavailable on the web, where every call is a no-op. */
-  readonly achievements: PlatformAchievements
   /** Registry retained by loadScene for runtime prefab spawning. */
   registry: SceneRegistry | null = null
   paramOverrides: ParamOverrides = {}
@@ -274,7 +272,6 @@ export class Game {
     this.spriteBatches = createSpriteBatches(this, this.assets)
     this.physics = new PhysicsHost(this, options.physics)
     this.platform = options.platform ?? defaultPlatformBackend()
-    this.achievements = this.platform.achievements
     this.cameraEffects = new CameraEffects({
       host: () => canvas.parentElement ?? document.body,
       // One screen pixel in world units: the shake snaps to it (never the base).
@@ -327,6 +324,11 @@ export class Game {
     return this.platform.canQuit
   }
 
+  /** Store achievements and stats (ADR 0032): unavailable on the web, where every call is a no-op. */
+  get achievements(): PlatformAchievements {
+    return this.platform.achievements
+  }
+
   /** Closes the desktop app; on the web, where a page cannot close itself, it does nothing. */
   quit(): void {
     this.platform.quit()
@@ -337,6 +339,11 @@ export class Game {
     return this.platform.setFullscreen(on)
   }
 
+  /**
+   * Whether the game is fullscreen now. In the desktop shell it asks the main
+   * process synchronously: read it on a key press or when a menu opens, not
+   * every frame.
+   */
   isFullscreen(): boolean {
     return this.platform.isFullscreen()
   }
