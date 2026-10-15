@@ -8,6 +8,7 @@ import {
   type CallToolResult,
   type Tool,
 } from '@modelcontextprotocol/sdk/types.js'
+import { configureDesktop, CONFIGURE_DESKTOP_TOOL } from './configure-desktop.js'
 import { createProject } from './create-project.js'
 import {
   DEFAULT_ARCHETYPE_ID,
@@ -43,23 +44,7 @@ import { ProjectComponentLoader } from './project-component-loader.js'
 import { validateProject } from './validation.js'
 import { validateRuntimeArguments } from './runtime-arguments.js'
 import { objectRecord } from './component-metadata.js'
-
-const PROJECT_PATH = {
-  type: 'string',
-  description: 'Absolute path to the user game project.',
-} as const
-
-function schema(
-  properties: Record<string, object>,
-  required: string[] = [],
-): Tool['inputSchema'] {
-  return {
-    type: 'object',
-    properties: { project_path: PROJECT_PATH, ...properties },
-    required: ['project_path', ...required],
-    additionalProperties: false,
-  }
-}
+import { PROJECT_PATH, schema } from './tool-schema.js'
 
 /** A `oneOf` branch's `not` clause: the operation rejects each named field (read by runtime-arguments.ts). */
 function forbidding(...fields: string[]): { not: { anyOf: { required: string[] }[] } } {
@@ -176,6 +161,7 @@ export const TOOLS: Tool[] = [
     inputSchema: schema({ name: { type: 'string', minLength: 1 } }, ['name']),
     annotations: { destructiveHint: false, idempotentHint: true, openWorldHint: false },
   },
+  CONFIGURE_DESKTOP_TOOL,
   {
     name: 'start_project',
     description: 'Start or reuse a browser-backed Run Session for a trusted Waica Project.',
@@ -391,6 +377,8 @@ async function executeProjectTool(
         signal: context.signal,
         componentLoader: context.componentLoader,
       })
+    case 'configure_desktop':
+      return configureDesktop(projectPath, args)
     default:
       return executeScaffoldTool(name, args, projectPath)
   }
