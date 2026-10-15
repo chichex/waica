@@ -4,6 +4,7 @@ exports[`projectFiles > matches the golden output for a topdown blank start 1`] 
 {
   ".gitignore": "node_modules/
 dist/
+export/
 .vite/
 *.local
 .DS_Store
@@ -340,6 +341,7 @@ exports[`projectFiles > matches the golden output for a topdown demo start 1`] =
 {
   ".gitignore": "node_modules/
 dist/
+export/
 .vite/
 *.local
 .DS_Store
@@ -1667,6 +1669,7 @@ exports[`projectFiles > matches the golden output for an isometric blank start 1
 {
   ".gitignore": "node_modules/
 dist/
+export/
 .vite/
 *.local
 .DS_Store
@@ -2020,6 +2023,7 @@ exports[`projectFiles > matches the golden output for an isometric demo start 1`
 {
   ".gitignore": "node_modules/
 dist/
+export/
 .vite/
 *.local
 .DS_Store
@@ -4895,6 +4899,7 @@ exports[`projectFiles > matches the pre-refactor golden output for a blank start
 {
   ".gitignore": "node_modules/
 dist/
+export/
 .vite/
 *.local
 .DS_Store
@@ -5217,6 +5222,7 @@ exports[`projectFiles > matches the pre-refactor golden output for a demo start 
 {
   ".gitignore": "node_modules/
 dist/
+export/
 .vite/
 *.local
 .DS_Store

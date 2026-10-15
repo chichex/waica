@@ -1,5 +1,6 @@
 node_modules/
 dist/
+export/
 .vite/
 *.local
 .DS_Store
