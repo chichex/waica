@@ -38,9 +38,26 @@ describe('the preload bridge (issue #200 CA-2, CA-3, CA-8)', () => {
     await expect(api.setFullscreen(true)).resolves.toBeUndefined()
     expect(api.isFullscreen()).toBe(true)
     expect(sent).toEqual([
+      // Steam availability is asked once, as the bridge is built (CA-18).
+      ['sendSync', 'waica:steam-available'],
       ['send', 'waica:quit'],
       ['invoke', 'waica:set-fullscreen', true],
       ['sendSync', 'waica:is-fullscreen'],
+    ])
+  })
+
+  it('sends achievements by id and reads a stat back as a number or undefined', async () => {
+    const { ipc, sent } = fakeIpc({ 'waica:steam-available': true, 'waica:stat-get': 3 })
+    const api = createDesktopApi(ipc)
+    expect(api.achievements.available).toBe(true)
+    api.achievements.unlock('first-kill')
+    api.achievements.setStat('kills', 3)
+    await expect(api.achievements.getStat('kills')).resolves.toBe(3)
+    await expect(createDesktopApi(fakeIpc({ 'waica:stat-get': null }).ipc).achievements.getStat('kills')).resolves.toBeUndefined()
+    expect(sent.slice(1)).toEqual([
+      ['send', 'waica:achievement-unlock', 'first-kill'],
+      ['send', 'waica:stat-set', 'kills', 3],
+      ['invoke', 'waica:stat-get', 'kills'],
     ])
   })
 
@@ -54,6 +71,6 @@ describe('the preload bridge (issue #200 CA-2, CA-3, CA-8)', () => {
     expect(Object.keys(exposed)).toEqual(['waicaDesktop'])
     const api = exposed['waicaDesktop'] as ReturnType<typeof createDesktopApi>
     api.quit()
-    expect(sent).toEqual([['send', 'waica:quit']])
+    expect(sent).toEqual([['sendSync', 'waica:steam-available'], ['send', 'waica:quit']])
   })
 })
