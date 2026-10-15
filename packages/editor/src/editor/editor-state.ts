@@ -34,6 +34,8 @@ export interface EditorModals {
   stateTarget: State<StateTarget | null>
   /** New-character flow: the role picker modal is open. */
   rolePicking: State<boolean>
+  /** The Export desktop modal is open (issue #200). */
+  exportingDesktop: State<boolean>
 }
 
 /** How the stage renders: what shows, and the brush a tilemap paints with. */
@@ -79,6 +81,7 @@ export function useEditorState(fs: ProjectFS): EditorState {
     animTarget: useState<AnimTarget | null>(null),
     stateTarget: useState<StateTarget | null>(null),
     rolePicking: useState(false),
+    exportingDesktop: useState(false),
   }
   const stage = useStageOptions()
   const preview = useSoundPreview()
