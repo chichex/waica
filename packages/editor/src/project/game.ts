@@ -26,6 +26,12 @@ export interface GameSettings {
    * size", the camera's pixel readout) — the engine never sees it.
    */
   pixelsPerUnit: number
+  /**
+   * The desktop export's block (issue #200), kept as written: the editor
+   * does not edit it (the MCP's configure_desktop does), it reads it for the
+   * export modal and writes it back unchanged.
+   */
+  desktop?: Record<string, unknown>
 }
 
 export interface GameSettingsJson extends GameSettings {
@@ -56,6 +62,7 @@ export function parseGameSettings(text: string | null): GameSettings {
   if (typeof res.height === 'number' && res.height > 0) settings.resolution.height = res.height
   const ppu = json.pixelsPerUnit
   if (typeof ppu === 'number' && isFinite(ppu) && ppu > 0) settings.pixelsPerUnit = ppu
+  if (isJsonObject(json.desktop)) settings.desktop = json.desktop
   return settings
 }
 
