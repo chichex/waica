@@ -72,3 +72,38 @@ describe('validate_project warns about undeclared achievement ids (issue #200 CA
     expect(await desktopFindings({ ...game({ steam: STEAM }), 'src/components/score.ts': declared })).toEqual([])
   })
 })
+
+describe('validate_project reads null as absent, as waica export desktop does (review of #217)', () => {
+  it.each([[null], [{ steam: null }], [{ fullscreen: null, scale: null }], [{ steam: { appId: null, achievements: ['a'] } }]])(
+    'reports nothing for %j',
+    async (desktop) => {
+      expect(await desktopFindings(game(desktop))).toEqual([])
+    },
+  )
+})
+
+describe('unknown-achievement-id without noise (review of #217)', () => {
+  it('reports an id once per file and method, however many calls repeat it', async () => {
+    const code = "game.achievements.unlock('speedrun')\ngame.achievements.unlock('speedrun')\ngame.achievements.unlock('speedrun')"
+    const findings = await desktopFindings({ ...game({ steam: STEAM }), 'src/components/score.ts': code })
+    expect(findings.map(({ ref }) => ref)).toEqual(['speedrun'])
+  })
+
+  it('skips calls inside comments, and still finds one after a string that holds //', async () => {
+    const code = [
+      "// TODO: game.achievements.unlock('secret')",
+      "/* game.achievements.setStat('old', 1) */",
+      "const store = 'https://store.example'; game.achievements.unlock('real')",
+    ].join('\n')
+    const findings = await desktopFindings({ ...game({ steam: STEAM }), 'src/components/score.ts': code })
+    expect(findings.map(({ ref }) => ref)).toEqual(['real'])
+  })
+
+  it('adds no id warnings on top of a broken game.json or desktop block', async () => {
+    const code = "game.achievements.unlock('speedrun')"
+    expect((await desktopFindings({ ...game({ steam: 'on' }), 'src/components/score.ts': code })).map(({ code: c }) => c)).toEqual([
+      'invalid-desktop-config',
+    ])
+    expect(await desktopFindings({ 'src/game.json': '{ not json', 'src/components/score.ts': code })).toEqual([])
+  })
+})

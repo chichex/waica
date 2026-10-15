@@ -27,24 +27,23 @@ export const CONFIGURE_DESKTOP_TOOL: Tool = {
       description: 'Steamworks: merged into desktop.steam (lists replace the old ones); null removes it.',
     },
   }),
-  annotations: { destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  // Destructive: it overwrites values in an existing game.json, replaces whole lists and steam: null deletes.
+  annotations: { destructiveHint: true, idempotentHint: true, openWorldHint: false },
 }
 
-const FIELDS = ['fullscreen', 'scale', 'steam'] as const
+/** The top-level settings a merge simply overwrites; `steam` merges field by field. */
+const VALUE_FIELDS = ['fullscreen', 'scale'] as const
+const FIELDS = new Set<string>([...VALUE_FIELDS, 'steam'])
 const STEAM_FIELDS = new Set(['appId', 'achievements', 'stats'])
 
+/** Every field is under `desktop.`: the merge always yields an object, so the block itself is never the bad one. */
 function invalid(projectPath: string, field: string, message: string): WaicaToolError {
-  return new WaicaToolError({
-    code: 'invalid-desktop-config',
-    message: field === '' ? `desktop ${message}` : `desktop.${field} ${message}`,
-    projectPath,
-    field,
-  })
+  return new WaicaToolError({ code: 'invalid-desktop-config', message: `desktop.${field} ${message}`, projectPath, field })
 }
 
 /** Unknown arguments are refused by name, as the schema's additionalProperties says. */
 function checkArgumentNames(args: Record<string, unknown>, projectPath: string): void {
-  const unknown = Object.keys(args).find((key) => key !== 'project_path' && !(FIELDS as readonly string[]).includes(key))
+  const unknown = Object.keys(args).find((key) => key !== 'project_path' && !FIELDS.has(key))
   if (unknown) throw invalid(projectPath, unknown, 'is not a desktop setting')
   const { steam } = args
   if (steam !== undefined && steam !== null && !isJsonObject(steam)) {
@@ -57,7 +56,7 @@ function checkArgumentNames(args: Record<string, unknown>, projectPath: string):
 /** The block after the merge: given fields win, lists replace, `steam: null` drops steam. */
 function mergedDesktop(current: unknown, args: Record<string, unknown>): Record<string, unknown> {
   const desktop: Record<string, unknown> = isJsonObject(current) ? { ...current } : {}
-  for (const field of ['fullscreen', 'scale'] as const) {
+  for (const field of VALUE_FIELDS) {
     if (args[field] !== undefined) desktop[field] = args[field]
   }
   const { steam } = args
@@ -72,6 +71,14 @@ async function readGame(projectPath: string): Promise<Record<string, unknown>> {
   try {
     parsed = JSON.parse(await readFile(file, 'utf8'))
   } catch (error) {
+    // A Project marked only by its main scene has no game.json: missing, not invalid.
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new WaicaToolError({
+        code: 'missing-game-json',
+        message: 'src/game.json does not exist: configure_desktop edits the desktop block of an existing game.json.',
+        projectPath,
+      })
+    }
     throw new WaicaToolError({ code: 'invalid-game-json', message: `Cannot read src/game.json: ${(error as Error).message}`, projectPath })
   }
   if (!isJsonObject(parsed)) {

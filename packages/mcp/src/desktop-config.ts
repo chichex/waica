@@ -1,5 +1,7 @@
 // game.json's `desktop` block (issue #200): what `waica export desktop`
-// reads. configure_desktop and validate_project hold it to the same rules.
+// reads. configure_desktop and validate_project hold it to the same rules,
+// and like the exporter they read `null` as absent for the block, its
+// fields and steam.appId.
 
 /** One rule a desktop block breaks: the field under `desktop.` and what it must be. */
 export interface DesktopIssue {
@@ -22,12 +24,16 @@ function idListIssues(value: unknown, field: string): DesktopIssue[] {
   return repeated === undefined ? [] : [{ field, message: `lists "${repeated}" more than once` }]
 }
 
+function absent(value: unknown): value is null | undefined {
+  return value === undefined || value === null
+}
+
 function steamIssues(steam: unknown): DesktopIssue[] {
-  if (steam === undefined) return []
+  if (absent(steam)) return []
   if (!isJsonObject(steam)) return [{ field: 'steam', message: 'must be an object with appId, achievements and stats' }]
   const { appId } = steam
   const appIdIssues =
-    appId === undefined || (typeof appId === 'number' && Number.isSafeInteger(appId) && appId > 0)
+    absent(appId) || (typeof appId === 'number' && Number.isSafeInteger(appId) && appId > 0)
       ? []
       : [{ field: 'steam.appId', message: 'must be a positive integer' }]
   return [...appIdIssues, ...idListIssues(steam['achievements'], 'steam.achievements'), ...idListIssues(steam['stats'], 'steam.stats')]
@@ -35,13 +41,14 @@ function steamIssues(steam: unknown): DesktopIssue[] {
 
 /** Every rule `desktop` breaks, in field order; none for a valid block. */
 export function desktopIssues(desktop: unknown): DesktopIssue[] {
+  if (absent(desktop)) return []
   if (!isJsonObject(desktop)) return [{ field: '', message: 'must be an object' }]
   const issues: DesktopIssue[] = []
-  if (desktop['fullscreen'] !== undefined && typeof desktop['fullscreen'] !== 'boolean') {
+  if (!absent(desktop['fullscreen']) && typeof desktop['fullscreen'] !== 'boolean') {
     issues.push({ field: 'fullscreen', message: 'must be true or false' })
   }
   const { scale } = desktop
-  if (scale !== undefined && !(typeof scale === 'number' && Number.isFinite(scale) && scale > 0)) {
+  if (!absent(scale) && !(typeof scale === 'number' && Number.isFinite(scale) && scale > 0)) {
     issues.push({ field: 'scale', message: 'must be a number above 0' })
   }
   return [...issues, ...steamIssues(desktop['steam'])]

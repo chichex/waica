@@ -193,7 +193,7 @@ export async function validateProject(
     ...(await uiBindingFindings(projectPath, uiFiles, context.declaredStats, context.anchoredPieces)),
   )
   validateParamsFile(fixed.get(PARAMS_FILE), context)
-  findings.push(...(await desktopFindings(projectPath, fixed.get('src/game.json'))))
+  findings.push(...(await desktopFindings(projectPath, fixed.get('src/game.json'), options.signal)))
   await validateGltfResources(projectPath, context)
   return validationReport(findings, sources, check.notes)
 }
