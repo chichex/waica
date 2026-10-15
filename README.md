@@ -69,4 +69,4 @@ The engine, behaviors and archetype libraries are published to npm together with
 claude mcp add waica -- npx -y @waica/cli mcp
 ```
 
-See [`packages/mcp/README.md`](./packages/mcp/README.md) for all 15 tools, the absolute `project_path` contract, runtime trust boundary, system Chrome prerequisite, deterministic pause/step semantics, cleanup guarantees, editor-coexistence guidance, and how to run a generated Project against the workspace.
+See [`packages/mcp/README.md`](./packages/mcp/README.md) for all 16 tools, the absolute `project_path` contract, runtime trust boundary, system Chrome prerequisite, deterministic pause/step semantics, cleanup guarantees, editor-coexistence guidance, and how to run a generated Project against the workspace.

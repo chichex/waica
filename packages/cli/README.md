@@ -32,6 +32,7 @@ claude mcp add waica -- npx -y @waica/cli mcp
 | `scaffold_role` | Create a custom role starter. |
 | `scaffold_state` | Create state code for a role. |
 | `scaffold_ui` | Create an HTML UI-piece starter. |
+| `configure_desktop` | Merge settings into `src/game.json`'s `desktop` block, which `waica export desktop` reads. |
 | `start_project` | Start or reuse a browser-backed Run Session at a paused frame-zero baseline. |
 | `stop_project` | Stop a Run Session and clean its browser, process group and port. |
 | `inspect_runtime` | Read a filtered live Runtime Snapshot. |
@@ -44,7 +45,7 @@ See the [MCP README](https://github.com/chichex/waica/blob/main/packages/mcp/REA
 
 ### Runtime prerequisites and security
 
-Runtime tools support macOS and Linux; `start_project` rejects Windows while the ten static/scaffold tools remain available. They require already installed Project dependencies, the Project's declared npm/pnpm/Yarn/Bun executable and a compatible system Google Chrome or Chromium. This package depends on `playwright-core`, which does not download or bundle a browser.
+Runtime tools support macOS and Linux; `start_project` rejects Windows while the eleven static, scaffold and configuration tools remain available. They require already installed Project dependencies, the Project's declared npm/pnpm/Yarn/Bun executable and a compatible system Google Chrome or Chromium. This package depends on `playwright-core`, which does not download or bundle a browser.
 
 `start_project` executes trusted Project code and its declared `scripts.dev` with normal local user permissions. It is **not a sandbox**. It never installs dependencies, mutates lockfiles or accepts an arbitrary shell command.
 
