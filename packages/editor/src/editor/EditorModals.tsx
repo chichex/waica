@@ -4,6 +4,7 @@ import { machineProps } from '../project/states'
 import { reportRejection } from '../report-rejection'
 import { AnimationEditor } from './AnimationEditor'
 import { createStateFile } from './code-file-commands'
+import { ExportDesktopModal } from './ExportDesktopModal'
 import type { EditorCore } from './editor-commits'
 import { useKnownClips } from './glb-clips'
 import type { AnimTarget } from './Inspector'
@@ -11,11 +12,12 @@ import { saveAnimationClips, saveStateMachinePatch } from './modal-commands'
 import { spawnPrefab, suggestedIdentity } from './prefab-commands'
 import { RolePickerModal, StateEditorModal, type StateTarget } from './StateMachinePanel'
 
-/** The editor's modals: the clip editor, the state editor and the new-character role picker. */
+/** The editor's modals: the clip editor, the state editor, the new-character role picker and the desktop export. */
 export function EditorModals({ core }: { core: EditorCore }) {
   const [animTarget] = core.modals.animTarget
   const [stateTarget] = core.modals.stateTarget
   const [rolePicking, setRolePicking] = core.modals.rolePicking
+  const [exportingDesktop, setExportingDesktop] = core.modals.exportingDesktop
   const [prefabLib] = core.library.prefabLib
   return (
     <>
@@ -31,8 +33,18 @@ export function EditorModals({ core }: { core: EditorCore }) {
           onCancel={() => setRolePicking(false)}
         />
       )}
+      {exportingDesktop && (
+        <ExportDesktopModal steamAppId={steamAppIdOf(core)} onClose={() => setExportingDesktop(false)} />
+      )}
     </>
   )
+}
+
+/** game.json's `desktop.steam.appId`, or null when the project declares no Steam (issue 200 CA-24). */
+function steamAppIdOf(core: EditorCore): number | null {
+  const steam = core.settings.gameSettings?.desktop?.['steam']
+  if (typeof steam !== 'object' || steam === null || !('appId' in steam)) return null
+  return typeof steam.appId === 'number' ? steam.appId : null
 }
 
 /** The components of the prefab or scene entity a modal opened for. */
