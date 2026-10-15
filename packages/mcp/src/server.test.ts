@@ -21,6 +21,7 @@ const STATIC_TOOL_NAMES = [
   'scaffold_role',
   'scaffold_state',
   'scaffold_ui',
+  'configure_desktop',
 ]
 
 const RUNTIME_TOOL_NAMES = [
@@ -46,6 +47,7 @@ function argumentsFor(name: string, projectPath: string): Record<string, unknown
     scaffold_role: { role: 'guard' },
     scaffold_state: { role: 'player', state: 'dash' },
     scaffold_ui: { name: 'score' },
+    configure_desktop: { scale: 2 },
   }
   return { project_path: projectPath, ...specific[name] }
 }
@@ -129,7 +131,7 @@ describe('MCP server', () => {
     }
   })
 
-  it('registers exactly the fifteen tools with strict schemas and runtime annotations', async () => {
+  it('registers exactly the sixteen tools with strict schemas and runtime annotations', async () => {
     const pair = await connectedPair()
     try {
       const listed = await pair.client.listTools()
