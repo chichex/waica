@@ -235,6 +235,37 @@ async function smokeProject(context, spec) {
   const { app } = await launchExport(context, spec)
   return withWindow(app, async (page) => {
     const plays = await assertPlays(page, spec)
+    if (process.platform === 'darwin') {
+      const diag = await app.evaluate(async ({ app: electronApp, BrowserWindow }) => {
+        const w = BrowserWindow.getAllWindows()[0]
+        const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+        const state = () => ({ fs: w.isFullScreen(), simple: w.isSimpleFullScreen(), focused: w.isFocused(), visible: w.isVisible(), fsable: w.isFullScreenable(), normal: w.isNormal(), bounds: w.getBounds() })
+        const out = { start: state() }
+        w.setFullScreen(true)
+        await wait(3000)
+        out.plain = state()
+        w.setFullScreen(false)
+        await wait(1500)
+        electronApp.focus({ steal: true })
+        w.show()
+        w.focus()
+        await wait(500)
+        out.focusedBefore = state()
+        w.setFullScreen(true)
+        await wait(3000)
+        out.afterFocus = state()
+        w.setFullScreen(false)
+        await wait(1500)
+        w.setSimpleFullScreen(true)
+        await wait(1000)
+        out.simple = state()
+        w.setSimpleFullScreen(false)
+        await wait(500)
+        out.end = state()
+        return out
+      })
+      console.log('[DEBUG-fs]', JSON.stringify(diag))
+    }
     const platform = await assertPlatform(page)
     return { archetype: spec.archetype, ...plays, ...platform, quit: await assertQuits(app, page) }
   })
