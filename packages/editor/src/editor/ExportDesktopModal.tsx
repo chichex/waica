@@ -1,6 +1,16 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState, type RefObject } from 'react'
+import type { ProjectFS } from '../fs/project-fs'
+import { readJsonObject } from '../json-object'
+import { GAME_PATH } from '../project/game'
 import { reportRejection } from '../report-rejection'
-import { DESKTOP_GUIDE, EXPORT_PLATFORMS, exportCommand, type ExportPlatformId } from './export-command'
+import {
+  DESKTOP_GUIDE,
+  EXPORT_PLATFORMS,
+  exportCommand,
+  steamDeclaration,
+  type ExportPlatformId,
+  type SteamDeclaration,
+} from './export-command'
 import { ModalBackdrop } from './ModalBackdrop'
 import { useEscapeKey } from './use-escape-key'
 
@@ -12,18 +22,45 @@ const COPY_MESSAGES: Record<CopyState, string> = {
   failed: "Couldn't copy: select the command and press Ctrl+C",
 }
 
-/** Gives the focus back to whatever had it when the modal opened (the toolbar button) once it closes. */
-function useReturnFocus(): void {
+/**
+ * Moves the focus to the dialog's first control as it opens (a keyboard user
+ * lands inside, not on the toolbar behind the backdrop) and gives it back to
+ * whatever had it (the toolbar button) once it closes.
+ */
+function useModalFocus(dialog: RefObject<HTMLDivElement | null>): void {
   useEffect(() => {
     const opener = document.activeElement
+    dialog.current?.querySelector('input')?.focus()
     return () => {
       if (opener instanceof HTMLElement) opener.focus()
     }
-  }, [])
+  }, [dialog])
+}
+
+/**
+ * game.json's Steam as it is on disk when the modal opens: configure_desktop
+ * may have changed it since the editor read the project. `remembered` stands
+ * in until the file is read, and when it cannot be.
+ */
+function useSteamOnDisk(remembered: SteamDeclaration, fs: Pick<ProjectFS, 'readText'> | undefined): SteamDeclaration {
+  const [onDisk, setOnDisk] = useState<{ steam: SteamDeclaration } | null>(null)
+  useEffect(() => {
+    if (!fs) return
+    let open = true
+    const read = fs.readText(GAME_PATH).then((text) => {
+      const game = text === null ? null : readJsonObject(text)
+      if (open && game) setOnDisk({ steam: steamDeclaration(game.desktop) })
+    })
+    reportRejection(read, 'read src/game.json for the desktop export')
+    return () => {
+      open = false
+    }
+  }, [fs])
+  return onDisk ? onDisk.steam : remembered
 }
 
 /** The platforms and the Steam switch the user picked, and the command they make. */
-function useExportChoice(steamAppId: number | null) {
+function useExportChoice(steam: SteamDeclaration) {
   const [platforms, setPlatforms] = useState<ReadonlySet<ExportPlatformId>>(() => new Set(EXPORT_PLATFORMS.map(({ id }) => id)))
   const [steamOn, setSteamOn] = useState(true)
   const togglePlatform = (id: ExportPlatformId): void => {
@@ -31,7 +68,7 @@ function useExportChoice(steamAppId: number | null) {
     if (!next.delete(id)) next.add(id)
     setPlatforms(next)
   }
-  const command = exportCommand({ platforms, steam: steamAppId === null ? null : steamOn })
+  const command = exportCommand({ platforms, steam: steam === null ? null : steamOn })
   return { platforms, steamOn, command, togglePlatform, toggleSteam: () => setSteamOn(!steamOn) }
 }
 
@@ -49,13 +86,13 @@ function PlatformChecks({ platforms, onToggle }: { platforms: ReadonlySet<Export
   )
 }
 
-function SteamCheck({ appId, on, onToggle }: { appId: number; on: boolean; onToggle: () => void }) {
+function SteamCheck({ appId, on, onToggle }: { appId: number | null; on: boolean; onToggle: () => void }) {
   return (
     <fieldset className="ed-export-row">
       <legend>Steam</legend>
       <label className="ed-export-check">
         <input type="checkbox" checked={on} onChange={onToggle} />
-        Include Steamworks (app {appId})
+        {appId === null ? 'Include Steamworks (no app id: set desktop.steam.appId in game.json)' : `Include Steamworks (app ${appId})`}
       </label>
     </fieldset>
   )
@@ -91,19 +128,28 @@ function CommandField({ command }: { command: string | null }) {
   )
 }
 
+interface ExportDesktopModalProps {
+  /** game.json's Steam as the editor read it; null without a `desktop.steam` block. */
+  steam: SteamDeclaration
+  /** The project, to re-read game.json as the modal opens; without it `steam` is the answer. */
+  fs?: Pick<ProjectFS, 'readText'>
+  onClose: () => void
+}
+
 /**
  * Builds the `waica export desktop` command for the project (issue 200
  * CA-24, CA-25): it runs nothing, it only hands the command to the clipboard.
- * `steamAppId` is game.json's `desktop.steam.appId`, null without Steam.
  */
-export function ExportDesktopModal({ steamAppId, onClose }: { steamAppId: number | null; onClose: () => void }) {
-  const choice = useExportChoice(steamAppId)
+export function ExportDesktopModal({ steam: remembered, fs, onClose }: ExportDesktopModalProps) {
+  const steam = useSteamOnDisk(remembered, fs)
+  const choice = useExportChoice(steam)
   const titleId = useId()
+  const dialog = useRef<HTMLDivElement>(null)
   useEscapeKey(onClose)
-  useReturnFocus()
+  useModalFocus(dialog)
   return (
     <ModalBackdrop onDismiss={onClose}>
-      <div className="ed-modal ed-modal-export" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <div ref={dialog} className="ed-modal ed-modal-export" role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <header className="ed-modal-head">
           <span id={titleId}>Export desktop</span>
           <button className="ed-mini" aria-label="Close export desktop" onClick={onClose}>
@@ -112,7 +158,7 @@ export function ExportDesktopModal({ steamAppId, onClose }: { steamAppId: number
         </header>
         <div className="ed-modal-body ed-export-body">
           <PlatformChecks platforms={choice.platforms} onToggle={choice.togglePlatform} />
-          {steamAppId !== null && <SteamCheck appId={steamAppId} on={choice.steamOn} onToggle={choice.toggleSteam} />}
+          {steam !== null && <SteamCheck appId={steam.appId} on={choice.steamOn} onToggle={choice.toggleSteam} />}
           <CommandField command={choice.command} />
           <a className="ed-export-guide" href={DESKTOP_GUIDE} target="_blank" rel="noreferrer">
             Signing and store upload: docs/desktop-export.md ↗

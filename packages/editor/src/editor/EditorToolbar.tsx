@@ -25,7 +25,7 @@ export function EditorToolbar({ core, onClose }: { core: EditorCore; onClose: ()
       </span>
       <span className="ed-spacer" />
       <ScenePicker core={core} />
-      <button className="ed-mini ed-export-open" onClick={() => core.modals.exportingDesktop[1](true)}>
+      <button className="ed-mini" onClick={() => core.modals.exportingDesktop[1](true)}>
         Export desktop
       </button>
       <button

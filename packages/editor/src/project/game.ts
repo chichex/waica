@@ -27,9 +27,10 @@ export interface GameSettings {
    */
   pixelsPerUnit: number
   /**
-   * The desktop export's block (issue #200), kept as written: the editor
-   * does not edit it (the MCP's configure_desktop does), it reads it for the
-   * export modal and writes it back unchanged.
+   * The desktop export's block (issue #200) as it was read: the editor does
+   * not edit it (the MCP's configure_desktop does). A save keeps the block
+   * on disk (see serializeGameSettings); this copy only stands in when the
+   * file on disk cannot be read.
    */
   desktop?: Record<string, unknown>
 }
@@ -66,7 +67,17 @@ export function parseGameSettings(text: string | null): GameSettings {
   return settings
 }
 
-export function serializeGameSettings(settings: GameSettings): string {
-  const json: GameSettingsJson = { waicaGame: 1, ...settings }
-  return JSON.stringify(json, null, 2) + '\n'
+/**
+ * game.json with `settings` saved into it. The editor is not the file's only
+ * writer (configure_desktop edits its desktop block while the editor is
+ * open), so `onDisk`, the file as it is now, keeps every key the editor does
+ * not edit, desktop included, in its place; the editor's own keys are
+ * replaced. Without a readable file, the settings alone, with the desktop
+ * block they were read with.
+ */
+export function serializeGameSettings(settings: GameSettings, onDisk: string | null = null): string {
+  const { desktop, ...edited } = settings
+  const current = onDisk ? readJsonObject(onDisk) : null
+  const kept: Record<string, unknown> = current ?? (desktop ? { desktop } : {})
+  return JSON.stringify({ ...kept, waicaGame: 1, ...edited }, null, 2) + '\n'
 }
