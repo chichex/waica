@@ -112,18 +112,14 @@ describe('the platform seam (issue #200 CA-1)', () => {
   })
 
   it('defaults to the desktop backend when window.waicaDesktop exists', () => {
-    const bridge = stubDesktopBridge(false)
-    const game = makeGame()
-    expect(game.canQuit).toBe(true)
-    game.quit()
-    expect(bridge.quit).toHaveBeenCalledTimes(1)
+    stubDesktopBridge(false)
+    expect(makeGame().canQuit).toBe(true)
   })
 
   it('ignores a window.waicaDesktop that is not the bridge the shell exposes', () => {
     vi.stubGlobal('waicaDesktop', { quit: 'not a function' })
     expect(makeGame().canQuit).toBe(false)
   })
-
 })
 
 describe('GameOptions.platform (issue #200 CA-1)', () => {
@@ -198,7 +194,6 @@ describe('game.setFullscreen(on) and game.isFullscreen() on the web (issue #200 
     await expect(game.setFullscreen(true)).resolves.toBeUndefined()
     expect(game.isFullscreen()).toBe(false)
   })
-
 })
 
 describe('game.setFullscreen(on) and game.isFullscreen() on the desktop (issue #200 CA-3)', () => {

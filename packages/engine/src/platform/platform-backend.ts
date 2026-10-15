@@ -27,6 +27,11 @@ export interface PlatformBackend {
   quit(): void
   /** Enters or leaves fullscreen. Never rejects: a refused request leaves `isFullscreen()` as it was. */
   setFullscreen(on: boolean): Promise<void>
+  /**
+   * Whether the game is fullscreen now. In the desktop shell this is a
+   * synchronous round trip to the main process, which blocks the page until
+   * it answers: read it when a key is pressed or a menu opens, not every frame.
+   */
   isFullscreen(): boolean
   readonly achievements: PlatformAchievements
 }
@@ -59,13 +64,20 @@ export class WebPlatformBackend implements PlatformBackend {
   readonly canQuit = false
   readonly achievements: PlatformAchievements = NO_ACHIEVEMENTS
 
+  /**
+   * @param fullscreenTarget The element `setFullscreen(true)` asks to fill the
+   * screen: the whole page by default. A host that shows the game inside a
+   * larger page, like the editor's Viewport, passes the game's own surface.
+   */
+  constructor(private readonly fullscreenTarget: () => Element = () => document.documentElement) {}
+
   quit(): void {
     // A page cannot close its own tab; canQuit tells the game not to offer it.
   }
 
   async setFullscreen(on: boolean): Promise<void> {
     try {
-      if (on) await document.documentElement.requestFullscreen()
+      if (on) await this.fullscreenTarget().requestFullscreen()
       else await document.exitFullscreen()
     } catch {
       // Refused (no user gesture, an iframe without permission) or no Fullscreen API at all.
