@@ -24,8 +24,9 @@ function isRecord(value: unknown): value is Json {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+/** One line naming the field; an empty field names the `desktop` block itself. */
 function fail(field: string, expected: string): never {
-  throw new Error(`game.json desktop.${field} must be ${expected}`)
+  throw new Error(`game.json ${field === '' ? 'desktop' : `desktop.${field}`} must be ${expected}`)
 }
 
 function optionalRecord(value: unknown, field: string): Json | null {
@@ -82,7 +83,7 @@ export function resolveShellConfig(
   steam: { enabled: boolean; appId: number | null },
 ): DesktopShellConfig {
   const root = isRecord(game) ? game : {}
-  const desktop = optionalRecord(root['desktop'], '(the block)')
+  const desktop = optionalRecord(root['desktop'], '')
   return {
     name,
     desktop: resolveDesktop(desktop),

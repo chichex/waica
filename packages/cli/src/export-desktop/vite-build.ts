@@ -5,11 +5,13 @@ import path from 'node:path'
 /**
  * Runs the Project's own `vite build` (its node_modules, its vite.config.ts)
  * into `outDir`, outside the Project (H-20). Its output goes to the console.
+ * `--base /` overrides a `base` the Project set for the web (a GitHub Pages
+ * subpath): the shell serves dist/ at the root of app://game/ (ADR 0032).
  */
 export async function viteBuild(project: string, outDir: string): Promise<void> {
   const vite = path.join(project, 'node_modules', 'vite', 'bin', 'vite.js')
   if (!existsSync(vite)) throw new Error(`run npm install in ${project} first (vite is missing)`)
-  const child = spawn(process.execPath, [vite, 'build', '--outDir', outDir, '--emptyOutDir'], {
+  const child = spawn(process.execPath, [vite, 'build', '--outDir', outDir, '--emptyOutDir', '--base', '/'], {
     cwd: project,
     stdio: ['ignore', 'inherit', 'inherit'],
   })

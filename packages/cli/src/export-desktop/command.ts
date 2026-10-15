@@ -12,6 +12,10 @@ function oneLine(error: unknown): string {
  */
 export async function runExportCommand(argv: string[], deps?: ExportDeps): Promise<void> {
   const [target, ...rest] = argv
+  if (target === '--help') {
+    console.log(HELP)
+    return
+  }
   if (target !== 'desktop') {
     throw new Error(`unknown export target "${target ?? ''}" — try waica export desktop`)
   }
