@@ -6,7 +6,6 @@ import path from 'node:path'
 import readline from 'node:readline/promises'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
-  DEFAULT_PORT,
   type CliArgs,
   compareVersions,
   createEditorServer,
@@ -17,25 +16,11 @@ import {
   probeWaica,
   selfUpdateInstall,
 } from './server.js'
+import { HELP } from './help.js'
 import { runCli } from './run-cli.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const HOST = '127.0.0.1'
-
-const HELP = `waica — the waica editor, one command away
-
-Usage: waica [options]
-       waica mcp
-
-Commands:
-  mcp          serve the waica MCP server on stdio, for agent hosts:
-               claude mcp add waica -- npx -y @waica/cli mcp
-
-Options:
-  --port <n>   preferred port (default ${DEFAULT_PORT}; the next free one is used if taken)
-  --no-open    do not open the browser
-  --version    print the version
-  --help       show this help`
 
 interface Pkg {
   name: string
@@ -189,12 +174,24 @@ async function runMcpServer(extra: string[]): Promise<void> {
   }
 }
 
-async function main(): Promise<void> {
-  const argv = process.argv.slice(2)
+/** `waica mcp` and `waica export …`: the commands that never start the editor. Returns whether one ran. */
+async function runCommand(argv: string[]): Promise<boolean> {
   if (argv[0] === 'mcp') {
     await runMcpServer(argv.slice(1))
-    return
+    return true
   }
+  if (argv[0] === 'export') {
+    // Loaded on demand: the packager and the icon converter stay out of the editor's startup.
+    const { runExportCommand } = await import('./export-desktop/command.js')
+    await runExportCommand(argv.slice(1))
+    return true
+  }
+  return false
+}
+
+async function main(): Promise<void> {
+  const argv = process.argv.slice(2)
+  if (await runCommand(argv)) return
 
   let args
   try {
