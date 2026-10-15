@@ -92,13 +92,16 @@ async function serveApp(dist: string, request: Request): Promise<Response> {
   return new Response(await readFile(resolved.file), { status: 200, headers: { 'content-type': resolved.mimeType } })
 }
 
-/** Resolves once the window reached `on`, or after a second if the platform never says so. */
+/** How long a fullscreen change may take: macOS animates it, over more than a second on a slow machine. */
+const FULLSCREEN_SETTLE_MS = 5000
+
+/** Resolves once the window reached `on`, or after FULLSCREEN_SETTLE_MS if the platform never says so. */
 function settleFullscreen(window: ShellWindow, on: boolean): Promise<void> {
   window.setFullScreen(on)
   return new Promise((resolve) => {
     const started = Date.now()
     const poll = (): void => {
-      if (window.isFullScreen() === on || Date.now() - started > 1000) resolve()
+      if (window.isFullScreen() === on || Date.now() - started > FULLSCREEN_SETTLE_MS) resolve()
       else setTimeout(poll, 16)
     }
     poll()

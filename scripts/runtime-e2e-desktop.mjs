@@ -193,6 +193,11 @@ async function assertPlatform(page) {
     await game.setFullscreen(true)
     return { canQuit: game.canQuit, before, after: game.isFullscreen(), achievements: game.achievements.available }
   })
+  if (!platform.after) {
+    // Tells a slow transition (true a little later) apart from a window that never goes fullscreen.
+    const later = await page.waitForFunction(() => globalThis.__waica.game.isFullscreen(), null, { timeout: 10_000 }).then(() => true, () => false)
+    assert.fail(`setFullscreen(true) resolved with isFullscreen() false; 10 s later it was ${later}`)
+  }
   assert.deepEqual(platform, { canQuit: true, before: false, after: true, achievements: false })
   return platform
 }

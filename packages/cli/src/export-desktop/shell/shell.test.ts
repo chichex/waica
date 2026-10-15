@@ -78,6 +78,15 @@ describe('the shell IPC (issue #200 CA-2, CA-3)', () => {
     expect(event.returnValue).toBe(true)
   })
 
+  it('resolves set-fullscreen only once a slow window reports it (macOS animates the change)', async () => {
+    const { ipc, window } = await started({ platform: 'darwin' })
+    const setFullScreen = window.setFullScreen.bind(window)
+    // A 1.5 s transition, as a macOS runner takes: the state flips only once the animation ends.
+    window.setFullScreen = (on) => void setTimeout(() => setFullScreen(on), 1500)
+    await listener(ipc, 'handle:waica:set-fullscreen')({}, true)
+    expect(window.isFullScreen()).toBe(true)
+  })
+
   it('quits when the window closes, on every platform', async () => {
     const { ipc, calls } = await started({ platform: 'darwin' })
     listener(ipc, 'app:window-all-closed')()
