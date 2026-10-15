@@ -48,6 +48,8 @@ export type FindingCode =
   | 'missing-model'
   | 'model-shape-ignored'
   | 'gltf-external-resource'
+  | 'invalid-desktop-config'
+  | 'unknown-achievement-id'
 
 export interface ValidationFinding {
   severity: FindingSeverity
