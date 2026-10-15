@@ -18,6 +18,7 @@ export { AudioSubsystem } from './audio/audio-subsystem.js'
 export type { AudioSubsystemOptions } from './audio/audio-subsystem.js'
 export type { AudioBackend, AudioResource, BackendPlayHandle, BackendPlayOptions } from './audio/backend.js'
 export type { AudioChannelState, AudioPlayOptions, LiveSoundInfo, SoundHandle } from './audio/types.js'
+export { WebPlatformBackend, type DesktopBridge, type PlatformAchievements, type PlatformBackend } from './platform/platform-backend.js'
 export {
   installDirectionalAnimation,
   installedDirectionalAnimation,
