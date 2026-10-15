@@ -138,6 +138,7 @@ export async function fakeDeps(overrides: Partial<ExportDeps> = {}) {
       })
     },
     packager: async (call) => [await fakePackage(call, packaged.push(call))],
+    installSteamworks: () => Promise.reject(new Error('this test expected no Steam install')),
     log: { info: (line) => lines.info.push(line), warn: (line) => lines.warn.push(line) },
     shellDir,
     electronVersion: '44.7.2',

@@ -15,6 +15,12 @@ export interface DesktopApi {
   quit(): void
   setFullscreen(on: boolean): Promise<void>
   isFullscreen(): boolean
+  achievements: {
+    available: boolean
+    unlock(id: string): void
+    setStat(id: string, value: number): void
+    getStat(id: string): Promise<number | undefined>
+  }
 }
 
 /** Builds `window.waicaDesktop` over the renderer's IPC; every call reaches the main process. */
@@ -23,6 +29,13 @@ export function createDesktopApi(ipc: BridgeIpc): DesktopApi {
     quit: () => ipc.send('waica:quit'),
     setFullscreen: (on) => ipc.invoke('waica:set-fullscreen', on === true).then(() => undefined),
     isFullscreen: () => ipc.sendSync('waica:is-fullscreen') === true,
+    achievements: {
+      // Whether the main process reached Steam, asked once as the page loads.
+      available: ipc.sendSync('waica:steam-available') === true,
+      unlock: (id) => ipc.send('waica:achievement-unlock', String(id)),
+      setStat: (id, value) => ipc.send('waica:stat-set', String(id), Number(value)),
+      getStat: (id) => ipc.invoke('waica:stat-get', String(id)).then((value) => (typeof value === 'number' ? value : undefined)),
+    },
   }
 }
 
