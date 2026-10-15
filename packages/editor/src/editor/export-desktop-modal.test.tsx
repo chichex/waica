@@ -111,7 +111,7 @@ describe('ExportDesktopModal: the copy message follows the command (issue 200 CA
 describe('ExportDesktopModal: Steam without an app id (review of PR 218)', () => {
   it('still offers the toggle, says the id is missing, and --no-steam turns it off', async () => {
     const { user } = renderModal({ appId: null })
-    const steam = screen.getByRole('checkbox', { name: /Include Steamworks \(no app id: set desktop\.steam\.appId in game\.json\)/ })
+    const steam = screen.getByRole('checkbox', { name: /Include Steamworks \(no app id in game\.json\)/ })
     expect(steam).toHaveProperty('checked', true)
     await user.click(steam)
     expect(command()).toBe('npx @waica/cli export desktop . --no-steam')

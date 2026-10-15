@@ -92,7 +92,7 @@ function SteamCheck({ appId, on, onToggle }: { appId: number | null; on: boolean
       <legend>Steam</legend>
       <label className="ed-export-check">
         <input type="checkbox" checked={on} onChange={onToggle} />
-        {appId === null ? 'Include Steamworks (no app id: set desktop.steam.appId in game.json)' : `Include Steamworks (app ${appId})`}
+        {appId === null ? 'Include Steamworks (no app id in game.json)' : `Include Steamworks (app ${appId})`}
       </label>
     </fieldset>
   )
