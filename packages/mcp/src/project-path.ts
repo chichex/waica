@@ -7,6 +7,8 @@ export interface ToolErrorBody {
   projectPath: string
   reason?: string
   available?: string[]
+  /** The input field an invalid-input error names (configure_desktop's `desktop.<field>`). */
+  field?: string
 }
 
 export class WaicaToolError extends Error {
