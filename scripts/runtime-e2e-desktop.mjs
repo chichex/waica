@@ -58,10 +58,16 @@ async function startVirtualCompositor() {
   const socket = `waica-desktop-e2e-${process.pid}`
   const env = { ...process.env, DISPLAY: '', WAYLAND_DISPLAY: '' }
   const kwin = spawn('kwin_wayland', ['--virtual', '--width', '1920', '--height', '1080', '--socket', socket, '--no-lockscreen'], { env, stdio: 'ignore' })
-  await waitForFile(path.join(process.env.XDG_RUNTIME_DIR ?? '', socket), 15_000)
   const close = async () => {
     kwin.kill('SIGTERM')
     await new Promise((resolve) => (kwin.exitCode === null ? kwin.once('exit', resolve) : resolve()))
+  }
+  try {
+    await waitForFile(path.join(process.env.XDG_RUNTIME_DIR ?? '', socket), 15_000)
+  } catch (error) {
+    // A compositor that never made its socket is still a process: never leave it behind.
+    await close()
+    throw error
   }
   return { mode: 'kwin-virtual', env: { ...process.env, WAYLAND_DISPLAY: socket }, switches: ['--ozone-platform=wayland', ...LINUX_GPU_SWITCHES], close }
 }
@@ -267,18 +273,22 @@ async function main() {
   assert.ok(existsSync(cliPath), `missing ${cliPath}: run pnpm build first (pnpm test:desktop does)`)
   const startedAt = Date.now()
   const parent = await mkdtemp(path.join(tmpdir(), 'waica-desktop-e2e-'))
-  const client = await connectMcp()
-  const display = await openDisplay()
+  // Opened inside the try, so a failure to open one still closes what did open and removes `parent`.
+  let client = null
+  let display = null
   try {
+    client = await connectMcp()
+    display = await openDisplay()
     const smoke = []
     for (const spec of PROJECTS) smoke.push(await smokeProject({ client, parent, display }, spec))
     const cross = process.argv.includes('--cross') ? await crossLeg(client, parent) : null
     const report = { platform: process.platform, display: display.mode, switches: display.switches, smoke, cross, durationMs: Date.now() - startedAt }
     console.log(`waica desktop e2e: ${JSON.stringify(report)}`)
   } finally {
-    await display.close()
-    await client.close()
-    await rm(parent, { recursive: true, force: true })
+    await display?.close()
+    await client?.close()
+    // Windows: Electron's helpers or an antivirus can hold a handle for a moment after the app quits.
+    await rm(parent, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 })
   }
 }
 

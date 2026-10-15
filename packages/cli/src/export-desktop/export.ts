@@ -21,8 +21,11 @@ export interface PackagerCall {
   arch: 'x64' | 'arm64'
   electronVersion: string
   icon: string
-  /** Windows version resources: packager reads package.json's author for CompanyName otherwise, and fails without one. */
-  win32metadata: { CompanyName: string }
+  /**
+   * Windows version resources, in the app's display name: packager reads
+   * package.json's author for CompanyName otherwise, and fails without one.
+   */
+  win32metadata: { CompanyName: string; ProductName: string; FileDescription: string }
   overwrite: true
   prune: false
   asar: false
@@ -83,6 +86,9 @@ interface PlatformJob {
   platform: ExportPlatform
   appDir: string
   iconPng: string
+  /** The app name as players read it (the window title, the .exe's product name). */
+  displayName: string
+  /** The same name as a file name: folders, executables, the .app bundle. */
   name: string
   version: string
   out: string
@@ -97,6 +103,8 @@ async function packagePlatform(job: PlatformJob, deps: ExportDeps): Promise<void
   const arch = ARCH[job.platform]
   const target = path.join(job.out, `${job.name}-${job.platform}-${arch}`)
   const scratch = await mkdtemp(path.join(job.out, '.waica-packaging-'))
+  // The first export of a platform downloads its Electron zip (about 100 MB) before anything else shows.
+  deps.log.info(`  packaging ${job.platform}-${arch}…`)
   try {
     const [packaged] = await deps.packager({
       dir: job.appDir,
@@ -108,7 +116,7 @@ async function packagePlatform(job: PlatformJob, deps: ExportDeps): Promise<void
       arch,
       electronVersion: deps.electronVersion,
       icon: job.iconPng,
-      win32metadata: { CompanyName: job.name },
+      win32metadata: { CompanyName: job.displayName, ProductName: job.displayName, FileDescription: job.displayName },
       overwrite: true,
       prune: false,
       asar: false,
@@ -128,8 +136,9 @@ async function packagePlatform(job: PlatformJob, deps: ExportDeps): Promise<void
 /** Packages the Project in `args.dir` once per platform (CA-7 to CA-13). */
 export async function exportDesktop(args: ExportArgs, deps?: ExportDeps): Promise<void> {
   const project = await readDesktopProject(args.dir)
-  const name = fileSafeName(args.name ?? project.packageName)
-  const config = resolveShellConfig(project.game, name, { enabled: args.steam, appId: args.steamAppId })
+  const displayName = args.name ?? project.packageName
+  const name = fileSafeName(displayName)
+  const config = resolveShellConfig(project.game, displayName, { enabled: args.steam, appId: args.steamAppId })
   const resolved = deps ?? (await realDeps())
   const out = path.resolve(args.out ?? path.join(project.dir, 'export'))
   const work = await mkdtemp(path.join(os.tmpdir(), 'waica-export-'))
@@ -142,7 +151,7 @@ export async function exportDesktop(args: ExportArgs, deps?: ExportDeps): Promis
     await stageApp({ appDir, distDir, shellDir, config, packageName: project.packageName, version: project.version, iconPng })
     await mkdir(out, { recursive: true })
     for (const platform of args.platforms) {
-      await packagePlatform({ platform, appDir, iconPng, name, version: project.version, out }, resolved)
+      await packagePlatform({ platform, appDir, iconPng, displayName, name, version: project.version, out }, resolved)
     }
   } finally {
     await rm(work, { recursive: true, force: true })

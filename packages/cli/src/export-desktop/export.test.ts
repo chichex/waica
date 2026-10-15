@@ -137,8 +137,8 @@ describe('waica export desktop: app metadata (issue #200 CA-11)', () => {
     await exportDesktop({ ...parseExportArgs([dir, '--name', 'Hero Quest']), platforms: ['win32'] }, fake.deps)
     expect(fake.packaged.map(({ name, executableName, appVersion, win32metadata }) => ({ name, executableName, appVersion, win32metadata }))).toEqual([
       // The real packager refuses a Windows target without a CompanyName (it would read package.json's author).
-      { name: 'hero-quest', executableName: 'hero-quest', appVersion: '1.2.3', win32metadata: { CompanyName: 'hero-quest' } },
-      { name: 'Hero Quest', executableName: 'Hero Quest', appVersion: '1.2.3', win32metadata: { CompanyName: 'Hero Quest' } },
+      { name: 'hero-quest', executableName: 'hero-quest', appVersion: '1.2.3', win32metadata: { CompanyName: 'hero-quest', ProductName: 'hero-quest', FileDescription: 'hero-quest' } },
+      { name: 'Hero Quest', executableName: 'Hero Quest', appVersion: '1.2.3', win32metadata: { CompanyName: 'Hero Quest', ProductName: 'Hero Quest', FileDescription: 'Hero Quest' } },
     ])
     expect(existsSync(path.join(dir, 'export', 'Hero Quest-win32-x64', 'Hero Quest.exe'))).toBe(true)
   })

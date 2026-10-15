@@ -7,6 +7,8 @@ export interface TreeNode {
 
 export const SCENE_PATH = 'src/scenes/main.scene.json'
 const EXCLUDED_DIRS = new Set(['node_modules', '.git', 'dist', '.vite', '.DS_Store'])
+/** Only at the project root: `waica export desktop`'s default output (the template's .gitignore has `export/`). */
+const EXCLUDED_ROOT_DIRS = new Set(['export'])
 
 /**
  * File system of a project opened in the editor. Two implementations:
@@ -120,7 +122,7 @@ export class RealFS implements ProjectFS {
     const walk = async (dir: FileSystemDirectoryHandle, base: string): Promise<TreeNode[]> => {
       const nodes: TreeNode[] = []
       for await (const [name, handle] of dir.entries()) {
-        if (EXCLUDED_DIRS.has(name)) continue
+        if (EXCLUDED_DIRS.has(name) || (base === '' && EXCLUDED_ROOT_DIRS.has(name))) continue
         const path = base ? `${base}/${name}` : name
         if (handle.kind === 'directory') {
           nodes.push({
