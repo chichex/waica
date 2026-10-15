@@ -2,10 +2,12 @@
 // the slice of Electron it uses so tests drive it with a fake. main.ts hands
 // it the real modules. Staged beside main.js in resources/app, it may import
 // only its sibling shell modules, node: builtins and electron.
+import { readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import type { DesktopShellConfig } from '../desktop-config.js'
+import type { DesktopShellConfig, SteamSettings } from '../desktop-config.js'
 import { APP_ORIGIN, APP_SCHEME, APP_SCHEME_PRIVILEGES, resolveAppRequest } from './app-protocol.js'
+import { startSteam, type SteamBridge } from './steam.js'
 import { fullscreenShortcut, windowOptions, type ShortcutInput } from './window-options.js'
 
 export interface PreventableEvent {
@@ -36,7 +38,7 @@ export interface ShellElectron {
     handle(scheme: string, handler: (request: Request) => Promise<Response>): void
   }
   ipcMain: {
-    on(channel: string, listener: (event: { returnValue: unknown }) => void): unknown
+    on(channel: string, listener: (event: { returnValue: unknown }, ...args: unknown[]) => void): unknown
     handle(channel: string, listener: (event: unknown, ...args: unknown[]) => Promise<unknown>): void
   }
   BrowserWindow: new (options: ReturnType<typeof windowOptions>) => ShellWindow
@@ -46,6 +48,10 @@ export interface ShellHost {
   /** resources/app: dist/, preload.js and waica-desktop.json. */
   appDir: string
   platform: NodeJS.Platform
+  /** Loads steamworks.js from resources/app/node_modules; only an export with Steam calls it. */
+  loadSteamworks: () => unknown
+  /** The main process's warnings (the terminal that launched the game). */
+  warn: (line: string) => void
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -67,8 +73,17 @@ function parseShellConfig(text: string, file: string): DesktopShellConfig {
       typeof resolution?.['width'] === 'number' && typeof resolution['height'] === 'number'
         ? { width: resolution['width'], height: resolution['height'] }
         : null,
-    steam: null,
+    steam: parseSteam(parsed['steam']),
   }
+}
+
+function idList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string') : []
+}
+
+function parseSteam(value: unknown): SteamSettings | null {
+  if (!isRecord(value) || typeof value['appId'] !== 'number') return null
+  return { appId: value['appId'], achievements: idList(value['achievements']), stats: idList(value['stats']) }
 }
 
 async function serveApp(dist: string, request: Request): Promise<Response> {
@@ -90,6 +105,16 @@ function settleFullscreen(window: ShellWindow, on: boolean): Promise<void> {
   })
 }
 
+/** The preload's achievements (CA-18): availability is read once, synchronously, as the page loads. */
+function wireSteam(electron: ShellElectron, steam: SteamBridge): void {
+  electron.ipcMain.on('waica:steam-available', (event) => {
+    event.returnValue = steam.available
+  })
+  electron.ipcMain.on('waica:achievement-unlock', (_event, id) => steam.unlock(id))
+  electron.ipcMain.on('waica:stat-set', (_event, id, value) => steam.setStat(id, value))
+  electron.ipcMain.handle('waica:stat-get', (_event, id) => Promise.resolve(steam.getStat(id)))
+}
+
 function wireWindow(electron: ShellElectron, window: ShellWindow, host: ShellHost): void {
   // A shipped game has no File/Edit/View menu (and Alt would toggle one); macOS keeps its app menu for Cmd+Q.
   if (host.platform !== 'darwin') window.removeMenu()
@@ -106,11 +131,16 @@ function wireWindow(electron: ShellElectron, window: ShellWindow, host: ShellHos
   electron.ipcMain.handle('waica:set-fullscreen', (_event, on) => settleFullscreen(window, on === true))
 }
 
-/** Registers app://, waits for Electron, then opens the game's window on app://game/. */
+/**
+ * Registers app:// and connects Steam before Electron is ready (the overlay
+ * adds command-line switches, which only count before then), then opens the
+ * game's window on app://game/.
+ */
 export async function startShell(electron: ShellElectron, host: ShellHost): Promise<void> {
   electron.protocol.registerSchemesAsPrivileged([{ scheme: APP_SCHEME, privileges: APP_SCHEME_PRIVILEGES }])
   const configFile = path.join(host.appDir, 'waica-desktop.json')
-  const config = parseShellConfig(await readFile(configFile, 'utf8'), configFile)
+  const config = parseShellConfig(readFileSync(configFile, 'utf8'), configFile)
+  wireSteam(electron, startSteam(config.steam, host.loadSteamworks, host.warn))
   await electron.app.whenReady()
   const dist = path.join(host.appDir, 'dist')
   electron.protocol.handle(APP_SCHEME, (request) => serveApp(dist, request))

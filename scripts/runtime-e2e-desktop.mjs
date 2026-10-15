@@ -5,9 +5,11 @@
 // The checks are logical state, never pixels: a runner without a GPU can draw
 // a blank frame (issue #151). `--cross` also exports a platformer for all
 // three platforms from this host and reads the Windows .exe's version
-// resources, the macOS Info.plist and every resources/app tree.
+// resources, the macOS Info.plist and every resources/app tree. `--steam`
+// exports one with Steam (a real npm install of steamworks.js) and launches it
+// with no Steam client running: the game must still play, without achievements.
 //
-//   node scripts/runtime-e2e-desktop.mjs [--cross]   (pnpm test:desktop builds first)
+//   node scripts/runtime-e2e-desktop.mjs [--cross] [--steam]   (pnpm test:desktop builds first)
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
@@ -146,8 +148,8 @@ function run(args, options = {}) {
   })
 }
 
-async function exportProject(project, platforms, env = process.env) {
-  const exported = await run(['export', 'desktop', project, '--platform', platforms.join(',')], { env })
+async function exportProject(project, platforms, { env = process.env, flags = [] } = {}) {
+  const exported = await run(['export', 'desktop', project, '--platform', platforms.join(','), ...flags], { env })
   assert.equal(exported.code, 0, `waica export desktop failed:\n${exported.output}`)
   return exported.output
 }
@@ -209,22 +211,49 @@ async function assertQuits(app, page) {
   return outcome
 }
 
-/** Exports one Project for this host, launches the binary and runs every CA-15 check on it. */
-async function smokeProject({ client, parent, display }, spec) {
+/** Exports one Project for this host and launches its binary; `flags` go to the export. */
+async function launchExport({ client, parent, display }, spec, flags = []) {
   const { project, name } = await makeProject(client, parent, spec)
-  await exportProject(project, [process.platform])
-  const executablePath = path.join(exportedFolder(project, name, process.platform), LAYOUT[process.platform].executable(name))
-  const app = await electron.launch({ executablePath, args: display.switches, env: display.env, timeout: 60_000 })
+  await exportProject(project, [process.platform], { flags })
+  const folder = exportedFolder(project, name, process.platform)
+  const app = await electron.launch({ executablePath: path.join(folder, LAYOUT[process.platform].executable(name)), args: display.switches, env: display.env, timeout: 60_000 })
+  return { app, folder, name }
+}
+
+/** Runs `checks` on a launched app's window, closing the app if one fails. */
+async function withWindow(app, checks) {
   try {
-    const page = await app.firstWindow()
-    const plays = await assertPlays(page, spec)
-    const platform = await assertPlatform(page)
-    const quit = await assertQuits(app, page)
-    return { archetype: spec.archetype, ...plays, ...platform, quit }
+    return await checks(await app.firstWindow())
   } catch (error) {
     await app.close().catch(() => {})
     throw error
   }
+}
+
+/** Every CA-15 check on one Project exported for this host. */
+async function smokeProject(context, spec) {
+  const { app } = await launchExport(context, spec)
+  return withWindow(app, async (page) => {
+    const plays = await assertPlays(page, spec)
+    const platform = await assertPlatform(page)
+    return { archetype: spec.archetype, ...plays, ...platform, quit: await assertQuits(app, page) }
+  })
+}
+
+/** CA-16, CA-17 with the real modules: steamworks.js installed by npm, and no Steam client, so init fails and the game plays on. */
+async function steamLeg(context) {
+  const spec = { ...PROJECTS[0], label: 'steam' }
+  const { app, folder, name } = await launchExport(context, spec, ['--steam-app-id', '480'])
+  const resources = path.join(folder, LAYOUT[process.platform].app(name))
+  const steamworks = JSON.parse(await readFile(path.join(resources, 'node_modules/steamworks.js/package.json'), 'utf8')).version
+  assert.equal(steamworks, '0.4.0', 'the export must install steamworks.js 0.4.0')
+  assert.equal(await readFile(path.join(resources, 'steam_appid.txt'), 'utf8'), '480')
+  return withWindow(app, async (page) => {
+    await assertPlays(page, spec)
+    const available = await page.evaluate(() => globalThis.__waica.game.achievements.available)
+    assert.equal(available, false, 'without a Steam client the achievements must be unavailable')
+    return { steamworks, available, quit: await assertQuits(app, page) }
+  })
 }
 
 /** The PE's version strings and icon groups, read with the same resedit @electron/packager writes them with. */
@@ -254,7 +283,7 @@ function assertResourcesApp(folder, platform, name) {
 async function crossLeg(client, parent) {
   const { project, name } = await makeProject(client, parent, { ...PROJECTS[0], label: 'cross' })
   const env = { ...process.env, PATH: path.dirname(process.execPath) }
-  const output = await exportProject(project, ['linux', 'win32', 'darwin'], env)
+  const output = await exportProject(project, ['linux', 'win32', 'darwin'], { env })
   assert.doesNotMatch(output, /wine/i, 'the export never needs wine')
   for (const platform of ['linux', 'win32', 'darwin']) {
     const folder = exportedFolder(project, name, platform)
@@ -282,7 +311,8 @@ async function main() {
     const smoke = []
     for (const spec of PROJECTS) smoke.push(await smokeProject({ client, parent, display }, spec))
     const cross = process.argv.includes('--cross') ? await crossLeg(client, parent) : null
-    const report = { platform: process.platform, display: display.mode, switches: display.switches, smoke, cross, durationMs: Date.now() - startedAt }
+    const steam = process.argv.includes('--steam') ? await steamLeg({ client, parent, display }) : null
+    const report = { platform: process.platform, display: display.mode, switches: display.switches, smoke, cross, steam, durationMs: Date.now() - startedAt }
     console.log(`waica desktop e2e: ${JSON.stringify(report)}`)
   } finally {
     await display?.close()
