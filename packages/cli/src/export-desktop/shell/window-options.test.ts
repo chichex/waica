@@ -22,6 +22,8 @@ describe('the window (issue #200 CA-10)', () => {
       height: 720,
       useContentSize: true,
       fullscreen: false,
+      // On macOS, Electron turns `fullscreen: false` into a window that can never go fullscreen unless this says otherwise.
+      fullscreenable: true,
       resizable: true,
       title: 'Hero Quest',
       icon: path.join(APP, 'icon.png'),
