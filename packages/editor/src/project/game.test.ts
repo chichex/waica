@@ -47,3 +47,18 @@ describe('parseGameSettings', () => {
     expect(parseGameSettings(serializeGameSettings(settings))).toEqual(settings)
   })
 })
+
+describe('the desktop block (issue #200 CA-24)', () => {
+  const desktop = { fullscreen: false, scale: 2, steam: { appId: 480, achievements: ['first-kill'], stats: [] } }
+
+  it('is kept as written, for the export modal and for the next save', () => {
+    const settings = parseGameSettings(JSON.stringify({ waicaGame: 1, archetype: 'platformer', desktop }))
+    expect(settings.desktop).toEqual(desktop)
+    expect(JSON.parse(serializeGameSettings(settings))).toMatchObject({ desktop })
+  })
+
+  it('is left out when game.json has none, or one that is not an object', () => {
+    expect(parseGameSettings(JSON.stringify({ waicaGame: 1 }))).not.toHaveProperty('desktop')
+    expect(parseGameSettings(JSON.stringify({ waicaGame: 1, desktop: [1] }))).not.toHaveProperty('desktop')
+  })
+})
