@@ -213,7 +213,7 @@ failed **after** one package went out, do not retry the tag; bump and re-release
   ```
 
   Expect two JSON-RPC replies: `serverInfo` for id 1, and the full tool list
-  for id 2 (15 tools today — `packages/mcp/README.md` is the authority).
+  for id 2 (16 tools today — `packages/mcp/README.md` is the authority).
   A published CLI missing its bundled server answers on stderr instead
   (`bundled MCP server is missing`) and prints nothing here.
 
