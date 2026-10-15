@@ -1,7 +1,7 @@
 {
   "name": "@waica/cli",
   "version": "0.29.1",
-  "description": "Waica in one command — `npx @waica/cli` opens the editor, `waica mcp` serves the MCP server",
+  "description": "Waica in one command \u2014 `npx @waica/cli` opens the editor, `waica mcp` serves the MCP server, `waica export desktop` packages a game",
   "license": "MIT",
   "type": "module",
   "repository": {
@@ -16,24 +16,30 @@
     "access": "public"
   },
   "files": [
-    "dist"
+    "dist",
+    "assets"
   ],
   "engines": {
     "node": ">=22.18"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && node bundle-editor.mjs && node bundle-mcp.mjs",
+    "build": "tsc -p tsconfig.build.json && node bundle-editor.mjs && node bundle-mcp.mjs && node bundle-desktop.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@dimforge/rapier3d-deterministic-compat": "0.21.0",
+    "@electron/packager": "^20.3.0",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "playwright-core": "^1.64.0",
-    "three": "^0.186.1"
+    "png2icons": "^2.0.1",
+    "three": "^0.186.1",
+    "yazl": "^3.3.1"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
+    "@types/yazl": "^3.3.1",
     "@waica/editor": "workspace:^",
-    "@waica/mcp": "workspace:^"
+    "@waica/mcp": "workspace:^",
+    "electron": "44.7.2"
   }
 }

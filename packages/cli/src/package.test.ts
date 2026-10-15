@@ -12,12 +12,13 @@ describe('@waica/cli package contract', () => {
       name: '@waica/cli',
       type: 'module',
       bin: { waica: 'dist/cli.js' },
-      files: ['dist'],
+      // assets/ holds the desktop export's default icon (issue #200 CA-11).
+      files: ['dist', 'assets'],
       // Matches the MCP server's floor: it is the same process.
       engines: { node: '>=22.18' },
       publishConfig: { access: 'public' },
       scripts: {
-        build: 'tsc -p tsconfig.build.json && node bundle-editor.mjs && node bundle-mcp.mjs',
+        build: 'tsc -p tsconfig.build.json && node bundle-editor.mjs && node bundle-mcp.mjs && node bundle-desktop.mjs',
       },
       dependencies: {
         '@dimforge/rapier3d-deterministic-compat': '0.21.0',
@@ -39,12 +40,25 @@ describe('@waica/cli package contract', () => {
     })
     expect(pkg).not.toHaveProperty('exports')
     expect(Object.keys(pkg.dependencies as object).sort()).toEqual([
-      '@dimforge/rapier3d-deterministic-compat',
-      '@modelcontextprotocol/sdk',
-      'playwright-core',
-      'three',
+      ...['@dimforge/rapier3d-deterministic-compat', '@electron/packager', '@modelcontextprotocol/sdk'],
+      ...['playwright-core', 'png2icons', 'three', 'yazl'],
     ])
     await access(path.join(packageRoot, 'bundle-mcp.mjs'))
+  })
+
+  it('ships the desktop export: an exact Electron pin, its build step and the default icon (issue #200)', async () => {
+    const pkg = JSON.parse(await readFile(path.join(packageRoot, 'package.json'), 'utf8')) as Record<string, unknown>
+    expect(pkg).toMatchObject({
+      dependencies: {
+        '@electron/packager': match.stringMatching(/^\^20\./),
+        png2icons: match.stringMatching(/^\^2\./),
+        yazl: match.stringMatching(/^\^3\./),
+      },
+      // Exact, so Dependabot bumps the one Electron every export packages with (issue #200 inference 3).
+      devDependencies: { electron: match.stringMatching(/^\d+\.\d+\.\d+$/) },
+    })
+    await access(path.join(packageRoot, 'bundle-desktop.mjs'))
+    for (const format of ['png', 'ico', 'icns']) await access(path.join(packageRoot, 'assets', `icon.${format}`))
   })
 
   // `npx <pkg>` picks the entry point by name: with exactly one bin it runs
