@@ -1,10 +1,12 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
-import { readFile, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { createWaicaMcpServer } from './server.js'
 import { cleanup, jsonResult, makeProject } from './test-helpers.js'
+import { match } from '../../engine/src/test-support.js'
 
 const roots: string[] = []
 afterEach(async () => cleanup(...roots.splice(0)))
@@ -113,5 +115,29 @@ describe('configure_desktop refuses invalid input and writes nothing (issue #200
     const result = await configure(root, { scale: 2 })
     expect(result.isError).toBe(true)
     expect(await gameJson(root)).toBe('[1, 2]')
+  })
+})
+
+describe('configure_desktop edge cases (review of #217)', () => {
+  it('says src/game.json is missing instead of calling it invalid, and writes nothing', async () => {
+    const root = await makeProject({ 'src/scenes/main.scene.json': JSON.stringify({ waicaScene: 3, entities: [] }) })
+    roots.push(root)
+    await rm(path.join(root, 'src/game.json'))
+    const result = await configure(root, { scale: 2 })
+    expect(result.isError).toBe(true)
+    expect(result.body).toMatchObject({ error: { code: 'missing-game-json', message: match.stringContaining('src/game.json') } })
+    expect(String((result.body.error as { message: string }).message)).not.toContain('ENOENT')
+    expect(existsSync(path.join(root, 'src/game.json'))).toBe(false)
+  })
+
+  it('is annotated destructive: it overwrites values, replaces lists and steam: null deletes', async () => {
+    const server = createWaicaMcpServer()
+    const client = new Client({ name: 'configure-desktop-test', version: '1.0.0' })
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)])
+    const { tools } = await client.listTools()
+    await client.close()
+    await server.close()
+    expect(tools.find((tool) => tool.name === 'configure_desktop')?.annotations).toMatchObject({ destructiveHint: true, idempotentHint: true })
   })
 })
