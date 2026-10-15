@@ -47,7 +47,7 @@ function renderPlay(root: Root): { current: ViewportHandle | null } {
 }
 
 /**
- * Review of PR #214: the editor's Play runs the Game inside the editor's own
+ * Review of PR 214: the editor's Play runs the Game inside the editor's own
  * page, so a game's `setFullscreen(true)` must fill the screen with the
  * Viewport's surface, never with the toolbar, Explorer, Inspector and code.
  */
