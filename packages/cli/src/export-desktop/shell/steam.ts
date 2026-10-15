@@ -54,6 +54,26 @@ function connect(settings: SteamSettings, load: () => unknown): SteamClient {
   return client
 }
 
+/** A Steam stat is an int32: N-API would keep only a larger value's low 32 bits. */
+const INT32_MIN = -(2 ** 31)
+const INT32_MAX = 2 ** 31 - 1
+
+/** The integer Steam can store for `value`, or a reason it cannot. */
+function steamInt(id: string, value: unknown): { ok: true; value: number } | { ok: false; reason: string } {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return { ok: false, reason: `stat "${id}" needs a finite number` }
+  const int = Math.trunc(value)
+  if (int < INT32_MIN || int > INT32_MAX) {
+    return { ok: false, reason: `stat "${id}" must be an integer from ${INT32_MIN} to ${INT32_MAX} (got ${value})` }
+  }
+  return { ok: true, value: int }
+}
+
+/** Sets and stores an int stat: the call Steam refused (an id missing from Steamworks, a FLOAT stat), or null. */
+function storeStat(client: SteamClient, id: string, value: number): 'setInt' | 'store' | null {
+  if (!client.stats.setInt(id, value)) return 'setInt'
+  return client.stats.store() ? null : 'store'
+}
+
 function connectedBridge(settings: SteamSettings, client: SteamClient, warn: (line: string) => void): SteamBridge {
   const declared = (id: unknown, ids: string[], list: string): id is string => {
     if (typeof id === 'string' && ids.includes(id)) return true
@@ -63,16 +83,18 @@ function connectedBridge(settings: SteamSettings, client: SteamClient, warn: (li
   return {
     available: true,
     unlock: (id) => {
-      if (declared(id, settings.achievements, 'achievements')) client.achievement.activate(id)
+      if (!declared(id, settings.achievements, 'achievements') || client.achievement.activate(id)) return
+      warn(`[waica] Steam refused achievement "${id}" (activate returned false): is it configured in Steamworks?`)
     },
     setStat: (id, value) => {
       if (!declared(id, settings.stats, 'stats')) return
-      if (typeof value !== 'number' || !Number.isFinite(value)) {
-        warn(`[waica] Steam: stat "${id}" needs a finite number; not sent to Steam`)
+      const int = steamInt(id, value)
+      if (!int.ok) {
+        warn(`[waica] Steam: ${int.reason}; not sent to Steam`)
         return
       }
-      client.stats.setInt(id, Math.trunc(value))
-      client.stats.store()
+      const refused = storeStat(client, id, int.value)
+      if (refused) warn(`[waica] Steam refused stat "${id}" (${refused} returned false): is it an INT stat in Steamworks?`)
     },
     getStat: (id) => (declared(id, settings.stats, 'stats') ? (client.stats.getInt(id) ?? undefined) : undefined),
   }

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { DesktopShellConfig } from '../desktop-config.js'
 import { createDesktopApi } from './desktop-bridge.js'
 import { startSteam } from './steam.js'
-import { cleanupShellDirs, CONFIG, FakeWindow, listener, rendererIpc, started } from './test-shell.js'
+import { cleanupShellDirs, CONFIG, FakeWindow, gameEvent, listener, rendererIpc, started } from './test-shell.js'
 
 afterEach(cleanupShellDirs)
 
@@ -100,7 +100,7 @@ describe('achievements and stats over the bridge (issue #200 CA-18)', () => {
 
   it('ignores a stat value that is not a finite number', async () => {
     const { steamworks, shell } = await bridge()
-    listener(shell.ipc, 'on:waica:stat-set')({ returnValue: undefined }, 'kills', 'lots')
+    listener(shell.ipc, 'on:waica:stat-set')(gameEvent(), 'kills', 'lots')
     expect(steamworks.stored).toEqual([])
     expect(shell.warnings).toHaveLength(1)
   })

@@ -471,7 +471,7 @@ try {
     'the packed CLI must not retain the obsolete in-process native importer',
   )
   // Issue #200: `waica export desktop` stages the compiled shell and, without a project icon, waica's own.
-  for (const file of ['main.js', 'shell.js', 'app-protocol.js', 'window-options.js', 'desktop-bridge.js', 'steam.js']) {
+  for (const file of ['main.js', 'shell.js', 'app-protocol.js', 'window-options.js', 'desktop-bridge.js', 'steam.js', 'window-guards.js']) {
     await access(join(packedCliRoot, 'dist/export-desktop/shell', file))
   }
   for (const format of ['png', 'ico', 'icns']) await access(join(packedCliRoot, 'assets', `icon.${format}`))
