@@ -119,7 +119,8 @@ async function installProject(project, archetype) {
     await copyPackage(await findPackageRoot(requireFromEngine.resolve(dependency), dependency), path.join(modules, ...dependency.split('/')))
   }
   const requireFromEditor = createRequire(path.join(root, 'packages/editor/package.json'))
-  await symlink(await findPackageRoot(requireFromEditor.resolve('vite'), 'vite'), path.join(modules, 'vite'), 'dir')
+  // A junction on Windows, which needs no administrator rights; a plain directory symlink elsewhere.
+  await symlink(await findPackageRoot(requireFromEditor.resolve('vite'), 'vite'), path.join(modules, 'vite'), process.platform === 'win32' ? 'junction' : 'dir')
 }
 
 /** The template keeps its Game local; this fixture hands it to the probes as the examples do in DEV. */
