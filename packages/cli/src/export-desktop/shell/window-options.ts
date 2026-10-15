@@ -25,6 +25,8 @@ export function windowOptions(config: DesktopShellConfig, appDir: string) {
     ...size,
     useContentSize: true,
     fullscreen: desktop.fullscreen,
+    // macOS: Electron makes a window created with `fullscreen: false` non-fullscreenable unless this is set.
+    fullscreenable: true,
     resizable: true,
     title: config.name,
     icon: path.join(appDir, 'icon.png'),
