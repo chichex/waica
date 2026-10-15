@@ -7,6 +7,7 @@ import { resolveShellConfig } from './desktop-config.js'
 import { prepareIcons } from './icons.js'
 import { readDesktopProject } from './project.js'
 import { stageApp } from './stage.js'
+import { npmInstall, stageSteam } from './steam-install.js'
 import { viteBuild } from './vite-build.js'
 import { zipDirectory } from './zip.js'
 
@@ -33,6 +34,8 @@ export interface PackagerCall {
 export interface ExportDeps {
   build(project: string, outDir: string): Promise<void>
   packager(call: PackagerCall): Promise<string[]>
+  /** Installs a package (`steamworks.js@0.4.0`) into the staged app's node_modules. */
+  installSteamworks(appDir: string, spec: string): Promise<void>
   log: { info(line: string): void; warn(line: string): void }
   /** The compiled shell modules (dist/export-desktop/shell). */
   shellDir: string
@@ -73,6 +76,7 @@ async function realDeps(): Promise<ExportDeps> {
   return {
     build: viteBuild,
     packager: (call) => packager(call),
+    installSteamworks: npmInstall,
     log: { info: (line) => console.log(line), warn: (line) => console.warn(line) },
     shellDir: path.join(import.meta.dirname, 'shell'),
     electronVersion: await readElectronVersion(),
@@ -140,6 +144,7 @@ export async function exportDesktop(args: ExportArgs, deps?: ExportDeps): Promis
     const appDir = path.join(work, 'app')
     const { shellDir } = resolved
     await stageApp({ appDir, distDir, shellDir, config, packageName: project.packageName, version: project.version, iconPng })
+    if (config.steam) await stageSteam(appDir, config.steam, (dir, spec) => resolved.installSteamworks(dir, spec))
     await mkdir(out, { recursive: true })
     for (const platform of args.platforms) {
       await packagePlatform({ platform, appDir, iconPng, name, version: project.version, out }, resolved)

@@ -97,7 +97,8 @@ describe('waica export desktop: waica-desktop.json (issue #200 CA-8)', () => {
     const dir = await makeProject({
       desktop: { fullscreen: true, scale: 3, steam: { appId: 480, achievements: ['first-kill'], stats: ['kills'] } },
     })
-    const fake = await fakeDeps()
+    // Steam's own staging is CA-16's (steam-export.test.ts); here only waica-desktop.json matters.
+    const fake = await fakeDeps({ installSteamworks: () => Promise.resolve() })
     await exportDesktop({ ...parseExportArgs([dir]), platforms: ['linux'] }, fake.deps)
     const app = appResources(path.join(dir, 'export', 'hero-quest-linux-x64'), 'linux', 'hero-quest')
     expect(await readJson(path.join(app, 'waica-desktop.json'))).toEqual({
