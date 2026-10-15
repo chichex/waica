@@ -2614,3 +2614,69 @@ button.ed-crumb:hover {
 .ed-fieldset:disabled {
   opacity: 0.5;
 }
+
+/* Export desktop (issue #200): the command builder modal. */
+.ed-modal-export {
+  width: min(560px, 92vw);
+}
+
+.ed-export-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ed-export-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.ed-export-row legend {
+  float: left;
+  min-width: 80px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.ed-export-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ed-export-command {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ed-export-command input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-monospace, monospace;
+}
+
+.ed-export-copy {
+  min-width: 56px;
+  font-size: 12px;
+  color: var(--accent-2);
+}
+
+.ed-export-copy.is-failed {
+  color: var(--danger);
+}
+
+.ed-export-guide {
+  color: var(--accent-2);
+  font-size: 12px;
+}

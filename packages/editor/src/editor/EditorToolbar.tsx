@@ -25,6 +25,9 @@ export function EditorToolbar({ core, onClose }: { core: EditorCore; onClose: ()
       </span>
       <span className="ed-spacer" />
       <ScenePicker core={core} />
+      <button className="ed-mini" onClick={() => core.modals.exportingDesktop[1](true)}>
+        Export desktop
+      </button>
       <button
         className={`ed-play ${mode === 'play' ? 'is-on' : ''}`}
         disabled={!scene}

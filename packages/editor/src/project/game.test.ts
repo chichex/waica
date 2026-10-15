@@ -47,3 +47,38 @@ describe('parseGameSettings', () => {
     expect(parseGameSettings(serializeGameSettings(settings))).toEqual(settings)
   })
 })
+
+describe('the desktop block (issue #200 CA-24)', () => {
+  const desktop = { fullscreen: false, scale: 2, steam: { appId: 480, achievements: ['first-kill'], stats: [] } }
+
+  it('is kept as written, for the export modal and for the next save', () => {
+    const settings = parseGameSettings(JSON.stringify({ waicaGame: 1, archetype: 'platformer', desktop }))
+    expect(settings.desktop).toEqual(desktop)
+    expect(JSON.parse(serializeGameSettings(settings))).toMatchObject({ desktop })
+  })
+
+  it('is left out when game.json has none, or one that is not an object', () => {
+    expect(parseGameSettings(JSON.stringify({ waicaGame: 1 }))).not.toHaveProperty('desktop')
+    expect(parseGameSettings(JSON.stringify({ waicaGame: 1, desktop: [1] }))).not.toHaveProperty('desktop')
+  })
+})
+
+describe('saving over the file on disk (review of #217 and #218)', () => {
+  const settings = { ...parseGameSettings(null), pixelsPerUnit: 32, desktop: { scale: 1 } }
+
+  it('replaces only the keys the editor edits, keeping every other key where it was, desktop from disk included', () => {
+    const onDisk = JSON.stringify({ title: 'Hero Quest', waicaGame: 1, pixelsPerUnit: 16, desktop: { scale: 3 } })
+    const saved = serializeGameSettings(settings, onDisk)
+    expect(Object.keys(JSON.parse(saved) as object)).toEqual(['title', 'waicaGame', 'pixelsPerUnit', 'desktop', 'archetype', 'resolution'])
+    expect(JSON.parse(saved)).toMatchObject({ title: 'Hero Quest', pixelsPerUnit: 32, desktop: { scale: 3 } })
+  })
+
+  it('drops a desktop block the file on disk no longer has', () => {
+    expect(JSON.parse(serializeGameSettings(settings, JSON.stringify({ waicaGame: 1 })))).not.toHaveProperty('desktop')
+  })
+
+  it('falls back to the settings, with the desktop block they were read with, when the file on disk is missing or broken', () => {
+    expect(JSON.parse(serializeGameSettings(settings, null))).toMatchObject({ pixelsPerUnit: 32, desktop: { scale: 1 } })
+    expect(JSON.parse(serializeGameSettings(settings, '{ broken'))).toMatchObject({ pixelsPerUnit: 32, desktop: { scale: 1 } })
+  })
+})

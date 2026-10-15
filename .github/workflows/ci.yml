@@ -13,9 +13,10 @@ concurrency:
   group: ci-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
-# The ladder runs as three parallel jobs (each with its own checkout, cached
-# pnpm/node setup and install). `verify` aggregates them so the required
-# status check keeps its name and is red unless all three succeeded.
+# The ladder runs as four parallel jobs (each with its own checkout, cached
+# pnpm/node setup and install), the desktop one on all three OSes. `verify`
+# aggregates them so the required status check keeps its name and is red
+# unless all of them succeeded.
 jobs:
   checks:
     name: typecheck + lint + test
@@ -94,9 +95,71 @@ jobs:
       - name: Runtime browser e2e
         run: pnpm test:e2e
 
+  # Issue #200 CA-26: each OS exports a platformer and a third-person Project
+  # for itself with `waica export desktop` and launches the packaged app
+  # (scripts/runtime-e2e-desktop.mjs). Its checks are logical state, never
+  # pixels: a runner without a GPU can draw a blank frame (#151). `--steam`
+  # also exports with a real `npm install steamworks.js` and loads its native
+  # addon under the pinned Electron on each OS; Linux adds `--cross`, the
+  # Windows and macOS builds made from Linux (resedit, Info.plist).
+  desktop:
+    name: test:desktop (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+
+      # No version input: pnpm/action-setup reads the packageManager field
+      # from the root package.json.
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The cache key is the pinned Electron version alone: a release bump or
+      # another dependency of the CLI leaves the same zips valid.
+      - name: Read the pinned Electron version
+        id: electron
+        shell: bash
+        run: echo "version=$(node -p "require('./packages/cli/package.json').devDependencies.electron")" >> "$GITHUB_OUTPUT"
+
+      # @electron/packager downloads each platform's Electron zip into
+      # Electron's cache; the version is pinned in packages/cli/package.json.
+      - name: Cache the Electron zips
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/electron
+            ~/Library/Caches/electron
+            ~/AppData/Local/electron/Cache
+          key: electron-${{ runner.os }}-${{ steps.electron.outputs.version }}
+
+      # Linux has no display: Xvfb, with a window manager so the window can
+      # go fullscreen (without one, X11 never grants it).
+      - name: Install a window manager
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends openbox
+
+      - name: Packaged desktop app smoke (Linux, under Xvfb)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a -s "-screen 0 1920x1080x24" bash -c 'openbox & pnpm test:desktop --cross --steam'
+
+      - name: Packaged desktop app smoke
+        if: runner.os != 'Linux'
+        run: pnpm test:desktop --steam
+
   verify:
     runs-on: ubuntu-latest
-    needs: [checks, dist, e2e]
+    needs: [checks, dist, e2e, desktop]
     if: always()
     steps:
       - name: All CI jobs succeeded

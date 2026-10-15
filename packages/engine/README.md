@@ -487,3 +487,19 @@ game.assets.status // { pending, loaded, failed } — a fresh object on every re
 - **Models.** `game.assets.model(uri)` is the glTF half of the same cache (see [3D scenes](#3d-scenes)): one load per URL, `status` and `ready()` count it, `preload` routes `.glb` and `.gltf` to it.
 - **`GameOptions.textures`.** Replaces the real `THREE.TextureLoader` backend for that Game (ADR 0013's seam, applied to textures): `happy-dom` decodes no images, so a project's own tests inject a backend that resolves at once. The Runtime Bridge reports `assets` in its metadata under the `'assets'` capability, and a Run Session waits for `pending === 0` at readiness, after a `scene` operation and before every screenshot.
 
+## The host platform: quit, fullscreen and achievements
+
+Every `Game` talks to the host it runs in through a replaceable platform seam (ADR 0032): the browser, or the desktop shell that `waica export desktop` packages the game into. A game asks the same questions on both and gets an honest answer:
+
+```ts
+if (game.canQuit) menu.add('Quit', () => game.quit())
+await game.setFullscreen(!game.isFullscreen())
+game.achievements.unlock('first-kill')
+game.achievements.setStat('kills', 3)
+const kills = await game.achievements.getStat('kills') // number | undefined
+```
+
+- **`game.canQuit` and `game.quit()`.** `canQuit` is `true` in the desktop shell, where `quit()` closes the app, and `false` on the web, where a page cannot close itself: there `quit()` does nothing (the loop keeps running and nothing throws), so a game hides its Quit button instead.
+- **`game.setFullscreen(on)` and `game.isFullscreen()`.** On the web, the browser's Fullscreen API: `setFullscreen(true)` requests it for the page and `setFullscreen(false)` leaves it; `isFullscreen()` is `document.fullscreenElement !== null`. A browser refuses a request made without a user gesture: the promise still resolves, never rejects, and `isFullscreen()` stays `false`, so call it from a key or click handler. In the desktop shell both go to the window, and F11 and Alt+Enter toggle it too. There `isFullscreen()` is a synchronous round trip to the main process that blocks the page until it answers, so read it when a key is pressed or a menu opens, not in every `update`.
+- **`game.achievements`.** Store-agnostic: `unlock(id)`, `setStat(id, value)`, `getStat(id): Promise<number | undefined>` and `available`. On the web, and in a desktop build exported without Steam, `available` is `false`, `unlock` and `setStat` do nothing and `getStat` resolves `undefined`. In a desktop build with Steam (`game.json`'s `desktop.steam`) and a running Steam client, `available` is `true` and each call reaches Steamworks; declare every id in `desktop.steam.achievements` or `desktop.steam.stats`.
+- **`GameOptions.platform`.** Absent, the Game picks the desktop backend when `window.waicaDesktop` (the shell's preload bridge, `DesktopBridge`) exists, and `WebPlatformBackend` otherwise. A `window.waicaDesktop` of another shape (an engine and a shell whose versions disagree) falls back to the web backend with a console warning that names what it lacks. A project's own tests pass a fake `PlatformBackend` to observe every call. `new WebPlatformBackend(() => element)` fullscreens that element instead of the whole page: the editor's Play passes its Viewport's surface.

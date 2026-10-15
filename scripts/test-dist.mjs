@@ -443,13 +443,21 @@ try {
   // after the package — see the npx note in packages/cli/src/package.test.ts.
   assert.deepEqual(cliSource.bin, { waica: 'dist/cli.js' })
   assert.deepEqual(cliPacked.bin, cliSource.bin)
-  assert.deepEqual(cliPacked.files, ['dist'])
+  assert.deepEqual(cliPacked.files, ['dist', 'assets'])
   assert.deepEqual(cliPacked.engines, { node: '>=22.18' })
   assert.equal(cliPacked.exports, undefined, '@waica/cli must stay pure-bin')
   assert.deepEqual(
     Object.keys(cliPacked.dependencies ?? {}).sort(),
-    ['@dimforge/rapier3d-deterministic-compat', '@modelcontextprotocol/sdk', 'playwright-core', 'three'],
-    'the published CLI must declare exactly the runtime deps its bundled server loads',
+    [
+      '@dimforge/rapier3d-deterministic-compat',
+      '@electron/packager',
+      '@modelcontextprotocol/sdk',
+      'playwright-core',
+      'png2icons',
+      'three',
+      'yazl',
+    ],
+    'the published CLI must declare exactly the runtime deps its bundled server and `waica export desktop` load',
   )
 
   const packedCliRoot = join(nodeModules, '@waica/cli')
@@ -461,6 +469,16 @@ try {
   await assert.rejects(
     access(join(packedCliRoot, 'dist/mcp/native-import.cjs')),
     'the packed CLI must not retain the obsolete in-process native importer',
+  )
+  // Issue #200: `waica export desktop` stages the compiled shell and, without a project icon, waica's own.
+  for (const file of ['main.js', 'shell.js', 'app-protocol.js', 'window-options.js', 'desktop-bridge.js', 'steam.js', 'window-guards.js']) {
+    await access(join(packedCliRoot, 'dist/export-desktop/shell', file))
+  }
+  for (const format of ['png', 'ico', 'icns']) await access(join(packedCliRoot, 'assets', `icon.${format}`))
+  assert.deepEqual(
+    JSON.parse(await readFile(join(packedCliRoot, 'dist/export-desktop/electron-version.json'), 'utf8')),
+    { devDependencies: { electron: cliSource.devDependencies.electron } },
+    'the packed CLI must carry the exact Electron version it exports with',
   )
   await access(join(packedCliRoot, 'dist/mcp/template/package.json.tpl'))
   await access(join(packedCliRoot, 'dist/mcp/template/src/main.ts'))

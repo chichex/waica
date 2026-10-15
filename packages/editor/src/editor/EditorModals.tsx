@@ -4,6 +4,8 @@ import { machineProps } from '../project/states'
 import { reportRejection } from '../report-rejection'
 import { AnimationEditor } from './AnimationEditor'
 import { createStateFile } from './code-file-commands'
+import { steamDeclaration } from './export-command'
+import { ExportDesktopModal } from './ExportDesktopModal'
 import type { EditorCore } from './editor-commits'
 import { useKnownClips } from './glb-clips'
 import type { AnimTarget } from './Inspector'
@@ -11,11 +13,12 @@ import { saveAnimationClips, saveStateMachinePatch } from './modal-commands'
 import { spawnPrefab, suggestedIdentity } from './prefab-commands'
 import { RolePickerModal, StateEditorModal, type StateTarget } from './StateMachinePanel'
 
-/** The editor's modals: the clip editor, the state editor and the new-character role picker. */
+/** The editor's modals: the clip editor, the state editor, the new-character role picker and the desktop export. */
 export function EditorModals({ core }: { core: EditorCore }) {
   const [animTarget] = core.modals.animTarget
   const [stateTarget] = core.modals.stateTarget
   const [rolePicking, setRolePicking] = core.modals.rolePicking
+  const [exportingDesktop, setExportingDesktop] = core.modals.exportingDesktop
   const [prefabLib] = core.library.prefabLib
   return (
     <>
@@ -29,6 +32,13 @@ export function EditorModals({ core }: { core: EditorCore }) {
             spawnPrefab(core, 'character', { role, identity })
           }}
           onCancel={() => setRolePicking(false)}
+        />
+      )}
+      {exportingDesktop && (
+        <ExportDesktopModal
+          steam={steamDeclaration(core.settings.gameSettings?.desktop)}
+          fs={core.fs}
+          onClose={() => setExportingDesktop(false)}
         />
       )}
     </>

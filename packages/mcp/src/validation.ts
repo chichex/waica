@@ -6,6 +6,7 @@ import { collisionCategoryFindings } from './collision-category-validation.js'
 import { colliderParamFindings } from './physics-param-validation.js'
 import { checkComponentParams } from './component-param-findings.js'
 import { objectRecord } from './component-metadata.js'
+import { desktopFindings } from './desktop-validation.js'
 import {
   checkComponent,
   classMetadata,
@@ -192,6 +193,7 @@ export async function validateProject(
     ...(await uiBindingFindings(projectPath, uiFiles, context.declaredStats, context.anchoredPieces)),
   )
   validateParamsFile(fixed.get(PARAMS_FILE), context)
+  findings.push(...(await desktopFindings(projectPath, fixed.get('src/game.json'), options.signal)))
   await validateGltfResources(projectPath, context)
   return validationReport(findings, sources, check.notes)
 }

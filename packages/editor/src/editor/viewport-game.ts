@@ -1,7 +1,7 @@
 // The live Game behind the Viewport: how one is built for an [epoch, mode]
 // pair, and the imperative operations the editor applies to it (live props,
 // its own pan/zoom, framing the scene camera).
-import { Game, loadScene, type Component } from '@waica/engine'
+import { Game, loadScene, WebPlatformBackend, type Component } from '@waica/engine'
 import type { RefObject } from 'react'
 import { resolveOrthographicCamera } from '../scene/camera-block'
 import { projectionOf } from './viewport-boxes'
@@ -35,6 +35,9 @@ export function createViewportGame(canvas: HTMLCanvasElement, live: ViewportLive
     resolution: mode === 'play' ? live.resolution : undefined,
     bindings: live.bindings,
     stats: live.stats,
+    // The Game runs inside the editor's page: a game's setFullscreen(true)
+    // fills the screen with the Viewport's surface, not the whole editor.
+    platform: new WebPlatformBackend(() => canvas.parentElement ?? document.documentElement),
   })
   // Registered before the load so a scene's own code can already resolve
   // its siblings. Without it a SceneTransition crossed in Play would only

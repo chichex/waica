@@ -21,7 +21,7 @@ claude mcp add waica -- node /absolute/path/to/waica/packages/cli/dist/cli.js mc
 
 All tools require Node 22.18 or newer. Runtime tools additionally require:
 
-- macOS or Linux. `start_project` rejects Windows; the ten file-oriented tools continue to work there.
+- macOS or Linux. `start_project` rejects Windows; the eleven file-oriented tools continue to work there.
 - The Project's dependencies already installed and its declared npm, pnpm, Yarn or Bun executable available.
 - A compatible system Google Chrome or Chromium installation. The server uses `playwright-core`; it never downloads or bundles a browser.
 
@@ -47,6 +47,7 @@ Every tool takes an absolute `project_path`. An MCP stdio process belongs to the
 | `scaffold_role` | Create the editor-compatible TypeScript starter for a custom role. |
 | `scaffold_state` | Create state code for a role and state. |
 | `scaffold_ui` | Create the editor-compatible HTML starter for a UI piece. |
+| `configure_desktop` | Merge settings into `src/game.json`'s `desktop` block and return the resulting block. |
 | `start_project` | Start or reuse a browser-backed Run Session and return its paused initial Runtime Snapshot. |
 | `stop_project` | Stop a Run Session and prove its browser, process group and loopback port are gone. |
 | `inspect_runtime` | Read a filtered Runtime Snapshot without mutating the live Game. |
@@ -85,6 +86,18 @@ Next to `ui`, an engine reporting the `camera-effects` Runtime Bridge capability
 `capture_screenshot` captures the canvas rectangle after browser compositing, so visible Waica HTML UI is included while unrelated full-page content and browser chrome are excluded. PNG bytes appear only in the MCP image block, never duplicated in text or structured metadata.
 
 Full page reload reconnects to a fresh paused baseline. Runtime operations reject while reloading; a timeout, page/browser/dev-process failure or second simultaneous Game ends the session. `stop_project` and MCP transport close both clean every owned browser context and whole dev-process group; cleanup failure is reported rather than claimed as success.
+
+## Desktop configuration
+
+`configure_desktop` is the one editor of `src/game.json`'s `desktop` block, which `waica export desktop` reads (the MCP never runs the export):
+
+```json
+{ "project_path": "/abs/game", "fullscreen": false, "scale": 2, "steam": { "appId": 480, "achievements": ["first-kill"], "stats": ["kills"] } }
+```
+
+Every field is optional. It merges them into the block, keeps every other key of `game.json`, and returns the resulting `desktop`. `steam` merges into `desktop.steam` too, but its `achievements` and `stats` lists replace the old ones; `steam: null` removes `desktop.steam`. Before writing it checks the merged block, and on the first broken rule it writes nothing and answers `invalid-desktop-config`, naming the field in `error.field`: `scale` must be above 0, `fullscreen` a boolean, `steam.appId` a positive integer, and no id may repeat in `steam.achievements` or `steam.stats`. Without `src/game.json` (a Project marked only by its main scene) it answers `missing-game-json`. Since it overwrites values, replaces lists and deletes with `steam: null`, the tool is annotated `destructiveHint: true`.
+
+`validate_project` holds the block to the same rules: each broken one is an error-severity `invalid-desktop-config` finding with `ref: "game.json:desktop.<field>"`. It also reads every `src/**/*.ts` for `achievements.unlock('…')`, `setStat('…', …)` and `getStat('…')` with a quoted literal id, and reports a warning-severity `unknown-achievement-id`, naming the file, for an id missing from `desktop.steam.achievements` (`unlock`) or `desktop.steam.stats` (`setStat`, `getStat`): the desktop shell sends only declared ids to Steam. A computed id is not checked, and neither is a call inside a comment; each id is reported once per file and method. Like the exporter, both read `null` as absent for the block, `fullscreen`, `scale`, `steam` and `steam.appId`. While `game.json` does not parse or the block breaks a rule, the id check waits: only the real error is reported.
 
 ## Collision-category validation
 

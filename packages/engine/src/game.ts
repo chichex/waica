@@ -26,6 +26,8 @@ import { advanceGameTime, GameTime } from './game-time.js'
 import { Input, type InputBindings } from './input.js'
 import { PhysicsHost } from './physics-3d/physics-host.js'
 import type { PhysicsBackend } from './physics-3d/rapier-module.js'
+import { defaultPlatformBackend } from './platform/desktop-platform-backend.js'
+import type { PlatformAchievements, PlatformBackend } from './platform/platform-backend.js'
 import { Pointer } from './pointer.js'
 import { GamePost } from './post-effects.js'
 import {
@@ -103,6 +105,13 @@ export interface GameOptions {
    * pass the module they initialized once, or a rejecting stub.
    */
   physics?: PhysicsBackend
+  /**
+   * The host platform behind `quit`, `setFullscreen` and `achievements`
+   * (ADR 0032, the seam ADR 0013 describes): the desktop shell's bridge when
+   * `window.waicaDesktop` exists, otherwise the browser. A project's own
+   * tests pass a fake.
+   */
+  platform?: PlatformBackend
 }
 
 export type UpdateFn = (dt: number) => void
@@ -168,6 +177,8 @@ export class Game {
    */
   simulate = true
 
+  /** The browser or the desktop shell (ADR 0032). */
+  private readonly platform: PlatformBackend
   /** WebGPU when the browser offers it, else three's WebGL2 fallback (ADR 0025). */
   private readonly renderer: THREE.WebGPURenderer
   private readonly readiness: RenderReadiness
@@ -260,6 +271,7 @@ export class Game {
     })
     this.spriteBatches = createSpriteBatches(this, this.assets)
     this.physics = new PhysicsHost(this, options.physics)
+    this.platform = options.platform ?? defaultPlatformBackend()
     this.cameraEffects = new CameraEffects({
       host: () => canvas.parentElement ?? document.body,
       // One screen pixel in world units: the shake snaps to it (never the base).
@@ -305,6 +317,35 @@ export class Game {
   /** The Render Backend the renderer settled on; null until ready() resolved. */
   get backend(): RenderBackend | null {
     return this.readiness.backend
+  }
+
+  /** Whether `quit()` closes the game: true in the desktop shell, false on the web (ADR 0032). */
+  get canQuit(): boolean {
+    return this.platform.canQuit
+  }
+
+  /** Store achievements and stats (ADR 0032): unavailable on the web, where every call is a no-op. */
+  get achievements(): PlatformAchievements {
+    return this.platform.achievements
+  }
+
+  /** Closes the desktop app; on the web, where a page cannot close itself, it does nothing. */
+  quit(): void {
+    this.platform.quit()
+  }
+
+  /** Enters or leaves fullscreen. Never rejects: a browser refuses without a user gesture. */
+  setFullscreen(on: boolean): Promise<void> {
+    return this.platform.setFullscreen(on)
+  }
+
+  /**
+   * Whether the game is fullscreen now. In the desktop shell it asks the main
+   * process synchronously: read it on a key press or when a menu opens, not
+   * every frame.
+   */
+  isFullscreen(): boolean {
+    return this.platform.isFullscreen()
   }
 
   /** Creates a live entity in the scene. */

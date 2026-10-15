@@ -26,6 +26,13 @@ export interface GameSettings {
    * size", the camera's pixel readout) — the engine never sees it.
    */
   pixelsPerUnit: number
+  /**
+   * The desktop export's block (issue #200) as it was read: the editor does
+   * not edit it (the MCP's configure_desktop does). A save keeps the block
+   * on disk (see serializeGameSettings); this copy only stands in when the
+   * file on disk cannot be read.
+   */
+  desktop?: Record<string, unknown>
 }
 
 export interface GameSettingsJson extends GameSettings {
@@ -56,10 +63,21 @@ export function parseGameSettings(text: string | null): GameSettings {
   if (typeof res.height === 'number' && res.height > 0) settings.resolution.height = res.height
   const ppu = json.pixelsPerUnit
   if (typeof ppu === 'number' && isFinite(ppu) && ppu > 0) settings.pixelsPerUnit = ppu
+  if (isJsonObject(json.desktop)) settings.desktop = json.desktop
   return settings
 }
 
-export function serializeGameSettings(settings: GameSettings): string {
-  const json: GameSettingsJson = { waicaGame: 1, ...settings }
-  return JSON.stringify(json, null, 2) + '\n'
+/**
+ * game.json with `settings` saved into it. The editor is not the file's only
+ * writer (configure_desktop edits its desktop block while the editor is
+ * open), so `onDisk`, the file as it is now, keeps every key the editor does
+ * not edit, desktop included, in its place; the editor's own keys are
+ * replaced. Without a readable file, the settings alone, with the desktop
+ * block they were read with.
+ */
+export function serializeGameSettings(settings: GameSettings, onDisk: string | null = null): string {
+  const { desktop, ...edited } = settings
+  const current = onDisk ? readJsonObject(onDisk) : null
+  const kept: Record<string, unknown> = current ?? (desktop ? { desktop } : {})
+  return JSON.stringify({ ...kept, waicaGame: 1, ...edited }, null, 2) + '\n'
 }
