@@ -13,6 +13,8 @@ export interface ExportArgs {
   steamAppId: number | null
   /** False with --no-steam: the export leaves Steam out even when game.json declares it. */
   steam: boolean
+  /** False with --no-install: a Project without node_modules stops the export instead of being installed. */
+  install: boolean
   help: boolean
 }
 
@@ -77,12 +79,14 @@ export function parseExportArgs(argv: string[]): ExportArgs {
     icon: null,
     steamAppId: null,
     steam: true,
+    install: true,
     help: false,
   }
   const rest = [...argv]
   let seenDir = false
   for (let token = rest.shift(); token !== undefined; token = rest.shift()) {
     if (token === '--no-steam') args.steam = false
+    else if (token === '--no-install') args.install = false
     else if (token === '--help') args.help = true
     else if (!readValueFlag(args, token, rest)) {
       readPositional(args, token, seenDir)

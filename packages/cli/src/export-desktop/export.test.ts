@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { readdir, readFile, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -32,16 +32,6 @@ describe('waica export desktop: preflight (issue #200 CA-7)', () => {
     expect(lines).toEqual([`waica: export desktop: not a waica project: ${dir}\n`])
     expect(fake.builds).toEqual([])
     expect(fake.packaged).toEqual([])
-  })
-
-  it('refuses a Project without node_modules before building anything', async () => {
-    const dir = await makeProject()
-    await rm(path.join(dir, 'node_modules'), { recursive: true })
-    const fake = await fakeDeps()
-    const { lines, exitCode } = await exportCli([dir], fake.deps)
-    expect(exitCode).toBe(1)
-    expect(lines).toEqual([`waica: export desktop: run npm install in ${dir} first\n`])
-    expect(fake.builds).toEqual([])
   })
 })
 

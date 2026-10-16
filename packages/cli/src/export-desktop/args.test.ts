@@ -5,19 +5,6 @@ import { parseExportArgs } from './args.js'
 import { runExportCommand } from './command.js'
 
 describe('waica export desktop: arguments (issue #200 CA-6)', () => {
-  it('defaults to the current directory, all three platforms and the project settings', () => {
-    expect(parseExportArgs([])).toEqual({
-      dir: '.',
-      platforms: ['linux', 'win32', 'darwin'],
-      out: null,
-      name: null,
-      icon: null,
-      steamAppId: null,
-      steam: true,
-      help: false,
-    })
-  })
-
   it('takes the project directory and every flag', () => {
     expect(
       parseExportArgs([
@@ -41,6 +28,7 @@ describe('waica export desktop: arguments (issue #200 CA-6)', () => {
       icon: 'art/logo.png',
       steamAppId: 480,
       steam: true,
+      install: true,
       help: false,
     })
   })
@@ -76,6 +64,27 @@ describe('waica export desktop: platforms and errors (issue #200 CA-6)', () => {
 
 })
 
+describe('waica export desktop: defaults and --no-install (issue #200 CA-6)', () => {
+  it('defaults to the current directory, all three platforms and the project settings', () => {
+    expect(parseExportArgs([])).toEqual({
+      dir: '.',
+      platforms: ['linux', 'win32', 'darwin'],
+      out: null,
+      name: null,
+      icon: null,
+      steamAppId: null,
+      steam: true,
+      install: true,
+      help: false,
+    })
+  })
+
+  it('keeps installing missing dependencies unless --no-install is given', () => {
+    expect(parseExportArgs([]).install).toBe(true)
+    expect(parseExportArgs(['--no-install']).install).toBe(false)
+  })
+})
+
 describe('waica export desktop: on the command line (issue #200 CA-6)', () => {
   it('exits with code 1 and one line naming the bad value', async () => {
     const lines: string[] = []
@@ -103,7 +112,7 @@ describe('waica export desktop: on the command line (issue #200 CA-6)', () => {
 
   it('is listed by waica --help with its flags', () => {
     expect(HELP).toMatch(/waica export desktop \[dir\]/)
-    for (const flag of ['--platform', '--out', '--name', '--icon', '--steam-app-id', '--no-steam']) {
+    for (const flag of ['--platform', '--out', '--name', '--icon', '--steam-app-id', '--no-steam', '--no-install']) {
       expect(HELP).toContain(flag)
     }
   })

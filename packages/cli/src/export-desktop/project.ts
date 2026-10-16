@@ -29,15 +29,14 @@ function stringField(value: unknown, field: string): string | null {
 }
 
 /**
- * The preflight (CA-7): a directory with no src/game.json is not a Project,
- * and one with no node_modules cannot run its own `vite build`. Both stop
- * the export before anything is built.
+ * The preflight (CA-7): a directory with no src/game.json is not a Project
+ * and stops the export before anything is built. Whether its node_modules
+ * exist is the export's call (`ensureInstalled`), not this reader's.
  */
 export async function readDesktopProject(directory: string): Promise<DesktopProject> {
   const dir = path.resolve(directory)
   const gameFile = path.join(dir, 'src', 'game.json')
   if (!existsSync(gameFile)) throw new Error(`not a waica project: ${dir}`)
-  if (!existsSync(path.join(dir, 'node_modules'))) throw new Error(`run npm install in ${dir} first`)
   const pkgFile = path.join(dir, 'package.json')
   const pkg = existsSync(pkgFile) ? await readJsonFile(pkgFile) : {}
   const name = stringField(pkg, 'name')

@@ -7,6 +7,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { deflateSync } from 'node:zlib'
 import type { ExportDeps, PackagerCall } from './export.js'
+import type { PackageManager } from './project-install.js'
 
 const roots: string[] = []
 
@@ -128,8 +129,17 @@ export async function fakeDeps(overrides: Partial<ExportDeps> = {}) {
   const packaged: PackagerCall[] = []
   const lines: { info: string[]; warn: string[] } = { info: [], warn: [] }
   const builds: { project: string; outDir: string }[] = []
+  const installs: { dir: string; manager: PackageManager }[] = []
+  /** `install` and `build`, in the order the export ran them. */
+  const calls: string[] = []
   const deps: ExportDeps = {
+    installDependencies: (dir, manager) => {
+      installs.push({ dir, manager })
+      calls.push('install')
+      return Promise.resolve()
+    },
     build: async (project, outDir) => {
+      calls.push('build')
       builds.push({ project, outDir })
       await writeTree(outDir, {
         'index.html': '<!doctype html><canvas id="game"></canvas>',
@@ -144,7 +154,7 @@ export async function fakeDeps(overrides: Partial<ExportDeps> = {}) {
     electronVersion: '44.7.2',
     ...overrides,
   }
-  return { deps, packaged, lines, builds }
+  return { deps, packaged, lines, builds, installs, calls }
 }
 
 /** sha256 of every file below `root`, by path relative to it. */

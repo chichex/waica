@@ -4,21 +4,24 @@
 
 ## The command and its flags
 
-Run it from the Project folder, after `npm install`:
+Run it from the Project folder:
 
 ```sh
 npx @waica/cli export desktop .
 ```
 
+A Project without `node_modules` is installed first: the export prints `installing dependencies (npm install)…` and runs the install in the Project folder, with the manager its lockfile names (`pnpm-lock.yaml` is pnpm, `yarn.lock` is yarn, `package-lock.json` or no lockfile is npm). If the install fails or the manager is not on `PATH`, the export stops with one line naming the command and its exit code, and builds nothing. A Project that already has `node_modules` is not reinstalled. Pass `--no-install` to keep the strict behavior: the export stops with `run npm install in <dir> first (or drop --no-install)` instead of installing.
+
 | Flag | Default | What it does |
 |---|---|---|
-| `[dir]` | `.` | The Project directory. It must hold `src/game.json` and `node_modules`. |
+| `[dir]` | `.` | The Project directory. It must hold `src/game.json`; a missing `node_modules` is installed first (see above). |
 | `--platform linux,win32,darwin` | all three | The platforms to export, comma-separated. |
 | `--out <dir>` | `<project>/export/` | Where the folders and zips go. The template's `.gitignore` already ignores `export/`. |
 | `--name <s>` | `package.json` `name` | The app name: the window title and the product name in the `.exe`. The folders, the executable and the macOS bundle take it with `-` in place of each character a file name cannot hold (`\ / : * ? " < > \|`), so `Hero: Quest` exports `Hero- Quest.exe`. |
 | `--icon <png>` | `src/art/icon.png` | The app icon. Without one, waica's default icon is used. The PNG is converted to `.ico` and `.icns` for you; 512×512 or larger looks best. |
 | `--steam-app-id <n>` | `game.json` `desktop.steam.appId` | The Steam app id. |
 | `--no-steam` | — | Leaves Steam out, even when `game.json` declares it (for example, for itch.io). |
+| `--no-install` | — | Does not install a missing `node_modules`: the export stops and names the install command to run. |
 
 It writes `<name>-linux-x64/`, `<name>-win32-x64/` and `<name>-darwin-arm64/`, each with its `.zip`. Re-exporting one platform replaces only that platform's folder and zip. The first export of each platform downloads its Electron zip into Electron's cache, so it needs the network. An export with Steam also installs `steamworks.js` 0.4.0 into the app, which needs the network too.
 
