@@ -48,8 +48,8 @@ export function EditorInspector({ core, viewport }: { core: EditorCore; viewport
       {...projectProps(core)}
       {...entityPropHandlers(core, viewport)}
       {...entityTransformHandlers(core, viewport)}
-      {...entityComponentHandlers(core)}
-      {...overrideHandlers(core)}
+      {...entityComponentHandlers(core, viewport)}
+      {...overrideHandlers(core, viewport)}
       {...prefabPropHandlers(core, viewport)}
       {...prefabAppearanceHandlers(core)}
     />
@@ -65,6 +65,7 @@ function projectProps(core: EditorCore) {
     pixelsPerUnit: settings.gameSettings?.pixelsPerUnit ?? DEFAULT_GAME_SETTINGS.pixelsPerUnit,
     resolution: settings.gameSettings?.resolution ?? DEFAULT_GAME_SETTINGS.resolution,
     sceneCamera: core.scenes.scene?.camera,
+    sceneRender: core.scenes.scene?.render,
     stateFiles: code.stateFiles,
     roleFiles: code.roleFiles,
   } satisfies Partial<ComponentProps<typeof Inspector>>

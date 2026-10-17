@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useArchetype } from '../project/archetype'
 import { countOverrides } from '../scene/ops'
 import { CameraInspector } from './inspector/CameraInspector'
@@ -5,6 +6,7 @@ import { ContextHeader, contextOf } from './inspector/ContextHeader'
 import { EntityInspector } from './inspector/EntityInspector'
 import type { InspectorProps, InspectorSelection } from './inspector/inspector-props'
 import { MultiInspector } from './inspector/MultiInspector'
+import { LightShadowContext, lightShadowContext } from './inspector/light-shadow-context'
 import { PrefabInspector } from './inspector/PrefabInspector'
 import { RoRow } from './inspector/PropRow'
 import { RefTargetsContext, referenceContextFor } from './inspector/ref-targets-context'
@@ -25,21 +27,27 @@ function InstanceOverrideActions({
   onResetAllProps,
   onApplyAllProps,
 }: Pick<InspectorProps, 'onResetAllProps' | 'onApplyAllProps'> & { entityName: string }) {
+  const [error, setError] = useState<string | null>(null)
+  const run = (action: () => void): void => {
+    try { action(); setError(null) }
+    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
+  }
   return (
     <>
       <button
         title="Clear every override — this instance goes back to the prefab's values"
-        onClick={() => onResetAllProps(entityName)}
+        onClick={() => run(() => onResetAllProps(entityName))}
       >
         ↺ Reset all
       </button>
       <button
         className="is-apply"
         title="Write every override into the prefab — all instances get these values"
-        onClick={() => onApplyAllProps(entityName)}
+        onClick={() => run(() => onApplyAllProps(entityName))}
       >
         ⤒ Apply all
       </button>
+      {error && <div className="ed-hint" role="alert">{error}</div>}
     </>
   )
 }
@@ -140,6 +148,9 @@ function SelectionBody({
 export function Inspector(props: InspectorProps) {
   const archetype = useArchetype()
   const { selection } = props
+  const render = selection?.kind === 'scene' ? selection.scene.render
+    : selection?.kind === 'prefab' ? undefined : props.sceneRender
+  const space = selection?.kind === 'entity' ? selection.space : undefined
   return (
     <RefTargetsContext.Provider value={referenceContextFor(props)}>
       <section className="ed-panel ed-inspector">
@@ -157,7 +168,9 @@ export function Inspector(props: InspectorProps) {
                 )
               }
             />
-            <SelectionBody {...props} selection={selection} />
+            <LightShadowContext.Provider value={lightShadowContext(render, selection.kind === 'prefab', space)}>
+              <SelectionBody {...props} selection={selection} />
+            </LightShadowContext.Provider>
           </>
         )}
       </section>

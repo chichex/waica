@@ -91,11 +91,13 @@ export class GameShadows {
     const light = component.light
     if (!light) return
     const settings = this.resolve(component)
-    if ((light.castShadow || light.shadow.map) && (!settings.enabled || light.shadow.mapSize.x !== settings.mapSize)) {
+    if ((light.castShadow || light.shadow.map) && !settings.enabled) {
       this.remove(component)
     }
     light.castShadow = settings.enabled
     light.shadow.mapSize.set(settings.mapSize, settings.mapSize)
+    // setSize retires GPU storage while preserving nodes held by cached materials.
+    light.shadow.map?.setSize(settings.mapSize, settings.mapSize)
     light.shadow.bias = settings.bias
     light.shadow.normalBias = settings.normalBias
     light.shadow.radius = settings.radius
@@ -103,10 +105,19 @@ export class GameShadows {
     if (component instanceof PointLight && settings.enabled) this.syncPoint(component, settings)
   }
 
-  private fitSun(component: Sun, settings: ResolvedLightShadow): void {
+  /** Prepare host overlays from the same current fit, without allocating or rendering. */
+  prepareSunCamera(component: Sun): THREE.OrthographicCamera | null {
+    const light = component.light
+    if (!light) return null
+    this.game.scene.updateWorldMatrix(true, false)
+    this.game.camera.updateWorldMatrix(true, false)
+    return this.fitSun(component, this.resolve(component)) ? light.shadow.camera : null
+  }
+
+  private fitSun(component: Sun, settings: ResolvedLightShadow): boolean {
     const camera = this.game.camera
-    if (!component.light || !(camera instanceof THREE.PerspectiveCamera)) return
-    fitSunShadow({ light: component.light, camera, settings, direction: component.direction })
+    if (!component.light || !(camera instanceof THREE.PerspectiveCamera)) return false
+    return fitSunShadow({ light: component.light, camera, settings, direction: component.direction })
   }
 
   private syncPoint(component: PointLight, settings: ResolvedLightShadow): void {

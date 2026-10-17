@@ -187,3 +187,24 @@ it('fits the Sun to the active camera away from the origin and disables empty co
   expect(game.shadows.resolve(sun).enabled).toBe(false)
   expect(light.castShadow).toBe(false)
 })
+
+it('prepares the current Sun coverage for a host without drawing or advancing simulation (CA-14)', async () => {
+  const { game } = await ready3dGame()
+  loadScene(game, scene3d([]), registryOf({ Sun }))
+  const sun = game.spawn('Sun').add(Sun)
+  game.camera.position.x += 300
+  game.camera.updateMatrixWorld()
+  const before = game.camera.position.toArray()
+
+  const camera = game.shadows.prepareSunCamera(sun)
+
+  expect(camera).toBe(defined(sun.light).shadow.camera)
+  const receiver = new THREE.Vector3(300, 0, 0).project(defined(camera))
+  expect(Math.abs(receiver.x)).toBeLessThan(1)
+  expect(game.camera.position.toArray()).toEqual(before)
+  expect(game.time.now).toBe(0)
+  expect(fakeRendering.draws).toEqual([])
+  expect(fakeRendering.renderTargets).toEqual([])
+  game.shadows.quality = 'off'
+  expect(game.shadows.prepareSunCamera(sun)).toBeNull()
+})

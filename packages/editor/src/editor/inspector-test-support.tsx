@@ -100,6 +100,7 @@ function inspectorProps(
     pixelsPerUnit: 16,
     resolution: { mode: 'fixed', width: 640, height: 360 },
     sceneCamera: undefined,
+    sceneRender: {},
     stateFiles: [],
     roleFiles: [],
     onCreateRoleFile: vi.fn(),
