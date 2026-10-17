@@ -1,4 +1,4 @@
-import { AnimatedSprite, Sprite, type Entity, type Game, type SceneEntityJson, type SceneJson, type SceneRegistry } from '@waica/engine'
+import { AnimatedSprite, Sprite, StateMachine, type Entity, type Game, type SceneEntityJson, type SceneJson, type SceneRegistry } from '@waica/engine'
 import { SWEEP, cellSize, gridShape, type ScenarioKind, type ScenarioName } from '../sweep.ts'
 import type { ShadowWorkloadInfo } from '../shadow-workload.ts'
 import { bulletHell } from './bullet-hell.ts'
@@ -41,7 +41,7 @@ function spriteProps(texture: string, count: number): Record<string, unknown> {
   return { texture, width: size, height: size }
 }
 
-const REGISTRY_COMPONENTS: SceneRegistry['components'] = { Sprite, AnimatedSprite }
+const REGISTRY_COMPONENTS: SceneRegistry['components'] = { Sprite, AnimatedSprite, StateMachine }
 
 function staticSprites(n: number): ScenarioPlan {
   const texture = squareTexture()
