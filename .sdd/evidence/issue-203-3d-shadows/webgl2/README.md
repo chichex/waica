@@ -20,3 +20,11 @@ await runRuntimeE2e({root,cliPath:`${root}/packages/cli/dist/cli.js`,engineRoot:
 ```
 
 `pnpm test:e2e` runs the same cases in the full matrix on both requested backends. The shadow leg never accepts a blank frame or the legacy issue-151 exception as a pass.
+
+## Editor captures
+
+`editor-*.png` were captured at clean `69483de5aaddf1d8d64828168ea262abe3fc8c9e`, Chrome 150, WebGL2. No visual reference was supplied. These show the existing palette/rows, actual stored/inherited values, and selected-light coverage, not an invented mock.
+
+The permanent editor flow checks all quality levels and map changes on the same Game, zero console/page errors, darkening 135/control delta 0, scene/prefab inheritance and reset, undo/redo, saved-project reopen, current-frame Sun camera fit, PointLight radius 2 and absence of all `waica:editor-*` objects in Play. It is included in `pnpm test:e2e`.
+
+The minimized resize failure was reproduced before correcting it. Resizing now disposes obsolete GPU storage through `RenderTarget.setSize` while keeping the active node used by cached materials; it does not dispose/recreate that node on every size change. Global Off and destruction still dispose the complete shadow resource chain.
