@@ -149,6 +149,7 @@ export type { RenderBackend } from './render-readiness.js'
 export { RUNTIME_PROJECTION_LIMITS } from './runtime-inspection.js'
 export type {
   RuntimeSnapshotLight,
+  RuntimeSnapshotLightShadows,
   RuntimeSnapshotLighting,
   RuntimeSnapshotPointLight,
   RuntimeSnapshotSun,
@@ -199,6 +200,7 @@ export type { PhysicsBackend, RapierModule } from './physics-3d/rapier-module.js
 export type { RuntimeSnapshotBody, RuntimeSnapshotPhysics } from './runtime-physics-snapshot.js'
 export { PointLight } from './components/point-light.js'
 export { GameLighting } from './scene-lighting.js'
+export { GameShadows } from './game-shadows.js'
 export type { AmbientLightInput } from './scene-lighting.js'
 export { GamePost } from './post-effects.js'
 export { EMISSIVE_LAYER, setEmissive } from './render-layers.js'
