@@ -4,7 +4,7 @@ import { Sun } from './components/sun.js'
 import type { ShadowLight } from './components/shadow-light.js'
 import type { Game } from './game.js'
 import { assertShadowMapCapacity, resolveLightShadow, resolveSceneShadows, type LightShadowOverrides, type ResolvedLightShadow, type ResolvedSceneShadows, type ShadowQuality } from './scene-shadows.js'
-import { shadowTextureLimit } from './shadow-renderer.js'
+import { advanceRendererFrame, shadowTextureLimit } from './shadow-renderer.js'
 import { createRangedPointShadow, type RangedPointShadow } from './point-shadow.js'
 import { fitSunShadow } from './sun-shadow-camera.js'
 
@@ -13,6 +13,7 @@ export class GameShadows {
   private state = resolveSceneShadows(undefined)
   private renderer: THREE.WebGPURenderer | null = null
   private readonly pointShadows = new Map<PointLight, RangedPointShadow>()
+  private lastRendererFrame: number | null = null
 
   constructor(private readonly game: Game) {}
 
@@ -73,6 +74,7 @@ export class GameShadows {
       renderer.shadowMap.enabled = false
       return
     }
+    this.lastRendererFrame = advanceRendererFrame(renderer, this.lastRendererFrame)
     this.game.scene.updateWorldMatrix(true, false)
     this.game.camera.updateWorldMatrix(true, false)
     this.validate()

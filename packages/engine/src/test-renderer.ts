@@ -81,6 +81,7 @@ export class FakeWebGPURenderer {
     device: { limits: { maxTextureDimension2D: 8192 } },
   }
   readonly shadowMap = { enabled: false, type: 1 }
+  readonly _nodes = { nodeFrame: { frameId: 0, update(): void { this.frameId++ } } }
   readonly info = { render: { drawCalls: 0 } }
   /** three's switch for a model view computed on the CPU instead of in the shader. */
   highPrecision = false

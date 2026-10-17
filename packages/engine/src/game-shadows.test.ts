@@ -33,6 +33,22 @@ it('loads independent scene shadow defaults and updates policy without changing 
   expect(game.shadows.policy).toEqual({ quality: 'medium', maxDistance: 40 })
 })
 
+it('gives manual 3D renders distinct renderer frames without double-advancing a native frame (CA-17)', async () => {
+  const { game } = await ready3dGame()
+  loadScene(game, scene3d([]), registryOf({}))
+  const clock = lastFakeRenderer()._nodes.nodeFrame
+  renderFrame(game)
+  const first = clock.frameId
+  renderFrame(game)
+  renderFrame(game)
+  expect(clock.frameId).toBe(first + 2)
+
+  clock.update()
+  const nativeFrame = clock.frameId
+  renderFrame(game)
+  expect(clock.frameId).toBe(nativeFrame)
+})
+
 it('rejects unsupported active sizes before changing the last valid live policy or light (CA-3)', async () => {
   const { game } = await ready3dGame()
   lastFakeRenderer().maxTextureSize = 2048
