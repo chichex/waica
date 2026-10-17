@@ -9,6 +9,9 @@ export interface CounterDiff {
 
 /** Differences in deterministic counters only; timings, commit and host never count. */
 export function compareCounters(baseline: ScenarioResult, actual: ScenarioResult): CounterDiff[] {
+  if (baseline.backend !== actual.backend) {
+    throw new Error(`bench: cannot compare backend ${baseline.backend} with ${actual.backend}`)
+  }
   if (baseline.scenario !== actual.scenario) {
     throw new Error(`bench: cannot compare baseline ${baseline.scenario} with results of ${actual.scenario}`)
   }
