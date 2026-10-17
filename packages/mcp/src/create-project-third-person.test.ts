@@ -1,6 +1,8 @@
 import { afterEach, beforeAll, expect, it } from 'vitest'
 import { readFile, readdir } from 'node:fs/promises'
 import path from 'node:path'
+import { resolveEntityComponents, type PrefabJson } from '@waica/engine'
+import { isPrefabJson, parseSceneJson } from '../../editor/src/scene/scene-file.js'
 import { createProject } from './create-project.js'
 import { fallbackEntriesFor } from './project-component-fallbacks.js'
 import { cleanup, tempDir } from './test-helpers.js'
@@ -62,4 +64,42 @@ it('gives a blank project only what its blank scene uses: the player prefab, its
   expect((await readdir(path.join(project, 'src/ui'))).sort()).toEqual(['controls-hint.html', 'player-health.html'])
   const scene = await readFile(path.join(project, 'src/scenes/main.scene.json'), 'utf8')
   expect(scene).toContain('"characters/player"')
+}, 120_000)
+
+async function projectPrefabs(project: string): Promise<Record<string, PrefabJson>> {
+  const src = path.join(project, 'src')
+  const files = (await readdir(src, { recursive: true })).filter((file) => /\.(character|object|tile)\.json$/.test(file))
+  const prefabs: Record<string, PrefabJson> = {}
+  for (const file of files) {
+    const parsed: unknown = JSON.parse(await readFile(path.join(src, file), 'utf8'))
+    if (!isPrefabJson(parsed)) throw new Error(`Invalid generated prefab: ${file}`)
+    const ref = file.split(path.sep).join('/').replace(/\.(character|object|tile)\.json$/, '')
+    prefabs[ref] = parsed
+  }
+  return prefabs
+}
+
+it.each([
+  { start: 'demo' as const, modelCount: 60, torches: ['Torch NW', 'Torch NE', 'Torch SW', 'Torch SE'] },
+  { start: 'blank' as const, modelCount: 2, torches: [] },
+])('generates a valid $start Project with explicit Medium/40 shadows on every participant (CA-16)', async ({ start, modelCount, torches }) => {
+  const project = await created(start)
+  const scene = parseSceneJson(await readFile(path.join(project, 'src/scenes/main.scene.json'), 'utf8'))
+  const prefabs = await projectPrefabs(project)
+  expect(scene.render?.shadows).toEqual({ quality: 'medium', maxDistance: 40 })
+
+  const components = scene.entities.flatMap((entity) => {
+    if (entity.prefab) expect(prefabs, entity.name).toHaveProperty(entity.prefab)
+    return resolveEntityComponents(entity, prefabs).map((component) => ({ name: entity.name, ...component }))
+  })
+  const models = components.filter((component) => component.type === 'Model')
+  expect(models).toHaveLength(modelCount)
+  for (const model of models) expect(model.props, model.name).toMatchObject({ castShadows: true, receiveShadows: true })
+  expect(models.find((model) => model.name === 'Player')?.props?.src).toBe('src/art/knight.glb')
+  expect(models.filter((model) => model.props?.shape === 'plane').map((model) => model.name)).toEqual(start === 'blank' ? ['Ground'] : [])
+  expect(components.filter((component) => component.type === 'PointLight').map((component) => component.name)).toEqual(torches)
+  const lights = components.filter((component) => component.type === 'Sun' || component.type === 'PointLight')
+  expect(lights).toHaveLength(torches.length + 1)
+  for (const light of lights) expect(light.props, light.name).toHaveProperty('castShadows', true)
+  expect(await errorsOf(project)).toEqual([])
 }, 120_000)
