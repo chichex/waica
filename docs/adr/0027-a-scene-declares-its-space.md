@@ -6,6 +6,27 @@
 
 A scene says `render.space: '2d' | '3d'` and the Game follows it. In a `2d` scene (the default) nothing changes: an orthographic camera, `z` as draw order (layer bands, y-sort, the isometric projection), Sprite Batches and the light-map. In a `3d` scene `z` is a world axis (Y up, the ground is the XZ plane) under a perspective camera, the frame is drawn straight to the canvas with a depth buffer deciding what is in front, and none of those 2D mechanisms runs. Lights are three's own (an ambient light the Game owns, a `Sun` and a `PointLight` per entity), not a light-map. `game.camera` is whichever camera the live scene uses; code that needs a point on the screen asks `game.worldToScreen`.
 
+## Shadow amendment — issue 203
+
+The original consequence below calling shadows a later block is superseded:
+Sun/PointLight casting and Model casting/receiving now default on through the
+existing WebGPURenderer with soft PCF. `render.shadows` selects Off/Low/Medium/High;
+absence means Medium and finite reach 40, independent of Ambient Light.
+Sun maps are 1024²/2048²/4096² and Point maps 256²/512²/1024² per face.
+Global Off restores the previous shadow-free render. Existing 3D appearance/cost
+may change; 2D and deterministic simulation do not.
+
+Sun coverage follows the active camera with caster padding and texel stabilization,
+without cascades. Point shadows have a Euclidean radius independent of lighting
+attenuation. Nullable numeric overrides inherit scene settings; explicit instance
+null and reset-to-prefab are different actions. No automatic light/FPS cap is added.
+See the [public format and migration](../../packages/engine/README.md#3d-shadows-and-migration).
+
+Both backend paths are implemented, but positive WebGPU pixel/resource evidence
+remains external under issue #203's H-1/H-2 protocol. Blank frames/fallback are not
+verification. Manual 3D renders use an isolated, checked Three 0.186 NodeFrame
+compatibility boundary; native RAF and Game Time are not advanced twice.
+
 ## Considered Options
 
 Inferring 3D from the presence of a `Model` or a perspective camera was rejected: the same scene file would draw through two different pipelines depending on what a later edit adds, and validation would have nothing to check a component against. Keeping `z` as draw order and adding a separate depth axis was rejected because every 3D object would then need two ways to say how far away it is. Mixing 2D and 3D in one scene (2.5D: models inside an orthographic scene, two lighting systems, picking in a 2D viewport) was deferred: it needs ordering and lighting rules this block does not design, so `validate_project` keeps the engine's 2D components out of 3D scenes and its 3D components out of 2D ones until a later block decides.
