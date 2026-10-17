@@ -9,6 +9,7 @@ import { createHelpers3d, disposeObject } from './viewport-3d-helpers'
 import { createIcons3d } from './viewport-3d-icons'
 import type { ViewportLive } from './viewport-live'
 import { addOverlay, SELECTION_AMBER } from './viewport-selection-gizmos'
+import { createShadowHelpers } from './viewport-shadow-helpers'
 
 /** Half the side of the cube that stands for an entity with no mesh. */
 const MESHLESS_HALF = 0.5
@@ -101,6 +102,7 @@ export function createOverlays3d(game: Game) {
   const selection = createSelectionBoxes(game)
   const icons = createIcons3d(game)
   const helpers = createHelpers3d(game)
+  const shadows = createShadowHelpers(game)
   return {
     /** Draws everything while `active` (a 3D scene being edited), and hides it otherwise. */
     update(live: ViewportLive, active: boolean): void {
@@ -108,9 +110,12 @@ export function createOverlays3d(game: Game) {
       selection.sync(live, active)
       icons.sync(live, active)
       helpers.sync(live, active && live.helpers3d !== false)
+      if (active && live.mode === 'edit') shadows.sync(selectedNames(live), live.helpers3d !== false)
+      else shadows.dispose()
     },
     /** Removes every overlay from the scene and frees its GPU resources. */
     dispose(): void {
+      shadows.dispose()
       const overlays: THREE.Object3D[] = []
       game.scene.traverse((object) => {
         if (object.name.startsWith('waica:editor-')) overlays.push(object)
