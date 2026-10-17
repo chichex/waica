@@ -207,8 +207,10 @@ export class ShadowResourceObserver {
   private destroyedTextures = 0
   private initializedTargets = 0
   private targetDisposals = 0
+  private readonly renderer: BenchRenderer
 
-  constructor(private readonly renderer: BenchRenderer) {
+  constructor(renderer: BenchRenderer) {
+    this.renderer = renderer
     readRendererMemory(renderer)
     this.restore.push(intercept(renderer.backend, 'createTexture', (texture) => this.created(texture)))
     try {
