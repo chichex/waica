@@ -1,5 +1,5 @@
 import { Component, type ParamSpec } from '../component.js'
-import { normalizeShadowBoolean, normalizeShadowOverride, SHADOW_OVERRIDE_PARAMS } from '../scene-shadows.js'
+import { normalizeShadowBoolean, normalizeShadowOverride, SHADOW_OVERRIDE_PARAMS, type LightShadowOverrides } from '../scene-shadows.js'
 
 /** Shared, normalized authoring properties for the two 3D lights. */
 export abstract class ShadowLight extends Component {
@@ -19,7 +19,9 @@ export abstract class ShadowLight extends Component {
     return this._castShadows
   }
   set castShadows(value: unknown) {
-    this._castShadows = normalizeShadowBoolean(value)
+    const normalized = normalizeShadowBoolean(value)
+    this.validateChange({ castShadows: normalized })
+    this._castShadows = normalized
   }
 
   /** Null inherits the scene's resolution for this kind of light. */
@@ -27,7 +29,9 @@ export abstract class ShadowLight extends Component {
     return this._shadowMapSize
   }
   set shadowMapSize(value: unknown) {
-    this._shadowMapSize = normalizeShadowOverride('shadowMapSize', value)
+    const normalized = normalizeShadowOverride('shadowMapSize', value)
+    this.validateChange({ shadowMapSize: normalized })
+    this._shadowMapSize = normalized
   }
 
   /** Null inherits the scene's maximum shadow distance, in world units. */
@@ -35,7 +39,9 @@ export abstract class ShadowLight extends Component {
     return this._shadowMaxDistance
   }
   set shadowMaxDistance(value: unknown) {
-    this._shadowMaxDistance = normalizeShadowOverride('shadowMaxDistance', value)
+    const normalized = normalizeShadowOverride('shadowMaxDistance', value)
+    this.validateChange({ shadowMaxDistance: normalized })
+    this._shadowMaxDistance = normalized
   }
 
   /** Null inherits the engine default shadow bias (SHADOW_DEFAULTS.bias). */
@@ -43,7 +49,9 @@ export abstract class ShadowLight extends Component {
     return this._shadowBias
   }
   set shadowBias(value: unknown) {
-    this._shadowBias = normalizeShadowOverride('shadowBias', value)
+    const normalized = normalizeShadowOverride('shadowBias', value)
+    this.validateChange({ shadowBias: normalized })
+    this._shadowBias = normalized
   }
 
   /** Null inherits the engine default normal offset (SHADOW_DEFAULTS.normalBias). */
@@ -51,7 +59,9 @@ export abstract class ShadowLight extends Component {
     return this._shadowNormalBias
   }
   set shadowNormalBias(value: unknown) {
-    this._shadowNormalBias = normalizeShadowOverride('shadowNormalBias', value)
+    const normalized = normalizeShadowOverride('shadowNormalBias', value)
+    this.validateChange({ shadowNormalBias: normalized })
+    this._shadowNormalBias = normalized
   }
 
   /** Null inherits the engine default PCF radius (SHADOW_DEFAULTS.radius). */
@@ -59,6 +69,12 @@ export abstract class ShadowLight extends Component {
     return this._shadowRadius
   }
   set shadowRadius(value: unknown) {
-    this._shadowRadius = normalizeShadowOverride('shadowRadius', value)
+    const normalized = normalizeShadowOverride('shadowRadius', value)
+    this.validateChange({ shadowRadius: normalized })
+    this._shadowRadius = normalized
+  }
+
+  private validateChange(change: LightShadowOverrides): void {
+    this.game?.shadows.validateChange(this, change)
   }
 }
