@@ -88,3 +88,9 @@ baselines are not positively verified on this host. On 2026-10-17 the user withd
 CA-18/21 from this delivery; H-1/H-2 remain optional future verification, not gates.
 No tests or backend support were removed. Blank frames, fallback and issue-151
 exceptions still do not verify that backend.
+
+After resumption, `--backend=webgl2 --check` passed again at df0b004, including the
+ten-cycle resource gate. The exact JSON is `bench/webgl2-resume-check.json` under
+the same evidence folder. Unit fixtures now use the runtime temporary directory,
+and geometric CPU checks retain every frame/condition while avoiding repeated
+matchers and world-matrix traversals. No timeout, tolerance or frame count changed.

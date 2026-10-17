@@ -13,12 +13,12 @@ No limits, generation policies, dependencies or release settings changed.
   controls, history and selected-light coverage helpers work in edit mode.
   Off restores the previous shadow-free image/cost; 2D/simulation are unchanged.
   Demo/blank/example explicitly declare the policy; all four torches participate.
-- **Measured regression:** `pnpm test`: 4338/4338 tests, 458 files. `pnpm lint`:
+- **Measured regression:** `pnpm test`: 4339/4339 tests, 458 files after resumption. `pnpm lint`:
   1030 files, 0 errors, 1048 existing warnings, 0 ratchet regressions. Typecheck,
   build, `pnpm test:dist` and `pnpm test:desktop` passed. Desktop smoke used
   platformer/third-person over private kwin-virtual; cross/Steam not rerun here.
-- **Browser:** complete WebGL2 leg passed in 202,567 ms on Chrome 150.0.7871.186
-  at clean eb61fb8. Includes strict isolated Sun/Point shadows, flags, moving
+- **Browser:** complete WebGL2 leg passed in 213,107 ms on Chrome 150.0.7871.186
+  at clean df0b004 after resumption. Includes strict isolated Sun/Point shadows, flags, moving
   caster, camera teleport, static/animated glTF ground shadows, and real editor
   preset/override/inheritance/reset/history/reopen/helpers/Play. Existing lighting
   pool 28→0 and depth parity 0 differing pixels remain. `pnpm test:e2e` still exits
@@ -34,12 +34,20 @@ No limits, generation policies, dependencies or release settings changed.
   and the 17 historical baselines are unchanged. Actual backend resources pass
   ten same-Game cycles/121 checkpoints before disposal. Raw memory is retained;
   Three's shader-source character count is distinguished from GPU storage.
+  A fresh WebGL2 `--check` also passed at df0b004 after resumption.
 - **Remaining gap:** explicit WebGPU benchmark failed at the first scenario with
   `OperationError: A valid external Instance reference no longer exists.` No
   positive WebGPU pixels or resource baseline exists for this run. On resumption,
   the user explicitly withdrew CA-18/21 from this delivery after the same failure
   reproduced. H-1/H-2 remain optional future verification, not completion gates.
   Neither criterion is reported as verified; support and assertions stay intact.
+- **CI portability correction:** benchmark baseline tests now use the runtime's
+  existing temporary directory, not a machine-specific /tmp/opencode parent.
+  CPU workload checks still evaluate every geometric condition over all 60 frames;
+  batching matchers, sharing per-frame bounds and caching world light positions
+  reduced the focused run from 4.54 s to 1.13 s without increasing timeouts.
+  Negative controls also reject offscreen/overlapping geometry. Local verification
+  passed; remote CI status must be read separately, not inferred from local results.
 - **Evidence:** `.sdd/evidence/issue-203-3d-shadows/`; native Node validator import,
   matrix/metadata/baseline tests and public workload update schedules are guarded.
   `node scripts/sync-scene.mjs` rerun after final build produced no diff. Benchmark
