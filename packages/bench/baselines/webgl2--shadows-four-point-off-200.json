@@ -1,0 +1,43 @@
+{
+  "scenario": "shadows-four-point-off-200",
+  "commit": "dd8cf9e",
+  "backend": "webgl2",
+  "host": {
+    "platform": "linux",
+    "cpus": 8,
+    "chrome": "Google Chrome 150.0.7871.186",
+    "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+  },
+  "counters": {
+    "drawCalls": 201,
+    "meshes": 201,
+    "visibleMeshes": 201,
+    "geometries": 201,
+    "materials": 201,
+    "textures": 0,
+    "textureSources": 0,
+    "entitiesSpawned": 205,
+    "entitiesDestroyed": 0,
+    "materialsCreated": 201,
+    "geometriesCreated": 201
+  },
+  "timings": {
+    "frames": 60,
+    "medianMs": 9.600000023841858,
+    "p95Ms": 14.799999952316284,
+    "overBudget": false,
+    "gcPauses": {
+      "count": 3,
+      "totalMs": 0.846
+    }
+  },
+  "shadow": {
+    "composition": "four-point",
+    "enabled": false,
+    "quality": "off",
+    "casters": 200,
+    "lights": 4,
+    "warmupFrames": 5,
+    "measuredFrames": 60
+  }
+}
