@@ -71,6 +71,7 @@ export class Sun extends ShadowLight {
   }
 
   override onDestroy(): void {
+    this.game.shadows.remove(this)
     this.light?.removeFromParent()
     this.light?.target.removeFromParent()
   }

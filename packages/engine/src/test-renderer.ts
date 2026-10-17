@@ -74,7 +74,13 @@ export function lastFakeRenderer(): FakeWebGPURenderer {
 export class FakeWebGPURenderer {
   readonly domElement: HTMLCanvasElement
   /** Mirrors the real backend flag, read after init(). */
-  readonly backend = { isWebGPUBackend: false }
+  maxTextureSize = 8192
+  readonly backend = {
+    isWebGPUBackend: false,
+    gl: { MAX_TEXTURE_SIZE: 0x0d33, getParameter: (): number => this.maxTextureSize },
+    device: { limits: { maxTextureDimension2D: 8192 } },
+  }
+  readonly shadowMap = { enabled: false, type: 1 }
   readonly info = { render: { drawCalls: 0 } }
   /** three's switch for a model view computed on the CPU instead of in the shader. */
   highPrecision = false
