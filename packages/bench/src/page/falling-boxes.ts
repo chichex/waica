@@ -59,7 +59,7 @@ export function fallingBoxes(n: number): ScenarioPlan {
   return {
     scene: {
       waicaScene: 3,
-      render: { space: '3d' },
+      render: { space: '3d', shadows: { quality: 'off' } },
       camera: { kind: 'perspective', position: [0, 12, 26], target: [0, 4, 0], fov: 50 },
       entities: [floor, sun, ...boxes],
     },

@@ -23,11 +23,19 @@ describe('SWEEP', () => {
       'falling-boxes-1000': { kind: 'falling-boxes', n: 1000 },
       'skinned-characters-50': { kind: 'skinned-characters', n: 50 },
       'skinned-characters-200': { kind: 'skinned-characters', n: 200 },
+      'shadows-sun-off-50': { kind: 'shadows-sun-off', n: 50 }, 'shadows-sun-off-200': { kind: 'shadows-sun-off', n: 200 },
+      'shadows-sun-on-50': { kind: 'shadows-sun-on', n: 50 }, 'shadows-sun-on-200': { kind: 'shadows-sun-on', n: 200 },
+      'shadows-point-off-50': { kind: 'shadows-point-off', n: 50 }, 'shadows-point-off-200': { kind: 'shadows-point-off', n: 200 },
+      'shadows-point-on-50': { kind: 'shadows-point-on', n: 50 }, 'shadows-point-on-200': { kind: 'shadows-point-on', n: 200 },
+      'shadows-four-point-off-50': { kind: 'shadows-four-point-off', n: 50 }, 'shadows-four-point-off-200': { kind: 'shadows-four-point-off', n: 200 },
+      'shadows-four-point-on-50': { kind: 'shadows-four-point-on', n: 50 }, 'shadows-four-point-on-200': { kind: 'shadows-four-point-on', n: 200 },
     })
   })
 
   it('runs the scenarios in sweep order, and every one has a plan', () => {
     expect(SCENARIOS).toEqual(Object.keys(SWEEP))
+    expect(SCENARIOS).toHaveLength(29)
+    expect(new Set(SCENARIOS).size).toBe(29)
     for (const name of SCENARIOS) expect(PLAN_BY_KIND[SWEEP[name].kind]).toBeTypeOf('function')
   })
 })

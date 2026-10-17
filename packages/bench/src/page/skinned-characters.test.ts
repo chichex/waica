@@ -11,6 +11,7 @@ describe('skinnedCharacters (issue #166 CA-19)', () => {
     const plan = skinnedCharacters(50)
 
     expect(plan.scene.render?.space).toBe('3d')
+    expect(plan.scene.render?.shadows).toEqual({ quality: 'off' })
     expect(plan.scene.camera?.kind).toBe('perspective')
     expect(plan.steps).toBe(60)
     expect(plan.perStep).toBeUndefined()

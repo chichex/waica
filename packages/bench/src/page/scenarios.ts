@@ -1,9 +1,11 @@
 import { AnimatedSprite, Sprite, type Entity, type Game, type SceneEntityJson, type SceneJson, type SceneRegistry } from '@waica/engine'
 import { SWEEP, cellSize, gridShape, type ScenarioKind, type ScenarioName } from '../sweep.ts'
+import type { ShadowWorkloadInfo } from '../shadow-workload.ts'
 import { bulletHell } from './bullet-hell.ts'
 import { fallingBoxes } from './falling-boxes.ts'
 import { lightsOcclusion } from './lights-occlusion.ts'
 import { skinnedCharacters } from './skinned-characters.ts'
+import { shadowScene } from './shadow-scenes.ts'
 import { SHEET_FRAMES, sheetTexture, squareTexture } from './fixture-art.ts'
 
 /** One deterministic workload: a scene, how many Simulation Steps to run, and per-step work. */
@@ -13,6 +15,9 @@ export interface ScenarioPlan {
   /** Every asset the scenario draws — textures, and a glb for a skinned scene — preloaded through `game.assets.preload` so no load lands mid-run. */
   preload: string[]
   steps: number
+  /** Render-only warmup, outside measured Simulation Steps. */
+  warmupFrames?: number
+  shadow?: ShadowWorkloadInfo
   /** Runs inside every Simulation Step (game.onUpdate), `step` counting from 1. */
   perStep?: (game: Game, step: number) => void
 }
@@ -109,6 +114,12 @@ export const PLAN_BY_KIND: Record<ScenarioKind, (n: number) => ScenarioPlan> = {
   'lights-occlusion': lightsOcclusion,
   'falling-boxes': fallingBoxes,
   'skinned-characters': skinnedCharacters,
+  'shadows-sun-off': (n) => shadowScene(n, 'sun', false),
+  'shadows-sun-on': (n) => shadowScene(n, 'sun', true),
+  'shadows-point-off': (n) => shadowScene(n, 'point', false),
+  'shadows-point-on': (n) => shadowScene(n, 'point', true),
+  'shadows-four-point-off': (n) => shadowScene(n, 'four-point', false),
+  'shadows-four-point-on': (n) => shadowScene(n, 'four-point', true),
 }
 
 /** Builds the plan of one sweep entry; art is generated here, in the page. */

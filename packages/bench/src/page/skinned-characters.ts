@@ -37,7 +37,7 @@ export function skinnedCharacters(n: number): ScenarioPlan {
   return {
     scene: {
       waicaScene: 3,
-      render: { space: '3d' },
+      render: { space: '3d', shadows: { quality: 'off' } },
       camera: { kind: 'perspective', position: [0, 14, 30], target: [0, 1, 0], fov: 50 },
       entities: [sun, ...characters],
     },
