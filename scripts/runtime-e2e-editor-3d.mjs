@@ -228,8 +228,14 @@ async function canvasShot(page) {
   return (await page.locator('.ed-viewport canvas').screenshot()).toString('base64')
 }
 
+/** New pixel coverage is independent from the always-required legacy editor checks. */
+async function editorShadowResult({ includeShadows = true, ...context }) {
+  if (!includeShadows) return {}
+  return { editorShadows: await runEditorShadowsFlow({ ...context, files: await projectFiles() }) }
+}
+
 /** The whole editor-3d leg; `helpers` are runtime-e2e.mjs's own. */
-export async function runEditor3dLeg({ root, viteBin, chrome, playwright, label, helpers, renderLeg, mcp }) {
+export async function runEditor3dLeg({ root, viteBin, chrome, playwright, label, helpers, renderLeg, includeShadows, mcp }) {
   const startedAt = Date.now()
   let editor = null
   let browser = null
@@ -252,16 +258,16 @@ export async function runEditor3dLeg({ root, viteBin, chrome, playwright, label,
     await helpers.keepScreenshot(`${label}-editor-3d-before-orbit.png`, beforeOrbit)
     await helpers.keepScreenshot(`${label}-editor-3d-after-orbit.png`, afterOrbit)
     const newPrefab = await newObjectMatchesScaffold(page, { ...mcp, label })
-    // CA-15/18 stays strict on both backends, independently of legacy #151.
-    const shadowFlow = async () => runEditorShadowsFlow({ root, page, files: await projectFiles(), inspector, chrome, label, helpers, renderLeg })
+    // Requested shadow visuals remain strict; CLI policy makes WebGPU opt-in.
+    const shadowFlow = () => editorShadowResult({ root, page, inspector, chrome, label, helpers, renderLeg, includeShadows })
     // CI's Linux WebGPU draws a blank frame (issue #151): its pixels, and the page errors its backend raises, are only reported there.
     if (expectsBlankLighting(renderLeg?.backend)) {
-      return { editorShadows: await shadowFlow(), editor3d: { durationMs: Date.now() - startedAt, drag, clips, camera, newPrefab, pageErrors, expectedBlank: 'https://github.com/chichex/waica/issues/151' } }
+      return { ...(await shadowFlow()), editor3d: { durationMs: Date.now() - startedAt, drag, clips, camera, newPrefab, pageErrors, expectedBlank: 'https://github.com/chichex/waica/issues/151' } }
     }
     const { differing } = await inspector.compare(beforeOrbit, afterOrbit)
     assert.ok(differing >= MIN_DIFFERING_PIXELS, `orbiting must change at least ${MIN_DIFFERING_PIXELS} pixels where the frame draws; ${differing} did`)
     assert.deepEqual(pageErrors, [], 'the editor must raise no page error')
-    return { editorShadows: await shadowFlow(), editor3d: { durationMs: Date.now() - startedAt, drag, clips, camera, newPrefab, differingAfterOrbit: differing } }
+    return { ...(await shadowFlow()), editor3d: { durationMs: Date.now() - startedAt, drag, clips, camera, newPrefab, differingAfterOrbit: differing } }
   } finally {
     // Each resource closes on its own, so one failing close leaves no other open.
     const closers = [inspector && (() => inspector.close()), browser && (() => browser.close()), editor && (() => editor.close())]
