@@ -183,7 +183,7 @@ export function LightShadowOverrides({ comp, names, overridden, ...handlers }: C
     <div className="ed-param-block">
       <button type="button" className="ed-mini" aria-expanded={open} aria-controls={id}
         onClick={() => setOpen(!open)}>Advanced shadows</button>
-      <div className="ed-hint" role="status">{context.label}: {context.scene.quality} · {effective.enabled ? 'Active' : 'Inactive'}</div>
+      <div className="ed-hint" role="status">{context.label}: {context.scene.quality} · {effective.enabled && context.space === '3d' ? 'Active' : 'Inactive'}{context.space === '2d' && ' · 2D preview'}</div>
       <div id={id} hidden={!open}>
         {names.map((name) => (
           <ShadowOverrideRow key={name} name={name} value={comp.props?.[name]}

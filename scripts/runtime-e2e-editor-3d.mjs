@@ -13,6 +13,7 @@ import { createServer as createNetServer } from 'node:net'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { expectsBlankLighting } from './runtime-e2e-lighting.mjs'
+import { runEditorShadowsFlow } from './runtime-e2e-editor-shadows.mjs'
 
 /** The third-person example's sources: a synced copy of the archetype's demo (scripts/sync-scene.mjs). */
 const EXAMPLE = fileURLToPath(new URL('../examples/third-person/src', import.meta.url))
@@ -251,14 +252,16 @@ export async function runEditor3dLeg({ root, viteBin, chrome, playwright, label,
     await helpers.keepScreenshot(`${label}-editor-3d-before-orbit.png`, beforeOrbit)
     await helpers.keepScreenshot(`${label}-editor-3d-after-orbit.png`, afterOrbit)
     const newPrefab = await newObjectMatchesScaffold(page, { ...mcp, label })
+    // CA-15/18 stays strict on both backends, independently of legacy #151.
+    const shadowFlow = async () => runEditorShadowsFlow({ root, page, files: await projectFiles(), inspector, chrome, label, helpers, renderLeg })
     // CI's Linux WebGPU draws a blank frame (issue #151): its pixels, and the page errors its backend raises, are only reported there.
     if (expectsBlankLighting(renderLeg?.backend)) {
-      return { editor3d: { durationMs: Date.now() - startedAt, drag, clips, camera, newPrefab, pageErrors, expectedBlank: 'https://github.com/chichex/waica/issues/151' } }
+      return { editorShadows: await shadowFlow(), editor3d: { durationMs: Date.now() - startedAt, drag, clips, camera, newPrefab, pageErrors, expectedBlank: 'https://github.com/chichex/waica/issues/151' } }
     }
     const { differing } = await inspector.compare(beforeOrbit, afterOrbit)
     assert.ok(differing >= MIN_DIFFERING_PIXELS, `orbiting must change at least ${MIN_DIFFERING_PIXELS} pixels where the frame draws; ${differing} did`)
     assert.deepEqual(pageErrors, [], 'the editor must raise no page error')
-    return { editor3d: { durationMs: Date.now() - startedAt, drag, clips, camera, newPrefab, differingAfterOrbit: differing } }
+    return { editorShadows: await shadowFlow(), editor3d: { durationMs: Date.now() - startedAt, drag, clips, camera, newPrefab, differingAfterOrbit: differing } }
   } finally {
     // Each resource closes on its own, so one failing close leaves no other open.
     const closers = [inspector && (() => inspector.close()), browser && (() => browser.close()), editor && (() => editor.close())]

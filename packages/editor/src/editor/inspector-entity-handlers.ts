@@ -100,7 +100,7 @@ export function entityComponentHandlers(core: EditorCore, viewport?: ViewportAcc
       if (!scene) return
       const next = ops.setRenderProp(scene, key, value)
       // Reject an unsupported shadow request before recording or persisting it.
-      if (key === 'shadows') viewport?.()?.game()?.setSceneRender(next.render)
+      if (key === 'shadows') viewport?.()?.game()?.shadows.loadScene(next.render?.shadows)
       // Projection and batching are chosen as entities spawn, lighting and
       // Post Effects as the scene loads: all rebuild the stage.
       const structural = ['projection', 'batch', 'lighting', 'post'].includes(key)

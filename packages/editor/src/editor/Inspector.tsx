@@ -149,7 +149,8 @@ export function Inspector(props: InspectorProps) {
   const archetype = useArchetype()
   const { selection } = props
   const render = selection?.kind === 'scene' ? selection.scene.render
-    : selection?.kind === 'prefab' ? archetype.blankScene.render : props.sceneRender
+    : selection?.kind === 'prefab' ? undefined : props.sceneRender
+  const space = selection?.kind === 'entity' ? selection.space : undefined
   return (
     <RefTargetsContext.Provider value={referenceContextFor(props)}>
       <section className="ed-panel ed-inspector">
@@ -167,7 +168,7 @@ export function Inspector(props: InspectorProps) {
                 )
               }
             />
-            <LightShadowContext.Provider value={lightShadowContext(render, selection.kind === 'prefab')}>
+            <LightShadowContext.Provider value={lightShadowContext(render, selection.kind === 'prefab', space)}>
               <SelectionBody {...props} selection={selection} />
             </LightShadowContext.Provider>
           </>

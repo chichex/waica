@@ -91,11 +91,13 @@ export class GameShadows {
     const light = component.light
     if (!light) return
     const settings = this.resolve(component)
-    if ((light.castShadow || light.shadow.map) && (!settings.enabled || light.shadow.mapSize.x !== settings.mapSize)) {
+    if ((light.castShadow || light.shadow.map) && !settings.enabled) {
       this.remove(component)
     }
     light.castShadow = settings.enabled
     light.shadow.mapSize.set(settings.mapSize, settings.mapSize)
+    // setSize retires GPU storage while preserving nodes held by cached materials.
+    light.shadow.map?.setSize(settings.mapSize, settings.mapSize)
     light.shadow.bias = settings.bias
     light.shadow.normalBias = settings.normalBias
     light.shadow.radius = settings.radius
