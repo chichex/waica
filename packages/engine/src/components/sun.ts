@@ -1,6 +1,7 @@
 import * as THREE from 'three/webgpu'
-import { Component, type ComponentSpace, type ParamSpec } from '../component.js'
+import type { ComponentSpace, ParamSpec } from '../component.js'
 import type { Vec3Json } from '../scene-camera-3d.js'
+import { ShadowLight } from './shadow-light.js'
 
 const DEFAULT_DIRECTION: Vec3Json = [-1, -2, -1]
 
@@ -15,10 +16,11 @@ const finiteDirection = (value: unknown): value is Vec3Json =>
  * in a 2D scene creates nothing. The three light lives in the Game's scene,
  * moves with its props, and leaves with the entity.
  */
-export class Sun extends Component {
+export class Sun extends ShadowLight {
   static override componentName = 'Sun'
   static override space: ComponentSpace = '3d'
   static override params = {
+    ...ShadowLight.params,
     direction: { label: 'Direction', kind: 'vector3' },
     color: { label: 'Color', kind: 'color' },
     intensity: { label: 'Intensity', min: 0, step: 0.1 },

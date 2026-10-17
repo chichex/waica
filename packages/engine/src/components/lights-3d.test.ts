@@ -100,7 +100,10 @@ describe('Sun, lifetime and defaults (CA-11)', () => {
 
   it('has the default direction, color and intensity the spec names', () => {
     expect(Sun.componentName).toBe('Sun')
-    expect(authoringDefaults(Sun)).toEqual({ direction: [-1, -2, -1], color: 0xffffff, intensity: 1 })
+    expect(authoringDefaults(Sun)).toEqual({
+      direction: [-1, -2, -1], color: 0xffffff, intensity: 1, castShadows: true, shadowMapSize: null,
+      shadowMaxDistance: null, shadowBias: null, shadowNormalBias: null, shadowRadius: null,
+    })
     expect(Sun.params).toMatchObject({ direction: { kind: 'vector3' }, color: { kind: 'color' } })
   })
 })
@@ -175,6 +178,8 @@ describe('PointLight, props and lifetime (CA-11)', () => {
     expect(PointLight.displayName).toBe('Point light (3D)')
     expect(authoringDefaults(PointLight)).toEqual({
       color: 0xffffff, intensity: 1, distance: 0, decay: 2, offsetX: 0, offsetY: 0, offsetZ: 0,
+      castShadows: true, shadowMapSize: null,
+      shadowMaxDistance: null, shadowBias: null, shadowNormalBias: null, shadowRadius: null,
     })
   })
 })
