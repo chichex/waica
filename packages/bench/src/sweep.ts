@@ -3,7 +3,8 @@
  * its size. Static and animated sizes are sprite counts; churn and
  * bullet-hell sizes are spawns per Simulation Step; lights-occlusion sizes
  * are Light counts; falling-boxes sizes are dynamic box counts;
- * skinned-characters sizes are animated rig counts. One baseline file per id.
+ * skinned-characters sizes are animated rig counts; shadows sizes count all
+ * casters, including the animated rig. One baseline per backend and id.
  */
 export const SCENARIOS = [
   'static-sprites-1000',
@@ -23,6 +24,18 @@ export const SCENARIOS = [
   'falling-boxes-1000',
   'skinned-characters-50',
   'skinned-characters-200',
+  'shadows-sun-off-50',
+  'shadows-sun-off-200',
+  'shadows-sun-on-50',
+  'shadows-sun-on-200',
+  'shadows-point-off-50',
+  'shadows-point-off-200',
+  'shadows-point-on-50',
+  'shadows-point-on-200',
+  'shadows-four-point-off-50',
+  'shadows-four-point-off-200',
+  'shadows-four-point-on-50',
+  'shadows-four-point-on-200',
 ] as const
 export type ScenarioName = (typeof SCENARIOS)[number]
 
@@ -34,6 +47,12 @@ export type ScenarioKind =
   | 'lights-occlusion'
   | 'falling-boxes'
   | 'skinned-characters'
+  | 'shadows-sun-off'
+  | 'shadows-sun-on'
+  | 'shadows-point-off'
+  | 'shadows-point-on'
+  | 'shadows-four-point-off'
+  | 'shadows-four-point-on'
 
 export interface SweepEntry {
   kind: ScenarioKind
@@ -58,6 +77,18 @@ export const SWEEP: Record<ScenarioName, SweepEntry> = {
   'falling-boxes-1000': { kind: 'falling-boxes', n: 1000 },
   'skinned-characters-50': { kind: 'skinned-characters', n: 50 },
   'skinned-characters-200': { kind: 'skinned-characters', n: 200 },
+  'shadows-sun-off-50': { kind: 'shadows-sun-off', n: 50 },
+  'shadows-sun-off-200': { kind: 'shadows-sun-off', n: 200 },
+  'shadows-sun-on-50': { kind: 'shadows-sun-on', n: 50 },
+  'shadows-sun-on-200': { kind: 'shadows-sun-on', n: 200 },
+  'shadows-point-off-50': { kind: 'shadows-point-off', n: 50 },
+  'shadows-point-off-200': { kind: 'shadows-point-off', n: 200 },
+  'shadows-point-on-50': { kind: 'shadows-point-on', n: 50 },
+  'shadows-point-on-200': { kind: 'shadows-point-on', n: 200 },
+  'shadows-four-point-off-50': { kind: 'shadows-four-point-off', n: 50 },
+  'shadows-four-point-off-200': { kind: 'shadows-four-point-off', n: 200 },
+  'shadows-four-point-on-50': { kind: 'shadows-four-point-on', n: 50 },
+  'shadows-four-point-on-200': { kind: 'shadows-four-point-on', n: 200 },
 }
 
 /** The view the grid fills: the default 10-unit-high camera, 16:9, with a margin. */
