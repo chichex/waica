@@ -6,6 +6,7 @@ import { entityIcon } from '../icons'
 import { ANIMATION_KEYS, componentDefaults, componentKeys, componentLabel } from './component-meta'
 import type { InspectorProps } from './inspector-props'
 import { PropRow } from './PropRow'
+import { isLightShadowFlag, isLightShadowOverride, LightShadowFlagRow } from './light-shadow-overrides'
 import {
   UpdateScheduleError,
   UpdateScheduleMeta,
@@ -80,6 +81,7 @@ function MultiComponentSection({ type, comps, names, archetype, onMultiProp }: M
   const valueOf = (comp: SceneComponentJson, key: string): unknown =>
     comp.props && Object.hasOwn(comp.props, key) ? comp.props[key] : defaults[key]
   const keys = [...new Set(comps.flatMap((c) => componentKeys(c, archetype)))].filter((key) => {
+    if (isLightShadowOverride(type, key)) return false
     const paramKind = specs[key]?.kind
     if ((ANIMATION_KEYS.has(key) || key === 'texture') && paramKind !== 'texture') return false
     if (paramKind === 'string-list' || paramKind === 'vector2') return true
@@ -95,8 +97,9 @@ function MultiComponentSection({ type, comps, names, archetype, onMultiProp }: M
         const values = comps.map((c) => valueOf(c, key))
         const uniform = values.every((value) => paramValuesEqual(value, values[0]))
         const spec = specs[key]
+        const Row = isLightShadowFlag(type, key) ? LightShadowFlagRow : PropRow
         return (
-          <PropRow
+          <Row
             key={`multi.${names.length}.${type}.${key}`}
             label={key}
             spec={uniform ? spec : { ...spec, label: `${spec?.label ?? key} (mixed)` }}
