@@ -12,7 +12,8 @@ const finiteDirection = (value: unknown): value is Vec3Json =>
 /**
  * The 3D scene's sunlight (ADR 0027, `CONTEXT.md` Sun): a directional light
  * that shines along `direction`, in world space — where its entity stands, or
- * how it is rotated, does not matter. Color is `0xrrggbb`; no shadows. A Sun
+ * how it is rotated, does not matter. Color is `0xrrggbb`; shadows follow the
+ * active view through the scene's shadow policy. A Sun
  * in a 2D scene creates nothing. The three light lives in the Game's scene,
  * moves with its props, and leaves with the entity.
  */

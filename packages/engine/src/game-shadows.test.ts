@@ -49,6 +49,16 @@ it('gives manual 3D renders distinct renderer frames without double-advancing a 
   expect(clock.frameId).toBe(nativeFrame)
 })
 
+it('reports a missing Three frame-clock contract explicitly and leaves 2D rendering available (CA-17)', async () => {
+  const { game } = await ready3dGame()
+  loadScene(game, scene3d([]), registryOf({}))
+  Reflect.deleteProperty(lastFakeRenderer(), '_nodes')
+  expect(() => renderFrame(game)).toThrow(/NodeFrame clock/)
+
+  loadScene(game, { waicaScene: 3, entities: [] }, registryOf({}))
+  expect(() => renderFrame(game)).not.toThrow()
+})
+
 it('rejects unsupported active sizes before changing the last valid live policy or light (CA-3)', async () => {
   const { game } = await ready3dGame()
   lastFakeRenderer().maxTextureSize = 2048
