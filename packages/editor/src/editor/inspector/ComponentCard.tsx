@@ -4,6 +4,7 @@ import { useArchetype } from '../../project/archetype'
 import { collisionParamDiagnostics } from '../collision-category-diagnostics'
 import { AnimatorClipOverridesRow, AnimatorInitialClipRow } from './animator-clip-rows'
 import { componentDefaults, componentKeys, componentLabel } from './component-meta'
+import { isLightShadowFlag, isLightShadowOverride, LightShadowFlagRow, LightShadowOverrides } from './light-shadow-overrides'
 import { OverridableName, PropRow } from './PropRow'
 import { ComponentUpdateSchedule } from './update-schedule'
 
@@ -44,8 +45,9 @@ function ComponentRow({
     const name = <OverridableName label={label} overridden={overridden} onReset={reset} onApply={apply} />
     return propKey === 'clips' ? <AnimatorClipOverridesRow name={name} value={value} onChange={change} /> : <AnimatorInitialClipRow name={name} value={value} onChange={change} />
   }
+  const Row = isLightShadowFlag(comp.type, propKey) ? LightShadowFlagRow : PropRow
   return (
-    <PropRow
+    <Row
       label={propKey}
       spec={spec}
       value={value}
@@ -74,9 +76,10 @@ export function ComponentRows({
   const archetype = useArchetype()
   const defaults = componentDefaults(comp, archetype)
   const specs: Record<string, ParamSpec | undefined> = archetype.registry.components[comp.type]?.params ?? {}
+  const shadowKeys = keys.filter((key) => isLightShadowOverride(comp.type, key))
   return (
     <>
-      {keys.map((key) => (
+      {keys.filter((key) => !isLightShadowOverride(comp.type, key)).map((key) => (
         <ComponentRow
           key={`${id}.${comp.type}.${key}`}
           comp={comp}
@@ -87,6 +90,9 @@ export function ComponentRows({
           {...handlers}
         />
       ))}
+      {shadowKeys.length > 0 && (
+        <LightShadowOverrides key={`${id}.${comp.type}.shadows`} comp={comp} names={shadowKeys} overridden={overridden} {...handlers} />
+      )}
     </>
   )
 }
