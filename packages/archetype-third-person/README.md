@@ -51,6 +51,9 @@ See the [engine format](../engine/README.md#3d-shadows-and-migration) and
 [benchmark notes](../bench/README.md). WebGPU remains unverified on this host;
 its two external evidence gates were withdrawn from this delivery by the user,
 not marked as passing. Implementation and strict tests remain available.
+Automatic CI requires the new visual shadow checks on WebGL2; request their
+strict WebGPU counterparts with `pnpm test:e2e --webgpu-shadows`. Legacy backend
+checks remain required on both APIs.
 
 ## Controls
 

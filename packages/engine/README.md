@@ -328,6 +328,8 @@ A scene declares its space (ADR 0027): `render.space: '2d'` (the default) or `'3
 
 See [benchmark notes](../bench/README.md). WebGL2 runtime/editor captures live in `.sdd/evidence/issue-203-3d-shadows/`. WebGPU pixels/resources are not positively verified on this host. The user withdrew those two acceptance gates (CA-18/21) from issue #203's delivery on 2026-10-17; the external protocol remains optional future verification. Support and strict assertions remain. Blank frames, WebGL2 fallback and the legacy issue-151 exception are not positive evidence.
 
+Automatic `pnpm test:e2e` still requires the legacy scenarios on both backends and the new shadow pixels on WebGL2. Run `pnpm test:e2e --webgpu-shadows` to request the unchanged strict runtime/editor shadow pixel suites on WebGPU too. A requested unsupported/blank WebGPU result still fails; no automatic retry or weaker pixel threshold is added.
+
 ## State machines
 
 A `StateMachine` owns a character's per-frame logic: its `states` and their `transitions` are prefab data, the state code comes from the role's logic set (`defineRole`, `defineStates`), and `current` names the active state. Each transition is `{ on, to }`; a trigger is one of:

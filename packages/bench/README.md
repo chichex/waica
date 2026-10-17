@@ -89,6 +89,11 @@ CA-18/21 from this delivery; H-1/H-2 remain optional future verification, not ga
 No tests or backend support were removed. Blank frames, fallback and issue-151
 exceptions still do not verify that backend.
 
+The independent browser suite now runs new shadow pixels automatically on
+WebGL2. `pnpm test:e2e --webgpu-shadows` explicitly includes their unchanged strict
+WebGPU runtime/editor counterparts. Legacy browser checks still require both
+backends. Benchmark flags/baseline gates are unchanged by this CI selection.
+
 After resumption, `--backend=webgl2 --check` passed again at df0b004, including the
 ten-cycle resource gate. The exact JSON is `bench/webgl2-resume-check.json` under
 the same evidence folder. Unit fixtures now use the runtime temporary directory,

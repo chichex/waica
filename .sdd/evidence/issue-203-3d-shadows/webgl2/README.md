@@ -25,7 +25,7 @@ await runRuntimeE2e({root,cliPath:`${root}/packages/cli/dist/cli.js`,engineRoot:
 pnpm test:e2e -- --webgpu-shadows
 ```
 
-The direct form `pnpm test:e2e --webgpu-shadows` is equivalent. Opting in keeps both legacy legs and enables the unchanged strict WebGPU shadow oracles; it does not imply that WebGPU passed on this host. The shadow leg never accepts a blank frame or the legacy issue-151 exception as a pass.
+The direct form `pnpm test:e2e --webgpu-shadows` is equivalent. Opting in keeps both legacy legs and enables the unchanged strict WebGPU runtime/editor shadow oracles; it does not imply that WebGPU passed on this host. A requested shadow leg never accepts a blank frame or the legacy issue-151 exception as a pass.
 
 ## Editor captures
 

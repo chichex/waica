@@ -25,6 +25,9 @@ See the [public format and migration](../../packages/engine/README.md#3d-shadows
 Both backend paths are implemented, but WebGPU has no positive pixel/resource
 evidence on this host. The user withdrew CA-18/21 from this delivery on 2026-10-17;
 H-1/H-2 remain optional future verification, with support/tests preserved.
+Automatic browser CI requires new shadow pixels on WebGL2; the explicit
+`pnpm test:e2e --webgpu-shadows` command requests their strict WebGPU runs.
+Legacy browser scenarios and backend pose parity remain required on both APIs.
 Blank frames/fallback are not verification. Manual 3D renders use an isolated, checked Three 0.186 NodeFrame
 compatibility boundary; native RAF and Game Time are not advanced twice.
 

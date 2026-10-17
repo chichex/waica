@@ -13,8 +13,8 @@ No limits, generation policies, dependencies or release settings changed.
   controls, history and selected-light coverage helpers work in edit mode.
   Off restores the previous shadow-free image/cost; 2D/simulation are unchanged.
   Demo/blank/example explicitly declare the policy; all four torches participate.
-- **Measured regression:** `pnpm test`: 4339/4339 tests, 458 files after resumption. `pnpm lint`:
-  1030 files, 0 errors, 1048 existing warnings, 0 ratchet regressions. Typecheck,
+- **Measured regression:** `pnpm test`: 4342/4342 tests, 459 files after CI-policy correction. `pnpm lint`:
+  1032 files, 0 errors, 1048 existing warnings, 0 ratchet regressions. Typecheck,
   build, `pnpm test:dist` and `pnpm test:desktop` passed. Desktop smoke used
   platformer/third-person over private kwin-virtual; cross/Steam not rerun here.
 - **Browser:** complete WebGL2 leg passed in 213,107 ms on Chrome 150.0.7871.186
@@ -41,6 +41,12 @@ No limits, generation policies, dependencies or release settings changed.
   the user explicitly withdrew CA-18/21 from this delivery after the same failure
   reproduced. H-1/H-2 remain optional future verification, not completion gates.
   Neither criterion is reported as verified; support and assertions stay intact.
+- **Confirmed automatic CI policy:** `pnpm test:e2e` keeps both legacy Render
+  Backend legs mandatory, including their existing pose-hash comparison. The new
+  runtime/editor shadow pixel suites are mandatory on WebGL2. Their strict WebGPU
+  runs require `pnpm test:e2e --webgpu-shadows`; no assertion was removed, lowered,
+  retried or converted into a pass. The selected suites are printed at startup.
+  This is the user's confirmed “WebGL2 CI” choice, not a new blank-frame exception.
 - **CI portability correction:** benchmark baseline tests now use the runtime's
   existing temporary directory, not a machine-specific /tmp/opencode parent.
   CPU workload checks still evaluate every geometric condition over all 60 frames;
