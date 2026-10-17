@@ -36,8 +36,10 @@ No limits, generation policies, dependencies or release settings changed.
   Three's shader-source character count is distinguished from GPU storage.
 - **Remaining gap:** explicit WebGPU benchmark failed at the first scenario with
   `OperationError: A valid external Instance reference no longer exists.` No
-  positive WebGPU pixels or resource baseline exists for this run. CA-18/21 need
-  H-1/H-2 on a functional host at the final delivered SHA; this spec is not done.
+  positive WebGPU pixels or resource baseline exists for this run. On resumption,
+  the user explicitly withdrew CA-18/21 from this delivery after the same failure
+  reproduced. H-1/H-2 remain optional future verification, not completion gates.
+  Neither criterion is reported as verified; support and assertions stay intact.
 - **Evidence:** `.sdd/evidence/issue-203-3d-shadows/`; native Node validator import,
   matrix/metadata/baseline tests and public workload update schedules are guarded.
   `node scripts/sync-scene.mjs` rerun after final build produced no diff. Benchmark
