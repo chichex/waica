@@ -1,14 +1,16 @@
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { applyBaselineFlags, baselineFile, counterDiffsFromBaselines, writeBaselines } from './baseline-files.ts'
 import { SCENARIOS, type ScenarioResult } from './results.ts'
 
-let directory: string
-beforeEach(() => { directory = mkdtempSync('/tmp/opencode/waica-baseline-test-') })
+let directory = ''
+beforeEach(() => { directory = mkdtempSync(join(tmpdir(), 'waica-baseline-test-')) })
 afterEach(() => {
   vi.restoreAllMocks()
-  rmSync(directory, { recursive: true })
+  if (directory) rmSync(directory, { recursive: true })
+  directory = ''
 })
 
 function result(backend: ScenarioResult['backend'] = 'webgl2'): ScenarioResult {

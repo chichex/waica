@@ -63,7 +63,7 @@ function casterBounds(game: Game): THREE.Box3[] {
   })
 }
 
-function assertCovered(game: Game): void {
+function assertCovered(game: Game, bounds: readonly THREE.Box3[]): void {
   const camera = game.camera
   if (!(camera instanceof THREE.PerspectiveCamera)) throw new Error('expected the perspective workload camera')
   camera.updateMatrixWorld(true)
@@ -71,7 +71,7 @@ function assertCovered(game: Game): void {
   const frustum = new THREE.Frustum().setFromProjectionMatrix(projection, camera.coordinateSystem, camera.reversedDepth)
   const points = game.entities.flatMap((entity) => {
     const light = entity.get(PointLight)?.light
-    return light ? [light] : []
+    return light ? [light.getWorldPosition(new THREE.Vector3())] : []
   })
   const suns = game.entities.flatMap((entity) => {
     const light = entity.get(Sun)?.light
@@ -79,27 +79,32 @@ function assertCovered(game: Game): void {
     const shadow = light.shadow.camera
     return [new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(shadow.projectionMatrix, shadow.matrixWorldInverse))]
   })
-  for (const light of points) expect(frustum.containsPoint(light.getWorldPosition(new THREE.Vector3()))).toBe(true)
-  for (const bounds of casterBounds(game)) {
-    for (const point of corners(bounds)) {
-      expect(frustum.containsPoint(point)).toBe(true)
-      expect(-point.clone().applyMatrix4(camera.matrixWorldInverse).z).toBeLessThan(40)
-      for (const sun of suns) expect(sun.containsPoint(point)).toBe(true)
-      for (const light of points) expect(point.distanceTo(light.getWorldPosition(new THREE.Vector3()))).toBeLessThan(30)
+  // Evaluate every original condition at every measured frame, but avoid a
+  // matcher and a world-matrix traversal for each vertex/light combination.
+  const violations: string[] = []
+  const require = (condition: boolean, detail: string): void => { if (!condition) violations.push(detail) }
+  for (const light of points) require(frustum.containsPoint(light), 'light outside view')
+  for (const [index, box] of bounds.entries()) {
+    for (const point of corners(box)) {
+      require(frustum.containsPoint(point), `caster ${index} outside view`)
+      require(-point.clone().applyMatrix4(camera.matrixWorldInverse).z < 40, `caster ${index} beyond depth 40`)
+      for (const sun of suns) require(sun.containsPoint(point), `caster ${index} outside Sun coverage`)
+      for (const light of points) require(point.distanceTo(light) < 30, `caster ${index} outside PointLight coverage`)
     }
   }
+  expect(violations).toEqual([])
 }
 
-function assertSeparated(game: Game): void {
-  const bounds = casterBounds(game)
+function assertSeparated(bounds: readonly THREE.Box3[]): void {
+  const violations: string[] = []
   for (let index = 0; index < bounds.length; index++) {
     const a = defined(bounds[index])
-    expect(a.min.x).toBeGreaterThan(-10)
-    expect(a.max.x).toBeLessThan(10)
-    expect(a.min.z).toBeGreaterThan(-7)
-    expect(a.max.z).toBeLessThan(7)
-    expect(bounds.slice(index + 1).some((b) => a.intersectsBox(b))).toBe(false)
+    if (!(a.min.x > -10 && a.max.x < 10 && a.min.z > -7 && a.max.z < 7)) violations.push(`caster ${index} outside receiver`)
+    for (let next = index + 1; next < bounds.length; next++) {
+      if (a.intersectsBox(defined(bounds[next]))) violations.push(`casters ${index}/${next} overlap`)
+    }
   }
+  expect(violations).toEqual([])
 }
 
 function logicalPose(game: Game) {
@@ -135,8 +140,9 @@ describe('real glb shadow workload CPU invariants (no GPU)', () => {
         off.bridge.control({ operation: 'step' })
         on.bridge.control({ operation: 'step' })
         expect(logicalPose(on.game)).toEqual(logicalPose(off.game))
-        assertCovered(on.game)
-        assertSeparated(on.game)
+        const bounds = casterBounds(on.game)
+        assertCovered(on.game, bounds)
+        assertSeparated(bounds)
       }
       const walker = defined(on.game.find('Caster-0'))
       expect(defined(walker.get(Animator)).current).toBe('walk')
@@ -152,4 +158,19 @@ describe('real glb shadow workload CPU invariants (no GPU)', () => {
       on.game.dispose()
     }
   })
+})
+
+it('rejects geometry outside the camera/receiver and overlapping casters', async () => {
+  const { game } = await readyWorkload('point', 50, true)
+  try {
+    defined(game.find('Caster-0')).position.x = 100
+    renderFrame(game)
+    expect(() => assertCovered(game, casterBounds(game))).toThrow()
+    expect(() => assertSeparated(casterBounds(game))).toThrow()
+    const first = defined(game.find('Caster-1'))
+    defined(game.find('Caster-0')).position.copy(first.position)
+    defined(game.find('Caster-2')).position.copy(first.position)
+    renderFrame(game)
+    expect(() => assertSeparated(casterBounds(game))).toThrow()
+  } finally { game.dispose() }
 })
