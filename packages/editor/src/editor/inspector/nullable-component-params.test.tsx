@@ -5,7 +5,7 @@ import { ComponentRows } from './ComponentCard'
 
 afterEach(cleanup)
 
-it('does not turn an inherited null shadow default into a numeric zero (issue #203 CA-3)', () => {
+it('does not turn an inherited null shadow default into a numeric zero (issue 203 CA-3)', () => {
   render(
     <ComponentRows id="Sun" comp={{ type: 'Sun' }} keys={['shadowMapSize']} onProp={vi.fn()} />,
     { reactStrictMode: true },
