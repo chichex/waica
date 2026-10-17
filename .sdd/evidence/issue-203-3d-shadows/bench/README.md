@@ -24,3 +24,10 @@ OperationError, before producing a result or baseline. The user withdrew CA-18/2
 from delivery acceptance on 2026-10-17 after reproducing the failure. Issue 203's
 H-1/H-2 protocols remain optional future verification at the SHA being evaluated;
 withdrawal does not turn the failed/unavailable evidence into a pass.
+
+## Resumption
+
+`webgl2-resume-check.json` is the actual successful `pnpm bench --backend=webgl2
+--check` report at df0b004. It rechecks all 29 scenario counters and all ten resource
+cycles against the preserved baselines. The two WebGPU criteria were withdrawn,
+not verified. No benchmark or browser assertion was skipped for that decision.
