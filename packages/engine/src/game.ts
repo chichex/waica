@@ -315,7 +315,8 @@ export class Game {
    * its first frame (ADR 0025).
    */
   ready(): Promise<void> {
-    return this.physics.whenReady(this.readiness.promise).then(() => this.shadows.validate())
+    const ready = this.physics.whenReady(this.readiness.promise)
+    return this.sceneSpace === '3d' ? ready.then(() => this.shadows.validate()) : ready
   }
 
   /** The Render Backend the renderer settled on; null until ready() resolved. */
