@@ -250,3 +250,56 @@ describe('the light, collider and toggle helpers (issue #173 CA-17)', () => {
     }
   })
 })
+
+it.each(['Daylight', 'Lamp'])('follows 👁 and effective shadow state for %s without hiding the all-lights helpers (CA-14)', async (selected) => {
+  const { game } = await mount({ selected })
+  const name = selected === 'Daylight' ? 'waica:editor-shadow-sun' : 'waica:editor-shadow-point'
+  expect(shown(game, name)).toHaveLength(1)
+  fireEvent.click(screen.getByTitle('Show helpers'))
+  await tick()
+  expect(shown(game, name)).toHaveLength(0)
+  fireEvent.click(screen.getByTitle('Show helpers'))
+  game.shadows.quality = 'off'
+  await tick()
+  expect(shown(game, name)).toHaveLength(0)
+  expect(shown(game, 'waica:editor-sun-direction')).toHaveLength(1)
+  expect(shown(game, 'waica:editor-light-range')).toHaveLength(1)
+  game.shadows.quality = 'high'
+  const component = defined(defined(game.find(selected)).components.find((candidate) => candidate instanceof Sun || candidate instanceof PointLight))
+  if (!(component instanceof Sun || component instanceof PointLight)) throw new Error('expected the selected light')
+  component.castShadows = false
+  await tick()
+  expect(shown(game, name)).toHaveLength(0)
+  component.castShadows = true
+  await tick()
+  expect(shown(game, name)).toHaveLength(1)
+})
+
+it('keeps coverage read-only and outside casting and receiving (CA-14)', async () => {
+  const onSelect = vi.fn()
+  const onMoved = vi.fn()
+  const onTransformed = vi.fn()
+  const scene = structuredClone(SCENE)
+  const before = JSON.stringify(scene)
+  const { game, mounted } = await mount({ scene, selected: 'Daylight', onSelect, onMoved, onTransformed })
+  for (const selected of ['Daylight', 'Lamp']) {
+    mounted.rerender({ selected })
+    await tick()
+    const name = selected === 'Daylight' ? 'waica:editor-shadow-sun' : 'waica:editor-shadow-point'
+    const helper = defined(shown(game, name)[0])
+    helper.traverse((object) => {
+      expect(object.castShadow).toBe(false)
+      expect(object.receiveShadow).toBe(false)
+    })
+    const component = defined(game.find(selected))
+    expect(component.node.position.toArray()).toEqual(selected === 'Daylight' ? [2, 5, 1] : [0, 3, -4])
+  }
+  expect(JSON.stringify(scene)).toBe(before)
+  expect(onSelect).not.toHaveBeenCalled()
+  expect(onMoved).not.toHaveBeenCalled()
+  expect(onTransformed).not.toHaveBeenCalled()
+  mounted.rerender({ mode: 'play' })
+  await tick()
+  expect(overlaysOf(game, 'waica:editor-shadow-sun')).toHaveLength(0)
+  expect(overlaysOf(game, 'waica:editor-shadow-point')).toHaveLength(0)
+})
