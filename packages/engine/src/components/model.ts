@@ -182,8 +182,9 @@ export class Model extends Component {
     })
   }
 
-  /** Empties the root and disposes the primitive this Model created; a glTF's clone only leaves the graph. */
+  /** Retire clone-local render state; shared glTF geometry/materials stay cache-owned. */
   private clear(): void {
+    for (const child of this.root?.children ?? []) child.traverse((object) => object.dispose())
     this.root?.clear()
     this.handle = null
     if (!this._primitive) return

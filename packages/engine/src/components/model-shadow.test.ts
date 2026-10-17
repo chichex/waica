@@ -18,6 +18,35 @@ import { Model } from './model.js'
 use3dTestEnvironment()
 afterEach(() => vi.unstubAllGlobals())
 
+it('retires clone-local render state without disposing cached resources or another live clone (CA-20)', async () => {
+  const { game } = await modelGame(new NestedModels())
+  const first = game.spawn('First').add(Model, { src: '/nested.glb' })
+  const second = game.spawn('Second').add(Model, { src: '/nested.glb' })
+  await game.assets.ready()
+  const meshes = meshesUnder(defined(first.root))
+  const other = meshesUnder(defined(second.root))
+  let retired = 0
+  let sharedDisposed = 0
+  let otherRetired = 0
+  for (const mesh of meshes) mesh.addEventListener('dispose', () => { retired++ })
+  for (const mesh of other) mesh.addEventListener('dispose', () => { otherRetired++ })
+  const source = defined(meshes[0])
+  source.geometry.addEventListener('dispose', () => { sharedDisposed++ })
+  for (const material of Array.isArray(source.material) ? source.material : [source.material]) {
+    material.addEventListener('dispose', () => { sharedDisposed++ })
+  }
+
+  first.src = ''
+
+  expect(retired).toBe(meshes.length)
+  expect(otherRetired).toBe(0)
+  expect(sharedDisposed).toBe(0)
+  expect(meshesUnder(defined(second.root))).toEqual(other)
+  game.find('Second')?.destroy()
+  expect(otherRetired).toBe(other.length)
+  expect(sharedDisposed).toBe(0)
+})
+
 async function modelGame(models = new FakeModelBackend()) {
   const built = await ready3dGame(undefined, undefined, { models })
   loadScene(built.game, scene3d([]), registryOf({ Model }))
