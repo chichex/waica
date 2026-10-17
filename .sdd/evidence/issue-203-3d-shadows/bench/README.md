@@ -20,5 +20,7 @@ Actual program/resource counts and non-source storage must remain stable.
 
 Median/p95 and Off-pair deltas are informational. No WebGPU evidence is implied:
 its explicit benchmark leg failed at the first scenario with a device-instance
-OperationError, before producing a result or baseline. Issue 203's H-1/H-2 protocols
-must run on a functional WebGPU host at the final delivered SHA.
+OperationError, before producing a result or baseline. The user withdrew CA-18/21
+from delivery acceptance on 2026-10-17 after reproducing the failure. Issue 203's
+H-1/H-2 protocols remain optional future verification at the SHA being evaluated;
+withdrawal does not turn the failed/unavailable evidence into a pass.

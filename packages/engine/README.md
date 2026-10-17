@@ -326,7 +326,7 @@ A scene declares its space (ADR 0027): `render.space: '2d'` (the default) or `'3
 - **Materials:** preserve Three's opaque/alphaTest behavior. Unlit materials do not visibly receive lighting/shadows merely because their flag is true. No physical transparent shadow transmission or material conversion.
 - **Three compatibility:** fixed-frame 3D stepping uses a checked, isolated Three 0.186 NodeFrame boundary to update cached shadows/skeletons on manual renders without advancing native RAF twice. An incompatible clock fails explicitly. Revalidate when upgrading Three.
 
-See [benchmark notes](../bench/README.md). WebGL2 runtime/editor captures live in `.sdd/evidence/issue-203-3d-shadows/`. Positive WebGPU pixels/resources still require issue #203's external protocol; blank frames, WebGL2 fallback and the legacy issue-151 exception are not positive evidence.
+See [benchmark notes](../bench/README.md). WebGL2 runtime/editor captures live in `.sdd/evidence/issue-203-3d-shadows/`. WebGPU pixels/resources are not positively verified on this host. The user withdrew those two acceptance gates (CA-18/21) from issue #203's delivery on 2026-10-17; the external protocol remains optional future verification. Support and strict assertions remain. Blank frames, WebGL2 fallback and the legacy issue-151 exception are not positive evidence.
 
 ## State machines
 

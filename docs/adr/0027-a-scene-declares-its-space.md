@@ -22,9 +22,10 @@ attenuation. Nullable numeric overrides inherit scene settings; explicit instanc
 null and reset-to-prefab are different actions. No automatic light/FPS cap is added.
 See the [public format and migration](../../packages/engine/README.md#3d-shadows-and-migration).
 
-Both backend paths are implemented, but positive WebGPU pixel/resource evidence
-remains external under issue #203's H-1/H-2 protocol. Blank frames/fallback are not
-verification. Manual 3D renders use an isolated, checked Three 0.186 NodeFrame
+Both backend paths are implemented, but WebGPU has no positive pixel/resource
+evidence on this host. The user withdrew CA-18/21 from this delivery on 2026-10-17;
+H-1/H-2 remain optional future verification, with support/tests preserved.
+Blank frames/fallback are not verification. Manual 3D renders use an isolated, checked Three 0.186 NodeFrame
 compatibility boundary; native RAF and Game Time are not advanced twice.
 
 ## Considered Options

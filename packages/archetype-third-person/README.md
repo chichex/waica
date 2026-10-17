@@ -48,7 +48,9 @@ light caps or universal frame-rate guarantee are introduced.
 The editor exposes scene quality/reach and nullable per-light overrides. `null`
 inherits the scene, not zero; resetting an instance to its prefab is separate.
 See the [engine format](../engine/README.md#3d-shadows-and-migration) and
-[benchmark notes](../bench/README.md). Positive WebGPU evidence remains external.
+[benchmark notes](../bench/README.md). WebGPU remains unverified on this host;
+its two external evidence gates were withdrawn from this delivery by the user,
+not marked as passing. Implementation and strict tests remain available.
 
 ## Controls
 

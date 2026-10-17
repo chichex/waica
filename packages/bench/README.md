@@ -84,5 +84,7 @@ host key. No SSH configuration was changed.
 
 WebGL2 runtime/editor visual captures are in
 `.sdd/evidence/issue-203-3d-shadows/webgl2/`. Positive WebGPU visuals and resource
-baselines remain externally pending under issue #203's H-1/H-2 protocol. Blank
-frames, fallback and issue-151 exceptions do not verify that backend.
+baselines are not positively verified on this host. On 2026-10-17 the user withdrew
+CA-18/21 from this delivery; H-1/H-2 remain optional future verification, not gates.
+No tests or backend support were removed. Blank frames, fallback and issue-151
+exceptions still do not verify that backend.
