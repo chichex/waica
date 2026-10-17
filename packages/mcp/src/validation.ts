@@ -30,6 +30,7 @@ import {
 import { directFiles, requireWaicaProject } from './project-path.js'
 import { validatePrefabSceneTransition } from './scene-transition-validation.js'
 import { validateScene } from './scene-validation.js'
+import { shadowParamFindings } from './shadow-param-validation.js'
 import { validateAnimatorClips } from './animator-validation.js'
 import { behaviorRoleStates, projectRoleStateSources, validateStateMachines } from './state-machine-validation.js'
 import { stockAnchoredPieces, uiBindingFindings } from './ui-binding-validation.js'
@@ -399,6 +400,7 @@ function validateParamsFile(paramsJson: unknown, context: ValidationContext): vo
   for (const [entity, rawComponents] of Object.entries(objectRecord(paramsJson))) {
     for (const [component, rawProps] of Object.entries(objectRecord(rawComponents))) {
       checkComponent({ type: component }, PARAMS_FILE, entity, context)
+      context.findings.push(...shadowParamFindings(component, rawProps, { file: PARAMS_FILE, ref: entity }))
       if (component === 'Hitbox') {
         context.findings.push(...collisionCategoryFindings(rawProps, PARAMS_FILE, entity))
       }

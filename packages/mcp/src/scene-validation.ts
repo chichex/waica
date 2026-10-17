@@ -1,4 +1,4 @@
-import { resolveSceneSpace, sceneRenderIssues } from '@waica/engine'
+import { resolveSceneSpace, sceneRenderIssues, sceneShadowIssues } from '@waica/engine'
 import type {
   ParamSpec,
   PrefabJson,
@@ -98,8 +98,8 @@ export function validateScene(scene: SceneJson, scope: SceneScope): void {
         !!entry.entity && typeof entry.entity === 'object' && !Array.isArray(entry.entity),
     )
   validateSceneCamera(scene, entities.map(({ entity }) => entity), scope)
-  // render.lighting and render.post ranges (issue #78 CA-2), one error per field.
-  for (const issue of sceneRenderIssues(scene.render)) {
+  // Render policies are validated even when their effects are switched off.
+  for (const issue of [...sceneRenderIssues(scene.render), ...sceneShadowIssues(scene.render)]) {
     add(scope.context, 'error', 'invalid-scene-render', issue.message, scope.file, issue.field)
   }
   // render.space, the camera against it and the 2D-only render options (issue #154 CA-13).
