@@ -1,5 +1,6 @@
 import * as THREE from 'three/webgpu'
-import { Component, type ComponentSpace, type ParamSpec } from '../component.js'
+import type { ComponentSpace, ParamSpec } from '../component.js'
+import { ShadowLight } from './shadow-light.js'
 
 /**
  * A point light in a 3D scene (ADR 0027, `CONTEXT.md` Point Light): it shines
@@ -11,11 +12,12 @@ import { Component, type ComponentSpace, type ParamSpec } from '../component.js'
  * 2D scene it creates nothing; the three light lives under the entity's node
  * and leaves with it.
  */
-export class PointLight extends Component {
+export class PointLight extends ShadowLight {
   static override componentName = 'PointLight'
   static override space: ComponentSpace = '3d'
   static override displayName = 'Point light (3D)'
   static override params = {
+    ...ShadowLight.params,
     color: { label: 'Color', kind: 'color' },
     intensity: { label: 'Intensity', min: 0, step: 0.5 },
     distance: { label: 'Distance (0 = unlimited)', min: 0, step: 0.5 },

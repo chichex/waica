@@ -6,6 +6,7 @@ import { lightParamFindings } from './light-param-validation.js'
 import { checkModelShapeIgnored } from './model-reference-validation.js'
 import { characterMotorParamFindings, colliderParamFindings, rigidBodyParamFindings } from './physics-param-validation.js'
 import { sunParamFindings } from './sun-param-validation.js'
+import { shadowParamFindings } from './shadow-param-validation.js'
 import type { ValidationContext } from './validation-context.js'
 
 /**
@@ -28,6 +29,7 @@ export function checkComponentParams(
   if (component.type === 'Checkpoint') context.findings.push(...checkpointParamFindings(component.props, file, ref))
   if (component.type === 'Light') context.findings.push(...lightParamFindings(component.props, file, ref))
   if (component.type === 'Sun') context.findings.push(...sunParamFindings(component.props, file, ref))
+  context.findings.push(...shadowParamFindings(component.type, component.props, where))
   checkModelShapeIgnored(component, where, context)
 }
 
@@ -41,5 +43,6 @@ export function overrideParamFindings(overrides: unknown, file: string, ref: str
     ...checkpointParamFindings(byType['Checkpoint'], file, ref),
     ...lightParamFindings(byType['Light'], file, ref),
     ...sunParamFindings(byType['Sun'], file, ref),
+    ...['Sun', 'PointLight', 'Model'].flatMap((type) => shadowParamFindings(type, byType[type], { file, ref })),
   ]
 }

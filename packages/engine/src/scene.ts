@@ -51,6 +51,14 @@ export interface ScenePostJson {
   colorGrade?: { tint?: string; contrast?: number; saturation?: number }
 }
 
+export type ShadowQuality = 'off' | 'low' | 'medium' | 'high'
+
+/** Scene-wide 3D shadow policy; absent fields use Medium and 40 world units. */
+export interface SceneShadowsJson {
+  quality?: ShadowQuality
+  maxDistance?: number
+}
+
 /** Scene-wide render options (v3). */
 export interface SceneRenderJson {
   /**
@@ -61,6 +69,8 @@ export interface SceneRenderJson {
   space?: SceneSpace
   /** Ambient Light; with it (or any Light) the scene is lit (ADR 0026). */
   lighting?: SceneLightingJson
+  /** 3D shadow quality and coverage, independent of Ambient Light. */
+  shadows?: SceneShadowsJson
   /** Vignette and color grade; with either on, the frame renders through a render target. */
   post?: ScenePostJson
   /**

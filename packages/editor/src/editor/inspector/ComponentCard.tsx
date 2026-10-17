@@ -75,7 +75,7 @@ export function ComponentRows({
           key={`${id}.${comp.type}.${key}`}
           comp={comp}
           propKey={key}
-          value={comp.props && Object.hasOwn(comp.props, key) ? comp.props[key] : (defaults[key] ?? 0)}
+          value={comp.props && Object.hasOwn(comp.props, key) ? comp.props[key] : (defaults[key] === undefined ? 0 : defaults[key])}
           spec={specs[key]}
           overridden={overridden?.has(key) ?? false}
           {...handlers}

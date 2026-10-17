@@ -205,12 +205,16 @@ export { EMISSIVE_LAYER, setEmissive } from './render-layers.js'
 export { lightFalloff, lightMapValue, lightVisibility } from './light-field.js'
 export type { LightField, OccluderGrid, Rgb } from './light-field.js'
 export { sceneRenderIssues } from './scene-render-options.js'
+export {
+  assertShadowMapCapacity, normalizeShadowBoolean, normalizeShadowOverride,
+  resolveLightShadow, resolveSceneShadows, sceneShadowIssues, shadowComponentIssues,
+  SHADOW_DEFAULTS, SHADOW_MAP_SIZES, SHADOW_OVERRIDE_PARAMS, SHADOW_QUALITIES,
+} from './scene-shadows.js'
 export type {
-  AmbientLight,
-  ColorGradeEffect,
-  PostEffectsState,
-  SceneRenderIssue,
-  VignetteEffect,
+  LightShadowOverrides, ResolvedLightShadow, ResolvedSceneShadows, ShadowOverrideName,
+} from './scene-shadows.js'
+export type {
+  AmbientLight, ColorGradeEffect, PostEffectsState, SceneRenderIssue, VignetteEffect,
 } from './scene-render-options.js'
 export { ParticleEmitter } from './components/particle-emitter.js'
 export type {
@@ -262,14 +266,8 @@ export type { Point3d, QueryColliders3d, QueryVolume3d, RayHit3d } from './spati
 export { Emitter } from './events.js'
 export { loadScene, spawnFromJson, resolveEntityComponents, resolveProps } from './scene.js'
 export type {
-  SceneJson,
-  SceneEntityJson,
-  SceneComponentJson,
-  SceneRegistry,
-  SceneRenderJson,
-  SceneLightingJson,
-  ScenePostJson,
-  PrefabJson,
+  SceneJson, SceneEntityJson, SceneComponentJson, SceneRegistry, SceneRenderJson,
+  SceneLightingJson, ScenePostJson, SceneShadowsJson, ShadowQuality, PrefabJson,
 } from './scene.js'
 export { ClipPlayer } from './animation/clip-player.js'
 export type { ClipDef } from './animation/clip-player.js'
