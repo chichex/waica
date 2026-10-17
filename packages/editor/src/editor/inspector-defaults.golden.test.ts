@@ -16,6 +16,7 @@ import { componentDefaults, componentKeys } from './Inspector'
  * added the Light component and an `emissive` row to the three drawables.
  * Issue #154 added the 3D components Model, Sun and PointLight; issue #159
  * the physics components Collider and RigidBody; issue #166 the Animator.
+ * Issue #203 adds shadow flags and nullable scene-inherited light overrides.
  */
 const GOLDEN: Record<string, Record<string, unknown>> = {
   ParticleEmitter: {
@@ -55,9 +56,14 @@ const GOLDEN: Record<string, Record<string, unknown>> = {
     offsetX: 0,
     offsetY: 0,
   },
-  Model: { src: '', shape: 'box', color: 0xffffff, size: 1 },
-  Sun: { direction: [-1, -2, -1], color: 0xffffff, intensity: 1 },
+  Model: { src: '', shape: 'box', color: 0xffffff, size: 1, castShadows: true, receiveShadows: true },
+  Sun: {
+    direction: [-1, -2, -1], color: 0xffffff, intensity: 1, castShadows: true,
+    shadowMapSize: null, shadowMaxDistance: null, shadowBias: null, shadowNormalBias: null, shadowRadius: null,
+  },
   PointLight: {
+    castShadows: true,
+    shadowMapSize: null, shadowMaxDistance: null, shadowBias: null, shadowNormalBias: null, shadowRadius: null,
     color: 0xffffff,
     intensity: 1,
     distance: 0,
@@ -172,7 +178,7 @@ describe('Inspector component rows (golden, behavior preservation)', () => {
     const keys = componentKeys(comp, archetype)
     const defaults = componentDefaults(comp, archetype)
     const resolved = Object.fromEntries(
-      keys.map((key) => [key, (comp.props ?? {})[key] ?? defaults[key] ?? 0]),
+      keys.map((key) => [key, (comp.props ?? {})[key] ?? (defaults[key] === undefined ? 0 : defaults[key])]),
     )
     expect(resolved).toEqual(GOLDEN[type])
   })

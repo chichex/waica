@@ -24,9 +24,14 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     offsetY: 0,
   },
   // Issue #154 CA-10: every archetype registers the 3D components; validation keeps them out of 2D scenes.
-  Model: { src: '', shape: 'box', color: 0xffffff, size: 1 },
-  Sun: { direction: [-1, -2, -1], color: 0xffffff, intensity: 1 },
+  Model: { src: '', shape: 'box', color: 0xffffff, size: 1, castShadows: true, receiveShadows: true },
+  Sun: {
+    direction: [-1, -2, -1], color: 0xffffff, intensity: 1, castShadows: true,
+    shadowMapSize: null, shadowMaxDistance: null, shadowBias: null, shadowNormalBias: null, shadowRadius: null,
+  },
   PointLight: {
+    castShadows: true,
+    shadowMapSize: null, shadowMaxDistance: null, shadowBias: null, shadowNormalBias: null, shadowRadius: null,
     color: 0xffffff,
     intensity: 1,
     distance: 0,
