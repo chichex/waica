@@ -54,6 +54,34 @@ warmup on the same Game/renderer across ten Off/On, resize and scene-swap cycles
 before renderer disposal resets its counters. Stable internal caches are allowed;
 retained growth and outgoing-owner shadow storage are not.
 
+All native memory values remain in the JSON. Three 0.186's `programsSize` is
+`program.code.length`, including generated variable names, not GPU allocation
+bytes. It and its contribution to `total` are reported rather than mistaken for
+a retained GPU leak. Actual program counts and all texture, target, buffer,
+geometry and non-source storage counters must match equivalent checkpoints.
+The original real leak (program count 19→21) was corrected by retiring clone-local
+Object3D render state, without disposing cached glTF geometry/materials.
+
+### Recorded WebGL2 run
+
+At `dd8cf9e`, Linux `chichex-linux`, eight CPUs, Chrome 150.0.7871.186,
+SwiftShader WebGL2: `--update-baseline` and `--check` both passed at the same SHA.
+All 29 scenario counters repeated exactly; all 17 historical baselines remained
+identical, including the explicit-Off physics/animation workloads. Qualified
+baselines are committed without rewriting historical files.
+
+The same-Game resource exercise passed ten cycles and 121 checkpoints, with zero
+outgoing-owner shadow storage. Full recording/check JSON, raw memory values and
+timings are in `.sdd/evidence/issue-203-3d-shadows/bench/`. Four PointLights and 200
+casters measured median 33.2 ms/p95 41.4 ms on this software renderer; timings and
+the Off-pair deltas are informational, not portability or frame-rate guarantees.
+
+`pnpm bench --backend=webgpu --check` failed at the first scenario with
+`OperationError: A valid external Instance reference no longer exists.` No
+WebGPU baseline was written or accepted. Remote forwarding is unit-tested; a
+remote measurement was not performed because SSH preflight did not trust that
+host key. No SSH configuration was changed.
+
 WebGL2 runtime/editor visual captures are in
 `.sdd/evidence/issue-203-3d-shadows/webgl2/`. Positive WebGPU visuals and resource
 baselines remain externally pending under issue #203's H-1/H-2 protocol. Blank
