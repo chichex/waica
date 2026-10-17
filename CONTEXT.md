@@ -187,11 +187,11 @@ The component that plays a Model's glTF clips: one mixer over the entity's own c
 _Avoid_: animation controller, animation player, mixer (three's, which it owns)
 
 **Sun**:
-The directional light of a 3D scene: it shines along one direction in world space, wherever its entity stands, with a color and an intensity. It casts no shadows.
+The directional light of a 3D scene: it shines along one direction in world space, wherever its entity stands, with a color and an intensity. It casts soft PCF shadows by default. A finite, texel-stable volume follows the active camera, not the entity or world origin; scene quality and nullable per-light overrides control it.
 _Avoid_: directional light, sunlight, global light
 
 **Point Light**:
-An entity-owned source of light in a 3D scene: it shines in every direction from its entity's position plus an offset, reaching a distance (or without limit) and fading with decay. It casts no shadows. Not the 2D **Light**, which paints a light-map.
+An entity-owned source of light in a 3D scene: it shines in every direction from its entity's position plus a transformed offset, reaching a distance (or without limit) and fading with decay. It casts soft PCF shadows by default, using six cubemap views and a finite Euclidean radius no larger than its positive lighting distance. Shadow reach never truncates illumination. Not the 2D **Light**, which paints a light-map.
 _Avoid_: lamp, bulb, Light
 
 **Component Space**:
