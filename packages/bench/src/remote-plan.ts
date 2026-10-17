@@ -1,4 +1,5 @@
 import { CHROME_CANDIDATES } from './chrome-candidates.ts'
+import type { BackendSelection } from './bench-args.ts'
 import { RESULTS_MARKER } from './results.ts'
 
 /**
@@ -101,6 +102,8 @@ export function missingPrerequisites(report: PreflightReport): MissingPrerequisi
 export interface RemoteRun {
   sha: string
   repoUrl: string
+  /** Required even for auto (undefined), so forwarding cannot be forgotten. */
+  backend: BackendSelection | undefined
   /** Forwarded as `pnpm bench --gpu`: the host picks the browser flags. */
   gpu?: boolean
 }
@@ -110,7 +113,7 @@ export interface RemoteRun {
  * install, then `pnpm bench` (plus --gpu when asked) — --check and
  * --update-baseline apply locally to the results it streams back.
  */
-export function remoteRunScript({ sha, repoUrl, gpu = false }: RemoteRun): string {
+export function remoteRunScript({ sha, repoUrl, gpu = false, backend }: RemoteRun): string {
   return [
     'set -eu',
     USER_BIN_PATH,
@@ -119,7 +122,7 @@ export function remoteRunScript({ sha, repoUrl, gpu = false }: RemoteRun): strin
     'git fetch --quiet origin',
     `git checkout --quiet --detach ${sha}`,
     'pnpm install --frozen-lockfile >&2',
-    gpu ? 'pnpm bench --gpu' : 'pnpm bench',
+    ['pnpm bench', ...(gpu ? ['--gpu'] : []), ...(backend ? [`--backend=${backend}`] : [])].join(' '),
   ].join('\n')
 }
 

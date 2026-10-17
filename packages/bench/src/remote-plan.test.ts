@@ -88,6 +88,7 @@ describe('remoteRunScript', () => {
   const script = remoteRunScript({
     sha: 'abc1234',
     repoUrl: 'https://github.com/chichex/waica.git',
+    backend: undefined,
   })
 
   it('works in the dedicated clone and never in ~/workspace/waica', () => {
@@ -107,8 +108,13 @@ describe('remoteRunScript', () => {
   })
 
   it('passes --gpu on to the host run, which picks the browser flags', () => {
-    const gpuScript = remoteRunScript({ sha: 'abc1234', repoUrl: 'https://github.com/chichex/waica.git', gpu: true })
+    const gpuScript = remoteRunScript({ sha: 'abc1234', repoUrl: 'https://github.com/chichex/waica.git', gpu: true, backend: undefined })
     expect(gpuScript.split('\n').at(-1)).toBe('pnpm bench --gpu')
+  })
+
+  it.each(['webgl2', 'webgpu', 'both'] as const)('forwards the explicit %s selection alongside hardware access', (backend) => {
+    const selected = remoteRunScript({ sha: 'abc1234', repoUrl: 'https://github.com/chichex/waica.git', gpu: true, backend })
+    expect(selected.split('\n').at(-1)).toBe(`pnpm bench --gpu --backend=${backend}`)
   })
 
   it('stops at the first failing command', () => {

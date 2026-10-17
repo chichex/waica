@@ -3,7 +3,7 @@ import { benchHostRefusal, chromeLaunchArgs, parseBenchArgs, parseRemoteArgs } f
 
 describe('parseBenchArgs', () => {
   it('defaults to a plain run', () => {
-    expect(parseBenchArgs([])).toEqual({ check: false, gpu: false, local: false, updateBaseline: false })
+    expect(parseBenchArgs([])).toEqual({ check: false, gpu: false, local: false, updateBaseline: false, backend: undefined })
   })
 
   it('reads --check, --local and --update-baseline', () => {
@@ -12,12 +12,18 @@ describe('parseBenchArgs', () => {
       gpu: false,
       local: true,
       updateBaseline: false,
+      backend: undefined,
     })
     expect(parseBenchArgs(['--update-baseline']).updateBaseline).toBe(true)
   })
 
   it('reads --gpu', () => {
     expect(parseBenchArgs(['--gpu']).gpu).toBe(true)
+  })
+
+  it.each(['webgl2', 'webgpu', 'both'])('selects %s independently of hardware access, locally and remotely', (backend) => {
+    expect(parseBenchArgs([`--backend=${backend}`])).toMatchObject({ backend, gpu: false })
+    expect(parseRemoteArgs(['--gpu', `--backend=${backend}`, '--check'])).toMatchObject({ backend, gpu: true, check: true })
   })
 
   it('rejects unknown flags, including names inherited from Object.prototype', () => {
@@ -28,6 +34,11 @@ describe('parseBenchArgs', () => {
 
   it('rejects --update-baseline with --check, which could never fail', () => {
     expect(() => parseBenchArgs(['--update-baseline', '--check'])).toThrow(/cannot be combined/)
+  })
+
+  it('rejects invalid and repeated backend selectors', () => {
+    expect(() => parseBenchArgs(['--backend=auto'])).toThrow(/--backend/)
+    expect(() => parseBenchArgs(['--backend=webgl2', '--backend=webgpu'])).toThrow(/only.*once/)
   })
 })
 
@@ -63,6 +74,17 @@ describe('parseRemoteArgs', () => {
 })
 
 describe('chromeLaunchArgs', () => {
+  it.each([false, true])('forces browser capabilities without conflating --gpu=%s with backend', (gpu) => {
+    const webgl = chromeLaunchArgs(gpu, 'webgl2')
+    const webgpu = chromeLaunchArgs(gpu, 'webgpu')
+    expect(webgl).toContain('--disable-features=WebGPUService')
+    expect(webgl).not.toContain('--enable-unsafe-webgpu')
+    expect(webgpu).toContain('--enable-unsafe-webgpu')
+    expect(webgpu).not.toContain('--disable-features=WebGPUService')
+    expect(webgl.includes('--use-angle=vulkan')).toBe(gpu)
+    expect(webgpu.includes('--use-angle=vulkan')).toBe(gpu)
+  })
+
   it('renders in software with SwiftShader by default', () => {
     expect(chromeLaunchArgs(false)).toEqual(['--enable-unsafe-swiftshader'])
   })

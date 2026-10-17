@@ -8,23 +8,26 @@ import { fileURLToPath } from 'node:url'
 import { chromium, type Browser } from 'playwright-core'
 import { build, preview, type PreviewServer } from 'vite'
 import { applyBaselineFlags } from './baseline-files.ts'
-import { benchHostRefusal, chromeLaunchArgs, parseBenchArgs } from './bench-args.ts'
+import { assertPageReport, assertShadowResourceSweep, runBackendMatrix } from './backend-matrix.ts'
+import { benchHostRefusal, chromeLaunchArgs, parseBenchArgs, type BenchArgs } from './bench-args.ts'
 import { discoverChrome } from './chrome.ts'
 import type { BenchPageApi } from './page/bench-global.ts'
 import {
   RESULTS_MARKER,
   SCENARIOS,
+  resultFromReport,
+  shadowTimingDeltas,
   type BenchHost,
   type PageScenarioReport,
   type ScenarioName,
   type ScenarioResult,
 } from './results.ts'
-import { LOOP_END_MARK, LOOP_START_MARK, frameVerdict, gcPausesFromTrace, isOverBudget, summarizeFrames } from './timings.ts'
+import { frameVerdict } from './timings.ts'
+import { parseScenarioResult } from './results-guard.ts'
 
 const packageRoot = fileURLToPath(new URL('../', import.meta.url))
 // GC events, plus the page's performance.mark loop bounds (blink.user_timing).
 const TRACE_CATEGORIES = ['devtools.timeline', 'v8', 'disabled-by-default-v8.gc', 'blink.user_timing']
-const LOOP_WINDOW = { start: LOOP_START_MARK, end: LOOP_END_MARK }
 /** Playwright's evaluate never times out; a scenario that hangs fails the run instead. */
 const SCENARIO_TIMEOUT_MS = 5 * 60 * 1000
 
@@ -61,8 +64,17 @@ function serverUrl(server: PreviewServer): string {
   return url
 }
 
-async function runInPage(browser: Browser, url: string, scenario: ScenarioName): Promise<{ report: PageScenarioReport; trace: string }> {
+async function runInPage(browser: Browser, url: string, scenario: ScenarioName): Promise<{ report: PageScenarioReport; trace: string; errors: string[] }> {
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
+  const errors: string[] = []
+  const recordError = (message: string): void => {
+    errors.push(message)
+    process.stderr.write(`bench: ${scenario}: ${message}\n`)
+  }
+  page.on('pageerror', (error) => recordError(`page: ${error.stack ?? error.message}`))
+  page.on('console', (message) => {
+    if (message.type() === 'error') recordError(`console: ${message.text()}`)
+  })
   try {
     await browser.startTracing(page, { categories: TRACE_CATEGORIES })
     let report: PageScenarioReport
@@ -87,7 +99,7 @@ async function runInPage(browser: Browser, url: string, scenario: ScenarioName):
       // Stopped on every path, so a failed scenario never leaves tracing on.
       trace = (await browser.stopTracing()).toString('utf8')
     }
-    return { report, trace }
+    return { report, trace, errors }
   } finally {
     await page.close()
   }
@@ -104,31 +116,38 @@ type NodeHost = Omit<BenchHost, 'renderer'>
 interface Provenance {
   commit: string
   host: NodeHost
+  backend: ScenarioResult['backend'] | undefined
 }
 
 async function runEachScenario(browser: Browser, url: string, provenance: Provenance): Promise<ScenarioResult[]> {
   const results: ScenarioResult[] = []
+  let backend = provenance.backend
   for (const scenario of SCENARIOS) {
-    const { report, trace } = await runInPage(browser, url, scenario)
-    const frames = summarizeFrames(report.frameMs)
-    const timings = { ...frames, overBudget: isOverBudget(frames.p95Ms), gcPauses: gcPausesFromTrace(trace, LOOP_WINDOW) }
-    const host: BenchHost = { ...provenance.host, renderer: report.renderer }
-    results.push({ scenario, commit: provenance.commit, backend: report.backend, host, counters: report.counters, timings })
+    const { report, trace, errors } = await runInPage(browser, url, scenario)
+    assertPageReport(report, { scenario, backend, errors })
+    backend ??= report.backend
+    const result = resultFromReport(report, provenance, trace)
+    parseScenarioResult(result)
+    results.push(result)
   }
   return results
 }
 
 /** Each resource is released by its own finally, whichever later step fails. */
-async function runScenarios(host: NodeHost, executablePath: string, gpu: boolean): Promise<ScenarioResult[]> {
+async function runScenarios(host: NodeHost, executablePath: string, args: BenchArgs): Promise<ScenarioResult[]> {
   const commit = commitSha()
   const server = await servePage()
   try {
-    const browser = await chromium.launch({ executablePath, headless: true, args: chromeLaunchArgs(gpu) })
-    try {
-      return await runEachScenario(browser, serverUrl(server), { commit, host })
-    } finally {
-      await browser.close()
-    }
+    const results = await runBackendMatrix(args.backend, async (backend) => {
+      const browser = await chromium.launch({ executablePath, headless: true, args: chromeLaunchArgs(args.gpu, backend) })
+      try {
+        return await runEachScenario(browser, serverUrl(server), { commit, host, backend })
+      } finally {
+        await browser.close()
+      }
+    })
+    assertShadowResourceSweep(results)
+    return results
   } finally {
     await server.close()
   }
@@ -149,8 +168,11 @@ async function main(): Promise<void> {
   }
   const chrome = discoverChrome()
   const host: NodeHost = { platform: platform(), cpus: cpus().length, chrome: chrome.version }
-  const results = await runScenarios(host, chrome.executablePath, args.gpu)
+  const results = await runScenarios(host, chrome.executablePath, args)
   for (const result of results) process.stderr.write(`${summary(result)}\n`)
+  for (const delta of shadowTimingDeltas(results)) {
+    process.stderr.write(`${delta.scenario} (${delta.backend}) vs Off: median delta ${delta.medianDeltaMs.toFixed(2)} ms, p95 delta ${delta.p95DeltaMs.toFixed(2)} ms (informational)\n`)
+  }
   process.stdout.write(`${RESULTS_MARKER}${JSON.stringify(results)}\n`)
   if (!applyBaselineFlags(results, args)) process.exitCode = 1
 }

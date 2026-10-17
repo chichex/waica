@@ -44,6 +44,10 @@ describe('compareCounters', () => {
     expect(() => compareCounters(result(), other)).toThrow(/static-sprites-1000.*spawn-churn-10/)
   })
 
+  it('refuses to compare counters across Render Backends even when every value matches', () => {
+    expect(() => compareCounters(result(), { ...result(), backend: 'webgpu' })).toThrow(/backend.*webgl2.*webgpu/)
+  })
+
   it('ignores timings, commit and host', () => {
     const moved = { ...result({}, 99), commit: 'fff0000' }
     moved.host = { platform: 'darwin', cpus: 1, chrome: 'other', renderer: 'other' }

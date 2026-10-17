@@ -14,6 +14,7 @@ import type { PageScenarioReport, ScenarioName } from '../results.ts'
 import { holdRendererCounters, measureWindow } from '../measurement-window.ts'
 import { activeWebglRenderer, describeRenderer } from './renderer-probe.ts'
 import { planFor, type ScenarioPlan } from './scenarios.ts'
+import { runShadowResourceProbe } from './shadow-resource-probe.ts'
 
 /**
  * Installs the Runtime Bridge activation hook before the Game starts, so
@@ -68,7 +69,9 @@ export async function runScenario(name: ScenarioName): Promise<PageScenarioRepor
   const release = holdRendererCounters(renderer)
   try {
     game.start()
-    return await measureScenario({ name, game, renderer, plan, bridge: bridge() })
+    const report = await measureScenario({ name, game, renderer, plan, bridge: bridge() })
+    if (name === 'shadows-sun-on-50') report.resources = await runShadowResourceProbe({ game, renderer, bridge: bridge() })
+    return report
   } finally {
     release()
     game.dispose()
