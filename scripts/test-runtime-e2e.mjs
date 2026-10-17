@@ -2,15 +2,19 @@ import assert from 'node:assert/strict'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { RENDER_BACKEND_LEGS, runRuntimeE2e } from './runtime-e2e.mjs'
+import { runtimeE2eLegOptions } from './runtime-e2e-policy.mjs'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 
-// Every browser scenario runs once per Render Backend (issue #140, ADR 0025).
+// Existing browser scenarios still run on both Render Backends (issue #140).
+// New shadow pixels require WebGL2 automatically, WebGPU only with --webgpu-shadows.
 // Both legs always run, so one leg's failure never hides the other's result;
 // any failure still fails the gate.
 const failures = []
 const results = []
-for (const renderLeg of RENDER_BACKEND_LEGS) {
+const legs = RENDER_BACKEND_LEGS.map((renderLeg) => ({ renderLeg, shadowOptions: runtimeE2eLegOptions(renderLeg.backend, process.argv.slice(2)) }))
+console.log(`waica runtime e2e policy: ${JSON.stringify(legs.map(({ renderLeg, shadowOptions }) => ({ backend: renderLeg.backend, ...shadowOptions })))}`)
+for (const { renderLeg, shadowOptions } of legs) {
   try {
     results.push(
       await runRuntimeE2e({
@@ -19,6 +23,7 @@ for (const renderLeg of RENDER_BACKEND_LEGS) {
         engineRoot: path.join(root, 'packages/engine'),
         label: `checkout-${renderLeg.backend}`,
         renderLeg,
+        ...shadowOptions,
       }),
     )
   } catch (error) {
