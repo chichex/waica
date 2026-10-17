@@ -145,13 +145,29 @@ async function assertFrame({ inspector, image, samples }) {
 }
 
 const torchesOff = (scene) => {
-  for (const entity of scene.entities.filter((candidate) => candidate.prefab === 'tiles/torch')) entity.overrides = { PointLight: { intensity: 0 } }
+  for (const entity of scene.entities.filter((candidate) => candidate.prefab === 'tiles/torch')) {
+    entity.overrides = { ...entity.overrides, PointLight: { ...entity.overrides?.PointLight, intensity: 0 } }
+  }
+}
+
+// CA-22/I-15 (#203): preserve the pre-shadows lighting/depth oracle in
+// test variants only. The shipped scene and all gameplay still default On.
+const shadowOff = (scene) => {
+  scene.render = { ...scene.render, shadows: { ...scene.render?.shadows, quality: 'off' } }
 }
 
 /** Depth, not spawn order, decides what is in front: the red box hides what is behind it either way, pixel for pixel. */
 async function assertDepthOrder(context) {
-  const first = await capture(context, (scene) => scene.entities.unshift(BLOCKER))
-  const last = await capture(context, (scene) => scene.entities.push(BLOCKER))
+  const first = await capture(context, (scene) => {
+    shadowOff(scene)
+    scene.entities.unshift(BLOCKER)
+  })
+  const last = await capture(context, (scene) => {
+    shadowOff(scene)
+    scene.entities.push(BLOCKER)
+  })
+  await context.keep('shadow-off-blocker-first', first.image)
+  await context.keep('shadow-off-blocker-last', last.image)
   const [r, g, b] = first.samples.blocker
   assert.ok(r > 120 && g < 60 && b < 60, `the near red box must be drawn in front; ${JSON.stringify(first.samples.blocker)}`)
   const compared = await context.inspector.compare(first.image, last.image)
@@ -170,11 +186,17 @@ async function assertPixels(context, shipped) {
     const { min, max } = await context.inspector.range(shipped.image)
     return { reportedOnly: 'https://github.com/chichex/waica/issues/151', range: { min, max } }
   }
-  const pool = await assertFrame({ inspector: context.inspector, image: shipped.image, samples: shipped.samples })
-  const dark = await capture(context, torchesOff)
+  const legacy = await capture(context, shadowOff)
+  await context.keep('shadow-off-lit', legacy.image)
+  const pool = await assertFrame({ inspector: context.inspector, image: legacy.image, samples: legacy.samples })
+  const dark = await capture(context, (scene) => {
+    shadowOff(scene)
+    torchesOff(scene)
+  })
+  await context.keep('shadow-off-torches-off', dark.image)
   const darkPool = warmth(dark.samples.underTorch) - warmth(dark.samples.farFromTorches)
   assert.ok(darkPool < pool / 2, `without the torches' light the pool must fade; ${JSON.stringify({ pool, darkPool })}`)
-  return { samples: shipped.samples, pool, darkPool, depth: await assertDepthOrder(context) }
+  return { lightingOracle: 'explicit-shadows-off', samples: legacy.samples, pool, darkPool, depth: await assertDepthOrder(context) }
 }
 
 /** The whole third-person leg; `helpers` are runtime-e2e.mjs's own. */
@@ -183,8 +205,8 @@ export async function runThirdPersonLeg({ client, root, parent, chrome, viteBin,
   const project = await helpers.makeDemoProject({ client, root, parent, viteBin, engineRoot, archetype: 'third-person', name: 'waica-third-person' })
   const scene = JSON.parse(await readFile(path.join(project, `src/scenes/${SCENE}.scene.json`), 'utf8'))
   const inspector = await helpers.openPngInspector(playwright, chrome.executablePath)
-  const context = { helpers, client, project, chrome, inspector, renderBackend }
   const keep = (name, image) => helpers.keepScreenshot(`${label}-third-person-${name}.png`, image)
+  const context = { helpers, client, project, chrome, inspector, renderBackend, keep }
   try {
     const shipped = await capture(context, () => {})
     await keep('shipped', shipped.image)

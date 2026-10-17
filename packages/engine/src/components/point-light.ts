@@ -8,7 +8,8 @@ import { ShadowLight } from './shadow-light.js'
  * entity's local frame: it turns and scales with the entity, so a lantern's
  * offset follows the object it hangs on), reaching
  * `distance` world units (0 = without limit) and fading with `decay` (2 is
- * physical). Not the 2D `Light`, which paints a light-map. No shadows. In a
+ * physical). Not the 2D `Light`, which paints a light-map. Its shadows have an
+ * independent finite range without shortening illumination. In a
  * 2D scene it creates nothing; the three light lives under the entity's node
  * and leaves with it.
  */
@@ -104,6 +105,7 @@ export class PointLight extends ShadowLight {
   }
 
   override onDestroy(): void {
+    this.game.shadows.remove(this)
     this.light?.removeFromParent()
   }
 
