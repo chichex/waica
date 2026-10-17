@@ -5,7 +5,9 @@
     {
       "type": "Model",
       "props": {
-        "src": "src/art/knight.glb"
+        "src": "src/art/knight.glb",
+        "castShadows": true,
+        "receiveShadows": true
       }
     },
     {

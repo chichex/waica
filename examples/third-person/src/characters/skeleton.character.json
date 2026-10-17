@@ -5,7 +5,9 @@
     {
       "type": "Model",
       "props": {
-        "src": "src/art/skeleton-warrior.glb"
+        "src": "src/art/skeleton-warrior.glb",
+        "castShadows": true,
+        "receiveShadows": true
       }
     },
     {
