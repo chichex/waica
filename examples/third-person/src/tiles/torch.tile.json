@@ -5,7 +5,9 @@
     {
       "type": "Model",
       "props": {
-        "src": "src/art/dungeon-torch.glb"
+        "src": "src/art/dungeon-torch.glb",
+        "castShadows": true,
+        "receiveShadows": true
       }
     },
     {
@@ -32,7 +34,8 @@
         "intensity": 14,
         "distance": 9,
         "offsetY": 0.6,
-        "offsetZ": 0.6
+        "offsetZ": 0.6,
+        "castShadows": true
       }
     }
   ]

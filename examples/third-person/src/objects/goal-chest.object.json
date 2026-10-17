@@ -5,7 +5,9 @@
     {
       "type": "Model",
       "props": {
-        "src": "src/art/dungeon-chest.glb"
+        "src": "src/art/dungeon-chest.glb",
+        "castShadows": true,
+        "receiveShadows": true
       }
     },
     {
