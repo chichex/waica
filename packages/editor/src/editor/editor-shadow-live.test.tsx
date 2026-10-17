@@ -131,9 +131,12 @@ it('does not persist a scene profile rejected by the live device capacity (CA-13
   renderer.maxTextureSize = 2048
   renderer.backend.device.limits.maxTextureDimension2D = 2048
   const state = defined(current)
+  const game = defined(state.viewport()?.game())
+  game.lighting.ambient = { intensity: 0.2 }
 
   expect(() => entityComponentHandlers(state.core, state.viewport).onRenderProp('shadows', { quality: 'high' })).toThrow(/4096.*2048/)
   expect(current?.viewport()?.game()?.shadows.quality).toBe('medium')
+  expect(game.lighting.ambient.intensity).toBe(0.2)
   expect(current?.core.scenes.scene?.render).not.toHaveProperty('shadows')
   expect((await readShadowScene(fs)).render).not.toHaveProperty('shadows')
 })

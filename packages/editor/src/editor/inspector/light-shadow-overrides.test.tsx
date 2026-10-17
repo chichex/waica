@@ -206,6 +206,8 @@ it('uses the prefab preview scene policy rather than the unrelated open scene', 
   })
   await openAdvanced()
   expect(screen.getByRole('status').textContent).toContain('Prefab preview shadows: medium')
+  expect(screen.getByRole('status').textContent).toContain('Inactive')
+  expect(screen.getByRole('status').textContent).toContain('2D preview')
   expect(shadowRow('Shadow map size').textContent).toContain('Effective: 2048')
   expect(shadowRow('Shadow max distance').textContent).toContain('Effective: 40')
   await userEvent.setup().click(within(shadowRow('Shadow map size')).getByRole('checkbox', { name: 'Override Shadow map size' }))
