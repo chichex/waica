@@ -31,3 +31,13 @@ withdrawal does not turn the failed/unavailable evidence into a pass.
 --check` report at df0b004. It rechecks all 29 scenario counters and all ten resource
 cycles against the preserved baselines. The two WebGPU criteria were withdrawn,
 not verified. No benchmark or browser assertion was skipped for that decision.
+
+## Review follow-up — 2026-10-20
+
+`webgl2-review-check.json` is the successful `pnpm bench --backend=webgl2 --check`
+report at clean source `7c70ad2`. All 29 counters still match, including the 17
+historical workloads; ten resource cycles/121 checkpoints pass before disposal.
+The complete raw resource evidence stays in this report. Counter baseline writes
+now omit unused resource telemetry, and old resource schemas cannot prevent a
+baseline check/update. Neither this correction nor the observer split weakens
+the live/remote resource gate. Historical measurement commit IDs are preserved.
