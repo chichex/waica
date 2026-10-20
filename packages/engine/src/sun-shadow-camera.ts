@@ -40,14 +40,20 @@ function placeInWorld(object: THREE.Object3D, position: THREE.Vector3): void {
   object.updateMatrixWorld()
 }
 
+/** The bounded receiver interval, shared by capacity checks and the camera fit. */
+export function sunCoverageDepth(camera: Pick<THREE.PerspectiveCamera, 'near' | 'far'>, maxDistance: number): number | null {
+  const far = Math.min(camera.far, maxDistance)
+  return Number.isFinite(camera.near) && camera.near > 0 && far > camera.near ? far : null
+}
+
 /**
  * Fits the active view's bounded receiver volume without changing its camera.
  * The caller supplies current view matrices and owns shadow resources/passes.
  * False leaves the previous fit intact; it must not be rendered as coverage.
  */
 export function fitSunShadow({ light, camera, settings, direction }: SunShadowFit): boolean {
-  const far = Math.min(camera.far, settings.maxDistance)
-  if (!settings.enabled || !Number.isFinite(camera.near) || camera.near <= 0 || !(far > camera.near)) return false
+  const far = sunCoverageDepth(camera, settings.maxDistance)
+  if (!settings.enabled || far === null) return false
   light.shadow.mapSize.set(settings.mapSize, settings.mapSize)
   const sphere = receiverSphere(camera, far)
   // One full texel survives the worst-case half-texel center snap.

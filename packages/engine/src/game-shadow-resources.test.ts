@@ -51,6 +51,28 @@ it('releases renderer-owned targets on ten Off cycles and entity destruction (CA
   expect(retained.size).toBe(0)
 })
 
+it('retires resized GPU storage without disposing the cached active shadow node (CA-15)', async () => {
+  const { game } = await ready3dGame()
+  loadScene(game, scene3d([]), registryOf({ PointLight }))
+  const lamp = game.spawn('Lamp').add(PointLight)
+  renderFrame(game)
+  const light = defined(lamp.light)
+  allocateTarget(light, new Set())
+  const target = defined(light.shadow.map)
+  const node = light.shadow.shadowNode
+  let disposals = 0
+  target.addEventListener('dispose', () => { disposals++ })
+
+  for (const quality of ['low', 'high', 'medium'] as const) {
+    game.shadows.quality = quality
+    renderFrame(game)
+    expect(light.shadow.shadowNode).toBe(node)
+    expect(light.shadow.map).toBe(target)
+    expect([target.width, target.height]).toEqual([light.shadow.mapSize.x, light.shadow.mapSize.y])
+  }
+  expect(disposals).toBe(3)
+})
+
 it('releases resized maps but retains maps for bias, radius and camera changes (CA-8)', async () => {
   const { game } = await ready3dGame()
   loadScene(game, scene3d([]), registryOf({ Sun, PointLight }))

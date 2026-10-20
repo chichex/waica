@@ -33,6 +33,19 @@ it('loads independent scene shadow defaults and updates policy without changing 
   expect(game.shadows.policy).toEqual({ quality: 'medium', maxDistance: 40 })
 })
 
+it('resets the scene-scoped shadow policy when the live scene is unloaded (CA-8)', async () => {
+  const { game } = await ready3dGame()
+  loadScene(game, scene3d([], { shadows: { quality: 'off', maxDistance: 8 } }), registryOf({}))
+
+  game.unloadScene()
+
+  expect(game.shadows.policy).toEqual({ quality: 'medium', maxDistance: 40 })
+  expect(game.shadows.quality).toBe('medium')
+  renderFrame(game)
+  expect(lastFakeRenderer().shadowMap.enabled).toBe(false)
+  game.dispose()
+})
+
 it('gives manual 3D renders distinct renderer frames without double-advancing a native frame (CA-17)', async () => {
   const { game } = await ready3dGame()
   loadScene(game, scene3d([]), registryOf({}))

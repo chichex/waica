@@ -16,6 +16,7 @@ import { EntityUpdateSchedules } from './entity-update-schedules.js'
 import type { PositionJson } from './entity-transform.js'
 import { Emitter } from './events.js'
 import { RigidBody } from './components/rigid-body.js'
+import { ShadowLight } from './components/shadow-light.js'
 import {
   consumeSimulationSteps,
   MAX_CHAINED_HOPS,
@@ -404,6 +405,7 @@ export class Game {
     this.time.cancelSceneScoped()
     this.cameraEffects.unloadScene()
     this.lighting.unloadScene()
+    this.shadows.unloadScene()
     this.post.unloadScene()
     // An explicit unload means "no scene": a swap queued earlier this frame
     // would otherwise flush next frame and resurrect one.
@@ -498,7 +500,9 @@ export class Game {
   applyParamOverrides(entity: Entity, component: Component): void {
     const Class = componentClassOf(component)
     const override = this.paramOverrides[entity.name]?.[Class.componentName]
-    if (override) Object.assign(component, override)
+    if (!override) return
+    if (component instanceof ShadowLight) this.shadows.applyParams(component, override)
+    else Object.assign(component, override)
   }
 
   /**

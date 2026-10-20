@@ -216,7 +216,7 @@ function isComponentProps(props: Record<string, unknown>): props is Record<strin
 }
 
 /** Scene JSON props with any Component member dropped and reported. */
-function sceneProps(props: Record<string, unknown>, type: string, entityName: string): Partial<Component> {
+export function sceneProps(props: Record<string, unknown>, type: string, entityName: string): Partial<Component> {
   const dropped = Object.keys(props).filter((key) => Object.hasOwn(COMPONENT_MEMBERS, key))
   const kept = Object.fromEntries(Object.entries(props).filter(([key]) => !dropped.includes(key)))
   if (dropped.length > 0) {
@@ -255,6 +255,7 @@ export function spawnFromJson(game: Game, json: SceneEntityJson, registry: Scene
  * at a time.
  */
 export function loadScene(game: Game, scene: SceneJson, registry: SceneRegistry): void {
+  game.shadows.validateScene(scene, registry)
   if (game.registry) {
     game.unloadScene()
   } else {

@@ -1,5 +1,6 @@
 import * as THREE from 'three/webgpu'
 import type { Component, ComponentClass } from './component.js'
+import { ShadowLight } from './components/shadow-light.js'
 import type { Game } from './game.js'
 
 /**
@@ -47,6 +48,7 @@ export class Entity {
     component.game = this.game
     if (props) Object.assign(component, props)
     this.game.applyParamOverrides(this, component)
+    if (component instanceof ShadowLight) this.game.shadows.validateAddition(component)
     this.components.push(component)
     component.onReady?.()
     return component

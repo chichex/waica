@@ -2,17 +2,50 @@ import * as THREE from 'three/webgpu'
 import { PointLight } from './components/point-light.js'
 import { Sun } from './components/sun.js'
 import type { ShadowLight } from './components/shadow-light.js'
-import type { Game } from './game.js'
+import type { ComponentClass } from './component.js'
+import type { Game, ParamOverrides } from './game.js'
 import { assertShadowMapCapacity, resolveLightShadow, resolveSceneShadows, type LightShadowOverrides, type ResolvedLightShadow, type ResolvedSceneShadows, type ShadowQuality } from './scene-shadows.js'
 import { advanceRendererFrame, shadowTextureLimit } from './shadow-renderer.js'
 import { createRangedPointShadow, type RangedPointShadow } from './point-shadow.js'
-import { fitSunShadow } from './sun-shadow-camera.js'
+import { fitSunShadow, sunCoverageDepth } from './sun-shadow-camera.js'
+import { registryEntry, resolveEntityComponents, resolveProps, sceneProps, type SceneJson, type SceneRegistry } from './scene.js'
+import { resolvePerspectiveCamera } from './scene-camera-3d.js'
+
+function isShadowClass(Class: ComponentClass | undefined): Class is ComponentClass<Sun | PointLight> {
+  return Class !== undefined && (Class === Sun || Class === PointLight || Class.prototype instanceof Sun || Class.prototype instanceof PointLight)
+}
+
+function hasCoverage(light: Sun | PointLight, camera: Pick<THREE.PerspectiveCamera, 'near' | 'far'> | null, maxDistance: number): boolean {
+  return !(light instanceof Sun) || (camera !== null && sunCoverageDepth(camera, maxDistance) !== null)
+}
+
+/** Detached lights compose normalized authored defaults/props/params without intermediate capacity checks. */
+function* sceneLights(scene: SceneJson, registry: SceneRegistry, params: ParamOverrides): Generator<Sun | PointLight> {
+  for (const entity of scene.entities) {
+    for (const json of resolveEntityComponents(entity, registry.prefabs)) {
+      const Class = registryEntry(registry.components, json.type)
+      if (!isShadowClass(Class)) continue
+      let light: Sun | PointLight
+      try {
+        light = new Class()
+        Object.assign(light, sceneProps(resolveProps(json.props, registry), json.type, entity.name), params[entity.name]?.[Class.componentName])
+      } catch {
+        // Preserve spawnFromJson's isolation of throwing project-owned components.
+        continue
+      }
+      yield light
+    }
+  }
+}
 
 /** The live scene's shadow policy; resolving settings never allocates a shadow map. */
 export class GameShadows {
   private state = resolveSceneShadows(undefined)
   private renderer: THREE.WebGPURenderer | null = null
   private readonly pointShadows = new Map<PointLight, RangedPointShadow>()
+  private readonly composing = new WeakSet<ShadowLight>()
+  private readonly lastValid = new WeakMap<Sun | PointLight, ResolvedLightShadow>()
+  private readonly capacityErrors = new WeakMap<Sun | PointLight, string>()
   private lastRendererFrame: number | null = null
 
   constructor(private readonly game: Game) {}
@@ -44,8 +77,48 @@ export class GameShadows {
     if (this.game.space !== '3d') for (const light of this.lights()) this.remove(light)
   }
 
+  unloadScene(): void {
+    this.state = resolveSceneShadows(undefined)
+    if (this.renderer) this.renderer.shadowMap.enabled = false
+  }
+
+  /** Validate final composed props, before Entity.add publishes or readies a light. */
+  validateAddition(component: ShadowLight): void {
+    if (component instanceof Sun || component instanceof PointLight) this.assertCapacity(this.requested(component))
+  }
+
+  /** Check the ready device, even for authored 3D settings in a 2D preview. */
+  assertCapacity(settings: ResolvedLightShadow): void {
+    if (!this.renderer || !this.game.backend) return
+    assertShadowMapCapacity(settings, shadowTextureLimit(this.renderer.backend))
+  }
+
+  /** Persisted params are one composed request, not a sequence of active setters. */
+  applyParams(component: ShadowLight, props: Record<string, unknown>): void {
+    this.validateChange(component, props)
+    this.composing.add(component)
+    try {
+      Object.assign(component, props)
+    } finally {
+      this.composing.delete(component)
+    }
+  }
+
+  /** Check an incoming scene before unloadScene destroys the last valid one. */
+  validateScene(scene: SceneJson, registry: SceneRegistry): void {
+    if (scene.render?.space !== '3d' || !this.game.backend) return
+    const policy = resolveSceneShadows(scene.render.shadows)
+    const camera = this.game.cameraRig.viewCamera ?? resolvePerspectiveCamera(scene.camera?.kind === 'perspective' ? scene.camera : undefined)
+    for (const light of sceneLights(scene, registry, this.game.paramOverrides)) {
+      const settings = resolveLightShadow(light instanceof Sun ? 'sun' : 'point', policy, light)
+      settings.enabled = settings.enabled && hasCoverage(light, camera, settings.maxDistance)
+      this.assertCapacity(settings)
+    }
+  }
+
   /** A failing request leaves both the authored live value and its active map unchanged. */
-  validateChange(component: ShadowLight, change: LightShadowOverrides): void {
+  validateChange(component: ShadowLight, change: LightShadowOverrides | Record<string, unknown>): void {
+    if (this.composing.has(component)) return
     const light = this.lights().find((candidate) => candidate === component)
     if (!light || !this.renderer || !this.game.backend || this.game.space !== '3d') return
     const inputs = {
@@ -64,8 +137,32 @@ export class GameShadows {
   }
 
   resolve(light: Sun | PointLight): ResolvedLightShadow {
+    const settings = this.effectiveSettings(light, this.requested(light))
+    if (settings.enabled) this.lastValid.set(light, settings)
+    return settings
+  }
+
+  private requested(light: Sun | PointLight): ResolvedLightShadow {
     const settings = resolveLightShadow(light instanceof Sun ? 'sun' : 'point', this.state, light)
     return this.withCoverage(light, settings)
+  }
+
+  private effectiveSettings(component: Sun | PointLight, requested: ResolvedLightShadow): ResolvedLightShadow {
+    try {
+      this.assertCapacity(requested)
+      this.capacityErrors.delete(component)
+      return requested
+    } catch (error) {
+      if (!(error instanceof RangeError)) throw error
+      if (this.capacityErrors.get(component) !== error.message) {
+        console.error(`[waica] shadow request rejected for "${component.entity.name}": ${error.message} Keeping the last supported shadow configuration, or no map if none exists.`)
+        this.capacityErrors.set(component, error.message)
+      }
+      const previous = this.lastValid.get(component)
+      return previous && this.renderer && previous.mapSize <= shadowTextureLimit(this.renderer.backend)
+        ? this.withCoverage(component, previous)
+        : { ...requested, enabled: false }
+    }
   }
 
   /** Called at the render boundary, including paused and edit-mode frames. */
@@ -77,7 +174,6 @@ export class GameShadows {
     this.lastRendererFrame = advanceRendererFrame(renderer, this.lastRendererFrame)
     this.game.scene.updateWorldMatrix(true, false)
     this.game.camera.updateWorldMatrix(true, false)
-    this.validate()
     renderer.shadowMap.enabled = this.game.space === '3d' && this.state.quality !== 'off'
     renderer.shadowMap.type = THREE.PCFShadowMap
     const lights = this.lights()
@@ -91,11 +187,13 @@ export class GameShadows {
     const light = component.light
     if (!light) return
     const settings = this.resolve(component)
-    if ((light.castShadow || light.shadow.map) && (!settings.enabled || light.shadow.mapSize.x !== settings.mapSize)) {
+    if ((light.castShadow || light.shadow.map) && !settings.enabled) {
       this.remove(component)
     }
     light.castShadow = settings.enabled
     light.shadow.mapSize.set(settings.mapSize, settings.mapSize)
+    // setSize retires GPU storage while preserving nodes held by cached materials.
+    light.shadow.map?.setSize(settings.mapSize, settings.mapSize)
     light.shadow.bias = settings.bias
     light.shadow.normalBias = settings.normalBias
     light.shadow.radius = settings.radius
@@ -120,12 +218,9 @@ export class GameShadows {
   }
 
   private withCoverage(light: Sun | PointLight, settings: ResolvedLightShadow): ResolvedLightShadow {
-    let enabled = this.game.space === '3d' && settings.enabled
-    if (enabled && light instanceof Sun) {
-      const camera = this.game.camera
-      enabled = camera instanceof THREE.PerspectiveCamera && Number.isFinite(camera.near) && camera.near > 0
-        && Math.min(camera.far, settings.maxDistance) > camera.near
-    }
+    const camera = this.game.camera
+    const enabled = this.game.space === '3d' && settings.enabled
+      && hasCoverage(light, camera instanceof THREE.PerspectiveCamera ? camera : null, settings.maxDistance)
     return { ...settings, enabled }
   }
 
