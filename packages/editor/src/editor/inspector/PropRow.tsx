@@ -95,10 +95,13 @@ function DiagnosedTextRow({
   )
 }
 
-function DiagnosedValueRow(props: ValueRowProps<unknown> & { param: string; diagnostics: readonly ParamDiagnostic[] }) {
-  return typeof props.value === 'boolean'
-    ? <BooleanParamRow {...props} value={props.value} />
-    : <DiagnosedTextRow {...props} />
+function ParamValueRow(props: ValueRowProps<unknown> & {
+  label: string; spec?: ParamSpec; referenceTargets?: RefTarget[]; diagnostics?: readonly ParamDiagnostic[]
+}) {
+  if (typeof props.value === 'boolean') return <BooleanParamRow {...props} value={props.value} />
+  return props.diagnostics !== undefined
+    ? <DiagnosedTextRow {...props} param={props.label} diagnostics={props.diagnostics} />
+    : <ValueRow {...props} />
 }
 
 function ColorRow({ name, value, onChange }: ValueRowProps<number>) {
@@ -224,9 +227,6 @@ function ValueRow({
 }: ValueRowProps<unknown> & { label: string; spec?: ParamSpec; referenceTargets?: RefTarget[] }) {
   const byKind = kindRow({ label, name, value, spec, onChange })
   if (byKind) return byKind
-  if (typeof value === 'boolean') {
-    return <BooleanParamRow name={name} value={value} onChange={onChange} />
-  }
   if (typeof value === 'number') {
     return <NumberRow label={label} name={name} value={value} spec={spec} onChange={onChange} />
   }
@@ -300,24 +300,14 @@ export function PropRow({
       />
     )
   }
-  if (diagnostics !== undefined) {
-    return (
-      <DiagnosedValueRow
-        param={label}
-        name={name}
-        value={value}
-        diagnostics={diagnostics}
-        onChange={onChange}
-      />
-    )
-  }
   return (
-    <ValueRow
+    <ParamValueRow
       label={label}
       name={name}
       value={value}
       spec={spec}
       referenceTargets={referenceTargets}
+      diagnostics={diagnostics}
       onChange={onChange}
     />
   )

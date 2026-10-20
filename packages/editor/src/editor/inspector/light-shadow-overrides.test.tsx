@@ -184,6 +184,7 @@ it('catches a rejected per-light activation without changing false to true', asy
   expect(screen.getByRole('checkbox', { name: 'Cast shadows' })).toHaveProperty('checked', false)
   expect(screen.getByRole('alert').textContent).toContain('Cannot activate shadow map on device')
   const checkbox = screen.getByRole('checkbox', { name: 'Cast shadows' })
+  expect(document.activeElement).toBe(checkbox)
   expect(checkbox.getAttribute('aria-invalid')).toBe('true')
   expect(document.getElementById(checkbox.getAttribute('aria-describedby') ?? '')?.textContent).toContain('Cannot activate shadow map on device')
 })
