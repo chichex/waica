@@ -36,6 +36,7 @@ function snapCenter(sphere: THREE.Sphere, orientation: THREE.Matrix4, texelSize:
 
 function placeInWorld(object: THREE.Object3D, position: THREE.Vector3): void {
   object.position.copy(position)
+  object.parent?.updateWorldMatrix(true, false)
   if (object.parent) object.position.applyMatrix4(object.parent.matrixWorld.clone().invert())
   object.updateMatrixWorld()
 }

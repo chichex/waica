@@ -258,3 +258,39 @@ it('keeps fitting and Sun direction in world space when the light and target are
   const travel = light.target.getWorldPosition(new THREE.Vector3()).sub(light.getWorldPosition(new THREE.Vector3())).normalize()
   expect(travel.distanceTo(new THREE.Vector3(...direction).normalize())).toBeLessThan(1e-12)
 })
+
+it('keeps native Sun coverage current when light and target ancestors move before rendering', () => {
+  const camera = view()
+  const before = cameraState(camera)
+  const light = new THREE.DirectionalLight()
+  const nativeCamera = light.shadow.camera
+  const root = new THREE.Group()
+  const lightParent = new THREE.Group()
+  const targetParent = new THREE.Group()
+  root.add(lightParent, targetParent)
+  lightParent.add(light)
+  targetParent.add(light.target)
+  root.updateMatrixWorld(true)
+  root.position.set(-500, 30, 250)
+  root.rotation.y = 0.6
+  root.scale.set(2, 3, 4)
+  lightParent.position.set(20, -10, 30)
+  lightParent.scale.set(1, 2, 0.5)
+  targetParent.position.set(-40, 15, 10)
+  targetParent.rotation.z = 0.4
+  const direction = [-1, -2, -1] as const
+
+  expect(fitSunShadow({ light, camera, settings, direction })).toBe(true)
+  const fitted = light.shadow.matrix.toArray()
+  // Three refreshes the scene graph and native shadow camera during rendering.
+  root.updateMatrixWorld(true)
+  light.shadow.updateMatrices(light)
+
+  expect(light.shadow.camera).toBe(nativeCamera)
+  expectCovered(light, receivers(camera, 10), 1 / settings.mapSize)
+  light.shadow.matrix.elements.forEach((value, index) => expect(value).toBeCloseTo(fitted[index] ?? NaN, 12))
+  const travel = light.target.getWorldPosition(new THREE.Vector3()).sub(light.getWorldPosition(new THREE.Vector3())).normalize()
+  expect(travel.distanceTo(new THREE.Vector3(...direction).normalize())).toBeLessThan(1e-12)
+  expect(cameraState(camera)).toEqual(before)
+  expect(light.shadow.map).toBeNull()
+})

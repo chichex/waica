@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { GameShadows } from './game-shadows'
 import { GameTime } from './game-time'
 import { loadScene, type SceneJson } from './scene'
 import { Stats } from './stats'
@@ -13,6 +14,17 @@ function makeUi(initial: Record<string, number | boolean | string> = { points: 0
   const stats = new Stats(initial)
   const ui = new GameUi(stats, () => host)
   return { ui, stats, host }
+}
+
+function testGame(ui: GameUi): Parameters<typeof loadScene>[0] {
+  const game = {
+    ui,
+    time: new GameTime(),
+    setSceneCamera: () => {},
+    setSceneRender: () => {},
+    setSceneSimulation: () => {},
+  } as unknown as Parameters<typeof loadScene>[0]
+  return Object.assign(game, { shadows: new GameShadows(game) })
 }
 
 function pieceText(ui: GameUi, name: string): string {
@@ -134,13 +146,7 @@ describe('GameUi', () => {
 
   it('loadScene registers the registry catalog and shows the scene list', () => {
     const { ui } = makeUi({ points: 3 })
-    const game = {
-      ui,
-      time: new GameTime(),
-      setSceneCamera: () => {},
-      setSceneRender: () => {},
-      setSceneSimulation: () => {},
-    } as unknown as Parameters<typeof loadScene>[0]
+    const game = testGame(ui)
     const scene: SceneJson = { waicaScene: 2, entities: [], ui: ['coin-counter'] }
     loadScene(game, scene, { components: {}, ui: { 'coin-counter': COUNTER, 'pause-menu': '<div/>' } })
     expect(ui.isVisible('coin-counter')).toBe(true)
@@ -150,13 +156,7 @@ describe('GameUi', () => {
 
   it('unloadScene unmounts the outgoing scenes ui list, keeping the definition catalog (CA-5)', () => {
     const { ui } = makeUi({ points: 3 })
-    const game = {
-      ui,
-      time: new GameTime(),
-      setSceneCamera: () => {},
-      setSceneRender: () => {},
-      setSceneSimulation: () => {},
-    } as unknown as Parameters<typeof loadScene>[0]
+    const game = testGame(ui)
     const scene: SceneJson = { waicaScene: 2, entities: [], ui: ['coin-counter'] }
     loadScene(game, scene, { components: {}, ui: { 'coin-counter': COUNTER } })
     expect(ui.isVisible('coin-counter')).toBe(true)
