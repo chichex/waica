@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium, type Browser } from 'playwright-core'
 import { build, preview, type PreviewServer } from 'vite'
 import { applyBaselineFlags } from './baseline-files.ts'
-import { assertPageReport, assertShadowResourceSweep, runBackendMatrix } from './backend-matrix.ts'
+import { assertPageReport, runBackendMatrix } from './backend-matrix.ts'
 import { benchHostRefusal, chromeLaunchArgs, parseBenchArgs, type BenchArgs } from './bench-args.ts'
 import { discoverChrome } from './chrome.ts'
 import type { BenchPageApi } from './page/bench-global.ts'
@@ -126,8 +126,7 @@ async function runEachScenario(browser: Browser, url: string, provenance: Proven
     const { report, trace, errors } = await runInPage(browser, url, scenario)
     assertPageReport(report, { scenario, backend, errors })
     backend ??= report.backend
-    const result = resultFromReport(report, provenance, trace)
-    parseScenarioResult(result)
+    const result = parseScenarioResult(resultFromReport(report, provenance, trace))
     results.push(result)
   }
   return results
@@ -138,7 +137,7 @@ async function runScenarios(host: NodeHost, executablePath: string, args: BenchA
   const commit = commitSha()
   const server = await servePage()
   try {
-    const results = await runBackendMatrix(args.backend, async (backend) => {
+    return await runBackendMatrix(args.backend, async (backend) => {
       const browser = await chromium.launch({ executablePath, headless: true, args: chromeLaunchArgs(args.gpu, backend) })
       try {
         return await runEachScenario(browser, serverUrl(server), { commit, host, backend })
@@ -146,8 +145,6 @@ async function runScenarios(host: NodeHost, executablePath: string, args: BenchA
         await browser.close()
       }
     })
-    assertShadowResourceSweep(results)
-    return results
   } finally {
     await server.close()
   }

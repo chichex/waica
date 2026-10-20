@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseScenarioResult, parseScenarioResults } from './results-guard.ts'
-import { SCENARIOS } from './results.ts'
+import { SCENARIOS, type ScenarioName, type ScenarioResult } from './results.ts'
 
 const valid = {
   scenario: 'spawn-churn-10',
@@ -21,6 +21,33 @@ const valid = {
     geometriesCreated: 6000,
   },
   timings: { frames: 600, medianMs: 1.2, p95Ms: 2.5, overBudget: false, gcPauses: { count: 3, totalMs: 4.5 } },
+}
+
+// Known workload metadata, independent of the production scene generator and validator.
+const SHADOW_CASES = [
+  ['shadows-sun-off-50', 'sun', false, 'off', 50, 1],
+  ['shadows-sun-off-200', 'sun', false, 'off', 200, 1],
+  ['shadows-sun-on-50', 'sun', true, 'medium', 50, 1],
+  ['shadows-sun-on-200', 'sun', true, 'medium', 200, 1],
+  ['shadows-point-off-50', 'point', false, 'off', 50, 1],
+  ['shadows-point-off-200', 'point', false, 'off', 200, 1],
+  ['shadows-point-on-50', 'point', true, 'medium', 50, 1],
+  ['shadows-point-on-200', 'point', true, 'medium', 200, 1],
+  ['shadows-four-point-off-50', 'four-point', false, 'off', 50, 4],
+  ['shadows-four-point-off-200', 'four-point', false, 'off', 200, 4],
+  ['shadows-four-point-on-50', 'four-point', true, 'medium', 50, 4],
+  ['shadows-four-point-on-200', 'four-point', true, 'medium', 200, 4],
+] as const
+
+function matrixResult(scenario: ScenarioName, backend: ScenarioResult['backend'] = 'webgl2'): ScenarioResult {
+  const sample = { ...valid, scenario, backend }
+  const fixture = SHADOW_CASES.find(([name]) => name === scenario)
+  if (!fixture) return sample
+  const [, composition, enabled, quality, casters, lights] = fixture
+  return {
+    ...sample, timings: { ...sample.timings, frames: 60 },
+    shadow: { composition, enabled, quality, casters, lights, warmupFrames: 5, measuredFrames: 60 },
+  }
 }
 
 describe('parseScenarioResult', () => {
@@ -63,16 +90,20 @@ describe('parseScenarioResult', () => {
   })
 })
 
-it('preserves optional shadow workload metadata rather than discarding it', () => {
+it('preserves required shadow workload metadata rather than discarding it', () => {
   const shadow = { composition: 'sun', enabled: true, quality: 'medium', casters: 50, lights: 1, warmupFrames: 5, measuredFrames: 60 }
   const measured = { ...valid, scenario: 'shadows-sun-on-50', timings: { ...valid.timings, frames: 60 }, shadow }
   expect(parseScenarioResult(measured)).toEqual(measured)
-  const matrix = SCENARIOS.map((scenario) => scenario === measured.scenario ? measured : { ...valid, scenario })
+  const matrix = SCENARIOS.map((scenario) => scenario === measured.scenario ? measured : matrixResult(scenario))
   expect(parseScenarioResults(matrix, 'webgl2').find((result) => result.scenario === measured.scenario)?.shadow).toEqual(shadow)
 })
 
 const shadow = { composition: 'four-point', enabled: true, quality: 'medium', casters: 200, lights: 4, warmupFrames: 5, measuredFrames: 60 }
 const measured = { ...valid, scenario: 'shadows-four-point-on-200', timings: { ...valid.timings, frames: 60 }, shadow }
+
+it.each(SCENARIOS.filter((scenario) => scenario.startsWith('shadows-')))('requires workload metadata for %s', (scenario) => {
+  expect(() => parseScenarioResult({ ...valid, scenario, timings: { ...valid.timings, frames: 60 } })).toThrow(/shadow/)
+})
 
 it.each(Object.keys(shadow))('requires shadow.%s when metadata is present', (key) => {
   const incomplete: Record<string, unknown> = { ...shadow }
@@ -92,7 +123,7 @@ it('does not attach shadow metadata to an unrelated historical workload', () => 
 })
 
 it.each(['webgl2', 'webgpu', undefined] as const)('rejects missing and duplicate results for selection %s', (selection) => {
-  const matrix = SCENARIOS.map((scenario) => ({ ...valid, scenario, backend: selection ?? 'webgpu' }))
+  const matrix = SCENARIOS.map((scenario) => matrixResult(scenario, selection ?? 'webgpu'))
   expect(() => parseScenarioResults(matrix.slice(1), selection)).toThrow(/missing/)
   expect(() => parseScenarioResults([...matrix, matrix[0]], selection)).toThrow(/duplicate/)
 })
@@ -104,7 +135,7 @@ it.each(Object.keys(valid.counters))('requires every deterministic counter: %s',
 })
 
 it('requires matching shadow workload metadata across the same scenario in both backend legs', () => {
-  const webgl = SCENARIOS.map((scenario) => scenario === measured.scenario ? measured : { ...valid, scenario })
+  const webgl = SCENARIOS.map((scenario) => scenario === measured.scenario ? measured : matrixResult(scenario))
   const webgpu = webgl.map((result) => ({ ...result, backend: 'webgpu' }))
   expect(parseScenarioResults([...webgl, ...webgpu], 'both')).toHaveLength(SCENARIOS.length * 2)
   const inconsistent = webgpu.map((result) => result.scenario === measured.scenario
@@ -114,7 +145,7 @@ it('requires matching shadow workload metadata across the same scenario in both 
 
 describe('parseScenarioResults', () => {
   it('accepts an array of results and rejects anything else', () => {
-    const matrix = SCENARIOS.map((scenario) => ({ ...valid, scenario }))
+    const matrix = SCENARIOS.map((scenario) => matrixResult(scenario))
     expect(parseScenarioResults(matrix)).toEqual(matrix)
     expect(() => parseScenarioResults(valid)).toThrow(/array/)
   })
@@ -126,7 +157,7 @@ describe('parseScenarioResults', () => {
   })
 
   it('requires exactly one result per backend and scenario, including both selected legs', () => {
-    const webgl = SCENARIOS.map((scenario) => ({ ...valid, scenario }))
+    const webgl = SCENARIOS.map((scenario) => matrixResult(scenario))
     const webgpu = webgl.map((result) => ({ ...result, backend: 'webgpu' }))
     const both = [...webgl, ...webgpu]
     expect(parseScenarioResults(both, 'both')).toEqual(both)
@@ -138,7 +169,7 @@ describe('parseScenarioResults', () => {
   })
 
   it('rejects fallback, unexpected legs and inconsistent automatic backend choice', () => {
-    const webgl = SCENARIOS.map((scenario) => ({ ...valid, scenario }))
+    const webgl = SCENARIOS.map((scenario) => matrixResult(scenario))
     const webgpu = webgl.map((result) => ({ ...result, backend: 'webgpu' }))
     expect(() => parseScenarioResults(webgl, 'webgpu')).toThrow(/backend.*webgpu.*webgl2/)
     expect(() => parseScenarioResults([...webgl, ...webgpu], 'webgl2')).toThrow(/backend/)

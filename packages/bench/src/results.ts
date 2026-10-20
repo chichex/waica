@@ -1,11 +1,11 @@
-/** Prefix of the single stdout line that carries a run's results JSON. */
-export const RESULTS_MARKER = 'WAICA_BENCH_RESULTS '
-
 import type { RenderBackend } from '@waica/engine'
 import type { ShadowResourceReport } from './shadow-resources.ts'
 import type { ScenarioName } from './sweep.ts'
 import type { ShadowWorkloadInfo } from './shadow-workload.ts'
 import { LOOP_END_MARK, LOOP_START_MARK, gcPausesFromTrace, isOverBudget, summarizeFrames } from './timings.ts'
+
+/** Prefix of the single stdout line that carries a run's results JSON. */
+export const RESULTS_MARKER = 'WAICA_BENCH_RESULTS '
 
 export { SCENARIOS, type ScenarioName } from './sweep.ts'
 

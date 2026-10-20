@@ -1,10 +1,8 @@
 import { Animator, Model, PointLight, StateMachine, Sun, type SceneEntityJson } from '@waica/engine'
 import rigUrl from '../../../engine/fixtures/rig.glb?url'
-import type { ShadowWorkloadInfo } from '../shadow-workload.ts'
+import { SHADOW_MEASURED_FRAMES, SHADOW_WARMUP_FRAMES, type ShadowWorkloadInfo } from '../shadow-workload.ts'
 import type { ScenarioPlan } from './scenarios.ts'
 
-const MEASURED_FRAMES = 60
-const WARMUP_FRAMES = 5
 const COLUMNS = 20
 
 /** A compact, separated ground grid inside the camera and finite shadow reach. */
@@ -57,8 +55,8 @@ export function shadowScene(n: number, composition: ShadowWorkloadInfo['composit
     },
     registry: { components: { Model, Animator, StateMachine, Sun, PointLight } },
     preload: [rigUrl],
-    steps: MEASURED_FRAMES,
-    warmupFrames: WARMUP_FRAMES,
-    shadow: { composition, enabled, quality, casters: casters.length, lights: lights.length, warmupFrames: WARMUP_FRAMES, measuredFrames: MEASURED_FRAMES },
+    steps: SHADOW_MEASURED_FRAMES,
+    warmupFrames: SHADOW_WARMUP_FRAMES,
+    shadow: { composition, enabled, quality, casters: casters.length, lights: lights.length, warmupFrames: SHADOW_WARMUP_FRAMES, measuredFrames: SHADOW_MEASURED_FRAMES },
   }
 }

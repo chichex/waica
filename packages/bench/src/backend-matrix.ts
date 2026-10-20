@@ -1,6 +1,6 @@
 import { SCENARIOS, type PageScenarioReport, type ScenarioName, type ScenarioResult } from './results.ts'
 import type { BackendSelection } from './bench-args.ts'
-import type { ShadowWorkloadInfo } from './shadow-workload.ts'
+import { assertShadowWorkload, SHADOW_RESOURCE_SCENARIO, type ShadowWorkloadInfo } from './shadow-workload.ts'
 import { isShadowResourceReport } from './shadow-resources.ts'
 
 type Backend = ScenarioResult['backend']
@@ -15,7 +15,7 @@ export interface PageExpectation {
 export function assertShadowResourceSweep(results: readonly ScenarioResult[]): void {
   if (!results.length) throw new Error('bench: missing GPU resource evidence')
   for (const backend of new Set(results.map((result) => result.backend))) {
-    const carrier = results.find((result) => result.backend === backend && result.scenario === 'shadows-sun-on-50')
+    const carrier = results.find((result) => result.backend === backend && result.scenario === SHADOW_RESOURCE_SCENARIO)
     if (!isShadowResourceReport(carrier?.resources) || carrier.resources.backend !== backend) {
       throw new Error(`bench: missing or invalid ${backend} GPU resource evidence`)
     }
@@ -36,7 +36,7 @@ export function assertPageReport(report: PageScenarioReport, expected: PageExpec
   if (report.frameMs.length === 0 || report.frameMs.some((ms) => !Number.isFinite(ms) || ms < 0)) {
     throw new Error(`bench: invalid measured frames for ${expected.scenario}`)
   }
-  if (report.scenario === 'shadows-sun-on-50' && (!isShadowResourceReport(report.resources) || report.resources.backend !== report.backend)) {
+  if (report.scenario === SHADOW_RESOURCE_SCENARIO && (!isShadowResourceReport(report.resources) || report.resources.backend !== report.backend)) {
     throw new Error('bench: missing or invalid GPU resource evidence for shadow sweep')
   }
 }
@@ -76,7 +76,8 @@ const SHADOW_FIELDS: readonly (keyof ShadowWorkloadInfo)[] = [
 
 function assertMatchingShadowWorkloads(results: readonly ScenarioResult[]): void {
   const workloads = new Map<ScenarioName, ShadowWorkloadInfo>()
-  for (const { scenario, shadow } of results) {
+  for (const { scenario, shadow, timings } of results) {
+    assertShadowWorkload(scenario, shadow, timings.frames)
     if (!shadow) continue
     const previous = workloads.get(scenario)
     if (previous && !SHADOW_FIELDS.every((key) => previous[key] === shadow[key])) {

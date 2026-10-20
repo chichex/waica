@@ -8,7 +8,8 @@ import {
 } from './results.ts'
 import { assertResultMatrix } from './backend-matrix.ts'
 import type { BackendSelection } from './bench-args.ts'
-import type { ShadowWorkloadInfo } from './shadow-workload.ts'
+import { assertShadowWorkload, type ShadowWorkloadInfo } from './shadow-workload.ts'
+import { isShadowResourceReport, type ShadowResourceReport } from './shadow-resources.ts'
 
 /**
  * Validates results read back from outside the process — a committed
@@ -122,18 +123,6 @@ function parseShadow(value: unknown): ShadowWorkloadInfo {
   }
 }
 
-function assertShadowWorkload(result: ScenarioResult): void {
-  const shadow = result.shadow
-  if (!shadow) return
-  const expected = `shadows-${shadow.composition}-${shadow.enabled ? 'on' : 'off'}-${shadow.casters}`
-  if (result.scenario !== expected) throw new Error('bench: invalid result: shadow metadata does not match scenario')
-  if (shadow.quality !== (shadow.enabled ? 'medium' : 'off')) throw new Error('bench: invalid result: shadow.quality contradicts enabled')
-  if (shadow.lights !== (shadow.composition === 'four-point' ? 4 : 1)) throw new Error('bench: invalid result: shadow.lights contradicts composition')
-  if (shadow.measuredFrames !== 60 || shadow.measuredFrames !== result.timings.frames) {
-    throw new Error('bench: invalid result: shadow.measuredFrames must match the 60 measured frames')
-  }
-}
-
 export function parseScenarioResult(value: unknown): ScenarioResult {
   const fields = record(value, 'result')
   const scenario = SCENARIOS.find((name) => name === fields.scenario)
@@ -148,7 +137,7 @@ export function parseScenarioResult(value: unknown): ScenarioResult {
     ...(fields.shadow !== undefined ? { shadow: parseShadow(fields.shadow) } : {}),
     ...(fields.resources !== undefined ? { resources: parseResources(fields.resources, backendAt(fields)) } : {}),
   }
-  assertShadowWorkload(result)
+  assertShadowWorkload(result.scenario, result.shadow, result.timings.frames)
   return result
 }
 
@@ -163,4 +152,3 @@ export function parseScenarioResults(value: unknown, selection?: BackendSelectio
   assertResultMatrix(results, selection)
   return results
 }
-import { isShadowResourceReport, type ShadowResourceReport } from './shadow-resources.ts'
