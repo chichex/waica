@@ -2130,6 +2130,7 @@ export async function runRuntimeE2e({
           label,
           helpers: { call, assertScreenshot, assertUrlClosed, keepScreenshot, makeDemoProject, openPngInspector },
           renderBackend: renderLeg?.backend,
+          includeShadows,
         })
       : {}
     const shadowResult = includeShadows

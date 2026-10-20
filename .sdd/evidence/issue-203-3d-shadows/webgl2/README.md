@@ -19,4 +19,10 @@ await runRuntimeE2e({root,cliPath:`${root}/packages/cli/dist/cli.js`,engineRoot:
 '
 ```
 
-`pnpm test:e2e` runs the same cases in the full matrix on both requested backends. The shadow leg never accepts a blank frame or the legacy issue-151 exception as a pass.
+`pnpm test:e2e` requires both legacy backend legs (`webgl2` and `webgpu`) and runs the new strict shadow cases on WebGL2 by default. The new WebGPU shadow cases are manual opt-in:
+
+```sh
+pnpm test:e2e -- --webgpu-shadows
+```
+
+The direct form `pnpm test:e2e --webgpu-shadows` is equivalent. Opting in keeps both legacy legs and enables the unchanged strict WebGPU shadow oracles; it does not imply that WebGPU passed on this host. The shadow leg never accepts a blank frame or the legacy issue-151 exception as a pass.
