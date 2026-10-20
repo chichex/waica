@@ -2,6 +2,7 @@ import * as THREE from 'three/webgpu'
 import type { ModelHandle } from '../assets/model-cache.js'
 import { Component, type ComponentSpace, type ParamSpec } from '../component.js'
 import { reportRejection } from '../report-rejection.js'
+import { normalizeShadowBoolean } from '../scene-shadows.js'
 
 export type ModelShape = 'box' | 'sphere' | 'plane'
 
@@ -105,8 +106,8 @@ export class Model extends Component {
   get castShadows(): boolean {
     return this._castShadows
   }
-  set castShadows(value: boolean) {
-    this._castShadows = value !== false
+  set castShadows(value: unknown) {
+    this._castShadows = normalizeShadowBoolean(value)
     this.applyShadowFlags()
   }
 
@@ -114,8 +115,8 @@ export class Model extends Component {
   get receiveShadows(): boolean {
     return this._receiveShadows
   }
-  set receiveShadows(value: boolean) {
-    this._receiveShadows = value !== false
+  set receiveShadows(value: unknown) {
+    this._receiveShadows = normalizeShadowBoolean(value)
     this.applyShadowFlags()
   }
 

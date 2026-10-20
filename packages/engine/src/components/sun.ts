@@ -20,10 +20,10 @@ export class Sun extends ShadowLight {
   static override componentName = 'Sun'
   static override space: ComponentSpace = '3d'
   static override params = {
-    ...ShadowLight.params,
     direction: { label: 'Direction', kind: 'vector3' },
     color: { label: 'Color', kind: 'color' },
     intensity: { label: 'Intensity', min: 0, step: 0.1 },
+    ...ShadowLight.params,
   } satisfies Record<string, ParamSpec>
   static override transient = ['light']
 

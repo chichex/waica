@@ -1,4 +1,5 @@
-import type { ParamSpec, SceneComponentJson } from '@waica/engine'
+import { SHADOW_OVERRIDE_PARAMS, type ParamSpec, type SceneComponentJson } from '@waica/engine'
+import { RoRow } from './PropRow'
 import { useArchetype } from '../../project/archetype'
 import { collisionParamDiagnostics } from '../collision-category-diagnostics'
 import { AnimatorClipOverridesRow, AnimatorInitialClipRow } from './animator-clip-rows'
@@ -12,6 +13,8 @@ export interface ComponentPropHandlers {
   onReset?: (key: string) => void
   onApply?: (key: string) => void
 }
+
+const ANIMATOR_ROWS = new Set(['clips', 'initialClip'])
 
 /** One prop's row: the Animator's clip rows (issue #173 CA-5, CA-6), else the generic PropRow. */
 function ComponentRow({
@@ -30,10 +33,13 @@ function ComponentRow({
   spec: ParamSpec | undefined
   overridden: boolean
 }) {
+  if (isReadonlyShadowOverride(comp.type, propKey)) {
+    return <ReadonlyShadowRow propKey={propKey} spec={spec} value={value} />
+  }
   const reset = onReset && (() => onReset(propKey))
   const apply = onApply && (() => onApply(propKey))
   const change = (next: unknown): void => onProp(propKey, next)
-  if (comp.type === 'Animator' && (propKey === 'clips' || propKey === 'initialClip')) {
+  if (comp.type === 'Animator' && ANIMATOR_ROWS.has(propKey)) {
     const label = propKey === 'clips' ? 'Clip overrides' : (spec?.label ?? propKey)
     const name = <OverridableName label={label} overridden={overridden} onReset={reset} onApply={apply} />
     return propKey === 'clips' ? <AnimatorClipOverridesRow name={name} value={value} onChange={change} /> : <AnimatorInitialClipRow name={name} value={value} onChange={change} />
@@ -117,4 +123,14 @@ export function ComponentCard({ onRemove, ...rowProps }: ComponentCardProps) {
       <ComponentRows {...rowProps} keys={rows} />
     </div>
   )
+}
+
+/** Generic rows must not offer invalid numeric shadow sizes; advanced rows own editing. */
+function isReadonlyShadowOverride(type: string, key: string): boolean {
+  return (type === 'Sun' || type === 'PointLight') && Object.hasOwn(SHADOW_OVERRIDE_PARAMS, key)
+}
+
+function ReadonlyShadowRow({ propKey, spec, value }: { propKey: string; spec?: ParamSpec; value: unknown }) {
+  const text = value === null || value === undefined ? 'Inherited' : JSON.stringify(value)
+  return <RoRow label={spec?.label ?? propKey} value={text} />
 }

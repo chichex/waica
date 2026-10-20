@@ -17,7 +17,6 @@ export class PointLight extends ShadowLight {
   static override space: ComponentSpace = '3d'
   static override displayName = 'Point light (3D)'
   static override params = {
-    ...ShadowLight.params,
     color: { label: 'Color', kind: 'color' },
     intensity: { label: 'Intensity', min: 0, step: 0.5 },
     distance: { label: 'Distance (0 = unlimited)', min: 0, step: 0.5 },
@@ -25,6 +24,7 @@ export class PointLight extends ShadowLight {
     offsetX: { label: 'x offset' },
     offsetY: { label: 'y offset' },
     offsetZ: { label: 'z offset' },
+    ...ShadowLight.params,
   } satisfies Record<string, ParamSpec>
   static override transient = ['light']
 

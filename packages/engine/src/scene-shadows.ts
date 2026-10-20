@@ -1,6 +1,7 @@
 import type { ParamSpec } from './component.js'
 import type { SceneFieldIssue } from './scene-camera-3d.js'
 import type { ShadowQuality } from './scene.js'
+import { resolveSceneSpace } from './scene-space.js'
 
 export type { SceneShadowsJson, ShadowQuality } from './scene.js'
 
@@ -131,7 +132,7 @@ export function sceneShadowIssues(render: unknown): SceneFieldIssue[] {
   if (!isRecord(render) || render.shadows === undefined) return []
   const shadows = render.shadows
   const issues: SceneFieldIssue[] = []
-  if (render.space !== '3d') {
+  if (resolveSceneSpace(render) !== '3d') {
     issues.push({ field: 'render.shadows', message: "render.shadows needs render.space '3d'; this scene is not 3d." })
   }
   if (!isRecord(shadows)) {

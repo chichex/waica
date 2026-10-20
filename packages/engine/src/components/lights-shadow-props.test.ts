@@ -14,6 +14,13 @@ import { Sun } from './sun.js'
 
 use3dTestEnvironment()
 
+it.each([
+  { Light: Sun, primary: ['direction', 'color', 'intensity'] },
+  { Light: PointLight, primary: ['color', 'intensity', 'distance', 'decay', 'offsetX', 'offsetY', 'offsetZ'] },
+])('keeps the primary light controls before shadow overrides', ({ Light, primary }) => {
+  expect(Object.keys(Light.params).slice(0, primary.length)).toEqual(primary)
+})
+
 const LIGHTS = [{ name: 'Sun', Light: Sun }, { name: 'PointLight', Light: PointLight }]
 const BOOLEAN_CASES = [
   { value: false, expected: false }, { value: true, expected: true },

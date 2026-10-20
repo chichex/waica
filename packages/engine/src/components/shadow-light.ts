@@ -38,7 +38,7 @@ export abstract class ShadowLight extends Component {
     this._shadowMaxDistance = normalizeShadowOverride('shadowMaxDistance', value)
   }
 
-  /** Null inherits the scene's shadow bias. */
+  /** Null inherits the engine default shadow bias (SHADOW_DEFAULTS.bias). */
   get shadowBias(): number | null {
     return this._shadowBias
   }
@@ -46,7 +46,7 @@ export abstract class ShadowLight extends Component {
     this._shadowBias = normalizeShadowOverride('shadowBias', value)
   }
 
-  /** Null inherits the scene's normal-offset shadow bias. */
+  /** Null inherits the engine default normal offset (SHADOW_DEFAULTS.normalBias). */
   get shadowNormalBias(): number | null {
     return this._shadowNormalBias
   }
@@ -54,7 +54,7 @@ export abstract class ShadowLight extends Component {
     this._shadowNormalBias = normalizeShadowOverride('shadowNormalBias', value)
   }
 
-  /** Null inherits the scene's PCF shadow radius. */
+  /** Null inherits the engine default PCF radius (SHADOW_DEFAULTS.radius). */
   get shadowRadius(): number | null {
     return this._shadowRadius
   }
