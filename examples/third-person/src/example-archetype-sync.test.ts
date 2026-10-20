@@ -31,6 +31,7 @@ it('declares the third-person archetype and its bindings (CA-31)', () => {
   expect(controls.bindings).toEqual(ARCHETYPE.bindings)
 })
 
+// Complete scene/prefab equality also guards the explicit shadow policy (issue #203 CA-16).
 it('ships the archetype’s demo scene and every prefab exactly as the archetype declares them (CA-31)', () => {
   const scenes = byName(sceneFiles, (path) => path.slice('./scenes/'.length, -'.scene.json'.length))
   const prefabs = byName(prefabFiles, (path) => path.slice(2, path.indexOf('.', 2)))

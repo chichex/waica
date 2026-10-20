@@ -34,6 +34,7 @@ it.each(['demo', 'blank'] as const)('writes a %s project validate_project accept
   expect(await readFile(path.join(project, 'package.json'), 'utf8')).toContain('"@waica/archetype-third-person"')
   // The template's three alias: the engine draws with three/webgpu.
   expect(await readFile(path.join(project, 'vite.config.ts'), 'utf8')).toMatch(/find: \/\^three\$\/, replacement: 'three\/webgpu'/)
+  await expectProjectShadows(project, start)
 }, 120_000)
 
 it('copies the demo’s art to src/art/ and rewrites its uris there (CA-29)', async () => {
@@ -79,11 +80,10 @@ async function projectPrefabs(project: string): Promise<Record<string, PrefabJso
   return prefabs
 }
 
-it.each([
-  { start: 'demo' as const, modelCount: 60, torches: ['Torch NW', 'Torch NE', 'Torch SW', 'Torch SE'] },
-  { start: 'blank' as const, modelCount: 2, torches: [] },
-])('generates a valid $start Project with explicit Medium/40 shadows on every participant (CA-16)', async ({ start, modelCount, torches }) => {
-  const project = await created(start)
+/** CA-16: check the materialized JSON on the same Project CA-29 generates and validates. */
+async function expectProjectShadows(project: string, start: 'demo' | 'blank'): Promise<void> {
+  const modelCount = start === 'demo' ? 60 : 2
+  const torches = start === 'demo' ? ['Torch NW', 'Torch NE', 'Torch SW', 'Torch SE'] : []
   const scene = parseSceneJson(await readFile(path.join(project, 'src/scenes/main.scene.json'), 'utf8'))
   const prefabs = await projectPrefabs(project)
   expect(scene.render?.shadows).toEqual({ quality: 'medium', maxDistance: 40 })
@@ -101,5 +101,4 @@ it.each([
   const lights = components.filter((component) => component.type === 'Sun' || component.type === 'PointLight')
   expect(lights).toHaveLength(torches.length + 1)
   for (const light of lights) expect(light.props, light.name).toHaveProperty('castShadows', true)
-  expect(await errorsOf(project)).toEqual([])
-}, 120_000)
+}

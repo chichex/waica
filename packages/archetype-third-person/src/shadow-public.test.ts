@@ -1,15 +1,11 @@
 import { expect, it } from 'vitest'
 import { resolveEntityComponents } from '@waica/engine'
-import { readFileSync } from 'node:fs'
-import { ARCHETYPE as BROWSER_ARCHETYPE } from './index'
 import { ARCHETYPE } from './manifest'
 
 // Issue #203 CA-16: public starts declare their shadow policy rather than relying on runtime defaults.
 it.each([
   ['Node demo', ARCHETYPE.scene],
   ['Node blank', ARCHETYPE.blankScene],
-  ['browser demo', BROWSER_ARCHETYPE.scene],
-  ['browser blank', BROWSER_ARCHETYPE.blankScene],
 ])('publishes explicit Medium/40 shadows in the %s start', (_name, scene) => {
   expect(scene.render?.shadows).toEqual({ quality: 'medium', maxDistance: 40 })
 })
@@ -38,36 +34,32 @@ it.each(Object.entries(ARCHETYPE.prefabs))('publishes both explicit Model shadow
   expect(models[0]?.props).toMatchObject({ castShadows: true, receiveShadows: true })
 })
 
-it('keeps public manifest data unchanged when palette builders create shadow overrides', () => {
+it('resolveEntityComponents applies instance shadow overrides without mutating shared manifest data', () => {
   const publicData = (): string => JSON.stringify([ARCHETYPE.scene, ARCHETYPE.blankScene, ARCHETYPE.prefabs])
   const before = publicData()
+  const torchPrefabs: (string | undefined)[] = []
   for (const template of ARCHETYPE.palette) {
     const entity = template.make()
     entity.overrides = { Model: { castShadows: false, receiveShadows: false }, PointLight: { castShadows: false } }
     const overridden = resolveEntityComponents(entity, ARCHETYPE.prefabs)
-    expect(overridden.find((component) => component.type === 'Model')?.props).toMatchObject({ castShadows: false, receiveShadows: false })
-    const fresh = resolveEntityComponents(template.make(), ARCHETYPE.prefabs)
-    expect(fresh.find((component) => component.type === 'Model')?.props).toMatchObject({ castShadows: true, receiveShadows: true })
+    const overriddenModels = overridden.filter((component) => component.type === 'Model')
+    expect(overriddenModels, template.label).toHaveLength(1)
+    for (const model of overriddenModels) expect(model.props, template.label).toMatchObject({ castShadows: false, receiveShadows: false })
+    const overriddenPoints = overridden.filter((component) => component.type === 'PointLight')
+    expect(overriddenPoints, template.label).toHaveLength(entity.prefab === 'tiles/torch' ? 1 : 0)
+    for (const light of overriddenPoints) expect(light.props, template.label).toHaveProperty('castShadows', false)
+    if (overriddenPoints.length > 0) torchPrefabs.push(entity.prefab)
+
+    const freshEntity = template.make()
+    expect(freshEntity, template.label).not.toBe(entity)
+    const fresh = resolveEntityComponents(freshEntity, ARCHETYPE.prefabs)
+    const freshModels = fresh.filter((component) => component.type === 'Model')
+    expect(freshModels, template.label).toHaveLength(1)
+    for (const model of freshModels) expect(model.props, template.label).toMatchObject({ castShadows: true, receiveShadows: true })
+    const freshPoints = fresh.filter((component) => component.type === 'PointLight')
+    expect(freshPoints, template.label).toHaveLength(overriddenPoints.length)
+    for (const light of freshPoints) expect(light.props, template.label).toHaveProperty('castShadows', true)
   }
+  expect(torchPrefabs).toEqual(['tiles/torch'])
   expect(publicData()).toBe(before)
-})
-
-const EXAMPLE = new URL('../../../examples/third-person/src/', import.meta.url)
-const ART_PATHS: Readonly<Record<string, string>> = Object.fromEntries(ARCHETYPE.art.map((art) => [art.uri, `src/art/${art.file}`]))
-
-function exampleJson(file: string): unknown {
-  return JSON.parse(readFileSync(new URL(file, EXAMPLE), 'utf8'))
-}
-
-/** The example owns its art: compare all data after replacing manifest URIs with project paths. */
-function projectData(value: unknown): unknown {
-  return JSON.parse(JSON.stringify(value, (_key, entry: unknown) => typeof entry === 'string' ? (ART_PATHS[entry] ?? entry) : entry))
-}
-
-it('syncs the actual example scene from the manifest, including its shadow policy', () => {
-  expect(exampleJson('scenes/main.scene.json')).toEqual(projectData(ARCHETYPE.scene))
-})
-
-it.each(Object.entries(ARCHETYPE.prefabs))('syncs the actual example %s prefab, shadows and project art paths', (ref, prefab) => {
-  expect(exampleJson(`${ref}.${prefab.type}.json`)).toEqual(projectData(prefab))
 })
