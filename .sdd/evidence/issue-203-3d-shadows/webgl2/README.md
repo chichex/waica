@@ -29,7 +29,7 @@ The direct form `pnpm test:e2e --webgpu-shadows` is equivalent. Opting in keeps 
 
 ## Editor captures
 
-`editor-*.png` were captured at clean `69483de5aaddf1d8d64828168ea262abe3fc8c9e`, Chrome 150, WebGL2. No visual reference was supplied. These show the existing palette/rows, actual stored/inherited values, and selected-light coverage, not an invented mock.
+`editor-*.png` were recaptured after review fixes on 2026-10-20 at clean final-stack source `7c70ad2f3963a76307c213dab13ca65181d0c3b3`, Chrome 150, WebGL2. No visual reference was supplied. These show the existing palette/rows, actual stored/inherited values, and selected-light coverage, not an invented mock. The complete WebGL2 leg passed in 216454 ms; the legacy editor result is timed separately from its shadow flow.
 
 The permanent editor flow checks all quality levels and map changes on the same Game, zero console/page errors, darkening 135/control delta 0, scene/prefab inheritance and reset, undo/redo, saved-project reopen, current-frame Sun camera fit, PointLight radius 2 and absence of all `waica:editor-*` objects in Play. It is included in `pnpm test:e2e`.
 
