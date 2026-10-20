@@ -1,5 +1,5 @@
 // Read-only coverage of the single selected light in the 3D edit view (CA-14).
-import { PointLight, Sun, THREE, type Game, type ResolvedLightShadow } from '@waica/engine'
+import { PointLight, Sun, THREE, type Game } from '@waica/engine'
 import { disposeObject, HELPER_COLOR, wireSphere } from './viewport-3d-helpers'
 import { addOverlay } from './viewport-selection-gizmos'
 
@@ -8,8 +8,13 @@ function selectedLight(game: Game, names: readonly string[]): Sun | PointLight |
   const name = names[0]
   const entity = name === undefined ? undefined : game.find(name)
   if (!entity?.alive) return undefined
-  const lights = entity.components.filter((component) => component instanceof Sun || component instanceof PointLight)
-  return lights.length === 1 ? lights[0] : undefined
+  let light: Sun | PointLight | undefined
+  for (const component of entity.components) {
+    if (!(component instanceof Sun || component instanceof PointLight)) continue
+    if (light) return undefined
+    light = component
+  }
+  return light
 }
 
 function sunCoverage(light: THREE.DirectionalLight): THREE.CameraHelper {
@@ -31,65 +36,55 @@ function createCoverage(component: Sun | PointLight): THREE.CameraHelper | THREE
   return object
 }
 
-/** The same resolver and Sun fit as the render boundary, prepared for this frame. */
-function prepareCoverage(game: Game, component: Sun | PointLight): ResolvedLightShadow | null {
-  const settings = game.shadows.resolve(component)
-  if (!settings.enabled) return null
-  if (component instanceof Sun && !game.shadows.prepareSunCamera(component)) return null
-  return settings
-}
-
-/** Only coverage objects own these resources; the generic overlay sweep sees none after disposal. */
-function shadowPool(game: Game) {
-  const objects = new Map<Sun | PointLight, THREE.CameraHelper | THREE.LineSegments>()
-  const remove = (component: Sun | PointLight): void => {
-    const object = objects.get(component)
-    object?.removeFromParent()
-    if (object) disposeObject(object)
-    objects.delete(component)
+/** Only the current selection owns resources; the generic overlay sweep sees none after disposal. */
+function shadowSlot(game: Game) {
+  let current: { component: Sun | PointLight; object: THREE.CameraHelper | THREE.LineSegments } | undefined
+  const dispose = (): void => {
+    if (!current) return
+    current.object.removeFromParent()
+    disposeObject(current.object)
+    current = undefined
   }
   return {
-    objects,
-    ensure(component: Sun | PointLight): THREE.CameraHelper | THREE.LineSegments | null {
-      const existing = objects.get(component)
-      if (existing) return existing
+    dispose,
+    select(component: Sun | PointLight | undefined): THREE.CameraHelper | THREE.LineSegments | null {
+      if (current && (current.component !== component || !current.component.entity.alive || !current.component.entity.components.includes(current.component))) dispose()
+      if (!component) return null
+      if (current) return current.object
       const object = createCoverage(component)
       if (object) {
         addOverlay(game, object)
-        objects.set(component, object)
+        current = { component, object }
       }
       return object
-    },
-    prune(): void {
-      const present = new Set(game.entities.filter((entity) => entity.alive).flatMap((entity) => entity.components))
-      for (const component of objects.keys()) if (!present.has(component)) remove(component)
-    },
-    dispose: (): void => {
-      for (const component of objects.keys()) remove(component)
     },
   }
 }
 
 export function createShadowHelpers(game: Game) {
-  const pool = shadowPool(game)
-  const { objects } = pool
+  const slot = shadowSlot(game)
   return {
-    dispose: pool.dispose,
+    dispose: slot.dispose,
     sync(names: readonly string[], visible: boolean): void {
-      pool.prune()
-      for (const object of objects.values()) object.visible = false
-      if (!visible) return
-      const component = selectedLight(game, names)
-      if (!component?.light) return
-      const settings = prepareCoverage(game, component)
-      if (!settings) return
-      const object = pool.ensure(component)
-      if (!object) return
-      if (component instanceof PointLight) {
-        component.light.getWorldPosition(object.position)
-        object.scale.setScalar(settings.maxDistance)
+      const component = visible ? selectedLight(game, names) : undefined
+      if (!component?.light) {
+        slot.dispose()
+        return
       }
-      if (object instanceof THREE.CameraHelper) object.update()
+      if (component instanceof Sun) {
+        const camera = game.shadows.prepareSunCamera(component)
+        const object = slot.select(camera ? component : undefined)
+        if (object instanceof THREE.CameraHelper) {
+          object.update()
+          object.visible = true
+        }
+        return
+      }
+      const settings = game.shadows.resolve(component)
+      const object = slot.select(settings.enabled ? component : undefined)
+      if (!object) return
+      component.light.getWorldPosition(object.position)
+      object.scale.setScalar(settings.maxDistance)
       object.visible = true
     },
   }
