@@ -24,21 +24,6 @@ export function activeWebglRenderer(backend: object): string {
   return value
 }
 
-/**
- * The WebGL renderer string of this browser — a GPU model, or a software
- * renderer such as SwiftShader — read from a throwaway WebGL2 context. The
- * unmasked string needs WEBGL_debug_renderer_info; without it, the masked
- * `RENDERER` is the best available.
- */
-export function webglRenderer(): string {
-  const gl = document.createElement('canvas').getContext('webgl2')
-  if (!gl) return 'unavailable'
-  const info = gl.getExtension('WEBGL_debug_renderer_info')
-  const value: unknown = gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER)
-  gl.getExtension('WEBGL_lose_context')?.loseContext()
-  return typeof value === 'string' ? value : 'unknown'
-}
-
 interface AdapterInfo {
   readonly vendor?: string
   readonly architecture?: string
@@ -47,8 +32,8 @@ interface AdapterInfo {
 
 /**
  * What a scenario drew on, for reading its timings: on WebGPU the adapter of
- * the very device the renderer used; on WebGL2 the WebGL renderer string
- * (`webgl`, normally `webglRenderer`).
+ * the very device the renderer used; on WebGL2 the active context's renderer
+ * string (`webgl`, normally a call to `activeWebglRenderer(renderer.backend)`).
  */
 export function describeRenderer(
   backend: RenderBackend,

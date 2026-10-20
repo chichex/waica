@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock(
-  new URL('../../../engine/node_modules/three/build/three.webgpu.js', import.meta.url).pathname,
+  'three/webgpu',
   async (importOriginal) =>
     (await import('../../../engine/src/test-renderer.js')).withFakeRenderer(await importOriginal<Record<string, unknown>>()),
 )

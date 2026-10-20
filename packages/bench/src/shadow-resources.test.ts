@@ -1,12 +1,32 @@
+import { execFileSync } from 'node:child_process'
 import * as THREE from 'three/webgpu'
 import { expect, it } from 'vitest'
 import { assertShadowResourceSweep } from './backend-matrix.ts'
 import { parseScenarioResult } from './results-guard.ts'
 import { resultFromReport, type PageScenarioReport } from './results.ts'
+import { ShadowResourceObserver } from './shadow-resource-observer.ts'
 import {
   assertStableShadowCheckpoint, isShadowResourceReport, readRendererMemory,
-  SHADOW_RESOURCE_PHASES, ShadowResourceObserver,
+  SHADOW_RESOURCE_PHASES,
 } from './shadow-resources.ts'
+
+it('loads the native Node report-validator graph without loading any Three runtime module', () => {
+  const source = `
+    import { registerHooks } from 'node:module';
+    registerHooks({ resolve(specifier, context, nextResolve) {
+      if (specifier === 'three' || specifier.startsWith('three/')) throw new Error('Unexpected Three runtime import: ' + specifier);
+      return nextResolve(specifier, context);
+    } });
+    await import('./src/shadow-resources.ts');
+    await import('./src/results-guard.ts');
+    await import('./src/backend-matrix.ts');
+    console.log('pure validators ready');
+  `
+  const output = execFileSync(process.execPath, ['--input-type=module', '-e', source], {
+    cwd: new URL('../', import.meta.url), encoding: 'utf8', timeout: 10_000,
+  })
+  expect(output.trim()).toBe('pure validators ready')
+})
 
 function memory() {
   return {
@@ -238,6 +258,16 @@ it('validates the public report boundary instead of trusting passed or a final z
   if (!checkpoint) throw new Error('missing fixture checkpoint')
   checkpoint.memory.uniformBuffers++
   expect(isShadowResourceReport(leaking)).toBe(false)
+})
+
+it('checks storage evidence at every one of the 121 ordered phase/cycle checkpoints', () => {
+  const report = reportFixture()
+  expect(report.checkpoints).toHaveLength(121)
+  for (const [index, checkpoint] of report.checkpoints.entries()) {
+    const checkpoints = [...report.checkpoints]
+    checkpoints[index] = { ...checkpoint, shadow: { ...checkpoint.shadow, createdTextures: 0 } }
+    expect(isShadowResourceReport({ ...report, checkpoints }), `${checkpoint.phase}/${checkpoint.cycle}`).toBe(false)
+  }
 })
 
 it('rejects ten copied cycles with no new GPU creation/disposal evidence', () => {

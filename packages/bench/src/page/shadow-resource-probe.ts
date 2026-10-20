@@ -4,9 +4,10 @@ import {
 } from '@waica/engine'
 import rigUrl from '../../../engine/fixtures/rig.glb?url'
 import { syncGpu, type BenchRenderer } from '../draw-counter.ts'
+import { ShadowResourceObserver } from '../shadow-resource-observer.ts'
 import {
   assertStableShadowCheckpoint, isShadowResourceReport, SHADOW_RESOURCE_PHASES,
-  ShadowResourceObserver, type ShadowResourceCheckpoint, type ShadowResourceReport,
+  type ShadowResourceCheckpoint, type ShadowResourceReport,
 } from '../shadow-resources.ts'
 
 /** Small, private fixture: resource coverage, not the timed CA-19 workload. */
