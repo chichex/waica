@@ -124,12 +124,39 @@ it('reports a rejected numeric edit and restores the old controlled value even w
   props.onProp.mockImplementation(() => { throw new Error('Shadow map exceeds device capacity') })
   await openAdvanced()
   const bias = within(shadowRow('Shadow bias')).getByRole('spinbutton', { name: 'Shadow bias' })
-  fireEvent.focus(bias)
+  bias.focus()
+  expect(document.activeElement).toBe(bias)
   fireEvent.change(bias, { target: { value: '0.03' } })
   const restored = within(shadowRow('Shadow bias')).getByRole('spinbutton', { name: 'Shadow bias' })
   expect(restored).toHaveProperty('value', '0.02')
   expect(document.activeElement).toBe(restored)
   expect(screen.getByRole('alert').textContent).toContain('Shadow map exceeds device capacity')
+})
+
+it('does not steal Explorer focus when undo remounts an override after an earlier rejection', async () => {
+  let entity = sun({ shadowBias: 0.02 })
+  const selection = () => ({ kind: 'entity' as const, entity, sceneName: 'main', space: '3d' as const })
+  const view = renderInspectorWithClips(selection(), new GlbClipCache(new MemFS('focus-shadows', {})))
+  view.props.onProp.mockImplementation((...args) => {
+    const [, , key, value] = args
+    if (value === 0.03) throw new Error('Capacity rejected change')
+    entity = sun({ shadowBias: key === 'shadowBias' ? value : 0.02 })
+    view.rerender(selection())
+  })
+  await openAdvanced()
+  const field = within(shadowRow('Shadow bias')).getByRole('spinbutton', { name: 'Shadow bias' })
+  field.focus()
+  fireEvent.change(field, { target: { value: '0.03' } })
+  expect(document.activeElement).toBe(within(shadowRow('Shadow bias')).getByRole('spinbutton', { name: 'Shadow bias' }))
+  fireEvent.click(within(shadowRow('Shadow bias')).getByRole('button', { name: 'Inherit scene for Shadow bias' }))
+  render(<button>Explorer focus</button>)
+  const explorer = screen.getByRole('button', { name: 'Explorer focus' })
+  explorer.focus()
+
+  entity = sun({ shadowBias: 0.02 })
+  view.rerender(selection())
+
+  expect(document.activeElement).toBe(explorer)
 })
 
 it.each(['inherit', 'reset', 'apply'] as const)('reports a rejected %s without discarding a prefab override', async (action) => {
@@ -156,6 +183,30 @@ it('catches a rejected per-light activation without changing false to true', asy
   await userEvent.setup().click(screen.getByRole('checkbox', { name: 'Cast shadows' }))
   expect(screen.getByRole('checkbox', { name: 'Cast shadows' })).toHaveProperty('checked', false)
   expect(screen.getByRole('alert').textContent).toContain('Cannot activate shadow map on device')
+  const checkbox = screen.getByRole('checkbox', { name: 'Cast shadows' })
+  expect(checkbox.getAttribute('aria-invalid')).toBe('true')
+  expect(document.getElementById(checkbox.getAttribute('aria-describedby') ?? '')?.textContent).toContain('Cannot activate shadow map on device')
+})
+
+it('clears an instance action error when selecting another entity with overrides', async () => {
+  const entity = (name: string): SceneEntityJson => ({ name, prefab: 'objects/sun', overrides: { Sun: { shadowMapSize: 512 } } })
+  const selection = (name: string) => ({ kind: 'entity' as const, entity: entity(name), sceneName: 'main', space: '3d' as const })
+  const view = renderInspectorWithClips(selection('Lamp'), new GlbClipCache(new MemFS('action-errors', {})), {
+    prefabs: { 'objects/sun': { waicaPrefab: 1, type: 'object', components: [{ type: 'Sun' }] } },
+  })
+  view.props.onResetAllProps.mockImplementation(() => { throw new Error('Lamp capacity rejected reset') })
+  await userEvent.setup().click(screen.getByRole('button', { name: '↺ Reset all' }))
+  expect(screen.getByRole('alert').textContent).toContain('Lamp capacity rejected reset')
+
+  view.rerender(selection('Torch'))
+
+  expect(screen.queryByRole('alert')).toBeNull()
+})
+
+it('labels an invalid light in a 2D scene as a scene, not a prefab preview', () => {
+  renderInspector({ kind: 'entity', entity: sun(), sceneName: 'main', space: '2d' })
+  expect(screen.getByRole('status').textContent).toContain("2D scene: shadows need render.space '3d'")
+  expect(screen.getByRole('status').textContent).not.toContain('2D preview')
 })
 
 it('keeps an invalid stored light flag visible and accepts only a real boolean repair', () => {

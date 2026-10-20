@@ -164,7 +164,7 @@ export function Inspector(props: InspectorProps) {
               actions={
                 selection.kind === 'entity' &&
                 countOverrides(selection.entity) > 0 && (
-                  <InstanceOverrideActions {...props} entityName={selection.entity.name} />
+                  <InstanceOverrideActions key={selection.entity.name} {...props} entityName={selection.entity.name} />
                 )
               }
             />

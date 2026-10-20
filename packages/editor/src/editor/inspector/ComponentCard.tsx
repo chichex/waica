@@ -1,5 +1,4 @@
-import { SHADOW_OVERRIDE_PARAMS, type ParamSpec, type SceneComponentJson } from '@waica/engine'
-import { RoRow } from './PropRow'
+import type { ParamSpec, SceneComponentJson } from '@waica/engine'
 import { useArchetype } from '../../project/archetype'
 import { collisionParamDiagnostics } from '../collision-category-diagnostics'
 import { AnimatorClipOverridesRow, AnimatorInitialClipRow } from './animator-clip-rows'
@@ -34,9 +33,6 @@ function ComponentRow({
   spec: ParamSpec | undefined
   overridden: boolean
 }) {
-  if (isReadonlyShadowOverride(comp.type, propKey)) {
-    return <ReadonlyShadowRow propKey={propKey} spec={spec} value={value} />
-  }
   const reset = onReset && (() => onReset(propKey))
   const apply = onApply && (() => onApply(propKey))
   const change = (next: unknown): void => onProp(propKey, next)
@@ -129,14 +125,4 @@ export function ComponentCard({ onRemove, ...rowProps }: ComponentCardProps) {
       <ComponentRows {...rowProps} keys={rows} />
     </div>
   )
-}
-
-/** Generic rows must not offer invalid numeric shadow sizes; advanced rows own editing. */
-function isReadonlyShadowOverride(type: string, key: string): boolean {
-  return (type === 'Sun' || type === 'PointLight') && Object.hasOwn(SHADOW_OVERRIDE_PARAMS, key)
-}
-
-function ReadonlyShadowRow({ propKey, spec, value }: { propKey: string; spec?: ParamSpec; value: unknown }) {
-  const text = value === null || value === undefined ? 'Inherited' : JSON.stringify(value)
-  return <RoRow label={spec?.label ?? propKey} value={text} />
 }

@@ -262,12 +262,14 @@ export async function runEditor3dLeg({ root, viteBin, chrome, playwright, label,
     const shadowFlow = () => editorShadowResult({ root, page, inspector, chrome, label, helpers, renderLeg, includeShadows })
     // CI's Linux WebGPU draws a blank frame (issue #151): its pixels, and the page errors its backend raises, are only reported there.
     if (expectsBlankLighting(renderLeg?.backend)) {
-      return { ...(await shadowFlow()), editor3d: { durationMs: Date.now() - startedAt, drag, clips, camera, newPrefab, pageErrors, expectedBlank: 'https://github.com/chichex/waica/issues/151' } }
+      const editor3d = { durationMs: Date.now() - startedAt, drag, clips, camera, newPrefab, pageErrors: [...pageErrors], expectedBlank: 'https://github.com/chichex/waica/issues/151' }
+      return { editor3d, ...(await shadowFlow()) }
     }
     const { differing } = await inspector.compare(beforeOrbit, afterOrbit)
     assert.ok(differing >= MIN_DIFFERING_PIXELS, `orbiting must change at least ${MIN_DIFFERING_PIXELS} pixels where the frame draws; ${differing} did`)
     assert.deepEqual(pageErrors, [], 'the editor must raise no page error')
-    return { ...(await shadowFlow()), editor3d: { durationMs: Date.now() - startedAt, drag, clips, camera, newPrefab, differingAfterOrbit: differing } }
+    const editor3d = { durationMs: Date.now() - startedAt, drag, clips, camera, newPrefab, differingAfterOrbit: differing }
+    return { editor3d, ...(await shadowFlow()) }
   } finally {
     // Each resource closes on its own, so one failing close leaves no other open.
     const closers = [inspector && (() => inspector.close()), browser && (() => browser.close()), editor && (() => editor.close())]

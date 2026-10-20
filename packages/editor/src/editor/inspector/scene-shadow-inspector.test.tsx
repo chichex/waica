@@ -134,6 +134,20 @@ it.each(['quality', 'distance'])('CA-11: a rejected %s edit reports the capacity
     : { quality: 'low', maxDistance: 60 })
 })
 
+it('keeps keyboard focus on the committed scene distance after a rejected draft', () => {
+  mount(setRenderProp(THREE_D, 'shadows', { quality: 'low', maxDistance: 35 }), () => {
+    throw new RangeError('Device capacity rejected change')
+  })
+  distance().focus()
+  expect(document.activeElement).toBe(distance())
+
+  fireEvent.change(distance(), { target: { value: '80' } })
+
+  expect(distance().value).toBe('35')
+  expect(document.activeElement).toBe(distance())
+  expect(screen.getByRole('alert').textContent).toContain('Device capacity rejected change')
+})
+
 it('CA-11: the distance field supports replacing the value and typing decimal world units with the keyboard', async () => {
   const scenes = mount()
   const user = userEvent.setup()

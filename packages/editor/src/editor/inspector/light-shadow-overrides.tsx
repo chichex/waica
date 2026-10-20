@@ -1,4 +1,4 @@
-import { useContext, useId, useLayoutEffect, useRef, useState, type ComponentProps } from 'react'
+import { useContext, useId, useState, type ComponentProps } from 'react'
 import {
   resolveLightShadow,
   shadowComponentIssues,
@@ -14,6 +14,7 @@ import { NumberField } from '../NumberField'
 import { ParamDiagnosticMessages } from '../StringListField'
 import { LightShadowContext } from './light-shadow-context'
 import { OverridableName, PropRow } from './PropRow'
+import { useRejectedInput } from './use-rejected-input'
 
 const EFFECTIVE_KEYS = {
   shadowMapSize: 'mapSize', shadowMaxDistance: 'maxDistance', shadowBias: 'bias',
@@ -36,38 +37,34 @@ function storedValue(value: unknown): string {
 /** Live capacity checks can reject an otherwise valid authored change. */
 function useShadowEdit() {
   const [error, setError] = useState<string | null>(null)
-  const [revision, setRevision] = useState(0)
+  const { attach, revision, resetInput } = useRejectedInput()
   const run = (action: () => void, restoreInput = false): void => {
     try {
       action()
       setError(null)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
-      if (restoreInput) setRevision((previous) => previous + 1)
+      if (restoreInput) resetInput()
     }
   }
-  return { error, setError, revision, run }
+  return { error, setError, attach, revision, run }
 }
 
-/** The basic flag keeps the generic boolean row, with the light's capacity error boundary. */
+/** The light flag links a rejected activation to its checkbox without replacing it with text. */
 export function LightShadowFlagRow(props: ComponentProps<typeof PropRow>) {
   const edit = useShadowEdit()
-  const id = useId()
   const diagnostics: ParamDiagnostic[] = shadowComponentIssues('Sun', { castShadows: props.value })
     .map((issue) => ({ severity: 'error', message: issue.message }))
+  if (edit.error) diagnostics.push({ severity: 'error', message: edit.error })
   const change = (value: unknown): void => {
     const next = value === 'true' ? true : value === 'false' ? false : value
     if (typeof next !== 'boolean') { edit.setError('Cast shadows must be true or false.'); return }
     edit.run(() => props.onChange(next))
   }
   return (
-    <div className="ed-param-block">
-      <PropRow {...props} diagnostics={diagnostics.length > 0 ? diagnostics : undefined}
-        onChange={change}
-        onReset={props.onReset && (() => edit.run(() => props.onReset?.()))}
-        onApply={props.onApply && (() => edit.run(() => props.onApply?.()))} />
-      <ParamDiagnosticMessages id={id} diagnostics={edit.error ? [{ severity: 'error', message: edit.error }] : []} />
-    </div>
+    <PropRow {...props} diagnostics={diagnostics.length > 0 ? diagnostics : undefined} onChange={change}
+      onReset={props.onReset && (() => edit.run(() => props.onReset?.()))}
+      onApply={props.onApply && (() => edit.run(() => props.onApply?.()))} />
   )
 }
 
@@ -76,7 +73,6 @@ interface ShadowInputProps {
   value: unknown
   invalid: boolean
   diagnosticId: string
-  restoreFocus: boolean
   onChange: (text: string) => void
 }
 
@@ -108,16 +104,6 @@ function ShadowOverrideField({ name, value, invalid, diagnosticId, onChange }: S
   )
 }
 
-/** A rejected NumberField draft is remounted, retaining keyboard focus on that same field. */
-function ShadowOverrideInput(props: ShadowInputProps) {
-  const root = useRef<HTMLDivElement>(null)
-  useLayoutEffect(() => {
-    if (!props.restoreFocus) return
-    root.current?.querySelector<HTMLInputElement | HTMLSelectElement>('input[type="number"], select')?.focus()
-  }, [props.restoreFocus])
-  return <div ref={root}><ShadowOverrideField {...props} /></div>
-}
-
 function useShadowOverrideEdit(name: ShadowOverrideName, onProp: ComponentPropHandlers['onProp']) {
   const edit = useShadowEdit()
   const changeNumber = (text: string): void => {
@@ -140,29 +126,31 @@ function ShadowOverrideRow({
 }) {
   const { label } = SHADOW_OVERRIDE_PARAMS[name]
   const inherited = value === null || value === undefined
-  const edit = useShadowOverrideEdit(name, onProp)
+  const { error, run, attach, revision, changeNumber } = useShadowOverrideEdit(name, onProp)
   const diagnosticId = useId()
   const diagnostics: ParamDiagnostic[] = shadowComponentIssues('Sun', { [name]: value })
     .map((issue) => ({ severity: 'error', message: issue.message }))
-  if (edit.error) diagnostics.push({ severity: 'error', message: edit.error })
+  if (error) diagnostics.push({ severity: 'error', message: error })
   return (
     <div className="ed-param-block" role="group" aria-label={label}>
       <div className="ed-row">
         <OverridableName label={label} overridden={overridden}
-          onReset={onReset && (() => edit.run(() => onReset(name)))} onApply={onApply && (() => edit.run(() => onApply(name)))} />
+          onReset={onReset && (() => run(() => onReset(name)))} onApply={onApply && (() => run(() => onApply(name)))} />
       </div>
       <div className="ed-hint">
         {inherited ? 'Inherited from scene' : `Override · Stored: ${storedValue(value)}`} · Effective: {effective}
       </div>
       <PropRow label={`Override ${label}`} value={!inherited}
-        onChange={(enabled) => edit.run(() => onProp(name, enabled ? effective : null))} />
+        onChange={(enabled) => run(() => onProp(name, enabled ? effective : null))} />
       {!inherited && (
-        <ShadowOverrideInput key={edit.revision} name={name} value={value} invalid={diagnostics.length > 0}
-          diagnosticId={diagnosticId} restoreFocus={edit.revision > 0} onChange={edit.changeNumber} />
+        <div ref={attach}>
+          <ShadowOverrideField key={revision} name={name} value={value} invalid={diagnostics.length > 0}
+            diagnosticId={diagnosticId} onChange={changeNumber} />
+        </div>
       )}
       <div className="ed-row">
         <button type="button" className="ed-mini" disabled={inherited}
-          aria-label={`Inherit scene for ${label}`} onClick={() => edit.run(() => onProp(name, null))}>Inherit scene</button>
+          aria-label={`Inherit scene for ${label}`} onClick={() => run(() => onProp(name, null))}>Inherit scene</button>
       </div>
       <ParamDiagnosticMessages id={diagnosticId} diagnostics={diagnostics} />
     </div>
@@ -179,11 +167,12 @@ export function LightShadowOverrides({ comp, names, overridden, ...handlers }: C
   const [open, setOpen] = useState(false)
   const id = useId()
   const effective = resolveLightShadow(comp.type === 'Sun' ? 'sun' : 'point', context.scene, comp.props ?? {})
+  const spaceHint = context.preview ? ' · 2D preview' : context.space === '2d' ? " · 2D scene: shadows need render.space '3d'" : ''
   return (
     <div className="ed-param-block">
       <button type="button" className="ed-mini" aria-expanded={open} aria-controls={id}
         onClick={() => setOpen(!open)}>Advanced shadows</button>
-      <div className="ed-hint" role="status">{context.label}: {context.scene.quality} · {effective.enabled && context.space === '3d' ? 'Active' : 'Inactive'}{context.space === '2d' && ' · 2D preview'}</div>
+      <div className="ed-hint" role="status">{context.label}: {context.scene.quality} · {effective.enabled && context.space === '3d' ? 'Active' : 'Inactive'}{spaceHint}</div>
       <div id={id} hidden={!open}>
         {names.map((name) => (
           <ShadowOverrideRow key={name} name={name} value={comp.props?.[name]}

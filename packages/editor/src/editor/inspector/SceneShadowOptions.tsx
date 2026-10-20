@@ -2,6 +2,7 @@ import { useId, useState } from 'react'
 import { resolveSceneShadows, sceneShadowIssues, SHADOW_OVERRIDE_PARAMS, type SceneJson } from '@waica/engine'
 import { NumberField } from '../NumberField'
 import { ParamDiagnosticMessages } from '../StringListField'
+import { useRejectedInput } from './use-rejected-input'
 
 type RenderProp = (key: string, value: unknown) => void
 
@@ -35,10 +36,10 @@ function ShadowDistanceRow({ value, issue, onValue }: {
   onValue: (value: number) => boolean
 }) {
   const id = useId()
-  const [revision, setRevision] = useState(0)
+  const { attach, revision, resetInput } = useRejectedInput()
   const range = SHADOW_OVERRIDE_PARAMS.shadowMaxDistance
   return (
-    <>
+    <div ref={attach}>
       <label className="ed-row">
         <span>Scene shadow max distance</span>
         <NumberField key={revision} value={value} min={range.min} max={range.max} step={range.step}
@@ -47,12 +48,12 @@ function ShadowDistanceRow({ value, issue, onValue }: {
             const parsed = Number.parseFloat(text)
             if (Number.isFinite(parsed) && !onValue(Math.min(range.max, Math.max(range.min, parsed)))) {
               // Drop the rejected keyboard draft, not the last committed setting.
-              setRevision((previous) => previous + 1)
+              resetInput()
             }
           }} />
       </label>
       <ParamDiagnosticMessages id={id} diagnostics={issue ? [{ severity: 'error', message: issue }] : []} />
-    </>
+    </div>
   )
 }
 
