@@ -1,6 +1,5 @@
 // @vitest-environment happy-dom
-import { act, render } from '@testing-library/react'
-import { useLayoutEffect, useRef } from 'react'
+import { act } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 vi.mock(
@@ -8,74 +7,43 @@ vi.mock(
   async (importOriginal) => (await import('../../../engine/src/test-renderer.js')).withFakeRenderer(await importOriginal()),
 )
 
-import { PointLight, type SceneJson } from '@waica/engine'
+import { PointLight } from '@waica/engine'
 import { lastFakeRenderer } from '../../../engine/src/test-renderer'
 import { defined } from '../../../engine/src/test-support'
-import { MemFS } from '../fs/project-fs'
-import { createCommits, type EditorCore } from './editor-commits'
-import { useEditorState } from './editor-state'
 import { entityComponentHandlers, entityPropHandlers, overrideHandlers } from './inspector-entity-handlers'
+import { prefabPropHandlers } from './inspector-prefab-handlers'
 import { stepHistory } from './history-commands'
-import { installViewportHost, removeViewportHost } from './test-viewport'
-import type { ViewportAccess } from './use-viewport-handle'
-import { Viewport, type ViewportHandle } from './Viewport'
-import { saveWorkspace } from './workspace'
+import { removeViewportHost } from './test-viewport'
+import { current, liveLamp, openShadowEditor, readShadowScene, resetShadowEditor, SCENE } from './test-shadow-editor'
 
-const MAIN = 'src/scenes/main.scene.json'
-const SCENE: SceneJson = {
-  waicaScene: 3,
-  render: { space: '3d' },
-  camera: { kind: 'perspective', position: [0, 5, 10], target: [0, 0, 0] },
-  entities: [
-    { name: 'Sun', components: [{ type: 'Sun' }] },
-    { name: 'Lamp', prefab: 'objects/lamp' },
-  ],
-}
-let current: { core: EditorCore; viewport: ViewportAccess } | null = null
-
-/** Real commits/history/files and the real viewport; only the GPU boundary is fake. */
-function Harness({ fs }: { fs: MemFS }) {
-  const state = useEditorState(fs)
-  const core: EditorCore = { ...state, ...createCommits(state) }
-  const ref = useRef<ViewportHandle>(null)
-  useLayoutEffect(() => { current = { core, viewport: () => ref.current } })
-  const scene = core.scenes.scene
-  if (!scene) return null
-  return <Viewport ref={ref} scene={scene} scenePath={MAIN} registry={{ ...core.code.editorArchetype.registry, prefabs: core.library.prefabLib[0] }} epoch={core.stage.epoch[0]} mode="edit" selected={null} onSelect={core.selection.setSelected} onMoved={() => {}} />
-}
-
-beforeEach(() => {
-  installViewportHost()
-  current = null
-  const storage = new Map<string, string>()
-  vi.stubGlobal('localStorage', {
-    getItem: (key: string) => storage.get(key) ?? null,
-    setItem: (key: string, value: string) => { storage.set(key, value) },
-    removeItem: (key: string) => { storage.delete(key) },
-  })
-  vi.stubGlobal('confirm', () => true)
-})
+beforeEach(resetShadowEditor)
 afterEach(removeViewportHost)
 
-async function openShadowEditor(scene: SceneJson = SCENE, prefabProps: Record<string, unknown> = { shadowMapSize: 1024, distance: 9 }) {
-  const fs = new MemFS('shadow-live', {
-    'src/game.json': JSON.stringify({ waicaGame: 1, archetype: 'platformer' }),
-    [MAIN]: JSON.stringify(scene),
-    'src/objects/lamp.object.json': JSON.stringify({ waicaPrefab: 1, type: 'object', components: [{ type: 'PointLight', props: prefabProps }] }),
-  })
-  saveWorkspace(fs.name, MAIN, { kind: 'scene', path: MAIN })
-  const view = render(<Harness fs={fs} />, { reactStrictMode: true })
-  await vi.waitFor(() => expect(current?.viewport()?.game()?.space).toBe('3d'))
-  await vi.waitFor(() => expect(current?.viewport()?.game()?.find('Lamp')?.get(PointLight)).toBeDefined())
-  await act(async () => { await defined(current?.viewport()?.game()).ready() })
-  return { fs, ...view }
-}
+it('rejects a direct prefab edit against opened 3D instances while the viewport is a 2D preview', async () => {
+  const { fs } = await openShadowEditor()
+  act(() => defined(current).core.view.openView({ kind: 'prefab', ref: 'objects/lamp' }))
+  await vi.waitFor(() => expect(current?.viewport()?.game()?.space).toBe('2d'))
+  const state = defined(current)
+  const game = defined(state.viewport()?.game())
+  await act(async () => { await game.ready() })
+  const renderer = lastFakeRenderer()
+  renderer.maxTextureSize = 2048
+  renderer.backend.device.limits.maxTextureDimension2D = 2048
+  const scene = state.core.scenes.scene
+  const prefabs = state.core.library.prefabLib[0]
+  const saved = await fs.readText('src/objects/lamp.object.json')
 
-async function readShadowScene(fs: MemFS): Promise<SceneJson> {
-  return JSON.parse(defined(await fs.readText(MAIN))) as SceneJson
-}
-
-const liveLamp = (): PointLight => defined(defined(current?.viewport()?.game()?.find('Lamp')).get(PointLight))
+  expect(() => {
+    act(() => prefabPropHandlers(state.core, state.viewport).onPrefabProp('objects/lamp', 'PointLight', 'shadowMapSize', 4096))
+  }).toThrow(/4096.*2048/)
+  expect(current?.viewport()?.game()).toBe(game)
+  expect(game.find('lamp')?.get(PointLight)?.shadowMapSize).toBe(1024)
+  expect(current?.core.scenes.scene).toBe(scene)
+  expect(current?.core.library.prefabLib[0]).toBe(prefabs)
+  expect(current?.core.history.step('undo')).toBeNull()
+  expect(current?.core.persistence.saveState).toBe('saved')
+  expect(await fs.readText('src/objects/lamp.object.json')).toBe(saved)
+})
 
 it('patches the live Game before persisting a scene shadow edit, without replacing it (CA-13)', async () => {
   const { fs } = await openShadowEditor()
@@ -114,7 +82,7 @@ it('keeps scene inheritance distinct from prefab reset through live updates, und
   expect(liveLamp().shadowMapSize).toBeNull()
   expect(current?.viewport()?.game()?.shadows.resolve(liveLamp()).mapSize).toBe(512)
 
-  act(() => { overrideHandlers(defined(current).core).onResetProp('Lamp', 'PointLight', 'shadowMapSize') })
+  act(() => { const state = defined(current); overrideHandlers(state.core, state.viewport).onResetProp('Lamp', 'PointLight', 'shadowMapSize') })
   await vi.waitFor(() => expect(liveLamp().shadowMapSize).toBe(1024))
   expect(current?.core.scenes.scene?.entities.find((entity) => entity.name === 'Lamp')).not.toHaveProperty('overrides')
 
@@ -178,6 +146,39 @@ it('preflights every light before applying a multi-selection shadow flag (CA-13)
   expect(current?.core.scenes.scene?.entities.map((entity) => entity.overrides?.PointLight?.castShadows)).toEqual([false, false])
 })
 
+it('does not consult GPU shadow capacity for a non-light multi-edit', async () => {
+  await openShadowEditor({ ...SCENE, entities: [...SCENE.entities, { name: 'Box', components: [{ type: 'Model', props: { shape: 'box' } }] }] })
+  const readLimit = vi.fn(() => 2048)
+  Object.defineProperty(lastFakeRenderer().backend.device.limits, 'maxTextureDimension2D', { get: readLimit })
+  const state = defined(current)
+
+  act(() => entityPropHandlers(state.core, state.viewport).onMultiProp(['Box'], 'Model', 'color', 0xff0000))
+
+  expect(readLimit).not.toHaveBeenCalled()
+  expect(current?.core.scenes.scene?.entities.find((entity) => entity.name === 'Box')?.components?.[0]?.props?.color).toBe(0xff0000)
+})
+
+it.each(['multi', 'reset', 'apply', 'reset all', 'apply all'] as const)('limits a light %s to the affected entities or prefab instances', async (action) => {
+  await openShadowEditor({ ...SCENE, entities: [
+    { name: 'Lamp', prefab: 'objects/lamp', overrides: { PointLight: { shadowMapSize: 256 } } },
+    { name: 'Unrelated', components: [{ type: 'PointLight', props: { shadowMapSize: 4096 } }] },
+  ] })
+  const renderer = lastFakeRenderer()
+  renderer.maxTextureSize = 2048
+  renderer.backend.device.limits.maxTextureDimension2D = 2048
+  const state = defined(current)
+  const handlers = overrideHandlers(state.core, state.viewport)
+
+  expect(() => act(() => {
+    if (action === 'multi') entityPropHandlers(state.core, state.viewport).onMultiProp(['Lamp'], 'PointLight', 'shadowMapSize', 512)
+    else if (action === 'reset') handlers.onResetProp('Lamp', 'PointLight', 'shadowMapSize')
+    else if (action === 'apply') handlers.onApplyProp('Lamp', 'PointLight', 'shadowMapSize')
+    else if (action === 'reset all') handlers.onResetAllProps('Lamp')
+    else handlers.onApplyAllProps('Lamp')
+  })).not.toThrow()
+  expect(current?.core.history.step('undo')).not.toBeNull()
+})
+
 it('rejects applying a shadow override to a prefab when another instance cannot render it (CA-13)', async () => {
   await openShadowEditor({ ...SCENE, entities: [
     { name: 'Lamp', prefab: 'objects/lamp', overrides: { PointLight: { castShadows: false, shadowMapSize: 4096 } } },
@@ -212,6 +213,8 @@ it.each(['reset', 'apply'] as const)('preflights a bulk %s before recording any 
   const scene = state.core.scenes.scene
   const prefabs = state.core.library.prefabLib[0]
 
+  const confirm = vi.fn(() => true)
+  vi.stubGlobal('confirm', confirm)
   expect(() => {
     act(() => {
       const handlers = overrideHandlers(state.core, state.viewport)
@@ -219,6 +222,7 @@ it.each(['reset', 'apply'] as const)('preflights a bulk %s before recording any 
       else handlers.onApplyAllProps('Lamp')
     })
   }).toThrow(/4096.*2048/)
+  expect(confirm).not.toHaveBeenCalled()
   expect(current?.core.scenes.scene).toBe(scene)
   expect(current?.core.library.prefabLib[0]).toBe(prefabs)
 })

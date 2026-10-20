@@ -23,17 +23,17 @@ export function entityPropHandlers(core: EditorCore, viewport: ViewportAccess) {
       viewport()?.applyMove(name, position[0], position[1])
       core.commit(ops.moveEntity(scene, name, position), false, `move:${name}`)
     },
-    onMultiProp: (names, componentType, key, value) => {
+    onMultiProp: (...[names, componentType, key, value]) => {
       if (!scene) return
       let next = scene
       for (const name of names) {
         next = ops.setComponentProp(next, name, componentType, key, value, prefabLib)
       }
-      validateShadowEdit(viewport, next, prefabLib)
+      validateShadowEdit(viewport, next, { prefabs: prefabLib, types: [componentType], names })
       for (const name of names) viewport()?.applyProp(name, componentType, key, value)
       core.commit(next, false, `multiprop:${names.join('|')}:${componentType}:${key}`)
     },
-    onProp: (entity, componentType, key, value) => {
+    onProp: (...[entity, componentType, key, value]) => {
       if (!scene) return
       viewport()?.applyProp(entity, componentType, key, value)
       core.commit(
@@ -69,7 +69,7 @@ export function entityTransformHandlers(core: EditorCore, viewport: ViewportAcce
   } satisfies Partial<InspectorProps>
 }
 
-export function entityComponentHandlers(core: EditorCore, viewport?: ViewportAccess) {
+export function entityComponentHandlers(core: EditorCore, viewport: ViewportAccess) {
   const { scene } = core.scenes
   const [prefabLib] = core.library.prefabLib
   return {
@@ -100,7 +100,7 @@ export function entityComponentHandlers(core: EditorCore, viewport?: ViewportAcc
       if (!scene) return
       const next = ops.setRenderProp(scene, key, value)
       // Reject an unsupported shadow request before recording or persisting it.
-      if (key === 'shadows') viewport?.()?.game()?.shadows.loadScene(next.render?.shadows)
+      if (key === 'shadows') viewport()?.game()?.shadows.loadScene(next.render?.shadows)
       // Projection and batching are chosen as entities spawn, lighting and
       // Post Effects as the scene loads: all rebuild the stage.
       const structural = ['projection', 'batch', 'lighting', 'post'].includes(key)
@@ -110,7 +110,7 @@ export function entityComponentHandlers(core: EditorCore, viewport?: ViewportAcc
 }
 
 /** Prefab overrides on an instance: reset back to the prefab, or apply to every instance. */
-export function overrideHandlers(core: EditorCore, viewport?: ViewportAccess) {
+export function overrideHandlers(core: EditorCore, viewport: ViewportAccess) {
   const { scene } = core.scenes
   const [prefabLib] = core.library.prefabLib
   const instance = (entity: string) => {
@@ -122,7 +122,7 @@ export function overrideHandlers(core: EditorCore, viewport?: ViewportAccess) {
     onResetProp: (entity, componentType, key) => {
       if (!scene) return
       const next = ops.clearComponentOverride(scene, entity, componentType, key)
-      validateShadowEdit(viewport, next, prefabLib)
+      validateShadowEdit(viewport, next, { prefabs: prefabLib, types: [componentType], names: [entity] })
       // Structural commit: the stage re-instantiates and re-resolves
       // the prop from the prefab (no single live value to patch back).
       core.commit(next, true)
@@ -133,10 +133,10 @@ export function overrideHandlers(core: EditorCore, viewport?: ViewportAccess) {
       const { target } = instance(entity)
       const count = target ? ops.countOverrides(target) : 0
       if (!count) return
+      const next = ops.clearAllOverrides(scene, entity)
+      validateShadowEdit(viewport, next, { prefabs: prefabLib, types: Object.keys(target?.overrides ?? {}), names: [entity] })
       const s = count === 1 ? '' : 's'
       if (!window.confirm(`Reset ${count} override${s} back to the prefab's values?`)) return
-      const next = ops.clearAllOverrides(scene, entity)
-      validateShadowEdit(viewport, next, prefabLib)
       core.commit(next, true)
     },
     onApplyAllProps: (entity) => applyAllOverrides(core, entity, viewport),
@@ -144,7 +144,7 @@ export function overrideHandlers(core: EditorCore, viewport?: ViewportAccess) {
 }
 
 /** One instance value moves into the prefab, after validating every affected light. */
-function applyOneOverride(core: EditorCore, target: { entity: string; componentType: string; key: string }, viewport?: ViewportAccess): void {
+function applyOneOverride(core: EditorCore, target: { entity: string; componentType: string; key: string }, viewport: ViewportAccess): void {
   const { scene } = core.scenes
   const instance = scene ? overriddenInstance(core, scene, target.entity) : null
   if (!scene || !instance) return
@@ -153,7 +153,7 @@ function applyOneOverride(core: EditorCore, target: { entity: string; componentT
   if (value === undefined) return
   const nextPrefab = setPrefabProp(instance.prefab, componentType, key, value)
   const nextScene = ops.clearComponentOverride(scene, entity, componentType, key)
-  validateShadowEdit(viewport, nextScene, { ...core.library.prefabLib[0], [instance.ref]: nextPrefab })
+  validateShadowEdit(viewport, nextScene, { prefabs: { ...core.library.prefabLib[0], [instance.ref]: nextPrefab }, types: [componentType], prefab: instance.ref })
   core.history.recordBatch(() => {
     core.commitPrefab(instance.ref, nextPrefab)
     core.commit(nextScene, true)
@@ -161,15 +161,11 @@ function applyOneOverride(core: EditorCore, target: { entity: string; componentT
 }
 
 /** Every override of the instance moves into its prefab, as one undo step. */
-function applyAllOverrides(core: EditorCore, entity: string, viewport?: ViewportAccess): void {
+function applyAllOverrides(core: EditorCore, entity: string, viewport: ViewportAccess): void {
   const { scene } = core.scenes
   const instance = scene ? overriddenInstance(core, scene, entity) : null
   if (!scene || !instance) return
   const { ref, prefab, overrides, count } = instance
-  const s = count === 1 ? '' : 's'
-  if (!window.confirm(`Apply ${count} override${s} to ${ref}? Every instance gets these values.`)) {
-    return
-  }
   let next = prefab
   for (const [type, props] of Object.entries(overrides)) {
     for (const [key, value] of Object.entries(props)) {
@@ -177,7 +173,9 @@ function applyAllOverrides(core: EditorCore, entity: string, viewport?: Viewport
     }
   }
   const nextScene = ops.clearAllOverrides(scene, entity)
-  validateShadowEdit(viewport, nextScene, { ...core.library.prefabLib[0], [ref]: next })
+  validateShadowEdit(viewport, nextScene, { prefabs: { ...core.library.prefabLib[0], [ref]: next }, types: Object.keys(overrides), prefab: ref })
+  const s = count === 1 ? '' : 's'
+  if (!window.confirm(`Apply ${count} override${s} to ${ref}? Every instance gets these values.`)) return
   core.history.recordBatch(() => {
     core.commitPrefab(ref, next)
     core.commit(nextScene, true)
