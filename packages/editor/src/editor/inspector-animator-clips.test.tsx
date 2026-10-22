@@ -291,3 +291,34 @@ describe('stored clip names missing from the glb (issue #173 CA-8)', () => {
     expect(view.props.onProp).not.toHaveBeenCalled()
   })
 })
+
+describe('the fade of a clip override (issue 205 CA-18)', () => {
+  it('writes the fade into the whole clips object, drops it when emptied, and hints the inherited fade', async () => {
+    const fs = await rigProject()
+    const { props } = inspectHero(hero(RIG_PATH, { fade: 0.2, clips: { walk: { speed: 2 } } }), new GlbClipCache(fs))
+    await screen.findByRole('combobox', { name: 'Initial clip' })
+    const user = userEvent.setup()
+    const walk = within(section('Behaviours')).getByRole('group', { name: 'walk' })
+    const fade = within(walk).getByRole('spinbutton', { name: 'fade' })
+
+    expect(fade).toHaveProperty('value', '')
+    expect(fade).toHaveProperty('placeholder', '0.2')
+    expect(fade.title).toBe('Empty: inherits the Animator fade, 0.2 s')
+    await user.type(fade, '0.05')
+    expect(props.onProp).toHaveBeenLastCalledWith('Hero', 'Animator', 'clips', { walk: { speed: 2, fade: 0.05 } })
+    const calls = props.onProp.mock.calls.length
+    await user.clear(fade)
+    expect(props.onProp).toHaveBeenCalledTimes(calls + 1)
+    expect(props.onProp).toHaveBeenLastCalledWith('Hero', 'Animator', 'clips', { walk: { speed: 2 } })
+  })
+
+  it('hints the default fade when the Animator sets none', async () => {
+    const fs = await rigProject()
+    inspectHero(hero(RIG_PATH, { clips: { jump: { fade: 0 } } }), new GlbClipCache(fs))
+    await screen.findByRole('combobox', { name: 'Initial clip' })
+    const fade = within(within(section('Behaviours')).getByRole('group', { name: 'jump' })).getByRole('spinbutton', { name: 'fade' })
+
+    expect(fade).toHaveProperty('value', '0')
+    expect(fade).toHaveProperty('placeholder', '0.15')
+  })
+})

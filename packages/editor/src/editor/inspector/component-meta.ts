@@ -96,17 +96,24 @@ export function modelSrcOf(components: readonly SceneComponentJson[]): unknown {
   return components.find((c) => c.type === 'Model')?.props?.src
 }
 
+/** The names of the entity's Animator blends (issue 205): clips its states and its initial clip may name. */
+export function animatorBlendNames(components: readonly SceneComponentJson[]): string[] {
+  const blends = components.find((c) => c.type === 'Animator')?.props?.blends
+  return typeof blends === 'object' && blends !== null && !Array.isArray(blends) ? Object.keys(blends) : []
+}
+
 /**
  * The clip names a machine's states can be checked against: beside a Model
- * that names a file, its glb's (`modelClips`, issue #173 CA-7), or null while
- * they are unknown (unreadable or still reading); otherwise the sprite's.
+ * that names a file, its glb's (`modelClips`, issue #173 CA-7) and its
+ * Animator's blends, or null while the glb's are unknown (unreadable or still
+ * reading); otherwise the sprite's.
  */
 export function knownClips(
   appearance: SceneComponentJson | null,
   components: readonly SceneComponentJson[],
   modelClips: readonly string[] | null,
 ): readonly string[] | null {
-  if (clipsUnknown(components)) return modelClips
+  if (clipsUnknown(components)) return modelClips && [...modelClips, ...animatorBlendNames(components)]
   return appearance ? Object.keys(clipsOf(appearance)) : []
 }
 
