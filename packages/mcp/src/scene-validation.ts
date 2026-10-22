@@ -58,11 +58,11 @@ const STATE_BEHAVIOR_TYPES = new Set(['StateMachine', 'AnimatedSprite'])
 
 /**
  * The override keys of a Clip Target's 3D siblings that change which clips a
- * machine's states resolve against (the glb, and which of its clips loop);
- * `Model.color` or `Animator.fade` keep the prefab's state findings as they
- * are (review of PR #168).
+ * machine's states resolve against (the glb, which of its clips loop, and the
+ * blends that join them); `Model.color` or `Animator.fade` keep the prefab's
+ * state findings as they are (review of PR #168).
  */
-const STATE_CLIP_KEYS: Readonly<Record<string, readonly string[]>> = { Model: ['src'], Animator: ['clips'] }
+const STATE_CLIP_KEYS: Readonly<Record<string, readonly string[]>> = { Model: ['src'], Animator: ['clips', 'blends'] }
 
 /** Whether the entity's inline components or overrides change the state behavior its prefab already had checked. */
 function changesStateBehavior(inline: readonly SceneComponentJson[], overrides: Record<string, unknown>): boolean {
