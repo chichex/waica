@@ -177,6 +177,17 @@ export class Animator extends Component implements ClipTarget {
     this.advance(dt)
   }
 
+  /**
+   * One step of the parameters, the fades and the mixer while the Game does
+   * not simulate (issue #205): the editor's edit-mode preview of a blend
+   * drives the selected entity's Animator alone through it, once per frame.
+   * In Play it does nothing: onUpdate steps the Animator then.
+   */
+  previewStep(dt: number): void {
+    if (this.game.simulate || this.game.space !== '3d') return
+    this.advance(dt)
+  }
+
   override onDestroy(): void {
     this.release()
     this.pending = false
