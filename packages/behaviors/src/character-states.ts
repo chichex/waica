@@ -12,6 +12,7 @@ import { playsOwnOneShot, takesTrigger } from './own-one-shot-clip.js'
 import { CharacterMotor } from './character-motor.js'
 import { Health } from './health.js'
 import { MeleeAttack } from './melee-attack.js'
+import { writePlanarSpeed } from './planar-speed.js'
 import { Respawnable } from './respawnable.js'
 
 /** Planar speed, in units per second, above which a grounded character is moving rather than standing. */
@@ -115,12 +116,14 @@ function takesAttack({ entity, fsm, game }: StateContext, motor: CharacterMotor 
  * Air without vertical speed reports nothing: the body is not grounded
  * before its first physics step (the spawn, every step while Rapier loads,
  * the step after a teleport), and that is not a fall (review of PR #169).
- * Unmatched signals are no-ops.
+ * Unmatched signals are no-ops. Every step, in the air and rolling too, it
+ * writes the body's planar speed to a beside Animator's `speed` (issue #205).
  */
 export function characterUpdate(context: StateContext): void {
   const { entity, fsm } = context
   const body = entity.get(RigidBody)
   if (body?.type !== 'kinematic') return
+  writePlanarSpeed(entity)
   const motor = entity.get(CharacterMotor)
   if (motor?.rolling) {
     // A roll starts on the ground: on the landing step of a jump, land first so the air state hands over to it.

@@ -7,6 +7,7 @@ import { MeleeAttack } from './melee-attack.js'
 import { drive3d, MOVER_TURN_SPEED } from './mover-3d.js'
 import { playsOwnOneShot } from './own-one-shot-clip.js'
 import { Patrol } from './patrol.js'
+import { writePlanarSpeed } from './planar-speed.js'
 
 /** Seconds the enemy stands still, facing the player, before it strikes (issue #181 inference 15). */
 export const ENEMY_WINDUP_SECONDS = 0.6
@@ -97,17 +98,20 @@ export const ENEMY_ROLE: RoleDefinition = {
         if (patrol) patrol.step(dt)
         else drive3d(entity, { x: 0, z: 0 }, dt)
         decide(context)
+        writePlanarSpeed(entity)
       },
     },
     chase: {
       onUpdate(context, dt) {
         context.entity.get(Chaser)?.step(dt)
         decide(context)
+        writePlanarSpeed(context.entity)
       },
     },
     windup: {
       onUpdate({ entity }, dt) {
         standFacing(entity, dt)
+        writePlanarSpeed(entity)
       },
     },
     attack: {
@@ -117,17 +121,20 @@ export const ENEMY_ROLE: RoleDefinition = {
       onUpdate(context, dt) {
         standFacing(context.entity, dt)
         endWithoutClip(context, 'chase')
+        writePlanarSpeed(context.entity)
       },
     },
     hurt: {
       onUpdate(context, dt) {
         drive3d(context.entity, { x: 0, z: 0 }, dt)
         endWithoutClip(context, 'chase')
+        writePlanarSpeed(context.entity)
       },
     },
     die: {
       onUpdate({ entity }, dt) {
         drive3d(entity, { x: 0, z: 0 }, dt)
+        writePlanarSpeed(entity)
       },
     },
   },
