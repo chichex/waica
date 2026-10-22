@@ -2,6 +2,7 @@ import type { CollisionPoint, Game, GameResolution, InputBindings, SceneJson, Sc
 import type { GridSettings } from '../project/editor-settings'
 import type { GizmoSettings } from './editor-view-settings'
 import type { TilemapBrushSelection } from './tilemap-brush'
+import type { BlendPreviewTarget } from './viewport-blend-preview'
 
 export interface ViewportHandle {
   /** Applies a prop change to the live instance (without recreating the game). */
@@ -11,6 +12,14 @@ export interface ViewportHandle {
   applyTransform(entity: string, patch: TransformJson): void
   /** The live Game instance, or null before the first mount effect runs. */
   game(): Game | null
+  /**
+   * Plays the target's blend with its param at its value on the entity's live
+   * Animator, one step per frame, in edit mode only (issue 205 CA-21); false
+   * when it has no Animator able to play the blend now.
+   */
+  previewBlend(target: BlendPreviewTarget): boolean
+  /** Ends the running blend preview: its Animator back on its initial clip. */
+  stopBlendPreview(): void
 }
 
 export interface ViewportComponentVisibility {
