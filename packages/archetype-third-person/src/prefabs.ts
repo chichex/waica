@@ -6,7 +6,10 @@ function withClips(states: Record<string, StateJson>, clips: Record<string, stri
   return Object.fromEntries(Object.entries(states).map(([name, state]) => [name, clips[name] ? { ...state, clip: clips[name] } : state]))
 }
 
-/** The Knight's clip for each `character` state (assets/ATTRIBUTION.md). */
+/**
+ * The Knight's clip for each `character` state (assets/ATTRIBUTION.md): idle,
+ * walk and run reach theirs through the Locomotion blend (issue #205).
+ */
 export const KNIGHT_CLIPS: Readonly<Record<string, string>> = {
   idle: 'Idle',
   walk: 'Walking_A',
@@ -43,6 +46,20 @@ function gltfModel(src: string): SceneComponentJson {
   return { type: 'Model', props: { src, castShadows: true, receiveShadows: true } }
 }
 
+/**
+ * The Knight's walk cycle (issue #205 CA-15): Idle, Walking_A and Running_A
+ * mixed by the planar speed the `character` role writes, at the motor's
+ * speeds (still, `speed` 6 and `runSpeed` 10), so a half stick walks slowly
+ * without sliding its feet. idle, walk and run all play it: switching among
+ * them keeps it playing, and the smoothed speed does the transition.
+ */
+const LOCOMOTION = 'Locomotion'
+const LOCOMOTION_BLEND = {
+  param: 'speed',
+  points: [{ clip: KNIGHT_CLIPS.idle, at: 0 }, { clip: KNIGHT_CLIPS.walk, at: 6 }, { clip: KNIGHT_CLIPS.run, at: 10 }],
+  smoothing: 0.15,
+}
+
 const PLAYER: PrefabJson = {
   waicaPrefab: 1,
   type: 'character',
@@ -52,10 +69,24 @@ const PLAYER: PrefabJson = {
       type: 'Animator',
       props: {
         initialClip: 'Idle',
-        clips: { Jump_Start: { loop: false }, '1H_Melee_Attack_Chop': { loop: false }, Dodge_Forward: { loop: false }, Death_A: { loop: false } },
+        // The attack and the dodge answer the press at once; the death settles in slower.
+        clips: {
+          Jump_Start: { loop: false },
+          '1H_Melee_Attack_Chop': { loop: false, fade: 0.05 },
+          Dodge_Forward: { loop: false, fade: 0.05 },
+          Death_A: { loop: false, fade: 0.3 },
+        },
+        blends: { [LOCOMOTION]: LOCOMOTION_BLEND },
       },
     },
-    { type: 'StateMachine', props: { role: 'player', initial: CHARACTER_STATE_GRAPH.initial, states: withClips(CHARACTER_STATE_GRAPH.states, KNIGHT_CLIPS) } },
+    {
+      type: 'StateMachine',
+      props: {
+        role: 'player',
+        initial: CHARACTER_STATE_GRAPH.initial,
+        states: withClips(CHARACTER_STATE_GRAPH.states, { ...KNIGHT_CLIPS, idle: LOCOMOTION, walk: LOCOMOTION, run: LOCOMOTION }),
+      },
+    },
     capsule(2.3, 'player', 'enemy'),
     { type: 'RigidBody', props: { type: 'kinematic' } },
     { type: 'CharacterMotor', props: { relativeTo: 'camera' } },
