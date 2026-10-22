@@ -183,8 +183,12 @@ A 3D thing an entity draws in a 3D scene: a glTF/glb file loaded once through `g
 _Avoid_: mesh, 3D sprite, object
 
 **Animator**:
-The component that plays a Model's glTF clips: one mixer over the entity's own copy of the file, advanced once per **Simulation Step**, with a crossfade between clips and per-clip loop and speed overrides. The **Clip Target** of a 3D scene.
+The component that plays a Model's glTF clips: one mixer over the entity's own copy of the file, advanced once per **Simulation Step**, fading between clips from the weight each one has, with per-clip loop and speed overrides, a per-clip fade into each clip, and **Blend**s, virtual clips that mix several by a named parameter. The **Clip Target** of a 3D scene.
 _Avoid_: animation controller, animation player, mixer (three's, which it owns)
+
+**Blend**:
+A virtual clip of an **Animator** that mixes some of the file's clips by a named parameter the game sets (the `character` role's planar speed): the two clips around its value weigh linearly, smoothed step by step, and every clip of it keeps one shared phase so the feet land together. A State Machine plays it by name like any clip; it never ends.
+_Avoid_: blend tree (one dimension, no nesting), blend space, animation layer
 
 **Sun**:
 The directional light of a 3D scene: it shines along one direction in world space, wherever its entity stands, with a color and an intensity. It casts soft PCF shadows by default. A finite, texel-stable volume follows the active camera, not the entity or world origin; scene quality and nullable per-light overrides control it.
