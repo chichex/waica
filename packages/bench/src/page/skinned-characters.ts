@@ -8,7 +8,7 @@ const ROW = 10
 const SPACING = 1.6
 
 /** Slot `index` of a `ROW`-wide grid on the ground, centred on the origin and receding from the camera. */
-function characterPosition(index: number, count: number): [number, number, number] {
+export function characterPosition(index: number, count: number): [number, number, number] {
   const rows = Math.ceil(count / ROW)
   const column = index % ROW
   const row = Math.floor(index / ROW)

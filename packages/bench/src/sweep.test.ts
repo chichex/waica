@@ -29,6 +29,8 @@ describe('SWEEP', () => {
       'shadows-point-on-50': { kind: 'shadows-point-on', n: 50 }, 'shadows-point-on-200': { kind: 'shadows-point-on', n: 200 },
       'shadows-four-point-off-50': { kind: 'shadows-four-point-off', n: 50 }, 'shadows-four-point-off-200': { kind: 'shadows-four-point-off', n: 200 },
       'shadows-four-point-on-50': { kind: 'shadows-four-point-on', n: 50 }, 'shadows-four-point-on-200': { kind: 'shadows-four-point-on', n: 200 },
+      'blended-characters-50': { kind: 'blended-characters', n: 50 },
+      'blended-characters-200': { kind: 'blended-characters', n: 200 },
     })
   })
 
