@@ -4,8 +4,9 @@
 // (the archetype's demo courtyard, its prefabs, UI and glbs) opened as an
 // in-memory project through the DEV-only `globalThis.__waicaEditor` hook. It clicks the Knight to select it,
 // drags the gizmo's X arrow with the real mouse, undoes the drag, reads the
-// Animator's clip dropdown, and orbits with a middle drag, all checked in the
-// file the editor saves. Pixels are compared only where the frame draws (not
+// Animator's clip dropdown, orbits with a middle drag, and previews the
+// Knight's Locomotion blend with its slider (issue #205 CA-23), all checked in
+// the file the editor saves. Pixels are compared only where the frame draws (not
 // on CI's Linux WebGPU, issue #151).
 import assert from 'node:assert/strict'
 import { readdir, readFile } from 'node:fs/promises'
@@ -19,6 +20,8 @@ import { runEditorShadowsFlow } from './runtime-e2e-editor-shadows.mjs'
 const EXAMPLE = fileURLToPath(new URL('../examples/third-person/src', import.meta.url))
 const PROJECT = 'waica-editor-3d'
 const SCENE_PATH = 'src/scenes/main.scene.json'
+/** The Knight's prefab, which the blend preview must leave byte for byte as it was. */
+const PLAYER_PREFAB_PATH = 'src/characters/player.character.json'
 const VIEWPORT = { width: 1280, height: 800 }
 /** The Knight's clips the Animator's initial-clip select must offer (among others). */
 const KNIGHT_CLIPS = ['Idle', 'Walking_A', 'Jump_Start']
@@ -192,6 +195,49 @@ async function orbit(page) {
   return { before, after }
 }
 
+/** The live Knight's Animator state, as the Runtime Snapshot reports it. */
+function knightAnimator(page) {
+  return page.evaluate(() => {
+    const player = globalThis.__waicaEditor.viewportGame().find('Player')
+    return player.components.find((component) => component.constructor.componentName === 'Animator').inspectState()
+  })
+}
+
+/** Waits `count` animation frames of the page. */
+async function frames(page, count) {
+  for (let frame = 0; frame < count; frame += 1) await page.evaluate(() => new Promise((resolve) => globalThis.requestAnimationFrame(resolve)))
+}
+
+/**
+ * Issue #205 CA-23: the selected Knight shows its Locomotion card; its preview
+ * slider at the maximum plays Locomotion on the live Animator in edit mode,
+ * Running_A's weight rising frame after frame, while the Knight's prefab and
+ * the scene stay byte for byte as they were.
+ */
+async function previewLocomotion(page) {
+  const card = page.getByRole('group', { name: 'Blend Locomotion' })
+  await card.waitFor({ timeout: 10_000 })
+  const prefabBefore = await savedText(page, PLAYER_PREFAB_PATH)
+  const sceneBefore = await page.evaluate((scenePath) => globalThis.__waicaEditor.readText(scenePath), SCENE_PATH)
+  const slider = card.getByRole('slider', { name: 'Preview speed' })
+  const max = await slider.getAttribute('max')
+  await slider.fill(max)
+  // Past the fade into the blend and the smoothed speed crossing Walking_A's 6, Running_A has weight and keeps gaining it.
+  await frames(page, 9)
+  const samples = []
+  for (let sample = 0; sample < 4; sample += 1) {
+    await frames(page, 3)
+    samples.push(await knightAnimator(page))
+  }
+  const running = samples.map((state) => state.weights?.Running_A ?? 0)
+  assert.ok(samples.every((state) => state.current === 'Locomotion'), `the preview must play Locomotion; ${JSON.stringify(samples.map(({ current }) => current))}`)
+  assert.ok(running.every((weight, index) => index === 0 || weight > running[index - 1]), `Running_A must weigh more frame after frame; ${JSON.stringify(running)}`)
+  await page.waitForTimeout(SAVE_SETTLE_MS)
+  assert.equal(await savedText(page, PLAYER_PREFAB_PATH), prefabBefore, "the preview must leave the Knight's prefab byte for byte")
+  assert.equal(await page.evaluate((scenePath) => globalThis.__waicaEditor.readText(scenePath), SCENE_PATH), sceneBefore, 'the preview must leave the scene file byte for byte')
+  return { max: Number(max), running }
+}
+
 /** Polls a project file the editor saves (on a debounce) until it exists; its text. */
 async function savedText(page, filePath) {
   const deadline = Date.now() + 10_000
@@ -257,18 +303,19 @@ export async function runEditor3dLeg({ root, viteBin, chrome, playwright, label,
     const afterOrbit = await canvasShot(page)
     await helpers.keepScreenshot(`${label}-editor-3d-before-orbit.png`, beforeOrbit)
     await helpers.keepScreenshot(`${label}-editor-3d-after-orbit.png`, afterOrbit)
+    const preview = await previewLocomotion(page)
     const newPrefab = await newObjectMatchesScaffold(page, { ...mcp, label })
     // Requested shadow visuals remain strict; CLI policy makes WebGPU opt-in.
     const shadowFlow = () => editorShadowResult({ root, page, inspector, chrome, label, helpers, renderLeg, includeShadows })
     // CI's Linux WebGPU draws a blank frame (issue #151): its pixels, and the page errors its backend raises, are only reported there.
     if (expectsBlankLighting(renderLeg?.backend)) {
-      const editor3d = { durationMs: Date.now() - startedAt, drag, clips, camera, newPrefab, pageErrors: [...pageErrors], expectedBlank: 'https://github.com/chichex/waica/issues/151' }
+      const editor3d = { durationMs: Date.now() - startedAt, drag, clips, camera, preview, newPrefab, pageErrors: [...pageErrors], expectedBlank: 'https://github.com/chichex/waica/issues/151' }
       return { editor3d, ...(await shadowFlow()) }
     }
     const { differing } = await inspector.compare(beforeOrbit, afterOrbit)
     assert.ok(differing >= MIN_DIFFERING_PIXELS, `orbiting must change at least ${MIN_DIFFERING_PIXELS} pixels where the frame draws; ${differing} did`)
     assert.deepEqual(pageErrors, [], 'the editor must raise no page error')
-    const editor3d = { durationMs: Date.now() - startedAt, drag, clips, camera, newPrefab, differingAfterOrbit: differing }
+    const editor3d = { durationMs: Date.now() - startedAt, drag, clips, camera, preview, newPrefab, differingAfterOrbit: differing }
     return { editor3d, ...(await shadowFlow()) }
   } finally {
     // Each resource closes on its own, so one failing close leaves no other open.
