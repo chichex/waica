@@ -40,7 +40,7 @@ describe('Animator plays the clips of the Model beside it (issue #166 CA-7)', ()
       initialClip: { label: 'Initial clip' },
       fade: { label: 'Fade (s)', min: 0, max: 1, step: 0.05 },
     })
-    expect(authoringDefaults(Animator)).toEqual({ initialClip: '', fade: 0.15, clips: {} })
+    expect(authoringDefaults(Animator)).toEqual({ initialClip: '', fade: 0.15, clips: {}, blends: {} })
   })
 
   it('lists the clips once loaded and swings the legs in opposite phase: 12 steps of walk reach the 15° keyframe', async () => {
