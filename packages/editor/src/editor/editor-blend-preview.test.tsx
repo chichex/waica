@@ -73,6 +73,9 @@ describe('the blend preview in the Editor (issue 205 CA-21)', () => {
     expect(slider()).toHaveProperty('value', '0')
   })
 
+})
+
+describe('when the blend preview is off in the Editor (issue 205 CA-21)', () => {
   it('disables the slider, saying why, when the stage has no live Animator to play the blend', async () => {
     stubViewportHandle.live = false
     await openOn(await rigProject(), 'Hero')
