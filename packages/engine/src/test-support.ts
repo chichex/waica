@@ -30,4 +30,5 @@ export const match = {
   stringContaining: (text: string): unknown => expect.stringContaining(text),
   objectContaining: (object: object): unknown => expect.objectContaining(object),
   arrayContaining: (items: unknown[]): unknown => expect.arrayContaining(items),
+  closeTo: (value: number, digits?: number): unknown => expect.closeTo(value, digits),
 }

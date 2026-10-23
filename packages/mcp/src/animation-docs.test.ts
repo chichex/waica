@@ -97,3 +97,42 @@ describe('the 3D animation release docs, layer 4 (issue #166 CA-20)', () => {
     }
   })
 })
+
+describe('the animation mixing docs (issue #205 CA-11)', () => {
+  it('records the decision in ADR 0033: blends, setParam, the per-clip fade, fading from the current weight, the shared phase and weights', async () => {
+    const adr = await text('docs/adr/0033-the-animator-mixes-clips-with-its-own-fades-and-1d-blends.md')
+
+    expect(adr).toMatch(/^# The Animator mixes clips with its own fades and 1D blends/)
+    for (const topic of [/`blends`/, /`setParam`/, /`clips\[name\]\.fade`/, /current weight/, /phase/, /`weights`/, /ADR 0029/]) {
+      expect(adr, String(topic)).toMatch(topic)
+    }
+  })
+
+  it('defines Blend in the glossary and says the Animator blends', async () => {
+    const glossary = await text('CONTEXT.md')
+
+    expect(glossary).toMatch(glossaryEntry('Blend'))
+    expect(glossary).toMatch(/\*\*Animator\*\*:\n[^\n]*per-clip fade[^\n]*\*\*Blend\*\*/)
+  })
+
+  it('documents blends, setParam, the per-clip fade and weights in the README’s Animator bullet, still one line', async () => {
+    const animator = await bulletOf('Animator')
+    for (const topic of [/`blends`/, /`setParam\(/, /`clips\.<name>\.fade`/, /`weights`/, /`params`/, /current weight/]) {
+      expect(animator, String(topic)).toMatch(topic)
+    }
+    const readme = await text('packages/engine/README.md')
+    const after = readme.slice(readme.indexOf(animator) + animator.length + 1)
+    expect(after.startsWith('- **'), 'the next line is the next bullet').toBe(true)
+  })
+
+  it('carries a migration note for animation blending: the fade from the current weight, the continuing re-entry, blends, setParam and the snapshot', async () => {
+    const readme = await text('packages/engine/README.md')
+
+    const start = readme.search(/## Migrating to [^\n]*animation blending/)
+    expect(start, 'the migration heading').toBeGreaterThan(0)
+    const note = readme.slice(start, readme.indexOf('\n## ', start + 1))
+    for (const topic of [/`clips\.<name>\.fade`/, /current weight/, /continues/, /`blends`/, /`setParam\(/, /`weights`/, /`params`/, /`authoringDefaults`/]) {
+      expect(note, String(topic)).toMatch(topic)
+    }
+  })
+})
