@@ -15,6 +15,7 @@ export type FindingCode =
   | 'blend-name-collides-with-clip'
   | 'blend-thresholds-not-increasing'
   | 'blend-point-one-shot'
+  | 'blend-clip-override-ignored'
   | 'invalid-blend'
   | 'invalid-clip-fade'
   | 'missing-sound'

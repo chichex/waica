@@ -20,7 +20,7 @@ import {
 import { physicsCompositionFindings } from './physics-param-validation.js'
 import { validateEntitySpace, validateSceneSimulation, validateSceneSpace } from './space-validation.js'
 import { validateEntitySceneTransition } from './scene-transition-validation.js'
-import { animatorCompositionFindings, changesAnimatorClips, validateAnimatorClips } from './animator-validation.js'
+import { animatorCompositionFindings, animatorPropsChanged, changesAnimatorClips, validateAnimatorClips } from './animator-validation.js'
 import { validateStateMachines } from './state-machine-validation.js'
 import { add, type LooseSceneEntity, type ValidationContext } from './validation-context.js'
 
@@ -161,7 +161,7 @@ function validateSceneEntity(
     context.findings.push(...animatorCompositionFindings(effectiveComponents(composition), file, entityRef))
     // The prefab already checked its Animator's clips; only an entity that changes them is checked again.
     if (changesAnimatorClips(inline, composition.overrides)) {
-      validateAnimatorClips(composition.effective(), { file, ref: entityRef, context })
+      validateAnimatorClips(composition.effective(), { file, ref: entityRef, context, changed: animatorPropsChanged(inline, composition.overrides) })
     }
   }
   validateEntityParamReferences(composition, scope)

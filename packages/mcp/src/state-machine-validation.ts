@@ -1,7 +1,7 @@
 import { resolveDirectionalClip, type SceneComponentJson, type StateJson } from '@waica/engine'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import { animatorClipLoops } from './animator-validation.js'
+import { animatorPlayable } from './animator-validation.js'
 import { isPlayableClip } from './clip-resolution.js'
 import { siblingClipLoops } from './component-validation.js'
 import { objectRecord } from './component-metadata.js'
@@ -18,6 +18,8 @@ interface MachineScope {
   readonly clipLoops: ReadonlyMap<string, boolean> | undefined
   /** The declared clip names: `clipLoops`' keys, undefined with no sibling target. */
   readonly clips: ReadonlySet<string> | undefined
+  /** The Animator's blends among `clips` (issue #205); undefined for a sprite or unknown clips. */
+  readonly blends?: ReadonlySet<string>
 }
 
 /** One state of a machine, with the machine's whole state table for cross-state checks. */
@@ -106,8 +108,10 @@ export function validateStateMachines(
   context: ValidationContext,
 ): void {
   // The clips of the entity's Clip Target: its AnimatedSprite's, or its Animator's from the glb its Model names (issue #166 CA-9).
-  const clipLoops = siblingClipLoops(components) ?? animatorClipLoops(components, context)
-  const scope: MachineScope = { file, ref, context, clipLoops, clips: clipLoops && new Set(clipLoops.keys()) }
+  const sprite = siblingClipLoops(components)
+  const animator = sprite ? undefined : animatorPlayable(components, context)
+  const clipLoops = sprite ?? animator?.loops
+  const scope: MachineScope = { file, ref, context, clipLoops, clips: clipLoops && new Set(clipLoops.keys()), blends: animator?.blends }
   for (const machine of components.filter((component) => component.type === 'StateMachine')) {
     validateMachine(machine, scope)
   }
@@ -187,11 +191,15 @@ function validateClipEndEdge({ name, definition, clip }: MachineState, scope: Ma
   if (!transitions.some((transition) => objectRecord(transition).on === 'clip:end')) return
   const looping = loopingClipFor(clip, scope)
   if (looping === undefined) return
+  // A blend has no `loop` to turn off (issue #205): the state has to leave on something else.
+  const why = scope.blends?.has(looping)
+    ? 'is a blend, which never ends; leave this state on another trigger'
+    : 'loops and never ends; set loop: false on the clip'
   add(
     scope.context,
     'warning',
     'clip-end-on-looping-clip',
-    `State "${name}" leaves on clip:end, but its clip "${looping}" loops and never ends; set loop: false on the clip.`,
+    `State "${name}" leaves on clip:end, but its clip "${looping}" ${why}.`,
     scope.file,
     scope.ref ?? name,
   )
