@@ -19,7 +19,31 @@ export interface ComponentPropHandlers {
 const ANIMATOR_ROWS = new Set(['clips', 'initialClip', 'blends'])
 const ANIMATOR_ROW_LABELS: Readonly<Record<string, string>> = { clips: 'Clip overrides', blends: 'Blends' }
 
-/** One prop's row: the Animator's clip rows (issue #173 CA-5, CA-6), else the generic PropRow. */
+/** One of the Animator's own rows (issue #173 CA-5, CA-6; issue 205 CA-19): its initial clip, clip overrides or blends. */
+function AnimatorRow({
+  propKey,
+  value,
+  spec,
+  overridden,
+  onChange,
+  onReset,
+  onApply,
+}: {
+  propKey: string
+  value: unknown
+  spec: ParamSpec | undefined
+  overridden: boolean
+  onChange: (next: unknown) => void
+  onReset?: () => void
+  onApply?: () => void
+}) {
+  const label = ANIMATOR_ROW_LABELS[propKey] ?? spec?.label ?? propKey
+  const name = <OverridableName label={label} overridden={overridden} onReset={onReset} onApply={onApply} />
+  if (propKey === 'blends') return <AnimatorBlendsRow name={name} value={value} onChange={onChange} />
+  return propKey === 'clips' ? <AnimatorClipOverridesRow name={name} value={value} onChange={onChange} /> : <AnimatorInitialClipRow name={name} value={value} onChange={onChange} />
+}
+
+/** One prop's row: the Animator's own rows, a light's shadow flag, else the generic PropRow. */
 function ComponentRow({
   comp,
   propKey,
@@ -40,10 +64,7 @@ function ComponentRow({
   const apply = onApply && (() => onApply(propKey))
   const change = (next: unknown): void => onProp(propKey, next)
   if (comp.type === 'Animator' && ANIMATOR_ROWS.has(propKey)) {
-    const label = ANIMATOR_ROW_LABELS[propKey] ?? spec?.label ?? propKey
-    const name = <OverridableName label={label} overridden={overridden} onReset={reset} onApply={apply} />
-    if (propKey === 'blends') return <AnimatorBlendsRow name={name} value={value} onChange={change} />
-    return propKey === 'clips' ? <AnimatorClipOverridesRow name={name} value={value} onChange={change} /> : <AnimatorInitialClipRow name={name} value={value} onChange={change} />
+    return <AnimatorRow propKey={propKey} value={value} spec={spec} overridden={overridden} onChange={change} onReset={reset} onApply={apply} />
   }
   const Row = isLightShadowFlag(comp.type, propKey) ? LightShadowFlagRow : PropRow
   return (
