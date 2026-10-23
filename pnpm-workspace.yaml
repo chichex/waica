@@ -1,3 +1,9 @@
 packages:
   - packages/*
   - examples/*
+
+# monaco-editor 0.57.0 pins dompurify 3.4.15, which has a critical and a high
+# advisory (GHSA-mrv2-3pqr-j5jr among them; fixed in 3.4.17). Drop this once
+# monaco-editor depends on a patched dompurify.
+overrides:
+  dompurify: '>=3.4.17'
