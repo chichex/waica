@@ -30,6 +30,31 @@ npx @waica/cli            # New project → 3D → Third person
   goal chest on a raised platform: reach it to win. The blank start is a
   ground plane, a Sun and the playable Knight.
 
+## Shadows
+
+Demo and blank explicitly use `render.shadows: { quality: 'medium', maxDistance: 40 }`.
+Every Model casts/receives; the Sun and all four demo torches cast. Static and
+animated glTF assets retain their materials and gameplay.
+
+Profiles (Sun / PointLight per face): Low 1024²/256², Medium 2048²/512²,
+High 4096²/1024². Set `render.shadows.quality: 'off'` to restore the previous
+shadow-free image/cost. Existing 3D scenes change; 2D projects do not.
+
+Sun follows the active camera within finite reach. Torch shadows use the smaller
+of lighting distance and shadow reach, without shortening illumination. Each
+PointLight can add six views, hence 25 for four torches plus Sun. No FPS-based
+light caps or universal frame-rate guarantee are introduced.
+
+The editor exposes scene quality/reach and nullable per-light overrides. `null`
+inherits the scene, not zero; resetting an instance to its prefab is separate.
+See the [engine format](../engine/README.md#3d-shadows-and-migration) and
+[benchmark notes](../bench/README.md). WebGPU remains unverified on this host;
+its two external evidence gates were withdrawn from this delivery by the user,
+not marked as passing. Implementation and strict tests remain available.
+Automatic CI requires the new visual shadow checks on WebGL2; request their
+strict WebGPU counterparts with `pnpm test:e2e --webgpu-shadows`. Legacy backend
+checks remain required on both APIs.
+
 ## Controls
 
 | Action | Keys | Gamepad |

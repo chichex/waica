@@ -66,6 +66,11 @@ export class CameraRig {
     return this.current
   }
 
+  /** Retained across scene swaps, even while a 2D scene temporarily hides it. */
+  get viewCamera(): THREE.PerspectiveCamera | null {
+    return this.view
+  }
+
   /**
    * Draws a 3D scene through `camera` instead of the scene camera, until
    * cleared with null (issue #173 CA-1): the editor's own camera, which game

@@ -1,0 +1,43 @@
+{
+  "scenario": "shadows-sun-on-200",
+  "commit": "dd8cf9e",
+  "backend": "webgl2",
+  "host": {
+    "platform": "linux",
+    "cpus": 8,
+    "chrome": "Google Chrome 150.0.7871.186",
+    "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+  },
+  "counters": {
+    "drawCalls": 401,
+    "meshes": 201,
+    "visibleMeshes": 201,
+    "geometries": 201,
+    "materials": 201,
+    "textures": 0,
+    "textureSources": 0,
+    "entitiesSpawned": 202,
+    "entitiesDestroyed": 0,
+    "materialsCreated": 201,
+    "geometriesCreated": 201
+  },
+  "timings": {
+    "frames": 60,
+    "medianMs": 10.899999856948853,
+    "p95Ms": 13.699999809265137,
+    "overBudget": false,
+    "gcPauses": {
+      "count": 4,
+      "totalMs": 1.417
+    }
+  },
+  "shadow": {
+    "composition": "sun",
+    "enabled": true,
+    "quality": "medium",
+    "casters": 200,
+    "lights": 1,
+    "warmupFrames": 5,
+    "measuredFrames": 60
+  }
+}

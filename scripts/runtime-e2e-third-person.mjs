@@ -54,6 +54,10 @@ async function samplePoints(view) {
     floor: project([2, 0, 6]),
     underTorch: project([-4, 0, -8.6]),
     farFromTorches: project([-8, 0, -1]),
+    // The glb floor's visible top is y=0.05. Both points were raycast-confirmed
+    // on real floor meshes at the shipped frame, not on a torch or wall.
+    shippedPool: project([-4, 0.05, -8.6]),
+    shippedControl: project([-8, 0.05, -1]),
     blocker: project(BLOCKER.position),
   }
 }
@@ -73,8 +77,9 @@ async function capture({ helpers, client, project, chrome, inspector }, edit) {
     const inspected = await call(client, 'inspect_runtime', { project_path: project })
     assert.equal(inspected.isError, undefined, `inspect_runtime failed: ${JSON.stringify(inspected)}`)
     const snapshot = inspected.structuredContent.snapshot
-    const samples = await inspector.evaluate(samplesInPage, { base64: image, points: await samplePoints(snapshot.view) })
-    return { image, snapshot, samples, assets: { booted: start.structuredContent.assets, swapped: swapped.structuredContent.assets } }
+    const points = await samplePoints(snapshot.view)
+    const samples = await inspector.evaluate(samplesInPage, { base64: image, points })
+    return { image, snapshot, points, samples, assets: { booted: start.structuredContent.assets, swapped: swapped.structuredContent.assets } }
   } finally {
     const stopped = await call(client, 'stop_project', { project_path: project })
     await restore()
@@ -145,13 +150,71 @@ async function assertFrame({ inspector, image, samples }) {
 }
 
 const torchesOff = (scene) => {
-  for (const entity of scene.entities.filter((candidate) => candidate.prefab === 'tiles/torch')) entity.overrides = { PointLight: { intensity: 0 } }
+  for (const entity of scene.entities.filter((candidate) => candidate.prefab === 'tiles/torch')) {
+    entity.overrides = { ...entity.overrides, PointLight: { ...entity.overrides?.PointLight, intensity: 0 } }
+  }
+}
+
+// CA-22/I-15 (#203): preserve the pre-shadows lighting/depth oracle in
+// test variants only. The shipped scene and all gameplay still default On.
+const shadowOff = (scene) => {
+  scene.render = { ...scene.render, shadows: { ...scene.render?.shadows, quality: 'off' } }
+}
+
+/** Additional shipped-scene oracle; the legacy Shadows Off thresholds stay unchanged. */
+export function assertShippedTorchContribution(lit, dark) {
+  const warmthGain = warmth(lit.shippedPool) - warmth(dark.shippedPool)
+  const brightnessGain = brightness(lit.shippedPool) - brightness(dark.shippedPool)
+  const controlDelta = maxChannelDifference(lit.shippedControl, dark.shippedControl)
+  const measured = { warmthGain, brightnessGain, controlDelta, lit, dark }
+  // WebGL2 measured 30 warmth / 53 brightness, with no distant-control change.
+  assert.ok(warmthGain >= 15, `shipped shadows-on torches must warm the visible floor; ${JSON.stringify(measured)}`)
+  assert.ok(brightnessGain >= 25, `shipped shadows-on torches must brighten the visible floor; ${JSON.stringify(measured)}`)
+  assert.ok(controlDelta <= 2, `torches must not change the floor beyond their reach; ${JSON.stringify(measured)}`)
+  return { warmthGain, brightnessGain, controlDelta }
+}
+
+function assertMatchedTorchFrames(lit, dark) {
+  assert.equal(lit.snapshot.frame, FRAME)
+  assert.equal(dark.snapshot.frame, FRAME)
+  assert.equal(lit.snapshot.mode, 'paused')
+  assert.equal(dark.snapshot.mode, 'paused')
+  assert.deepEqual(dark.snapshot.view, lit.snapshot.view, 'torch variants must use the same camera')
+  assert.deepEqual(dark.points, lit.points, 'torch variants must sample the same projected floor points')
+  assert.notEqual(lit.snapshot.lighting.shadows.quality, 'off', 'the additional oracle must cover shipped shadows On')
+  const withoutIntensity = (lighting) => ({ ...lighting, pointLights: lighting.pointLights.map((light) => ({ ...light, intensity: undefined })) })
+  assert.deepEqual(withoutIntensity(dark.snapshot.lighting), withoutIntensity(lit.snapshot.lighting), 'only torch intensity may change, not shadows or other lighting')
+  const models = (snapshot) => snapshot.entities.map(({ name, transform, components }) => ({ name, transform, models: components.filter(({ type }) => type === 'Model') }))
+  assert.deepEqual(models(dark.snapshot), models(lit.snapshot), 'geometry and Model participation flags must stay unchanged')
+  assert.equal(lit.snapshot.lighting.pointLights.length, 4)
+  assert.ok(lit.snapshot.lighting.pointLights.every((light) => light.intensity > 0 && light.shadows.enabled))
+  assert.ok(dark.snapshot.lighting.pointLights.every((light) => light.intensity === 0 && light.shadows.enabled))
+}
+
+async function assertShippedTorches(context, shipped) {
+  const dark = await capture(context, torchesOff)
+  await context.keep('shipped-torches-off', dark.image)
+  assertMatchedTorchFrames(shipped, dark)
+  return {
+    ...assertShippedTorchContribution(shipped.samples, dark.samples),
+    frame: FRAME, view: shipped.snapshot.view, shadows: shipped.snapshot.lighting.shadows,
+    points: { pool: shipped.points.shippedPool, control: shipped.points.shippedControl },
+    samples: { lit: shipped.samples, dark: dark.samples },
+  }
 }
 
 /** Depth, not spawn order, decides what is in front: the red box hides what is behind it either way, pixel for pixel. */
 async function assertDepthOrder(context) {
-  const first = await capture(context, (scene) => scene.entities.unshift(BLOCKER))
-  const last = await capture(context, (scene) => scene.entities.push(BLOCKER))
+  const first = await capture(context, (scene) => {
+    shadowOff(scene)
+    scene.entities.unshift(BLOCKER)
+  })
+  const last = await capture(context, (scene) => {
+    shadowOff(scene)
+    scene.entities.push(BLOCKER)
+  })
+  await context.keep('shadow-off-blocker-first', first.image)
+  await context.keep('shadow-off-blocker-last', last.image)
   const [r, g, b] = first.samples.blocker
   assert.ok(r > 120 && g < 60 && b < 60, `the near red box must be drawn in front; ${JSON.stringify(first.samples.blocker)}`)
   const compared = await context.inspector.compare(first.image, last.image)
@@ -168,23 +231,35 @@ async function assertDepthOrder(context) {
 async function assertPixels(context, shipped) {
   if (expectsBlankLighting(context.renderBackend)) {
     const { min, max } = await context.inspector.range(shipped.image)
-    return { reportedOnly: 'https://github.com/chichex/waica/issues/151', range: { min, max } }
+    return {
+      reportedOnly: 'https://github.com/chichex/waica/issues/151', range: { min, max },
+      ...(context.includeShadows ? { shippedTorches: await assertShippedTorches(context, shipped) } : {}),
+    }
   }
-  const pool = await assertFrame({ inspector: context.inspector, image: shipped.image, samples: shipped.samples })
-  const dark = await capture(context, torchesOff)
+  const legacy = await capture(context, shadowOff)
+  await context.keep('shadow-off-lit', legacy.image)
+  const pool = await assertFrame({ inspector: context.inspector, image: legacy.image, samples: legacy.samples })
+  const dark = await capture(context, (scene) => {
+    shadowOff(scene)
+    torchesOff(scene)
+  })
+  await context.keep('shadow-off-torches-off', dark.image)
   const darkPool = warmth(dark.samples.underTorch) - warmth(dark.samples.farFromTorches)
   assert.ok(darkPool < pool / 2, `without the torches' light the pool must fade; ${JSON.stringify({ pool, darkPool })}`)
-  return { samples: shipped.samples, pool, darkPool, depth: await assertDepthOrder(context) }
+  return {
+    lightingOracle: 'explicit-shadows-off', samples: legacy.samples, pool, darkPool, depth: await assertDepthOrder(context),
+    ...(context.includeShadows ? { shippedTorches: await assertShippedTorches(context, shipped) } : {}),
+  }
 }
 
 /** The whole third-person leg; `helpers` are runtime-e2e.mjs's own. */
-export async function runThirdPersonLeg({ client, root, parent, chrome, viteBin, engineRoot, playwright, label, helpers, renderBackend }) {
+export async function runThirdPersonLeg({ client, root, parent, chrome, viteBin, engineRoot, playwright, label, helpers, renderBackend, includeShadows = true }) {
   const validation = await assertValidates({ helpers, client, parent })
   const project = await helpers.makeDemoProject({ client, root, parent, viteBin, engineRoot, archetype: 'third-person', name: 'waica-third-person' })
   const scene = JSON.parse(await readFile(path.join(project, `src/scenes/${SCENE}.scene.json`), 'utf8'))
   const inspector = await helpers.openPngInspector(playwright, chrome.executablePath)
-  const context = { helpers, client, project, chrome, inspector, renderBackend }
   const keep = (name, image) => helpers.keepScreenshot(`${label}-third-person-${name}.png`, image)
+  const context = { helpers, client, project, chrome, inspector, renderBackend, keep, includeShadows }
   try {
     const shipped = await capture(context, () => {})
     await keep('shipped', shipped.image)

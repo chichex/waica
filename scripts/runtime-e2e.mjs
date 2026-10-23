@@ -22,6 +22,7 @@ import { stdioRpc } from './stdio-rpc.mjs'
 import { runLightingLeg } from './runtime-e2e-lighting.mjs'
 import { runEditor3dLeg } from './runtime-e2e-editor-3d.mjs'
 import { runThirdPersonLeg } from './runtime-e2e-third-person.mjs'
+import { runShadowLeg } from './runtime-e2e-shadows.mjs'
 
 const execFileAsync = promisify(execFile)
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
@@ -1996,7 +1997,9 @@ export async function runRuntimeE2e({
   includeBatchParity = true,
   includeLighting = true,
   includeThirdPerson = true,
+  includeShadows = includeThirdPerson,
   includeEditor3d = true,
+  includeEditorShadows = includeEditor3d,
   includeSignalShutdown = true,
   renderLeg,
 }) {
@@ -2128,11 +2131,19 @@ export async function runRuntimeE2e({
           label,
           helpers: { call, assertScreenshot, assertUrlClosed, keepScreenshot, makeDemoProject, openPngInspector },
           renderBackend: renderLeg?.backend,
+          includeShadows,
+        })
+      : {}
+    const shadowResult = includeShadows
+      ? await runShadowLeg({
+          client, root, parent: temporaryParent, chrome, viteBin, engineRoot, playwright, label,
+          helpers: { call, assertScreenshot, assertUrlClosed, keepScreenshot, makeDemoProject, openPngInspector },
+          renderBackend: renderLeg?.backend,
         })
       : {}
     // The editor's 3D edit view, driven in its dev server with the real mouse (issue #173 CA-23).
     const editor3dResult = includeEditor3d
-      ? await runEditor3dLeg({ root, viteBin, chrome, playwright, label, helpers: { keepScreenshot, openPngInspector }, renderLeg, mcp: { call, client, parent: temporaryParent } })
+      ? await runEditor3dLeg({ root, viteBin, chrome, playwright, label, helpers: { keepScreenshot, openPngInspector }, renderLeg, includeShadows: includeEditorShadows, mcp: { call, client, parent: temporaryParent } })
       : {}
     if (negative) await runNegativeReadiness({ client, fixture: negative, chrome })
     let signalShutdownResult = {}
@@ -2156,6 +2167,7 @@ export async function runRuntimeE2e({
       ...batchParityResult,
       ...lightingResult,
       ...thirdPersonResult,
+      ...shadowResult,
       ...editor3dResult,
       ...signalShutdownResult,
     }

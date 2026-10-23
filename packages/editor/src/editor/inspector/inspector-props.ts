@@ -4,6 +4,7 @@ import type {
   SceneCameraJson,
   SceneEntityJson,
   SceneJson,
+  SceneRenderJson,
   SceneSpace,
   TransformJson,
 } from '@waica/engine'
@@ -98,6 +99,8 @@ export interface InspectorProps {
   resolution: ResolutionSetting
   /** The open scene's camera block, for "fill camera" on an entity's appearance. */
   sceneCamera: SceneCameraJson | undefined
+  /** The open scene's authored render policy, for effective component shadow values. */
+  sceneRender?: SceneRenderJson
   /** Sets an appearance's size (and optionally offset) as ONE undo step. */
   onSizeAppearance(
     entity: string,

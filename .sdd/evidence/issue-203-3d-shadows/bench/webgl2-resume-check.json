@@ -1,0 +1,5111 @@
+[
+  {
+    "scenario": "static-sprites-1000",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 1,
+      "meshes": 1001,
+      "visibleMeshes": 1,
+      "geometries": 2,
+      "materials": 1,
+      "textures": 1,
+      "textureSources": 1,
+      "entitiesSpawned": 1000,
+      "entitiesDestroyed": 0,
+      "materialsCreated": 1,
+      "geometriesCreated": 2
+    },
+    "timings": {
+      "frames": 60,
+      "medianMs": 8.299999952316284,
+      "p95Ms": 11,
+      "overBudget": false,
+      "gcPauses": {
+        "count": 8,
+        "totalMs": 1.695
+      }
+    }
+  },
+  {
+    "scenario": "static-sprites-5000",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 1,
+      "meshes": 5001,
+      "visibleMeshes": 1,
+      "geometries": 2,
+      "materials": 1,
+      "textures": 1,
+      "textureSources": 1,
+      "entitiesSpawned": 5000,
+      "entitiesDestroyed": 0,
+      "materialsCreated": 1,
+      "geometriesCreated": 2
+    },
+    "timings": {
+      "frames": 60,
+      "medianMs": 33.799999952316284,
+      "p95Ms": 37.700000047683716,
+      "overBudget": true,
+      "gcPauses": {
+        "count": 10,
+        "totalMs": 4.717
+      }
+    }
+  },
+  {
+    "scenario": "static-sprites-20000",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 1,
+      "meshes": 20001,
+      "visibleMeshes": 1,
+      "geometries": 2,
+      "materials": 1,
+      "textures": 1,
+      "textureSources": 1,
+      "entitiesSpawned": 20000,
+      "entitiesDestroyed": 0,
+      "materialsCreated": 1,
+      "geometriesCreated": 2
+    },
+    "timings": {
+      "frames": 60,
+      "medianMs": 138.19999992847443,
+      "p95Ms": 145.59999990463257,
+      "overBudget": true,
+      "gcPauses": {
+        "count": 36,
+        "totalMs": 13.823
+      }
+    }
+  },
+  {
+    "scenario": "spawn-churn-10",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 1,
+      "meshes": 301,
+      "visibleMeshes": 1,
+      "geometries": 2,
+      "materials": 1,
+      "textures": 1,
+      "textureSources": 1,
+      "entitiesSpawned": 6000,
+      "entitiesDestroyed": 5700,
+      "materialsCreated": 1,
+      "geometriesCreated": 7
+    },
+    "timings": {
+      "frames": 600,
+      "medianMs": 5.300000190734863,
+      "p95Ms": 6.5,
+      "overBudget": false,
+      "gcPauses": {
+        "count": 29,
+        "totalMs": 12.777
+      }
+    }
+  },
+  {
+    "scenario": "spawn-churn-50",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 1,
+      "meshes": 1501,
+      "visibleMeshes": 1,
+      "geometries": 2,
+      "materials": 1,
+      "textures": 1,
+      "textureSources": 1,
+      "entitiesSpawned": 30000,
+      "entitiesDestroyed": 28500,
+      "materialsCreated": 1,
+      "geometriesCreated": 7
+    },
+    "timings": {
+      "frames": 600,
+      "medianMs": 10.900000095367432,
+      "p95Ms": 14.199999809265137,
+      "overBudget": false,
+      "gcPauses": {
+        "count": 52,
+        "totalMs": 42.672
+      }
+    }
+  },
+  {
+    "scenario": "spawn-churn-200",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 1,
+      "meshes": 6001,
+      "visibleMeshes": 1,
+      "geometries": 2,
+      "materials": 1,
+      "textures": 1,
+      "textureSources": 1,
+      "entitiesSpawned": 120000,
+      "entitiesDestroyed": 114000,
+      "materialsCreated": 1,
+      "geometriesCreated": 7
+    },
+    "timings": {
+      "frames": 600,
+      "medianMs": 43.60000014305115,
+      "p95Ms": 48.200000047683716,
+      "overBudget": true,
+      "gcPauses": {
+        "count": 144,
+        "totalMs": 139.191
+      }
+    }
+  },
+  {
+    "scenario": "animated-sprites-500",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 1,
+      "meshes": 501,
+      "visibleMeshes": 1,
+      "geometries": 2,
+      "materials": 1,
+      "textures": 1,
+      "textureSources": 1,
+      "entitiesSpawned": 500,
+      "entitiesDestroyed": 0,
+      "materialsCreated": 1,
+      "geometriesCreated": 2
+    },
+    "timings": {
+      "frames": 60,
+      "medianMs": 4.799999952316284,
+      "p95Ms": 5.8999998569488525,
+      "overBudget": false,
+      "gcPauses": {
+        "count": 11,
+        "totalMs": 1.615
+      }
+    }
+  },
+  {
+    "scenario": "animated-sprites-2000",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 1,
+      "meshes": 2001,
+      "visibleMeshes": 1,
+      "geometries": 2,
+      "materials": 1,
+      "textures": 1,
+      "textureSources": 1,
+      "entitiesSpawned": 2000,
+      "entitiesDestroyed": 0,
+      "materialsCreated": 1,
+      "geometriesCreated": 2
+    },
+    "timings": {
+      "frames": 60,
+      "medianMs": 13.150000095367432,
+      "p95Ms": 14.600000143051147,
+      "overBudget": false,
+      "gcPauses": {
+        "count": 8,
+        "totalMs": 2.146
+      }
+    }
+  },
+  {
+    "scenario": "bullet-hell-10",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 1,
+      "meshes": 901,
+      "visibleMeshes": 1,
+      "geometries": 2,
+      "materials": 1,
+      "textures": 1,
+      "textureSources": 1,
+      "entitiesSpawned": 6005,
+      "entitiesDestroyed": 5100,
+      "materialsCreated": 1,
+      "geometriesCreated": 8
+    },
+    "timings": {
+      "frames": 600,
+      "medianMs": 6.099999904632568,
+      "p95Ms": 6.799999952316284,
+      "overBudget": false,
+      "gcPauses": {
+        "count": 119,
+        "totalMs": 29.704
+      }
+    }
+  },
+  {
+    "scenario": "bullet-hell-20",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 1,
+      "meshes": 1801,
+      "visibleMeshes": 1,
+      "geometries": 2,
+      "materials": 1,
+      "textures": 1,
+      "textureSources": 1,
+      "entitiesSpawned": 12005,
+      "entitiesDestroyed": 10200,
+      "materialsCreated": 1,
+      "geometriesCreated": 8
+    },
+    "timings": {
+      "frames": 600,
+      "medianMs": 11.799999952316284,
+      "p95Ms": 13.200000047683716,
+      "overBudget": false,
+      "gcPauses": {
+        "count": 155,
+        "totalMs": 48.967
+      }
+    }
+  },
+  {
+    "scenario": "bullet-hell-40",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 1,
+      "meshes": 3601,
+      "visibleMeshes": 1,
+      "geometries": 2,
+      "materials": 1,
+      "textures": 1,
+      "textureSources": 1,
+      "entitiesSpawned": 24005,
+      "entitiesDestroyed": 20400,
+      "materialsCreated": 1,
+      "geometriesCreated": 8
+    },
+    "timings": {
+      "frames": 600,
+      "medianMs": 23.799999952316284,
+      "p95Ms": 25.90000009536743,
+      "overBudget": true,
+      "gcPauses": {
+        "count": 252,
+        "totalMs": 86.067
+      }
+    }
+  },
+  {
+    "scenario": "lights-occlusion-8",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 10,
+      "meshes": 1,
+      "visibleMeshes": 1,
+      "geometries": 1,
+      "materials": 1,
+      "textures": 0,
+      "textureSources": 0,
+      "entitiesSpawned": 9,
+      "entitiesDestroyed": 0,
+      "materialsCreated": 1,
+      "geometriesCreated": 1
+    },
+    "timings": {
+      "frames": 60,
+      "medianMs": 15.299999952316284,
+      "p95Ms": 17,
+      "overBudget": true,
+      "gcPauses": {
+        "count": 2,
+        "totalMs": 0.944
+      }
+    }
+  },
+  {
+    "scenario": "lights-occlusion-32",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 34,
+      "meshes": 1,
+      "visibleMeshes": 1,
+      "geometries": 1,
+      "materials": 1,
+      "textures": 0,
+      "textureSources": 0,
+      "entitiesSpawned": 33,
+      "entitiesDestroyed": 0,
+      "materialsCreated": 1,
+      "geometriesCreated": 1
+    },
+    "timings": {
+      "frames": 60,
+      "medianMs": 42.65000009536743,
+      "p95Ms": 55.5,
+      "overBudget": true,
+      "gcPauses": {
+        "count": 3,
+        "totalMs": 1.233
+      }
+    }
+  },
+  {
+    "scenario": "falling-boxes-200",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 200,
+      "meshes": 200,
+      "visibleMeshes": 200,
+      "geometries": 200,
+      "materials": 200,
+      "textures": 0,
+      "textureSources": 0,
+      "entitiesSpawned": 202,
+      "entitiesDestroyed": 0,
+      "materialsCreated": 200,
+      "geometriesCreated": 200
+    },
+    "timings": {
+      "frames": 300,
+      "medianMs": 4.700000047683716,
+      "p95Ms": 6.799999952316284,
+      "overBudget": false,
+      "gcPauses": {
+        "count": 24,
+        "totalMs": 5.409
+      }
+    }
+  },
+  {
+    "scenario": "falling-boxes-1000",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 1000,
+      "meshes": 1000,
+      "visibleMeshes": 1000,
+      "geometries": 1000,
+      "materials": 1000,
+      "textures": 0,
+      "textureSources": 0,
+      "entitiesSpawned": 1002,
+      "entitiesDestroyed": 0,
+      "materialsCreated": 1000,
+      "geometriesCreated": 1000
+    },
+    "timings": {
+      "frames": 300,
+      "medianMs": 22.40000009536743,
+      "p95Ms": 30,
+      "overBudget": true,
+      "gcPauses": {
+        "count": 46,
+        "totalMs": 14.843
+      }
+    }
+  },
+  {
+    "scenario": "skinned-characters-50",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 50,
+      "meshes": 50,
+      "visibleMeshes": 50,
+      "geometries": 1,
+      "materials": 1,
+      "textures": 0,
+      "textureSources": 0,
+      "entitiesSpawned": 51,
+      "entitiesDestroyed": 0,
+      "materialsCreated": 1,
+      "geometriesCreated": 1
+    },
+    "timings": {
+      "frames": 60,
+      "medianMs": 2.200000047683716,
+      "p95Ms": 3,
+      "overBudget": false,
+      "gcPauses": {
+        "count": 4,
+        "totalMs": 1.134
+      }
+    }
+  },
+  {
+    "scenario": "skinned-characters-200",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 200,
+      "meshes": 200,
+      "visibleMeshes": 200,
+      "geometries": 1,
+      "materials": 1,
+      "textures": 0,
+      "textureSources": 0,
+      "entitiesSpawned": 201,
+      "entitiesDestroyed": 0,
+      "materialsCreated": 1,
+      "geometriesCreated": 1
+    },
+    "timings": {
+      "frames": 60,
+      "medianMs": 7.649999976158142,
+      "p95Ms": 10.200000047683716,
+      "overBudget": false,
+      "gcPauses": {
+        "count": 4,
+        "totalMs": 1.303
+      }
+    }
+  },
+  {
+    "scenario": "shadows-sun-off-50",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 51,
+      "meshes": 51,
+      "visibleMeshes": 51,
+      "geometries": 51,
+      "materials": 51,
+      "textures": 0,
+      "textureSources": 0,
+      "entitiesSpawned": 52,
+      "entitiesDestroyed": 0,
+      "materialsCreated": 51,
+      "geometriesCreated": 51
+    },
+    "timings": {
+      "frames": 60,
+      "medianMs": 4.099999904632568,
+      "p95Ms": 6.299999952316284,
+      "overBudget": false,
+      "gcPauses": {
+        "count": 3,
+        "totalMs": 1.172
+      }
+    },
+    "shadow": {
+      "composition": "sun",
+      "enabled": false,
+      "quality": "off",
+      "casters": 50,
+      "lights": 1,
+      "warmupFrames": 5,
+      "measuredFrames": 60
+    }
+  },
+  {
+    "scenario": "shadows-sun-off-200",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 201,
+      "meshes": 201,
+      "visibleMeshes": 201,
+      "geometries": 201,
+      "materials": 201,
+      "textures": 0,
+      "textureSources": 0,
+      "entitiesSpawned": 202,
+      "entitiesDestroyed": 0,
+      "materialsCreated": 201,
+      "geometriesCreated": 201
+    },
+    "timings": {
+      "frames": 60,
+      "medianMs": 5.549999952316284,
+      "p95Ms": 6.400000095367432,
+      "overBudget": false,
+      "gcPauses": {
+        "count": 4,
+        "totalMs": 1.072
+      }
+    },
+    "shadow": {
+      "composition": "sun",
+      "enabled": false,
+      "quality": "off",
+      "casters": 200,
+      "lights": 1,
+      "warmupFrames": 5,
+      "measuredFrames": 60
+    }
+  },
+  {
+    "scenario": "shadows-sun-on-50",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 101,
+      "meshes": 51,
+      "visibleMeshes": 51,
+      "geometries": 51,
+      "materials": 51,
+      "textures": 0,
+      "textureSources": 0,
+      "entitiesSpawned": 52,
+      "entitiesDestroyed": 0,
+      "materialsCreated": 51,
+      "geometriesCreated": 51
+    },
+    "timings": {
+      "frames": 60,
+      "medianMs": 9.199999809265137,
+      "p95Ms": 10.100000143051147,
+      "overBudget": false,
+      "gcPauses": {
+        "count": 4,
+        "totalMs": 1.318
+      }
+    },
+    "shadow": {
+      "composition": "sun",
+      "enabled": true,
+      "quality": "medium",
+      "casters": 50,
+      "lights": 1,
+      "warmupFrames": 5,
+      "measuredFrames": 60
+    },
+    "resources": {
+      "backend": "webgl2",
+      "phases": [
+        "low",
+        "low-edited",
+        "medium",
+        "high",
+        "resized",
+        "off",
+        "reactivated",
+        "light-destroyed",
+        "scene-2d",
+        "scene-3d",
+        "empty"
+      ],
+      "checkpoints": [
+        {
+          "phase": "low",
+          "cycle": 0,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 114985,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681184,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814337
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 130,
+            "destroyedTextures": 120,
+            "initializedTargets": 65,
+            "targetDisposals": 60
+          }
+        },
+        {
+          "phase": "low-edited",
+          "cycle": 0,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 114985,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681184,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814337
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 130,
+            "destroyedTextures": 120,
+            "initializedTargets": 65,
+            "targetDisposals": 60
+          }
+        },
+        {
+          "phase": "medium",
+          "cycle": 0,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 114985,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 65012736,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 65145889
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 140,
+            "destroyedTextures": 130,
+            "initializedTargets": 70,
+            "targetDisposals": 65
+          }
+        },
+        {
+          "phase": "high",
+          "cycle": 0,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 114985,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 241173504,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 241306657
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 150,
+            "destroyedTextures": 140,
+            "initializedTargets": 75,
+            "targetDisposals": 70
+          }
+        },
+        {
+          "phase": "resized",
+          "cycle": 0,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 114985,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681088,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814241
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 160,
+            "destroyedTextures": 150,
+            "initializedTargets": 80,
+            "targetDisposals": 75
+          }
+        },
+        {
+          "phase": "off",
+          "cycle": 0,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 4,
+            "programsSize": 55641,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 8,
+            "uniformBuffersSize": 1760,
+            "total": 66417
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 160,
+            "destroyedTextures": 160,
+            "initializedTargets": 80,
+            "targetDisposals": 80
+          }
+        },
+        {
+          "phase": "reactivated",
+          "cycle": 0,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115021,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 58721376,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 58854565
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 170,
+            "destroyedTextures": 160,
+            "initializedTargets": 85,
+            "targetDisposals": 80
+          }
+        },
+        {
+          "phase": "light-destroyed",
+          "cycle": 0,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 11,
+            "programsSize": 98353,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 4,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 9,
+            "texturesSize": 52429896,
+            "uniformBuffers": 38,
+            "uniformBuffersSize": 8544,
+            "total": 52544785
+          },
+          "shadow": {
+            "liveTargets": 4,
+            "liveTextures": 8,
+            "createdTextures": 170,
+            "destroyedTextures": 162,
+            "initializedTargets": 85,
+            "targetDisposals": 81
+          }
+        },
+        {
+          "phase": "scene-2d",
+          "cycle": 0,
+          "memory": {
+            "attributes": 4,
+            "attributesSize": 4752,
+            "geometries": 1,
+            "indexAttributes": 0,
+            "indexAttributesSize": 0,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 0,
+            "programsSize": 0,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 0,
+            "uniformBuffersSize": 0,
+            "total": 5776
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 170,
+            "destroyedTextures": 170,
+            "initializedTargets": 85,
+            "targetDisposals": 85
+          }
+        },
+        {
+          "phase": "scene-3d",
+          "cycle": 0,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 58721376,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 58854637
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 180,
+            "destroyedTextures": 170,
+            "initializedTargets": 90,
+            "targetDisposals": 85
+          }
+        },
+        {
+          "phase": "empty",
+          "cycle": 0,
+          "memory": {
+            "attributes": 4,
+            "attributesSize": 4752,
+            "geometries": 1,
+            "indexAttributes": 0,
+            "indexAttributesSize": 0,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 0,
+            "programsSize": 0,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 0,
+            "uniformBuffersSize": 0,
+            "total": 5776
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 180,
+            "destroyedTextures": 180,
+            "initializedTargets": 90,
+            "targetDisposals": 90
+          }
+        },
+        {
+          "phase": "low",
+          "cycle": 1,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681184,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814445
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 190,
+            "destroyedTextures": 180,
+            "initializedTargets": 95,
+            "targetDisposals": 90
+          }
+        },
+        {
+          "phase": "low-edited",
+          "cycle": 1,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681184,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814445
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 190,
+            "destroyedTextures": 180,
+            "initializedTargets": 95,
+            "targetDisposals": 90
+          }
+        },
+        {
+          "phase": "medium",
+          "cycle": 1,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 65012736,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 65145997
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 200,
+            "destroyedTextures": 190,
+            "initializedTargets": 100,
+            "targetDisposals": 95
+          }
+        },
+        {
+          "phase": "high",
+          "cycle": 1,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 241173504,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 241306765
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 210,
+            "destroyedTextures": 200,
+            "initializedTargets": 105,
+            "targetDisposals": 100
+          }
+        },
+        {
+          "phase": "resized",
+          "cycle": 1,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681088,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814349
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 220,
+            "destroyedTextures": 210,
+            "initializedTargets": 110,
+            "targetDisposals": 105
+          }
+        },
+        {
+          "phase": "off",
+          "cycle": 1,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 4,
+            "programsSize": 55659,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 8,
+            "uniformBuffersSize": 1760,
+            "total": 66435
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 220,
+            "destroyedTextures": 220,
+            "initializedTargets": 110,
+            "targetDisposals": 110
+          }
+        },
+        {
+          "phase": "reactivated",
+          "cycle": 1,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 58721376,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 58854637
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 230,
+            "destroyedTextures": 220,
+            "initializedTargets": 115,
+            "targetDisposals": 110
+          }
+        },
+        {
+          "phase": "light-destroyed",
+          "cycle": 1,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 11,
+            "programsSize": 98407,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 4,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 9,
+            "texturesSize": 52429896,
+            "uniformBuffers": 38,
+            "uniformBuffersSize": 8544,
+            "total": 52544839
+          },
+          "shadow": {
+            "liveTargets": 4,
+            "liveTextures": 8,
+            "createdTextures": 230,
+            "destroyedTextures": 222,
+            "initializedTargets": 115,
+            "targetDisposals": 111
+          }
+        },
+        {
+          "phase": "scene-2d",
+          "cycle": 1,
+          "memory": {
+            "attributes": 4,
+            "attributesSize": 4752,
+            "geometries": 1,
+            "indexAttributes": 0,
+            "indexAttributesSize": 0,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 0,
+            "programsSize": 0,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 0,
+            "uniformBuffersSize": 0,
+            "total": 5776
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 230,
+            "destroyedTextures": 230,
+            "initializedTargets": 115,
+            "targetDisposals": 115
+          }
+        },
+        {
+          "phase": "scene-3d",
+          "cycle": 1,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 58721376,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 58854637
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 240,
+            "destroyedTextures": 230,
+            "initializedTargets": 120,
+            "targetDisposals": 115
+          }
+        },
+        {
+          "phase": "empty",
+          "cycle": 1,
+          "memory": {
+            "attributes": 4,
+            "attributesSize": 4752,
+            "geometries": 1,
+            "indexAttributes": 0,
+            "indexAttributesSize": 0,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 0,
+            "programsSize": 0,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 0,
+            "uniformBuffersSize": 0,
+            "total": 5776
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 240,
+            "destroyedTextures": 240,
+            "initializedTargets": 120,
+            "targetDisposals": 120
+          }
+        },
+        {
+          "phase": "low",
+          "cycle": 2,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681184,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814445
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 250,
+            "destroyedTextures": 240,
+            "initializedTargets": 125,
+            "targetDisposals": 120
+          }
+        },
+        {
+          "phase": "low-edited",
+          "cycle": 2,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681184,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814445
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 250,
+            "destroyedTextures": 240,
+            "initializedTargets": 125,
+            "targetDisposals": 120
+          }
+        },
+        {
+          "phase": "medium",
+          "cycle": 2,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 65012736,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 65145997
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 260,
+            "destroyedTextures": 250,
+            "initializedTargets": 130,
+            "targetDisposals": 125
+          }
+        },
+        {
+          "phase": "high",
+          "cycle": 2,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 241173504,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 241306765
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 270,
+            "destroyedTextures": 260,
+            "initializedTargets": 135,
+            "targetDisposals": 130
+          }
+        },
+        {
+          "phase": "resized",
+          "cycle": 2,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681088,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814349
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 280,
+            "destroyedTextures": 270,
+            "initializedTargets": 140,
+            "targetDisposals": 135
+          }
+        },
+        {
+          "phase": "off",
+          "cycle": 2,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 4,
+            "programsSize": 55659,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 8,
+            "uniformBuffersSize": 1760,
+            "total": 66435
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 280,
+            "destroyedTextures": 280,
+            "initializedTargets": 140,
+            "targetDisposals": 140
+          }
+        },
+        {
+          "phase": "reactivated",
+          "cycle": 2,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 58721376,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 58854637
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 290,
+            "destroyedTextures": 280,
+            "initializedTargets": 145,
+            "targetDisposals": 140
+          }
+        },
+        {
+          "phase": "light-destroyed",
+          "cycle": 2,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 11,
+            "programsSize": 98407,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 4,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 9,
+            "texturesSize": 52429896,
+            "uniformBuffers": 38,
+            "uniformBuffersSize": 8544,
+            "total": 52544839
+          },
+          "shadow": {
+            "liveTargets": 4,
+            "liveTextures": 8,
+            "createdTextures": 290,
+            "destroyedTextures": 282,
+            "initializedTargets": 145,
+            "targetDisposals": 141
+          }
+        },
+        {
+          "phase": "scene-2d",
+          "cycle": 2,
+          "memory": {
+            "attributes": 4,
+            "attributesSize": 4752,
+            "geometries": 1,
+            "indexAttributes": 0,
+            "indexAttributesSize": 0,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 0,
+            "programsSize": 0,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 0,
+            "uniformBuffersSize": 0,
+            "total": 5776
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 290,
+            "destroyedTextures": 290,
+            "initializedTargets": 145,
+            "targetDisposals": 145
+          }
+        },
+        {
+          "phase": "scene-3d",
+          "cycle": 2,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 58721376,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 58854637
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 300,
+            "destroyedTextures": 290,
+            "initializedTargets": 150,
+            "targetDisposals": 145
+          }
+        },
+        {
+          "phase": "empty",
+          "cycle": 2,
+          "memory": {
+            "attributes": 4,
+            "attributesSize": 4752,
+            "geometries": 1,
+            "indexAttributes": 0,
+            "indexAttributesSize": 0,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 0,
+            "programsSize": 0,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 0,
+            "uniformBuffersSize": 0,
+            "total": 5776
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 300,
+            "destroyedTextures": 300,
+            "initializedTargets": 150,
+            "targetDisposals": 150
+          }
+        },
+        {
+          "phase": "low",
+          "cycle": 3,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681184,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814445
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 310,
+            "destroyedTextures": 300,
+            "initializedTargets": 155,
+            "targetDisposals": 150
+          }
+        },
+        {
+          "phase": "low-edited",
+          "cycle": 3,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681184,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814445
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 310,
+            "destroyedTextures": 300,
+            "initializedTargets": 155,
+            "targetDisposals": 150
+          }
+        },
+        {
+          "phase": "medium",
+          "cycle": 3,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 65012736,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 65145997
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 320,
+            "destroyedTextures": 310,
+            "initializedTargets": 160,
+            "targetDisposals": 155
+          }
+        },
+        {
+          "phase": "high",
+          "cycle": 3,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 241173504,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 241306765
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 330,
+            "destroyedTextures": 320,
+            "initializedTargets": 165,
+            "targetDisposals": 160
+          }
+        },
+        {
+          "phase": "resized",
+          "cycle": 3,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681088,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814349
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 340,
+            "destroyedTextures": 330,
+            "initializedTargets": 170,
+            "targetDisposals": 165
+          }
+        },
+        {
+          "phase": "off",
+          "cycle": 3,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 4,
+            "programsSize": 55659,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 8,
+            "uniformBuffersSize": 1760,
+            "total": 66435
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 340,
+            "destroyedTextures": 340,
+            "initializedTargets": 170,
+            "targetDisposals": 170
+          }
+        },
+        {
+          "phase": "reactivated",
+          "cycle": 3,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 58721376,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 58854637
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 350,
+            "destroyedTextures": 340,
+            "initializedTargets": 175,
+            "targetDisposals": 170
+          }
+        },
+        {
+          "phase": "light-destroyed",
+          "cycle": 3,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 11,
+            "programsSize": 98407,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 4,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 9,
+            "texturesSize": 52429896,
+            "uniformBuffers": 38,
+            "uniformBuffersSize": 8544,
+            "total": 52544839
+          },
+          "shadow": {
+            "liveTargets": 4,
+            "liveTextures": 8,
+            "createdTextures": 350,
+            "destroyedTextures": 342,
+            "initializedTargets": 175,
+            "targetDisposals": 171
+          }
+        },
+        {
+          "phase": "scene-2d",
+          "cycle": 3,
+          "memory": {
+            "attributes": 4,
+            "attributesSize": 4752,
+            "geometries": 1,
+            "indexAttributes": 0,
+            "indexAttributesSize": 0,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 0,
+            "programsSize": 0,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 0,
+            "uniformBuffersSize": 0,
+            "total": 5776
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 350,
+            "destroyedTextures": 350,
+            "initializedTargets": 175,
+            "targetDisposals": 175
+          }
+        },
+        {
+          "phase": "scene-3d",
+          "cycle": 3,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 58721376,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 58854637
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 360,
+            "destroyedTextures": 350,
+            "initializedTargets": 180,
+            "targetDisposals": 175
+          }
+        },
+        {
+          "phase": "empty",
+          "cycle": 3,
+          "memory": {
+            "attributes": 4,
+            "attributesSize": 4752,
+            "geometries": 1,
+            "indexAttributes": 0,
+            "indexAttributesSize": 0,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 0,
+            "programsSize": 0,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 0,
+            "uniformBuffersSize": 0,
+            "total": 5776
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 360,
+            "destroyedTextures": 360,
+            "initializedTargets": 180,
+            "targetDisposals": 180
+          }
+        },
+        {
+          "phase": "low",
+          "cycle": 4,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681184,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814445
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 370,
+            "destroyedTextures": 360,
+            "initializedTargets": 185,
+            "targetDisposals": 180
+          }
+        },
+        {
+          "phase": "low-edited",
+          "cycle": 4,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681184,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814445
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 370,
+            "destroyedTextures": 360,
+            "initializedTargets": 185,
+            "targetDisposals": 180
+          }
+        },
+        {
+          "phase": "medium",
+          "cycle": 4,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 65012736,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 65145997
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 380,
+            "destroyedTextures": 370,
+            "initializedTargets": 190,
+            "targetDisposals": 185
+          }
+        },
+        {
+          "phase": "high",
+          "cycle": 4,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 241173504,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 241306765
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 390,
+            "destroyedTextures": 380,
+            "initializedTargets": 195,
+            "targetDisposals": 190
+          }
+        },
+        {
+          "phase": "resized",
+          "cycle": 4,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681088,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814349
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 400,
+            "destroyedTextures": 390,
+            "initializedTargets": 200,
+            "targetDisposals": 195
+          }
+        },
+        {
+          "phase": "off",
+          "cycle": 4,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 4,
+            "programsSize": 55659,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 8,
+            "uniformBuffersSize": 1760,
+            "total": 66435
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 400,
+            "destroyedTextures": 400,
+            "initializedTargets": 200,
+            "targetDisposals": 200
+          }
+        },
+        {
+          "phase": "reactivated",
+          "cycle": 4,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 58721376,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 58854637
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 410,
+            "destroyedTextures": 400,
+            "initializedTargets": 205,
+            "targetDisposals": 200
+          }
+        },
+        {
+          "phase": "light-destroyed",
+          "cycle": 4,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 11,
+            "programsSize": 98407,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 4,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 9,
+            "texturesSize": 52429896,
+            "uniformBuffers": 38,
+            "uniformBuffersSize": 8544,
+            "total": 52544839
+          },
+          "shadow": {
+            "liveTargets": 4,
+            "liveTextures": 8,
+            "createdTextures": 410,
+            "destroyedTextures": 402,
+            "initializedTargets": 205,
+            "targetDisposals": 201
+          }
+        },
+        {
+          "phase": "scene-2d",
+          "cycle": 4,
+          "memory": {
+            "attributes": 4,
+            "attributesSize": 4752,
+            "geometries": 1,
+            "indexAttributes": 0,
+            "indexAttributesSize": 0,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 0,
+            "programsSize": 0,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 0,
+            "uniformBuffersSize": 0,
+            "total": 5776
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 410,
+            "destroyedTextures": 410,
+            "initializedTargets": 205,
+            "targetDisposals": 205
+          }
+        },
+        {
+          "phase": "scene-3d",
+          "cycle": 4,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 58721376,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 58854637
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 420,
+            "destroyedTextures": 410,
+            "initializedTargets": 210,
+            "targetDisposals": 205
+          }
+        },
+        {
+          "phase": "empty",
+          "cycle": 4,
+          "memory": {
+            "attributes": 4,
+            "attributesSize": 4752,
+            "geometries": 1,
+            "indexAttributes": 0,
+            "indexAttributesSize": 0,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 0,
+            "programsSize": 0,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 0,
+            "uniformBuffersSize": 0,
+            "total": 5776
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 420,
+            "destroyedTextures": 420,
+            "initializedTargets": 210,
+            "targetDisposals": 210
+          }
+        },
+        {
+          "phase": "low",
+          "cycle": 5,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681184,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814445
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 430,
+            "destroyedTextures": 420,
+            "initializedTargets": 215,
+            "targetDisposals": 210
+          }
+        },
+        {
+          "phase": "low-edited",
+          "cycle": 5,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681184,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814445
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 430,
+            "destroyedTextures": 420,
+            "initializedTargets": 215,
+            "targetDisposals": 210
+          }
+        },
+        {
+          "phase": "medium",
+          "cycle": 5,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 65012736,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 65145997
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 440,
+            "destroyedTextures": 430,
+            "initializedTargets": 220,
+            "targetDisposals": 215
+          }
+        },
+        {
+          "phase": "high",
+          "cycle": 5,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 241173504,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 241306765
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 450,
+            "destroyedTextures": 440,
+            "initializedTargets": 225,
+            "targetDisposals": 220
+          }
+        },
+        {
+          "phase": "resized",
+          "cycle": 5,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681088,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814349
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 460,
+            "destroyedTextures": 450,
+            "initializedTargets": 230,
+            "targetDisposals": 225
+          }
+        },
+        {
+          "phase": "off",
+          "cycle": 5,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 4,
+            "programsSize": 55659,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 8,
+            "uniformBuffersSize": 1760,
+            "total": 66435
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 460,
+            "destroyedTextures": 460,
+            "initializedTargets": 230,
+            "targetDisposals": 230
+          }
+        },
+        {
+          "phase": "reactivated",
+          "cycle": 5,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 58721376,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 58854637
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 470,
+            "destroyedTextures": 460,
+            "initializedTargets": 235,
+            "targetDisposals": 230
+          }
+        },
+        {
+          "phase": "light-destroyed",
+          "cycle": 5,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 11,
+            "programsSize": 98407,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 4,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 9,
+            "texturesSize": 52429896,
+            "uniformBuffers": 38,
+            "uniformBuffersSize": 8544,
+            "total": 52544839
+          },
+          "shadow": {
+            "liveTargets": 4,
+            "liveTextures": 8,
+            "createdTextures": 470,
+            "destroyedTextures": 462,
+            "initializedTargets": 235,
+            "targetDisposals": 231
+          }
+        },
+        {
+          "phase": "scene-2d",
+          "cycle": 5,
+          "memory": {
+            "attributes": 4,
+            "attributesSize": 4752,
+            "geometries": 1,
+            "indexAttributes": 0,
+            "indexAttributesSize": 0,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 0,
+            "programsSize": 0,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 0,
+            "uniformBuffersSize": 0,
+            "total": 5776
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 470,
+            "destroyedTextures": 470,
+            "initializedTargets": 235,
+            "targetDisposals": 235
+          }
+        },
+        {
+          "phase": "scene-3d",
+          "cycle": 5,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 58721376,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 58854637
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 480,
+            "destroyedTextures": 470,
+            "initializedTargets": 240,
+            "targetDisposals": 235
+          }
+        },
+        {
+          "phase": "empty",
+          "cycle": 5,
+          "memory": {
+            "attributes": 4,
+            "attributesSize": 4752,
+            "geometries": 1,
+            "indexAttributes": 0,
+            "indexAttributesSize": 0,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 0,
+            "programsSize": 0,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 0,
+            "uniformBuffersSize": 0,
+            "total": 5776
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 480,
+            "destroyedTextures": 480,
+            "initializedTargets": 240,
+            "targetDisposals": 240
+          }
+        },
+        {
+          "phase": "low",
+          "cycle": 6,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681184,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814445
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 490,
+            "destroyedTextures": 480,
+            "initializedTargets": 245,
+            "targetDisposals": 240
+          }
+        },
+        {
+          "phase": "low-edited",
+          "cycle": 6,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681184,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814445
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 490,
+            "destroyedTextures": 480,
+            "initializedTargets": 245,
+            "targetDisposals": 240
+          }
+        },
+        {
+          "phase": "medium",
+          "cycle": 6,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 65012736,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 65145997
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 500,
+            "destroyedTextures": 490,
+            "initializedTargets": 250,
+            "targetDisposals": 245
+          }
+        },
+        {
+          "phase": "high",
+          "cycle": 6,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 241173504,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 241306765
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 510,
+            "destroyedTextures": 500,
+            "initializedTargets": 255,
+            "targetDisposals": 250
+          }
+        },
+        {
+          "phase": "resized",
+          "cycle": 6,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681088,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814349
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 520,
+            "destroyedTextures": 510,
+            "initializedTargets": 260,
+            "targetDisposals": 255
+          }
+        },
+        {
+          "phase": "off",
+          "cycle": 6,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 4,
+            "programsSize": 55659,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 8,
+            "uniformBuffersSize": 1760,
+            "total": 66435
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 520,
+            "destroyedTextures": 520,
+            "initializedTargets": 260,
+            "targetDisposals": 260
+          }
+        },
+        {
+          "phase": "reactivated",
+          "cycle": 6,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 58721376,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 58854637
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 530,
+            "destroyedTextures": 520,
+            "initializedTargets": 265,
+            "targetDisposals": 260
+          }
+        },
+        {
+          "phase": "light-destroyed",
+          "cycle": 6,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 11,
+            "programsSize": 98407,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 4,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 9,
+            "texturesSize": 52429896,
+            "uniformBuffers": 38,
+            "uniformBuffersSize": 8544,
+            "total": 52544839
+          },
+          "shadow": {
+            "liveTargets": 4,
+            "liveTextures": 8,
+            "createdTextures": 530,
+            "destroyedTextures": 522,
+            "initializedTargets": 265,
+            "targetDisposals": 261
+          }
+        },
+        {
+          "phase": "scene-2d",
+          "cycle": 6,
+          "memory": {
+            "attributes": 4,
+            "attributesSize": 4752,
+            "geometries": 1,
+            "indexAttributes": 0,
+            "indexAttributesSize": 0,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 0,
+            "programsSize": 0,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 0,
+            "uniformBuffersSize": 0,
+            "total": 5776
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 530,
+            "destroyedTextures": 530,
+            "initializedTargets": 265,
+            "targetDisposals": 265
+          }
+        },
+        {
+          "phase": "scene-3d",
+          "cycle": 6,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 58721376,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 58854637
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 540,
+            "destroyedTextures": 530,
+            "initializedTargets": 270,
+            "targetDisposals": 265
+          }
+        },
+        {
+          "phase": "empty",
+          "cycle": 6,
+          "memory": {
+            "attributes": 4,
+            "attributesSize": 4752,
+            "geometries": 1,
+            "indexAttributes": 0,
+            "indexAttributesSize": 0,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 0,
+            "programsSize": 0,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 0,
+            "uniformBuffersSize": 0,
+            "total": 5776
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 540,
+            "destroyedTextures": 540,
+            "initializedTargets": 270,
+            "targetDisposals": 270
+          }
+        },
+        {
+          "phase": "low",
+          "cycle": 7,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681184,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814445
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 550,
+            "destroyedTextures": 540,
+            "initializedTargets": 275,
+            "targetDisposals": 270
+          }
+        },
+        {
+          "phase": "low-edited",
+          "cycle": 7,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681184,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814445
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 550,
+            "destroyedTextures": 540,
+            "initializedTargets": 275,
+            "targetDisposals": 270
+          }
+        },
+        {
+          "phase": "medium",
+          "cycle": 7,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 65012736,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 65145997
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 560,
+            "destroyedTextures": 550,
+            "initializedTargets": 280,
+            "targetDisposals": 275
+          }
+        },
+        {
+          "phase": "high",
+          "cycle": 7,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 241173504,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 241306765
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 570,
+            "destroyedTextures": 560,
+            "initializedTargets": 285,
+            "targetDisposals": 280
+          }
+        },
+        {
+          "phase": "resized",
+          "cycle": 7,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681088,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814349
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 580,
+            "destroyedTextures": 570,
+            "initializedTargets": 290,
+            "targetDisposals": 285
+          }
+        },
+        {
+          "phase": "off",
+          "cycle": 7,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 4,
+            "programsSize": 55659,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 8,
+            "uniformBuffersSize": 1760,
+            "total": 66435
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 580,
+            "destroyedTextures": 580,
+            "initializedTargets": 290,
+            "targetDisposals": 290
+          }
+        },
+        {
+          "phase": "reactivated",
+          "cycle": 7,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 58721376,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 58854637
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 590,
+            "destroyedTextures": 580,
+            "initializedTargets": 295,
+            "targetDisposals": 290
+          }
+        },
+        {
+          "phase": "light-destroyed",
+          "cycle": 7,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 11,
+            "programsSize": 98407,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 4,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 9,
+            "texturesSize": 52429896,
+            "uniformBuffers": 38,
+            "uniformBuffersSize": 8544,
+            "total": 52544839
+          },
+          "shadow": {
+            "liveTargets": 4,
+            "liveTextures": 8,
+            "createdTextures": 590,
+            "destroyedTextures": 582,
+            "initializedTargets": 295,
+            "targetDisposals": 291
+          }
+        },
+        {
+          "phase": "scene-2d",
+          "cycle": 7,
+          "memory": {
+            "attributes": 4,
+            "attributesSize": 4752,
+            "geometries": 1,
+            "indexAttributes": 0,
+            "indexAttributesSize": 0,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 0,
+            "programsSize": 0,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 0,
+            "uniformBuffersSize": 0,
+            "total": 5776
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 590,
+            "destroyedTextures": 590,
+            "initializedTargets": 295,
+            "targetDisposals": 295
+          }
+        },
+        {
+          "phase": "scene-3d",
+          "cycle": 7,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 58721376,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 58854637
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 600,
+            "destroyedTextures": 590,
+            "initializedTargets": 300,
+            "targetDisposals": 295
+          }
+        },
+        {
+          "phase": "empty",
+          "cycle": 7,
+          "memory": {
+            "attributes": 4,
+            "attributesSize": 4752,
+            "geometries": 1,
+            "indexAttributes": 0,
+            "indexAttributesSize": 0,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 0,
+            "programsSize": 0,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 0,
+            "uniformBuffersSize": 0,
+            "total": 5776
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 600,
+            "destroyedTextures": 600,
+            "initializedTargets": 300,
+            "targetDisposals": 300
+          }
+        },
+        {
+          "phase": "low",
+          "cycle": 8,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681184,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814445
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 610,
+            "destroyedTextures": 600,
+            "initializedTargets": 305,
+            "targetDisposals": 300
+          }
+        },
+        {
+          "phase": "low-edited",
+          "cycle": 8,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681184,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814445
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 610,
+            "destroyedTextures": 600,
+            "initializedTargets": 305,
+            "targetDisposals": 300
+          }
+        },
+        {
+          "phase": "medium",
+          "cycle": 8,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 65012736,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 65145997
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 620,
+            "destroyedTextures": 610,
+            "initializedTargets": 310,
+            "targetDisposals": 305
+          }
+        },
+        {
+          "phase": "high",
+          "cycle": 8,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 241173504,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 241306765
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 630,
+            "destroyedTextures": 620,
+            "initializedTargets": 315,
+            "targetDisposals": 310
+          }
+        },
+        {
+          "phase": "resized",
+          "cycle": 8,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681088,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814349
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 640,
+            "destroyedTextures": 630,
+            "initializedTargets": 320,
+            "targetDisposals": 315
+          }
+        },
+        {
+          "phase": "off",
+          "cycle": 8,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 4,
+            "programsSize": 55659,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 8,
+            "uniformBuffersSize": 1760,
+            "total": 66435
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 640,
+            "destroyedTextures": 640,
+            "initializedTargets": 320,
+            "targetDisposals": 320
+          }
+        },
+        {
+          "phase": "reactivated",
+          "cycle": 8,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 58721376,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 58854637
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 650,
+            "destroyedTextures": 640,
+            "initializedTargets": 325,
+            "targetDisposals": 320
+          }
+        },
+        {
+          "phase": "light-destroyed",
+          "cycle": 8,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 11,
+            "programsSize": 98407,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 4,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 9,
+            "texturesSize": 52429896,
+            "uniformBuffers": 38,
+            "uniformBuffersSize": 8544,
+            "total": 52544839
+          },
+          "shadow": {
+            "liveTargets": 4,
+            "liveTextures": 8,
+            "createdTextures": 650,
+            "destroyedTextures": 642,
+            "initializedTargets": 325,
+            "targetDisposals": 321
+          }
+        },
+        {
+          "phase": "scene-2d",
+          "cycle": 8,
+          "memory": {
+            "attributes": 4,
+            "attributesSize": 4752,
+            "geometries": 1,
+            "indexAttributes": 0,
+            "indexAttributesSize": 0,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 0,
+            "programsSize": 0,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 0,
+            "uniformBuffersSize": 0,
+            "total": 5776
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 650,
+            "destroyedTextures": 650,
+            "initializedTargets": 325,
+            "targetDisposals": 325
+          }
+        },
+        {
+          "phase": "scene-3d",
+          "cycle": 8,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 58721376,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 58854637
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 660,
+            "destroyedTextures": 650,
+            "initializedTargets": 330,
+            "targetDisposals": 325
+          }
+        },
+        {
+          "phase": "empty",
+          "cycle": 8,
+          "memory": {
+            "attributes": 4,
+            "attributesSize": 4752,
+            "geometries": 1,
+            "indexAttributes": 0,
+            "indexAttributesSize": 0,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 0,
+            "programsSize": 0,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 0,
+            "uniformBuffersSize": 0,
+            "total": 5776
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 660,
+            "destroyedTextures": 660,
+            "initializedTargets": 330,
+            "targetDisposals": 330
+          }
+        },
+        {
+          "phase": "low",
+          "cycle": 9,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681184,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814445
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 670,
+            "destroyedTextures": 660,
+            "initializedTargets": 335,
+            "targetDisposals": 330
+          }
+        },
+        {
+          "phase": "low-edited",
+          "cycle": 9,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681184,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814445
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 670,
+            "destroyedTextures": 660,
+            "initializedTargets": 335,
+            "targetDisposals": 330
+          }
+        },
+        {
+          "phase": "medium",
+          "cycle": 9,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 65012736,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 65145997
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 680,
+            "destroyedTextures": 670,
+            "initializedTargets": 340,
+            "targetDisposals": 335
+          }
+        },
+        {
+          "phase": "high",
+          "cycle": 9,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 241173504,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 241306765
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 690,
+            "destroyedTextures": 680,
+            "initializedTargets": 345,
+            "targetDisposals": 340
+          }
+        },
+        {
+          "phase": "resized",
+          "cycle": 9,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681088,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814349
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 700,
+            "destroyedTextures": 690,
+            "initializedTargets": 350,
+            "targetDisposals": 345
+          }
+        },
+        {
+          "phase": "off",
+          "cycle": 9,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 4,
+            "programsSize": 55659,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 8,
+            "uniformBuffersSize": 1760,
+            "total": 66435
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 700,
+            "destroyedTextures": 700,
+            "initializedTargets": 350,
+            "targetDisposals": 350
+          }
+        },
+        {
+          "phase": "reactivated",
+          "cycle": 9,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 58721376,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 58854637
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 710,
+            "destroyedTextures": 700,
+            "initializedTargets": 355,
+            "targetDisposals": 350
+          }
+        },
+        {
+          "phase": "light-destroyed",
+          "cycle": 9,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 11,
+            "programsSize": 98407,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 4,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 9,
+            "texturesSize": 52429896,
+            "uniformBuffers": 38,
+            "uniformBuffersSize": 8544,
+            "total": 52544839
+          },
+          "shadow": {
+            "liveTargets": 4,
+            "liveTextures": 8,
+            "createdTextures": 710,
+            "destroyedTextures": 702,
+            "initializedTargets": 355,
+            "targetDisposals": 351
+          }
+        },
+        {
+          "phase": "scene-2d",
+          "cycle": 9,
+          "memory": {
+            "attributes": 4,
+            "attributesSize": 4752,
+            "geometries": 1,
+            "indexAttributes": 0,
+            "indexAttributesSize": 0,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 0,
+            "programsSize": 0,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 0,
+            "uniformBuffersSize": 0,
+            "total": 5776
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 710,
+            "destroyedTextures": 710,
+            "initializedTargets": 355,
+            "targetDisposals": 355
+          }
+        },
+        {
+          "phase": "scene-3d",
+          "cycle": 9,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 58721376,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 58854637
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 720,
+            "destroyedTextures": 710,
+            "initializedTargets": 360,
+            "targetDisposals": 355
+          }
+        },
+        {
+          "phase": "empty",
+          "cycle": 9,
+          "memory": {
+            "attributes": 4,
+            "attributesSize": 4752,
+            "geometries": 1,
+            "indexAttributes": 0,
+            "indexAttributesSize": 0,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 0,
+            "programsSize": 0,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 0,
+            "uniformBuffersSize": 0,
+            "total": 5776
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 720,
+            "destroyedTextures": 720,
+            "initializedTargets": 360,
+            "targetDisposals": 360
+          }
+        },
+        {
+          "phase": "low",
+          "cycle": 10,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681184,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814445
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 730,
+            "destroyedTextures": 720,
+            "initializedTargets": 365,
+            "targetDisposals": 360
+          }
+        },
+        {
+          "phase": "low-edited",
+          "cycle": 10,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681184,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814445
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 730,
+            "destroyedTextures": 720,
+            "initializedTargets": 365,
+            "targetDisposals": 360
+          }
+        },
+        {
+          "phase": "medium",
+          "cycle": 10,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 65012736,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 65145997
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 740,
+            "destroyedTextures": 730,
+            "initializedTargets": 370,
+            "targetDisposals": 365
+          }
+        },
+        {
+          "phase": "high",
+          "cycle": 10,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 241173504,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 241306765
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 750,
+            "destroyedTextures": 740,
+            "initializedTargets": 375,
+            "targetDisposals": 370
+          }
+        },
+        {
+          "phase": "resized",
+          "cycle": 10,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 14681088,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 14814349
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 760,
+            "destroyedTextures": 750,
+            "initializedTargets": 380,
+            "targetDisposals": 375
+          }
+        },
+        {
+          "phase": "off",
+          "cycle": 10,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 4,
+            "programsSize": 55659,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 8,
+            "uniformBuffersSize": 1760,
+            "total": 66435
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 760,
+            "destroyedTextures": 760,
+            "initializedTargets": 380,
+            "targetDisposals": 380
+          }
+        },
+        {
+          "phase": "reactivated",
+          "cycle": 10,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 58721376,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 58854637
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 770,
+            "destroyedTextures": 760,
+            "initializedTargets": 385,
+            "targetDisposals": 380
+          }
+        },
+        {
+          "phase": "light-destroyed",
+          "cycle": 10,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 11,
+            "programsSize": 98407,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 4,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 9,
+            "texturesSize": 52429896,
+            "uniformBuffers": 38,
+            "uniformBuffersSize": 8544,
+            "total": 52544839
+          },
+          "shadow": {
+            "liveTargets": 4,
+            "liveTextures": 8,
+            "createdTextures": 770,
+            "destroyedTextures": 762,
+            "initializedTargets": 385,
+            "targetDisposals": 381
+          }
+        },
+        {
+          "phase": "scene-2d",
+          "cycle": 10,
+          "memory": {
+            "attributes": 4,
+            "attributesSize": 4752,
+            "geometries": 1,
+            "indexAttributes": 0,
+            "indexAttributesSize": 0,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 0,
+            "programsSize": 0,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 0,
+            "uniformBuffersSize": 0,
+            "total": 5776
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 770,
+            "destroyedTextures": 770,
+            "initializedTargets": 385,
+            "targetDisposals": 385
+          }
+        },
+        {
+          "phase": "scene-3d",
+          "cycle": 10,
+          "memory": {
+            "attributes": 14,
+            "attributesSize": 7632,
+            "geometries": 6,
+            "indexAttributes": 5,
+            "indexAttributesSize": 360,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 12,
+            "programsSize": 115093,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 5,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 11,
+            "texturesSize": 58721376,
+            "uniformBuffers": 45,
+            "uniformBuffersSize": 10176,
+            "total": 58854637
+          },
+          "shadow": {
+            "liveTargets": 5,
+            "liveTextures": 10,
+            "createdTextures": 780,
+            "destroyedTextures": 770,
+            "initializedTargets": 390,
+            "targetDisposals": 385
+          }
+        },
+        {
+          "phase": "empty",
+          "cycle": 10,
+          "memory": {
+            "attributes": 4,
+            "attributesSize": 4752,
+            "geometries": 1,
+            "indexAttributes": 0,
+            "indexAttributesSize": 0,
+            "indirectStorageAttributes": 0,
+            "indirectStorageAttributesSize": 0,
+            "programs": 0,
+            "programsSize": 0,
+            "readbackBuffers": 0,
+            "readbackBuffersSize": 0,
+            "renderTargets": 0,
+            "storageAttributes": 0,
+            "storageAttributesSize": 0,
+            "textures": 1,
+            "texturesSize": 1024,
+            "uniformBuffers": 0,
+            "uniformBuffersSize": 0,
+            "total": 5776
+          },
+          "shadow": {
+            "liveTargets": 0,
+            "liveTextures": 0,
+            "createdTextures": 780,
+            "destroyedTextures": 780,
+            "initializedTargets": 390,
+            "targetDisposals": 390
+          }
+        }
+      ],
+      "cycles": 10,
+      "warmupCycles": 3,
+      "passed": true,
+      "measuredBeforeDispose": true
+    }
+  },
+  {
+    "scenario": "shadows-sun-on-200",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 401,
+      "meshes": 201,
+      "visibleMeshes": 201,
+      "geometries": 201,
+      "materials": 201,
+      "textures": 0,
+      "textureSources": 0,
+      "entitiesSpawned": 202,
+      "entitiesDestroyed": 0,
+      "materialsCreated": 201,
+      "geometriesCreated": 201
+    },
+    "timings": {
+      "frames": 60,
+      "medianMs": 11.100000143051147,
+      "p95Ms": 15.099999904632568,
+      "overBudget": false,
+      "gcPauses": {
+        "count": 4,
+        "totalMs": 1.204
+      }
+    },
+    "shadow": {
+      "composition": "sun",
+      "enabled": true,
+      "quality": "medium",
+      "casters": 200,
+      "lights": 1,
+      "warmupFrames": 5,
+      "measuredFrames": 60
+    }
+  },
+  {
+    "scenario": "shadows-point-off-50",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 51,
+      "meshes": 51,
+      "visibleMeshes": 51,
+      "geometries": 51,
+      "materials": 51,
+      "textures": 0,
+      "textureSources": 0,
+      "entitiesSpawned": 52,
+      "entitiesDestroyed": 0,
+      "materialsCreated": 51,
+      "geometriesCreated": 51
+    },
+    "timings": {
+      "frames": 60,
+      "medianMs": 2.6999999284744263,
+      "p95Ms": 3.5,
+      "overBudget": false,
+      "gcPauses": {
+        "count": 3,
+        "totalMs": 0.895
+      }
+    },
+    "shadow": {
+      "composition": "point",
+      "enabled": false,
+      "quality": "off",
+      "casters": 50,
+      "lights": 1,
+      "warmupFrames": 5,
+      "measuredFrames": 60
+    }
+  },
+  {
+    "scenario": "shadows-point-off-200",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 201,
+      "meshes": 201,
+      "visibleMeshes": 201,
+      "geometries": 201,
+      "materials": 201,
+      "textures": 0,
+      "textureSources": 0,
+      "entitiesSpawned": 202,
+      "entitiesDestroyed": 0,
+      "materialsCreated": 201,
+      "geometriesCreated": 201
+    },
+    "timings": {
+      "frames": 60,
+      "medianMs": 5,
+      "p95Ms": 6.299999952316284,
+      "overBudget": false,
+      "gcPauses": {
+        "count": 4,
+        "totalMs": 1.113
+      }
+    },
+    "shadow": {
+      "composition": "point",
+      "enabled": false,
+      "quality": "off",
+      "casters": 200,
+      "lights": 1,
+      "warmupFrames": 5,
+      "measuredFrames": 60
+    }
+  },
+  {
+    "scenario": "shadows-point-on-50",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 134,
+      "meshes": 51,
+      "visibleMeshes": 51,
+      "geometries": 51,
+      "materials": 51,
+      "textures": 0,
+      "textureSources": 0,
+      "entitiesSpawned": 52,
+      "entitiesDestroyed": 0,
+      "materialsCreated": 51,
+      "geometriesCreated": 51
+    },
+    "timings": {
+      "frames": 60,
+      "medianMs": 7.450000047683716,
+      "p95Ms": 8.300000190734863,
+      "overBudget": false,
+      "gcPauses": {
+        "count": 4,
+        "totalMs": 1.101
+      }
+    },
+    "shadow": {
+      "composition": "point",
+      "enabled": true,
+      "quality": "medium",
+      "casters": 50,
+      "lights": 1,
+      "warmupFrames": 5,
+      "measuredFrames": 60
+    }
+  },
+  {
+    "scenario": "shadows-point-on-200",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 513,
+      "meshes": 201,
+      "visibleMeshes": 201,
+      "geometries": 201,
+      "materials": 201,
+      "textures": 0,
+      "textureSources": 0,
+      "entitiesSpawned": 202,
+      "entitiesDestroyed": 0,
+      "materialsCreated": 201,
+      "geometriesCreated": 201
+    },
+    "timings": {
+      "frames": 60,
+      "medianMs": 12.399999976158142,
+      "p95Ms": 14.700000047683716,
+      "overBudget": false,
+      "gcPauses": {
+        "count": 5,
+        "totalMs": 1.693
+      }
+    },
+    "shadow": {
+      "composition": "point",
+      "enabled": true,
+      "quality": "medium",
+      "casters": 200,
+      "lights": 1,
+      "warmupFrames": 5,
+      "measuredFrames": 60
+    }
+  },
+  {
+    "scenario": "shadows-four-point-off-50",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 51,
+      "meshes": 51,
+      "visibleMeshes": 51,
+      "geometries": 51,
+      "materials": 51,
+      "textures": 0,
+      "textureSources": 0,
+      "entitiesSpawned": 55,
+      "entitiesDestroyed": 0,
+      "materialsCreated": 51,
+      "geometriesCreated": 51
+    },
+    "timings": {
+      "frames": 60,
+      "medianMs": 5.200000047683716,
+      "p95Ms": 6.299999952316284,
+      "overBudget": false,
+      "gcPauses": {
+        "count": 3,
+        "totalMs": 0.867
+      }
+    },
+    "shadow": {
+      "composition": "four-point",
+      "enabled": false,
+      "quality": "off",
+      "casters": 50,
+      "lights": 4,
+      "warmupFrames": 5,
+      "measuredFrames": 60
+    }
+  },
+  {
+    "scenario": "shadows-four-point-off-200",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 201,
+      "meshes": 201,
+      "visibleMeshes": 201,
+      "geometries": 201,
+      "materials": 201,
+      "textures": 0,
+      "textureSources": 0,
+      "entitiesSpawned": 205,
+      "entitiesDestroyed": 0,
+      "materialsCreated": 201,
+      "geometriesCreated": 201
+    },
+    "timings": {
+      "frames": 60,
+      "medianMs": 9,
+      "p95Ms": 10.5,
+      "overBudget": false,
+      "gcPauses": {
+        "count": 3,
+        "totalMs": 1.153
+      }
+    },
+    "shadow": {
+      "composition": "four-point",
+      "enabled": false,
+      "quality": "off",
+      "casters": 200,
+      "lights": 4,
+      "warmupFrames": 5,
+      "measuredFrames": 60
+    }
+  },
+  {
+    "scenario": "shadows-four-point-on-50",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 281,
+      "meshes": 51,
+      "visibleMeshes": 51,
+      "geometries": 51,
+      "materials": 51,
+      "textures": 0,
+      "textureSources": 0,
+      "entitiesSpawned": 55,
+      "entitiesDestroyed": 0,
+      "materialsCreated": 51,
+      "geometriesCreated": 51
+    },
+    "timings": {
+      "frames": 60,
+      "medianMs": 16.600000023841858,
+      "p95Ms": 25.200000047683716,
+      "overBudget": true,
+      "gcPauses": {
+        "count": 3,
+        "totalMs": 1.569
+      }
+    },
+    "shadow": {
+      "composition": "four-point",
+      "enabled": true,
+      "quality": "medium",
+      "casters": 50,
+      "lights": 4,
+      "warmupFrames": 5,
+      "measuredFrames": 60
+    }
+  },
+  {
+    "scenario": "shadows-four-point-on-200",
+    "commit": "df0b004",
+    "backend": "webgl2",
+    "host": {
+      "platform": "linux",
+      "cpus": 8,
+      "chrome": "Google Chrome 150.0.7871.186",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "counters": {
+      "drawCalls": 1249,
+      "meshes": 201,
+      "visibleMeshes": 201,
+      "geometries": 201,
+      "materials": 201,
+      "textures": 0,
+      "textureSources": 0,
+      "entitiesSpawned": 205,
+      "entitiesDestroyed": 0,
+      "materialsCreated": 201,
+      "geometriesCreated": 201
+    },
+    "timings": {
+      "frames": 60,
+      "medianMs": 32.25,
+      "p95Ms": 38.5,
+      "overBudget": true,
+      "gcPauses": {
+        "count": 3,
+        "totalMs": 0.949
+      }
+    },
+    "shadow": {
+      "composition": "four-point",
+      "enabled": true,
+      "quality": "medium",
+      "casters": 200,
+      "lights": 4,
+      "warmupFrames": 5,
+      "measuredFrames": 60
+    }
+  }
+]

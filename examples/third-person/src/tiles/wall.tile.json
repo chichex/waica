@@ -5,7 +5,9 @@
     {
       "type": "Model",
       "props": {
-        "src": "src/art/dungeon-wall.glb"
+        "src": "src/art/dungeon-wall.glb",
+        "castShadows": true,
+        "receiveShadows": true
       }
     },
     {

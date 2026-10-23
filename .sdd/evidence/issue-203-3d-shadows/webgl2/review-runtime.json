@@ -1,0 +1,5256 @@
+{
+  "label": "checkout-webgl2",
+  "renderBackend": "webgl2",
+  "chromeArgs": [
+    "--disable-features=WebGPUService"
+  ],
+  "chromeExecutable": "/usr/bin/google-chrome-stable",
+  "chromeVersion": "Google Chrome 150.0.7871.186",
+  "durationMs": 216454,
+  "url": "http://127.0.0.1:34001/",
+  "engineVersion": "0.30.1",
+  "pausedPngBytes": 644,
+  "realtimePngBytes": 644,
+  "projectionUrl": "http://127.0.0.1:33071/",
+  "projectionPngBytes": 648,
+  "topdownUrl": "http://127.0.0.1:39381/",
+  "isometricUrl": "http://127.0.0.1:43733/",
+  "isometricPngBytes": 19905,
+  "sceneSwapUrl": "http://127.0.0.1:43481/",
+  "sceneFadeUrl": "http://127.0.0.1:34783/",
+  "sceneFadeSteps": 15,
+  "batchParityDifferingPixels": {
+    "platformer": 0,
+    "topdown": 0,
+    "isometric": 0
+  },
+  "lighting": {
+    "ambientOneDifferingPixels": 0,
+    "dungeon": {
+      "litOverAmbient": 457,
+      "shadowDifference": 0,
+      "flameDifference": 0,
+      "flameThroughSprite": 0,
+      "edgeDarkening": 35,
+      "centreDifference": 0,
+      "identityInterior": {
+        "interior": 137668,
+        "differing": 0,
+        "first": null
+      },
+      "mainVignetteCentre": 0,
+      "ambientVersusReference": 0,
+      "predicted": {
+        "lit": [
+          21,
+          24,
+          34
+        ],
+        "shadowed": [
+          19,
+          21,
+          29
+        ],
+        "edge": [
+          7,
+          10,
+          17
+        ],
+        "centre": [
+          6,
+          8,
+          15
+        ]
+      }
+    }
+  },
+  "thirdPerson": {
+    "validation": {
+      "errors": 0,
+      "warnings": 0,
+      "infos": 0
+    },
+    "animation": {
+      "idleDelta": 0.16666666666666674,
+      "differingIdlePixels": 7446,
+      "walkYaw": 1.5707963267948966,
+      "states": [
+        "idle",
+        "walk",
+        "jump",
+        "idle"
+      ],
+      "poseHashAt": {
+        "frame": 13,
+        "hash": "7a7ce7cc"
+      }
+    },
+    "play": {
+      "walked": 2.9999306201934814,
+      "jumpedTo": 1.4877500534057617,
+      "landedY": 0.05997548997402191,
+      "cameraRelative": {
+        "dx": 2.999938726425171,
+        "dz": -0.0000324249267578125
+      },
+      "animation": {
+        "idleDelta": 0.16666666666666674,
+        "differingIdlePixels": 7446,
+        "walkYaw": 1.5707963267948966,
+        "states": [
+          "idle",
+          "walk",
+          "jump",
+          "idle"
+        ]
+      }
+    },
+    "pixels": {
+      "lightingOracle": "explicit-shadows-off",
+      "samples": {
+        "sky": [
+          26,
+          26,
+          46,
+          255
+        ],
+        "floor": [
+          134,
+          123,
+          117,
+          255
+        ],
+        "underTorch": [
+          155,
+          132,
+          119,
+          255
+        ],
+        "farFromTorches": [
+          123,
+          118,
+          115,
+          255
+        ],
+        "shippedPool": [
+          157,
+          132,
+          119,
+          255
+        ],
+        "shippedControl": [
+          126,
+          120,
+          118,
+          255
+        ],
+        "blocker": [
+          127,
+          120,
+          116,
+          255
+        ]
+      },
+      "pool": 28,
+      "darkPool": 0,
+      "depth": {
+        "differingPixels": 0,
+        "blocker": [
+          179,
+          17,
+          14,
+          255
+        ]
+      },
+      "shippedTorches": {
+        "warmthGain": 30,
+        "brightnessGain": 53,
+        "controlDelta": 0,
+        "frame": 13,
+        "view": {
+          "kind": "perspective",
+          "position": [
+            0,
+            3.312103,
+            9.138156
+          ],
+          "target": [
+            0,
+            1.259982,
+            3.5
+          ],
+          "fov": 55,
+          "follow": "Player",
+          "yaw": 0,
+          "pitch": 20,
+          "distance": 6,
+          "distanceActual": 6
+        },
+        "shadows": {
+          "quality": "medium",
+          "maxDistance": 40
+        },
+        "points": {
+          "pool": {
+            "x": 242,
+            "y": 122
+          },
+          "control": {
+            "x": 60,
+            "y": 167
+          }
+        },
+        "samples": {
+          "lit": {
+            "sky": [
+              26,
+              26,
+              46,
+              255
+            ],
+            "floor": [
+              134,
+              123,
+              117,
+              255
+            ],
+            "underTorch": [
+              155,
+              132,
+              119,
+              255
+            ],
+            "farFromTorches": [
+              123,
+              118,
+              115,
+              255
+            ],
+            "shippedPool": [
+              157,
+              132,
+              119,
+              255
+            ],
+            "shippedControl": [
+              126,
+              120,
+              118,
+              255
+            ],
+            "blocker": [
+              127,
+              120,
+              116,
+              255
+            ]
+          },
+          "dark": {
+            "sky": [
+              26,
+              26,
+              46,
+              255
+            ],
+            "floor": [
+              124,
+              119,
+              116,
+              255
+            ],
+            "underTorch": [
+              123,
+              118,
+              115,
+              255
+            ],
+            "farFromTorches": [
+              123,
+              118,
+              115,
+              255
+            ],
+            "shippedPool": [
+              123,
+              117,
+              115,
+              255
+            ],
+            "shippedControl": [
+              126,
+              120,
+              118,
+              255
+            ],
+            "blocker": [
+              123,
+              118,
+              116,
+              255
+            ]
+          }
+        }
+      }
+    },
+    "camera": {
+      "distance": 6,
+      "distanceActual": 0.75776
+    },
+    "combat": {
+      "healthAfterHit": 19,
+      "healthAfterRoll": 19,
+      "rounds": 4,
+      "skeletonState": "die"
+    },
+    "respawn": {
+      "respawnedAt": {
+        "x": -8.5,
+        "y": 0.00009999999747378752,
+        "z": 4
+      },
+      "checkpoint": {
+        "x": -8.5,
+        "y": 0,
+        "z": 4
+      },
+      "health": 1
+    }
+  },
+  "shadows": {
+    "backend": "webgl2",
+    "browser": "Google Chrome 150.0.7871.186",
+    "commit": "7c70ad2f3963a76307c213dab13ca65181d0c3b3",
+    "dirty": false,
+    "sun": {
+      "darkening": 135.0000000000001,
+      "controlDelta": 0,
+      "on": {
+        "shadow": {
+          "x": 332,
+          "y": 219,
+          "rgb": [
+            60.99999999999998,
+            60.99999999999998,
+            60.99999999999998
+          ],
+          "brightness": 60.99999999999998
+        },
+        "control": {
+          "x": 177,
+          "y": 168,
+          "rgb": [
+            196.00000000000006,
+            196.00000000000006,
+            196.00000000000006
+          ],
+          "brightness": 196.00000000000009
+        }
+      },
+      "off": {
+        "shadow": {
+          "x": 332,
+          "y": 219,
+          "rgb": [
+            196.00000000000006,
+            196.00000000000006,
+            196.00000000000006
+          ],
+          "brightness": 196.00000000000009
+        },
+        "control": {
+          "x": 177,
+          "y": 168,
+          "rgb": [
+            196.00000000000006,
+            196.00000000000006,
+            196.00000000000006
+          ],
+          "brightness": 196.00000000000009
+        }
+      },
+      "frame": 13,
+      "screenshots": [
+        "checkout-webgl2-webgl2-shadows-sun-on-f13.png",
+        "checkout-webgl2-webgl2-shadows-sun-off-f13.png"
+      ]
+    },
+    "point": {
+      "darkening": 183.68,
+      "controlDelta": 0,
+      "on": {
+        "shadow": {
+          "x": 320,
+          "y": 180,
+          "rgb": [
+            60.99999999999998,
+            60.99999999999998,
+            60.99999999999998
+          ],
+          "brightness": 60.99999999999998
+        },
+        "control": {
+          "x": 324,
+          "y": 201,
+          "rgb": [
+            167.84000000000003,
+            167.84000000000003,
+            167.84000000000003
+          ],
+          "brightness": 167.84000000000003
+        }
+      },
+      "off": {
+        "shadow": {
+          "x": 320,
+          "y": 180,
+          "rgb": [
+            244.68,
+            244.68,
+            244.68
+          ],
+          "brightness": 244.67999999999998
+        },
+        "control": {
+          "x": 324,
+          "y": 201,
+          "rgb": [
+            167.84000000000003,
+            167.84000000000003,
+            167.84000000000003
+          ],
+          "brightness": 167.84000000000003
+        }
+      },
+      "frame": 13,
+      "screenshots": [
+        "checkout-webgl2-webgl2-shadows-point-on-f13.png",
+        "checkout-webgl2-webgl2-shadows-point-off-f13.png"
+      ],
+      "radialRange": {
+        "physicalDistance": 9,
+        "shadowDistance": 2,
+        "controlDistance": 2.345207879911715
+      }
+    },
+    "sunFlags": {
+      "caster-disabled": {
+        "delta": 0,
+        "on": {
+          "shadow": {
+            "x": 332,
+            "y": 219,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          },
+          "control": {
+            "x": 177,
+            "y": 168,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          }
+        },
+        "off": {
+          "shadow": {
+            "x": 332,
+            "y": 219,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          },
+          "control": {
+            "x": 177,
+            "y": 168,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          }
+        },
+        "screenshots": [
+          "checkout-webgl2-webgl2-shadows-sun-caster-disabled-on-f13.png",
+          "checkout-webgl2-webgl2-shadows-sun-caster-disabled-off-f13.png"
+        ]
+      },
+      "light-disabled": {
+        "delta": 0,
+        "on": {
+          "shadow": {
+            "x": 332,
+            "y": 219,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          },
+          "control": {
+            "x": 177,
+            "y": 168,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          }
+        },
+        "off": {
+          "shadow": {
+            "x": 332,
+            "y": 219,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          },
+          "control": {
+            "x": 177,
+            "y": 168,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          }
+        },
+        "screenshots": [
+          "checkout-webgl2-webgl2-shadows-sun-light-disabled-on-f13.png",
+          "checkout-webgl2-webgl2-shadows-sun-light-disabled-off-f13.png"
+        ]
+      }
+    },
+    "pointFlags": {
+      "caster-disabled": {
+        "delta": 0,
+        "on": {
+          "shadow": {
+            "x": 320,
+            "y": 180,
+            "rgb": [
+              244.68,
+              244.68,
+              244.68
+            ],
+            "brightness": 244.67999999999998
+          },
+          "control": {
+            "x": 324,
+            "y": 201,
+            "rgb": [
+              167.84000000000003,
+              167.84000000000003,
+              167.84000000000003
+            ],
+            "brightness": 167.84000000000003
+          }
+        },
+        "off": {
+          "shadow": {
+            "x": 320,
+            "y": 180,
+            "rgb": [
+              244.68,
+              244.68,
+              244.68
+            ],
+            "brightness": 244.67999999999998
+          },
+          "control": {
+            "x": 324,
+            "y": 201,
+            "rgb": [
+              167.84000000000003,
+              167.84000000000003,
+              167.84000000000003
+            ],
+            "brightness": 167.84000000000003
+          }
+        },
+        "screenshots": [
+          "checkout-webgl2-webgl2-shadows-point-caster-disabled-on-f13.png",
+          "checkout-webgl2-webgl2-shadows-point-caster-disabled-off-f13.png"
+        ]
+      },
+      "light-disabled": {
+        "delta": 0,
+        "on": {
+          "shadow": {
+            "x": 320,
+            "y": 180,
+            "rgb": [
+              244.68,
+              244.68,
+              244.68
+            ],
+            "brightness": 244.67999999999998
+          },
+          "control": {
+            "x": 324,
+            "y": 201,
+            "rgb": [
+              167.84000000000003,
+              167.84000000000003,
+              167.84000000000003
+            ],
+            "brightness": 167.84000000000003
+          }
+        },
+        "off": {
+          "shadow": {
+            "x": 320,
+            "y": 180,
+            "rgb": [
+              244.68,
+              244.68,
+              244.68
+            ],
+            "brightness": 244.67999999999998
+          },
+          "control": {
+            "x": 324,
+            "y": 201,
+            "rgb": [
+              167.84000000000003,
+              167.84000000000003,
+              167.84000000000003
+            ],
+            "brightness": 167.84000000000003
+          }
+        },
+        "screenshots": [
+          "checkout-webgl2-webgl2-shadows-point-light-disabled-on-f13.png",
+          "checkout-webgl2-webgl2-shadows-point-light-disabled-off-f13.png"
+        ]
+      }
+    },
+    "receivers": {
+      "disabledDelta": 0,
+      "other": {
+        "darkening": 135.0000000000001,
+        "controlDelta": 0,
+        "on": {
+          "shadow": {
+            "x": 332,
+            "y": 219,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          },
+          "control": {
+            "x": 177,
+            "y": 168,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          },
+          "other": {
+            "x": 509,
+            "y": 288,
+            "rgb": [
+              60.99999999999998,
+              60.99999999999998,
+              60.99999999999998
+            ],
+            "brightness": 60.99999999999998
+          }
+        },
+        "off": {
+          "shadow": {
+            "x": 332,
+            "y": 219,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          },
+          "control": {
+            "x": 177,
+            "y": 168,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          },
+          "other": {
+            "x": 509,
+            "y": 288,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          }
+        },
+        "frame": 13,
+        "screenshots": [
+          "checkout-webgl2-webgl2-shadows-receive-disabled-on-f13.png",
+          "checkout-webgl2-webgl2-shadows-receive-disabled-off-f13.png"
+        ]
+      }
+    },
+    "moving": {
+      "before": {
+        "darkening": 135.0000000000001,
+        "controlDelta": 0,
+        "on": {
+          "shadow": {
+            "x": 332,
+            "y": 219,
+            "rgb": [
+              60.99999999999998,
+              60.99999999999998,
+              60.99999999999998
+            ],
+            "brightness": 60.99999999999998
+          },
+          "control": {
+            "x": 177,
+            "y": 168,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          },
+          "moved": {
+            "x": 509,
+            "y": 289,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          }
+        },
+        "off": {
+          "shadow": {
+            "x": 332,
+            "y": 219,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          },
+          "control": {
+            "x": 177,
+            "y": 168,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          },
+          "moved": {
+            "x": 509,
+            "y": 289,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          }
+        },
+        "frame": 13,
+        "screenshots": [
+          "checkout-webgl2-webgl2-shadows-moving-caster-on-f13.png",
+          "checkout-webgl2-webgl2-shadows-moving-caster-off-f13.png"
+        ]
+      },
+      "after": {
+        "darkening": 135.0000000000001,
+        "controlDelta": 0,
+        "on": {
+          "shadow": {
+            "x": 332,
+            "y": 219,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          },
+          "control": {
+            "x": 177,
+            "y": 168,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          },
+          "moved": {
+            "x": 509,
+            "y": 289,
+            "rgb": [
+              60.99999999999998,
+              60.99999999999998,
+              60.99999999999998
+            ],
+            "brightness": 60.99999999999998
+          }
+        },
+        "off": {
+          "shadow": {
+            "x": 332,
+            "y": 219,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          },
+          "control": {
+            "x": 177,
+            "y": 168,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          },
+          "moved": {
+            "x": 509,
+            "y": 289,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          }
+        },
+        "frame": 73,
+        "screenshots": [
+          "checkout-webgl2-webgl2-shadows-moving-caster-on-f73.png",
+          "checkout-webgl2-webgl2-shadows-moving-caster-off-f73.png"
+        ]
+      },
+      "positions": [
+        -1.942890293094024e-16,
+        4.000000000000005
+      ]
+    },
+    "camera": {
+      "darkening": 135.0000000000001,
+      "controlDelta": 0,
+      "on": {
+        "shadow": {
+          "x": 374,
+          "y": 207,
+          "rgb": [
+            60.99999999999998,
+            60.99999999999998,
+            60.99999999999998
+          ],
+          "brightness": 60.99999999999998
+        },
+        "control": {
+          "x": 170,
+          "y": 218,
+          "rgb": [
+            196.00000000000006,
+            196.00000000000006,
+            196.00000000000006
+          ],
+          "brightness": 196.00000000000009
+        }
+      },
+      "off": {
+        "shadow": {
+          "x": 374,
+          "y": 207,
+          "rgb": [
+            196.00000000000006,
+            196.00000000000006,
+            196.00000000000006
+          ],
+          "brightness": 196.00000000000009
+        },
+        "control": {
+          "x": 170,
+          "y": 218,
+          "rgb": [
+            196.00000000000006,
+            196.00000000000006,
+            196.00000000000006
+          ],
+          "brightness": 196.00000000000009
+        }
+      },
+      "frame": 13,
+      "screenshots": [
+        "checkout-webgl2-webgl2-shadows-sun-follow-far-camera-on-f13.png",
+        "checkout-webgl2-webgl2-shadows-sun-follow-far-camera-off-f13.png"
+      ],
+      "view": {
+        "kind": "perspective",
+        "position": [
+          500,
+          6,
+          510.392305
+        ],
+        "target": [
+          500,
+          0,
+          500
+        ],
+        "fov": 50,
+        "follow": "Anchor",
+        "yaw": 0,
+        "pitch": 30,
+        "distance": 12,
+        "distanceActual": 12
+      },
+      "initialView": {
+        "kind": "perspective",
+        "position": [
+          0,
+          6,
+          10.392305
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "fov": 50,
+        "follow": "Anchor",
+        "yaw": 0,
+        "pitch": 30,
+        "distance": 12,
+        "distanceActual": 12
+      }
+    },
+    "gltf": {
+      "darkening": 135.0000000000001,
+      "controlDelta": 0,
+      "on": {
+        "shadow": {
+          "x": 332,
+          "y": 219,
+          "rgb": [
+            60.99999999999998,
+            60.99999999999998,
+            60.99999999999998
+          ],
+          "brightness": 60.99999999999998
+        },
+        "control": {
+          "x": 177,
+          "y": 168,
+          "rgb": [
+            196.00000000000006,
+            196.00000000000006,
+            196.00000000000006
+          ],
+          "brightness": 196.00000000000009
+        }
+      },
+      "off": {
+        "shadow": {
+          "x": 332,
+          "y": 219,
+          "rgb": [
+            196.00000000000006,
+            196.00000000000006,
+            196.00000000000006
+          ],
+          "brightness": 196.00000000000009
+        },
+        "control": {
+          "x": 177,
+          "y": 168,
+          "rgb": [
+            196.00000000000006,
+            196.00000000000006,
+            196.00000000000006
+          ],
+          "brightness": 196.00000000000009
+        }
+      },
+      "frame": 13,
+      "screenshots": [
+        "checkout-webgl2-webgl2-shadows-static-gltf-on-f13.png",
+        "checkout-webgl2-webgl2-shadows-static-gltf-off-f13.png"
+      ]
+    },
+    "animated": {
+      "frames": [
+        13,
+        43
+      ],
+      "poses": [
+        {
+          "current": "Walking_A",
+          "loaded": true,
+          "playing": true,
+          "poseHash": "39ba8d7a",
+          "time": 0.21666666666666665
+        },
+        {
+          "current": "Walking_A",
+          "loaded": true,
+          "playing": true,
+          "poseHash": "686872e4",
+          "time": 0.7166666666666672
+        }
+      ],
+      "duration": 1.0666666666666667,
+      "ground": {
+        "polygon": [
+          {
+            "x": 379,
+            "y": 149
+          },
+          {
+            "x": 477,
+            "y": 149
+          },
+          {
+            "x": 484,
+            "y": 261
+          },
+          {
+            "x": 382,
+            "y": 261
+          }
+        ],
+        "excluded": [
+          {
+            "left": 292,
+            "right": 356,
+            "top": 141,
+            "bottom": 216
+          },
+          {
+            "left": 291,
+            "right": 356,
+            "top": 142,
+            "bottom": 221
+          },
+          {
+            "left": 292,
+            "right": 356,
+            "top": 141,
+            "bottom": 216
+          },
+          {
+            "left": 291,
+            "right": 356,
+            "top": 142,
+            "bottom": 221
+          }
+        ],
+        "changed": 370,
+        "poses": [
+          {
+            "groundPixels": 11305,
+            "overlap": 0,
+            "nonGround": 0,
+            "peak": {
+              "darkening": 104,
+              "x": 383,
+              "y": 189
+            },
+            "shadowPixels": 2458
+          },
+          {
+            "groundPixels": 11305,
+            "overlap": 0,
+            "nonGround": 0,
+            "peak": {
+              "darkening": 104,
+              "x": 383,
+              "y": 191
+            },
+            "shadowPixels": 2126
+          }
+        ]
+      },
+      "screenshots": [
+        "checkout-webgl2-webgl2-shadows-animated-gltf-on-f13.png",
+        "checkout-webgl2-webgl2-shadows-animated-gltf-on-f43.png",
+        "checkout-webgl2-webgl2-shadows-animated-gltf-off-f13.png",
+        "checkout-webgl2-webgl2-shadows-animated-gltf-off-f43.png"
+      ]
+    }
+  },
+  "editor3d": {
+    "durationMs": 30286,
+    "drag": {
+      "before": [
+        0,
+        0,
+        3.5
+      ],
+      "moved": [
+        -0.935,
+        0,
+        3.5
+      ]
+    },
+    "clips": [
+      "(none)",
+      "1H_Melee_Attack_Chop",
+      "Death_A",
+      "Dodge_Forward",
+      "Idle",
+      "Jump_Idle",
+      "Jump_Start",
+      "Running_A",
+      "Walking_A"
+    ],
+    "camera": {
+      "before": [
+        0,
+        3.25,
+        9.14
+      ],
+      "after": [
+        -5.145593566257455,
+        2.2308090574368045,
+        6.410738658484497
+      ]
+    },
+    "newPrefab": {
+      "scaffold": "src/objects/crate.object.json",
+      "bytes": 236
+    },
+    "differingAfterOrbit": 460900
+  },
+  "editorShadows": {
+    "commit": "7c70ad2f3963a76307c213dab13ca65181d0c3b3",
+    "dirty": false,
+    "browser": "Google Chrome 150.0.7871.186",
+    "backend": "webgl2",
+    "selectors": {
+      "quality": "combobox 'Shadow quality'",
+      "distance": "spinbutton 'Scene shadow max distance'",
+      "advanced": "button 'Advanced shadows'",
+      "map": "group 'Shadow map size' / combobox 'Shadow map size'",
+      "inherit": "button 'Inherit scene for Shadow map size'",
+      "reset": "title \"Reset to the prefab's value\"",
+      "helpers": "title \"Show helpers\"",
+      "grid": "title \"Show grid\"",
+      "selection": ".ed-x-subtree button.ed-x-item"
+    },
+    "ui": {
+      "tokens": {
+        "--bg": "#101018",
+        "--bg-panel": "#14141f",
+        "--accent": "#ffb703"
+      },
+      "rows": 28
+    },
+    "referenceCapture": null,
+    "quality": {
+      "initial": {
+        "variant": "initial-medium",
+        "filename": "checkout-webgl2-editor-shadows-initial-medium-viewport.png",
+        "samples": {
+          "shadow": {
+            "x": 390,
+            "y": 434,
+            "rgb": [
+              60.99999999999998,
+              60.99999999999998,
+              60.99999999999998
+            ],
+            "brightness": 60.99999999999998
+          },
+          "control": {
+            "x": 82,
+            "y": 334,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          }
+        },
+        "runtime": {
+          "backend": "webgl2",
+          "policy": {
+            "quality": "medium",
+            "maxDistance": 40
+          },
+          "sun": {
+            "requested": {
+              "shadowMapSize": 512,
+              "shadowMaxDistance": null,
+              "shadowBias": null,
+              "shadowNormalBias": null,
+              "shadowRadius": null
+            },
+            "effective": {
+              "enabled": true,
+              "mapSize": 512,
+              "maxDistance": 40,
+              "bias": -0.0005,
+              "normalBias": 0.02,
+              "radius": 1
+            },
+            "nativeMapSize": [
+              512,
+              512
+            ],
+            "castShadow": true
+          },
+          "point": {
+            "requested": {
+              "shadowMapSize": null,
+              "shadowMaxDistance": 2,
+              "shadowBias": null,
+              "shadowNormalBias": null,
+              "shadowRadius": null
+            },
+            "effective": {
+              "enabled": true,
+              "mapSize": 512,
+              "maxDistance": 2,
+              "bias": -0.0005,
+              "normalBias": 0.02,
+              "radius": 1
+            },
+            "nativeMapSize": [
+              512,
+              512
+            ],
+            "castShadow": true
+          }
+        }
+      },
+      "initialPixels": {
+        "darkening": 135.0000000000001,
+        "controlDelta": 0,
+        "on": {
+          "shadow": {
+            "x": 390,
+            "y": 434,
+            "rgb": [
+              60.99999999999998,
+              60.99999999999998,
+              60.99999999999998
+            ],
+            "brightness": 60.99999999999998
+          },
+          "control": {
+            "x": 82,
+            "y": 334,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          }
+        },
+        "off": {
+          "shadow": {
+            "x": 390,
+            "y": 434,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          },
+          "control": {
+            "x": 82,
+            "y": 334,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          }
+        },
+        "screenshots": [
+          "checkout-webgl2-editor-shadows-initial-medium-viewport.png",
+          "checkout-webgl2-editor-shadows-off-viewport.png"
+        ]
+      },
+      "off": {
+        "variant": "off",
+        "filename": "checkout-webgl2-editor-shadows-off-viewport.png",
+        "samples": {
+          "shadow": {
+            "x": 390,
+            "y": 434,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          },
+          "control": {
+            "x": 82,
+            "y": 334,
+            "rgb": [
+              196.00000000000006,
+              196.00000000000006,
+              196.00000000000006
+            ],
+            "brightness": 196.00000000000009
+          }
+        },
+        "runtime": {
+          "backend": "webgl2",
+          "policy": {
+            "quality": "off",
+            "maxDistance": 40
+          },
+          "sun": {
+            "requested": {
+              "shadowMapSize": 512,
+              "shadowMaxDistance": null,
+              "shadowBias": null,
+              "shadowNormalBias": null,
+              "shadowRadius": null
+            },
+            "effective": {
+              "enabled": false,
+              "mapSize": 512,
+              "maxDistance": 40,
+              "bias": -0.0005,
+              "normalBias": 0.02,
+              "radius": 1
+            },
+            "nativeMapSize": [
+              512,
+              512
+            ],
+            "castShadow": false
+          },
+          "point": {
+            "requested": {
+              "shadowMapSize": null,
+              "shadowMaxDistance": 2,
+              "shadowBias": null,
+              "shadowNormalBias": null,
+              "shadowRadius": null
+            },
+            "effective": {
+              "enabled": false,
+              "mapSize": 512,
+              "maxDistance": 2,
+              "bias": -0.0005,
+              "normalBias": 0.02,
+              "radius": 1
+            },
+            "nativeMapSize": [
+              512,
+              512
+            ],
+            "castShadow": false
+          }
+        }
+      },
+      "live": {
+        "medium-0": {
+          "darkening": 135.0000000000001,
+          "controlDelta": 0,
+          "on": {
+            "shadow": {
+              "x": 390,
+              "y": 434,
+              "rgb": [
+                60.99999999999998,
+                60.99999999999998,
+                60.99999999999998
+              ],
+              "brightness": 60.99999999999998
+            },
+            "control": {
+              "x": 82,
+              "y": 334,
+              "rgb": [
+                196.00000000000006,
+                196.00000000000006,
+                196.00000000000006
+              ],
+              "brightness": 196.00000000000009
+            }
+          },
+          "off": {
+            "shadow": {
+              "x": 390,
+              "y": 434,
+              "rgb": [
+                196.00000000000006,
+                196.00000000000006,
+                196.00000000000006
+              ],
+              "brightness": 196.00000000000009
+            },
+            "control": {
+              "x": 82,
+              "y": 334,
+              "rgb": [
+                196.00000000000006,
+                196.00000000000006,
+                196.00000000000006
+              ],
+              "brightness": 196.00000000000009
+            }
+          },
+          "screenshots": [
+            "checkout-webgl2-editor-shadows-quality-medium-0-viewport.png",
+            "checkout-webgl2-editor-shadows-off-viewport.png"
+          ],
+          "runtime": {
+            "backend": "webgl2",
+            "policy": {
+              "quality": "medium",
+              "maxDistance": 40
+            },
+            "sun": {
+              "requested": {
+                "shadowMapSize": 512,
+                "shadowMaxDistance": null,
+                "shadowBias": null,
+                "shadowNormalBias": null,
+                "shadowRadius": null
+              },
+              "effective": {
+                "enabled": true,
+                "mapSize": 512,
+                "maxDistance": 40,
+                "bias": -0.0005,
+                "normalBias": 0.02,
+                "radius": 1
+              },
+              "nativeMapSize": [
+                512,
+                512
+              ],
+              "castShadow": true
+            },
+            "point": {
+              "requested": {
+                "shadowMapSize": null,
+                "shadowMaxDistance": 2,
+                "shadowBias": null,
+                "shadowNormalBias": null,
+                "shadowRadius": null
+              },
+              "effective": {
+                "enabled": true,
+                "mapSize": 512,
+                "maxDistance": 2,
+                "bias": -0.0005,
+                "normalBias": 0.02,
+                "radius": 1
+              },
+              "nativeMapSize": [
+                512,
+                512
+              ],
+              "castShadow": true
+            }
+          }
+        },
+        "low-1": {
+          "darkening": 135.0000000000001,
+          "controlDelta": 0,
+          "on": {
+            "shadow": {
+              "x": 390,
+              "y": 434,
+              "rgb": [
+                60.99999999999998,
+                60.99999999999998,
+                60.99999999999998
+              ],
+              "brightness": 60.99999999999998
+            },
+            "control": {
+              "x": 82,
+              "y": 334,
+              "rgb": [
+                196.00000000000006,
+                196.00000000000006,
+                196.00000000000006
+              ],
+              "brightness": 196.00000000000009
+            }
+          },
+          "off": {
+            "shadow": {
+              "x": 390,
+              "y": 434,
+              "rgb": [
+                196.00000000000006,
+                196.00000000000006,
+                196.00000000000006
+              ],
+              "brightness": 196.00000000000009
+            },
+            "control": {
+              "x": 82,
+              "y": 334,
+              "rgb": [
+                196.00000000000006,
+                196.00000000000006,
+                196.00000000000006
+              ],
+              "brightness": 196.00000000000009
+            }
+          },
+          "screenshots": [
+            "checkout-webgl2-editor-shadows-quality-low-1-viewport.png",
+            "checkout-webgl2-editor-shadows-off-viewport.png"
+          ],
+          "runtime": {
+            "backend": "webgl2",
+            "policy": {
+              "quality": "low",
+              "maxDistance": 40
+            },
+            "sun": {
+              "requested": {
+                "shadowMapSize": 512,
+                "shadowMaxDistance": null,
+                "shadowBias": null,
+                "shadowNormalBias": null,
+                "shadowRadius": null
+              },
+              "effective": {
+                "enabled": true,
+                "mapSize": 512,
+                "maxDistance": 40,
+                "bias": -0.0005,
+                "normalBias": 0.02,
+                "radius": 1
+              },
+              "nativeMapSize": [
+                512,
+                512
+              ],
+              "castShadow": true
+            },
+            "point": {
+              "requested": {
+                "shadowMapSize": null,
+                "shadowMaxDistance": 2,
+                "shadowBias": null,
+                "shadowNormalBias": null,
+                "shadowRadius": null
+              },
+              "effective": {
+                "enabled": true,
+                "mapSize": 256,
+                "maxDistance": 2,
+                "bias": -0.0005,
+                "normalBias": 0.02,
+                "radius": 1
+              },
+              "nativeMapSize": [
+                256,
+                256
+              ],
+              "castShadow": true
+            }
+          }
+        },
+        "high-2": {
+          "darkening": 135.0000000000001,
+          "controlDelta": 0,
+          "on": {
+            "shadow": {
+              "x": 390,
+              "y": 434,
+              "rgb": [
+                60.99999999999998,
+                60.99999999999998,
+                60.99999999999998
+              ],
+              "brightness": 60.99999999999998
+            },
+            "control": {
+              "x": 82,
+              "y": 334,
+              "rgb": [
+                196.00000000000006,
+                196.00000000000006,
+                196.00000000000006
+              ],
+              "brightness": 196.00000000000009
+            }
+          },
+          "off": {
+            "shadow": {
+              "x": 390,
+              "y": 434,
+              "rgb": [
+                196.00000000000006,
+                196.00000000000006,
+                196.00000000000006
+              ],
+              "brightness": 196.00000000000009
+            },
+            "control": {
+              "x": 82,
+              "y": 334,
+              "rgb": [
+                196.00000000000006,
+                196.00000000000006,
+                196.00000000000006
+              ],
+              "brightness": 196.00000000000009
+            }
+          },
+          "screenshots": [
+            "checkout-webgl2-editor-shadows-quality-high-2-viewport.png",
+            "checkout-webgl2-editor-shadows-off-viewport.png"
+          ],
+          "runtime": {
+            "backend": "webgl2",
+            "policy": {
+              "quality": "high",
+              "maxDistance": 40
+            },
+            "sun": {
+              "requested": {
+                "shadowMapSize": 512,
+                "shadowMaxDistance": null,
+                "shadowBias": null,
+                "shadowNormalBias": null,
+                "shadowRadius": null
+              },
+              "effective": {
+                "enabled": true,
+                "mapSize": 512,
+                "maxDistance": 40,
+                "bias": -0.0005,
+                "normalBias": 0.02,
+                "radius": 1
+              },
+              "nativeMapSize": [
+                512,
+                512
+              ],
+              "castShadow": true
+            },
+            "point": {
+              "requested": {
+                "shadowMapSize": null,
+                "shadowMaxDistance": 2,
+                "shadowBias": null,
+                "shadowNormalBias": null,
+                "shadowRadius": null
+              },
+              "effective": {
+                "enabled": true,
+                "mapSize": 1024,
+                "maxDistance": 2,
+                "bias": -0.0005,
+                "normalBias": 0.02,
+                "radius": 1
+              },
+              "nativeMapSize": [
+                1024,
+                1024
+              ],
+              "castShadow": true
+            }
+          }
+        },
+        "medium-3": {
+          "darkening": 135.0000000000001,
+          "controlDelta": 0,
+          "on": {
+            "shadow": {
+              "x": 390,
+              "y": 434,
+              "rgb": [
+                60.99999999999998,
+                60.99999999999998,
+                60.99999999999998
+              ],
+              "brightness": 60.99999999999998
+            },
+            "control": {
+              "x": 82,
+              "y": 334,
+              "rgb": [
+                196.00000000000006,
+                196.00000000000006,
+                196.00000000000006
+              ],
+              "brightness": 196.00000000000009
+            }
+          },
+          "off": {
+            "shadow": {
+              "x": 390,
+              "y": 434,
+              "rgb": [
+                196.00000000000006,
+                196.00000000000006,
+                196.00000000000006
+              ],
+              "brightness": 196.00000000000009
+            },
+            "control": {
+              "x": 82,
+              "y": 334,
+              "rgb": [
+                196.00000000000006,
+                196.00000000000006,
+                196.00000000000006
+              ],
+              "brightness": 196.00000000000009
+            }
+          },
+          "screenshots": [
+            "checkout-webgl2-editor-shadows-quality-medium-3-viewport.png",
+            "checkout-webgl2-editor-shadows-off-viewport.png"
+          ],
+          "runtime": {
+            "backend": "webgl2",
+            "policy": {
+              "quality": "medium",
+              "maxDistance": 40
+            },
+            "sun": {
+              "requested": {
+                "shadowMapSize": 512,
+                "shadowMaxDistance": null,
+                "shadowBias": null,
+                "shadowNormalBias": null,
+                "shadowRadius": null
+              },
+              "effective": {
+                "enabled": true,
+                "mapSize": 512,
+                "maxDistance": 40,
+                "bias": -0.0005,
+                "normalBias": 0.02,
+                "radius": 1
+              },
+              "nativeMapSize": [
+                512,
+                512
+              ],
+              "castShadow": true
+            },
+            "point": {
+              "requested": {
+                "shadowMapSize": null,
+                "shadowMaxDistance": 2,
+                "shadowBias": null,
+                "shadowNormalBias": null,
+                "shadowRadius": null
+              },
+              "effective": {
+                "enabled": true,
+                "mapSize": 512,
+                "maxDistance": 2,
+                "bias": -0.0005,
+                "normalBias": 0.02,
+                "radius": 1
+              },
+              "nativeMapSize": [
+                512,
+                512
+              ],
+              "castShadow": true
+            }
+          }
+        }
+      },
+      "distance": 32,
+      "history": {
+        "undo": {
+          "quality": "high",
+          "maxDistance": 40
+        },
+        "redo": {
+          "quality": "medium",
+          "maxDistance": 32
+        }
+      }
+    },
+    "overrides": {
+      "override": {
+        "overrides": {
+          "shadowMapSize": 1024
+        },
+        "runtime": {
+          "backend": "webgl2",
+          "policy": {
+            "quality": "medium",
+            "maxDistance": 32
+          },
+          "sun": {
+            "requested": {
+              "shadowMapSize": 1024,
+              "shadowMaxDistance": null,
+              "shadowBias": null,
+              "shadowNormalBias": null,
+              "shadowRadius": null
+            },
+            "effective": {
+              "enabled": true,
+              "mapSize": 1024,
+              "maxDistance": 32,
+              "bias": -0.0005,
+              "normalBias": 0.02,
+              "radius": 1
+            },
+            "nativeMapSize": [
+              1024,
+              1024
+            ],
+            "castShadow": true
+          },
+          "point": {
+            "requested": {
+              "shadowMapSize": null,
+              "shadowMaxDistance": 2,
+              "shadowBias": null,
+              "shadowNormalBias": null,
+              "shadowRadius": null
+            },
+            "effective": {
+              "enabled": true,
+              "mapSize": 512,
+              "maxDistance": 2,
+              "bias": -0.0005,
+              "normalBias": 0.02,
+              "radius": 1
+            },
+            "nativeMapSize": [
+              512,
+              512
+            ],
+            "castShadow": true
+          }
+        },
+        "pixels": {
+          "darkening": 135.0000000000001,
+          "controlDelta": 0,
+          "on": {
+            "shadow": {
+              "x": 390,
+              "y": 434,
+              "rgb": [
+                60.99999999999998,
+                60.99999999999998,
+                60.99999999999998
+              ],
+              "brightness": 60.99999999999998
+            },
+            "control": {
+              "x": 82,
+              "y": 334,
+              "rgb": [
+                196.00000000000006,
+                196.00000000000006,
+                196.00000000000006
+              ],
+              "brightness": 196.00000000000009
+            }
+          },
+          "off": {
+            "shadow": {
+              "x": 390,
+              "y": 434,
+              "rgb": [
+                196.00000000000006,
+                196.00000000000006,
+                196.00000000000006
+              ],
+              "brightness": 196.00000000000009
+            },
+            "control": {
+              "x": 82,
+              "y": 334,
+              "rgb": [
+                196.00000000000006,
+                196.00000000000006,
+                196.00000000000006
+              ],
+              "brightness": 196.00000000000009
+            }
+          },
+          "screenshots": [
+            "checkout-webgl2-editor-shadows-map-override1024-viewport.png",
+            "checkout-webgl2-editor-shadows-off-viewport.png"
+          ],
+          "runtime": {
+            "backend": "webgl2",
+            "policy": {
+              "quality": "medium",
+              "maxDistance": 32
+            },
+            "sun": {
+              "requested": {
+                "shadowMapSize": 1024,
+                "shadowMaxDistance": null,
+                "shadowBias": null,
+                "shadowNormalBias": null,
+                "shadowRadius": null
+              },
+              "effective": {
+                "enabled": true,
+                "mapSize": 1024,
+                "maxDistance": 32,
+                "bias": -0.0005,
+                "normalBias": 0.02,
+                "radius": 1
+              },
+              "nativeMapSize": [
+                1024,
+                1024
+              ],
+              "castShadow": true
+            },
+            "point": {
+              "requested": {
+                "shadowMapSize": null,
+                "shadowMaxDistance": 2,
+                "shadowBias": null,
+                "shadowNormalBias": null,
+                "shadowRadius": null
+              },
+              "effective": {
+                "enabled": true,
+                "mapSize": 512,
+                "maxDistance": 2,
+                "bias": -0.0005,
+                "normalBias": 0.02,
+                "radius": 1
+              },
+              "nativeMapSize": [
+                512,
+                512
+              ],
+              "castShadow": true
+            }
+          }
+        }
+      },
+      "inherited": {
+        "overrides": {
+          "shadowMapSize": null
+        },
+        "runtime": {
+          "backend": "webgl2",
+          "policy": {
+            "quality": "medium",
+            "maxDistance": 32
+          },
+          "sun": {
+            "requested": {
+              "shadowMapSize": null,
+              "shadowMaxDistance": null,
+              "shadowBias": null,
+              "shadowNormalBias": null,
+              "shadowRadius": null
+            },
+            "effective": {
+              "enabled": true,
+              "mapSize": 2048,
+              "maxDistance": 32,
+              "bias": -0.0005,
+              "normalBias": 0.02,
+              "radius": 1
+            },
+            "nativeMapSize": [
+              2048,
+              2048
+            ],
+            "castShadow": true
+          },
+          "point": {
+            "requested": {
+              "shadowMapSize": null,
+              "shadowMaxDistance": 2,
+              "shadowBias": null,
+              "shadowNormalBias": null,
+              "shadowRadius": null
+            },
+            "effective": {
+              "enabled": true,
+              "mapSize": 512,
+              "maxDistance": 2,
+              "bias": -0.0005,
+              "normalBias": 0.02,
+              "radius": 1
+            },
+            "nativeMapSize": [
+              512,
+              512
+            ],
+            "castShadow": true
+          }
+        },
+        "pixels": {
+          "darkening": 135.0000000000001,
+          "controlDelta": 0,
+          "on": {
+            "shadow": {
+              "x": 390,
+              "y": 434,
+              "rgb": [
+                60.99999999999998,
+                60.99999999999998,
+                60.99999999999998
+              ],
+              "brightness": 60.99999999999998
+            },
+            "control": {
+              "x": 82,
+              "y": 334,
+              "rgb": [
+                196.00000000000006,
+                196.00000000000006,
+                196.00000000000006
+              ],
+              "brightness": 196.00000000000009
+            }
+          },
+          "off": {
+            "shadow": {
+              "x": 390,
+              "y": 434,
+              "rgb": [
+                196.00000000000006,
+                196.00000000000006,
+                196.00000000000006
+              ],
+              "brightness": 196.00000000000009
+            },
+            "control": {
+              "x": 82,
+              "y": 334,
+              "rgb": [
+                196.00000000000006,
+                196.00000000000006,
+                196.00000000000006
+              ],
+              "brightness": 196.00000000000009
+            }
+          },
+          "screenshots": [
+            "checkout-webgl2-editor-shadows-map-inherited2048-viewport.png",
+            "checkout-webgl2-editor-shadows-off-viewport.png"
+          ],
+          "runtime": {
+            "backend": "webgl2",
+            "policy": {
+              "quality": "medium",
+              "maxDistance": 32
+            },
+            "sun": {
+              "requested": {
+                "shadowMapSize": null,
+                "shadowMaxDistance": null,
+                "shadowBias": null,
+                "shadowNormalBias": null,
+                "shadowRadius": null
+              },
+              "effective": {
+                "enabled": true,
+                "mapSize": 2048,
+                "maxDistance": 32,
+                "bias": -0.0005,
+                "normalBias": 0.02,
+                "radius": 1
+              },
+              "nativeMapSize": [
+                2048,
+                2048
+              ],
+              "castShadow": true
+            },
+            "point": {
+              "requested": {
+                "shadowMapSize": null,
+                "shadowMaxDistance": 2,
+                "shadowBias": null,
+                "shadowNormalBias": null,
+                "shadowRadius": null
+              },
+              "effective": {
+                "enabled": true,
+                "mapSize": 512,
+                "maxDistance": 2,
+                "bias": -0.0005,
+                "normalBias": 0.02,
+                "radius": 1
+              },
+              "nativeMapSize": [
+                512,
+                512
+              ],
+              "castShadow": true
+            }
+          }
+        }
+      },
+      "reset": {
+        "overrides": {},
+        "runtime": {
+          "backend": "webgl2",
+          "policy": {
+            "quality": "medium",
+            "maxDistance": 32
+          },
+          "sun": {
+            "requested": {
+              "shadowMapSize": 1024,
+              "shadowMaxDistance": null,
+              "shadowBias": null,
+              "shadowNormalBias": null,
+              "shadowRadius": null
+            },
+            "effective": {
+              "enabled": true,
+              "mapSize": 1024,
+              "maxDistance": 32,
+              "bias": -0.0005,
+              "normalBias": 0.02,
+              "radius": 1
+            },
+            "nativeMapSize": [
+              1024,
+              1024
+            ],
+            "castShadow": true
+          },
+          "point": {
+            "requested": {
+              "shadowMapSize": null,
+              "shadowMaxDistance": 2,
+              "shadowBias": null,
+              "shadowNormalBias": null,
+              "shadowRadius": null
+            },
+            "effective": {
+              "enabled": true,
+              "mapSize": 512,
+              "maxDistance": 2,
+              "bias": -0.0005,
+              "normalBias": 0.02,
+              "radius": 1
+            },
+            "nativeMapSize": [
+              512,
+              512
+            ],
+            "castShadow": true
+          }
+        },
+        "pixels": {
+          "darkening": 135.0000000000001,
+          "controlDelta": 0,
+          "on": {
+            "shadow": {
+              "x": 390,
+              "y": 434,
+              "rgb": [
+                60.99999999999998,
+                60.99999999999998,
+                60.99999999999998
+              ],
+              "brightness": 60.99999999999998
+            },
+            "control": {
+              "x": 82,
+              "y": 334,
+              "rgb": [
+                196.00000000000006,
+                196.00000000000006,
+                196.00000000000006
+              ],
+              "brightness": 196.00000000000009
+            }
+          },
+          "off": {
+            "shadow": {
+              "x": 390,
+              "y": 434,
+              "rgb": [
+                196.00000000000006,
+                196.00000000000006,
+                196.00000000000006
+              ],
+              "brightness": 196.00000000000009
+            },
+            "control": {
+              "x": 82,
+              "y": 334,
+              "rgb": [
+                196.00000000000006,
+                196.00000000000006,
+                196.00000000000006
+              ],
+              "brightness": 196.00000000000009
+            }
+          },
+          "screenshots": [
+            "checkout-webgl2-editor-shadows-map-reset-prefab1024-viewport.png",
+            "checkout-webgl2-editor-shadows-off-viewport.png"
+          ],
+          "runtime": {
+            "backend": "webgl2",
+            "policy": {
+              "quality": "medium",
+              "maxDistance": 32
+            },
+            "sun": {
+              "requested": {
+                "shadowMapSize": 1024,
+                "shadowMaxDistance": null,
+                "shadowBias": null,
+                "shadowNormalBias": null,
+                "shadowRadius": null
+              },
+              "effective": {
+                "enabled": true,
+                "mapSize": 1024,
+                "maxDistance": 32,
+                "bias": -0.0005,
+                "normalBias": 0.02,
+                "radius": 1
+              },
+              "nativeMapSize": [
+                1024,
+                1024
+              ],
+              "castShadow": true
+            },
+            "point": {
+              "requested": {
+                "shadowMapSize": null,
+                "shadowMaxDistance": 2,
+                "shadowBias": null,
+                "shadowNormalBias": null,
+                "shadowRadius": null
+              },
+              "effective": {
+                "enabled": true,
+                "mapSize": 512,
+                "maxDistance": 2,
+                "bias": -0.0005,
+                "normalBias": 0.02,
+                "radius": 1
+              },
+              "nativeMapSize": [
+                512,
+                512
+              ],
+              "castShadow": true
+            }
+          }
+        }
+      },
+      "history": {
+        "undo": {
+          "overrides": {
+            "shadowMapSize": null
+          },
+          "runtime": {
+            "backend": "webgl2",
+            "policy": {
+              "quality": "medium",
+              "maxDistance": 32
+            },
+            "sun": {
+              "requested": {
+                "shadowMapSize": null,
+                "shadowMaxDistance": null,
+                "shadowBias": null,
+                "shadowNormalBias": null,
+                "shadowRadius": null
+              },
+              "effective": {
+                "enabled": true,
+                "mapSize": 2048,
+                "maxDistance": 32,
+                "bias": -0.0005,
+                "normalBias": 0.02,
+                "radius": 1
+              },
+              "nativeMapSize": [
+                2048,
+                2048
+              ],
+              "castShadow": true
+            },
+            "point": {
+              "requested": {
+                "shadowMapSize": null,
+                "shadowMaxDistance": 2,
+                "shadowBias": null,
+                "shadowNormalBias": null,
+                "shadowRadius": null
+              },
+              "effective": {
+                "enabled": true,
+                "mapSize": 512,
+                "maxDistance": 2,
+                "bias": -0.0005,
+                "normalBias": 0.02,
+                "radius": 1
+              },
+              "nativeMapSize": [
+                512,
+                512
+              ],
+              "castShadow": true
+            }
+          },
+          "pixels": {
+            "darkening": 135.0000000000001,
+            "controlDelta": 0,
+            "on": {
+              "shadow": {
+                "x": 390,
+                "y": 434,
+                "rgb": [
+                  60.99999999999998,
+                  60.99999999999998,
+                  60.99999999999998
+                ],
+                "brightness": 60.99999999999998
+              },
+              "control": {
+                "x": 82,
+                "y": 334,
+                "rgb": [
+                  196.00000000000006,
+                  196.00000000000006,
+                  196.00000000000006
+                ],
+                "brightness": 196.00000000000009
+              }
+            },
+            "off": {
+              "shadow": {
+                "x": 390,
+                "y": 434,
+                "rgb": [
+                  196.00000000000006,
+                  196.00000000000006,
+                  196.00000000000006
+                ],
+                "brightness": 196.00000000000009
+              },
+              "control": {
+                "x": 82,
+                "y": 334,
+                "rgb": [
+                  196.00000000000006,
+                  196.00000000000006,
+                  196.00000000000006
+                ],
+                "brightness": 196.00000000000009
+              }
+            },
+            "screenshots": [
+              "checkout-webgl2-editor-shadows-map-undo-inherited-viewport.png",
+              "checkout-webgl2-editor-shadows-off-viewport.png"
+            ],
+            "runtime": {
+              "backend": "webgl2",
+              "policy": {
+                "quality": "medium",
+                "maxDistance": 32
+              },
+              "sun": {
+                "requested": {
+                  "shadowMapSize": null,
+                  "shadowMaxDistance": null,
+                  "shadowBias": null,
+                  "shadowNormalBias": null,
+                  "shadowRadius": null
+                },
+                "effective": {
+                  "enabled": true,
+                  "mapSize": 2048,
+                  "maxDistance": 32,
+                  "bias": -0.0005,
+                  "normalBias": 0.02,
+                  "radius": 1
+                },
+                "nativeMapSize": [
+                  2048,
+                  2048
+                ],
+                "castShadow": true
+              },
+              "point": {
+                "requested": {
+                  "shadowMapSize": null,
+                  "shadowMaxDistance": 2,
+                  "shadowBias": null,
+                  "shadowNormalBias": null,
+                  "shadowRadius": null
+                },
+                "effective": {
+                  "enabled": true,
+                  "mapSize": 512,
+                  "maxDistance": 2,
+                  "bias": -0.0005,
+                  "normalBias": 0.02,
+                  "radius": 1
+                },
+                "nativeMapSize": [
+                  512,
+                  512
+                ],
+                "castShadow": true
+              }
+            }
+          }
+        },
+        "redo": {
+          "overrides": {},
+          "runtime": {
+            "backend": "webgl2",
+            "policy": {
+              "quality": "medium",
+              "maxDistance": 32
+            },
+            "sun": {
+              "requested": {
+                "shadowMapSize": 1024,
+                "shadowMaxDistance": null,
+                "shadowBias": null,
+                "shadowNormalBias": null,
+                "shadowRadius": null
+              },
+              "effective": {
+                "enabled": true,
+                "mapSize": 1024,
+                "maxDistance": 32,
+                "bias": -0.0005,
+                "normalBias": 0.02,
+                "radius": 1
+              },
+              "nativeMapSize": [
+                1024,
+                1024
+              ],
+              "castShadow": true
+            },
+            "point": {
+              "requested": {
+                "shadowMapSize": null,
+                "shadowMaxDistance": 2,
+                "shadowBias": null,
+                "shadowNormalBias": null,
+                "shadowRadius": null
+              },
+              "effective": {
+                "enabled": true,
+                "mapSize": 512,
+                "maxDistance": 2,
+                "bias": -0.0005,
+                "normalBias": 0.02,
+                "radius": 1
+              },
+              "nativeMapSize": [
+                512,
+                512
+              ],
+              "castShadow": true
+            }
+          },
+          "pixels": {
+            "darkening": 135.0000000000001,
+            "controlDelta": 0,
+            "on": {
+              "shadow": {
+                "x": 390,
+                "y": 434,
+                "rgb": [
+                  60.99999999999998,
+                  60.99999999999998,
+                  60.99999999999998
+                ],
+                "brightness": 60.99999999999998
+              },
+              "control": {
+                "x": 82,
+                "y": 334,
+                "rgb": [
+                  196.00000000000006,
+                  196.00000000000006,
+                  196.00000000000006
+                ],
+                "brightness": 196.00000000000009
+              }
+            },
+            "off": {
+              "shadow": {
+                "x": 390,
+                "y": 434,
+                "rgb": [
+                  196.00000000000006,
+                  196.00000000000006,
+                  196.00000000000006
+                ],
+                "brightness": 196.00000000000009
+              },
+              "control": {
+                "x": 82,
+                "y": 334,
+                "rgb": [
+                  196.00000000000006,
+                  196.00000000000006,
+                  196.00000000000006
+                ],
+                "brightness": 196.00000000000009
+              }
+            },
+            "screenshots": [
+              "checkout-webgl2-editor-shadows-map-redo-prefab-viewport.png",
+              "checkout-webgl2-editor-shadows-off-viewport.png"
+            ],
+            "runtime": {
+              "backend": "webgl2",
+              "policy": {
+                "quality": "medium",
+                "maxDistance": 32
+              },
+              "sun": {
+                "requested": {
+                  "shadowMapSize": 1024,
+                  "shadowMaxDistance": null,
+                  "shadowBias": null,
+                  "shadowNormalBias": null,
+                  "shadowRadius": null
+                },
+                "effective": {
+                  "enabled": true,
+                  "mapSize": 1024,
+                  "maxDistance": 32,
+                  "bias": -0.0005,
+                  "normalBias": 0.02,
+                  "radius": 1
+                },
+                "nativeMapSize": [
+                  1024,
+                  1024
+                ],
+                "castShadow": true
+              },
+              "point": {
+                "requested": {
+                  "shadowMapSize": null,
+                  "shadowMaxDistance": 2,
+                  "shadowBias": null,
+                  "shadowNormalBias": null,
+                  "shadowRadius": null
+                },
+                "effective": {
+                  "enabled": true,
+                  "mapSize": 512,
+                  "maxDistance": 2,
+                  "bias": -0.0005,
+                  "normalBias": 0.02,
+                  "radius": 1
+                },
+                "nativeMapSize": [
+                  512,
+                  512
+                ],
+                "castShadow": true
+              }
+            }
+          }
+        }
+      },
+      "numeric": {
+        "requested": {
+          "shadowMapSize": 1024,
+          "shadowMaxDistance": 24,
+          "shadowBias": 0,
+          "shadowNormalBias": 0.03,
+          "shadowRadius": 2
+        },
+        "effective": {
+          "enabled": true,
+          "mapSize": 1024,
+          "maxDistance": 24,
+          "bias": 0,
+          "normalBias": 0.03,
+          "radius": 2
+        },
+        "nativeMapSize": [
+          1024,
+          1024
+        ],
+        "castShadow": true
+      }
+    },
+    "helpers": {
+      "selectedSun": {
+        "objects": [
+          {
+            "name": "waica:editor-shadow-sun",
+            "visible": true,
+            "castShadow": false,
+            "receiveShadow": false,
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          }
+        ],
+        "editorObjectNames": [
+          "waica:editor-grid-3d",
+          "waica:editor-icon",
+          "waica:editor-frustum",
+          "waica:editor-gizmo",
+          "waica:editor-gizmo-pivot",
+          "waica:editor-selection",
+          "waica:editor-icon",
+          "waica:editor-icon",
+          "waica:editor-sun-direction",
+          "waica:editor-light-range",
+          "waica:editor-shadow-sun"
+        ],
+        "camera": [
+          6,
+          5.000000000000002,
+          8
+        ]
+      },
+      "visibility": {
+        "hidden": {
+          "objects": [],
+          "editorObjectNames": [
+            "waica:editor-grid-3d",
+            "waica:editor-icon",
+            "waica:editor-frustum",
+            "waica:editor-gizmo",
+            "waica:editor-gizmo-pivot",
+            "waica:editor-selection",
+            "waica:editor-icon",
+            "waica:editor-icon",
+            "waica:editor-sun-direction",
+            "waica:editor-light-range"
+          ],
+          "camera": [
+            6,
+            5.000000000000002,
+            8
+          ]
+        },
+        "nonLight": {
+          "objects": [],
+          "editorObjectNames": [
+            "waica:editor-grid-3d",
+            "waica:editor-icon",
+            "waica:editor-frustum",
+            "waica:editor-gizmo",
+            "waica:editor-gizmo-pivot",
+            "waica:editor-selection",
+            "waica:editor-icon",
+            "waica:editor-icon",
+            "waica:editor-sun-direction",
+            "waica:editor-light-range"
+          ],
+          "camera": [
+            6,
+            5.000000000000002,
+            8
+          ]
+        },
+        "multi": {
+          "objects": [],
+          "editorObjectNames": [
+            "waica:editor-grid-3d",
+            "waica:editor-icon",
+            "waica:editor-frustum",
+            "waica:editor-gizmo",
+            "waica:editor-gizmo-pivot",
+            "waica:editor-selection",
+            "waica:editor-icon",
+            "waica:editor-icon",
+            "waica:editor-sun-direction",
+            "waica:editor-light-range",
+            "waica:editor-selection"
+          ],
+          "camera": [
+            6,
+            5.000000000000002,
+            8
+          ]
+        }
+      },
+      "orbit": {
+        "before": {
+          "sameCamera": true,
+          "sameMatrix": true,
+          "error": 0.0000023719056656545945,
+          "camera": [
+            6,
+            5.000000000000002,
+            8
+          ],
+          "shadowPosition": [
+            -18.483054497415687,
+            35.641173760070544,
+            -18.649056060786684
+          ],
+          "bounds": [
+            -20.032995182455373,
+            20.032995182455373,
+            20.032995182455373,
+            -20.032995182455373,
+            0.1,
+            64.16599036491074
+          ]
+        },
+        "after": {
+          "sameCamera": true,
+          "sameMatrix": true,
+          "error": 0.000002371905679865449,
+          "camera": [
+            -2.164546128701412,
+            2.7925717745897347,
+            10.607369275201483
+          ],
+          "shadowPosition": [
+            -17.849931838230905,
+            35.814864948700794,
+            -18.84594121845688
+          ],
+          "bounds": [
+            -20.03299518245537,
+            20.03299518245537,
+            20.03299518245537,
+            -20.03299518245537,
+            0.1,
+            64.16599036491073
+          ]
+        },
+        "samples": [
+          {
+            "sameCamera": true,
+            "sameMatrix": true,
+            "error": 0.000002371905679865449,
+            "camera": [
+              5.189183265968891,
+              4.734288991645881,
+              8.698211584904627
+            ],
+            "shadowPosition": [
+              -18.41056028675313,
+              35.674622902119964,
+              -18.687229559038126
+            ],
+            "bounds": [
+              -20.03299518245537,
+              20.03299518245537,
+              20.03299518245537,
+              -20.03299518245537,
+              0.1,
+              64.16599036491073
+            ]
+          },
+          {
+            "sameCamera": true,
+            "sameMatrix": true,
+            "error": 0.000002371905679865449,
+            "camera": [
+              4.294333401533433,
+              4.465278580303044,
+              9.306985969515647
+            ],
+            "shadowPosition": [
+              -18.35849268385052,
+              35.68115540522874,
+              -18.745829665049513
+            ],
+            "bounds": [
+              -20.03299518245537,
+              20.03299518245537,
+              20.03299518245537,
+              -20.03299518245537,
+              0.1,
+              64.16599036491073
+            ]
+          },
+          {
+            "sameCamera": true,
+            "sameMatrix": true,
+            "error": 0.000002371905679865449,
+            "camera": [
+              3.32610264627448,
+              4.193156243701884,
+              9.816031881689758
+            ],
+            "shadowPosition": [
+              -18.281671604391647,
+              35.705950809685525,
+              -18.779676294504632
+            ],
+            "bounds": [
+              -20.03299518245537,
+              20.03299518245537,
+              20.03299518245537,
+              -20.03299518245537,
+              0.1,
+              64.16599036491073
+            ]
+          },
+          {
+            "sameCamera": true,
+            "sameMatrix": true,
+            "error": 0.0000023719056656545945,
+            "camera": [
+              2.2964115996961203,
+              3.918111628324113,
+              10.216403233661662
+            ],
+            "shadowPosition": [
+              -18.202720644610512,
+              35.72648645349779,
+              -18.811393043637498
+            ],
+            "bounds": [
+              -20.032995182455373,
+              20.032995182455373,
+              20.032995182455373,
+              -20.032995182455373,
+              0.1,
+              64.16599036491074
+            ]
+          },
+          {
+            "sameCamera": true,
+            "sameMatrix": true,
+            "error": 0.000002371905679865449,
+            "camera": [
+              1.2182726973789935,
+              3.6403364172350474,
+              10.500655332129192
+            ],
+            "shadowPosition": [
+              -18.121707015420633,
+              35.74289675849257,
+              -18.841047123361612
+            ],
+            "bounds": [
+              -20.03299518245537,
+              20.03299518245537,
+              20.03299518245537,
+              -20.03299518245537,
+              0.1,
+              64.16599036491073
+            ]
+          },
+          {
+            "sameCamera": true,
+            "sameMatrix": true,
+            "error": 0.000002371905679865449,
+            "camera": [
+              0.1055945495487702,
+              3.3600241964965596,
+              10.66297740736907
+            ],
+            "shadowPosition": [
+              -18.016140727423345,
+              35.77797160033307,
+              -18.84614854427832
+            ],
+            "bounds": [
+              -20.03299518245537,
+              20.03299518245537,
+              20.03299518245537,
+              -20.03299518245537,
+              0.1,
+              64.16599036491073
+            ]
+          },
+          {
+            "sameCamera": true,
+            "sameMatrix": true,
+            "error": 0.000002371905679865449,
+            "camera": [
+              -1.027029646400158,
+              3.0773703202538027,
+              10.699299136739572
+            ],
+            "shadowPosition": [
+              -17.958999965518963,
+              35.786793785441844,
+              -18.84434163683094
+            ],
+            "bounds": [
+              -20.03299518245537,
+              20.03299518245537,
+              20.03299518245537,
+              -20.03299518245537,
+              0.1,
+              64.16599036491073
+            ]
+          },
+          {
+            "sameCamera": true,
+            "sameMatrix": true,
+            "error": 0.000002371905679865449,
+            "camera": [
+              -2.164546128701412,
+              2.7925717745897347,
+              10.607369275201483
+            ],
+            "shadowPosition": [
+              -17.849931838230905,
+              35.814864948700794,
+              -18.84594121845688
+            ],
+            "bounds": [
+              -20.03299518245537,
+              20.03299518245537,
+              20.03299518245537,
+              -20.03299518245537,
+              0.1,
+              64.16599036491073
+            ]
+          }
+        ],
+        "authoredCamera": {
+          "kind": "perspective",
+          "position": [
+            6,
+            5,
+            8
+          ],
+          "target": [
+            0,
+            0,
+            0
+          ],
+          "fov": 50
+        }
+      },
+      "point": {
+        "objects": [
+          {
+            "name": "waica:editor-shadow-point",
+            "visible": true,
+            "castShadow": false,
+            "receiveShadow": false,
+            "position": [
+              -3,
+              2,
+              0
+            ],
+            "scale": [
+              2,
+              2,
+              2
+            ]
+          }
+        ],
+        "editorObjectNames": [
+          "waica:editor-grid-3d",
+          "waica:editor-icon",
+          "waica:editor-frustum",
+          "waica:editor-gizmo",
+          "waica:editor-gizmo-pivot",
+          "waica:editor-selection",
+          "waica:editor-icon",
+          "waica:editor-icon",
+          "waica:editor-sun-direction",
+          "waica:editor-light-range",
+          "waica:editor-selection",
+          "waica:editor-shadow-point"
+        ],
+        "camera": [
+          -2.164546128701412,
+          2.7925717745897347,
+          10.607369275201483
+        ]
+      },
+      "globalOff": {
+        "objects": [],
+        "editorObjectNames": [
+          "waica:editor-grid-3d",
+          "waica:editor-icon",
+          "waica:editor-frustum",
+          "waica:editor-gizmo",
+          "waica:editor-gizmo-pivot",
+          "waica:editor-selection",
+          "waica:editor-icon",
+          "waica:editor-icon",
+          "waica:editor-sun-direction",
+          "waica:editor-light-range",
+          "waica:editor-selection"
+        ],
+        "camera": [
+          -2.164546128701412,
+          2.7925717745897347,
+          10.607369275201483
+        ]
+      },
+      "play": {
+        "objects": [],
+        "editorObjectNames": [],
+        "camera": [
+          6,
+          5,
+          8
+        ]
+      },
+      "edit": {
+        "objects": [
+          {
+            "name": "waica:editor-shadow-sun",
+            "visible": true,
+            "castShadow": false,
+            "receiveShadow": false,
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          }
+        ],
+        "editorObjectNames": [
+          "waica:editor-grid-3d",
+          "waica:editor-icon",
+          "waica:editor-frustum",
+          "waica:editor-gizmo",
+          "waica:editor-gizmo-pivot",
+          "waica:editor-icon",
+          "waica:editor-icon",
+          "waica:editor-sun-direction",
+          "waica:editor-light-range",
+          "waica:editor-selection",
+          "waica:editor-shadow-sun"
+        ],
+        "camera": [
+          -2.164546128701412,
+          2.7925717745897347,
+          10.607369275201483
+        ]
+      },
+      "gameOnlyScreenshot": "checkout-webgl2-editor-shadows-play-game-only.png"
+    },
+    "persisted": {
+      "scene": {
+        "waicaScene": 3,
+        "render": {
+          "space": "3d",
+          "shadows": {
+            "quality": "medium",
+            "maxDistance": 32
+          },
+          "lighting": {
+            "ambient": {
+              "color": "#ffffff",
+              "intensity": 0.15
+            }
+          }
+        },
+        "camera": {
+          "kind": "perspective",
+          "position": [
+            6,
+            5,
+            8
+          ],
+          "target": [
+            0,
+            0,
+            0
+          ],
+          "fov": 50
+        },
+        "entities": [
+          {
+            "name": "Ground",
+            "components": [
+              {
+                "type": "Model",
+                "props": {
+                  "shape": "plane",
+                  "size": 20,
+                  "castShadows": false
+                }
+              }
+            ]
+          },
+          {
+            "name": "Caster",
+            "position": [
+              0,
+              1,
+              0
+            ],
+            "components": [
+              {
+                "type": "Model",
+                "props": {
+                  "shape": "box",
+                  "size": 2
+                }
+              }
+            ]
+          },
+          {
+            "name": "Sun",
+            "prefab": "objects/shadow-sun",
+            "overrides": {
+              "Sun": {
+                "shadowMaxDistance": 24,
+                "shadowBias": 0,
+                "shadowNormalBias": 0.03,
+                "shadowRadius": 2
+              }
+            }
+          },
+          {
+            "name": "Point",
+            "position": [
+              -3,
+              2,
+              0
+            ],
+            "components": [
+              {
+                "type": "PointLight",
+                "props": {
+                  "intensity": 0,
+                  "distance": 9,
+                  "shadowMaxDistance": 2
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "before": {
+        "backend": "webgl2",
+        "policy": {
+          "quality": "medium",
+          "maxDistance": 32
+        },
+        "sun": {
+          "requested": {
+            "shadowMapSize": 1024,
+            "shadowMaxDistance": 24,
+            "shadowBias": 0,
+            "shadowNormalBias": 0.03,
+            "shadowRadius": 2
+          },
+          "effective": {
+            "enabled": true,
+            "mapSize": 1024,
+            "maxDistance": 24,
+            "bias": 0,
+            "normalBias": 0.03,
+            "radius": 2
+          },
+          "nativeMapSize": [
+            1024,
+            1024
+          ],
+          "castShadow": true
+        },
+        "point": {
+          "requested": {
+            "shadowMapSize": null,
+            "shadowMaxDistance": 2,
+            "shadowBias": null,
+            "shadowNormalBias": null,
+            "shadowRadius": null
+          },
+          "effective": {
+            "enabled": true,
+            "mapSize": 512,
+            "maxDistance": 2,
+            "bias": -0.0005,
+            "normalBias": 0.02,
+            "radius": 1
+          },
+          "nativeMapSize": [
+            512,
+            512
+          ],
+          "castShadow": true
+        }
+      },
+      "after": {
+        "backend": "webgl2",
+        "policy": {
+          "quality": "medium",
+          "maxDistance": 32
+        },
+        "sun": {
+          "requested": {
+            "shadowMapSize": 1024,
+            "shadowMaxDistance": 24,
+            "shadowBias": 0,
+            "shadowNormalBias": 0.03,
+            "shadowRadius": 2
+          },
+          "effective": {
+            "enabled": true,
+            "mapSize": 1024,
+            "maxDistance": 24,
+            "bias": 0,
+            "normalBias": 0.03,
+            "radius": 2
+          },
+          "nativeMapSize": [
+            1024,
+            1024
+          ],
+          "castShadow": true
+        },
+        "point": {
+          "requested": {
+            "shadowMapSize": null,
+            "shadowMaxDistance": 2,
+            "shadowBias": null,
+            "shadowNormalBias": null,
+            "shadowRadius": null
+          },
+          "effective": {
+            "enabled": true,
+            "mapSize": 512,
+            "maxDistance": 2,
+            "bias": -0.0005,
+            "normalBias": 0.02,
+            "radius": 1
+          },
+          "nativeMapSize": [
+            512,
+            512
+          ],
+          "castShadow": true
+        }
+      }
+    },
+    "screenshots": [
+      "checkout-webgl2-editor-shadows-initial-medium-viewport.png",
+      "checkout-webgl2-editor-shadows-off-viewport.png",
+      "checkout-webgl2-editor-shadows-quality-off-ui.png",
+      "checkout-webgl2-editor-shadows-quality-medium-0-viewport.png",
+      "checkout-webgl2-editor-shadows-quality-low-1-viewport.png",
+      "checkout-webgl2-editor-shadows-quality-high-2-viewport.png",
+      "checkout-webgl2-editor-shadows-quality-medium-3-viewport.png",
+      "checkout-webgl2-editor-shadows-quality-medium-distance32-ui.png",
+      "checkout-webgl2-editor-shadows-light-instance512-ui.png",
+      "checkout-webgl2-editor-shadows-map-override1024-viewport.png",
+      "checkout-webgl2-editor-shadows-map-inherited2048-viewport.png",
+      "checkout-webgl2-editor-shadows-light-inherited2048-ui.png",
+      "checkout-webgl2-editor-shadows-map-reset-prefab1024-viewport.png",
+      "checkout-webgl2-editor-shadows-light-reset-prefab1024-ui.png",
+      "checkout-webgl2-editor-shadows-map-undo-inherited-viewport.png",
+      "checkout-webgl2-editor-shadows-map-redo-prefab-viewport.png",
+      "checkout-webgl2-editor-shadows-light-advanced-numeric-overrides-ui.png",
+      "checkout-webgl2-editor-shadows-selected-sun-coverage-ui.png",
+      "checkout-webgl2-editor-shadows-selected-sun-orbit-current-coverage-ui.png",
+      "checkout-webgl2-editor-shadows-selected-point-radius2-ui.png",
+      "checkout-webgl2-editor-shadows-selected-sun-global-off-no-coverage-ui.png",
+      "checkout-webgl2-editor-shadows-play-no-helper-objects-ui.png",
+      "checkout-webgl2-editor-shadows-play-game-only.png",
+      "checkout-webgl2-editor-shadows-edit-after-stop-selected-sun-ui.png",
+      "checkout-webgl2-editor-shadows-persisted-roundtrip-ui.png"
+    ],
+    "uiStates": [
+      {
+        "state": "quality-off",
+        "filename": "checkout-webgl2-editor-shadows-quality-off-ui.png",
+        "inputs": [
+          {
+            "name": "Scene lighting",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Ambient color",
+            "role": "color",
+            "value": "#ffffff",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Ambient intensity",
+            "role": "number",
+            "value": "0.15",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Shadow qualityOffLowMediumHigh",
+            "role": "combobox",
+            "value": "off",
+            "invalid": null
+          },
+          {
+            "name": "Scene shadow max distance",
+            "role": "number",
+            "value": "40",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Vignette",
+            "role": "checkbox",
+            "value": "on",
+            "checked": false,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Color grade",
+            "role": "checkbox",
+            "value": "on",
+            "checked": false,
+            "readOnly": false,
+            "invalid": null
+          }
+        ],
+        "groups": []
+      },
+      {
+        "state": "quality-medium-distance32",
+        "filename": "checkout-webgl2-editor-shadows-quality-medium-distance32-ui.png",
+        "inputs": [
+          {
+            "name": "Scene lighting",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Ambient color",
+            "role": "color",
+            "value": "#ffffff",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Ambient intensity",
+            "role": "number",
+            "value": "0.15",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Shadow qualityOffLowMediumHigh",
+            "role": "combobox",
+            "value": "medium",
+            "invalid": null
+          },
+          {
+            "name": "Scene shadow max distance",
+            "role": "number",
+            "value": "32",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Vignette",
+            "role": "checkbox",
+            "value": "on",
+            "checked": false,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Color grade",
+            "role": "checkbox",
+            "value": "on",
+            "checked": false,
+            "readOnly": false,
+            "invalid": null
+          }
+        ],
+        "groups": []
+      },
+      {
+        "state": "light-instance512",
+        "filename": "checkout-webgl2-editor-shadows-light-instance512-ui.png",
+        "inputs": [
+          {
+            "name": "name",
+            "role": "text",
+            "value": "Sun",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction x",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction y",
+            "role": "number",
+            "value": "-2",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction z",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Intensity",
+            "role": "number",
+            "value": "2",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Color",
+            "role": "color",
+            "value": "#ffffff",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Cast shadows",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow map size",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Shadow map size",
+            "role": "combobox",
+            "value": "512",
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow max distance",
+            "role": "checkbox",
+            "value": "on",
+            "checked": false,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow bias",
+            "role": "checkbox",
+            "value": "on",
+            "checked": false,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow normal bias",
+            "role": "checkbox",
+            "value": "on",
+            "checked": false,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow radius",
+            "role": "checkbox",
+            "value": "on",
+            "checked": false,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "combobox",
+            "value": "",
+            "invalid": null
+          }
+        ],
+        "groups": [
+          {
+            "name": "Shadow map size",
+            "text": "Shadow map size↺⤒Override · Stored: 512 · Effective: 512Override Shadow map sizeShadow map size value256512102420484096Inherit scene"
+          },
+          {
+            "name": "Shadow max distance",
+            "text": "Shadow max distanceInherited from scene · Effective: 32Override Shadow max distanceInherit scene"
+          },
+          {
+            "name": "Shadow bias",
+            "text": "Shadow biasInherited from scene · Effective: -0.0005Override Shadow biasInherit scene"
+          },
+          {
+            "name": "Shadow normal bias",
+            "text": "Shadow normal biasInherited from scene · Effective: 0.02Override Shadow normal biasInherit scene"
+          },
+          {
+            "name": "Shadow radius",
+            "text": "Shadow radiusInherited from scene · Effective: 1Override Shadow radiusInherit scene"
+          }
+        ]
+      },
+      {
+        "state": "light-inherited2048",
+        "filename": "checkout-webgl2-editor-shadows-light-inherited2048-ui.png",
+        "inputs": [
+          {
+            "name": "name",
+            "role": "text",
+            "value": "Sun",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction x",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction y",
+            "role": "number",
+            "value": "-2",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction z",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Intensity",
+            "role": "number",
+            "value": "2",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Color",
+            "role": "color",
+            "value": "#ffffff",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Cast shadows",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow map size",
+            "role": "checkbox",
+            "value": "on",
+            "checked": false,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow max distance",
+            "role": "checkbox",
+            "value": "on",
+            "checked": false,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow bias",
+            "role": "checkbox",
+            "value": "on",
+            "checked": false,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow normal bias",
+            "role": "checkbox",
+            "value": "on",
+            "checked": false,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow radius",
+            "role": "checkbox",
+            "value": "on",
+            "checked": false,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "combobox",
+            "value": "",
+            "invalid": null
+          }
+        ],
+        "groups": [
+          {
+            "name": "Shadow map size",
+            "text": "Shadow map size↺⤒Inherited from scene · Effective: 2048Override Shadow map sizeInherit scene"
+          },
+          {
+            "name": "Shadow max distance",
+            "text": "Shadow max distanceInherited from scene · Effective: 32Override Shadow max distanceInherit scene"
+          },
+          {
+            "name": "Shadow bias",
+            "text": "Shadow biasInherited from scene · Effective: -0.0005Override Shadow biasInherit scene"
+          },
+          {
+            "name": "Shadow normal bias",
+            "text": "Shadow normal biasInherited from scene · Effective: 0.02Override Shadow normal biasInherit scene"
+          },
+          {
+            "name": "Shadow radius",
+            "text": "Shadow radiusInherited from scene · Effective: 1Override Shadow radiusInherit scene"
+          }
+        ]
+      },
+      {
+        "state": "light-reset-prefab1024",
+        "filename": "checkout-webgl2-editor-shadows-light-reset-prefab1024-ui.png",
+        "inputs": [
+          {
+            "name": "name",
+            "role": "text",
+            "value": "Sun",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction x",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction y",
+            "role": "number",
+            "value": "-2",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction z",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Intensity",
+            "role": "number",
+            "value": "2",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Color",
+            "role": "color",
+            "value": "#ffffff",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Cast shadows",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow map size",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Shadow map size",
+            "role": "combobox",
+            "value": "1024",
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow max distance",
+            "role": "checkbox",
+            "value": "on",
+            "checked": false,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow bias",
+            "role": "checkbox",
+            "value": "on",
+            "checked": false,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow normal bias",
+            "role": "checkbox",
+            "value": "on",
+            "checked": false,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow radius",
+            "role": "checkbox",
+            "value": "on",
+            "checked": false,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "combobox",
+            "value": "",
+            "invalid": null
+          }
+        ],
+        "groups": [
+          {
+            "name": "Shadow map size",
+            "text": "Shadow map sizeOverride · Stored: 1024 · Effective: 1024Override Shadow map sizeShadow map size value256512102420484096Inherit scene"
+          },
+          {
+            "name": "Shadow max distance",
+            "text": "Shadow max distanceInherited from scene · Effective: 32Override Shadow max distanceInherit scene"
+          },
+          {
+            "name": "Shadow bias",
+            "text": "Shadow biasInherited from scene · Effective: -0.0005Override Shadow biasInherit scene"
+          },
+          {
+            "name": "Shadow normal bias",
+            "text": "Shadow normal biasInherited from scene · Effective: 0.02Override Shadow normal biasInherit scene"
+          },
+          {
+            "name": "Shadow radius",
+            "text": "Shadow radiusInherited from scene · Effective: 1Override Shadow radiusInherit scene"
+          }
+        ]
+      },
+      {
+        "state": "light-advanced-numeric-overrides",
+        "filename": "checkout-webgl2-editor-shadows-light-advanced-numeric-overrides-ui.png",
+        "inputs": [
+          {
+            "name": "name",
+            "role": "text",
+            "value": "Sun",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction x",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction y",
+            "role": "number",
+            "value": "-2",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction z",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Intensity",
+            "role": "number",
+            "value": "2",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Color",
+            "role": "color",
+            "value": "#ffffff",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Cast shadows",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow map size",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Shadow map size",
+            "role": "combobox",
+            "value": "1024",
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow max distance",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Shadow max distance",
+            "role": "number",
+            "value": "24",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow bias",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Shadow bias",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow normal bias",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Shadow normal bias",
+            "role": "number",
+            "value": "0.03",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow radius",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Shadow radius",
+            "role": "number",
+            "value": "2",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "combobox",
+            "value": "",
+            "invalid": null
+          }
+        ],
+        "groups": [
+          {
+            "name": "Shadow map size",
+            "text": "Shadow map sizeOverride · Stored: 1024 · Effective: 1024Override Shadow map sizeShadow map size value256512102420484096Inherit scene"
+          },
+          {
+            "name": "Shadow max distance",
+            "text": "Shadow max distance↺⤒Override · Stored: 24 · Effective: 24Override Shadow max distanceShadow max distance valueInherit scene"
+          },
+          {
+            "name": "Shadow bias",
+            "text": "Shadow bias↺⤒Override · Stored: 0 · Effective: 0Override Shadow biasShadow bias valueInherit scene"
+          },
+          {
+            "name": "Shadow normal bias",
+            "text": "Shadow normal bias↺⤒Override · Stored: 0.03 · Effective: 0.03Override Shadow normal biasShadow normal bias valueInherit scene"
+          },
+          {
+            "name": "Shadow radius",
+            "text": "Shadow radius↺⤒Override · Stored: 2 · Effective: 2Override Shadow radiusShadow radius valueInherit scene"
+          }
+        ]
+      },
+      {
+        "state": "selected-sun-coverage",
+        "filename": "checkout-webgl2-editor-shadows-selected-sun-coverage-ui.png",
+        "inputs": [
+          {
+            "name": "name",
+            "role": "text",
+            "value": "Sun",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction x",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction y",
+            "role": "number",
+            "value": "-2",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction z",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Intensity",
+            "role": "number",
+            "value": "2",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Color",
+            "role": "color",
+            "value": "#ffffff",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Cast shadows",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow map size",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Shadow map size",
+            "role": "combobox",
+            "value": "1024",
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow max distance",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Shadow max distance",
+            "role": "number",
+            "value": "24",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow bias",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Shadow bias",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow normal bias",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Shadow normal bias",
+            "role": "number",
+            "value": "0.03",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow radius",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Shadow radius",
+            "role": "number",
+            "value": "2",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "combobox",
+            "value": "",
+            "invalid": null
+          }
+        ],
+        "groups": [
+          {
+            "name": "Shadow map size",
+            "text": "Shadow map sizeOverride · Stored: 1024 · Effective: 1024Override Shadow map sizeShadow map size value256512102420484096Inherit scene"
+          },
+          {
+            "name": "Shadow max distance",
+            "text": "Shadow max distance↺⤒Override · Stored: 24 · Effective: 24Override Shadow max distanceShadow max distance valueInherit scene"
+          },
+          {
+            "name": "Shadow bias",
+            "text": "Shadow bias↺⤒Override · Stored: 0 · Effective: 0Override Shadow biasShadow bias valueInherit scene"
+          },
+          {
+            "name": "Shadow normal bias",
+            "text": "Shadow normal bias↺⤒Override · Stored: 0.03 · Effective: 0.03Override Shadow normal biasShadow normal bias valueInherit scene"
+          },
+          {
+            "name": "Shadow radius",
+            "text": "Shadow radius↺⤒Override · Stored: 2 · Effective: 2Override Shadow radiusShadow radius valueInherit scene"
+          }
+        ]
+      },
+      {
+        "state": "selected-sun-orbit-current-coverage",
+        "filename": "checkout-webgl2-editor-shadows-selected-sun-orbit-current-coverage-ui.png",
+        "inputs": [
+          {
+            "name": "name",
+            "role": "text",
+            "value": "Sun",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction x",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction y",
+            "role": "number",
+            "value": "-2",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction z",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Intensity",
+            "role": "number",
+            "value": "2",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Color",
+            "role": "color",
+            "value": "#ffffff",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Cast shadows",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "combobox",
+            "value": "",
+            "invalid": null
+          }
+        ],
+        "groups": []
+      },
+      {
+        "state": "selected-point-radius2",
+        "filename": "checkout-webgl2-editor-shadows-selected-point-radius2-ui.png",
+        "inputs": [
+          {
+            "name": "name",
+            "role": "text",
+            "value": "Point",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "-3",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "2",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "typenonehitboxsolid",
+            "role": "combobox",
+            "value": "none",
+            "invalid": null
+          },
+          {
+            "name": "Intensity",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Distance (0 = unlimited)",
+            "role": "number",
+            "value": "9",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Color",
+            "role": "color",
+            "value": "#ffffff",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Decay",
+            "role": "number",
+            "value": "2",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "x offset",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "y offset",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "z offset",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Cast shadows",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "combobox",
+            "value": "",
+            "invalid": null
+          }
+        ],
+        "groups": []
+      },
+      {
+        "state": "selected-sun-global-off-no-coverage",
+        "filename": "checkout-webgl2-editor-shadows-selected-sun-global-off-no-coverage-ui.png",
+        "inputs": [
+          {
+            "name": "name",
+            "role": "text",
+            "value": "Sun",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction x",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction y",
+            "role": "number",
+            "value": "-2",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction z",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Intensity",
+            "role": "number",
+            "value": "2",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Color",
+            "role": "color",
+            "value": "#ffffff",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Cast shadows",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "combobox",
+            "value": "",
+            "invalid": null
+          }
+        ],
+        "groups": []
+      },
+      {
+        "state": "play-no-helper-objects",
+        "filename": "checkout-webgl2-editor-shadows-play-no-helper-objects-ui.png",
+        "inputs": [
+          {
+            "name": "Scene lighting",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Ambient color",
+            "role": "color",
+            "value": "#ffffff",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Ambient intensity",
+            "role": "number",
+            "value": "0.15",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Shadow qualityOffLowMediumHigh",
+            "role": "combobox",
+            "value": "medium",
+            "invalid": null
+          },
+          {
+            "name": "Scene shadow max distance",
+            "role": "number",
+            "value": "32",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Vignette",
+            "role": "checkbox",
+            "value": "on",
+            "checked": false,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Color grade",
+            "role": "checkbox",
+            "value": "on",
+            "checked": false,
+            "readOnly": false,
+            "invalid": null
+          }
+        ],
+        "groups": []
+      },
+      {
+        "state": "edit-after-stop-selected-sun",
+        "filename": "checkout-webgl2-editor-shadows-edit-after-stop-selected-sun-ui.png",
+        "inputs": [
+          {
+            "name": "name",
+            "role": "text",
+            "value": "Sun",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction x",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction y",
+            "role": "number",
+            "value": "-2",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction z",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Intensity",
+            "role": "number",
+            "value": "2",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Color",
+            "role": "color",
+            "value": "#ffffff",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Cast shadows",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "combobox",
+            "value": "",
+            "invalid": null
+          }
+        ],
+        "groups": []
+      },
+      {
+        "state": "persisted-roundtrip",
+        "filename": "checkout-webgl2-editor-shadows-persisted-roundtrip-ui.png",
+        "inputs": [
+          {
+            "name": "name",
+            "role": "text",
+            "value": "Sun",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction x",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction y",
+            "role": "number",
+            "value": "-2",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Direction z",
+            "role": "number",
+            "value": "1",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Intensity",
+            "role": "number",
+            "value": "2",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Color",
+            "role": "color",
+            "value": "#ffffff",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Cast shadows",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow map size",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Shadow map size",
+            "role": "combobox",
+            "value": "1024",
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow max distance",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Shadow max distance",
+            "role": "number",
+            "value": "24",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow bias",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Shadow bias",
+            "role": "number",
+            "value": "0",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow normal bias",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Shadow normal bias",
+            "role": "number",
+            "value": "0.03",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Override Shadow radius",
+            "role": "checkbox",
+            "value": "on",
+            "checked": true,
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "Shadow radius",
+            "role": "number",
+            "value": "2",
+            "readOnly": false,
+            "invalid": null
+          },
+          {
+            "name": "",
+            "role": "combobox",
+            "value": "",
+            "invalid": null
+          }
+        ],
+        "groups": [
+          {
+            "name": "Shadow map size",
+            "text": "Shadow map sizeOverride · Stored: 1024 · Effective: 1024Override Shadow map sizeShadow map size value256512102420484096Inherit scene"
+          },
+          {
+            "name": "Shadow max distance",
+            "text": "Shadow max distance↺⤒Override · Stored: 24 · Effective: 24Override Shadow max distanceShadow max distance valueInherit scene"
+          },
+          {
+            "name": "Shadow bias",
+            "text": "Shadow bias↺⤒Override · Stored: 0 · Effective: 0Override Shadow biasShadow bias valueInherit scene"
+          },
+          {
+            "name": "Shadow normal bias",
+            "text": "Shadow normal bias↺⤒Override · Stored: 0.03 · Effective: 0.03Override Shadow normal biasShadow normal bias valueInherit scene"
+          },
+          {
+            "name": "Shadow radius",
+            "text": "Shadow radius↺⤒Override · Stored: 2 · Effective: 2Override Shadow radiusShadow radius valueInherit scene"
+          }
+        ]
+      }
+    ],
+    "errors": [],
+    "status": "passed"
+  },
+  "signalShutdownMs": 31
+}

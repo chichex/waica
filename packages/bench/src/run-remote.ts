@@ -5,6 +5,7 @@
 import { execFileSync, spawn } from 'node:child_process'
 import { applyBaselineFlags } from './baseline-files.ts'
 import { parseRemoteArgs } from './bench-args.ts'
+import { assertShadowResourceSweep } from './backend-matrix.ts'
 import {
   PREFLIGHT_SCRIPT,
   extractResults,
@@ -64,10 +65,11 @@ async function main(): Promise<void> {
   const host = resolveBenchHost(process.env)
   const sha = pushedCommit()
   await assertHostReady(host)
-  const script = remoteRunScript({ sha, repoUrl: httpsCloneUrl(git('remote', 'get-url', 'origin')), gpu: args.gpu })
+  const script = remoteRunScript({ sha, repoUrl: httpsCloneUrl(git('remote', 'get-url', 'origin')), gpu: args.gpu, backend: args.backend })
   const { code, stdout } = await ssh(host, script)
   if (code !== 0) throw new Error(`bench:remote: the bench failed on ${host} (exit ${code})`)
-  const results = parseScenarioResults(extractResults(stdout))
+  const results = parseScenarioResults(extractResults(stdout), args.backend)
+  assertShadowResourceSweep(results)
   process.stdout.write(`${RESULTS_MARKER}${JSON.stringify(results)}\n`)
   if (!applyBaselineFlags(results, args)) process.exitCode = 1
 }

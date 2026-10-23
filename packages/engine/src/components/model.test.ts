@@ -259,6 +259,6 @@ describe('Model through a scene (CA-9)', () => {
       color: { kind: 'color' },
     })
     expect(Model.params?.size?.min).toBeGreaterThan(0)
-    expect(authoringDefaults(Model)).toEqual({ src: '', shape: 'box', color: 0xffffff, size: 1 })
+    expect(authoringDefaults(Model)).toEqual({ src: '', shape: 'box', color: 0xffffff, size: 1, castShadows: true, receiveShadows: true })
   })
 })

@@ -2,6 +2,7 @@ import { isPerspectiveCameraJson, resolvePerspectiveCamera, resolveSceneSpace, t
 import { resolveOrthographicCamera } from '../../scene/camera-block'
 import { RoRow } from './PropRow'
 import { LightingOptions, PostOptions } from './SceneLightingOptions'
+import { SceneShadowOptions } from './SceneShadowOptions'
 
 type RenderProp = (key: string, value: unknown) => void
 
@@ -91,6 +92,7 @@ export function SceneInspector({
       <RoRow label="camera" value={cameraSummary(scene)} />
       {!threeD && <RenderOptions scene={scene} onRenderProp={onRenderProp} />}
       <LightingOptions scene={scene} onRenderProp={onRenderProp} />
+      {threeD && <SceneShadowOptions scene={scene} onRenderProp={onRenderProp} />}
       <PostOptions scene={scene} onRenderProp={onRenderProp} />
       <div className="ed-hint">
         click an entity in the viewport or the tree to edit it — drag prefabs from the left

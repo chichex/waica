@@ -6,13 +6,13 @@ import { Collider, placePerspectiveCamera, PointLight, resolvePerspectiveCamera,
 import type { ViewportLive } from './viewport-live'
 import { addOverlay } from './viewport-selection-gizmos'
 
-const HELPER_COLOR = 0xffc857
+export const HELPER_COLOR = 0xffc857
 const COLLIDER_COLOR = 0x6fe3a5
 const SUN_ARROW_LENGTH = 2
 const CIRCLE_SEGMENTS = 48
 
 /** Three unit great circles (XY, XZ, YZ): a wire sphere that stays light. */
-function wireSphere(): THREE.BufferGeometry {
+export function wireSphere(): THREE.BufferGeometry {
   const points: number[] = []
   for (let index = 0; index < CIRCLE_SEGMENTS; index += 1) {
     const [a, b] = [(index / CIRCLE_SEGMENTS) * Math.PI * 2, ((index + 1) / CIRCLE_SEGMENTS) * Math.PI * 2]
@@ -170,10 +170,10 @@ export function createHelpers3d(game: Game) {
         entity.node.getWorldPosition(object.position)
         object.setDirection(new THREE.Vector3(...component.direction).normalize())
       }
-      for (const { entity, component, object } of ranges(liveComponents(game, PointLight))) {
+      for (const { component, object } of ranges(liveComponents(game, PointLight))) {
         // A distance of 0 is unlimited: no ring to draw (issue #173 inference 16).
         object.visible = visible && component.distance > 0
-        entity.node.getWorldPosition(object.position).add(new THREE.Vector3(component.offsetX, component.offsetY, component.offsetZ))
+        component.light?.getWorldPosition(object.position)
         object.scale.setScalar(component.distance)
       }
       colliders(visible)

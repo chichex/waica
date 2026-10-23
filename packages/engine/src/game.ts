@@ -16,6 +16,7 @@ import { EntityUpdateSchedules } from './entity-update-schedules.js'
 import type { PositionJson } from './entity-transform.js'
 import { Emitter } from './events.js'
 import { RigidBody } from './components/rigid-body.js'
+import { ShadowLight } from './components/shadow-light.js'
 import {
   consumeSimulationSteps,
   MAX_CHAINED_HOPS,
@@ -23,6 +24,7 @@ import {
   snapElapsedToStep,
 } from './fixed-step.js'
 import { advanceGameTime, GameTime } from './game-time.js'
+import { GameShadows } from './game-shadows.js'
 import { Input, type InputBindings } from './input.js'
 import { PhysicsHost } from './physics-3d/physics-host.js'
 import type { PhysicsBackend } from './physics-3d/rapier-module.js'
@@ -164,6 +166,8 @@ export class Game {
   readonly time = new GameTime()
   /** The live scene's Ambient Light and Lights (ADR 0026); it dies with its scene. */
   readonly lighting = new GameLighting()
+  /** Scene-scoped 3D shadow policy, independent of Ambient Light. */
+  readonly shadows = new GameShadows(this)
   /** The live scene's Post Effects (vignette, color grade); they die with their scene. */
   readonly post = new GamePost()
   /** The live 3D scene's Rapier world and bodies (ADR 0028); package-internal, read by the physics components and the Runtime Snapshot. */
@@ -278,6 +282,7 @@ export class Game {
       pixel: () => (this.resolution ? this.viewHeight / this.resolution.height : null),
     })
     this.renderer = new THREE.WebGPURenderer({ canvas, antialias: true })
+    this.shadows.connect(this.renderer)
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     // The model view on the CPU, as three's WebGL renderer computed it: a Sprite
     // Batch instance carries that same matrix (ADR 0024), so batched and
@@ -311,7 +316,8 @@ export class Game {
    * its first frame (ADR 0025).
    */
   ready(): Promise<void> {
-    return this.physics.whenReady(this.readiness.promise)
+    const ready = this.physics.whenReady(this.readiness.promise)
+    return this.sceneSpace === '3d' ? ready.then(() => this.shadows.validate()) : ready
   }
 
   /** The Render Backend the renderer settled on; null until ready() resolved. */
@@ -399,6 +405,7 @@ export class Game {
     this.time.cancelSceneScoped()
     this.cameraEffects.unloadScene()
     this.lighting.unloadScene()
+    this.shadows.unloadScene()
     this.post.unloadScene()
     // An explicit unload means "no scene": a swap queued earlier this frame
     // would otherwise flush next frame and resurrect one.
@@ -493,7 +500,9 @@ export class Game {
   applyParamOverrides(entity: Entity, component: Component): void {
     const Class = componentClassOf(component)
     const override = this.paramOverrides[entity.name]?.[Class.componentName]
-    if (override) Object.assign(component, override)
+    if (!override) return
+    if (component instanceof ShadowLight) this.shadows.applyParams(component, override)
+    else Object.assign(component, override)
   }
 
   /**
@@ -517,6 +526,7 @@ export class Game {
     this.renderSort = sort
     this.spriteBatches.enabled = json?.batch !== false
     this.lighting.loadScene(json)
+    this.shadows.loadScene(json?.shadows)
     this.post.loadScene(json)
     this.physics.enterScene(space)
     if (projection === this.sceneProjection) return
@@ -857,6 +867,7 @@ export class Game {
       anchoredPiecesOf(this.ui).place()
       // Before ready() the frame simulated, but three cannot draw yet.
       if (!this.readiness.isReady) return
+      this.shadows.sync(this.renderer)
       this.frame.draw()
     } finally {
       restoreBase()

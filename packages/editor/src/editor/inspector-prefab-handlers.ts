@@ -6,6 +6,7 @@ import type { ViewportAccess } from './use-viewport-handle'
 import { refBase } from './Explorer'
 import type { Inspector } from './Inspector'
 import { setPrefabProp } from './prefab-commands'
+import { validateShadowEdit } from './shadow-edit-capacity'
 
 type InspectorProps = ComponentProps<typeof Inspector>
 
@@ -13,14 +14,17 @@ type InspectorProps = ComponentProps<typeof Inspector>
 export function prefabPropHandlers(core: EditorCore, viewport: ViewportAccess) {
   const [prefabLib] = core.library.prefabLib
   return {
-    onPrefabProp: (ref, componentType, key, value) => {
+    onPrefabProp: (...[ref, componentType, key, value]) => {
       const prefab = prefabLib[ref]
       if (!prefab) return
+      const next = setPrefabProp(prefab, componentType, key, value)
+      const scene = core.scenes.scene
+      if (scene) validateShadowEdit(viewport, scene, { prefabs: { ...prefabLib, [ref]: next }, types: [componentType], prefab: ref })
       const structural = componentType === 'Tilemap' && key === 'texture'
       // Stored asset paths need registry resolution, so a Tilemap
       // texture swap recreates the stage instead of patching the URI.
       if (!structural) viewport()?.applyProp(refBase(ref), componentType, key, value)
-      core.commitPrefab(ref, setPrefabProp(prefab, componentType, key, value), structural, `prop:${componentType}:${key}`)
+      core.commitPrefab(ref, next, structural, `prop:${componentType}:${key}`)
     },
     onPrefabSizeAppearance: (ref, componentType, size) => {
       const prefab = prefabLib[ref]

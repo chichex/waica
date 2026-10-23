@@ -1,0 +1,34 @@
+{
+  "scenario": "skinned-characters-200",
+  "commit": "dd8cf9e",
+  "backend": "webgl2",
+  "host": {
+    "platform": "linux",
+    "cpus": 8,
+    "chrome": "Google Chrome 150.0.7871.186",
+    "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+  },
+  "counters": {
+    "drawCalls": 200,
+    "meshes": 200,
+    "visibleMeshes": 200,
+    "geometries": 1,
+    "materials": 1,
+    "textures": 0,
+    "textureSources": 0,
+    "entitiesSpawned": 201,
+    "entitiesDestroyed": 0,
+    "materialsCreated": 1,
+    "geometriesCreated": 1
+  },
+  "timings": {
+    "frames": 60,
+    "medianMs": 6.450000047683716,
+    "p95Ms": 7.799999952316284,
+    "overBudget": false,
+    "gcPauses": {
+      "count": 5,
+      "totalMs": 1.531
+    }
+  }
+}

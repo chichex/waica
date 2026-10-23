@@ -1,5 +1,6 @@
 import * as THREE from 'three/webgpu'
-import { Component, type ComponentSpace, type ParamSpec } from '../component.js'
+import type { ComponentSpace, ParamSpec } from '../component.js'
+import { ShadowLight } from './shadow-light.js'
 
 /**
  * A point light in a 3D scene (ADR 0027, `CONTEXT.md` Point Light): it shines
@@ -7,11 +8,12 @@ import { Component, type ComponentSpace, type ParamSpec } from '../component.js'
  * entity's local frame: it turns and scales with the entity, so a lantern's
  * offset follows the object it hangs on), reaching
  * `distance` world units (0 = without limit) and fading with `decay` (2 is
- * physical). Not the 2D `Light`, which paints a light-map. No shadows. In a
+ * physical). Not the 2D `Light`, which paints a light-map. Its shadows have an
+ * independent finite range without shortening illumination. In a
  * 2D scene it creates nothing; the three light lives under the entity's node
  * and leaves with it.
  */
-export class PointLight extends Component {
+export class PointLight extends ShadowLight {
   static override componentName = 'PointLight'
   static override space: ComponentSpace = '3d'
   static override displayName = 'Point light (3D)'
@@ -23,6 +25,7 @@ export class PointLight extends Component {
     offsetX: { label: 'x offset' },
     offsetY: { label: 'y offset' },
     offsetZ: { label: 'z offset' },
+    ...ShadowLight.params,
   } satisfies Record<string, ParamSpec>
   static override transient = ['light']
 
@@ -102,6 +105,7 @@ export class PointLight extends Component {
   }
 
   override onDestroy(): void {
+    this.game.shadows.remove(this)
     this.light?.removeFromParent()
   }
 

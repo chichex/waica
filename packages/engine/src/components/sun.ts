@@ -1,6 +1,7 @@
 import * as THREE from 'three/webgpu'
-import { Component, type ComponentSpace, type ParamSpec } from '../component.js'
+import type { ComponentSpace, ParamSpec } from '../component.js'
 import type { Vec3Json } from '../scene-camera-3d.js'
+import { ShadowLight } from './shadow-light.js'
 
 const DEFAULT_DIRECTION: Vec3Json = [-1, -2, -1]
 
@@ -11,17 +12,19 @@ const finiteDirection = (value: unknown): value is Vec3Json =>
 /**
  * The 3D scene's sunlight (ADR 0027, `CONTEXT.md` Sun): a directional light
  * that shines along `direction`, in world space — where its entity stands, or
- * how it is rotated, does not matter. Color is `0xrrggbb`; no shadows. A Sun
+ * how it is rotated, does not matter. Color is `0xrrggbb`; shadows follow the
+ * active view through the scene's shadow policy. A Sun
  * in a 2D scene creates nothing. The three light lives in the Game's scene,
  * moves with its props, and leaves with the entity.
  */
-export class Sun extends Component {
+export class Sun extends ShadowLight {
   static override componentName = 'Sun'
   static override space: ComponentSpace = '3d'
   static override params = {
     direction: { label: 'Direction', kind: 'vector3' },
     color: { label: 'Color', kind: 'color' },
     intensity: { label: 'Intensity', min: 0, step: 0.1 },
+    ...ShadowLight.params,
   } satisfies Record<string, ParamSpec>
   static override transient = ['light']
 
@@ -69,6 +72,7 @@ export class Sun extends Component {
   }
 
   override onDestroy(): void {
+    this.game.shadows.remove(this)
     this.light?.removeFromParent()
     this.light?.target.removeFromParent()
   }

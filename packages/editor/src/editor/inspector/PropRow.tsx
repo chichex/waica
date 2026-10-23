@@ -7,6 +7,7 @@ import { ParamDiagnosticMessages, StringListField } from '../StringListField'
 import { ModelParamRow, TextureParamRow, VectorParamRow } from './param-kind-rows'
 import { RefRow } from './RefRow'
 import { RefTargetsContext } from './ref-targets-context'
+import { BooleanParamRow } from './BooleanParamRow'
 
 /**
  * A row's name plus, while the prop is overridden on this instance, the
@@ -92,6 +93,15 @@ function DiagnosedTextRow({
       <ParamDiagnosticMessages diagnostics={diagnostics} id={diagnosticId} />
     </div>
   )
+}
+
+function ParamValueRow(props: ValueRowProps<unknown> & {
+  label: string; spec?: ParamSpec; referenceTargets?: RefTarget[]; diagnostics?: readonly ParamDiagnostic[]
+}) {
+  if (typeof props.value === 'boolean') return <BooleanParamRow {...props} value={props.value} />
+  return props.diagnostics !== undefined
+    ? <DiagnosedTextRow {...props} param={props.label} diagnostics={props.diagnostics} />
+    : <ValueRow {...props} />
 }
 
 function ColorRow({ name, value, onChange }: ValueRowProps<number>) {
@@ -217,14 +227,6 @@ function ValueRow({
 }: ValueRowProps<unknown> & { label: string; spec?: ParamSpec; referenceTargets?: RefTarget[] }) {
   const byKind = kindRow({ label, name, value, spec, onChange })
   if (byKind) return byKind
-  if (typeof value === 'boolean') {
-    return (
-      <label className="ed-row">
-        {name}
-        <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} />
-      </label>
-    )
-  }
   if (typeof value === 'number') {
     return <NumberRow label={label} name={name} value={value} spec={spec} onChange={onChange} />
   }
@@ -298,24 +300,14 @@ export function PropRow({
       />
     )
   }
-  if (diagnostics !== undefined) {
-    return (
-      <DiagnosedTextRow
-        param={label}
-        name={name}
-        value={value}
-        diagnostics={diagnostics}
-        onChange={onChange}
-      />
-    )
-  }
   return (
-    <ValueRow
+    <ParamValueRow
       label={label}
       name={name}
       value={value}
       spec={spec}
       referenceTargets={referenceTargets}
+      diagnostics={diagnostics}
       onChange={onChange}
     />
   )

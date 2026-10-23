@@ -7,6 +7,10 @@
         "color": "#b8c8ff",
         "intensity": 0.55
       }
+    },
+    "shadows": {
+      "quality": "medium",
+      "maxDistance": 40
     }
   },
   "simulation": {
@@ -45,7 +49,8 @@
               -1,
               -0.35
             ],
-            "intensity": 2.2
+            "intensity": 2.2,
+            "castShadows": true
           }
         }
       ]

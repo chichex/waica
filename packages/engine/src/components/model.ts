@@ -1,6 +1,8 @@
 import * as THREE from 'three/webgpu'
 import type { ModelHandle } from '../assets/model-cache.js'
 import { Component, type ComponentSpace, type ParamSpec } from '../component.js'
+import { reportRejection } from '../report-rejection.js'
+import { normalizeShadowBoolean } from '../scene-shadows.js'
 
 export type ModelShape = 'box' | 'sphere' | 'plane'
 
@@ -42,6 +44,8 @@ export class Model extends Component {
     shape: { label: 'Shape', options: [...SHAPES] },
     color: { label: 'Color', kind: 'color' },
     size: { label: 'Size', min: 0.01, step: 0.1 },
+    castShadows: { label: 'Cast shadows' },
+    receiveShadows: { label: 'Receive shadows' },
   } satisfies Record<string, ParamSpec>
   static override transient = ['root', 'handle']
 
@@ -59,6 +63,8 @@ export class Model extends Component {
   private _shape: ModelShape = 'box'
   private _color = 0xffffff
   private _size = 1
+  private _castShadows = true
+  private _receiveShadows = true
   private _primitive: Primitive | null = null
 
   /** A `waica:` uri or project path to a `.glb` / `.gltf`; empty draws the primitive `shape`. */
@@ -96,6 +102,24 @@ export class Model extends Component {
     this._primitive?.mesh.scale.setScalar(value)
   }
 
+  /** Whether this Model's meshes cast shadows; only false opts out. */
+  get castShadows(): boolean {
+    return this._castShadows
+  }
+  set castShadows(value: unknown) {
+    this._castShadows = normalizeShadowBoolean(value)
+    this.applyShadowFlags()
+  }
+
+  /** Whether this Model's meshes receive shadows; only false opts out. */
+  get receiveShadows(): boolean {
+    return this._receiveShadows
+  }
+  set receiveShadows(value: unknown) {
+    this._receiveShadows = normalizeShadowBoolean(value)
+    this.applyShadowFlags()
+  }
+
   override onReady(): void {
     // Draws only in a 3D scene, like Sun and PointLight: 2.5D is a later block, and a lit-less mesh would come out black.
     if (this.game.space !== '3d') return
@@ -113,8 +137,21 @@ export class Model extends Component {
   private build(): void {
     if (!this.root) return
     if (this._src) {
-      this.handle = this.game.assets.model(this._src)
-      this.root.add(this.handle.root)
+      const handle = this.game.assets.model(this._src)
+      this.handle = handle
+      this.root.add(handle.root)
+      // A cache hit inserts its clone one microtask before settled reactions;
+      // apply on insertion so Assets Ready already exposes the latest flags.
+      const applyFlags = (): void => {
+        if (this.handle === handle) this.applyShadowFlags()
+      }
+      handle.root.addEventListener('childadded', applyFlags)
+      reportRejection(
+        handle.settled.finally(() => {
+          handle.root.removeEventListener('childadded', applyFlags)
+        }),
+        'model shadows settle',
+      )
     } else {
       this.buildPrimitive(this.root)
     }
@@ -124,6 +161,8 @@ export class Model extends Component {
     const material = new THREE.MeshStandardNodeMaterial({ color: this._color })
     const mesh = new THREE.Mesh(primitiveGeometry(this._shape), material)
     mesh.scale.setScalar(this._size)
+    mesh.castShadow = this.castShadows
+    mesh.receiveShadow = this.receiveShadows
     root.add(mesh)
     this._primitive = { mesh }
   }
@@ -134,8 +173,18 @@ export class Model extends Component {
     this.build()
   }
 
-  /** Empties the root and disposes the primitive this Model created; a glTF's clone only leaves the graph. */
+  /** Participation belongs to this Model's meshes, never their shared glTF resources. */
+  private applyShadowFlags(): void {
+    this.root?.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return
+      object.castShadow = this._castShadows
+      object.receiveShadow = this._receiveShadows
+    })
+  }
+
+  /** Retire clone-local render state; shared glTF geometry/materials stay cache-owned. */
   private clear(): void {
+    for (const child of this.root?.children ?? []) child.traverse((object) => object.dispose())
     this.root?.clear()
     this.handle = null
     if (!this._primitive) return

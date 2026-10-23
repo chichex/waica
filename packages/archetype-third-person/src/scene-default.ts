@@ -22,7 +22,11 @@ function orbitCamera(): PerspectiveSceneCameraJson {
 function threeDScene(entities: SceneEntityJson[]): SceneJson {
   return {
     waicaScene: 3,
-    render: { space: '3d', lighting: { ambient: { color: '#b8c8ff', intensity: 0.55 } } },
+    render: {
+      space: '3d',
+      lighting: { ambient: { color: '#b8c8ff', intensity: 0.55 } },
+      shadows: { quality: 'medium', maxDistance: 40 },
+    },
     simulation: { gravity: [0, -9.81, 0] },
     camera: orbitCamera(),
     entities,
@@ -30,7 +34,7 @@ function threeDScene(entities: SceneEntityJson[]): SceneJson {
   }
 }
 
-const SUN: SceneEntityJson = { name: 'Sun', components: [{ type: 'Sun', props: { direction: [-0.5, -1, -0.35], intensity: 2.2 } }] }
+const SUN: SceneEntityJson = { name: 'Sun', components: [{ type: 'Sun', props: { direction: [-0.5, -1, -0.35], intensity: 2.2, castShadows: true } }] }
 
 /** Half the courtyard's side: 5 × 5 floor tiles of 4 units, walls on the edge. */
 const HALF = 10
@@ -104,7 +108,7 @@ export const THIRD_PERSON_BLANK_SCENE: SceneJson = threeDScene([
     name: 'Ground',
     scale: [24, 1, 24],
     components: [
-      { type: 'Model', props: { shape: 'plane', color: '#5a6b4e' } },
+      { type: 'Model', props: { shape: 'plane', color: '#5a6b4e', castShadows: true, receiveShadows: true } },
       { type: 'Collider', props: { shape: 'box', size: [1, 1, 1], offset: [0, -0.5, 0], layer: 'world' } },
     ],
   },

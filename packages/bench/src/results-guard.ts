@@ -6,6 +6,10 @@ import {
   type ScenarioResult,
   type ScenarioTimings,
 } from './results.ts'
+import { assertResultMatrix } from './backend-matrix.ts'
+import type { BackendSelection } from './bench-args.ts'
+import { assertShadowWorkload, type ShadowWorkloadInfo } from './shadow-workload.ts'
+import { isShadowResourceReport, type ShadowResourceReport } from './shadow-resources.ts'
 
 /**
  * Validates results read back from outside the process — a committed
@@ -24,6 +28,14 @@ function numberAt(fields: Fields, key: string, path: string): number {
   const value = fields[key]
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     throw new Error(`bench: invalid result: ${path}.${key} must be a number`)
+  }
+  return value
+}
+
+function positiveIntegerAt(fields: Fields, key: string, path: string): number {
+  const value = numberAt(fields, key, path)
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`bench: invalid result: ${path}.${key} must be a positive integer`)
   }
   return value
 }
@@ -93,21 +105,50 @@ function backendAt(fields: Fields): ScenarioResult['backend'] {
   return value
 }
 
+function parseShadow(value: unknown): ShadowWorkloadInfo {
+  const fields = record(value, 'shadow')
+  const composition = fields.composition
+  if (composition !== 'sun' && composition !== 'point' && composition !== 'four-point') {
+    throw new Error('bench: invalid result: shadow.composition')
+  }
+  const quality = fields.quality
+  if (quality !== 'off' && quality !== 'medium') throw new Error('bench: invalid result: shadow.quality')
+  return {
+    composition, quality,
+    enabled: booleanAt(fields, 'enabled', 'shadow'),
+    casters: positiveIntegerAt(fields, 'casters', 'shadow'),
+    lights: positiveIntegerAt(fields, 'lights', 'shadow'),
+    warmupFrames: positiveIntegerAt(fields, 'warmupFrames', 'shadow'),
+    measuredFrames: positiveIntegerAt(fields, 'measuredFrames', 'shadow'),
+  }
+}
+
 export function parseScenarioResult(value: unknown): ScenarioResult {
   const fields = record(value, 'result')
   const scenario = SCENARIOS.find((name) => name === fields.scenario)
   if (!scenario) throw new Error(`bench: invalid result: unknown scenario ${JSON.stringify(fields.scenario)}`)
-  return {
+  const result: ScenarioResult = {
     scenario,
     commit: stringAt(fields, 'commit', 'result'),
     backend: backendAt(fields),
     host: parseHost(fields.host),
     counters: parseCounters(fields.counters),
     timings: parseTimings(fields.timings),
+    ...(fields.shadow !== undefined ? { shadow: parseShadow(fields.shadow) } : {}),
+    ...(fields.resources !== undefined ? { resources: parseResources(fields.resources, backendAt(fields)) } : {}),
   }
+  assertShadowWorkload(result.scenario, result.shadow, result.timings.frames)
+  return result
 }
 
-export function parseScenarioResults(value: unknown): ScenarioResult[] {
+function parseResources(value: unknown, backend: ScenarioResult['backend']): ShadowResourceReport {
+  if (!isShadowResourceReport(value) || value.backend !== backend) throw new Error('bench: invalid GPU resource evidence')
+  return value
+}
+
+export function parseScenarioResults(value: unknown, selection?: BackendSelection): ScenarioResult[] {
   if (!Array.isArray(value)) throw new Error('bench: invalid results: expected an array')
-  return value.map(parseScenarioResult)
+  const results = value.map(parseScenarioResult)
+  assertResultMatrix(results, selection)
+  return results
 }

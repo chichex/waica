@@ -1,0 +1,260 @@
+{
+  "chrome": {
+    "executablePath": "/usr/bin/google-chrome-stable",
+    "version": "Google Chrome 150.0.7871.186"
+  },
+  "renderBackend": "webgl2",
+  "includeShadows": true,
+  "thirdPerson": {
+    "validation": {
+      "errors": 0,
+      "warnings": 0,
+      "infos": 0
+    },
+    "animation": {
+      "idleDelta": 0.16666666666666674,
+      "differingIdlePixels": 7446,
+      "walkYaw": 1.5707963267948966,
+      "states": [
+        "idle",
+        "walk",
+        "jump",
+        "idle"
+      ],
+      "poseHashAt": {
+        "frame": 13,
+        "hash": "7a7ce7cc"
+      }
+    },
+    "play": {
+      "walked": 2.9999306201934814,
+      "jumpedTo": 1.4877500534057617,
+      "landedY": 0.05997548997402191,
+      "cameraRelative": {
+        "dx": 2.999938726425171,
+        "dz": -0.0000324249267578125
+      },
+      "animation": {
+        "idleDelta": 0.16666666666666674,
+        "differingIdlePixels": 7446,
+        "walkYaw": 1.5707963267948966,
+        "states": [
+          "idle",
+          "walk",
+          "jump",
+          "idle"
+        ]
+      }
+    },
+    "pixels": {
+      "lightingOracle": "explicit-shadows-off",
+      "samples": {
+        "sky": [
+          26,
+          26,
+          46,
+          255
+        ],
+        "floor": [
+          134,
+          123,
+          117,
+          255
+        ],
+        "underTorch": [
+          155,
+          132,
+          119,
+          255
+        ],
+        "farFromTorches": [
+          123,
+          118,
+          115,
+          255
+        ],
+        "shippedPool": [
+          157,
+          132,
+          119,
+          255
+        ],
+        "shippedControl": [
+          126,
+          120,
+          118,
+          255
+        ],
+        "blocker": [
+          127,
+          120,
+          116,
+          255
+        ]
+      },
+      "pool": 28,
+      "darkPool": 0,
+      "depth": {
+        "differingPixels": 0,
+        "blocker": [
+          179,
+          17,
+          14,
+          255
+        ]
+      },
+      "shippedTorches": {
+        "warmthGain": 30,
+        "brightnessGain": 53,
+        "controlDelta": 0,
+        "frame": 13,
+        "view": {
+          "kind": "perspective",
+          "position": [
+            0,
+            3.312103,
+            9.138156
+          ],
+          "target": [
+            0,
+            1.259982,
+            3.5
+          ],
+          "fov": 55,
+          "follow": "Player",
+          "yaw": 0,
+          "pitch": 20,
+          "distance": 6,
+          "distanceActual": 6
+        },
+        "shadows": {
+          "quality": "medium",
+          "maxDistance": 40
+        },
+        "points": {
+          "pool": {
+            "x": 242,
+            "y": 122
+          },
+          "control": {
+            "x": 60,
+            "y": 167
+          }
+        },
+        "samples": {
+          "lit": {
+            "sky": [
+              26,
+              26,
+              46,
+              255
+            ],
+            "floor": [
+              134,
+              123,
+              117,
+              255
+            ],
+            "underTorch": [
+              155,
+              132,
+              119,
+              255
+            ],
+            "farFromTorches": [
+              123,
+              118,
+              115,
+              255
+            ],
+            "shippedPool": [
+              157,
+              132,
+              119,
+              255
+            ],
+            "shippedControl": [
+              126,
+              120,
+              118,
+              255
+            ],
+            "blocker": [
+              127,
+              120,
+              116,
+              255
+            ]
+          },
+          "dark": {
+            "sky": [
+              26,
+              26,
+              46,
+              255
+            ],
+            "floor": [
+              124,
+              119,
+              116,
+              255
+            ],
+            "underTorch": [
+              123,
+              118,
+              115,
+              255
+            ],
+            "farFromTorches": [
+              123,
+              118,
+              115,
+              255
+            ],
+            "shippedPool": [
+              123,
+              117,
+              115,
+              255
+            ],
+            "shippedControl": [
+              126,
+              120,
+              118,
+              255
+            ],
+            "blocker": [
+              123,
+              118,
+              116,
+              255
+            ]
+          }
+        }
+      }
+    },
+    "camera": {
+      "distance": 6,
+      "distanceActual": 0.75776
+    },
+    "combat": {
+      "healthAfterHit": 19,
+      "healthAfterRoll": 19,
+      "rounds": 4,
+      "skeletonState": "die"
+    },
+    "respawn": {
+      "respawnedAt": {
+        "x": -8.5,
+        "y": 0.00009999999747378752,
+        "z": 4
+      },
+      "checkpoint": {
+        "x": -8.5,
+        "y": 0,
+        "z": 4
+      },
+      "health": 1
+    }
+  }
+}

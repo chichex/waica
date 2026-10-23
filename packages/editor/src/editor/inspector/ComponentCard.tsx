@@ -3,6 +3,7 @@ import { useArchetype } from '../../project/archetype'
 import { collisionParamDiagnostics } from '../collision-category-diagnostics'
 import { AnimatorClipOverridesRow, AnimatorInitialClipRow } from './animator-clip-rows'
 import { componentDefaults, componentKeys, componentLabel } from './component-meta'
+import { isLightShadowFlag, isLightShadowOverride, LightShadowFlagRow, LightShadowOverrides } from './light-shadow-overrides'
 import { OverridableName, PropRow } from './PropRow'
 import { ComponentUpdateSchedule } from './update-schedule'
 
@@ -12,6 +13,8 @@ export interface ComponentPropHandlers {
   onReset?: (key: string) => void
   onApply?: (key: string) => void
 }
+
+const ANIMATOR_ROWS = new Set(['clips', 'initialClip'])
 
 /** One prop's row: the Animator's clip rows (issue #173 CA-5, CA-6), else the generic PropRow. */
 function ComponentRow({
@@ -33,13 +36,14 @@ function ComponentRow({
   const reset = onReset && (() => onReset(propKey))
   const apply = onApply && (() => onApply(propKey))
   const change = (next: unknown): void => onProp(propKey, next)
-  if (comp.type === 'Animator' && (propKey === 'clips' || propKey === 'initialClip')) {
+  if (comp.type === 'Animator' && ANIMATOR_ROWS.has(propKey)) {
     const label = propKey === 'clips' ? 'Clip overrides' : (spec?.label ?? propKey)
     const name = <OverridableName label={label} overridden={overridden} onReset={reset} onApply={apply} />
     return propKey === 'clips' ? <AnimatorClipOverridesRow name={name} value={value} onChange={change} /> : <AnimatorInitialClipRow name={name} value={value} onChange={change} />
   }
+  const Row = isLightShadowFlag(comp.type, propKey) ? LightShadowFlagRow : PropRow
   return (
-    <PropRow
+    <Row
       label={propKey}
       spec={spec}
       value={value}
@@ -68,19 +72,23 @@ export function ComponentRows({
   const archetype = useArchetype()
   const defaults = componentDefaults(comp, archetype)
   const specs: Record<string, ParamSpec | undefined> = archetype.registry.components[comp.type]?.params ?? {}
+  const shadowKeys = keys.filter((key) => isLightShadowOverride(comp.type, key))
   return (
     <>
-      {keys.map((key) => (
+      {keys.filter((key) => !isLightShadowOverride(comp.type, key)).map((key) => (
         <ComponentRow
           key={`${id}.${comp.type}.${key}`}
           comp={comp}
           propKey={key}
-          value={comp.props && Object.hasOwn(comp.props, key) ? comp.props[key] : (defaults[key] ?? 0)}
+          value={comp.props && Object.hasOwn(comp.props, key) ? comp.props[key] : (defaults[key] === undefined ? 0 : defaults[key])}
           spec={specs[key]}
           overridden={overridden?.has(key) ?? false}
           {...handlers}
         />
       ))}
+      {shadowKeys.length > 0 && (
+        <LightShadowOverrides key={`${id}.${comp.type}.shadows`} comp={comp} names={shadowKeys} overridden={overridden} {...handlers} />
+      )}
     </>
   )
 }
