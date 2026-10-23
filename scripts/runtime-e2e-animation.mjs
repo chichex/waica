@@ -8,8 +8,12 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { expectsBlankLighting } from './runtime-e2e-lighting.mjs'
 
-/** The clips the demo Knight's idle, walk and jump states play (the archetype's KNIGHT_CLIPS). */
-export const CLIPS = { idle: 'Idle', walk: 'Walking_A', jump: 'Jump_Start' }
+/**
+ * The demo Knight's clips (the archetype's KNIGHT_CLIPS): idle, walk and run
+ * play `locomotion`, the blend of Idle, Walking_A and Running_A by speed
+ * (issue #205); jump and attack play their own.
+ */
+export const CLIPS = { idle: 'Idle', walk: 'Walking_A', run: 'Running_A', jump: 'Jump_Start', attack: '1H_Melee_Attack_Chop', locomotion: 'Locomotion' }
 /** How many decoded pixels two idle frames 20 frames apart must differ in, where the frame draws. */
 const MIN_IDLE_DIFFERING_PIXELS = 50
 
@@ -53,24 +57,33 @@ export function session({ helpers, client, project, canvas }) {
   return { control, look, screenshot }
 }
 
-/** The Player's animation as the snapshot reports it: the machine's state, the Animator's clip, time and pose, the yaw. */
+/** The Player's animation as the snapshot reports it: the machine's state, the Animator's clip, time, pose and clip weights, the yaw. */
 export function animationOf(player) {
   assert.ok(player.machine && player.animator, `the Player must carry a StateMachine and an Animator; ${JSON.stringify(player)}`)
-  return { state: player.machine.current, clip: player.animator.current, time: player.animator.time, poseHash: player.animator.poseHash, loaded: player.animator.loaded, yaw: player.rotation.y }
+  const { current, time, poseHash, loaded, weights } = player.animator
+  return { state: player.machine.current, clip: current, time, poseHash, loaded, weights, yaw: player.rotation.y }
+}
+
+/** The clip with the largest weight in an Animator's `weights`, and that weight. */
+export function heaviestClip(weights) {
+  const [clip, weight] = Object.entries(weights ?? {}).reduce((best, entry) => (entry[1] > best[1] ? entry : best), ['', 0])
+  return { clip, weight }
 }
 
 /**
  * The Player idling (issue #166 CA-18): the machine in idle and the Animator
- * loaded on the idle clip; two snapshots 10 frames apart 10/60 s apart in clip
- * time (on the looping clip, so modulo its duration) and with different pose
- * hashes; and, where the frame draws, two screenshots 20 frames apart that
- * differ in pixels (the demo plays it with no skeleton around).
+ * loaded on the Locomotion blend with Idle alone (issue #205 CA-16); two
+ * snapshots 10 frames apart 10/60 s apart in clip time (on the looping clip,
+ * so modulo its duration) and with different pose hashes; and, where the
+ * frame draws, two screenshots 20 frames apart that differ in pixels (the
+ * demo plays it with no skeleton around).
  */
 export async function exerciseIdle({ control, look, screenshot }, { inspector, renderBackend, keep, idleDuration }) {
   const first = animationOf(await look('Player'))
   assert.equal(first.state, 'idle', `the Player must idle at rest; ${JSON.stringify(first)}`)
   assert.equal(first.loaded, true, `the Animator must have loaded the knight; ${JSON.stringify(first)}`)
-  assert.equal(first.clip, CLIPS.idle, `the Animator must play the idle clip; ${JSON.stringify(first)}`)
+  assert.equal(first.clip, CLIPS.locomotion, `the Animator must play the Locomotion blend; ${JSON.stringify(first)}`)
+  assert.deepEqual(first.weights, { [CLIPS.idle]: 1 }, `standing still, Locomotion must sound Idle alone; ${JSON.stringify(first)}`)
   await control('step', { frames: 10 })
   const later = animationOf(await look('Player'))
   const delta = forwardDelta(first.time, later.time, idleDuration)

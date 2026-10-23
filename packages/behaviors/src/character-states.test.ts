@@ -8,7 +8,7 @@ vi.mock(
     (await import('../../engine/src/test-renderer.js')).withFakeRenderer(await importOriginal<Record<string, unknown>>()),
 )
 
-import { Animator, GltfModelBackend, installArchetype, Model, nextTransition, roleDefinition, StateMachine, type SceneComponentJson, type SceneEntityJson, type TriggerEnv } from '@waica/engine'
+import { Animator, GltfModelBackend, installArchetype, Model, nextTransition, RigidBody, roleDefinition, StateMachine, type SceneComponentJson, type SceneEntityJson, type TriggerEnv } from '@waica/engine'
 import { use3dTestEnvironment } from '../../engine/src/test-game-3d.js'
 import { FLOOR, physicsFixture, type PhysicsFixture } from '../../engine/src/test-physics-3d.js'
 import { RIG_URL, serveRig } from '../../engine/src/test-rig.js'
@@ -170,5 +170,42 @@ describe('the character role beside an Animator on the rig (issue #166 CA-15)', 
 
     expect(seen).toEqual(['idle:idle', 'walk:walk', 'idle:idle', 'jump:jump', 'fall:walk', 'idle:idle'])
     expect(stateOf(fixture)).toBe('idle')
+  })
+})
+
+/** One step, with the planar speed of the body as it began (what the role reads) and the Animator's speed parameter after it. */
+function stepReading(fixture: PhysicsFixture): { planar: number; param: number | undefined } {
+  const entity = defined(fixture.game.find('Player'))
+  const { x, z } = defined(entity.get(RigidBody)).linearVelocity
+  fixture.step(1)
+  return { planar: Math.hypot(x, z), param: defined(entity.get(Animator)).inspectState().params.speed }
+}
+
+describe('the character role writes its planar speed to the Animator (issue #205 CA-14)', () => {
+  it('sets speed every step from the body: walking, in the air and rolling', async () => {
+    serveRig()
+    const entity = player([{ type: 'Model', props: { src: RIG_URL } }, { type: 'Animator', props: { fade: 0 } }])
+    const fixture = await physicsFixture([FLOOR, entity], {
+      components: { CharacterMotor, StateMachine, Model, Animator },
+      game: { bindings: { ...BINDINGS, dodge: ['KeyC'] }, models: new GltfModelBackend() },
+    })
+    fixture.step(20)
+    const readings: { planar: number; param: number | undefined; phase: string }[] = []
+    const run = (frames: number, phase: string): void => {
+      for (let frame = 0; frame < frames; frame += 1) readings.push({ ...stepReading(fixture), phase })
+    }
+    control(fixture, 'hold', 'right')
+    run(15, 'walk')
+    control(fixture, 'press', 'dodge')
+    run(10, 'roll')
+    run(30, 'after the roll')
+    control(fixture, 'press', 'jump')
+    run(10, 'air')
+
+    for (const { planar, param, phase } of readings) expect(param, phase).toBeCloseTo(planar, 9)
+    const fastest = (phase: string): number => Math.max(...readings.filter((reading) => reading.phase === phase).map(({ planar }) => planar))
+    expect(fastest('walk')).toBeGreaterThan(3)
+    expect(fastest('air')).toBeGreaterThan(3)
+    expect(fastest('roll')).toBeGreaterThan(fastest('walk'))
   })
 })

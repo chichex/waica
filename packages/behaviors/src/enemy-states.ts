@@ -7,6 +7,7 @@ import { MeleeAttack } from './melee-attack.js'
 import { drive3d, MOVER_TURN_SPEED } from './mover-3d.js'
 import { playsOwnOneShot } from './own-one-shot-clip.js'
 import { Patrol } from './patrol.js'
+import { writePlanarSpeed } from './planar-speed.js'
 
 /** Seconds the enemy stands still, facing the player, before it strikes (issue #181 inference 15). */
 export const ENEMY_WINDUP_SECONDS = 0.6
@@ -90,6 +91,8 @@ export const ENEMY_ROLE: RoleDefinition = {
     near: 'the player is inside MeleeAttack.range',
   },
   states: {
+    // Always-hook: the speed a blend reads follows the body in every state, a project's own included (issue #205).
+    '*': { onUpdate: ({ entity }) => writePlanarSpeed(entity) },
     patrol: {
       onUpdate(context, dt) {
         const { entity } = context

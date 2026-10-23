@@ -184,3 +184,40 @@ it('stops chasing a player whose Health is down, while it lies in its die state 
   expect(defined(fixture.game.find('Player')).alive).toBe(true)
   expect(stateOf(fixture)).toBe('patrol')
 })
+
+/** The enemy's states over `frames` steps, each with the planar speed of its body as the step began and its Animator's speed parameter after it. */
+function speedReadings(fixture: PhysicsFixture, frames: number): { state: string; planar: number; param: number | undefined }[] {
+  const readings: { state: string; planar: number; param: number | undefined }[] = []
+  for (let frame = 0; frame < frames; frame += 1) {
+    const { x, z } = defined(skeleton(fixture).get(RigidBody)).linearVelocity
+    fixture.step(1)
+    readings.push({ state: stateOf(fixture), planar: Math.hypot(x, z), param: defined(skeleton(fixture).get(Animator)).inspectState().params.speed })
+  }
+  return readings
+}
+
+it('writes its planar speed to the Animator after the step of every state: patrol, chase, windup and attack (issue #205 CA-14)', async () => {
+  const readings = [...speedReadings(await arena(12), 30), ...speedReadings(await arena(4), 180)]
+
+  for (const { state, planar, param } of readings) expect(param, state).toBeCloseTo(planar, 9)
+  expect(new Set(readings.map(({ state }) => state))).toEqual(new Set(['patrol', 'chase', 'windup', 'attack']))
+  expect(Math.max(...readings.filter(({ state }) => state === 'chase').map(({ planar }) => planar))).toBeGreaterThan(1)
+})
+
+it('writes its planar speed to the Animator after the step of hurt and die too (issue #205 CA-14)', async () => {
+  const fixture = await arena(4)
+  const health = defined(skeleton(fixture).get(Health))
+  const before = speedReadings(fixture, 20)
+  health.damage(1)
+  const hurt = speedReadings(fixture, 10)
+  health.damage(Number.POSITIVE_INFINITY)
+  const dead = speedReadings(fixture, 20)
+  const readings = [...before, ...hurt, ...dead]
+
+  for (const { state, planar, param } of readings) expect(param, state).toBeCloseTo(planar, 9)
+  expect(hurt.map(({ state }) => state)).toContain('hurt')
+  expect(new Set(dead.map(({ state }) => state))).toEqual(new Set(['die']))
+  expect(Math.max(...before.map(({ planar }) => planar))).toBeGreaterThan(1)
+  expect(defined(dead.at(-1)).param).toBeLessThan(0.1)
+})
+

@@ -7,7 +7,7 @@
 // Tolerances, not exact values: the exact simulation is pinned by the unit
 // tests (behaviors, engine), not by Chrome.
 import assert from 'node:assert/strict'
-import { CLIPS, animationOf, exerciseIdle, session } from './runtime-e2e-animation.mjs'
+import { CLIPS, animationOf, exerciseIdle, heaviestClip, session } from './runtime-e2e-animation.mjs'
 import { rewriteScene } from './runtime-e2e-lighting.mjs'
 
 const CANVAS = { width: 640, height: 360 }
@@ -38,7 +38,7 @@ export async function withSession({ helpers, client, project, chrome }, edit, bo
   }
 }
 
-/** Holding right for 30 frames: the Player walks on the walk clip, in the walk state, facing +x (the camera looks toward -z). */
+/** Holding right for 30 frames: the Player walks in the walk state, Locomotion weighing Walking_A most (issue #205 CA-16), facing +x (the camera looks toward -z). */
 async function exerciseWalk({ control, look }) {
   const start = (await look('Player')).position
   await control('hold', { action: 'right' })
@@ -49,12 +49,57 @@ async function exerciseWalk({ control, look }) {
   assert.ok(walked.x - start.x > 1.5, `holding right must walk the Player; ${JSON.stringify({ start, walked })}`)
   const animation = animationOf(walking)
   assert.equal(animation.state, 'walk', `holding right must put the Player in walk; ${JSON.stringify(animation)}`)
-  assert.equal(animation.clip, CLIPS.walk, `walking must play the walk clip; ${JSON.stringify(animation)}`)
+  assert.equal(animation.clip, CLIPS.locomotion, `walking must play the Locomotion blend; ${JSON.stringify(animation)}`)
+  const heaviest = heaviestClip(animation.weights)
+  assert.ok(heaviest.clip === CLIPS.walk && heaviest.weight >= 0.9, `30 frames of walking must weigh Walking_A at 0.9 or more; ${JSON.stringify(animation)}`)
   assert.ok(Math.abs(animation.yaw - Math.PI / 2) <= 0.05, `walking toward +x must turn the Player to yaw π/2; ${JSON.stringify(animation)}`)
   return { walked: walked.x - start.x, walkYaw: animation.yaw, walkState: animation.state }
 }
 
-/** A jump press: the Player rises on the jump clip in the jump state, then lands grounded and idle on the idle clip. */
+/**
+ * Issue #205 CA-16: holding left and run, one frame at a time, Locomotion
+ * passes through a frame where Walking_A and Running_A both weigh over 0.1,
+ * and Running_A then reaches 0.9 with the Player in run.
+ */
+async function exerciseRun({ control, look }) {
+  await control('hold', { action: 'left' })
+  await control('hold', { action: 'run' })
+  const frames = []
+  for (let frame = 0; frame < 40; frame += 1) {
+    await control('step', { frames: 1 })
+    frames.push(animationOf(await look('Player')))
+  }
+  await control('release', { action: 'run' })
+  await control('release', { action: 'left' })
+  const mixed = frames.findIndex(({ weights }) => (weights?.[CLIPS.walk] ?? 0) > 0.1 && (weights?.[CLIPS.run] ?? 0) > 0.1)
+  assert.ok(mixed >= 0, `running must pass through a frame mixing Walking_A and Running_A; ${JSON.stringify(frames.map(({ weights }) => weights))}`)
+  const ran = frames.findIndex((animation, index) => index > mixed && (animation.weights?.[CLIPS.run] ?? 0) >= 0.9)
+  assert.ok(ran > mixed, `running on must weigh Running_A at 0.9 or more; ${JSON.stringify(frames.map(({ weights }) => weights))}`)
+  // walk and run play the same Locomotion and the blend follows the body, so only the state shows the run signal arrived.
+  assert.equal(frames[ran].state, 'run', `running on must put the Player in run; ${JSON.stringify(frames.map(({ state }) => state))}`)
+  assert.ok(frames.every(({ clip }) => clip === CLIPS.locomotion), `running must keep playing Locomotion; ${JSON.stringify(frames.map(({ clip }) => clip))}`)
+  return { mixedAt: mixed + 1, ranAt: ran + 1, runState: frames[ran].state }
+}
+
+/** Issue #205 CA-16: an attack press, one frame at a time: from its first frame in attack, the attack clip reaches full weight within 3 frames (its fade is 0.05 s). */
+async function exerciseAttack({ control, look }) {
+  await control('step', { frames: 30 })
+  await control('press', { action: 'attack' })
+  const frames = []
+  for (let frame = 0; frame < 8 && frames.length < 3; frame += 1) {
+    await control('step', { frames: 1 })
+    const animation = animationOf(await look('Player'))
+    if (animation.state === 'attack' || frames.length > 0) frames.push(animation)
+  }
+  assert.equal(frames[0]?.state, 'attack', `an attack press must put the Player in attack; ${JSON.stringify(frames)}`)
+  assert.equal(frames[0].clip, CLIPS.attack, `attacking must play the attack clip; ${JSON.stringify(frames)}`)
+  const full = frames.findIndex(({ weights }) => weights?.[CLIPS.attack] === 1)
+  assert.ok(full >= 0 && full < 3, `the attack clip must reach weight 1 within 3 frames of entering attack; ${JSON.stringify(frames.map(({ weights }) => weights))}`)
+  await control('step', { frames: 90 })
+  return { fullWeightAt: full + 1 }
+}
+
+/** A jump press: the Player rises on the jump clip in the jump state, then lands grounded and idle on the Locomotion blend. */
 async function exerciseJump({ control, look }) {
   await control('step', { frames: 30 })
   const standing = (await look('Player')).position
@@ -70,7 +115,7 @@ async function exerciseJump({ control, look }) {
   assert.equal(landed.body?.grounded, true, `the Player must land grounded; ${JSON.stringify(landed)}`)
   const back = animationOf(landed)
   assert.equal(back.state, 'idle', `landing must bring the Player back to idle; ${JSON.stringify(back)}`)
-  assert.equal(back.clip, CLIPS.idle, `landing must play the idle clip again; ${JSON.stringify(back)}`)
+  assert.equal(back.clip, CLIPS.locomotion, `landing must play the Locomotion blend again; ${JSON.stringify(back)}`)
   return { jumpedTo: rising.position.y, landedY: landed.position.y, jumpState: jump.state, landedState: back.state }
 }
 
@@ -92,8 +137,9 @@ async function exerciseCameraRelative({ control, look }) {
 
 /**
  * The physics (the world ready with the scene's gravity, walking, jumping and
- * landing grounded), the animation (idle, walk and jump clips) and the
- * camera-relative movement, on the demo with no skeleton to interfere.
+ * landing grounded), the animation (idle, walk and run through Locomotion,
+ * the attack's fade, the jump clip) and the camera-relative movement, on the
+ * demo with no skeleton to interfere.
  */
 export async function exerciseSimulation(context, { gravity, inspector, renderBackend, keep, idleDuration }) {
   return withSession(context, withoutSkeletons, async (run) => {
@@ -103,6 +149,8 @@ export async function exerciseSimulation(context, { gravity, inspector, renderBa
     await run.control('step', { frames: 20 })
     const idle = await exerciseIdle(run, { inspector, renderBackend, keep, idleDuration })
     const walk = await exerciseWalk(run)
+    const running = await exerciseRun(run)
+    const attack = await exerciseAttack(run)
     const jump = await exerciseJump(run)
     const cameraRelative = await exerciseCameraRelative(run)
     return {
@@ -110,7 +158,14 @@ export async function exerciseSimulation(context, { gravity, inspector, renderBa
       jumpedTo: jump.jumpedTo,
       landedY: jump.landedY,
       cameraRelative,
-      animation: { idleDelta: idle.delta, differingIdlePixels: idle.differingIdlePixels, walkYaw: walk.walkYaw, states: ['idle', walk.walkState, jump.jumpState, jump.landedState] },
+      animation: {
+        idleDelta: idle.delta,
+        differingIdlePixels: idle.differingIdlePixels,
+        walkYaw: walk.walkYaw,
+        run: running,
+        attack,
+        states: ['idle', walk.walkState, running.runState, 'attack', jump.jumpState, jump.landedState],
+      },
     }
   })
 }

@@ -19,6 +19,11 @@ npx @waica/cli            # New project → 3D → Third person
 - **Camera-relative controls.** `CharacterMotor.relativeTo: 'camera'`:
   `W` walks away from the camera. `Shift` runs, `C` rolls (invulnerable while
   it lasts), `Space` jumps, a click or `J` attacks.
+- **Animation.** The Knight's idle, walk and run play one `Locomotion`
+  blend (ADR 0033): `Idle`, `Walking_A` and `Running_A` mixed by the planar
+  speed the `character` role writes to the Animator, so a half stick walks
+  slowly without its feet sliding and walk turns into run smoothly. The
+  attack and the dodge fade in over 0.05 s, the death over 0.3 s.
 - **Combat.** `MeleeAttack` strikes a box in front of the Knight's yaw;
   skeletons (the `enemy` role) patrol, chase, wind up, strike, flinch and
   die. Hits push back, blink the model and shake the camera.

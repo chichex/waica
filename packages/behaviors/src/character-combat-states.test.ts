@@ -220,3 +220,51 @@ it('rolls when the roll starts on the landing step of a jump (CA-15)', async () 
   expect(defined(defined(fixture.game.find('Player')).get(CharacterMotor)).rolling).toBe(true)
   expect(stateOf(fixture)).toBe('roll')
 })
+
+/** Each step over `frames`, its state, the planar speed of the body as it began (what the role reads) and the Animator's speed parameter after it. */
+function speedReadings(fixture: PhysicsFixture, frames: number): { state: string; planar: number; param: number | undefined }[] {
+  const entity = defined(fixture.game.find('Player'))
+  const readings: { state: string; planar: number; param: number | undefined }[] = []
+  for (let frame = 0; frame < frames; frame += 1) {
+    const { x, z } = defined(entity.get(RigidBody)).linearVelocity
+    fixture.step(1)
+    readings.push({ state: stateOf(fixture), planar: Math.hypot(x, z), param: defined(entity.get(Animator)).inspectState().params.speed })
+  }
+  return readings
+}
+
+/** A Player running right for 20 steps, then letting go of the keys. */
+async function runningPlayer(): Promise<PhysicsFixture> {
+  const fixture = await playground()
+  act(fixture, 'hold', 'right')
+  act(fixture, 'hold', 'run')
+  fixture.step(20)
+  expect(stateOf(fixture)).toBe('run')
+  act(fixture, 'release', 'right')
+  act(fixture, 'release', 'run')
+  return fixture
+}
+
+it('writes its planar speed while it attacks: attacking from run, the speed is about 0 once it is idle again (issue #205 CA-14)', async () => {
+  const fixture = await runningPlayer()
+  act(fixture, 'press', 'attack')
+  const readings = speedReadings(fixture, 90)
+
+  const states = readings.map(({ state }) => state)
+  expect(states).toContain('attack')
+  const idleAgain = states.indexOf('idle', states.indexOf('attack'))
+  expect(idleAgain).toBeGreaterThan(0)
+  for (const { state, planar, param } of readings) expect(param, state).toBeCloseTo(planar, 9)
+  expect(defined(readings[idleAgain]).param).toBeLessThan(0.1)
+})
+
+it('writes its planar speed while it lies dead: dying while it runs, the speed falls to about 0 (issue #205 CA-14)', async () => {
+  const fixture = await runningPlayer()
+  defined(defined(fixture.game.find('Player')).get(StateMachine)).goto('die')
+  const readings = speedReadings(fixture, 20)
+
+  expect(new Set(readings.map(({ state }) => state))).toEqual(new Set(['die']))
+  for (const { planar, param } of readings) expect(param).toBeCloseTo(planar, 9)
+  expect(defined(readings.at(-1)).param).toBeLessThan(0.1)
+})
+
