@@ -29,13 +29,17 @@ describe('SWEEP', () => {
       'shadows-point-on-50': { kind: 'shadows-point-on', n: 50 }, 'shadows-point-on-200': { kind: 'shadows-point-on', n: 200 },
       'shadows-four-point-off-50': { kind: 'shadows-four-point-off', n: 50 }, 'shadows-four-point-off-200': { kind: 'shadows-four-point-off', n: 200 },
       'shadows-four-point-on-50': { kind: 'shadows-four-point-on', n: 50 }, 'shadows-four-point-on-200': { kind: 'shadows-four-point-on', n: 200 },
+      'blended-characters-50': { kind: 'blended-characters', n: 50 },
+      'blended-characters-200': { kind: 'blended-characters', n: 200 },
     })
   })
 
   it('runs the scenarios in sweep order, and every one has a plan', () => {
     expect(SCENARIOS).toEqual(Object.keys(SWEEP))
-    expect(SCENARIOS).toHaveLength(29)
-    expect(new Set(SCENARIOS).size).toBe(29)
+    expect(SCENARIOS).toHaveLength(31)
+    expect(new Set(SCENARIOS).size).toBe(31)
+    // Issue #205 CA-25: the blended pair closes the sweep, after the seventeen historical and the twelve shadow scenarios.
+    expect(SCENARIOS.slice(29)).toEqual(['blended-characters-50', 'blended-characters-200'])
     for (const name of SCENARIOS) expect(PLAN_BY_KIND[SWEEP[name].kind]).toBeTypeOf('function')
   })
 })

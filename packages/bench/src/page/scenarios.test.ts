@@ -12,7 +12,7 @@ describe('shadow scenarios in the benchmark sweep', () => {
       'lights-occlusion-8', 'lights-occlusion-32',
       'falling-boxes-200', 'falling-boxes-1000', 'skinned-characters-50', 'skinned-characters-200',
     ])
-    expect(SCENARIOS.slice(17)).toEqual([
+    expect(SCENARIOS.slice(17, 29)).toEqual([
       'shadows-sun-off-50', 'shadows-sun-off-200', 'shadows-sun-on-50', 'shadows-sun-on-200',
       'shadows-point-off-50', 'shadows-point-off-200', 'shadows-point-on-50', 'shadows-point-on-200',
       'shadows-four-point-off-50', 'shadows-four-point-off-200', 'shadows-four-point-on-50', 'shadows-four-point-on-200',

@@ -16,15 +16,13 @@ function characterPosition(index: number, count: number): [number, number, numbe
 }
 
 /**
- * Issue #166 CA-19: `n` skinned characters — the engine's rig fixture, each
- * its own SkeletonUtils clone with its own Animator walking from the start —
- * under a Sun, so the benchmark measures the mixers advancing every
- * Simulation Step and drawing `n` SkinnedMeshes. The rig is one file,
- * preloaded before the run: the counters are `meshes` and `drawCalls` n,
- * `geometries` and `materials` 1 (the clones share them). StateMachine is
- * registered because the Animator updates after it.
+ * `n` of the engine's rig on the grid under a Sun, each its own SkeletonUtils
+ * clone with an Animator of the given props, run for 60 Simulation Steps: the
+ * scene skinned-characters and blended-characters share, so their counters
+ * cannot drift apart. The rig is one file, preloaded before the run.
+ * StateMachine is registered because the Animator updates after it.
  */
-export function skinnedCharacters(n: number): ScenarioPlan {
+export function rigCrowd(n: number, animator: Record<string, unknown>): ScenarioPlan {
   const sun: SceneEntityJson = {
     name: 'Daylight',
     components: [{ type: 'Sun', props: { direction: [-0.5, -1, -0.35], intensity: 3 } }],
@@ -32,7 +30,7 @@ export function skinnedCharacters(n: number): ScenarioPlan {
   const characters: SceneEntityJson[] = Array.from({ length: n }, (_, i) => ({
     name: `Character-${i}`,
     position: characterPosition(i, n),
-    components: [{ type: 'Model', props: { src: rigUrl } }, { type: 'Animator', props: { initialClip: 'walk' } }],
+    components: [{ type: 'Model', props: { src: rigUrl } }, { type: 'Animator', props: animator }],
   }))
   return {
     scene: {
@@ -45,4 +43,14 @@ export function skinnedCharacters(n: number): ScenarioPlan {
     preload: [rigUrl],
     steps: SKINNED_STEPS,
   }
+}
+
+/**
+ * Issue #166 CA-19: `n` skinned characters, each Animator walking from the
+ * start, so the benchmark measures the mixers advancing every Simulation Step
+ * and drawing `n` SkinnedMeshes: the counters are `meshes` and `drawCalls` n,
+ * `geometries` and `materials` 1 (the clones share them).
+ */
+export function skinnedCharacters(n: number): ScenarioPlan {
+  return rigCrowd(n, { initialClip: 'walk' })
 }

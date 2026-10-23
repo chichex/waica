@@ -1,6 +1,7 @@
 import { AnimatedSprite, Sprite, StateMachine, type Entity, type Game, type SceneEntityJson, type SceneJson, type SceneRegistry } from '@waica/engine'
 import { SWEEP, cellSize, gridShape, type ScenarioKind, type ScenarioName } from '../sweep.ts'
 import type { ShadowWorkloadInfo } from '../shadow-workload.ts'
+import { blendedCharacters } from './blended-characters.ts'
 import { bulletHell } from './bullet-hell.ts'
 import { fallingBoxes } from './falling-boxes.ts'
 import { lightsOcclusion } from './lights-occlusion.ts'
@@ -120,6 +121,7 @@ export const PLAN_BY_KIND: Record<ScenarioKind, (n: number) => ScenarioPlan> = {
   'shadows-point-on': (n) => shadowScene(n, 'point', true),
   'shadows-four-point-off': (n) => shadowScene(n, 'four-point', false),
   'shadows-four-point-on': (n) => shadowScene(n, 'four-point', true),
+  'blended-characters': blendedCharacters,
 }
 
 /** Builds the plan of one sweep entry; art is generated here, in the page. */
