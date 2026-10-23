@@ -31,6 +31,9 @@ const ORBIT_PX = 120
 const MIN_DIFFERING_PIXELS = 50
 /** Longer than the editor's 600 ms save debounce, with margin. */
 const SAVE_SETTLE_MS = 1500
+/** Frames the blend preview is sampled for at most, and how many of them must raise Running_A's weight. */
+const PREVIEW_FRAMES = 60
+const MIN_PREVIEW_RISES = 3
 
 /** A port nothing listens on, for the editor's dev server. */
 async function freePort() {
@@ -222,16 +225,21 @@ async function previewLocomotion(page) {
   const slider = card.getByRole('slider', { name: 'Preview speed' })
   const max = await slider.getAttribute('max')
   await slider.fill(max)
-  // Past the fade into the blend and the smoothed speed crossing Walking_A's 6, Running_A has weight and keeps gaining it.
-  await frames(page, 9)
+  // The preview steps by the real time between frames (at most 0.1 s), so how many frames the rise takes depends on the
+  // host: a frame of the shadowed stage takes ~0.5 s in SwiftShader and the speed settles in five. Every frame from the
+  // fill on is sampled until Running_A settles at 1 (or for PREVIEW_FRAMES), so the rise is seen wherever it falls.
   const samples = []
-  for (let sample = 0; sample < 4; sample += 1) {
-    await frames(page, 3)
-    samples.push(await knightAnimator(page))
+  for (let frame = 0; frame < PREVIEW_FRAMES; frame += 1) {
+    await frames(page, 1)
+    const state = await knightAnimator(page)
+    samples.push(state)
+    if ((state.weights?.Running_A ?? 0) >= 1) break
   }
   const running = samples.map((state) => state.weights?.Running_A ?? 0)
+  const rises = running.filter((weight, index) => index > 0 && weight > running[index - 1]).length
   assert.ok(samples.every((state) => state.current === 'Locomotion'), `the preview must play Locomotion; ${JSON.stringify(samples.map(({ current }) => current))}`)
-  assert.ok(running.every((weight, index) => index === 0 || weight > running[index - 1]), `Running_A must weigh more frame after frame; ${JSON.stringify(running)}`)
+  assert.ok(running.every((weight, index) => index === 0 || weight >= running[index - 1]), `Running_A must never lose weight from frame to frame; ${JSON.stringify(running)}`)
+  assert.ok(rises >= MIN_PREVIEW_RISES, `Running_A must weigh more frame after frame, over at least ${MIN_PREVIEW_RISES} frames; ${JSON.stringify(running)}`)
   await page.waitForTimeout(SAVE_SETTLE_MS)
   assert.equal(await savedText(page, PLAYER_PREFAB_PATH), prefabBefore, "the preview must leave the Knight's prefab byte for byte")
   assert.equal(await page.evaluate((scenePath) => globalThis.__waicaEditor.readText(scenePath), SCENE_PATH), sceneBefore, 'the preview must leave the scene file byte for byte')
