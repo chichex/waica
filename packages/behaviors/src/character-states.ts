@@ -116,14 +116,13 @@ function takesAttack({ entity, fsm, game }: StateContext, motor: CharacterMotor 
  * Air without vertical speed reports nothing: the body is not grounded
  * before its first physics step (the spawn, every step while Rapier loads,
  * the step after a teleport), and that is not a fall (review of PR #169).
- * Unmatched signals are no-ops. Every step, in the air and rolling too, it
- * writes the body's planar speed to a beside Animator's `speed` (issue #205).
+ * Unmatched signals are no-ops. The body's planar speed reaches a beside
+ * Animator's `speed` through the role's always-hook, in every state (issue #205).
  */
 export function characterUpdate(context: StateContext): void {
   const { entity, fsm } = context
   const body = entity.get(RigidBody)
   if (body?.type !== 'kinematic') return
-  writePlanarSpeed(entity)
   const motor = entity.get(CharacterMotor)
   if (motor?.rolling) {
     // A roll starts on the ground: on the landing step of a jump, land first so the air state hands over to it.
@@ -253,6 +252,8 @@ export const CHARACTER_ROLE: RoleDefinition = {
     attack: 'an attack press on the ground, beside a MeleeAttack',
   },
   states: {
+    // Always-hook: the speed a blend reads follows the body in every state (attack, die and a project's own; issue #205).
+    '*': { onUpdate: ({ entity }) => writePlanarSpeed(entity) },
     // Fallback: a custom state without its own onUpdate keeps observing the body.
     default: { onUpdate: characterUpdate },
     idle: { onUpdate: characterUpdate },

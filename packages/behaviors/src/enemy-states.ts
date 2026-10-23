@@ -91,6 +91,8 @@ export const ENEMY_ROLE: RoleDefinition = {
     near: 'the player is inside MeleeAttack.range',
   },
   states: {
+    // Always-hook: the speed a blend reads follows the body in every state, a project's own included (issue #205).
+    '*': { onUpdate: ({ entity }) => writePlanarSpeed(entity) },
     patrol: {
       onUpdate(context, dt) {
         const { entity } = context
@@ -98,20 +100,17 @@ export const ENEMY_ROLE: RoleDefinition = {
         if (patrol) patrol.step(dt)
         else drive3d(entity, { x: 0, z: 0 }, dt)
         decide(context)
-        writePlanarSpeed(entity)
       },
     },
     chase: {
       onUpdate(context, dt) {
         context.entity.get(Chaser)?.step(dt)
         decide(context)
-        writePlanarSpeed(context.entity)
       },
     },
     windup: {
       onUpdate({ entity }, dt) {
         standFacing(entity, dt)
-        writePlanarSpeed(entity)
       },
     },
     attack: {
@@ -121,20 +120,17 @@ export const ENEMY_ROLE: RoleDefinition = {
       onUpdate(context, dt) {
         standFacing(context.entity, dt)
         endWithoutClip(context, 'chase')
-        writePlanarSpeed(context.entity)
       },
     },
     hurt: {
       onUpdate(context, dt) {
         drive3d(context.entity, { x: 0, z: 0 }, dt)
         endWithoutClip(context, 'chase')
-        writePlanarSpeed(context.entity)
       },
     },
     die: {
       onUpdate({ entity }, dt) {
         drive3d(entity, { x: 0, z: 0 }, dt)
-        writePlanarSpeed(entity)
       },
     },
   },

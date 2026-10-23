@@ -1,4 +1,5 @@
-import type { SceneComponentJson } from '@waica/engine'
+import { CharacterMotor } from '@waica/behaviors'
+import { authoringDefaults, type SceneComponentJson } from '@waica/engine'
 import { expect, it } from 'vitest'
 import { THIRD_PERSON_PREFABS } from './prefabs'
 
@@ -15,6 +16,14 @@ it('gives the Player’s Animator the Locomotion blend: Idle at 0, Walking_A at 
   expect(componentOf('characters/player', 'Animator').props?.blends).toEqual({
     Locomotion: { param: 'speed', points: [{ clip: 'Idle', at: 0 }, { clip: 'Walking_A', at: 6 }, { clip: 'Running_A', at: 10 }], smoothing: 0.15 },
   })
+})
+
+it('puts Walking_A and Running_A at the speeds the Player’s CharacterMotor walks and runs at: its props, else the motor’s defaults (CA-15)', () => {
+  const motor = { ...authoringDefaults(CharacterMotor), ...componentOf('characters/player', 'CharacterMotor').props }
+  const blends = componentOf('characters/player', 'Animator').props?.blends as Record<string, { points: { clip: string; at: number }[] }>
+  const at = Object.fromEntries((blends.Locomotion?.points ?? []).map(({ clip, at: threshold }) => [clip, threshold]))
+
+  expect(at).toEqual({ Idle: 0, Walking_A: motor.speed, Running_A: motor.runSpeed })
 })
 
 it('plays Locomotion in idle, walk and run, and the Knight’s own clips in the other states (CA-15)', () => {

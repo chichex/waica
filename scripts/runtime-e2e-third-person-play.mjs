@@ -59,7 +59,7 @@ async function exerciseWalk({ control, look }) {
 /**
  * Issue #205 CA-16: holding left and run, one frame at a time, Locomotion
  * passes through a frame where Walking_A and Running_A both weigh over 0.1,
- * and Running_A then reaches 0.9.
+ * and Running_A then reaches 0.9 with the Player in run.
  */
 async function exerciseRun({ control, look }) {
   await control('hold', { action: 'left' })
@@ -75,6 +75,8 @@ async function exerciseRun({ control, look }) {
   assert.ok(mixed >= 0, `running must pass through a frame mixing Walking_A and Running_A; ${JSON.stringify(frames.map(({ weights }) => weights))}`)
   const ran = frames.findIndex((animation, index) => index > mixed && (animation.weights?.[CLIPS.run] ?? 0) >= 0.9)
   assert.ok(ran > mixed, `running on must weigh Running_A at 0.9 or more; ${JSON.stringify(frames.map(({ weights }) => weights))}`)
+  // walk and run play the same Locomotion and the blend follows the body, so only the state shows the run signal arrived.
+  assert.equal(frames[ran].state, 'run', `running on must put the Player in run; ${JSON.stringify(frames.map(({ state }) => state))}`)
   assert.ok(frames.every(({ clip }) => clip === CLIPS.locomotion), `running must keep playing Locomotion; ${JSON.stringify(frames.map(({ clip }) => clip))}`)
   return { mixedAt: mixed + 1, ranAt: ran + 1, runState: frames[ran].state }
 }
