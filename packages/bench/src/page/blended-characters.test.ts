@@ -44,11 +44,10 @@ describe('blendedCharacters (issue #205 CA-25)', () => {
       }
     }
   })
-
 })
 
 describe('blendedCharacters’ per-step work (issue #205 CA-25)', () => {
-  it('sets each character’s speed to 0.5, 1 or 1.5 in turn on the first step, and only then', () => {
+  it('sets each character’s speed to 0.5, 1 or 1.5 in turn in step 1’s host update, and only then: the blend mixes from step 2', () => {
     expect([0, 1, 2, 3, 4, 5].map(characterSpeed)).toEqual([0.5, 1, 1.5, 0.5, 1, 1.5])
     const { game, calls } = recordingGame()
     const { perStep } = blendedCharacters(4)
