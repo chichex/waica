@@ -21,7 +21,7 @@
     "bench:remote": "pnpm --filter @waica/bench bench:remote"
   },
   "devDependencies": {
-    "happy-dom": "^20.14.5",
+    "happy-dom": "^21.0.3",
     "typescript": "^7.0.2",
     "vitest": "^5.0.3"
   }
