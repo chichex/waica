@@ -210,24 +210,52 @@ describe('validate_project checks each blend’s points against the glb (issue #
   })
 })
 
-describe('validate_project checks each blend’s shape (issue #205 CA-13)', () => {
-  it('reports thresholds that do not strictly increase', async () => {
-    const tied = { param: 'speed', points: [{ clip: 'idle', at: 0 }, { clip: 'walk', at: 1 }, { clip: 'jump', at: 1 }] }
-    const reversed = { param: 'speed', points: [{ clip: 'walk', at: 1 }, { clip: 'idle', at: 0 }] }
-    const result = await rigProject(scene3d([MODEL, animatorWith({ blends: { Tied: tied, Reversed: reversed, Move: BLEND } })]))
+/** The findings a validation reports on one blend, by severity and code. */
+const blendFindings = (result: ProjectValidationReport, blend: string) =>
+  result.findings.filter(({ ref }) => ref === `Animator.blends.${blend}`).map(({ severity, code }) => ({ severity, code }))
 
-    expect(findingsOf(result, 'blend-thresholds-not-increasing')).toEqual([
-      { severity: 'error', file: SCENE, ref: 'Animator.blends.Tied' },
-      { severity: 'error', file: SCENE, ref: 'Animator.blends.Reversed' },
+describe('validate_project checks a blend’s thresholds as the runtime sorts them (issue #205 CA-13, user decision 2026-10-23)', () => {
+  it('only warns about points written out of "at" order: the runtime sorts them and plays the same', async () => {
+    const reversed = { param: 'speed', points: [{ clip: 'jump', at: 2 }, { clip: 'walk', at: 1 }, { clip: 'idle', at: 0 }] }
+    const result = await rigProject(scene3d([MODEL, animatorWith({ blends: { Reversed: reversed, Move: BLEND } })]))
+
+    expect(blendFindings(result, 'Reversed')).toEqual([{ severity: 'warning', code: 'blend-points-out-of-order' }])
+    expect(blendFindings(result, 'Move')).toEqual([])
+    expect(result.findings.filter(({ severity }) => severity === 'error')).toEqual([])
+  })
+
+  it('reports two points at one threshold, once sorted by "at", as an error', async () => {
+    const tied = { param: 'speed', points: [{ clip: 'idle', at: 0 }, { clip: 'walk', at: 1 }, { clip: 'jump', at: 1 }] }
+    const apart = { param: 'speed', points: [{ clip: 'walk', at: 1 }, { clip: 'idle', at: 0 }, { clip: 'jump', at: 1 }] }
+    const result = await rigProject(scene3d([MODEL, animatorWith({ blends: { Tied: tied, Apart: apart } })]))
+
+    expect(blendFindings(result, 'Tied')).toEqual([{ severity: 'error', code: 'blend-thresholds-not-increasing' }])
+    expect(blendFindings(result, 'Apart')).toEqual([
+      { severity: 'error', code: 'blend-thresholds-not-increasing' },
+      { severity: 'warning', code: 'blend-points-out-of-order' },
     ])
   })
 
-  it('reports a malformed blend: no param, no points, a point with no clip, a negative or non-numeric at, a negative or non-numeric smoothing', async () => {
+  it('accepts a negative "at": a threshold only has to be finite', async () => {
+    const signed = { param: 'lean', points: [{ clip: 'idle', at: -1 }, { clip: 'walk', at: 1 }] }
+    const result = await rigProject(scene3d([MODEL, animatorWith({ blends: { Signed: signed } })]))
+
+    expect(blendFindings(result, 'Signed')).toEqual([])
+  })
+
+  it('still reports a negative smoothing as invalid-blend', async () => {
+    const result = await rigProject(scene3d([MODEL, animatorWith({ blends: { Backwards: { ...BLEND, smoothing: -1 } } })]))
+
+    expect(blendFindings(result, 'Backwards')).toEqual([{ severity: 'error', code: 'invalid-blend' }])
+  })
+})
+
+describe('validate_project checks each blend’s shape (issue #205 CA-13)', () => {
+  it('reports a malformed blend: no param, no points, a point with no clip, a non-numeric at, a negative or non-numeric smoothing', async () => {
     const blends = {
       NoParam: { points: BLEND.points },
       NoPoints: { param: 'speed', points: [] },
       Clipless: { param: 'speed', points: [{ at: 0 }, { clip: 'walk', at: 1 }] },
-      Below: { param: 'speed', points: [{ clip: 'idle', at: -1 }, { clip: 'walk', at: 1 }] },
       Wordy: { param: 'speed', points: [{ clip: 'idle', at: 'zero' }, { clip: 'walk', at: 1 }] },
       Backwards: { ...BLEND, smoothing: -0.1 },
       Slow: { ...BLEND, smoothing: 'slow' },
@@ -235,7 +263,7 @@ describe('validate_project checks each blend’s shape (issue #205 CA-13)', () =
     }
     const result = await rigProject(scene3d([MODEL, animatorWith({ blends })]))
 
-    expect(findingsOf(result, 'invalid-blend').map(({ ref }) => ref)).toEqual(['NoParam', 'NoPoints', 'Clipless', 'Below', 'Wordy', 'Backwards', 'Slow'].map((name) => `Animator.blends.${name}`))
+    expect(findingsOf(result, 'invalid-blend').map(({ ref }) => ref)).toEqual(['NoParam', 'NoPoints', 'Clipless', 'Wordy', 'Backwards', 'Slow'].map((name) => `Animator.blends.${name}`))
     expect(codes(result, 'invalid-blend').every((finding) => finding.severity === 'error')).toBe(true)
     // The point with no clip is invalid-blend's alone: no missing-clip besides.
     expect(codes(result, 'missing-clip').map(({ ref }) => ref)).toEqual([])

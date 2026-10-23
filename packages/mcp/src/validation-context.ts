@@ -14,6 +14,7 @@ export type FindingCode =
   | 'animator-without-model'
   | 'blend-name-collides-with-clip'
   | 'blend-thresholds-not-increasing'
+  | 'blend-points-out-of-order'
   | 'blend-point-one-shot'
   | 'blend-clip-override-ignored'
   | 'invalid-blend'
