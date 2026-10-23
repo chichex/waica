@@ -3,6 +3,7 @@ import type { ArchetypeManifest } from '../../project/archetype'
 import { missingDriver } from '../../project/chassis'
 import { classDefaults } from '../../project/component-defaults'
 import { resolveComponents } from '../../scene/ops'
+import { blendsOf } from './animator-blends-edit'
 
 /** Raw AnimatedSprite props managed by the animation editor, not shown as rows. */
 export const ANIMATION_KEYS = new Set([
@@ -96,17 +97,28 @@ export function modelSrcOf(components: readonly SceneComponentJson[]): unknown {
   return components.find((c) => c.type === 'Model')?.props?.src
 }
 
+/** The names of the entity's Animator blends (issue 205), the ones the Blends section shows: clips its states and its initial clip may name. */
+function animatorBlendNames(components: readonly SceneComponentJson[]): string[] {
+  return Object.keys(blendsOf(components.find((c) => c.type === 'Animator')?.props?.blends))
+}
+
+/** The names `play` accepts: the glb's clips, then the blends a clip of the glb does not shadow (the clip plays). */
+export function playableClips(glbClips: readonly string[], components: readonly SceneComponentJson[]): string[] {
+  return [...new Set([...glbClips, ...animatorBlendNames(components)])]
+}
+
 /**
  * The clip names a machine's states can be checked against: beside a Model
- * that names a file, its glb's (`modelClips`, issue #173 CA-7), or null while
- * they are unknown (unreadable or still reading); otherwise the sprite's.
+ * that names a file, its glb's (`modelClips`, issue #173 CA-7) and its
+ * Animator's blends, or null while the glb's are unknown (unreadable or still
+ * reading); otherwise the sprite's.
  */
 export function knownClips(
   appearance: SceneComponentJson | null,
   components: readonly SceneComponentJson[],
   modelClips: readonly string[] | null,
 ): readonly string[] | null {
-  if (clipsUnknown(components)) return modelClips
+  if (clipsUnknown(components)) return modelClips && playableClips(modelClips, components)
   return appearance ? Object.keys(clipsOf(appearance)) : []
 }
 

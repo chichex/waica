@@ -104,6 +104,17 @@ function useProjectLibrary(): ProjectLibrary {
   }
 }
 
+/**
+ * The number that rebuilds the stage: every structural edit (epoch) and, so
+ * textures rebind to freshly scanned art, every art scan. Both only grow, so
+ * the sum changes exactly when either one does. A blend preview's session
+ * ends with it (issue 205 CA-21).
+ */
+export function stageEpoch(state: Pick<EditorState, 'stage' | 'art'>): number {
+  const [epoch] = state.stage.epoch
+  return epoch + state.art.loads
+}
+
 function useStageOptions(): StageOptions {
   return {
     epoch: useState(0),

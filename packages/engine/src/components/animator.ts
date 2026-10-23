@@ -3,10 +3,10 @@ import type { ModelHandle } from '../assets/model-cache.js'
 import type { ClipTarget } from '../animation/clip-target.js'
 import { poseHash } from '../animation/pose-hash.js'
 import { Component, type ComponentSpace, type ParamSpec } from '../component.js'
-import type { AnimatorBlend } from './animator-blends.js'
-export type { AnimatorBlend, AnimatorBlendPoint } from './animator-blends.js'
 import { reportRejection } from '../report-rejection.js'
-import { blendReaders, blendSmoothing, blendsRecord, buildBlendSources } from './animator-blends.js'
+import { type AnimatorBlend, blendReaders, blendSmoothing, blendsRecord, buildBlendSources } from './animator-blends.js'
+export type { AnimatorBlend, AnimatorBlendPoint } from './animator-blends.js'
+export { DEFAULT_BLEND_SMOOTHING } from './animator-blends.js'
 import { AnimatorMix, type MixSource } from './animator-mix.js'
 import { AnimatorParams } from './animator-params.js'
 import { ClipSource } from './animator-sources.js'
@@ -169,12 +169,35 @@ export class Animator extends Component implements ClipTarget {
 
   override onUpdate(dt: number): void {
     if (this.game.space !== '3d') return
-    // A rebuilt Model (a new src or shape) draws a new clone: the mixer over
-    // the old one would animate a graph nobody draws, so it is torn down and
-    // the clip it was playing is asked for again on the new one.
-    if (this.attached && (this.entity.get(Model)?.handle ?? null) !== this.handle) this.detach()
-    if (!this.attached) this.attach(true)
+    this.syncModel()
     this.advance(dt)
+  }
+
+  /**
+   * One step of the parameters, the fades and the mixer while the Game does
+   * not simulate (issue #205): the editor's edit-mode preview of a blend
+   * drives the selected entity's Animator alone through it, once per frame,
+   * following its Model as onUpdate does. In Play it does nothing: onUpdate
+   * steps the Animator then.
+   */
+  previewStep(dt: number): void {
+    if (this.game.simulate || this.game.space !== '3d') return
+    this.syncModel()
+    this.advance(dt)
+  }
+
+  /**
+   * Ends an edit-mode preview (issue #205) as a freshly built stage starts:
+   * no parameter written, every clip stopped (three puts the rig back in the
+   * pose its file was built in) and `initialClip`, if any, asked for again
+   * from its start. In Play, or before the model loads, it does nothing.
+   */
+  previewReset(): void {
+    if (this.game.simulate || this.game.space !== '3d' || !this.mixer) return
+    this.params.clear()
+    this.mix.clear()
+    this.current = undefined
+    if (this.initialClip) this.play(this.initialClip)
   }
 
   override onDestroy(): void {
@@ -238,6 +261,18 @@ export class Animator extends Component implements ClipTarget {
     if (typeof own === 'number' && Number.isFinite(own) && own >= 0) return own
     this.warnOnce(`fade:${name}`, `[waica] "${this.entity.name}": clips.${name}.fade must be a number of seconds ≥ 0; fading over ${this.fade}`)
     return this.fade
+  }
+
+  /**
+   * Keeps the mixer on the Model's current clone. A rebuilt Model (a new src
+   * or shape) draws a new clone: the mixer over the old one would animate a
+   * graph nobody draws, so it is torn down and the clip it was playing is
+   * asked for again on the new one. A Model listed after the Animator, which
+   * onReady could not see, is attached here.
+   */
+  private syncModel(): void {
+    if (this.attached && (this.entity.get(Model)?.handle ?? null) !== this.handle) this.detach()
+    if (!this.attached) this.attach(true)
   }
 
   /**

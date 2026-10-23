@@ -35,6 +35,12 @@ export class AnimatorParams {
     }
   }
 
+  /** Forgets every target and value: each parameter is 0 again, as nobody had written it. */
+  clear(): void {
+    this.targets.clear()
+    this.values.clear()
+  }
+
   /** Every smoothed value: the `declared` names first (0 until written), then the others written. */
   snapshot(declared: Iterable<string>): Record<string, number> {
     const snapshot: Record<string, number> = {}

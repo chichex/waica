@@ -139,8 +139,8 @@ export const Viewport = forwardRef<ViewportHandle, Props>(function Viewport(
   const settings3d = useViewport3dSettings()
   const live = { scene, scenePath, sceneCatalog, registry, bindings, stats, music, resolution, selected, multiSelected, mode, grid: effectiveGrid(scene, grid), componentVisibility, tilemapBrush, project, helpers3d: settings3d.helpers, gizmo: settings3d.gizmo, onTransformed }
   const session = useViewportGame(live, { epoch, mode, background, showCamera, viewHeight, onSelect })
-  const { surfaceRef, uiFrameRef, uiScaleRef, gameRef, view3dRef } = session
-  useViewportHandle(ref, gameRef)
+  const { surfaceRef, uiFrameRef, uiScaleRef, view3dRef } = session
+  useViewportHandle(ref, session)
   useViewport3dShortcuts(view3dRef, (gizmoMode) => settings3d.setGizmo({ ...settings3d.gizmo, mode: gizmoMode }))
   const pointer = useViewportPointer(
     { ...session, showCamera },

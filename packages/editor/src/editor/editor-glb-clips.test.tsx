@@ -131,3 +131,21 @@ describe('stored clip names the glb lacks (issue #173 CA-8)', () => {
     expect(await readScene(fs, MAIN)).toEqual(before)
   })
 })
+
+describe('blend names in the state modal (issue 205 CA-20)', () => {
+  it("lists the Animator's blends in a state's animation select, and does not warn about a state that plays one", async () => {
+    const entity = hero('src/art/rig.glb', { blends: { Move: { param: 'speed', points: [{ clip: 'idle', at: 0 }, { clip: 'walk', at: 1 }] } } })
+    const machine = entity.components?.find((component) => component.type === 'StateMachine')
+    if (machine) machine.props = { role: 'player', initial: 'idle', states: { idle: { clip: 'Move' }, run: { clip: 'Run' } } }
+    const fs = await rigProject(entity)
+    const { user } = await openOnHero(fs)
+    await screen.findByRole('combobox', { name: 'Initial clip' })
+
+    await user.click(screen.getByRole('button', { name: 'idle', description: 'Edit this state (clip, transitions, code)' }))
+
+    const animation = screen.getByRole('combobox', { name: 'animation' })
+    expect(optionsOf(animation)).toEqual(['same name (idle)', 'idle', 'walk', 'jump', 'Move'])
+    expect(animation).toHaveProperty('value', 'Move')
+    expect(screen.queryByText(/No animation for this state/)).toBeNull()
+  })
+})
