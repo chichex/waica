@@ -1,3 +1,5 @@
+import { SIMULATION_TIME_EPSILON } from '../fixed-step.js'
+
 /**
  * One thing an Animator can sound (issue #205): a clip of the file, or a
  * blend mixing several of them. The mix only weighs it; how it turns a weight
@@ -82,7 +84,8 @@ export class AnimatorMix {
   step(dt: number): void {
     if (this.duration > 0) {
       this.elapsed += dt
-      const t = Math.min(1, this.elapsed / this.duration)
+      // Steps of 1/60 add up to a hair under some fades (six make 0.09999…): within the epsilon the fade is over.
+      const t = this.elapsed + SIMULATION_TIME_EPSILON >= this.duration ? 1 : this.elapsed / this.duration
       for (const voice of this.voices) voice.weight = t >= 1 ? voice.to : voice.from + (voice.to - voice.from) * t
       if (t >= 1) this.duration = 0
     }

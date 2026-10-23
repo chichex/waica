@@ -163,6 +163,42 @@ describe('the clips of a blend share one phase (issue #205 CA-7)', () => {
   })
 })
 
+describe('a blend in the mix beside other clips (issue #205 CA-3, ADR 0033)', () => {
+  it('Move 10 steps, jump 3 with Move still sounding, then Move: the blend goes on from its phase instead of 0', async () => {
+    const { game, animator } = await animatedRig({ blends: { Move: MOVE } })
+    animator.setParam('speed', 0.5)
+    animator.play('Move')
+    step(game, 10)
+    animator.play('jump')
+    step(game, 3)
+    expect(animator.inspectState().weights.idle).toBeGreaterThan(0)
+    animator.play('Move')
+    step(game, 1)
+
+    // idle (1 s) and walk (0.8 s, float32 lengths in the file) half and half: a 0.9 s cycle, 14 steps of it at the phase 14/60 / 0.9; a restart would read 1/60 / 0.9.
+    expect(animator.current).toBe('Move')
+    expect(animator.clipProgress).toBeCloseTo(14 / 60 / 0.9, 6)
+    expect(animator.inspectState().time).toBeCloseTo(14 / 60, 6)
+  })
+
+  it('sounds walk alone and inside a blend at once: its weight is the sum of both, each action at its own time', async () => {
+    const clipAction = vi.spyOn(THREE.AnimationMixer.prototype, 'clipAction')
+    const { game, animator } = await animatedRig({ blends: { Move: MOVE } })
+    const created = clipAction.mock.results.flatMap((result) => (result.type === 'return' && result.value ? [result.value] : []))
+    animator.play('walk')
+    step(game, 10)
+    animator.setParam('speed', 0.5)
+    animator.play('Move')
+    step(game, 3)
+
+    // Three steps of a 0.15 s fade: walk alone at 6/9, Move at 3/9 with walk and idle half each.
+    expect(animator.inspectState().weights).toEqual({ walk: match.closeTo(6 / 9 + 1.5 / 9, 9), idle: match.closeTo(1.5 / 9, 9) })
+    const walks = playingActions(created).filter((action) => action.getClip().name === 'walk')
+    // walk alone has run 13 steps; the blend's walk sits at the blend's phase, 3 steps of a 0.9 s cycle of its 0.8 s clip.
+    expect(walks.map((action) => action.time).sort((a, b) => a - b)).toEqual([match.closeTo((3 / 60 / 0.9) * 0.8, 9), match.closeTo(13 / 60, 9)])
+  })
+})
+
 describe('a blend’s name and points at runtime: each case warns once per entity and never throws (issue #205 CA-10)', () => {
   it('lets a clip of the file win over a blend of the same name', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
@@ -190,6 +226,22 @@ describe('a blend’s name and points at runtime: each case warns once per entit
     ])
   })
 
+  it('lets only the blends that were built smooth a parameter and list one', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { game, animator } = await animatedRig({
+      blends: {
+        walk: { ...MOVE, smoothing: 1 },
+        Ghost: { param: 'lean', points: [{ clip: 'run', at: 0 }] },
+        Locomotion: { ...MOVE, smoothing: 0.15 },
+      },
+    })
+    animator.play('Locomotion')
+    animator.setParam('speed', 1)
+    step(game, 1)
+
+    // Locomotion's α = (1/60) / 0.15 = 1/9; the dropped walk's 1 s would give 1/60, and Ghost's lean is no parameter of a built blend.
+    expect(animator.inspectState().params).toEqual({ speed: match.closeTo(1 / 9, 9) })
+  })
 })
 
 describe('a blend left with nothing to play at runtime (issue #205 CA-10)', () => {
@@ -209,6 +261,20 @@ describe('a blend left with nothing to play at runtime (issue #205 CA-10)', () =
     ])
   })
 
+})
+
+describe('a blends prop that is not an object at runtime (issue #205 CA-10)', () => {
+  it('warns once, plays the initialClip and never throws from setParam or the snapshot', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { game, animator } = await animatedRig({ initialClip: 'walk', blends: null })
+    expect(() => animator.setParam('speed', 1)).not.toThrow()
+    step(game, 2)
+
+    expect(animator.current).toBe('walk')
+    expect(animator.inspectState().weights).toEqual({ walk: 1 })
+    expect(animator.inspectState().params).toEqual({ speed: 1 })
+    expect(warn.mock.calls.map(([message]) => String(message))).toEqual(['[waica] "Rig": blends must be an object of blends by name; none plays'])
+  })
 })
 
 describe('a parameter or a fade that is not a number at runtime (issue #205 CA-10)', () => {

@@ -6,7 +6,7 @@ import { Component, type ComponentSpace, type ParamSpec } from '../component.js'
 import type { AnimatorBlend } from './animator-blends.js'
 export type { AnimatorBlend, AnimatorBlendPoint } from './animator-blends.js'
 import { reportRejection } from '../report-rejection.js'
-import { blendParam, blendSmoothing, buildBlendSources } from './animator-blends.js'
+import { blendReaders, blendSmoothing, blendsRecord, buildBlendSources } from './animator-blends.js'
 import { AnimatorMix, type MixSource } from './animator-mix.js'
 import { AnimatorParams } from './animator-params.js'
 import { ClipSource } from './animator-sources.js'
@@ -60,7 +60,7 @@ export class Animator extends Component implements ClipTarget {
     initialClip: { label: 'Initial clip' },
     fade: { label: 'Fade (s)', min: 0, max: 1, step: 0.05 },
   } satisfies Record<string, ParamSpec>
-  static override transient = ['current', 'mixer', 'sources', 'mix', 'params', 'requested', 'root', 'warned', 'attached', 'handle', 'names', 'pending']
+  static override transient = ['current', 'mixer', 'sources', 'mix', 'params', 'built', 'requested', 'root', 'warned', 'attached', 'handle', 'names', 'pending']
 
   /** The clip that plays once the model settles, when nothing asked for one before. */
   initialClip = ''
@@ -68,13 +68,15 @@ export class Animator extends Component implements ClipTarget {
   fade = 0.15
   /**
    * Per-clip overrides by glTF clip name (authored in JSON, like
-   * AnimatedSprite.clips). Read when the actions are built, as the model
-   * settles: a change after that applies on the next build (a Model rebuild).
+   * AnimatedSprite.clips). `loop` and `speed` are read when the actions are
+   * built, as the model settles, so a change after that applies on the next
+   * build (a Model rebuild); `fade` is read at every `play`.
    */
   clips: Record<string, AnimatorClipOverride> = {}
   /**
    * 1D blends by name (`AnimatorBlend`, authored in JSON like `clips`): each
-   * is a clip `play` accepts, built with the actions as the model settles.
+   * is a clip `play` accepts. Its `param` and `points` are read when the
+   * actions are built, as the model settles; its `smoothing` every step.
    */
   blends: Record<string, AnimatorBlend> = {}
 
@@ -88,6 +90,8 @@ export class Animator extends Component implements ClipTarget {
   private readonly mix = new AnimatorMix()
   /** The named parameters the blends read; they outlive a rebuild. */
   private readonly params = new AnimatorParams()
+  /** Each blend the current build made playable, by name, and the parameter it reads; null before a build. */
+  private built: ReadonlyMap<string, string> | null = null
   /** A play asked for before the model loaded. */
   private requested: string | undefined
   private root: THREE.Object3D | null = null
@@ -150,7 +154,8 @@ export class Animator extends Component implements ClipTarget {
 
   /**
    * Aims a named parameter at `value`; the blends reading it follow, smoothed
-   * by the first blend that names it. Kept when made before the model loads;
+   * by the first blend that names it (once built, the first one the build made
+   * playable). Kept when made before the model loads;
    * a value that is not a finite number is ignored with one warning.
    */
   setParam(name: string, value: number): void {
@@ -200,13 +205,30 @@ export class Animator extends Component implements ClipTarget {
 
   /** The smoothing of the first blend that reads `param`; none without one. */
   private smoothingOf(param: string): number {
-    const blend = Object.values(this.blends).find((candidate) => blendParam(candidate) === param)
-    return blend === undefined ? 0 : blendSmoothing(blend)
+    const reader = this.blendReaders().find(([, reads]) => reads === param)
+    return reader === undefined ? 0 : blendSmoothing(this.authoredBlends()[reader[0]])
   }
 
   /** The parameters the blends read, in declaration order. */
   private blendParams(): string[] {
-    return [...new Set(Object.values(this.blends).flatMap((blend) => blendParam(blend) ?? []))]
+    return [...new Set(this.blendReaders().map(([, param]) => param))]
+  }
+
+  /**
+   * Each blend's name and the parameter it reads: once built, only the blends
+   * the build made playable (one it dropped decides nothing); before, every
+   * authored blend that names a parameter.
+   */
+  private blendReaders(): (readonly [string, string])[] {
+    return this.built ? [...this.built] : blendReaders(this.authoredBlends())
+  }
+
+  /** The authored blends by name; a `blends` that is not an object (JSON props arrive unchecked) warns once and counts as none. */
+  private authoredBlends(): Readonly<Record<string, unknown>> {
+    const blends = blendsRecord(this.blends)
+    if (blends) return blends
+    this.warnOnce('blends', `[waica] "${this.entity.name}": blends must be an object of blends by name; none plays`)
+    return {}
   }
 
   /** The fade into `name`: its own `clips[name].fade` when that is a finite number ≥ 0, else `fade`. */
@@ -262,6 +284,7 @@ export class Animator extends Component implements ClipTarget {
     this.mixer = null
     this.current = undefined
     this.sources.clear()
+    this.built = null
     this.names = []
     this.root = null
     this.handle = null
@@ -272,8 +295,9 @@ export class Animator extends Component implements ClipTarget {
     this.mixer = mixer
     this.root = handle.root
     for (const clip of handle.animations) this.sources.set(clip.name, new ClipSource(clip.name, this.configure(mixer.clipAction(clip), clip.name)))
+    const authored = this.authoredBlends()
     const blends = buildBlendSources({
-      blends: this.blends,
+      blends: authored,
       clips: this.clips,
       mixer,
       animations: handle.animations,
@@ -281,6 +305,8 @@ export class Animator extends Component implements ClipTarget {
       warn: (key, message) => this.warnOnce(key, `[waica] "${this.entity.name}": ${message}`),
     })
     for (const blend of blends) this.sources.set(blend.name, blend)
+    const playable = new Set(blends.map((blend) => blend.name))
+    this.built = new Map(blendReaders(authored).filter(([name]) => playable.has(name)))
     this.names = [...this.sources.keys()]
     this.pending = false
     const first = this.requested ?? this.initialClip

@@ -18,7 +18,12 @@ export interface AnimatorBlend {
   param: string
   /** The clips and their thresholds, played in threshold order. */
   points: AnimatorBlendPoint[]
-  /** Seconds the parameter takes to approach a new value; 0.15 by default, 0 follows at once. */
+  /**
+   * The time constant, in seconds, of the first-order lag the parameter follows
+   * toward a new value: each step closes dt / smoothing of the gap, so it is not
+   * how long the approach lasts (with 0.15, about 65 % of a jump is covered in
+   * 0.15 s). 0.15 by default, 0 follows at once; read every step.
+   */
   smoothing?: number
 }
 
@@ -40,10 +45,23 @@ export interface BlendBuild {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
+/** An authored `blends` prop as a record by name, or undefined when it is not an object (JSON props arrive unchecked). */
+export function blendsRecord(blends: unknown): Readonly<Record<string, unknown>> | undefined {
+  return isRecord(blends) ? blends : undefined
+}
+
 /** The parameter a blend reads, or undefined when it names none. */
 export function blendParam(blend: unknown): string | undefined {
   const param = isRecord(blend) ? blend.param : undefined
   return typeof param === 'string' && param !== '' ? param : undefined
+}
+
+/** Each blend's name and the parameter it reads, in declaration order; one that names none is left out. */
+export function blendReaders(blends: Readonly<Record<string, unknown>>): (readonly [string, string])[] {
+  return Object.entries(blends).flatMap(([name, blend]) => {
+    const param = blendParam(blend)
+    return param === undefined ? [] : [[name, param] as const]
+  })
 }
 
 /** A blend's smoothing: its own when that is a finite number ≥ 0, else the default. */

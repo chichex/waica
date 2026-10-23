@@ -58,6 +58,18 @@ describe('a fade-in of its own per clip (issue #205 CA-1)', () => {
     // 9 steps of a 0.3 s fade: 0.15 s, half way.
     expect(weightsOf(animator)).toEqual({ walk: match.closeTo(0.5, 6), jump: match.closeTo(0.5, 6) })
   })
+
+  it('closes a 0.1 s fade on its sixth step with the entering clip at exactly 1, though six steps of 1/60 add up to a hair under 0.1', async () => {
+    const { game, animator } = await animatedRig({ fade: 0.1 })
+    animator.play('walk')
+    step(game, 10)
+    animator.play('jump')
+    step(game, 5)
+    expect(weightsOf(animator).walk).toBeGreaterThan(0)
+    step(game, 1)
+
+    expect(weightsOf(animator)).toEqual({ jump: 1 })
+  })
 })
 
 describe('an interrupted fade leaves from the weight each clip had (issue #205 CA-2)', () => {
