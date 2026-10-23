@@ -3,7 +3,7 @@ import { useEffect, useEffectEvent, useImperativeHandle, useLayoutEffect, useRef
 import { createFrameOverlays, type OverlayHost } from './viewport-frame-overlays'
 import { createEditView3d, type EditView3d, type ScenePoses } from './viewport-3d-view'
 import { isThreeDView } from './viewport-camera'
-import { canPreview, endBlendPreview, stepBlendPreview, type BlendPreviewTarget } from './viewport-blend-preview'
+import { endBlendPreview, previewFrames, previewRefusal, type BlendPreviewTarget } from './viewport-blend-preview'
 import { createViewportGame, liveComponent, mountGameCanvas, restoreEditCamera, startFailureMessage } from './viewport-game'
 import type { EditCamera, ViewportHandle, ViewportLive } from './viewport-live'
 
@@ -80,10 +80,11 @@ interface EditorViews {
  */
 function startEditorLoop(game: Game, host: OverlayHost, { cam, view3d, preview }: EditorViews): () => void {
   const overlays = createFrameOverlays(game, host)
+  const previewFrame = previewFrames(game)
   game.onUpdate((dt) => {
     view3d?.sync()
     overlays.update()
-    if (host.live.current.mode === 'edit') stepBlendPreview(game, preview.current, dt)
+    if (host.live.current.mode === 'edit') previewFrame(preview.current, dt)
     if (host.live.current.mode !== 'edit' || isThreeDView(game)) return
     cam.current.x = game.camera.position.x
     cam.current.y = game.camera.position.y
@@ -243,12 +244,15 @@ function viewportHandle({ gameRef, liveRef, previewRef }: HandleRefs): ViewportH
       return gameRef.current
     },
     previewBlend(target) {
-      if (!canPreview(gameRef.current, liveRef.current.mode, target)) return false
-      previewRef.current = target
-      return true
+      const refusal = previewRefusal(gameRef.current, liveRef.current.mode, target)
+      if (refusal === null) previewRef.current = target
+      return refusal
     },
-    stopBlendPreview() {
-      if (liveRef.current.mode === 'edit') endBlendPreview(gameRef.current, previewRef.current)
+    stopBlendPreview({ entity, blend }) {
+      const running = previewRef.current
+      // Only the preview asked about ends: another card's may have taken the stage since.
+      if (running?.entity !== entity || running.blend !== blend) return
+      if (liveRef.current.mode === 'edit') endBlendPreview(gameRef.current, running)
       previewRef.current = null
     },
   }

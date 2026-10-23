@@ -2,9 +2,11 @@
 // at that value on the live Animator of the inspected entity, in edit mode,
 // one step per frame. Its value is transient: it never reaches the scene file
 // or the history, and starts at 0 again whenever the preview's session ends
-// (another entity, Play, a rebuilt stage) or the card unmounts.
-import { useContext, useEffect, useEffectEvent, useRef, useState } from 'react'
+// (another entity, Play, a rebuilt stage), another card's preview takes the
+// stage, or the card unmounts.
+import { useContext, useEffect, useEffectEvent, useState } from 'react'
 import { NumberField } from '../NumberField'
+import type { BlendPreviewRefusal } from '../viewport-blend-preview'
 import { thresholdRange, type StoredPoint } from './animator-blends-edit'
 import { BlendPreviewContext, type BlendPreview } from './blend-preview'
 
@@ -27,36 +29,45 @@ interface PreviewControlProps {
   range: { min: number; max: number } | null
 }
 
-/** Why the slider cannot preview, or null when it can. */
-function unavailableReason(preview: BlendPreview | null, range: PreviewControlProps['range'], failed: boolean): string | null {
-  if (!preview) return 'No live view to preview in.'
-  if (preview.unavailable) return preview.unavailable
-  if (failed) return 'No live Animator to preview on: its model has not loaded.'
-  return range ? null : 'Add points at two different thresholds to preview.'
+/** What the stage answered the last move: the hint it shows, and whether the slider stays on to ask again. */
+const REFUSALS: Readonly<Record<BlendPreviewRefusal, { hint: string; retry: boolean }>> = {
+  play: { hint: 'Preview runs in edit mode.', retry: false },
+  // The model may load any moment: the next move asks again.
+  'not-loaded': { hint: 'No live Animator to preview on: its model has not loaded.', retry: true },
+  'not-built': { hint: 'The stage was built before this blend or its param: press Play and Stop to rebuild it, then preview.', retry: false },
+}
+
+/** Why the slider cannot preview (null when it can), and whether it is off for now. */
+function previewHint(preview: BlendPreview | null, range: PreviewControlProps['range'], refusal: BlendPreviewRefusal | null): { reason: string | null; disabled: boolean } {
+  if (!preview) return { reason: 'No live view to preview in.', disabled: true }
+  if (preview.unavailable) return { reason: preview.unavailable, disabled: true }
+  if (refusal) return { reason: REFUSALS[refusal].hint, disabled: !REFUSALS[refusal].retry }
+  return range ? { reason: null, disabled: false } : { reason: 'Add points at two different thresholds to preview.', disabled: true }
 }
 
 const clampTo = (value: number, { min, max }: { min: number; max: number }): number => Math.min(max, Math.max(min, value))
 
 function PreviewControl({ preview, blend, param, range }: PreviewControlProps) {
-  const [value, setValue] = useState(() => (range ? clampTo(0, range) : 0))
-  const [failed, setFailed] = useState(false)
-  const started = useRef(false)
-  // Ending the session (unmount, a new key) ends the preview this slider started.
+  const rest = range ? clampTo(0, range) : 0
+  const [value, setValue] = useState(rest)
+  const [refusal, setRefusal] = useState<BlendPreviewRefusal | null>(null)
+  // The stage runs one preview: this slider shows its value only while its blend's is the one running.
+  const live = preview?.active === blend
+  // Ending the session (unmount, a new key) ends this blend's preview, if it still runs.
   const stop = useEffectEvent(() => {
-    if (started.current) preview?.stop()
+    if (preview?.active === blend) preview.stop(blend)
   })
   useEffect(() => () => stop(), [])
-  const reason = unavailableReason(preview, range, failed)
+  const { reason, disabled } = previewHint(preview, range, refusal)
   const move = (next: number): void => {
     if (!preview || !range) return
     const clamped = clampTo(next, range)
     setValue(clamped)
-    started.current = preview.start(blend, param, clamped)
-    if (!started.current) setFailed(true)
+    setRefusal(preview.start(blend, param, clamped))
   }
   return (
     <>
-      <SliderRow label={`Preview ${param}`} range={range} value={value} disabled={reason !== null} onMove={move} />
+      <SliderRow label={`Preview ${param}`} range={range} value={live ? value : rest} disabled={disabled} onMove={move} />
       {reason && <div className="ed-hint">{reason}</div>}
     </>
   )

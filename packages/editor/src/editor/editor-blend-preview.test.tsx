@@ -18,6 +18,7 @@ installEditorGlobals()
 beforeEach(() => stubViewportHandle.reset())
 
 const MOVE = { param: 'speed', points: [{ clip: 'idle', at: 0 }, { clip: 'walk', at: 1 }, { clip: 'jump', at: 2 }] }
+const LEAN = { param: 'lean', points: [{ clip: 'idle', at: -1 }, { clip: 'walk', at: 1 }] }
 
 /** A file's bytes, from the data URI Vite inlines it as. */
 function bytesOf(dataUri: string): Uint8Array<ArrayBuffer> {
@@ -27,7 +28,7 @@ function bytesOf(dataUri: string): Uint8Array<ArrayBuffer> {
 const HERO: SceneEntityJson = {
   name: 'Hero',
   position: [0, 0, 0],
-  components: [{ type: 'Model', props: { src: 'src/art/rig.glb' } }, { type: 'Animator', props: { initialClip: 'idle', blends: { Move: MOVE } } }],
+  components: [{ type: 'Model', props: { src: 'src/art/rig.glb' } }, { type: 'Animator', props: { initialClip: 'idle', blends: { Move: MOVE, Lean: LEAN } } }],
 }
 
 /** A project whose main scene, of `space`, holds the rigged Hero and a Box. */
@@ -49,8 +50,9 @@ async function openOn(fs: MemFS, name: string) {
   return opened
 }
 
-const card = (): HTMLElement => within(screen.getByRole('group', { name: 'Blends' })).getByRole('group', { name: 'Blend Move' })
+const card = (name = 'Move'): HTMLElement => within(screen.getByRole('group', { name: 'Blends' })).getByRole('group', { name: `Blend ${name}` })
 const slider = (): HTMLElement => within(card()).getByRole('slider', { name: 'Preview speed' })
+const leanSlider = (): HTMLElement => within(card('Lean')).getByRole('slider', { name: 'Preview lean' })
 
 describe('the blend preview in the Editor (issue 205 CA-21)', () => {
   it('drives the live Animator through the stage handle, never the scene file or the history, and ends with the selection', async () => {
@@ -68,21 +70,49 @@ describe('the blend preview in the Editor (issue 205 CA-21)', () => {
     await vi.waitFor(async () => expect(await readScene(fs, MAIN)).toEqual(before))
 
     await user.click(screen.getByRole('button', { name: /Box$/ }))
-    expect(stubViewportHandle.stops).toBe(1)
+    expect(stubViewportHandle.stops).toEqual([['Hero', 'Move']])
     await user.click(screen.getByRole('button', { name: /Hero$/ }))
     expect(slider()).toHaveProperty('value', '0')
   })
+})
 
+describe('one blend preview at a time in the Editor (issue 205 CA-21)', () => {
+  it('moves the other cards’ sliders back to rest when one starts, and a card leaving ends only its own preview', async () => {
+    const { user } = await openOn(await rigProject(), 'Hero')
+    fireEvent.change(await vi.waitFor(() => slider()), { target: { value: '1.5' } })
+    fireEvent.change(leanSlider(), { target: { value: '0.5' } })
+
+    expect(stubViewportHandle.previews).toEqual([['Hero', 'Move', 'speed', 1.5], ['Hero', 'Lean', 'lean', 0.5]])
+    expect(slider()).toHaveProperty('value', '0')
+    expect(leanSlider()).toHaveProperty('value', '0.5')
+    await user.click(within(card()).getByRole('button', { name: 'Remove the Move blend' }))
+    expect(stubViewportHandle.stops).toEqual([])
+    expect(leanSlider()).toHaveProperty('value', '0.5')
+  })
 })
 
 describe('when the blend preview is off in the Editor (issue 205 CA-21)', () => {
-  it('disables the slider, saying why, when the stage has no live Animator to play the blend', async () => {
-    stubViewportHandle.live = false
+  it('says why while the stage’s Animator has not loaded, and tries again on the next move', async () => {
+    stubViewportHandle.refusal = 'not-loaded'
+    await openOn(await rigProject(), 'Hero')
+    fireEvent.change(await vi.waitFor(() => slider()), { target: { value: '1' } })
+
+    expect(within(card()).getByText('No live Animator to preview on: its model has not loaded.')).toBeDefined()
+    expect(slider()).toHaveProperty('disabled', false)
+    stubViewportHandle.refusal = null
+    fireEvent.change(slider(), { target: { value: '1.5' } })
+    expect(stubViewportHandle.previews).toEqual([['Hero', 'Move', 'speed', 1], ['Hero', 'Move', 'speed', 1.5]])
+    expect(within(card()).queryByText(/has not loaded/)).toBeNull()
+    expect(slider()).toHaveProperty('value', '1.5')
+  })
+
+  it('disables the slider, saying to rebuild the stage, for a blend the stage’s Animator was built without', async () => {
+    stubViewportHandle.refusal = 'not-built'
     await openOn(await rigProject(), 'Hero')
     fireEvent.change(await vi.waitFor(() => slider()), { target: { value: '1' } })
 
     expect(slider()).toHaveProperty('disabled', true)
-    expect(within(card()).getByText('No live Animator to preview on: its model has not loaded.')).toBeDefined()
+    expect(within(card()).getByText('The stage was built before this blend or its param: press Play and Stop to rebuild it, then preview.')).toBeDefined()
   })
 
   it('disables the slider in a 2D scene, where an Animator creates nothing', async () => {
@@ -100,7 +130,7 @@ describe('when the blend preview is off in the Editor (issue 205 CA-21)', () => 
 
     await user.click(screen.getByRole('button', { name: '▶ Play' }))
     expect(await screen.findByText('viewport mode: play')).toBeDefined()
-    expect(stubViewportHandle.stops).toBe(1)
+    expect(stubViewportHandle.stops).toEqual([['Hero', 'Move']])
     await user.click(screen.getByRole('button', { name: /Hero$/ }))
     expect(slider()).toHaveProperty('disabled', true)
     expect(within(card()).getByText('Preview runs in edit mode.')).toBeDefined()

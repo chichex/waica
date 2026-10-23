@@ -6,17 +6,17 @@ import type { SceneJson, TransformJson } from '@waica/engine'
 
 /**
  * What the stub viewport's handle was asked for: the blend previews and their
- * ends (issue 205 CA-21), and whether it answers that a live Animator plays
- * them. A test resets it before it opens the Editor.
+ * ends (issue 205 CA-21), and what it answers a preview: null when a live
+ * Animator plays it, else why not. A test resets it before it opens the Editor.
  */
 export const stubViewportHandle = {
   previews: [] as Array<[string, string, string, number]>,
-  stops: 0,
-  live: true,
+  stops: [] as Array<[string, string]>,
+  refusal: null as 'play' | 'not-loaded' | 'not-built' | null,
   reset(): void {
     this.previews = []
-    this.stops = 0
-    this.live = true
+    this.stops = []
+    this.refusal = null
   },
 }
 
@@ -45,10 +45,10 @@ function stubHandle() {
     game: () => null,
     previewBlend: ({ entity, blend, param, value }: { entity: string; blend: string; param: string; value: number }) => {
       stubViewportHandle.previews.push([entity, blend, param, value])
-      return stubViewportHandle.live
+      return stubViewportHandle.refusal
     },
-    stopBlendPreview: () => {
-      stubViewportHandle.stops += 1
+    stopBlendPreview: ({ entity, blend }: { entity: string; blend: string }) => {
+      stubViewportHandle.stops.push([entity, blend])
     },
   }
 }

@@ -9,7 +9,7 @@ import { useArchetype } from '../../project/archetype'
 import { useGlbClips } from '../glb-clips'
 import { MissingOption, missingOptionClass } from '../missing-option'
 import { NumberField } from '../NumberField'
-import { animatorBlendNames, componentDefaults, modelSrcOf } from './component-meta'
+import { componentDefaults, modelSrcOf, playableClips } from './component-meta'
 import { RefTargetsContext } from './ref-targets-context'
 
 /** An override as stored: `loop`, `speed` and `fade` (AnimatorClipOverride), plus whatever else the JSON holds. */
@@ -35,7 +35,7 @@ export function useInspectedAnimator(): InspectedAnimator {
   const own = animator?.props?.fade
   const fallback = animator ? componentDefaults(animator, archetype).fade : undefined
   const fade = typeof own === 'number' ? own : typeof fallback === 'number' ? fallback : 0
-  return { glbClips, playable: glbClips && [...glbClips, ...animatorBlendNames(components)], fade }
+  return { glbClips, playable: glbClips && playableClips(glbClips, components), fade }
 }
 
 interface ClipRowProps {

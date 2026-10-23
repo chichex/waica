@@ -1,4 +1,5 @@
 import { createContext } from 'react'
+import type { BlendPreviewRefusal } from '../viewport-blend-preview'
 
 /**
  * How the Inspector previews a blend on the live Game in edit mode (issue 205
@@ -11,10 +12,12 @@ export interface BlendPreview {
   readonly session: string
   /** Why the slider cannot preview now, or null when it can. */
   readonly unavailable: string | null
-  /** Plays `blend` with `param` at `value` on the live Animator; false when there is none able to. */
-  start(blend: string, param: string, value: number): boolean
-  /** Ends the preview: the Animator goes back to its initial clip. */
-  stop(): void
+  /** The blend whose preview runs on the stage now, or null: the stage runs one at a time. */
+  readonly active: string | null
+  /** Plays `blend` with `param` at `value` on the live Animator; null when it does, else why it cannot now. */
+  start(blend: string, param: string, value: number): BlendPreviewRefusal | null
+  /** Ends `blend`'s preview when it is the one running: the Animator goes back to its initial clip. */
+  stop(blend: string): void
 }
 
 /** The Editor's blend preview; null outside an Editor, where there is no live Game to preview on. */

@@ -17,7 +17,7 @@ type NumberFieldProps = Omit<
  * in the field. Here the raw text wins while focused (blur re-snaps to the
  * committed value), and focusing selects the content so typing replaces it.
  */
-export function NumberField({ value, onChange, ...rest }: NumberFieldProps) {
+export function NumberField({ value, onChange, onBlur, ...rest }: NumberFieldProps) {
   const [text, setText] = useState<string | null>(null)
   const focusedAt = useRef(0)
   return (
@@ -40,7 +40,10 @@ export function NumberField({ value, onChange, ...rest }: NumberFieldProps) {
         setText(e.target.value)
         onChange(e.target.value)
       }}
-      onBlur={() => setText(null)}
+      onBlur={(e) => {
+        setText(null)
+        onBlur?.(e)
+      }}
     />
   )
 }

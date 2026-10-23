@@ -3,6 +3,7 @@ import type { ArchetypeManifest } from '../../project/archetype'
 import { missingDriver } from '../../project/chassis'
 import { classDefaults } from '../../project/component-defaults'
 import { resolveComponents } from '../../scene/ops'
+import { blendsOf } from './animator-blends-edit'
 
 /** Raw AnimatedSprite props managed by the animation editor, not shown as rows. */
 export const ANIMATION_KEYS = new Set([
@@ -96,10 +97,14 @@ export function modelSrcOf(components: readonly SceneComponentJson[]): unknown {
   return components.find((c) => c.type === 'Model')?.props?.src
 }
 
-/** The names of the entity's Animator blends (issue 205): clips its states and its initial clip may name. */
-export function animatorBlendNames(components: readonly SceneComponentJson[]): string[] {
-  const blends = components.find((c) => c.type === 'Animator')?.props?.blends
-  return typeof blends === 'object' && blends !== null && !Array.isArray(blends) ? Object.keys(blends) : []
+/** The names of the entity's Animator blends (issue 205), the ones the Blends section shows: clips its states and its initial clip may name. */
+function animatorBlendNames(components: readonly SceneComponentJson[]): string[] {
+  return Object.keys(blendsOf(components.find((c) => c.type === 'Animator')?.props?.blends))
+}
+
+/** The names `play` accepts: the glb's clips, then the blends a clip of the glb does not shadow (the clip plays). */
+export function playableClips(glbClips: readonly string[], components: readonly SceneComponentJson[]): string[] {
+  return [...new Set([...glbClips, ...animatorBlendNames(components)])]
 }
 
 /**
@@ -113,7 +118,7 @@ export function knownClips(
   components: readonly SceneComponentJson[],
   modelClips: readonly string[] | null,
 ): readonly string[] | null {
-  if (clipsUnknown(components)) return modelClips && [...modelClips, ...animatorBlendNames(components)]
+  if (clipsUnknown(components)) return modelClips && playableClips(modelClips, components)
   return appearance ? Object.keys(clipsOf(appearance)) : []
 }
 

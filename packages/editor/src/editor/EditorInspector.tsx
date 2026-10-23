@@ -1,8 +1,8 @@
-import type { ComponentProps } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 import type { InputBindings } from '@waica/engine'
 import { DEFAULT_GAME_SETTINGS } from '../project/game'
 import { reportRejection } from '../report-rejection'
-import { blendPreviewOf } from './blend-preview-session'
+import { useBlendPreview } from './blend-preview-session'
 import { createRoleFile } from './code-file-commands'
 import type { EditorCore } from './editor-commits'
 import { EMPTY_STATS } from './EditorCenter'
@@ -28,7 +28,7 @@ export function EditorInspector({ core, viewport }: { core: EditorCore; viewport
   const [, setAnimTarget] = core.modals.animTarget
   const [, setStateTarget] = core.modals.stateTarget
   return (
-    <BlendPreviewContext.Provider value={blendPreviewOf(core, viewport)}>
+    <BlendPreviewProvider core={core} viewport={viewport}>
       <Inspector
         selection={inspectorSelection(core)}
         prefabs={prefabLib}
@@ -56,8 +56,13 @@ export function EditorInspector({ core, viewport }: { core: EditorCore; viewport
         {...prefabPropHandlers(core, viewport)}
         {...prefabAppearanceHandlers(core)}
       />
-    </BlendPreviewContext.Provider>
+    </BlendPreviewProvider>
   )
+}
+
+/** The stage's blend preview for the Inspector beneath it (issue 205 CA-21): it owns which blend's preview runs. */
+function BlendPreviewProvider({ core, viewport, children }: { core: EditorCore; viewport: ViewportAccess; children: ReactNode }) {
+  return <BlendPreviewContext.Provider value={useBlendPreview(core, viewport)}>{children}</BlendPreviewContext.Provider>
 }
 
 /** The project facts the Inspector's forms offer: stats, actions, code files and game settings. */

@@ -33,9 +33,12 @@ function hero(animator: Record<string, unknown>, src = RIG_PATH, machine?: Scene
   return { name: 'Hero', position: [0, 0, 0], components: [{ type: 'Model', props: { src } }, { type: 'Animator', props: animator }, ...(machine ? [machine] : [])] }
 }
 
+/** The Inspector's selection of `entity` in a 3D scene. */
+const selectionOf = (entity: SceneEntityJson) => ({ kind: 'entity' as const, entity, sceneName: 'main', space: '3d' as const })
+
 /** The Inspector on the hero, once the rig's clips are read (or found unreadable). */
 async function inspect(entity: SceneEntityJson) {
-  const view = renderInspectorWithClips({ kind: 'entity', entity, sceneName: 'main', space: '3d' }, await rigCache())
+  const view = renderInspectorWithClips(selectionOf(entity), await rigCache())
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0))
   })
@@ -89,7 +92,7 @@ describe('editing a blend card (issue 205 CA-19)', () => {
   })
 
   it('adds, edits and removes points, picking clips of the glb only and saving the points in threshold order', async () => {
-    const { props } = await inspect(hero({ blends: { Move: MOVE, Other: MOVE } }))
+    const { props, rerender } = await inspect(hero({ blends: { Move: MOVE, Other: MOVE } }))
     const user = userEvent.setup()
     const points = within(card('Move')).getByRole('group', { name: 'Move points' })
 
@@ -102,9 +105,32 @@ describe('editing a blend card (issue 205 CA-19)', () => {
     const at = within(first).getByRole('spinbutton', { name: 'at' })
     await user.clear(at)
     await user.type(at, '3')
+    // Typed in place; the points go in threshold order once the field is left.
+    const typed = { Move: { ...MOVE, points: [{ clip: 'idle', at: 3 }, { clip: 'walk', at: 1 }] }, Other: MOVE }
+    expect(props.onProp).toHaveBeenLastCalledWith('Hero', 'Animator', 'blends', typed)
+    rerender(selectionOf(hero({ blends: typed })))
+    await user.tab()
     expect(props.onProp).toHaveBeenLastCalledWith('Hero', 'Animator', 'blends', { Move: { ...MOVE, points: [{ clip: 'walk', at: 1 }, { clip: 'idle', at: 3 }] }, Other: MOVE })
+    rerender()
     await user.click(within(points).getByRole('button', { name: 'Remove point 2' }))
     expect(props.onProp).toHaveBeenLastCalledWith('Hero', 'Animator', 'blends', { Move: { ...MOVE, points: [{ clip: 'idle', at: 0 }] }, Other: MOVE })
+  })
+})
+
+describe('typing a point’s threshold (issue 205 CA-19)', () => {
+  it('keeps every keystroke on the point being typed, the same clip twice included, and orders the points once the field is left', async () => {
+    const twice = { param: 'speed', points: [{ clip: 'idle', at: 0 }, { clip: 'idle', at: 1 }] }
+    const { props, rerender } = await inspect(hero({ blends: { Move: twice } }))
+    // The Editor commits each keystroke and renders the saved blends again.
+    props.onProp.mockImplementation((...[, , , value]: unknown[]) => rerender(selectionOf(hero({ blends: value }))))
+    const user = userEvent.setup()
+    const at = within(within(card('Move')).getByRole('group', { name: 'point 1' })).getByRole('spinbutton', { name: 'at' })
+
+    await user.clear(at)
+    await user.type(at, '50')
+    expect(props.onProp).toHaveBeenLastCalledWith('Hero', 'Animator', 'blends', { Move: { ...twice, points: [{ clip: 'idle', at: 50 }, { clip: 'idle', at: 1 }] } })
+    await user.tab()
+    expect(props.onProp).toHaveBeenLastCalledWith('Hero', 'Animator', 'blends', { Move: { ...twice, points: [{ clip: 'idle', at: 1 }, { clip: 'idle', at: 50 }] } })
   })
 })
 
@@ -157,6 +183,13 @@ describe('the Blends section on prefabs and prefab instances (issue 205 CA-19)',
 describe('blend names offered as clips (issue 205 CA-20)', () => {
   it('lists the blends after the glb clips in the initial clip select and the clip overrides picker', async () => {
     await inspect(hero({ blends: { Move: MOVE } }))
+
+    expect(optionsOf(screen.getByRole('combobox', { name: 'Initial clip' }))).toEqual(['(none)', 'idle', 'walk', 'jump', 'Move'])
+    expect(optionsOf(screen.getByRole('combobox', { name: 'Add override' }))).toEqual(['add override…', 'idle', 'walk', 'jump', 'Move'])
+  })
+
+  it('offers a blend named like a glb clip once, and no blend that is not an object', async () => {
+    await inspect(hero({ blends: { walk: MOVE, Bad: 5, Move: MOVE } }))
 
     expect(optionsOf(screen.getByRole('combobox', { name: 'Initial clip' }))).toEqual(['(none)', 'idle', 'walk', 'jump', 'Move'])
     expect(optionsOf(screen.getByRole('combobox', { name: 'Add override' }))).toEqual(['add override…', 'idle', 'walk', 'jump', 'Move'])

@@ -3,7 +3,10 @@
 // Model draws (typed by hand while the editor cannot read it) and a
 // threshold, and the card's preview slider (CA-21). Every edit writes the
 // whole `blends` object once, its points in threshold order, so it is one
-// commit; a stored clip the glb lacks stays as it is, marked missing.
+// commit; a threshold being typed is written in place, and the points go in
+// threshold order once it is confirmed (Enter or leaving the field), so the
+// row never moves under the keyboard. A stored clip the glb lacks stays as it
+// is, marked missing.
 import { DEFAULT_BLEND_SMOOTHING } from '@waica/engine'
 import { useState, type ReactNode } from 'react'
 import { MissingOption, missingOptionClass } from '../missing-option'
@@ -16,6 +19,7 @@ import {
   nextPoint,
   pointsOf,
   renamedBlend,
+  sortedPoints,
   thresholdOf,
   withBlend,
   withoutBlend,
@@ -85,6 +89,12 @@ function BlendCard({ name, blend, clips, taken, onChange, onRename, onRemove }: 
   const points = pointsOf(blend)
   const param = typeof blend.param === 'string' ? blend.param : ''
   const setPoints = (next: readonly StoredPoint[]): void => onChange(withPoints(blend, next))
+  const typePoints = (next: readonly StoredPoint[]): void => onChange({ ...blend, points: [...next] })
+  // Once a typed threshold is confirmed, the points go in threshold order, if typing left them out of it.
+  const confirmOrder = (): void => {
+    const sorted = sortedPoints(points)
+    if (sorted.some((point, index) => point !== points[index])) onChange({ ...blend, points: sorted })
+  }
   const setSmoothing = (text: string): void => {
     const smoothing = typedNumber(text)
     if (smoothing !== undefined && smoothing >= 0) onChange({ ...blend, smoothing })
@@ -106,7 +116,7 @@ function BlendCard({ name, blend, clips, taken, onChange, onRename, onRemove }: 
         <span>smoothing</span>
         <NumberField step={0.05} min={0} value={typeof blend.smoothing === 'number' ? blend.smoothing : DEFAULT_BLEND_SMOOTHING} onChange={setSmoothing} />
       </label>
-      <BlendPoints name={name} points={points} clips={clips} onChange={setPoints} />
+      <BlendPoints name={name} points={points} clips={clips} edits={{ onChange: setPoints, onType: typePoints, onConfirm: confirmOrder }} />
       <BlendPreviewSlider blend={name} param={param} points={points} />
     </div>
   )
@@ -134,15 +144,24 @@ function pointKey(points: readonly StoredPoint[], index: number): string {
   return `${clip}:${points.slice(0, index).filter((point) => String(point.clip) === clip).length}`
 }
 
+/** How the points' edits are saved: a whole edit in threshold order, a threshold being typed in place, and its confirmation. */
+interface PointEdits {
+  onChange: (points: readonly StoredPoint[]) => void
+  onType: (points: readonly StoredPoint[]) => void
+  onConfirm: () => void
+}
+
 interface BlendPointsProps {
   name: string
   points: readonly StoredPoint[]
   clips: readonly string[] | null
-  onChange: (points: readonly StoredPoint[]) => void
+  edits: PointEdits
 }
 
 /** The blend's points, in threshold order, and the button that adds one. */
-function BlendPoints({ name, points, clips, onChange }: BlendPointsProps) {
+function BlendPoints({ name, points, clips, edits }: BlendPointsProps) {
+  const { onChange, onType, onConfirm } = edits
+  const replaced = (index: number, next: StoredPoint): StoredPoint[] => points.map((each, at) => (at === index ? next : each))
   return (
     <div className="ed-blend-points" role="group" aria-label={`${name} points`}>
       {points.map((point, index) => (
@@ -151,7 +170,9 @@ function BlendPoints({ name, points, clips, onChange }: BlendPointsProps) {
           label={`point ${index + 1}`}
           point={point}
           clips={clips}
-          onChange={(next) => onChange(points.map((each, at) => (at === index ? next : each)))}
+          onChange={(next) => onChange(replaced(index, next))}
+          onTypeAt={(next) => onType(replaced(index, next))}
+          onConfirmAt={onConfirm}
           onRemove={() => onChange(points.filter((_, at) => at !== index))}
         />
       ))}
@@ -167,24 +188,28 @@ interface BlendPointProps {
   point: StoredPoint
   clips: readonly string[] | null
   onChange: (point: StoredPoint) => void
+  /** A keystroke in the threshold field: the point with what it holds so far. */
+  onTypeAt: (point: StoredPoint) => void
+  /** The threshold field confirmed: Enter, or leaving it. */
+  onConfirmAt: () => void
   onRemove: () => void
 }
 
 /** One point: its clip, its threshold and its removal. */
-function BlendPointRow({ label, point, clips, onChange, onRemove }: BlendPointProps) {
+function BlendPointRow({ label, point, clips, onChange, onTypeAt, onConfirmAt, onRemove }: BlendPointProps) {
   const clip = typeof point.clip === 'string' ? point.clip : ''
   const at = thresholdOf(point)
   const missing = clips !== null && !clips.includes(clip)
   const setAt = (text: string): void => {
     const next = typedNumber(text)
-    if (next !== undefined) onChange({ ...point, at: next })
+    if (next !== undefined) onTypeAt({ ...point, at: next })
   }
   return (
     <div className={`ed-blend-point ${missing ? 'is-missing' : ''}`} role="group" aria-label={label}>
       <BlendPointClip clip={clip} clips={clips} missing={missing} onChange={(next) => onChange({ ...point, clip: next })} />
       <label>
         at
-        <NumberField step={0.5} value={Number.isFinite(at) ? at : ''} onChange={setAt} />
+        <NumberField step={0.5} value={Number.isFinite(at) ? at : ''} onChange={setAt} onBlur={onConfirmAt} onKeyDown={(e) => e.key === 'Enter' && onConfirmAt()} />
       </label>
       <button className="ed-mini" aria-label={`Remove ${label}`} title="Remove this point" onClick={onRemove}>
         ✕

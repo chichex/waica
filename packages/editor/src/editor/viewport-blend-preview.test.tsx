@@ -25,10 +25,10 @@ beforeEach(() => {
 afterEach(removeViewportHost)
 
 const MOVE = { param: 'speed', points: [{ clip: 'idle', at: 0 }, { clip: 'walk', at: 1 }, { clip: 'jump', at: 2 }], smoothing: 0 }
-const rigged = (name: string, x: number): SceneEntityJson => ({
+const rigged = (name: string, x: number, initialClip = 'idle'): SceneEntityJson => ({
   name,
   position: [x, 0, 0],
-  components: [{ type: 'Model', props: { src: RIG_URL } }, { type: 'Animator', props: { initialClip: 'idle', blends: { Move: MOVE } } }],
+  components: [{ type: 'Model', props: { src: RIG_URL } }, { type: 'Animator', props: { initialClip, blends: { Move: MOVE } } }],
 })
 const SCENE: SceneJson = { waicaScene: 3, render: { space: '3d' }, camera: { kind: 'perspective' }, entities: [rigged('Hero', 0), rigged('Foe', 3)] }
 const REGISTRY = { components: { Model, Animator, StateMachine } }
@@ -51,12 +51,21 @@ async function mountRigs(overrides: Parameters<typeof mountViewport>[0] = {}): P
 
 const animatorOf = (game: Game, name: string): Animator => defined(defined(game.find(name)).get(Animator))
 
-/** Runs `frames` frames of the live loop, returning each named rig's pose hash after each. */
-function frames(game: Game, count: number, names: readonly string[]): Record<string, string[]> {
+/** The stage's clock in milliseconds: what the live loop is called with and the preview measures (performance.now). */
+let clock = 0
+
+/** Runs `count` frames of the live loop, `frameMs` apart (16 by default), returning each named rig's pose hash after each. */
+function frames(game: Game, names: readonly string[], { count, frameMs = 16 }: { count: number; frameMs?: number }): Record<string, string[]> {
   const hashes: Record<string, string[]> = Object.fromEntries(names.map((name) => [name, []]))
-  for (let frame = 0; frame < count; frame += 1) {
-    act(() => defined(liveLoop(), 'the live loop')(16 * (frame + 1)))
-    for (const name of names) hashes[name]?.push(animatorOf(game, name).inspectState().poseHash)
+  const now = vi.spyOn(performance, 'now').mockImplementation(() => clock)
+  try {
+    for (let frame = 0; frame < count; frame += 1) {
+      clock += frameMs
+      act(() => defined(liveLoop(), 'the live loop')(clock))
+      for (const name of names) hashes[name]?.push(animatorOf(game, name).inspectState().poseHash)
+    }
+  } finally {
+    now.mockRestore()
   }
   return hashes
 }
@@ -65,9 +74,9 @@ describe('the stage previews a blend on the selected entity alone (issue 205 CA-
   it('plays the blend at the value on that Animator, a step per frame, and leaves the others still', async () => {
     const { mounted, game } = await mountRigs()
 
-    expect(mounted.handle().previewBlend({ entity: 'Hero', blend: 'Move', param: 'speed', value: 1.5 })).toBe(true)
+    expect(mounted.handle().previewBlend({ entity: 'Hero', blend: 'Move', param: 'speed', value: 1.5 })).toBeNull()
     // Past the 0.15 s fade from idle into the blend.
-    const hashes = frames(game, 12, ['Hero', 'Foe'])
+    const hashes = frames(game, ['Hero', 'Foe'], { count: 12 })
 
     expect(animatorOf(game, 'Hero').inspectState()).toMatchObject({ current: 'Move', weights: { walk: 0.5, jump: 0.5 } })
     expect(new Set(hashes.Hero).size).toBe(12)
@@ -78,36 +87,77 @@ describe('the stage previews a blend on the selected entity alone (issue 205 CA-
   it('moves the value of a running preview, and ends it back on the initial clip', async () => {
     const { mounted, game } = await mountRigs()
     mounted.handle().previewBlend({ entity: 'Hero', blend: 'Move', param: 'speed', value: 0.5 })
-    frames(game, 2, ['Hero'])
+    frames(game, ['Hero'], { count: 2 })
     mounted.handle().previewBlend({ entity: 'Hero', blend: 'Move', param: 'speed', value: 2 })
-    frames(game, 10, ['Hero'])
+    frames(game, ['Hero'], { count: 10 })
     expect(animatorOf(game, 'Hero').inspectState().weights).toEqual({ jump: 1 })
 
-    mounted.handle().stopBlendPreview()
-    const after = frames(game, 3, ['Hero'])
+    mounted.handle().stopBlendPreview({ entity: 'Hero', blend: 'Move' })
+    const after = frames(game, ['Hero'], { count: 3 })
     expect(animatorOf(game, 'Hero').current).toBe('idle')
     expect(new Set(after.Hero).size).toBe(1)
   })
 
+  it('steps the preview by the real time between frames, at most 0.1 s, not by a fixed step per frame', async () => {
+    const { mounted, game } = await mountRigs()
+    mounted.handle().previewBlend({ entity: 'Hero', blend: 'Move', param: 'speed', value: 1 })
+    // The preview's first frame takes the host's nominal step; then a 30 Hz display.
+    frames(game, ['Hero'], { count: 1, frameMs: 1000 / 30 })
+    frames(game, ['Hero'], { count: 5, frameMs: 1000 / 30 })
+    // walk alone: the blend's time is the seconds it has played, within its 0.8 s cycle.
+    expect(animatorOf(game, 'Hero').inspectState().time).toBeCloseTo(1 / 60 + 5 / 30, 4)
+    frames(game, ['Hero'], { count: 1, frameMs: 5_000 })
+
+    expect(animatorOf(game, 'Hero').inspectState().time).toBeCloseTo(1 / 60 + 5 / 30 + 0.1, 4)
+  })
+})
+
+describe('the stage ends a blend preview (issue 205 CA-21)', () => {
+  it('as a freshly built stage starts: the parameter forgotten and the rig back in its pose, with a blend as initial clip or none', async () => {
+    const scene: SceneJson = { ...SCENE, entities: [rigged('Hero', 0, 'Move'), rigged('Foe', 3, '')] }
+    const { mounted, game } = await mountRigs({ scene })
+    const before = { Hero: animatorOf(game, 'Hero').inspectState().poseHash, Foe: animatorOf(game, 'Foe').inspectState().poseHash }
+    for (const name of ['Hero', 'Foe'] as const) {
+      mounted.handle().previewBlend({ entity: name, blend: 'Move', param: 'speed', value: 2 })
+      expect(new Set(frames(game, [name], { count: 12 })[name]).has(before[name])).toBe(false)
+      mounted.handle().stopBlendPreview({ entity: name, blend: 'Move' })
+      frames(game, [name], { count: 2 })
+    }
+
+    expect(animatorOf(game, 'Hero').inspectState()).toMatchObject({ current: 'Move', params: { speed: 0 }, poseHash: before.Hero })
+    expect(animatorOf(game, 'Foe').inspectState()).toMatchObject({ current: null, poseHash: before.Foe })
+  })
+
+  it('only for the blend it was asked to stop', async () => {
+    const { mounted, game } = await mountRigs()
+    mounted.handle().previewBlend({ entity: 'Hero', blend: 'Move', param: 'speed', value: 1.5 })
+    frames(game, ['Hero'], { count: 2 })
+    mounted.handle().stopBlendPreview({ entity: 'Hero', blend: 'Other' })
+    mounted.handle().stopBlendPreview({ entity: 'Foe', blend: 'Move' })
+
+    expect(new Set(frames(game, ['Hero'], { count: 4 }).Hero).size).toBe(4)
+    expect(animatorOf(game, 'Hero').current).toBe('Move')
+  })
 })
 
 describe('the stage refuses or drops a blend preview (issue 205 CA-21)', () => {
-  it('refuses a preview with no live Animator able to play the blend, or in Play', async () => {
+  it('refuses a preview, saying why: no Animator loaded, a blend or param its build lacks, or Play', async () => {
     const { mounted } = await mountRigs()
-    expect(mounted.handle().previewBlend({ entity: 'Nobody', blend: 'Move', param: 'speed', value: 1 })).toBe(false)
-    expect(mounted.handle().previewBlend({ entity: 'Hero', blend: 'Gone', param: 'speed', value: 1 })).toBe(false)
+    expect(mounted.handle().previewBlend({ entity: 'Nobody', blend: 'Move', param: 'speed', value: 1 })).toBe('not-loaded')
+    expect(mounted.handle().previewBlend({ entity: 'Hero', blend: 'Gone', param: 'speed', value: 1 })).toBe('not-built')
+    expect(mounted.handle().previewBlend({ entity: 'Hero', blend: 'Move', param: 'pace', value: 1 })).toBe('not-built')
     removeViewportHost()
     installViewportHost()
     serveRig()
 
     const play = await mountRigs({ mode: 'play' })
-    expect(play.mounted.handle().previewBlend({ entity: 'Hero', blend: 'Move', param: 'speed', value: 1 })).toBe(false)
+    expect(play.mounted.handle().previewBlend({ entity: 'Hero', blend: 'Move', param: 'speed', value: 1 })).toBe('play')
   })
 
   it('drops the preview when the stage rebuilds its Game', async () => {
     const { mounted, game } = await mountRigs()
     mounted.handle().previewBlend({ entity: 'Hero', blend: 'Move', param: 'speed', value: 1.5 })
-    frames(game, 1, ['Hero'])
+    frames(game, ['Hero'], { count: 1 })
 
     mounted.rerender({ epoch: 2 })
     const rebuilt = await vi.waitFor(() => {
@@ -115,7 +165,7 @@ describe('the stage refuses or drops a blend preview (issue 205 CA-21)', () => {
       if (next === game || !animatorOf(next, 'Hero').inspectState().loaded || !liveLoop()) throw new Error('not rebuilt yet')
       return next
     })
-    const hashes = frames(rebuilt, 3, ['Hero'])
+    const hashes = frames(rebuilt, ['Hero'], { count: 3 })
     expect(animatorOf(rebuilt, 'Hero').current).toBe('idle')
     expect(new Set(hashes.Hero).size).toBe(1)
   })
