@@ -19,13 +19,36 @@
             "loop": false
           },
           "1H_Melee_Attack_Chop": {
-            "loop": false
+            "loop": false,
+            "fade": 0.05
           },
           "Dodge_Forward": {
-            "loop": false
+            "loop": false,
+            "fade": 0.05
           },
           "Death_A": {
-            "loop": false
+            "loop": false,
+            "fade": 0.3
+          }
+        },
+        "blends": {
+          "Locomotion": {
+            "param": "speed",
+            "points": [
+              {
+                "clip": "Idle",
+                "at": 0
+              },
+              {
+                "clip": "Walking_A",
+                "at": 6
+              },
+              {
+                "clip": "Running_A",
+                "at": 10
+              }
+            ],
+            "smoothing": 0.15
           }
         }
       }
@@ -63,7 +86,7 @@
                 "to": "fall"
               }
             ],
-            "clip": "Idle"
+            "clip": "Locomotion"
           },
           "walk": {
             "transitions": [
@@ -92,7 +115,7 @@
                 "to": "fall"
               }
             ],
-            "clip": "Walking_A"
+            "clip": "Locomotion"
           },
           "jump": {
             "transitions": [
@@ -147,7 +170,7 @@
                 "to": "fall"
               }
             ],
-            "clip": "Running_A"
+            "clip": "Locomotion"
           },
           "attack": {
             "transitions": [

@@ -1,6 +1,7 @@
 import type { ParamSpec, SceneComponentJson } from '@waica/engine'
 import { useArchetype } from '../../project/archetype'
 import { collisionParamDiagnostics } from '../collision-category-diagnostics'
+import { AnimatorBlendsRow } from './animator-blend-rows'
 import { AnimatorClipOverridesRow, AnimatorInitialClipRow } from './animator-clip-rows'
 import { componentDefaults, componentKeys, componentLabel } from './component-meta'
 import { isLightShadowFlag, isLightShadowOverride, LightShadowFlagRow, LightShadowOverrides } from './light-shadow-overrides'
@@ -14,9 +15,35 @@ export interface ComponentPropHandlers {
   onApply?: (key: string) => void
 }
 
-const ANIMATOR_ROWS = new Set(['clips', 'initialClip'])
+/** The Animator's props with rows of their own: its initial clip, clip overrides and blends (issue 205 CA-19). */
+const ANIMATOR_ROWS = new Set(['clips', 'initialClip', 'blends'])
+const ANIMATOR_ROW_LABELS: Readonly<Record<string, string>> = { clips: 'Clip overrides', blends: 'Blends' }
 
-/** One prop's row: the Animator's clip rows (issue #173 CA-5, CA-6), else the generic PropRow. */
+/** One of the Animator's own rows (issue #173 CA-5, CA-6; issue 205 CA-19): its initial clip, clip overrides or blends. */
+function AnimatorRow({
+  propKey,
+  value,
+  spec,
+  overridden,
+  onChange,
+  onReset,
+  onApply,
+}: {
+  propKey: string
+  value: unknown
+  spec: ParamSpec | undefined
+  overridden: boolean
+  onChange: (next: unknown) => void
+  onReset?: () => void
+  onApply?: () => void
+}) {
+  const label = ANIMATOR_ROW_LABELS[propKey] ?? spec?.label ?? propKey
+  const name = <OverridableName label={label} overridden={overridden} onReset={onReset} onApply={onApply} />
+  if (propKey === 'blends') return <AnimatorBlendsRow name={name} value={value} onChange={onChange} />
+  return propKey === 'clips' ? <AnimatorClipOverridesRow name={name} value={value} onChange={onChange} /> : <AnimatorInitialClipRow name={name} value={value} onChange={onChange} />
+}
+
+/** One prop's row: the Animator's own rows, a light's shadow flag, else the generic PropRow. */
 function ComponentRow({
   comp,
   propKey,
@@ -37,9 +64,7 @@ function ComponentRow({
   const apply = onApply && (() => onApply(propKey))
   const change = (next: unknown): void => onProp(propKey, next)
   if (comp.type === 'Animator' && ANIMATOR_ROWS.has(propKey)) {
-    const label = propKey === 'clips' ? 'Clip overrides' : (spec?.label ?? propKey)
-    const name = <OverridableName label={label} overridden={overridden} onReset={reset} onApply={apply} />
-    return propKey === 'clips' ? <AnimatorClipOverridesRow name={name} value={value} onChange={change} /> : <AnimatorInitialClipRow name={name} value={value} onChange={change} />
+    return <AnimatorRow propKey={propKey} value={value} spec={spec} overridden={overridden} onChange={change} onReset={reset} onApply={apply} />
   }
   const Row = isLightShadowFlag(comp.type, propKey) ? LightShadowFlagRow : PropRow
   return (
@@ -105,8 +130,8 @@ export function ComponentCard({ onRemove, ...rowProps }: ComponentCardProps) {
   const archetype = useArchetype()
   const { comp } = rowProps
   const keys = componentKeys(comp, archetype)
-  // The Animator's clip overrides get a row even with none set (issue #173 CA-6): no param declares them.
-  const rows = comp.type === 'Animator' && !keys.includes('clips') ? [...keys, 'clips'] : keys
+  // The Animator's clip overrides and blends get a row even with none set (issue #173 CA-6): no param declares them.
+  const rows = comp.type === 'Animator' ? [...keys, ...['clips', 'blends'].filter((key) => !keys.includes(key))] : keys
   return (
     <div className="ed-comp">
       <header

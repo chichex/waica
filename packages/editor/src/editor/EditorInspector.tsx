@@ -1,11 +1,13 @@
-import type { ComponentProps } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 import type { InputBindings } from '@waica/engine'
 import { DEFAULT_GAME_SETTINGS } from '../project/game'
 import { reportRejection } from '../report-rejection'
+import { useBlendPreview } from './blend-preview-session'
 import { createRoleFile } from './code-file-commands'
 import type { EditorCore } from './editor-commits'
 import { EMPTY_STATS } from './EditorCenter'
 import { Inspector } from './Inspector'
+import { BlendPreviewContext } from './inspector/blend-preview'
 import { entityComponentHandlers, entityPropHandlers, entityTransformHandlers, overrideHandlers } from './inspector-entity-handlers'
 import { prefabAppearanceHandlers, prefabPropHandlers } from './inspector-prefab-handlers'
 import { inspectorSelection } from './inspector-selection'
@@ -16,7 +18,7 @@ import type { ViewportAccess } from './use-viewport-handle'
 
 const EMPTY_ACTIONS: InputBindings = {}
 
-/** The right panel: the Inspector for whatever is open or picked, wired to the editor's commits. */
+/** The right panel: the Inspector for whatever is open or picked, wired to the editor's commits and the stage's blend preview. */
 export function EditorInspector({ core, viewport }: { core: EditorCore; viewport: ViewportAccess }) {
   const { art } = core
   const [prefabLib] = core.library.prefabLib
@@ -26,34 +28,41 @@ export function EditorInspector({ core, viewport }: { core: EditorCore; viewport
   const [, setAnimTarget] = core.modals.animTarget
   const [, setStateTarget] = core.modals.stateTarget
   return (
-    <Inspector
-      selection={inspectorSelection(core)}
-      prefabs={prefabLib}
-      art={art.art}
-      uiPieces={Object.keys(uiLib)}
-      urlFor={art.urlFor}
-      onImportArt={art.importArt}
-      viewportVisibility={visibility}
-      tilemapBrush={tilemapBrush}
-      onTilemapBrush={setTilemapBrush}
-      onViewportVisibility={(role, visible) => setVisibility((current) => ({ ...current, [role]: visible }))}
-      onRename={(from, to) => renameEntity(core, from, to)}
-      onDelete={(name) => deleteEntities(core, [name])}
-      onOpenPrefab={(ref) => core.view.openView({ kind: 'prefab', ref })}
-      onEditAnimation={setAnimTarget}
-      onMachinePatch={(name, patch) => entityMachinePatch(core, name, patch)}
-      onPrefabMachinePatch={(ref, patch) => prefabMachinePatch(core, ref, patch)}
-      onCreateRoleFile={(role) => reportRejection(createRoleFile(core, role), 'create role file')}
-      onEditState={setStateTarget}
-      {...projectProps(core)}
-      {...entityPropHandlers(core, viewport)}
-      {...entityTransformHandlers(core, viewport)}
-      {...entityComponentHandlers(core, viewport)}
-      {...overrideHandlers(core, viewport)}
-      {...prefabPropHandlers(core, viewport)}
-      {...prefabAppearanceHandlers(core)}
-    />
+    <BlendPreviewProvider core={core} viewport={viewport}>
+      <Inspector
+        selection={inspectorSelection(core)}
+        prefabs={prefabLib}
+        art={art.art}
+        uiPieces={Object.keys(uiLib)}
+        urlFor={art.urlFor}
+        onImportArt={art.importArt}
+        viewportVisibility={visibility}
+        tilemapBrush={tilemapBrush}
+        onTilemapBrush={setTilemapBrush}
+        onViewportVisibility={(role, visible) => setVisibility((current) => ({ ...current, [role]: visible }))}
+        onRename={(from, to) => renameEntity(core, from, to)}
+        onDelete={(name) => deleteEntities(core, [name])}
+        onOpenPrefab={(ref) => core.view.openView({ kind: 'prefab', ref })}
+        onEditAnimation={setAnimTarget}
+        onMachinePatch={(name, patch) => entityMachinePatch(core, name, patch)}
+        onPrefabMachinePatch={(ref, patch) => prefabMachinePatch(core, ref, patch)}
+        onCreateRoleFile={(role) => reportRejection(createRoleFile(core, role), 'create role file')}
+        onEditState={setStateTarget}
+        {...projectProps(core)}
+        {...entityPropHandlers(core, viewport)}
+        {...entityTransformHandlers(core, viewport)}
+        {...entityComponentHandlers(core, viewport)}
+        {...overrideHandlers(core, viewport)}
+        {...prefabPropHandlers(core, viewport)}
+        {...prefabAppearanceHandlers(core)}
+      />
+    </BlendPreviewProvider>
   )
+}
+
+/** The stage's blend preview for the Inspector beneath it (issue 205 CA-21): it owns which blend's preview runs. */
+function BlendPreviewProvider({ core, viewport, children }: { core: EditorCore; viewport: ViewportAccess; children: ReactNode }) {
+  return <BlendPreviewContext.Provider value={useBlendPreview(core, viewport)}>{children}</BlendPreviewContext.Provider>
 }
 
 /** The project facts the Inspector's forms offer: stats, actions, code files and game settings. */

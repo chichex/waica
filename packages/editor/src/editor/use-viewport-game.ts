@@ -3,6 +3,7 @@ import { useEffect, useEffectEvent, useImperativeHandle, useLayoutEffect, useRef
 import { createFrameOverlays, type OverlayHost } from './viewport-frame-overlays'
 import { createEditView3d, type EditView3d, type ScenePoses } from './viewport-3d-view'
 import { isThreeDView } from './viewport-camera'
+import { endBlendPreview, previewFrames, previewRefusal, type BlendPreviewTarget } from './viewport-blend-preview'
 import { createViewportGame, liveComponent, mountGameCanvas, restoreEditCamera, startFailureMessage } from './viewport-game'
 import type { EditCamera, ViewportHandle, ViewportLive } from './viewport-live'
 
@@ -66,21 +67,24 @@ function useLiveSceneCamera(gameRef: RefObject<Game | null>, camera: SceneCamera
   }, [gameRef, camera])
 }
 
-/** The editor's own views of a live Game: the 2D pan and zoom it remembers and, in edit mode, the 3D edit view. */
+/** The editor's own views of a live Game: the 2D pan and zoom it remembers, in edit mode the 3D edit view, and the blend the Inspector previews. */
 interface EditorViews {
   cam: RefObject<EditCamera>
   view3d: EditView3d | null
+  preview: RefObject<BlendPreviewTarget | null>
 }
 
 /**
  * Runs the Game, once its renderer is ready, with the editor overlays drawn every frame, remembering the
  * edit camera's pan as it moves (in 3D, the edit view keeps the Editor Camera); returns what disposes them.
  */
-function startEditorLoop(game: Game, host: OverlayHost, { cam, view3d }: EditorViews): () => void {
+function startEditorLoop(game: Game, host: OverlayHost, { cam, view3d, preview }: EditorViews): () => void {
   const overlays = createFrameOverlays(game, host)
-  game.onUpdate(() => {
+  const previewFrame = previewFrames(game)
+  game.onUpdate((dt) => {
     view3d?.sync()
     overlays.update()
+    if (host.live.current.mode === 'edit') previewFrame(preview.current, dt)
     if (host.live.current.mode !== 'edit' || isThreeDView(game)) return
     cam.current.x = game.camera.position.x
     cam.current.y = game.camera.position.y
@@ -99,6 +103,8 @@ function startEditorLoop(game: Game, host: OverlayHost, { cam, view3d }: EditorV
   )
   return () => {
     disposed = true
+    // A rebuilt Game drops the blend preview: its Animator is a new one.
+    preview.current = null
     overlays.dispose()
     view3d?.dispose()
     game.dispose()
@@ -175,6 +181,8 @@ export function useViewportGame(inputs: ViewportLive, options: ViewportGameOptio
   const view3dRef = useRef<EditView3d | null>(null)
   /** The Editor Camera's last pose and its scene, kept across Game rebuilds (Play, structural edits). */
   const pose3dRef = useRef<ScenePoses>(new Map())
+  /** The blend the Inspector previews on the live Game (issue 205 CA-21); a rebuilt Game drops it. */
+  const previewRef = useRef<BlendPreviewTarget | null>(null)
 
   // The game loop and pointer handlers read the latest committed props
   // through liveRef. Written after commit (never during render), before
@@ -193,7 +201,7 @@ export function useViewportGame(inputs: ViewportLive, options: ViewportGameOptio
     const editRefs = { cam: camRef, camSeeded: camSeededRef, live: liveRef, pose3d: pose3dRef, showCamera }
     const view3d = (view3dRef.current = mode === 'edit' ? startEditViews(game, canvas, editRefs) : null)
     const host = { canvas, live: liveRef, cameraDrag: camLiveRef, frameBox: uiFrameRef, scaleBox: uiScaleRef }
-    const stop = startEditorLoop(game, { ...host, showCamera, mode }, { cam: camRef, view3d })
+    const stop = startEditorLoop(game, { ...host, showCamera, mode }, { cam: camRef, view3d, preview: previewRef })
     return () => {
       stop()
       gameRef.current = null
@@ -206,12 +214,19 @@ export function useViewportGame(inputs: ViewportLive, options: ViewportGameOptio
 
   useSceneFileSwap(inputs.scenePath, { gameRef, liveRef, camRef, lastLoadedScenePathRef, onSelect })
   useLiveSceneCamera(gameRef, inputs.scene.camera)
-  return { surfaceRef, canvasRef, uiFrameRef, uiScaleRef, gameRef, liveRef, camRef, camLiveRef, view3dRef }
+  return { surfaceRef, canvasRef, uiFrameRef, uiScaleRef, gameRef, liveRef, camRef, camLiveRef, view3dRef, previewRef }
 }
 
-/** The Viewport's imperative handle: live edits applied straight to the running Game. */
-export function useViewportHandle(ref: Ref<ViewportHandle>, gameRef: RefObject<Game | null>): void {
-  useImperativeHandle(ref, () => ({
+/** What the Viewport's handle reaches: the live Game, the props it runs under and the blend preview. */
+interface HandleRefs {
+  gameRef: RefObject<Game | null>
+  liveRef: RefObject<ViewportLive>
+  previewRef: RefObject<BlendPreviewTarget | null>
+}
+
+/** The handle's operations: live edits applied straight to the running Game, and the blend preview on it. */
+function viewportHandle({ gameRef, liveRef, previewRef }: HandleRefs): ViewportHandle {
+  return {
     applyProp(entityName, componentType, key, value) {
       const component = liveComponent(gameRef.current, entityName, componentType)
       if (component) Reflect.set(component, key, value)
@@ -228,5 +243,22 @@ export function useViewportHandle(ref: Ref<ViewportHandle>, gameRef: RefObject<G
     game() {
       return gameRef.current
     },
-  }))
+    previewBlend(target) {
+      const refusal = previewRefusal(gameRef.current, liveRef.current.mode, target)
+      if (refusal === null) previewRef.current = target
+      return refusal
+    },
+    stopBlendPreview({ entity, blend }) {
+      const running = previewRef.current
+      // Only the preview asked about ends: another card's may have taken the stage since.
+      if (running?.entity !== entity || running.blend !== blend) return
+      if (liveRef.current.mode === 'edit') endBlendPreview(gameRef.current, running)
+      previewRef.current = null
+    },
+  }
+}
+
+/** The Viewport's imperative handle (viewportHandle). */
+export function useViewportHandle(ref: Ref<ViewportHandle>, refs: HandleRefs): void {
+  useImperativeHandle(ref, () => viewportHandle(refs))
 }

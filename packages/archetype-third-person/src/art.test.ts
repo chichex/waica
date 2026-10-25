@@ -20,11 +20,18 @@ function glbClips(file: string): string[] {
   return Array.isArray(animations) ? animations.map((animation: unknown) => String(Reflect.get(animation as object, 'name'))) : []
 }
 
-/** The clips a prefab's StateMachine names, one per state. */
+/** The glb clips a prefab's StateMachine plays, one per state: a state that plays a blend of its Animator (issue #205) plays each of the blend's points. */
 function statesClips(prefab: string): string[] {
-  const machine = THIRD_PERSON_PREFABS[prefab]?.components.find((component) => component.type === 'StateMachine')
+  const components = THIRD_PERSON_PREFABS[prefab]?.components ?? []
+  const machine = components.find((component) => component.type === 'StateMachine')
+  const animator = components.find((component) => component.type === 'Animator')
   const states = (machine?.props?.states ?? {}) as Record<string, { clip?: string }>
-  return Object.entries(states).flatMap(([name, state]) => (name === '*' ? [] : [state.clip ?? name]))
+  const blends = (animator?.props?.blends ?? {}) as Record<string, { points: { clip: string }[] }>
+  return Object.entries(states).flatMap(([name, state]) => {
+    if (name === '*') return []
+    const clip = state.clip ?? name
+    return blends[clip]?.points.map((point) => point.clip) ?? [clip]
+  })
 }
 
 it('keeps exactly the clips the character role’s states name in knight.glb (CA-24)', () => {

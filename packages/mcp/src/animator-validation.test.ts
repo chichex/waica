@@ -142,3 +142,207 @@ describe('validate_project, the Animator and prefabs (review of PR #168)', () =>
     ])
   })
 })
+
+/** A blend over two of the rig's clips. */
+const BLEND = { param: 'speed', points: [{ clip: 'idle', at: 0 }, { clip: 'walk', at: 1 }] }
+const animatorWith = (props: Record<string, unknown>) => ({ type: 'Animator', props })
+const findingsOf = (result: ProjectValidationReport, code: string) => codes(result, code).map(({ severity, file, ref }) => ({ severity, file, ref }))
+const SCENE = 'src/scenes/main.scene.json'
+
+describe('validate_project counts an Animator’s blends as its clips (issue #205 CA-12)', () => {
+  it('accepts a blend of the same Animator as initialClip, as a clips key and as a state’s clip', async () => {
+    const animator = animatorWith({ initialClip: 'Move', clips: { Move: { fade: 0.1 } }, blends: { Move: BLEND } })
+    const result = await rigProject(scene3d([MODEL, animator, machine({ idle: { clip: 'Move' }, walk: {}, jump: {} })]))
+
+    expect(codes(result, 'missing-clip')).toEqual([])
+    expect(result.findings.filter((finding) => finding.severity === 'error')).toEqual([])
+  })
+
+  it('warns clip-end-on-looping-clip for a state that leaves on clip:end while it plays a blend', async () => {
+    const states = { idle: { clip: 'Move', transitions: [{ on: 'clip:end', to: 'walk' }] }, walk: {}, jump: {} }
+    const result = await rigProject(scene3d([MODEL, animatorWith({ blends: { Move: BLEND } }), machine(states)]))
+
+    expect(findingsOf(result, 'clip-end-on-looping-clip')).toEqual([{ severity: 'warning', file: SCENE, ref: 'Player' }])
+    expect(codes(result, 'clip-end-on-looping-clip').map(({ message }) => message)).toEqual([
+      'State "idle" leaves on clip:end, but its clip "Move" is a blend, which never ends; leave this state on another trigger.',
+    ])
+  })
+
+})
+
+describe('validate_project and the clips entry of a blend (issue #205 CA-12)', () => {
+  it('warns blend-clip-override-ignored for a clips entry on a blend that sets more than its fade', async () => {
+    const clips = { Move: { fade: 0.1, speed: 2, loop: false }, Stride: { fade: 0.2 }, walk: { speed: 2 } }
+    const result = await rigProject(scene3d([MODEL, animatorWith({ clips, blends: { Move: BLEND, Stride: BLEND } })]))
+
+    expect(codes(result, 'blend-clip-override-ignored').map(({ severity, ref, message }) => ({ severity, ref, message }))).toEqual([
+      { severity: 'warning', ref: 'Animator.clips.Move', message: 'Animator clips.Move is a blend: only its fade applies, so speed and loop are ignored (a blend plays each point at its own clip\'s speed).' },
+    ])
+  })
+})
+
+describe('validate_project checks each blend’s points against the glb (issue #205 CA-13)', () => {
+  it('reports missing-clip for a point whose clip the glb lacks, a point naming another blend included', async () => {
+    const points = [{ clip: 'idle', at: 0 }, { clip: 'run', at: 1 }, { clip: 'Other', at: 2 }]
+    const result = await rigProject(scene3d([MODEL, animatorWith({ blends: { Move: { param: 'speed', points }, Other: BLEND } })]))
+
+    expect(findingsOf(result, 'missing-clip')).toEqual([
+      { severity: 'error', file: SCENE, ref: 'Animator.blends.Move.points.1.clip' },
+      { severity: 'error', file: SCENE, ref: 'Animator.blends.Move.points.2.clip' },
+    ])
+    expect(codes(result, 'missing-clip').map(({ message }) => message)).toEqual([
+      'Animator blend "Move" point 1 names missing animation clip "run".',
+      'Animator blend "Move" point 2 names missing animation clip "Other" (a blend; blends do not nest).',
+    ])
+  })
+
+  it('reports a blend named like a clip of the glb', async () => {
+    const result = await rigProject(scene3d([MODEL, animatorWith({ blends: { walk: BLEND } })]))
+
+    expect(findingsOf(result, 'blend-name-collides-with-clip')).toEqual([{ severity: 'error', file: SCENE, ref: 'Animator.blends.walk' }])
+  })
+
+  it('warns about a point whose clip plays once', async () => {
+    const points = [{ clip: 'idle', at: 0 }, { clip: 'jump', at: 1 }]
+    const result = await rigProject(scene3d([MODEL, animatorWith({ clips: { jump: { loop: false } }, blends: { Move: { param: 'speed', points } } })]))
+
+    expect(findingsOf(result, 'blend-point-one-shot')).toEqual([{ severity: 'warning', file: SCENE, ref: 'Animator.blends.Move.points.1.clip' }])
+  })
+})
+
+/** The findings a validation reports on one blend, by severity and code. */
+const blendFindings = (result: ProjectValidationReport, blend: string) =>
+  result.findings.filter(({ ref }) => ref === `Animator.blends.${blend}`).map(({ severity, code }) => ({ severity, code }))
+
+describe('validate_project checks a blend’s thresholds as the runtime sorts them (issue #205 CA-13, user decision 2026-10-23)', () => {
+  it('only warns about points written out of "at" order: the runtime sorts them and plays the same', async () => {
+    const reversed = { param: 'speed', points: [{ clip: 'jump', at: 2 }, { clip: 'walk', at: 1 }, { clip: 'idle', at: 0 }] }
+    const result = await rigProject(scene3d([MODEL, animatorWith({ blends: { Reversed: reversed, Move: BLEND } })]))
+
+    expect(blendFindings(result, 'Reversed')).toEqual([{ severity: 'warning', code: 'blend-points-out-of-order' }])
+    expect(blendFindings(result, 'Move')).toEqual([])
+    expect(result.findings.filter(({ severity }) => severity === 'error')).toEqual([])
+  })
+
+  it('reports two points at one threshold, once sorted by "at", as an error', async () => {
+    const tied = { param: 'speed', points: [{ clip: 'idle', at: 0 }, { clip: 'walk', at: 1 }, { clip: 'jump', at: 1 }] }
+    const apart = { param: 'speed', points: [{ clip: 'walk', at: 1 }, { clip: 'idle', at: 0 }, { clip: 'jump', at: 1 }] }
+    const result = await rigProject(scene3d([MODEL, animatorWith({ blends: { Tied: tied, Apart: apart } })]))
+
+    expect(blendFindings(result, 'Tied')).toEqual([{ severity: 'error', code: 'blend-thresholds-not-increasing' }])
+    expect(blendFindings(result, 'Apart')).toEqual([
+      { severity: 'error', code: 'blend-thresholds-not-increasing' },
+      { severity: 'warning', code: 'blend-points-out-of-order' },
+    ])
+  })
+
+  it('accepts a negative "at": a threshold only has to be finite', async () => {
+    const signed = { param: 'lean', points: [{ clip: 'idle', at: -1 }, { clip: 'walk', at: 1 }] }
+    const result = await rigProject(scene3d([MODEL, animatorWith({ blends: { Signed: signed } })]))
+
+    expect(blendFindings(result, 'Signed')).toEqual([])
+  })
+
+  it('still reports a negative smoothing as invalid-blend', async () => {
+    const result = await rigProject(scene3d([MODEL, animatorWith({ blends: { Backwards: { ...BLEND, smoothing: -1 } } })]))
+
+    expect(blendFindings(result, 'Backwards')).toEqual([{ severity: 'error', code: 'invalid-blend' }])
+  })
+})
+
+describe('validate_project checks each blend’s shape (issue #205 CA-13)', () => {
+  it('reports a malformed blend: no param, no points, a point with no clip, a non-numeric at, a negative or non-numeric smoothing', async () => {
+    const blends = {
+      NoParam: { points: BLEND.points },
+      NoPoints: { param: 'speed', points: [] },
+      Clipless: { param: 'speed', points: [{ at: 0 }, { clip: 'walk', at: 1 }] },
+      Wordy: { param: 'speed', points: [{ clip: 'idle', at: 'zero' }, { clip: 'walk', at: 1 }] },
+      Backwards: { ...BLEND, smoothing: -0.1 },
+      Slow: { ...BLEND, smoothing: 'slow' },
+      Move: { ...BLEND, smoothing: 0 },
+    }
+    const result = await rigProject(scene3d([MODEL, animatorWith({ blends })]))
+
+    expect(findingsOf(result, 'invalid-blend').map(({ ref }) => ref)).toEqual(['NoParam', 'NoPoints', 'Clipless', 'Wordy', 'Backwards', 'Slow'].map((name) => `Animator.blends.${name}`))
+    expect(codes(result, 'invalid-blend').every((finding) => finding.severity === 'error')).toBe(true)
+    // The point with no clip is invalid-blend's alone: no missing-clip besides.
+    expect(codes(result, 'missing-clip').map(({ ref }) => ref)).toEqual([])
+  })
+
+  it('reports a per-clip fade that is negative or not a number, wherever the glb stands', async () => {
+    const clips = { walk: { fade: -0.1 }, jump: { fade: 'fast' }, idle: { fade: 0 } }
+    const result = await rigProject(scene3d([{ type: 'Model', props: { src: 'src/art/gone.glb' } }, animatorWith({ clips })]))
+
+    expect(findingsOf(result, 'invalid-clip-fade')).toEqual([
+      { severity: 'error', file: SCENE, ref: 'Animator.clips.walk.fade' },
+      { severity: 'error', file: SCENE, ref: 'Animator.clips.jump.fade' },
+    ])
+  })
+})
+
+describe('validate_project and a blends prop that is not an object (issue #205 CA-13)', () => {
+  it('reports invalid-blend for a blends prop that is not an object of blends by name', async () => {
+    const result = await rigProject(
+      sceneOf([
+        { name: 'Listed', components: [MODEL, animatorWith({ blends: [BLEND] })] },
+        { name: 'Worded', components: [MODEL, animatorWith({ blends: 'Move' })] },
+        { name: 'Fine', components: [MODEL, animatorWith({ blends: { Move: BLEND } })] },
+      ]),
+    )
+
+    expect(codes(result, 'invalid-blend').map(({ severity, ref, message }) => ({ severity, ref, message }))).toEqual([
+      { severity: 'error', ref: 'Animator.blends', message: 'Animator blends must be an object of blends by name; none plays.' },
+      { severity: 'error', ref: 'Animator.blends', message: 'Animator blends must be an object of blends by name; none plays.' },
+    ])
+  })
+
+})
+
+describe('validate_project re-checks only the Animator props an instance changes (issue #205 CA-13)', () => {
+  it('reports a prefab’s bad fade and malformed blend once, not again for instances that only change initialClip or Model.src', async () => {
+    const animator = animatorWith({ clips: { walk: { fade: -1 } }, blends: { NoParam: { points: BLEND.points } } })
+    const result = await rigProject(
+      sceneOf([
+        { name: 'Idle', prefab: 'characters/hero', overrides: { Animator: { initialClip: 'idle' } } },
+        { name: 'Walk', prefab: 'characters/hero', overrides: { Animator: { initialClip: 'walk' } } },
+        { name: 'Reskinned', prefab: 'characters/hero', overrides: { Model: { src: 'src/art/rig.glb' } } },
+      ]),
+      { 'src/characters/hero.character.json': prefabOf([MODEL, animator]) },
+    )
+
+    const prefab = 'src/characters/hero.character.json'
+    expect(codes(result, 'invalid-clip-fade').map(({ file }) => file)).toEqual([prefab])
+    expect(codes(result, 'invalid-blend').map(({ file }) => file)).toEqual([prefab])
+  })
+
+  it('re-checks the fades of an instance that overrides clips, and the blends of one that overrides blends', async () => {
+    const result = await rigProject(
+      sceneOf([
+        { name: 'Faded', prefab: 'characters/hero', overrides: { Animator: { clips: { walk: { fade: -1 } } } } },
+        { name: 'Bent', prefab: 'characters/hero', overrides: { Animator: { blends: { NoParam: { points: BLEND.points } } } } },
+      ]),
+      { 'src/characters/hero.character.json': prefabOf([MODEL, animatorWith({})]) },
+    )
+
+    expect(codes(result, 'invalid-clip-fade').map(({ file, ref }) => [file, ref])).toEqual([[SCENE, 'Animator.clips.walk.fade']])
+    expect(codes(result, 'invalid-blend').map(({ file, ref }) => [file, ref])).toEqual([[SCENE, 'Animator.blends.NoParam']])
+  })
+})
+
+describe('validate_project, blends and prefab instances (issue #205 CA-13)', () => {
+  it('re-checks a scene instance that overrides blends: its points and the states that play them', async () => {
+    const result = await rigProject(
+      sceneOf([
+        { name: 'Plain', prefab: 'characters/hero' },
+        { name: 'Broken', prefab: 'characters/hero', overrides: { Animator: { blends: { Move: { param: 'speed', points: [{ clip: 'run', at: 0 }] } } } } },
+        { name: 'Renamed', prefab: 'characters/hero', overrides: { Animator: { blends: { Stride: BLEND } } } },
+      ]),
+      { 'src/characters/hero.character.json': prefabOf([MODEL, animatorWith({ blends: { Move: BLEND } }), machine({ idle: { clip: 'Move' }, walk: {}, jump: {} })]) },
+    )
+
+    expect(codes(result, 'missing-clip').map(({ file, ref }) => [file, ref])).toEqual([
+      [SCENE, 'Animator.blends.Move.points.0.clip'],
+      [SCENE, 'StateMachine.states.idle.clip'],
+    ])
+  })
+})

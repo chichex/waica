@@ -12,6 +12,7 @@ import { playsOwnOneShot, takesTrigger } from './own-one-shot-clip.js'
 import { CharacterMotor } from './character-motor.js'
 import { Health } from './health.js'
 import { MeleeAttack } from './melee-attack.js'
+import { writePlanarSpeed } from './planar-speed.js'
 import { Respawnable } from './respawnable.js'
 
 /** Planar speed, in units per second, above which a grounded character is moving rather than standing. */
@@ -115,7 +116,8 @@ function takesAttack({ entity, fsm, game }: StateContext, motor: CharacterMotor 
  * Air without vertical speed reports nothing: the body is not grounded
  * before its first physics step (the spawn, every step while Rapier loads,
  * the step after a teleport), and that is not a fall (review of PR #169).
- * Unmatched signals are no-ops.
+ * Unmatched signals are no-ops. The body's planar speed reaches a beside
+ * Animator's `speed` through the role's always-hook, in every state (issue #205).
  */
 export function characterUpdate(context: StateContext): void {
   const { entity, fsm } = context
@@ -250,6 +252,8 @@ export const CHARACTER_ROLE: RoleDefinition = {
     attack: 'an attack press on the ground, beside a MeleeAttack',
   },
   states: {
+    // Always-hook: the speed a blend reads follows the body in every state (attack, die and a project's own; issue #205).
+    '*': { onUpdate: ({ entity }) => writePlanarSpeed(entity) },
     // Fallback: a custom state without its own onUpdate keeps observing the body.
     default: { onUpdate: characterUpdate },
     idle: { onUpdate: characterUpdate },

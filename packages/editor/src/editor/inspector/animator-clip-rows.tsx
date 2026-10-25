@@ -1,22 +1,41 @@
 // The Animator's clip rows (issue #173 CA-5, CA-6, CA-8): its initial clip and
 // its per-clip overrides, offered from the clips of the glb its Model draws
-// when the editor can read them, typed by hand when it cannot. A stored name
-// the glb lacks stays as it is, marked missing, and is never rewritten.
+// and the Animator's own blends when the editor can read them, typed by hand
+// when it cannot. A stored name the glb lacks stays as it is, marked missing,
+// and is never rewritten. An override's fade (issue 205 CA-18) is empty when
+// it inherits the Animator's.
 import { useContext, useState, type ReactNode } from 'react'
+import { useArchetype } from '../../project/archetype'
 import { useGlbClips } from '../glb-clips'
 import { MissingOption, missingOptionClass } from '../missing-option'
 import { NumberField } from '../NumberField'
-import { modelSrcOf } from './component-meta'
+import { componentDefaults, modelSrcOf, playableClips } from './component-meta'
 import { RefTargetsContext } from './ref-targets-context'
 
-/** An override as stored: `loop` and `speed` (AnimatorClipOverride), plus whatever else the JSON holds. */
+/** An override as stored: `loop`, `speed` and `fade` (AnimatorClipOverride), plus whatever else the JSON holds. */
 type StoredOverride = Record<string, unknown>
 type ClipOverrides = Record<string, StoredOverride>
 
-/** The clips of the glb the inspected entity or prefab draws; null while unknown. */
-function useInspectedModelClips(): readonly string[] | null {
-  const { entity } = useContext(RefTargetsContext)
-  return useGlbClips(modelSrcOf(entity?.components ?? []))
+/** What the inspected entity's or prefab's Animator plays, as its rows offer it. */
+export interface InspectedAnimator {
+  /** The clips of the glb its Model draws; null while unknown. */
+  glbClips: readonly string[] | null
+  /** The names `play` accepts: the glb's clips, then the Animator's blends; null while the glb's are unknown. */
+  playable: readonly string[] | null
+  /** The fade a clip without its own inherits: the Animator's `fade`, else its default. */
+  fade: number
+}
+
+/** The inspected entity's or prefab's Animator: its glb clips, its blends and its fade. */
+export function useInspectedAnimator(): InspectedAnimator {
+  const archetype = useArchetype()
+  const components = useContext(RefTargetsContext).entity?.components ?? []
+  const glbClips = useGlbClips(modelSrcOf(components))
+  const animator = components.find((component) => component.type === 'Animator')
+  const own = animator?.props?.fade
+  const fallback = animator ? componentDefaults(animator, archetype).fade : undefined
+  const fade = typeof own === 'number' ? own : typeof fallback === 'number' ? fallback : 0
+  return { glbClips, playable: glbClips && playableClips(glbClips, components), fade }
 }
 
 interface ClipRowProps {
@@ -26,9 +45,9 @@ interface ClipRowProps {
   onChange: (value: unknown) => void
 }
 
-/** `Animator.initialClip`: a select over the glb's clips, "(none)" first, or free text while they are unknown. */
+/** `Animator.initialClip`: a select over the glb's clips and the blends, "(none)" first, or free text while they are unknown. */
 export function AnimatorInitialClipRow({ name, value, onChange }: ClipRowProps) {
-  const clips = useInspectedModelClips()
+  const clips = useInspectedAnimator().playable
   const clip = typeof value === 'string' ? value : ''
   if (!clips) {
     return (
@@ -69,18 +88,30 @@ function overridesOf(value: unknown): ClipOverrides {
 interface ClipOverrideProps {
   name: string
   override: StoredOverride
-  /** The glb is readable and has no clip of this name. */
+  /** The glb is readable and has no clip or blend of this name. */
   missing: boolean
+  /** The fade an empty `fade` inherits. */
+  inheritedFade: number
   onChange: (override: StoredOverride) => void
   onRemove: () => void
 }
 
-/** One override: its loop checkbox, its speed and its removal. */
-function ClipOverrideRow({ name, override, missing, onChange, onRemove }: ClipOverrideProps) {
+/** The override without its `fade`: it inherits the Animator's again. */
+function withoutFade(override: StoredOverride): StoredOverride {
+  return Object.fromEntries(Object.entries(override).filter(([key]) => key !== 'fade'))
+}
+
+/** One override: its loop checkbox, its speed, its fade (empty inherits) and its removal. */
+function ClipOverrideRow({ name, override, missing, inheritedFade, onChange, onRemove }: ClipOverrideProps) {
   const label = missing ? `${name} — missing ⚠` : name
   const setSpeed = (text: string): void => {
     const speed = Number(text)
     if (text.trim() !== '' && Number.isFinite(speed)) onChange({ ...override, speed })
+  }
+  const setFade = (text: string): void => {
+    const fade = Number(text)
+    if (text.trim() === '') onChange(withoutFade(override))
+    else if (Number.isFinite(fade) && fade >= 0) onChange({ ...override, fade })
   }
   return (
     <div className={`ed-clip-override ${missing ? 'is-missing' : ''}`} role="group" aria-label={label}>
@@ -92,6 +123,17 @@ function ClipOverrideRow({ name, override, missing, onChange, onRemove }: ClipOv
       <label>
         speed
         <NumberField step={0.1} value={typeof override.speed === 'number' ? override.speed : 1} onChange={setSpeed} />
+      </label>
+      <label>
+        fade
+        <NumberField
+          step={0.05}
+          min={0}
+          value={typeof override.fade === 'number' ? override.fade : ''}
+          placeholder={String(inheritedFade)}
+          title={`Empty: inherits the Animator fade, ${inheritedFade} s`}
+          onChange={setFade}
+        />
       </label>
       <button className="ed-mini" aria-label={`Remove the ${name} override`} title="Remove this override" onClick={onRemove}>
         ✕
@@ -135,12 +177,12 @@ function AddClipOverride({ clips, taken, onAdd }: { clips: readonly string[] | n
 }
 
 /**
- * `Animator.clips`, the "Clip overrides" row: each overridden clip with its
- * loop and speed, a remove button, and the control that adds one. Every
+ * `Animator.clips`, the "Clip overrides" row: each overridden clip (or blend)
+ * with its loop, speed and fade, a remove button, and the control that adds one. Every
  * change writes the whole `clips` object once, so it is one commit.
  */
 export function AnimatorClipOverridesRow({ name: rowName, value, onChange }: ClipRowProps) {
-  const clips = useInspectedModelClips()
+  const { playable: clips, fade } = useInspectedAnimator()
   const overrides = overridesOf(value)
   const names = Object.keys(overrides)
   const without = (name: string): ClipOverrides => Object.fromEntries(Object.entries(overrides).filter(([key]) => key !== name))
@@ -156,6 +198,7 @@ export function AnimatorClipOverridesRow({ name: rowName, value, onChange }: Cli
           name={name}
           override={overrides[name] ?? {}}
           missing={clips !== null && !clips.includes(name)}
+          inheritedFade={fade}
           onChange={(override) => onChange({ ...overrides, [name]: override })}
           onRemove={() => onChange(without(name))}
         />

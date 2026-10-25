@@ -45,6 +45,14 @@ export async function rigGame(entities: SceneEntityJson[] = []): Promise<Game> {
   return game
 }
 
+/** A loaded rig Game whose one entity, `Rig`, has an Animator of the given props. */
+export async function animatedRig(animator: Record<string, unknown> = {}): Promise<{ game: Game; entity: Entity; animator: Animator }> {
+  const game = await rigGame([rigEntity('Rig', animator)])
+  await game.assets.ready()
+  const entity = defined(game.find('Rig'))
+  return { game, entity, animator: defined(entity.get(Animator)) }
+}
+
 /** A scene entity drawing the rig with an Animator of the given props. */
 export function rigEntity(name: string, animator: Record<string, unknown> = {}): SceneEntityJson {
   return { name, components: [{ type: 'Model', props: { src: RIG_URL } }, { type: 'Animator', props: animator }] }

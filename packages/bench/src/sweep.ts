@@ -3,8 +3,9 @@
  * its size. Static and animated sizes are sprite counts; churn and
  * bullet-hell sizes are spawns per Simulation Step; lights-occlusion sizes
  * are Light counts; falling-boxes sizes are dynamic box counts;
- * skinned-characters sizes are animated rig counts; shadows sizes count all
- * casters, including the animated rig. One baseline per backend and id.
+ * skinned-characters and blended-characters sizes are animated rig counts;
+ * shadows sizes count all casters, including the animated rig. One baseline
+ * per backend and id.
  */
 export const SCENARIOS = [
   'static-sprites-1000',
@@ -36,6 +37,8 @@ export const SCENARIOS = [
   'shadows-four-point-off-200',
   'shadows-four-point-on-50',
   'shadows-four-point-on-200',
+  'blended-characters-50',
+  'blended-characters-200',
 ] as const
 export type ScenarioName = (typeof SCENARIOS)[number]
 
@@ -53,6 +56,7 @@ export type ScenarioKind =
   | 'shadows-point-on'
   | 'shadows-four-point-off'
   | 'shadows-four-point-on'
+  | 'blended-characters'
 
 export interface SweepEntry {
   kind: ScenarioKind
@@ -89,6 +93,8 @@ export const SWEEP: Record<ScenarioName, SweepEntry> = {
   'shadows-four-point-off-200': { kind: 'shadows-four-point-off', n: 200 },
   'shadows-four-point-on-50': { kind: 'shadows-four-point-on', n: 50 },
   'shadows-four-point-on-200': { kind: 'shadows-four-point-on', n: 200 },
+  'blended-characters-50': { kind: 'blended-characters', n: 50 },
+  'blended-characters-200': { kind: 'blended-characters', n: 200 },
 }
 
 /** The view the grid fills: the default 10-unit-high camera, 16:9, with a margin. */

@@ -6,6 +6,7 @@ import { STATS_PATH, type ProjectStats } from '../project/stats'
 import { refreshComponentCode } from './code-file-commands'
 import { CodePane } from './CodePane'
 import type { EditorCore } from './editor-commits'
+import { stageEpoch } from './editor-state'
 import { PrefabViewport, SceneViewport, type StageProps } from './EditorViewports'
 import { refBase, type ExplorerView } from './Explorer'
 import { ControlsEditor, GameSettingsEditor, ProjectPane, StatsEditor } from './ProjectPane'
@@ -60,18 +61,14 @@ export function EditorCenter({
 function useStageProps(core: EditorCore): StageProps {
   const [prefabLib] = core.library.prefabLib
   const [uiLib] = core.library.uiLib
-  const [epoch] = core.stage.epoch
   const { registry: projectRegistry } = core.code.editorArchetype
-  const { urlFor, loads } = core.art
+  const { urlFor } = core.art
   const registry = useMemo(
     // urlFor resolves project-art paths (src/art/*.png) on top of waica:* assets.
     () => ({ ...projectRegistry, prefabs: prefabLib, ui: uiLib, resolveAsset: urlFor }),
     [projectRegistry, prefabLib, uiLib, urlFor],
   )
-  // The stage rebuilds on every structural edit (epoch) and, so textures
-  // rebind to freshly scanned art, on every art scan. Both only grow, so the
-  // sum changes exactly when either one does.
-  return { registry, epoch: epoch + loads }
+  return { registry, epoch: stageEpoch(core) }
 }
 
 function isSettingsView(view: ExplorerView): view is SettingsView {
