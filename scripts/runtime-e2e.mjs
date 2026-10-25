@@ -1998,6 +1998,8 @@ export async function runRuntimeE2e({
   includeBatchParity = true,
   includeLighting = true,
   includeThirdPerson = true,
+  includeThirdPersonCombat = includeThirdPerson,
+  includeThirdPersonRespawn = includeThirdPerson,
   includeShadows = includeThirdPerson,
   includeShadowLeg = includeShadows,
   includeEditor3d = true,
@@ -2123,7 +2125,9 @@ export async function runRuntimeE2e({
         })
       : {}
     // The third-person demo (issue #181 CA-35, CA-36): the 3D invariants of the former smoke leg, then the demo played.
-    const thirdPersonResult = includeThirdPerson
+    // Its fight and respawn can run apart from the rest (CI's parallel groups).
+    const thirdPersonParts = [includeThirdPerson && 'look', includeThirdPersonCombat && 'combat', includeThirdPersonRespawn && 'respawn'].filter(Boolean)
+    const thirdPersonResult = thirdPersonParts.length > 0
       ? await runThirdPersonLeg({
           client,
           root,
@@ -2136,6 +2140,7 @@ export async function runRuntimeE2e({
           helpers: { call, assertScreenshot, assertUrlClosed, keepScreenshot, makeDemoProject, openPngInspector },
           renderBackend: renderLeg?.backend,
           includeShadows,
+          parts: thirdPersonParts,
         })
       : {}
     const shadowResult = includeShadowLeg

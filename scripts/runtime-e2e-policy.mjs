@@ -2,8 +2,10 @@
  * The runtime e2e's sub-legs, named after runRuntimeE2e's `include*` options,
  * in the groups CI runs as parallel jobs (`.github/workflows/ci.yml`). A group
  * runs on both Render Backends in one process, so a cross-backend assertion
- * (the third-person pose hash at frame 13) stays inside its group. With no
- * `--group`, every group runs, as `pnpm test:e2e` always did.
+ * (the third-person pose hash at frame 13) stays inside its group. The
+ * third-person leg's fight and respawn, its slowest Run Sessions, are groups
+ * of their own. With no `--group`, every group runs, as `pnpm test:e2e`
+ * always did.
  */
 export const RUNTIME_E2E_GROUPS = Object.freeze({
   core: Object.freeze([
@@ -11,6 +13,8 @@ export const RUNTIME_E2E_GROUPS = Object.freeze({
     'Lighting', 'Negative', 'SignalShutdown',
   ]),
   'third-person': Object.freeze(['ThirdPerson']),
+  'third-person-combat': Object.freeze(['ThirdPersonCombat']),
+  'third-person-respawn': Object.freeze(['ThirdPersonRespawn']),
   shadows: Object.freeze(['ShadowLeg']),
   editor: Object.freeze(['Editor3d']),
 })

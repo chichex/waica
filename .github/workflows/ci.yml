@@ -86,7 +86,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [core, third-person, shadows, editor]
+        group: [core, third-person, third-person-combat, third-person-respawn, shadows, editor]
     steps:
       - uses: actions/checkout@v7
 

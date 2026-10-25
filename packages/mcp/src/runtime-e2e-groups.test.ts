@@ -41,7 +41,7 @@ function included(options: RunOptions): string[] {
 const EVERY_LEG = [
   'includeAlias', 'includeBatchParity', 'includeEditor3d', 'includeHappyPath', 'includeIsometric', 'includeLighting',
   'includeNegative', 'includeProjection', 'includeReload', 'includeSceneFade', 'includeSceneSwap', 'includeShadowLeg',
-  'includeSignalShutdown', 'includeThirdPerson', 'includeTopdown',
+  'includeSignalShutdown', 'includeThirdPerson', 'includeThirdPersonCombat', 'includeThirdPersonRespawn', 'includeTopdown',
 ]
 
 it('runs every sub-leg on both Render Backends by default, with the shadow pixels required on WebGL2 only', () => {
@@ -73,6 +73,14 @@ it('runs the third-person group on both Render Backends, so its pose hashes stil
   const selected = selection(['--group', 'third-person'])
   for (const backend of ['webgl2', 'webgpu']) expect(included(optionsOn(selected, backend))).toEqual(['includeThirdPerson'])
   expect(optionsOn(selected, 'webgl2').includeShadows).toBe(true)
+})
+
+it('runs the third-person fight and respawn as groups of their own, each on both Render Backends', () => {
+  const parts: ReadonlyArray<readonly [string, string]> = [['third-person-combat', 'includeThirdPersonCombat'], ['third-person-respawn', 'includeThirdPersonRespawn']]
+  for (const [group, leg] of parts) {
+    const selected = selection(['--group', group])
+    for (const backend of ['webgl2', 'webgpu']) expect(included(optionsOn(selected, backend))).toEqual([leg])
+  }
 })
 
 it('selects the union of repeated groups and accepts a leading pnpm separator', () => {
