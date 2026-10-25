@@ -1986,6 +1986,7 @@ export async function runRuntimeE2e({
   cliPath,
   engineRoot,
   label = 'checkout',
+  includeHappyPath = true,
   includeNegative = true,
   includeReload = true,
   includeAlias = true,
@@ -1998,6 +1999,7 @@ export async function runRuntimeE2e({
   includeLighting = true,
   includeThirdPerson = true,
   includeShadows = includeThirdPerson,
+  includeShadowLeg = includeShadows,
   includeEditor3d = true,
   includeEditorShadows = includeEditor3d,
   includeSignalShutdown = true,
@@ -2040,14 +2042,16 @@ export async function runRuntimeE2e({
   try {
     await client.connect(transport, { timeout: 15_000 })
     connected = true
-    const happyResult = await runHappyPath({
-      client,
-      project: happy.project,
-      chrome,
-      playwright,
-      includeReload,
-      includeAlias,
-    })
+    const happyResult = includeHappyPath
+      ? await runHappyPath({
+          client,
+          project: happy.project,
+          chrome,
+          playwright,
+          includeReload,
+          includeAlias,
+        })
+      : {}
     const projectionResult = projection
       ? await runProjectionLeg({ client, project: projection.project, chrome })
       : {}
@@ -2134,7 +2138,7 @@ export async function runRuntimeE2e({
           includeShadows,
         })
       : {}
-    const shadowResult = includeShadows
+    const shadowResult = includeShadowLeg
       ? await runShadowLeg({
           client, root, parent: temporaryParent, chrome, viteBin, engineRoot, playwright, label,
           helpers: { call, assertScreenshot, assertUrlClosed, keepScreenshot, makeDemoProject, openPngInspector },

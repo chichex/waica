@@ -14,7 +14,8 @@ concurrency:
   cancel-in-progress: true
 
 # The ladder runs as four parallel jobs (each with its own checkout, cached
-# pnpm/node setup and install), the desktop one on all three OSes. `verify`
+# pnpm/node setup and install), the e2e one per group of sub-legs and the
+# desktop one on all three OSes. `verify`
 # aggregates them so the required status check keeps its name and is red
 # unless all of them succeeded.
 jobs:
@@ -72,10 +73,20 @@ jobs:
       - name: Audit dependencies
         run: pnpm audit --audit-level high
 
+  # The browser e2e is split by group of sub-legs (scripts/runtime-e2e-policy.mjs),
+  # one job per group, each running its group on both Render Backends in one
+  # process, so the third-person pose hash is still compared across them. The
+  # matrix must list every group: packages/mcp/src/runtime-e2e-groups.test.ts
+  # fails when it does not. Each job builds for itself (about 11 s on the
+  # runner), which is cheaper than waiting for a shared build artifact.
   e2e:
-    name: test:e2e
+    name: test:e2e (${{ matrix.group }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [core, third-person, shadows, editor]
     steps:
       - uses: actions/checkout@v7
 
@@ -93,7 +104,7 @@ jobs:
 
       # Needs the runner's system Google Chrome; a missing browser is red.
       - name: Runtime browser e2e
-        run: pnpm test:e2e
+        run: pnpm test:e2e --group ${{ matrix.group }}
 
   # Issue #200 CA-26: each OS exports a platformer and a third-person Project
   # for itself with `waica export desktop` and launches the packaged app
