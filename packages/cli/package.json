@@ -40,6 +40,6 @@
     "@types/yazl": "^3.3.1",
     "@waica/editor": "workspace:^",
     "@waica/mcp": "workspace:^",
-    "electron": "44.7.2"
+    "electron": "44.9.1"
   }
 }
