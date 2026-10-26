@@ -1981,6 +1981,19 @@ async function runNegativeReadiness({ client, fixture, chrome }) {
   if (match) await assertUrlClosed(match[0])
 }
 
+/**
+ * Every sub-leg runRuntimeE2e can run, named after its `include<Name>` option,
+ * in the order it runs them. Reload and Alias run inside the happy path.
+ * `includeShadows` and `includeEditorShadows` are not sub-legs but the shadow
+ * policy inside them (runtime-e2e-policy.mjs). runtime-e2e-groups.test.ts
+ * holds this list to runRuntimeE2e's parameters and to the CI groups.
+ */
+export const RUNTIME_E2E_SUB_LEGS = Object.freeze([
+  'HappyPath', 'Reload', 'Alias', 'Projection', 'Topdown', 'Isometric', 'SceneSwap', 'SceneFade', 'BatchParity',
+  'Lighting', 'ThirdPerson', 'ThirdPersonCombat', 'ThirdPersonRespawn', 'ShadowLeg', 'Editor3d', 'Negative',
+  'SignalShutdown',
+])
+
 export async function runRuntimeE2e({
   root,
   cliPath,
