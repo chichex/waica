@@ -252,29 +252,54 @@ async function assertPixels(context, shipped) {
   }
 }
 
-/** The whole third-person leg; `helpers` are runtime-e2e.mjs's own. */
-export async function runThirdPersonLeg({ client, root, parent, chrome, viteBin, engineRoot, playwright, label, helpers, renderBackend, includeShadows = true }) {
-  const validation = await assertValidates({ helpers, client, parent })
-  const project = await helpers.makeDemoProject({ client, root, parent, viteBin, engineRoot, archetype: 'third-person', name: 'waica-third-person' })
+/**
+ * The demo booted and walked: the shipped frame and its pose hash, the
+ * simulation, the pixels and the camera collision. The only part that reads
+ * the scene and decodes pixels, so the only one that opens the PNG inspector.
+ */
+async function lookAround(context) {
+  const { helpers, playwright, project, chrome, renderBackend, keep } = context
   const scene = JSON.parse(await readFile(path.join(project, `src/scenes/${SCENE}.scene.json`), 'utf8'))
   const inspector = await helpers.openPngInspector(playwright, chrome.executablePath)
-  const keep = (name, image) => helpers.keepScreenshot(`${label}-third-person-${name}.png`, image)
-  const context = { helpers, client, project, chrome, inspector, renderBackend, keep, includeShadows }
+  const looking = { ...context, inspector }
   try {
-    const shipped = await capture(context, () => {})
+    const shipped = await capture(looking, () => {})
     await keep('shipped', shipped.image)
     assertGlbLoaded(shipped.assets)
     assertSnapshot(shipped.snapshot, scene)
     const poseHashAt = { frame: FRAME, hash: poseHashOf(shipped.snapshot) }
     assert.match(poseHashAt.hash ?? '', /^[0-9a-f]{8}$/, `the snapshot at frame ${FRAME} must carry the Player's pose hash; ${JSON.stringify(poseHashAt)}`)
     const idleDuration = await clipDuration(path.join(project, 'src/art/knight.glb'), CLIPS.idle)
-    const play = await exerciseSimulation(context, { gravity: scene.simulation.gravity, inspector, renderBackend, keep, idleDuration })
-    const pixels = await assertPixels(context, shipped)
-    const camera = await exerciseCameraCollision(context)
-    const combat = await exerciseCombat(context)
-    const respawn = await exerciseRespawn(context)
-    return { thirdPerson: { validation, animation: { ...play.animation, poseHashAt }, play, pixels, camera, combat, respawn } }
+    const play = await exerciseSimulation(looking, { gravity: scene.simulation.gravity, inspector, renderBackend, keep, idleDuration })
+    const pixels = await assertPixels(looking, shipped)
+    const camera = await exerciseCameraCollision(looking)
+    return { animation: { ...play.animation, poseHashAt }, play, pixels, camera }
   } finally {
     await inspector.close()
   }
+}
+
+/** The leg's parts in the order the whole leg runs them; CI runs each as a group of its own (runtime-e2e-policy.mjs). */
+const PARTS = {
+  look: lookAround,
+  combat: async (context) => ({ combat: await exerciseCombat(context) }),
+  respawn: async (context) => ({ respawn: await exerciseRespawn(context) }),
+}
+
+/** A part this leg does not have is a mistake, never a smaller leg. */
+function assertKnownParts(parts) {
+  const unknown = parts.filter((part) => !Object.hasOwn(PARTS, part))
+  if (unknown.length > 0) throw new Error(`unknown third-person part: ${unknown.join(', ')} (known: ${Object.keys(PARTS).join(', ')})`)
+}
+
+/** The third-person leg, whole or only some of its `parts`; `helpers` are runtime-e2e.mjs's own. */
+export async function runThirdPersonLeg({ client, root, parent, chrome, viteBin, engineRoot, playwright, label, helpers, renderBackend, includeShadows = true, parts = Object.keys(PARTS) }) {
+  assertKnownParts(parts)
+  const validation = parts.includes('look') ? { validation: await assertValidates({ helpers, client, parent }) } : {}
+  const project = await helpers.makeDemoProject({ client, root, parent, viteBin, engineRoot, archetype: 'third-person', name: 'waica-third-person' })
+  const keep = (name, image) => helpers.keepScreenshot(`${label}-third-person-${name}.png`, image)
+  const context = { helpers, client, project, chrome, playwright, renderBackend, keep, includeShadows }
+  const thirdPerson = { ...validation }
+  for (const part of parts) Object.assign(thirdPerson, await PARTS[part](context))
+  return { thirdPerson }
 }

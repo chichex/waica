@@ -1981,11 +1981,25 @@ async function runNegativeReadiness({ client, fixture, chrome }) {
   if (match) await assertUrlClosed(match[0])
 }
 
+/**
+ * Every sub-leg runRuntimeE2e can run, named after its `include<Name>` option,
+ * in the order it runs them. Reload and Alias run inside the happy path.
+ * `includeShadows` and `includeEditorShadows` are not sub-legs but the shadow
+ * policy inside them (runtime-e2e-policy.mjs). runtime-e2e-groups.test.ts
+ * holds this list to runRuntimeE2e's parameters and to the CI groups.
+ */
+export const RUNTIME_E2E_SUB_LEGS = Object.freeze([
+  'HappyPath', 'Reload', 'Alias', 'Projection', 'Topdown', 'Isometric', 'SceneSwap', 'SceneFade', 'BatchParity',
+  'Lighting', 'ThirdPerson', 'ThirdPersonCombat', 'ThirdPersonRespawn', 'ShadowLeg', 'Editor3d', 'Negative',
+  'SignalShutdown',
+])
+
 export async function runRuntimeE2e({
   root,
   cliPath,
   engineRoot,
   label = 'checkout',
+  includeHappyPath = true,
   includeNegative = true,
   includeReload = true,
   includeAlias = true,
@@ -1997,7 +2011,10 @@ export async function runRuntimeE2e({
   includeBatchParity = true,
   includeLighting = true,
   includeThirdPerson = true,
+  includeThirdPersonCombat = includeThirdPerson,
+  includeThirdPersonRespawn = includeThirdPerson,
   includeShadows = includeThirdPerson,
+  includeShadowLeg = includeShadows,
   includeEditor3d = true,
   includeEditorShadows = includeEditor3d,
   includeSignalShutdown = true,
@@ -2040,14 +2057,16 @@ export async function runRuntimeE2e({
   try {
     await client.connect(transport, { timeout: 15_000 })
     connected = true
-    const happyResult = await runHappyPath({
-      client,
-      project: happy.project,
-      chrome,
-      playwright,
-      includeReload,
-      includeAlias,
-    })
+    const happyResult = includeHappyPath
+      ? await runHappyPath({
+          client,
+          project: happy.project,
+          chrome,
+          playwright,
+          includeReload,
+          includeAlias,
+        })
+      : {}
     const projectionResult = projection
       ? await runProjectionLeg({ client, project: projection.project, chrome })
       : {}
@@ -2119,7 +2138,9 @@ export async function runRuntimeE2e({
         })
       : {}
     // The third-person demo (issue #181 CA-35, CA-36): the 3D invariants of the former smoke leg, then the demo played.
-    const thirdPersonResult = includeThirdPerson
+    // Its fight and respawn can run apart from the rest (CI's parallel groups).
+    const thirdPersonParts = [includeThirdPerson && 'look', includeThirdPersonCombat && 'combat', includeThirdPersonRespawn && 'respawn'].filter(Boolean)
+    const thirdPersonResult = thirdPersonParts.length > 0
       ? await runThirdPersonLeg({
           client,
           root,
@@ -2132,9 +2153,10 @@ export async function runRuntimeE2e({
           helpers: { call, assertScreenshot, assertUrlClosed, keepScreenshot, makeDemoProject, openPngInspector },
           renderBackend: renderLeg?.backend,
           includeShadows,
+          parts: thirdPersonParts,
         })
       : {}
-    const shadowResult = includeShadows
+    const shadowResult = includeShadowLeg
       ? await runShadowLeg({
           client, root, parent: temporaryParent, chrome, viteBin, engineRoot, playwright, label,
           helpers: { call, assertScreenshot, assertUrlClosed, keepScreenshot, makeDemoProject, openPngInspector },
