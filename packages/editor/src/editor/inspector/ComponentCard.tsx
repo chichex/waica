@@ -2,6 +2,7 @@ import type { ParamSpec, SceneComponentJson } from '@waica/engine'
 import { useArchetype } from '../../project/archetype'
 import { collisionParamDiagnostics } from '../collision-category-diagnostics'
 import { AnimatorBlendsRow } from './animator-blend-rows'
+import type { ComponentPropPatch } from './animator-blends-edit'
 import { AnimatorClipOverridesRow, AnimatorInitialClipRow } from './animator-clip-rows'
 import { componentDefaults, componentKeys, componentLabel } from './component-meta'
 import { isLightShadowFlag, isLightShadowOverride, LightShadowFlagRow, LightShadowOverrides } from './light-shadow-overrides'
@@ -11,6 +12,7 @@ import { ComponentUpdateSchedule } from './update-schedule'
 /** Callbacks a component's prop rows fire, keyed by prop name. */
 export interface ComponentPropHandlers {
   onProp: (key: string, value: unknown) => void
+  onPatchProps?: (patches: readonly ComponentPropPatch[]) => void
   onReset?: (key: string) => void
   onApply?: (key: string) => void
 }
@@ -26,6 +28,7 @@ function AnimatorRow({
   spec,
   overridden,
   onChange,
+  onPatchProps,
   onReset,
   onApply,
 }: {
@@ -34,12 +37,13 @@ function AnimatorRow({
   spec: ParamSpec | undefined
   overridden: boolean
   onChange: (next: unknown) => void
+  onPatchProps?: (patches: readonly ComponentPropPatch[]) => void
   onReset?: () => void
   onApply?: () => void
 }) {
   const label = ANIMATOR_ROW_LABELS[propKey] ?? spec?.label ?? propKey
   const name = <OverridableName label={label} overridden={overridden} onReset={onReset} onApply={onApply} />
-  if (propKey === 'blends') return <AnimatorBlendsRow name={name} value={value} onChange={onChange} />
+  if (propKey === 'blends') return <AnimatorBlendsRow name={name} value={value} onChange={onChange} onPatchProps={onPatchProps} />
   return propKey === 'clips' ? <AnimatorClipOverridesRow name={name} value={value} onChange={onChange} /> : <AnimatorInitialClipRow name={name} value={value} onChange={onChange} />
 }
 
@@ -51,6 +55,7 @@ function ComponentRow({
   spec,
   overridden,
   onProp,
+  onPatchProps,
   onReset,
   onApply,
 }: ComponentPropHandlers & {
@@ -64,7 +69,7 @@ function ComponentRow({
   const apply = onApply && (() => onApply(propKey))
   const change = (next: unknown): void => onProp(propKey, next)
   if (comp.type === 'Animator' && ANIMATOR_ROWS.has(propKey)) {
-    return <AnimatorRow propKey={propKey} value={value} spec={spec} overridden={overridden} onChange={change} onReset={reset} onApply={apply} />
+    return <AnimatorRow propKey={propKey} value={value} spec={spec} overridden={overridden} onChange={change} onPatchProps={onPatchProps} onReset={reset} onApply={apply} />
   }
   const Row = isLightShadowFlag(comp.type, propKey) ? LightShadowFlagRow : PropRow
   return (

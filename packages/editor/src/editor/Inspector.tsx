@@ -58,6 +58,7 @@ function PrefabSelectionInspector({
   ...props
 }: InspectorProps & { selection: Selected<'prefab'> }) {
   const ref = selection.ref
+  const { onPrefabPatchProps } = props
   return (
     <PrefabInspector
       refName={ref}
@@ -68,6 +69,7 @@ function PrefabSelectionInspector({
       viewportVisibility={props.viewportVisibility}
       onViewportVisibility={props.onViewportVisibility}
       onProp={(type, key, value) => props.onPrefabProp(ref, type, key, value)}
+      onPatchProps={onPrefabPatchProps && ((patches) => onPrefabPatchProps(ref, patches))}
       onAdd={(type) => props.onPrefabAddComponent(ref, type)}
       onRemove={(type) => props.onPrefabRemoveComponent(ref, type)}
       onToggleAnimated={() => props.onPrefabToggleAnimated(ref)}

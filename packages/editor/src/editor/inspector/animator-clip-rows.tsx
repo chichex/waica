@@ -5,6 +5,7 @@
 // and is never rewritten. An override's fade (issue 205 CA-18) is empty when
 // it inherits the Animator's.
 import { useContext, useState, type ReactNode } from 'react'
+import type { SceneComponentJson } from '@waica/engine'
 import { useArchetype } from '../../project/archetype'
 import { useGlbClips } from '../glb-clips'
 import { MissingOption, missingOptionClass } from '../missing-option'
@@ -24,6 +25,8 @@ export interface InspectedAnimator {
   playable: readonly string[] | null
   /** The fade a clip without its own inherits: the Animator's `fade`, else its default. */
   fade: number
+  /** The resolved components of the inspected entity or prefab. */
+  components: readonly SceneComponentJson[]
 }
 
 /** The inspected entity's or prefab's Animator: its glb clips, its blends and its fade. */
@@ -35,7 +38,7 @@ export function useInspectedAnimator(): InspectedAnimator {
   const own = animator?.props?.fade
   const fallback = animator ? componentDefaults(animator, archetype).fade : undefined
   const fade = typeof own === 'number' ? own : typeof fallback === 'number' ? fallback : 0
-  return { glbClips, playable: glbClips && playableClips(glbClips, components), fade }
+  return { glbClips, playable: glbClips && playableClips(glbClips, components), fade, components }
 }
 
 interface ClipRowProps {

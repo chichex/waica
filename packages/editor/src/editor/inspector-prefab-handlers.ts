@@ -5,6 +5,7 @@ import type { EditorCore } from './editor-commits'
 import type { ViewportAccess } from './use-viewport-handle'
 import { refBase } from './Explorer'
 import type { Inspector } from './Inspector'
+import type { ComponentPropPatch } from './inspector/inspector-props'
 import { setPrefabProp } from './prefab-commands'
 import { validateShadowEdit } from './shadow-edit-capacity'
 
@@ -26,6 +27,7 @@ export function prefabPropHandlers(core: EditorCore, viewport: ViewportAccess) {
       if (!structural) viewport()?.applyProp(refBase(ref), componentType, key, value)
       core.commitPrefab(ref, next, structural, `prop:${componentType}:${key}`)
     },
+    onPrefabPatchProps: (ref, patches) => applyPrefabPatches(core, viewport, { ref, patches }),
     onPrefabSizeAppearance: (ref, componentType, size) => {
       const prefab = prefabLib[ref]
       if (!prefab) return
@@ -86,4 +88,24 @@ function confirmsDiscardingClips(prefab: PrefabJson, action: string): boolean {
   const anim = prefab.components.find((c) => c.type === 'AnimatedSprite')
   const clipCount = Object.keys((anim?.props?.clips as object | undefined) ?? {}).length
   return clipCount === 0 || window.confirm(`${action} discards ${clipCount} animation clip(s).`)
+}
+
+function applyPrefabPatches(
+  core: EditorCore,
+  viewport: ViewportAccess,
+  target: { ref: string; patches: readonly ComponentPropPatch[] },
+): void {
+  const [prefabLib] = core.library.prefabLib
+  const { ref, patches } = target
+  const prefab = prefabLib[ref]
+  if (!prefab || patches.length === 0) return
+  const structural = patches.some(
+    (patch) => patch.componentType === 'StateMachine' || (patch.componentType === 'Tilemap' && patch.key === 'texture'),
+  )
+  let next = prefab
+  for (const { componentType, key, value } of patches) {
+    if (!structural) viewport()?.applyProp(refBase(ref), componentType, key, value)
+    next = setPrefabProp(next, componentType, key, value)
+  }
+  core.commitPrefab(ref, next, structural)
 }

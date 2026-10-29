@@ -46,6 +46,7 @@ function entityCallbacks() {
     onMove: vi.fn(),
     onTransform: vi.fn(),
     onProp: vi.fn(),
+    onPatchProps: vi.fn(),
     onMultiProp: vi.fn(),
     onResetProp: vi.fn(),
     onApplyProp: vi.fn(),
@@ -67,6 +68,7 @@ function entityCallbacks() {
 function prefabCallbacks() {
   return {
     onPrefabProp: vi.fn(),
+    onPrefabPatchProps: vi.fn(),
     onPrefabAddComponent: vi.fn(),
     onPrefabRemoveComponent: vi.fn(),
     onPrefabToggleAnimated: vi.fn(),

@@ -6,6 +6,7 @@ import { TilemapCard } from '../TilemapCard'
 import type { ArtItem, DroppedFile } from '../use-project-art'
 import type { ViewportComponentVisibility } from '../Viewport'
 import { AppearanceSection } from './AppearanceSection'
+import type { ComponentPropPatch } from './animator-blends-edit'
 import { BehavioursSection } from './BehavioursSection'
 import { CollisionSection } from './CollisionSection'
 import { useKnownClips } from '../glb-clips'
@@ -22,6 +23,7 @@ export interface PrefabInspectorProps {
   viewportVisibility: ViewportComponentVisibility
   onViewportVisibility: (role: keyof ViewportComponentVisibility, visible: boolean) => void
   onProp: (componentType: string, key: string, value: unknown) => void
+  onPatchProps?: (patches: readonly ComponentPropPatch[]) => void
   onAdd: (type: string) => void
   onRemove: (type: string) => void
   onToggleAnimated: () => void
@@ -146,6 +148,7 @@ function PrefabBehaviours(props: PrefabInspectorProps) {
         onEditState: props.onEditState,
       }}
       onProp={props.onProp}
+      onPatchProps={props.onPatchProps}
       onRemove={props.onRemove}
       onAdd={props.onAdd}
     />

@@ -13,6 +13,7 @@ import { MissingOption, missingOptionClass } from '../missing-option'
 import { NumberField } from '../NumberField'
 import { useInspectedAnimator } from './animator-clip-rows'
 import {
+  blendRenamePatches,
   blendsOf,
   NEW_BLEND,
   nextBlendName,
@@ -24,6 +25,7 @@ import {
   withBlend,
   withoutBlend,
   withPoints,
+  type ComponentPropPatch,
   type StoredBlend,
   type StoredPoint,
 } from './animator-blends-edit'
@@ -34,6 +36,7 @@ interface BlendsRowProps {
   name: ReactNode
   value: unknown
   onChange: (value: unknown) => void
+  onPatchProps?: (patches: readonly ComponentPropPatch[]) => void
 }
 
 /** A number typed in a field, or undefined while the text is not one (empty included). */
@@ -43,8 +46,8 @@ function typedNumber(text: string): number | undefined {
 }
 
 /** `Animator.blends`, the "Blends" section: a card per blend and the button that adds one. */
-export function AnimatorBlendsRow({ name, value, onChange }: BlendsRowProps) {
-  const { glbClips } = useInspectedAnimator()
+export function AnimatorBlendsRow({ name, value, onChange, onPatchProps }: BlendsRowProps) {
+  const { glbClips, components } = useInspectedAnimator()
   const blends = blendsOf(value)
   const names = Object.keys(blends)
   const taken = [...names, ...(glbClips ?? [])]
@@ -64,7 +67,13 @@ export function AnimatorBlendsRow({ name, value, onChange }: BlendsRowProps) {
           clips={glbClips}
           taken={taken}
           onChange={(blend) => onChange(withBlend(blends, blendName, blend))}
-          onRename={(to) => onChange(renamedBlend(blends, blendName, to))}
+          onRename={(to) => {
+            if (onPatchProps) {
+              onPatchProps(blendRenamePatches(components, blendName, to))
+            } else {
+              onChange(renamedBlend(blends, blendName, to))
+            }
+          }}
           onRemove={() => onChange(withoutBlend(blends, blendName))}
         />
       ))}
