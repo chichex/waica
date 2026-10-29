@@ -1,3 +1,4 @@
+import type { SceneComponentJson } from '@waica/engine'
 // The Animator's clip rows (issue #173 CA-5, CA-6, CA-8): its initial clip and
 // its per-clip overrides, offered from the clips of the glb its Model draws
 // and the Animator's own blends when the editor can read them, typed by hand
@@ -24,6 +25,8 @@ export interface InspectedAnimator {
   playable: readonly string[] | null
   /** The fade a clip without its own inherits: the Animator's `fade`, else its default. */
   fade: number
+  /** The resolved components of the inspected entity or prefab. */
+  components: readonly SceneComponentJson[]
 }
 
 /** The inspected entity's or prefab's Animator: its glb clips, its blends and its fade. */
@@ -35,7 +38,7 @@ export function useInspectedAnimator(): InspectedAnimator {
   const own = animator?.props?.fade
   const fallback = animator ? componentDefaults(animator, archetype).fade : undefined
   const fade = typeof own === 'number' ? own : typeof fallback === 'number' ? fallback : 0
-  return { glbClips, playable: glbClips && playableClips(glbClips, components), fade }
+  return { glbClips, playable: glbClips && playableClips(glbClips, components), fade, components }
 }
 
 interface ClipRowProps {

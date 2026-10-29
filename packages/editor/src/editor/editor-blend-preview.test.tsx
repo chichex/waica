@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { fireEvent, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { SceneEntityJson, SceneJson } from '@waica/engine'
+import type { PrefabJson, SceneEntityJson, SceneJson } from '@waica/engine'
 import rig from '../../../engine/fixtures/rig.glb?inline'
 import { MemFS } from '../fs/project-fs'
 import { installEditorGlobals, MAIN, openEditor, readScene, viewportEntities } from './test-editor-harness'
@@ -134,5 +134,112 @@ describe('when the blend preview is off in the Editor (issue 205 CA-21)', () => 
     await user.click(screen.getByRole('button', { name: /Hero$/ }))
     expect(slider()).toHaveProperty('disabled', true)
     expect(within(card()).getByText('Preview runs in edit mode.')).toBeDefined()
+  })
+})
+
+const HERO_PREFAB: PrefabJson = {
+  waicaPrefab: 1,
+  type: 'object',
+  components: [
+    { type: 'Model', props: { src: 'src/art/rig.glb' } },
+    {
+      type: 'Animator',
+      props: {
+        initialClip: 'Move',
+        clips: { Move: { loop: false, speed: 1.5, fade: 0.2 }, walk: { speed: 1.2 } },
+        blends: { Move: MOVE, Lean: LEAN },
+      },
+    },
+    {
+      type: 'StateMachine',
+      props: {
+        role: 'player',
+        initial: 'idle',
+        states: { idle: { clip: 'Move' }, walk: { clip: 'Move' }, jump: { clip: 'jump' } },
+      },
+    },
+  ],
+}
+
+const EXPECTED_OVERRIDES = {
+  Animator: {
+    blends: { Stride: MOVE, Lean: LEAN },
+    initialClip: 'Stride',
+    clips: { Stride: { loop: false, speed: 1.5, fade: 0.2 }, walk: { speed: 1.2 } },
+  },
+  StateMachine: {
+    states: { idle: { clip: 'Stride' }, walk: { clip: 'Stride' }, jump: { clip: 'jump' } },
+  },
+}
+
+async function prefabInstanceProject(): Promise<MemFS> {
+  const scene: SceneJson = {
+    waicaScene: 3,
+    render: { space: '3d' },
+    entities: [
+      { name: 'Hero', prefab: 'objects/hero', position: [0, 0, 0] },
+      { name: 'Box', position: [2, 0, 0] },
+    ],
+  }
+  const fs = new MemFS('blend-rename', {
+    'src/game.json': JSON.stringify({ waicaGame: 1, archetype: 'platformer', resolution: { mode: 'fill', width: 640, height: 360 }, pixelsPerUnit: 16 }),
+    [MAIN]: JSON.stringify(scene),
+    'src/objects/hero.object.json': JSON.stringify(HERO_PREFAB),
+  })
+  await fs.writeFile('src/art/rig.glb', bytesOf(rig))
+  return fs
+}
+
+async function readHeroPrefab(fs: MemFS): Promise<PrefabJson> {
+  return JSON.parse((await fs.readText('src/objects/hero.object.json')) ?? '{}') as PrefabJson
+}
+
+describe('renaming a blend in the Editor (issue 245 CA-3, CA-4)', () => {
+  it('writes all blend rename updates to entity overrides without mutating the prefab, in a single undo/redo step', async () => {
+    const fs = await prefabInstanceProject()
+    const beforeScene = await readScene(fs, MAIN)
+    const beforePrefabText = await fs.readText('src/objects/hero.object.json')
+    const { user } = await openOn(fs, 'Hero')
+    const nameInput = await vi.waitFor(() => within(card('Move')).getByRole('textbox', { name: 'name' }))
+
+    await user.clear(nameInput)
+    await user.type(nameInput, 'Stride{Enter}')
+    await vi.waitFor(async () => {
+      const hero = (await readScene(fs, MAIN)).entities.find((e) => e.name === 'Hero')
+      expect(hero?.overrides).toEqual(EXPECTED_OVERRIDES)
+    })
+    expect(await fs.readText('src/objects/hero.object.json')).toBe(beforePrefabText)
+
+    await user.keyboard('{Control>}z{/Control}')
+    await vi.waitFor(async () => expect(await readScene(fs, MAIN)).toEqual(beforeScene))
+    await user.keyboard('{Control>}y{/Control}')
+    await vi.waitFor(async () => {
+      const hero = (await readScene(fs, MAIN)).entities.find((e) => e.name === 'Hero')
+      expect(hero?.overrides).toEqual(EXPECTED_OVERRIDES)
+    })
+  })
+
+})
+
+describe('renaming a prefab blend in the Editor (issue 245 CA-3, CA-4)', () => {
+  it('writes all blend rename updates on the prefab in a single undoable commit when inspecting a prefab', async () => {
+    const fs = await prefabInstanceProject()
+    const beforePrefab = await readHeroPrefab(fs)
+    const { user } = await openOn(fs, 'Hero')
+    await user.click(screen.getByRole('button', { name: '▣ hero' }))
+    const nameInput = await vi.waitFor(() => within(card('Move')).getByRole('textbox', { name: 'name' }))
+
+    await user.clear(nameInput)
+    await user.type(nameInput, 'Stride{Enter}')
+    await vi.waitFor(async () => {
+      const saved = await readHeroPrefab(fs)
+      const anim = saved.components.find((c) => c.type === 'Animator')
+      const machine = saved.components.find((c) => c.type === 'StateMachine')
+      expect(anim?.props?.initialClip).toBe('Stride')
+      expect(machine?.props?.states).toEqual(EXPECTED_OVERRIDES.StateMachine.states)
+    })
+
+    await user.keyboard('{Control>}z{/Control}')
+    await vi.waitFor(async () => expect(await readHeroPrefab(fs)).toEqual(beforePrefab))
   })
 })

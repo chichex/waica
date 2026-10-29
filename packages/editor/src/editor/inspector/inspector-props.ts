@@ -15,6 +15,7 @@ import type { StateTarget } from '../StateMachinePanel'
 import type { TilemapBrushSelection } from '../tilemap-brush'
 import type { ArtItem, DroppedFile } from '../use-project-art'
 import type { ViewportComponentVisibility } from '../Viewport'
+import type { ComponentPropPatch } from './animator-blends-edit'
 
 /** Sets one prop of the open scene's camera block (undefined deletes it). */
 export type CameraProp = (key: string, value: unknown) => void
@@ -61,6 +62,8 @@ export interface InspectorProps {
   /** A 3D scene's position (X/Y/Z), rotation (degrees) or scale row. */
   onTransform?(name: string, patch: TransformJson): void
   onProp(entity: string, componentType: string, key: string, value: unknown): void
+  /** Applies multiple component property patches to an entity in a single undo step (issue #245). */
+  onPatchProps?(entity: string, patches: readonly ComponentPropPatch[]): void
   /** Writes one prop to every named entity in a single undo step (multi-selection). */
   onMultiProp(names: string[], componentType: string, key: string, value: unknown): void
   /** Clears one instance override so the prop falls back to the prefab's value. */
@@ -81,6 +84,8 @@ export interface InspectorProps {
   onDelete(name: string): void
   onOpenPrefab(ref: string): void
   onPrefabProp(ref: string, componentType: string, key: string, value: unknown): void
+  /** Applies multiple component property patches to a prefab in a single undo step (issue #245). */
+  onPrefabPatchProps?(ref: string, patches: readonly ComponentPropPatch[]): void
   onPrefabAddComponent(ref: string, type: string): void
   onPrefabRemoveComponent(ref: string, type: string): void
   onPrefabToggleAnimated(ref: string): void

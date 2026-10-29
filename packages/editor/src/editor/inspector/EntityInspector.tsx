@@ -222,6 +222,15 @@ function EntityBehaviours({
       machine={entityMachineContext(props, clips)}
       overriddenFor={instanceOverrides(entity, props.onResetProp, props.onApplyProp).overridesOf}
       onProp={(type, key, value) => props.onProp(entity.name, type, key, value)}
+      onPatchProps={(patches) => {
+        if (props.onPatchProps) {
+          props.onPatchProps(entity.name, patches)
+        } else {
+          for (const patch of patches) {
+            props.onProp(entity.name, patch.componentType, patch.key, patch.value)
+          }
+        }
+      }}
       onRemove={(type) => props.onRemoveComponent(entity.name, type)}
       onAdd={(type) => props.onAddComponent(entity.name, type)}
       onReset={(type, key) => props.onResetProp(entity.name, type, key)}

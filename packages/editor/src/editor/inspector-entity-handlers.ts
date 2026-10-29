@@ -1,3 +1,4 @@
+import type { ComponentPropPatch } from './inspector/animator-blends-edit'
 import type { ComponentProps } from 'react'
 import type { SceneJson } from '@waica/engine'
 import * as ops from '../scene/ops'
@@ -42,18 +43,8 @@ export function entityPropHandlers(core: EditorCore, viewport: ViewportAccess) {
         `prop:${entity}:${componentType}:${key}`,
       )
     },
-    onSizeAppearance: (entity, componentType, patch) => {
-      if (!scene) return
-      // One commit for the whole patch: chained onProp calls would
-      // each read this render's scene and clobber one another.
-      let next = scene
-      for (const [key, value] of Object.entries(patch)) {
-        if (typeof value !== 'number') continue
-        viewport()?.applyProp(entity, componentType, key, value)
-        next = ops.setComponentProp(next, entity, componentType, key, value, prefabLib)
-      }
-      core.commit(next)
-    },
+    onPatchProps: (entity, patches) => applyEntityPatches(core, viewport, { entity, patches }),
+    onSizeAppearance: (entity, componentType, patch) => applySizeAppearance(core, viewport, { entity, componentType, patch }),
   } satisfies Partial<InspectorProps>
 }
 
@@ -191,4 +182,39 @@ function overriddenInstance(core: EditorCore, scene: SceneJson, entity: string) 
   const count = target ? ops.countOverrides(target) : 0
   if (!target || !ref || !prefab || !count) return null
   return { ref, prefab, overrides: target.overrides ?? {}, count }
+}
+
+function applyEntityPatches(
+  core: EditorCore,
+  viewport: ViewportAccess,
+  target: { entity: string; patches: readonly ComponentPropPatch[] },
+): void {
+  const { scene } = core.scenes
+  const [prefabLib] = core.library.prefabLib
+  const { entity, patches } = target
+  if (!scene || patches.length === 0) return
+  let next = scene
+  for (const { componentType, key, value } of patches) {
+    if (componentType !== 'StateMachine') viewport()?.applyProp(entity, componentType, key, value)
+    next = ops.setComponentProp(next, entity, componentType, key, value, prefabLib)
+  }
+  core.commit(next, patches.some((patch) => patch.componentType === 'StateMachine'))
+}
+
+function applySizeAppearance(
+  core: EditorCore,
+  viewport: ViewportAccess,
+  target: { entity: string; componentType: string; patch: { width?: number; height?: number } },
+): void {
+  const { scene } = core.scenes
+  const [prefabLib] = core.library.prefabLib
+  const { entity, componentType, patch } = target
+  if (!scene) return
+  let next = scene
+  for (const [key, value] of Object.entries(patch)) {
+    if (typeof value !== 'number') continue
+    viewport()?.applyProp(entity, componentType, key, value)
+    next = ops.setComponentProp(next, entity, componentType, key, value, prefabLib)
+  }
+  core.commit(next)
 }

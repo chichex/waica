@@ -68,6 +68,7 @@ function PrefabSelectionInspector({
       viewportVisibility={props.viewportVisibility}
       onViewportVisibility={props.onViewportVisibility}
       onProp={(type, key, value) => props.onPrefabProp(ref, type, key, value)}
+      onPatchProps={props.onPrefabPatchProps && ((patches) => props.onPrefabPatchProps?.(ref, patches))}
       onAdd={(type) => props.onPrefabAddComponent(ref, type)}
       onRemove={(type) => props.onPrefabRemoveComponent(ref, type)}
       onToggleAnimated={() => props.onPrefabToggleAnimated(ref)}

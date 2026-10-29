@@ -4,6 +4,7 @@ import { useArchetype } from '../../project/archetype'
 import { behaviourTypesIn } from '../../project/chassis'
 import { machineProps, type MachineProps } from '../../project/states'
 import { StateMachineCard } from '../StateMachinePanel'
+import type { ComponentPropPatch } from './animator-blends-edit'
 import { ComponentCard } from './ComponentCard'
 import { componentLabel } from './component-meta'
 import { ComponentUpdateSchedule } from './update-schedule'
@@ -31,6 +32,7 @@ interface BehavioursSectionProps {
   warning?: string
   overriddenFor?: (type: string) => Set<string> | undefined
   onProp: (type: string, key: string, value: unknown) => void
+  onPatchProps?: (patches: readonly ComponentPropPatch[]) => void
   onRemove: (type: string) => void
   onAdd: (type: string) => void
   onReset?: (type: string, key: string) => void
@@ -49,6 +51,7 @@ function BehaviourCard({
   canRemove,
   overriddenFor,
   onProp,
+  onPatchProps,
   onRemove,
   onReset,
   onApply,
@@ -59,6 +62,7 @@ function BehaviourCard({
       comp={comp}
       overridden={overriddenFor?.(comp.type)}
       onProp={(key, value) => onProp(comp.type, key, value)}
+      onPatchProps={onPatchProps}
       onRemove={canRemove(comp) ? () => onRemove(comp.type) : undefined}
       onReset={onReset && ((key) => onReset(comp.type, key))}
       onApply={onApply && ((key) => onApply(comp.type, key))}

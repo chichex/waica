@@ -203,3 +203,4 @@ describe('blend names offered as clips (issue 205 CA-20)', () => {
     expect(screen.queryByTitle(/no clip named "Move"/)).toBeNull()
   })
 })
+
