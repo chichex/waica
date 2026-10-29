@@ -24,7 +24,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@waica/archetype-isometric": "workspace:^",
     "@waica/archetype-platformer": "workspace:^",
     "@waica/archetype-third-person": "workspace:^",
