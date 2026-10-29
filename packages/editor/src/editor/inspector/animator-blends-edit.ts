@@ -1,5 +1,7 @@
 import type { SceneComponentJson } from '@waica/engine'
-import { machineProps } from '../../project/states'
+import type { ComponentPropPatch } from './inspector-props'
+
+export type { ComponentPropPatch } from './inspector-props'
 
 // Editing an Animator's `blends` (issue 205 CA-19) as the Inspector's Blends
 // section does: every edit returns the whole record, its points ordered by
@@ -66,13 +68,10 @@ export function renamedClipOverrides(
   return Object.fromEntries(entries)
 }
 
-/** `initialClip` with `from` renamed to `to` if it matches, else unchanged (issue #245 CA-1). */
-export function renamedInitialClip(initialClip: unknown, from: string, to: string): string | undefined {
-  if (typeof initialClip !== 'string') return undefined
-  return initialClip === from ? to : initialClip
-}
-
-/** `states` with all `state.clip === from` rewritten to `to`. If no state matched, returns states unchanged (issue #245 CA-2). */
+/**
+ * `states` with every state referencing `from` (explicit `state.clip === from` or
+ * implicit `state.clip === undefined && key === from`) rewritten to `clip: to` (issue #245 CA-2).
+ */
 export function renamedMachineStates(
   states: Record<string, unknown>,
   from: string,
@@ -80,7 +79,7 @@ export function renamedMachineStates(
 ): Record<string, unknown> {
   let changed = false
   const entries = Object.entries(states).map(([key, state]): [string, unknown] => {
-    if (isRecord(state) && state.clip === from) {
+    if (isRecord(state) && (state.clip === from || (state.clip === undefined && key === from))) {
       changed = true
       return [key, { ...state, clip: to }]
     }
@@ -89,70 +88,35 @@ export function renamedMachineStates(
   return changed ? Object.fromEntries(entries) : states
 }
 
-export interface ComponentPropPatch {
-  componentType: 'Animator' | 'StateMachine'
-  key: 'blends' | 'initialClip' | 'clips' | 'states'
-  value: unknown
-}
-
-export interface BlendRenameRewrites {
-  blends: StoredBlends
-  initialClip?: string
-  clips?: Record<string, unknown>
-  states?: Record<string, unknown>
-}
-
-function animatorRenameRewrites(props: Record<string, unknown> | undefined, from: string, to: string): BlendRenameRewrites {
-  const rewrites: BlendRenameRewrites = { blends: renamedBlend(blendsOf(props?.blends), from, to) }
-  if (props?.initialClip === from) rewrites.initialClip = to
-  if (isRecord(props?.clips) && Object.hasOwn(props.clips, from)) {
-    rewrites.clips = renamedClipOverrides(props.clips, from, to)
-  }
-  return rewrites
-}
-
-function machineRenameStates(machineComp: SceneComponentJson | undefined, from: string, to: string): Record<string, unknown> | undefined {
-  const states = machineComp ? machineProps(machineComp).states : undefined
-  if (!isRecord(states)) return undefined
-  const nextStates = renamedMachineStates(states, from, to)
-  return nextStates !== states ? nextStates : undefined
-}
-
-/**
- * Computes all property updates needed when renaming an Animator blend from -> to
- * across the given components of an entity or prefab (issue #245).
- */
-export function renameBlendReferences(
-  components: readonly SceneComponentJson[],
-  from: string,
-  to: string,
-): BlendRenameRewrites {
-  const animator = components.find((c) => c.type === 'Animator')
-  const rewrites = animatorRenameRewrites(animator?.props, from, to)
-  const states = machineRenameStates(components.find((c) => c.type === 'StateMachine'), from, to)
-  return states ? { ...rewrites, states } : rewrites
-}
-
 /**
  * Computes the ordered component property patches to apply in a single commit
  * when renaming an Animator blend from -> to (issue #245 CA-1..CA-4).
  */
+function animatorRenamePatches(props: Record<string, unknown> | undefined, from: string, to: string): ComponentPropPatch[] {
+  const patches: ComponentPropPatch[] = [
+    { componentType: 'Animator', key: 'blends', value: renamedBlend(blendsOf(props?.blends), from, to) },
+  ]
+  if (props?.initialClip === from) patches.push({ componentType: 'Animator', key: 'initialClip', value: to })
+  if (isRecord(props?.clips) && Object.hasOwn(props.clips, from)) {
+    patches.push({ componentType: 'Animator', key: 'clips', value: renamedClipOverrides(props.clips, from, to) })
+  }
+  return patches
+}
+
+function machineRenamePatch(machineStates: unknown, from: string, to: string): ComponentPropPatch | undefined {
+  if (!isRecord(machineStates)) return undefined
+  const nextStates = renamedMachineStates(machineStates, from, to)
+  return nextStates !== machineStates ? { componentType: 'StateMachine', key: 'states', value: nextStates } : undefined
+}
+
 export function blendRenamePatches(
   components: readonly SceneComponentJson[],
   from: string,
   to: string,
 ): ComponentPropPatch[] {
-  const rewrites = renameBlendReferences(components, from, to)
-  const patches: ComponentPropPatch[] = [{ componentType: 'Animator', key: 'blends', value: rewrites.blends }]
-  if (rewrites.initialClip !== undefined) {
-    patches.push({ componentType: 'Animator', key: 'initialClip', value: rewrites.initialClip })
-  }
-  if (rewrites.clips !== undefined) {
-    patches.push({ componentType: 'Animator', key: 'clips', value: rewrites.clips })
-  }
-  if (rewrites.states !== undefined) {
-    patches.push({ componentType: 'StateMachine', key: 'states', value: rewrites.states })
-  }
+  const patches = animatorRenamePatches(components.find((c) => c.type === 'Animator')?.props, from, to)
+  const statePatch = machineRenamePatch(components.find((c) => c.type === 'StateMachine')?.props?.states, from, to)
+  if (statePatch) patches.push(statePatch)
   return patches
 }
 

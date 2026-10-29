@@ -1,10 +1,10 @@
-import type { ComponentPropPatch } from './inspector/animator-blends-edit'
 import type { ComponentProps } from 'react'
 import type { SceneJson } from '@waica/engine'
 import * as ops from '../scene/ops'
 import type { EditorCore } from './editor-commits'
 import type { ViewportAccess } from './use-viewport-handle'
 import type { Inspector } from './Inspector'
+import type { ComponentPropPatch } from './inspector/inspector-props'
 import { setPrefabProp } from './prefab-commands'
 import { validateShadowEdit } from './shadow-edit-capacity'
 
@@ -193,12 +193,13 @@ function applyEntityPatches(
   const [prefabLib] = core.library.prefabLib
   const { entity, patches } = target
   if (!scene || patches.length === 0) return
+  const structural = patches.some((patch) => patch.componentType === 'StateMachine' || patch.key === 'texture')
   let next = scene
   for (const { componentType, key, value } of patches) {
-    if (componentType !== 'StateMachine') viewport()?.applyProp(entity, componentType, key, value)
+    if (!structural) viewport()?.applyProp(entity, componentType, key, value)
     next = ops.setComponentProp(next, entity, componentType, key, value, prefabLib)
   }
-  core.commit(next, patches.some((patch) => patch.componentType === 'StateMachine'))
+  core.commit(next, structural)
 }
 
 function applySizeAppearance(

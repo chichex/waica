@@ -6,6 +6,7 @@ import { machineProps, type MachineProps } from '../../project/states'
 import { StateMachineCard } from '../StateMachinePanel'
 import type { ComponentPropPatch } from './animator-blends-edit'
 import { ComponentCard } from './ComponentCard'
+import { OverridableName } from './PropRow'
 import { componentLabel } from './component-meta'
 import { ComponentUpdateSchedule } from './update-schedule'
 
@@ -79,7 +80,8 @@ function RolePackage({
   driver,
   ...card
 }: BehaviourCardProps & { machine: MachineCardContext; driver: SceneComponentJson | undefined }) {
-  const { comp, canRemove, onRemove } = card
+  const { comp, canRemove, overriddenFor, onRemove, onReset, onApply } = card
+  const statesOverridden = overriddenFor?.('StateMachine')?.has('states') ?? false
   return (
     <div className="ed-role-pack">
       <StateMachineCard
@@ -92,6 +94,18 @@ function RolePackage({
         onEditState={machine.onEditState}
         onRemove={canRemove(comp) ? () => onRemove(comp.type) : undefined}
         updateSchedule={<ComponentUpdateSchedule type={comp.type} />}
+        statesHeader={
+          statesOverridden ? (
+            <div className="ed-row">
+              <OverridableName
+                label="states"
+                overridden
+                onReset={onReset && (() => onReset('StateMachine', 'states'))}
+                onApply={onApply && (() => onApply('StateMachine', 'states'))}
+              />
+            </div>
+          ) : undefined
+        }
       />
       {driver && (
         <div className="ed-role-driver">

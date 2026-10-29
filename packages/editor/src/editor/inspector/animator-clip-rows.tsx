@@ -1,4 +1,3 @@
-import type { SceneComponentJson } from '@waica/engine'
 // The Animator's clip rows (issue #173 CA-5, CA-6, CA-8): its initial clip and
 // its per-clip overrides, offered from the clips of the glb its Model draws
 // and the Animator's own blends when the editor can read them, typed by hand
@@ -6,6 +5,7 @@ import type { SceneComponentJson } from '@waica/engine'
 // and is never rewritten. An override's fade (issue 205 CA-18) is empty when
 // it inherits the Animator's.
 import { useContext, useState, type ReactNode } from 'react'
+import type { SceneComponentJson } from '@waica/engine'
 import { useArchetype } from '../../project/archetype'
 import { useGlbClips } from '../glb-clips'
 import { MissingOption, missingOptionClass } from '../missing-option'

@@ -191,7 +191,8 @@ function EntityTilemap({
  */
 function entityMachineContext(props: EntityInspectorProps, clips: readonly string[] | null): MachineCardContext {
   const { entity, prefabs } = props
-  const machineRef = entity.prefab && prefabOwns(entity, 'StateMachine', prefabs) ? entity.prefab : null
+  const hasStatesOverride = entity.overrides?.StateMachine?.states !== undefined
+  const machineRef = !hasStatesOverride && entity.prefab && prefabOwns(entity, 'StateMachine', prefabs) ? entity.prefab : null
   return {
     clips,
     stateFiles: props.stateFiles,
@@ -208,7 +209,7 @@ function EntityBehaviours({
   ...props
 }: EntityInspectorProps & { components: SceneComponentJson[] }) {
   const archetype = useArchetype()
-  const { entity, prefabs } = props
+  const { entity, prefabs, onPatchProps } = props
   const split = splitComponents(components)
   const clips = useKnownClips(split.appearance, components)
   return (
@@ -222,15 +223,7 @@ function EntityBehaviours({
       machine={entityMachineContext(props, clips)}
       overriddenFor={instanceOverrides(entity, props.onResetProp, props.onApplyProp).overridesOf}
       onProp={(type, key, value) => props.onProp(entity.name, type, key, value)}
-      onPatchProps={(patches) => {
-        if (props.onPatchProps) {
-          props.onPatchProps(entity.name, patches)
-        } else {
-          for (const patch of patches) {
-            props.onProp(entity.name, patch.componentType, patch.key, patch.value)
-          }
-        }
-      }}
+      onPatchProps={onPatchProps && ((patches) => onPatchProps(entity.name, patches))}
       onRemove={(type) => props.onRemoveComponent(entity.name, type)}
       onAdd={(type) => props.onAddComponent(entity.name, type)}
       onReset={(type, key) => props.onResetProp(entity.name, type, key)}

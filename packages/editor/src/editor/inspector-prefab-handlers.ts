@@ -1,4 +1,3 @@
-import type { ComponentPropPatch } from './inspector/animator-blends-edit'
 import type { ComponentProps } from 'react'
 import type { PrefabJson } from '@waica/engine'
 import { setAppearanceShape, setAppearanceTexture, setCollisionEnabled, toggleAnimated } from '../project/chassis'
@@ -6,6 +5,7 @@ import type { EditorCore } from './editor-commits'
 import type { ViewportAccess } from './use-viewport-handle'
 import { refBase } from './Explorer'
 import type { Inspector } from './Inspector'
+import type { ComponentPropPatch } from './inspector/inspector-props'
 import { setPrefabProp } from './prefab-commands'
 import { validateShadowEdit } from './shadow-edit-capacity'
 
@@ -99,10 +99,13 @@ function applyPrefabPatches(
   const { ref, patches } = target
   const prefab = prefabLib[ref]
   if (!prefab || patches.length === 0) return
+  const structural = patches.some(
+    (patch) => patch.componentType === 'StateMachine' || (patch.componentType === 'Tilemap' && patch.key === 'texture'),
+  )
   let next = prefab
   for (const { componentType, key, value } of patches) {
-    if (componentType !== 'StateMachine') viewport()?.applyProp(refBase(ref), componentType, key, value)
+    if (!structural) viewport()?.applyProp(refBase(ref), componentType, key, value)
     next = setPrefabProp(next, componentType, key, value)
   }
-  core.commitPrefab(ref, next, patches.some((patch) => patch.componentType === 'StateMachine'))
+  core.commitPrefab(ref, next, structural)
 }

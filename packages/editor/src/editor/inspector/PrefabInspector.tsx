@@ -148,15 +148,7 @@ function PrefabBehaviours(props: PrefabInspectorProps) {
         onEditState: props.onEditState,
       }}
       onProp={props.onProp}
-      onPatchProps={(patches) => {
-        if (props.onPatchProps) {
-          props.onPatchProps(patches)
-        } else {
-          for (const patch of patches) {
-            props.onProp(patch.componentType, patch.key, patch.value)
-          }
-        }
-      }}
+      onPatchProps={props.onPatchProps}
       onRemove={props.onRemove}
       onAdd={props.onAdd}
     />

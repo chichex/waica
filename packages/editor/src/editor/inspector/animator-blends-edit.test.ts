@@ -2,9 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { SceneComponentJson } from '@waica/engine'
 import {
   blendRenamePatches,
-  renameBlendReferences,
   renamedClipOverrides,
-  renamedInitialClip,
   renamedMachineStates,
 } from './animator-blends-edit'
 
@@ -30,7 +28,7 @@ const FULL_COMPONENTS: SceneComponentJson[] = [
       initial: 'idle',
       states: {
         idle: { clip: 'Move' },
-        walk: { clip: 'Move' },
+        Move: { transitions: [] },
         jump: { clip: 'jump' },
       },
     },
@@ -80,48 +78,57 @@ describe('renamedClipOverrides (issue #245 CA-1)', () => {
   })
 })
 
-describe('renamedInitialClip (issue #245 CA-1)', () => {
-  it('updates initialClip when it matches from and leaves other values untouched', () => {
-    expect(renamedInitialClip('Move', 'Move', 'Stride')).toBe('Stride')
-    expect(renamedInitialClip('idle', 'Move', 'Stride')).toBe('idle')
-    expect(renamedInitialClip(undefined, 'Move', 'Stride')).toBeUndefined()
-  })
-})
-
 describe('renamedMachineStates (issue #245 CA-2)', () => {
-  it('updates clip to to in all states pointing to from and preserves others', () => {
-    const states = { idle: { clip: 'Move', speed: 1 }, walk: { clip: 'Move', speed: 1.2 }, jump: { clip: 'jump', loop: false } }
+  it('updates clip to to in states pointing to from explicitly or implicitly by state name', () => {
+    const states = {
+      idle: { clip: 'Move', speed: 1 },
+      Move: { transitions: [] },
+      jump: { clip: 'jump', loop: false },
+    }
     const result = renamedMachineStates(states, 'Move', 'Stride')
-    expect(result).toEqual({ idle: { clip: 'Stride', speed: 1 }, walk: { clip: 'Stride', speed: 1.2 }, jump: { clip: 'jump', loop: false } })
-    expect(Object.keys(result)).toEqual(['idle', 'walk', 'jump'])
+    expect(result).toEqual({
+      idle: { clip: 'Stride', speed: 1 },
+      Move: { transitions: [], clip: 'Stride' },
+      jump: { clip: 'jump', loop: false },
+    })
+    expect(Object.keys(result)).toEqual(['idle', 'Move', 'jump'])
   })
 
   it('leaves states unchanged when no state points to from', () => {
-    const states = { idle: { clip: 'idle' }, walk: { clip: 'walk' } }
+    const states = { idle: { clip: 'idle' }, Move: { clip: 'walk' } }
     expect(renamedMachineStates(states, 'Move', 'Stride')).toBe(states)
   })
 })
 
-describe('renameBlendReferences and blendRenamePatches (issue #245 CA-1, CA-2)', () => {
-  it('computes rewrites and ordered patches when referenced', () => {
-    const rewrites = renameBlendReferences(FULL_COMPONENTS, 'Move', 'Stride')
-    expect(Object.keys(rewrites.blends)).toEqual(['Stride', 'Sneak'])
-    expect(rewrites.initialClip).toBe('Stride')
+describe('blendRenamePatches (issue #245 CA-1, CA-2)', () => {
+  it('returns ordered patches for Animator and StateMachine props when referenced', () => {
     expect(blendRenamePatches(FULL_COMPONENTS, 'Move', 'Stride')).toEqual([
-      { componentType: 'Animator', key: 'blends', value: rewrites.blends },
+      {
+        componentType: 'Animator',
+        key: 'blends',
+        value: { Stride: { param: 'speed', points: [] }, Sneak: { param: 'stealth', points: [] } },
+      },
       { componentType: 'Animator', key: 'initialClip', value: 'Stride' },
-      { componentType: 'Animator', key: 'clips', value: rewrites.clips },
-      { componentType: 'StateMachine', key: 'states', value: rewrites.states },
+      {
+        componentType: 'Animator',
+        key: 'clips',
+        value: { Stride: { loop: false, speed: 1.5, fade: 0.2 }, walk: { speed: 1.2 } },
+      },
+      {
+        componentType: 'StateMachine',
+        key: 'states',
+        value: { idle: { clip: 'Stride' }, Move: { transitions: [], clip: 'Stride' }, jump: { clip: 'jump' } },
+      },
     ])
   })
 
   it('omits initialClip, clips and states when from is not referenced', () => {
-    const rewrites = renameBlendReferences(UNREFERENCED_COMPONENTS, 'Move', 'Stride')
-    expect(rewrites.initialClip).toBeUndefined()
-    expect(rewrites.clips).toBeUndefined()
-    expect(rewrites.states).toBeUndefined()
     expect(blendRenamePatches(UNREFERENCED_COMPONENTS, 'Move', 'Stride')).toEqual([
-      { componentType: 'Animator', key: 'blends', value: rewrites.blends },
+      {
+        componentType: 'Animator',
+        key: 'blends',
+        value: { Stride: { param: 'speed', points: [] }, Sneak: { param: 'stealth', points: [] } },
+      },
     ])
   })
 })

@@ -222,8 +222,9 @@ describe('renaming a blend in the Editor (issue 245 CA-3, CA-4)', () => {
 })
 
 describe('renaming a prefab blend in the Editor (issue 245 CA-3, CA-4)', () => {
-  it('writes all blend rename updates on the prefab in a single undoable commit when inspecting a prefab', async () => {
+  it('writes all blend rename updates on the prefab in a single undo/redo step without mutating the scene', async () => {
     const fs = await prefabInstanceProject()
+    const beforeScene = await readScene(fs, MAIN)
     const beforePrefab = await readHeroPrefab(fs)
     const { user } = await openOn(fs, 'Hero')
     await user.click(screen.getByRole('button', { name: '▣ hero' }))
@@ -233,13 +234,17 @@ describe('renaming a prefab blend in the Editor (issue 245 CA-3, CA-4)', () => {
     await user.type(nameInput, 'Stride{Enter}')
     await vi.waitFor(async () => {
       const saved = await readHeroPrefab(fs)
-      const anim = saved.components.find((c) => c.type === 'Animator')
-      const machine = saved.components.find((c) => c.type === 'StateMachine')
-      expect(anim?.props?.initialClip).toBe('Stride')
-      expect(machine?.props?.states).toEqual(EXPECTED_OVERRIDES.StateMachine.states)
+      expect(saved.components.find((c) => c.type === 'Animator')?.props).toEqual(EXPECTED_OVERRIDES.Animator)
+      expect(saved.components.find((c) => c.type === 'StateMachine')?.props?.states).toEqual(EXPECTED_OVERRIDES.StateMachine.states)
     })
+    expect(await readScene(fs, MAIN)).toEqual(beforeScene)
 
     await user.keyboard('{Control>}z{/Control}')
     await vi.waitFor(async () => expect(await readHeroPrefab(fs)).toEqual(beforePrefab))
+    await user.keyboard('{Control>}y{/Control}')
+    await vi.waitFor(async () => {
+      const redone = await readHeroPrefab(fs)
+      expect(redone.components.find((c) => c.type === 'Animator')?.props).toEqual(EXPECTED_OVERRIDES.Animator)
+    })
   })
 })

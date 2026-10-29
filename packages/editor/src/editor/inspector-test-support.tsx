@@ -4,7 +4,6 @@ import type { ComponentProps } from 'react'
 import { vi, type Mock } from 'vitest'
 import { ArchetypeContext, resolveArchetype } from '../project/archetype'
 import { GlbClipsContext, type GlbClipCache } from './glb-clips'
-import type { ComponentPropPatch } from './inspector/animator-blends-edit'
 import { Inspector, type InspectorSelection } from './Inspector'
 import type { ArtItem } from './use-project-art'
 import { defined } from '../../../engine/src/test-support'
@@ -42,15 +41,12 @@ export type SpiedInspectorProps = {
 
 /** Spies for the edits an entity (or a multi-selection of them) can make. */
 function entityCallbacks() {
-  const onProp = vi.fn()
   return {
     onRename: vi.fn(),
     onMove: vi.fn(),
     onTransform: vi.fn(),
-    onProp,
-    onPatchProps: vi.fn((entity: string, patches: readonly ComponentPropPatch[]) => {
-      for (const patch of patches) onProp(entity, patch.componentType, patch.key, patch.value)
-    }),
+    onProp: vi.fn(),
+    onPatchProps: vi.fn(),
     onMultiProp: vi.fn(),
     onResetProp: vi.fn(),
     onApplyProp: vi.fn(),
@@ -70,12 +66,9 @@ function entityCallbacks() {
 
 /** Spies for the edits a prefab selection makes to its shared blueprint. */
 function prefabCallbacks() {
-  const onPrefabProp = vi.fn()
   return {
-    onPrefabProp,
-    onPrefabPatchProps: vi.fn((ref: string, patches: readonly ComponentPropPatch[]) => {
-      for (const patch of patches) onPrefabProp(ref, patch.componentType, patch.key, patch.value)
-    }),
+    onPrefabProp: vi.fn(),
+    onPrefabPatchProps: vi.fn(),
     onPrefabAddComponent: vi.fn(),
     onPrefabRemoveComponent: vi.fn(),
     onPrefabToggleAnimated: vi.fn(),

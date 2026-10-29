@@ -35,6 +35,8 @@ interface StateMachineCardProps {
   onRemove?: () => void
   /** Read-only effective component update position supplied by the Inspector. */
   updateSchedule?: ReactNode
+  /** Override indicator and reset/apply actions when StateMachine.states is overridden on an instance. */
+  statesHeader?: ReactNode
 }
 
 /**
@@ -47,7 +49,7 @@ interface StateMachineCardProps {
  */
 export function StateMachineCard({
   comp, clips, stateFiles, roleFiles, onPatch, onCreateRoleFile, onEditState, onRemove,
-  updateSchedule,
+  updateSchedule, statesHeader,
 }: StateMachineCardProps) {
   const machine = machineProps(comp)
 
@@ -85,6 +87,7 @@ export function StateMachineCard({
       </header>
       <RoleSummary role={machine.role} roleFiles={roleFiles} onCreateRoleFile={onCreateRoleFile} />
       <InitialStateField machine={machine} onChange={(initial) => onPatch({ initial })} />
+      {statesHeader}
       <StateList
         machine={machine}
         clips={clips}

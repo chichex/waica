@@ -69,8 +69,10 @@ describe('the Blends section lists and adds blends (issue 205 CA-19)', () => {
 
     await user.clear(name)
     await user.type(name, 'Stride{Enter}')
-    expect(props.onProp).toHaveBeenCalledTimes(1)
-    expect(Object.keys(props.onProp.mock.lastCall?.[3] ?? {})).toEqual(['Stride', 'Sneak'])
+    expect(props.onPatchProps).toHaveBeenCalledTimes(1)
+    expect(props.onPatchProps).toHaveBeenCalledWith('Hero', [
+      { componentType: 'Animator', key: 'blends', value: { Stride: MOVE, Sneak: { param: 'stealth', points: [] } } },
+    ])
     await user.click(within(card('Sneak')).getByRole('button', { name: 'Remove the Sneak blend' }))
     expect(props.onProp).toHaveBeenLastCalledWith('Hero', 'Animator', 'blends', { Move: MOVE })
   })
@@ -203,4 +205,3 @@ describe('blend names offered as clips (issue 205 CA-20)', () => {
     expect(screen.queryByTitle(/no clip named "Move"/)).toBeNull()
   })
 })
-

@@ -17,8 +17,20 @@ const MOVE = { param: 'speed', points: [{ clip: 'idle', at: 0 }, { clip: 'walk',
 const SNEAK = { param: 'stealth', points: [] }
 const CLIPS_BEFORE = { Move: { loop: false, speed: 1.5, fade: 0.2 }, walk: { speed: 1.2 } }
 const CLIPS_AFTER = { Stride: { loop: false, speed: 1.5, fade: 0.2 }, walk: { speed: 1.2 } }
-const STATES_BEFORE = { idle: { clip: 'Move' }, walk: { clip: 'Move' }, jump: { clip: 'jump' } }
-const STATES_AFTER = { idle: { clip: 'Stride' }, walk: { clip: 'Stride' }, jump: { clip: 'jump' } }
+const STATES_BEFORE = { idle: { clip: 'Move' }, Move: { transitions: [] }, jump: { clip: 'jump' } }
+const STATES_AFTER = { idle: { clip: 'Stride' }, Move: { transitions: [], clip: 'Stride' }, jump: { clip: 'jump' } }
+const FULL_PATCHES = [
+  { componentType: 'Animator', key: 'blends', value: { Stride: MOVE, Sneak: SNEAK } },
+  { componentType: 'Animator', key: 'initialClip', value: 'Stride' },
+  { componentType: 'Animator', key: 'clips', value: CLIPS_AFTER },
+  { componentType: 'StateMachine', key: 'states', value: STATES_AFTER },
+]
+const SINGLE_BLEND_PATCHES = [
+  { componentType: 'Animator', key: 'blends', value: { Stride: MOVE } },
+  { componentType: 'Animator', key: 'initialClip', value: 'Stride' },
+  { componentType: 'Animator', key: 'clips', value: { Stride: { speed: 1.5 } } },
+  { componentType: 'StateMachine', key: 'states', value: STATES_AFTER },
+]
 
 function bytesOf(dataUri: string): Uint8Array<ArrayBuffer> {
   return Uint8Array.from(atob(dataUri.slice(dataUri.indexOf(',') + 1)), (char) => char.charCodeAt(0))
@@ -66,16 +78,15 @@ describe('renaming an entity blend rewrites its references (issue 245 CA-1, CA-2
     await user.clear(nameInputOf('Move'))
     await user.type(nameInputOf('Move'), 'Stride{Enter}')
 
-    expect(props.onProp).toHaveBeenCalledWith('Hero', 'Animator', 'blends', { Stride: MOVE, Sneak: SNEAK })
-    expect(props.onProp).toHaveBeenCalledWith('Hero', 'Animator', 'initialClip', 'Stride')
-    expect(props.onProp).toHaveBeenCalledWith('Hero', 'Animator', 'clips', CLIPS_AFTER)
-    expect(props.onProp).toHaveBeenCalledWith('Hero', 'StateMachine', 'states', STATES_AFTER)
+    expect(props.onPatchProps).toHaveBeenCalledTimes(1)
+    expect(props.onPatchProps).toHaveBeenCalledWith('Hero', FULL_PATCHES)
 
     rerender(selectionOf(hero({ blends: { Stride: MOVE, Sneak: SNEAK }, initialClip: 'Stride', clips: CLIPS_AFTER }, STATES_AFTER)))
     expect(screen.getByRole('combobox', { name: 'Initial clip' })).toHaveProperty('value', 'Stride')
     expect(optionsOf(screen.getByRole('combobox', { name: 'Initial clip' }))).not.toContain('Move — missing ⚠')
     expect(screen.queryByText(/Move — missing/)).toBeNull()
     expect(screen.queryByTitle(/no clip named/)).toBeNull()
+    expect(screen.queryByTitle(/No animation for this state/)).toBeNull()
   })
 
   it('also rewrites references when the blend name input commits on blur', async () => {
@@ -86,36 +97,38 @@ describe('renaming an entity blend rewrites its references (issue 245 CA-1, CA-2
     await user.type(nameInputOf('Move'), 'Stride')
     await user.tab()
 
-    expect(props.onProp).toHaveBeenCalledWith('Hero', 'Animator', 'blends', { Stride: MOVE })
-    expect(props.onProp).toHaveBeenCalledWith('Hero', 'Animator', 'initialClip', 'Stride')
-    expect(props.onProp).toHaveBeenCalledWith('Hero', 'Animator', 'clips', { Stride: { speed: 1.5 } })
-    expect(props.onProp).toHaveBeenCalledWith('Hero', 'StateMachine', 'states', STATES_AFTER)
+    expect(props.onPatchProps).toHaveBeenCalledTimes(1)
+    expect(props.onPatchProps).toHaveBeenCalledWith('Hero', SINGLE_BLEND_PATCHES)
   })
 
-  it('only updates Animator.blends when no other property references the renamed blend', async () => {
+  it('only patches Animator.blends when no other property references the renamed blend', async () => {
     const { props } = await inspect(hero({ blends: { Move: MOVE }, initialClip: 'idle', clips: { walk: { speed: 1.2 } } }, { idle: { clip: 'idle' } }))
     const user = userEvent.setup()
 
     await user.clear(nameInputOf('Move'))
     await user.type(nameInputOf('Move'), 'Stride{Enter}')
 
-    expect(props.onProp).toHaveBeenCalledTimes(1)
-    expect(props.onProp).toHaveBeenCalledWith('Hero', 'Animator', 'blends', { Stride: MOVE })
+    expect(props.onPatchProps).toHaveBeenCalledTimes(1)
+    expect(props.onPatchProps).toHaveBeenCalledWith('Hero', [
+      { componentType: 'Animator', key: 'blends', value: { Stride: MOVE } },
+    ])
   })
 })
 
-describe('renaming a prefab blend and edge cases (issue 245 CA-3, CA-5)', () => {
+const HERO_PREFAB: PrefabJson = {
+  waicaPrefab: 1,
+  type: 'object',
+  components: [
+    { type: 'Model', props: { src: RIG_PATH } },
+    { type: 'Animator', props: { blends: { Move: MOVE }, initialClip: 'Move', clips: { Move: { speed: 1.5 } } } },
+    machineWithStates(STATES_BEFORE),
+  ],
+}
+
+describe('renaming a prefab blend and instance overrides (issue 245 CA-3)', () => {
+
   it('rewrites all blend references on a prefab when inspecting a prefab', async () => {
-    const prefab: PrefabJson = {
-      waicaPrefab: 1,
-      type: 'object',
-      components: [
-        { type: 'Model', props: { src: RIG_PATH } },
-        { type: 'Animator', props: { blends: { Move: MOVE }, initialClip: 'Move', clips: { Move: { speed: 1.5 } } } },
-        machineWithStates(STATES_BEFORE),
-      ],
-    }
-    const { props } = renderInspectorWithClips({ kind: 'prefab', ref: 'objects/hero', prefab }, await rigCache())
+    const { props } = renderInspectorWithClips({ kind: 'prefab', ref: 'objects/hero', prefab: HERO_PREFAB }, await rigCache())
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0))
     })
@@ -124,12 +137,28 @@ describe('renaming a prefab blend and edge cases (issue 245 CA-3, CA-5)', () => 
     await user.clear(nameInputOf('Move'))
     await user.type(nameInputOf('Move'), 'Stride{Enter}')
 
-    expect(props.onPrefabProp).toHaveBeenCalledWith('objects/hero', 'Animator', 'blends', { Stride: MOVE })
-    expect(props.onPrefabProp).toHaveBeenCalledWith('objects/hero', 'Animator', 'initialClip', 'Stride')
-    expect(props.onPrefabProp).toHaveBeenCalledWith('objects/hero', 'Animator', 'clips', { Stride: { speed: 1.5 } })
-    expect(props.onPrefabProp).toHaveBeenCalledWith('objects/hero', 'StateMachine', 'states', STATES_AFTER)
+    expect(props.onPrefabPatchProps).toHaveBeenCalledTimes(1)
+    expect(props.onPrefabPatchProps).toHaveBeenCalledWith('objects/hero', SINGLE_BLEND_PATCHES)
   })
 
+  it('routes machine edits to the entity and offers reset/apply when StateMachine.states is overridden on an instance', async () => {
+    const instance: SceneEntityJson = {
+      name: 'Hero 1',
+      prefab: 'objects/hero',
+      overrides: { StateMachine: { states: STATES_AFTER } },
+    }
+    const { props } = renderInspectorWithClips(selectionOf(instance), await rigCache(), { prefabs: { 'objects/hero': HERO_PREFAB } })
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: 'idle' }))
+    expect(props.onEditState).toHaveBeenCalledWith({ kind: 'entity', name: 'Hero 1', state: 'idle' })
+    await user.click(screen.getByTitle("Reset to the prefab's value"))
+    expect(props.onResetProp).toHaveBeenCalledWith('Hero 1', 'StateMachine', 'states')
+  })
+
+})
+
+describe('blend rename edge cases and removal (issue 245 CA-5)', () => {
   it('does not rewrite references when removing a blend or submitting an invalid name', async () => {
     const { props } = await inspect(hero({ blends: { Move: MOVE, Sneak: SNEAK }, initialClip: 'Move', clips: { Move: { speed: 1.5 } } }))
     const user = userEvent.setup()
@@ -139,7 +168,7 @@ describe('renaming a prefab blend and edge cases (issue 245 CA-3, CA-5)', () => 
     expect(nameInputOf('Move')).toHaveProperty('value', 'Move')
     await user.clear(nameInputOf('Move'))
     await user.type(nameInputOf('Move'), 'Sneak{Enter}')
-    expect(props.onProp).not.toHaveBeenCalled()
+    expect(props.onPatchProps).not.toHaveBeenCalled()
 
     await user.click(within(card('Move')).getByRole('button', { name: 'Remove the Move blend' }))
     expect(props.onProp).toHaveBeenCalledTimes(1)

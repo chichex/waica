@@ -15,7 +15,13 @@ import type { StateTarget } from '../StateMachinePanel'
 import type { TilemapBrushSelection } from '../tilemap-brush'
 import type { ArtItem, DroppedFile } from '../use-project-art'
 import type { ViewportComponentVisibility } from '../Viewport'
-import type { ComponentPropPatch } from './animator-blends-edit'
+
+/** One component property update in a multi-property inspector commit. */
+export interface ComponentPropPatch {
+  componentType: string
+  key: string
+  value: unknown
+}
 
 /** Sets one prop of the open scene's camera block (undefined deletes it). */
 export type CameraProp = (key: string, value: unknown) => void
