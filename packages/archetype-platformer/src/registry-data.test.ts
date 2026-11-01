@@ -40,6 +40,21 @@ const EXPECTED_DEFAULTS: Record<string, Record<string, unknown>> = {
     offsetY: 0,
     offsetZ: 0,
   },
+  // Issue #204 CA-4: every archetype registers the SpotLight next to the PointLight.
+  SpotLight: {
+    castShadows: true,
+    shadowMapSize: null, shadowMaxDistance: null, shadowBias: null, shadowNormalBias: null, shadowRadius: null,
+    color: 0xffffff,
+    intensity: 1,
+    distance: 0,
+    decay: 2,
+    angle: 30,
+    penumbra: 0.2,
+    direction: [0, -1, 0],
+    offsetX: 0,
+    offsetY: 0,
+    offsetZ: 0,
+  },
   // Issue #159 CA-18: every archetype registers the 3D physics components; validation keeps them out of 2D scenes.
   Collider: {
     shape: 'box',

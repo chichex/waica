@@ -64,7 +64,7 @@ describe.each(MANIFESTS.map((manifest) => [manifest.id, manifest] as const))(
         const Class = archetype.registry.components[name]
         return Class && componentSpaceOf(Class)
       }
-      for (const name of ['Model', 'Sun', 'PointLight']) expect(spaceOf(name), name).toBe('3d')
+      for (const name of ['Model', 'Sun', 'PointLight', 'SpotLight']) expect(spaceOf(name), name).toBe('3d')
       // A 2D archetype keeps 3D components out; a 3D one (the third-person) keeps 2D ones out.
       const space = sceneSpace(archetype.scene)
       const other = space === '3d' ? '2d' : '3d'

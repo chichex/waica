@@ -49,6 +49,7 @@ export type FindingCode =
   | 'invalid-checkpoint-param'
   | 'invalid-light-param'
   | 'invalid-sun-param'
+  | 'invalid-spot-param'
   | 'invalid-shadow-param'
   | 'invalid-scene-camera'
   | 'invalid-entity-transform'

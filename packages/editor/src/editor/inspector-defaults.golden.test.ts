@@ -17,6 +17,7 @@ import { componentDefaults, componentKeys } from './Inspector'
  * Issue #154 added the 3D components Model, Sun and PointLight; issue #159
  * the physics components Collider and RigidBody; issue #166 the Animator.
  * Issue #203 adds shadow flags and nullable scene-inherited light overrides.
+ * Issue #204 adds the SpotLight.
  */
 const GOLDEN: Record<string, Record<string, unknown>> = {
   ParticleEmitter: {
@@ -68,6 +69,20 @@ const GOLDEN: Record<string, Record<string, unknown>> = {
     intensity: 1,
     distance: 0,
     decay: 2,
+    offsetX: 0,
+    offsetY: 0,
+    offsetZ: 0,
+  },
+  SpotLight: {
+    castShadows: true,
+    shadowMapSize: null, shadowMaxDistance: null, shadowBias: null, shadowNormalBias: null, shadowRadius: null,
+    color: 0xffffff,
+    intensity: 1,
+    distance: 0,
+    decay: 2,
+    angle: 30,
+    penumbra: 0.2,
+    direction: [0, -1, 0],
     offsetX: 0,
     offsetY: 0,
     offsetZ: 0,
@@ -167,7 +182,7 @@ const GOLDEN: Record<string, Record<string, unknown>> = {
 describe('Inspector component rows (golden, behavior preservation)', () => {
   const archetype = resolveArchetype('platformer')
 
-  it('lists exactly the 23 platformer registry components in the golden', () => {
+  it('lists exactly the 24 platformer registry components in the golden', () => {
     expect(Object.keys(archetype.registry.components).sort()).toEqual(
       Object.keys(GOLDEN).sort(),
     )

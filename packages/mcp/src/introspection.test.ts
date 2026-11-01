@@ -47,7 +47,7 @@ const EXPECTED_PARTICLE_DEFAULTS = {
 }
 
 describe('listComponents', () => {
-  it('describes all 25 platformer classes (Light since issue #78, Model, Sun and PointLight since issue #154, Collider, RigidBody and CharacterMotor since issue #159, Animator since issue #166) and only the declared display names', async () => {
+  it('describes all 27 platformer classes (Light since issue #78, Model, Sun and PointLight since issue #154, Collider, RigidBody and CharacterMotor since issue #159, Animator since issue #166, SpotLight since issue #204) and only the declared display names', async () => {
     const project = await makeProject({
       'src/components/dash.ts': `export class Dash { static componentName = 'Dash' }\n`,
       'src/roles/guard.ts': `// project role\n`,
@@ -58,7 +58,7 @@ describe('listComponents', () => {
 
     const result = await listComponents(project)
 
-    expect(result.components).toHaveLength(26)
+    expect(result.components).toHaveLength(27)
     expect(result.components.map((component) => component.componentName)).toEqual(
       expect.arrayContaining([
         'Sprite',
@@ -68,6 +68,7 @@ describe('listComponents', () => {
         'Model',
         'Sun',
         'PointLight',
+        'SpotLight',
         'Collider',
         'RigidBody',
         'CharacterMotor',
@@ -96,6 +97,7 @@ describe('listComponents', () => {
     ).toEqual([
       { componentName: 'ParticleEmitter', displayName: 'Particle Emitter' },
       { componentName: 'PointLight', displayName: 'Point light (3D)' },
+      { componentName: 'SpotLight', displayName: 'Spot light (3D)' },
       { componentName: 'StateMachine', displayName: 'State Machine' },
       { componentName: 'PlatformerMotor', displayName: 'Motor' },
       { componentName: 'DustPuffs', displayName: 'Dust puffs' },
@@ -215,7 +217,7 @@ describe('listComponents', () => {
       path: 'src/components/explodes.ts',
       validated: false,
     })
-    expect(result.components).toHaveLength(26)
+    expect(result.components).toHaveLength(27)
   })
 
   it('attributes mixed-source components by their stable package contract', async () => {
@@ -239,7 +241,7 @@ describe('listComponents', () => {
 
     const result = await listComponents(project)
 
-    expect(result.components).toHaveLength(26)
+    expect(result.components).toHaveLength(27)
     expect(result.warnings.join('\n')).toMatch(/package\.json.*parse|parse.*package\.json/i)
   })
 
