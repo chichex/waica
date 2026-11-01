@@ -10,6 +10,7 @@ import { loadScene } from '../scene.js'
 import { ready3dGame, registryOf, scene3d, use3dTestEnvironment } from '../test-game-3d.js'
 import { defined } from '../test-support.js'
 import { PointLight } from './point-light.js'
+import { SpotLight } from './spot-light.js'
 import { Sun } from './sun.js'
 
 use3dTestEnvironment()
@@ -17,11 +18,15 @@ use3dTestEnvironment()
 it.each([
   { Light: Sun, primary: ['direction', 'color', 'intensity'] },
   { Light: PointLight, primary: ['color', 'intensity', 'distance', 'decay', 'offsetX', 'offsetY', 'offsetZ'] },
+  {
+    Light: SpotLight,
+    primary: ['color', 'intensity', 'distance', 'decay', 'angle', 'penumbra', 'direction', 'offsetX', 'offsetY', 'offsetZ'],
+  },
 ])('keeps the primary light controls before shadow overrides', ({ Light, primary }) => {
   expect(Object.keys(Light.params).slice(0, primary.length)).toEqual(primary)
 })
 
-const LIGHTS = [{ name: 'Sun', Light: Sun }, { name: 'PointLight', Light: PointLight }]
+const LIGHTS = [{ name: 'Sun', Light: Sun }, { name: 'PointLight', Light: PointLight }, { name: 'SpotLight', Light: SpotLight }]
 const BOOLEAN_CASES = [
   { value: false, expected: false }, { value: true, expected: true },
   { value: undefined, expected: true }, { value: null, expected: true },
@@ -137,7 +142,7 @@ describe.each(LIGHTS)('$name shadow properties from scene JSON', ({ Light }) => 
       { name: 'Authored', components: [{ type: Light.componentName, props }] },
     ]), registryOf({ [Light.componentName]: Light }))
 
-    const light = defined(defined(game.find('Authored')).get<Sun | PointLight>(Light))
+    const light = defined(defined(game.find('Authored')).get<Sun | PointLight | SpotLight>(Light))
     expect(light).toMatchObject(expected)
   })
 })
@@ -164,7 +169,7 @@ describe.each(LIGHTS)('$name shadow authoring isolation', ({ Light }) => {
   it('does not activate renderer shadows in the authoring-only layer', async () => {
     const { game } = await ready3dGame()
     loadScene(game, scene3d([]), registryOf({ [Light.componentName]: Light }))
-    const light = game.spawn('Light').add<Sun | PointLight>(Light)
+    const light = game.spawn('Light').add<Sun | PointLight | SpotLight>(Light)
     expect(light.castShadows).toBe(true)
     expect(defined(light.light).castShadow).toBe(false)
 

@@ -1,31 +1,48 @@
 import * as THREE from 'three/webgpu'
 import { PointLight } from './components/point-light.js'
+import { SpotLight } from './components/spot-light.js'
 import { Sun } from './components/sun.js'
 import type { ShadowLight } from './components/shadow-light.js'
 import type { ComponentClass } from './component.js'
 import type { Game, ParamOverrides } from './game.js'
-import { assertShadowMapCapacity, resolveLightShadow, resolveSceneShadows, type LightShadowOverrides, type ResolvedLightShadow, type ResolvedSceneShadows, type ShadowQuality } from './scene-shadows.js'
+import { assertShadowMapCapacity, resolveLightShadow, resolveSceneShadows, type LightShadowOverrides, type ResolvedLightShadow, type ResolvedSceneShadows, type ShadowLightKind, type ShadowQuality } from './scene-shadows.js'
 import { advanceRendererFrame, shadowTextureLimit } from './shadow-renderer.js'
 import { createRangedPointShadow, type RangedPointShadow } from './point-shadow.js'
+import { createRangedSpotShadow, type RangedSpotShadow } from './spot-shadow.js'
 import { fitSunShadow, sunCoverageDepth } from './sun-shadow-camera.js'
 import { registryEntry, resolveEntityComponents, resolveProps, sceneProps, type SceneJson, type SceneRegistry } from './scene.js'
 import { resolvePerspectiveCamera } from './scene-camera-3d.js'
 
-function isShadowClass(Class: ComponentClass | undefined): Class is ComponentClass<Sun | PointLight> {
-  return Class !== undefined && (Class === Sun || Class === PointLight || Class.prototype instanceof Sun || Class.prototype instanceof PointLight)
+/** The 3D lights the shadow policy drives. */
+export type ShadowCaster = Sun | PointLight | SpotLight
+
+const SHADOW_CASTERS = [Sun, PointLight, SpotLight] as const
+
+function isShadowCaster(component: unknown): component is ShadowCaster {
+  return SHADOW_CASTERS.some((Class) => component instanceof Class)
 }
 
-function hasCoverage(light: Sun | PointLight, camera: Pick<THREE.PerspectiveCamera, 'near' | 'far'> | null, maxDistance: number): boolean {
+function isShadowClass(Class: ComponentClass | undefined): Class is ComponentClass<ShadowCaster> {
+  return Class !== undefined && SHADOW_CASTERS.some((Caster) => Class === Caster || Class.prototype instanceof Caster)
+}
+
+/** The profile column a light reads (scene-shadows.ts). */
+function shadowKind(light: ShadowCaster): ShadowLightKind {
+  if (light instanceof Sun) return 'sun'
+  return light instanceof PointLight ? 'point' : 'spot'
+}
+
+function hasCoverage(light: ShadowCaster, camera: Pick<THREE.PerspectiveCamera, 'near' | 'far'> | null, maxDistance: number): boolean {
   return !(light instanceof Sun) || (camera !== null && sunCoverageDepth(camera, maxDistance) !== null)
 }
 
 /** Detached lights compose normalized authored defaults/props/params without intermediate capacity checks. */
-function* sceneLights(scene: SceneJson, registry: SceneRegistry, params: ParamOverrides): Generator<Sun | PointLight> {
+function* sceneLights(scene: SceneJson, registry: SceneRegistry, params: ParamOverrides): Generator<ShadowCaster> {
   for (const entity of scene.entities) {
     for (const json of resolveEntityComponents(entity, registry.prefabs)) {
       const Class = registryEntry(registry.components, json.type)
       if (!isShadowClass(Class)) continue
-      let light: Sun | PointLight
+      let light: ShadowCaster
       try {
         light = new Class()
         Object.assign(light, sceneProps(resolveProps(json.props, registry), json.type, entity.name), params[entity.name]?.[Class.componentName])
@@ -43,9 +60,10 @@ export class GameShadows {
   private state = resolveSceneShadows(undefined)
   private renderer: THREE.WebGPURenderer | null = null
   private readonly pointShadows = new Map<PointLight, RangedPointShadow>()
+  private readonly spotShadows = new Map<SpotLight, RangedSpotShadow>()
   private readonly composing = new WeakSet<ShadowLight>()
-  private readonly lastValid = new WeakMap<Sun | PointLight, ResolvedLightShadow>()
-  private readonly capacityErrors = new WeakMap<Sun | PointLight, string>()
+  private readonly lastValid = new WeakMap<ShadowCaster, ResolvedLightShadow>()
+  private readonly capacityErrors = new WeakMap<ShadowCaster, string>()
   private lastRendererFrame: number | null = null
 
   constructor(private readonly game: Game) {}
@@ -84,7 +102,7 @@ export class GameShadows {
 
   /** Validate final composed props, before Entity.add publishes or readies a light. */
   validateAddition(component: ShadowLight): void {
-    if (component instanceof Sun || component instanceof PointLight) this.assertCapacity(this.requested(component))
+    if (isShadowCaster(component)) this.assertCapacity(this.requested(component))
   }
 
   /** Check the ready device, even for authored 3D settings in a 2D preview. */
@@ -110,7 +128,7 @@ export class GameShadows {
     const policy = resolveSceneShadows(scene.render.shadows)
     const camera = this.game.cameraRig.viewCamera ?? resolvePerspectiveCamera(scene.camera?.kind === 'perspective' ? scene.camera : undefined)
     for (const light of sceneLights(scene, registry, this.game.paramOverrides)) {
-      const settings = resolveLightShadow(light instanceof Sun ? 'sun' : 'point', policy, light)
+      const settings = resolveLightShadow(shadowKind(light), policy, light)
       settings.enabled = settings.enabled && hasCoverage(light, camera, settings.maxDistance)
       this.assertCapacity(settings)
     }
@@ -125,10 +143,10 @@ export class GameShadows {
       castShadows: light.castShadows, shadowMapSize: light.shadowMapSize,
       shadowMaxDistance: light.shadowMaxDistance, shadowBias: light.shadowBias,
       shadowNormalBias: light.shadowNormalBias, shadowRadius: light.shadowRadius,
-      distance: light instanceof PointLight ? light.distance : undefined,
+      distance: light instanceof Sun ? undefined : light.distance,
       ...change,
     }
-    const settings = this.withCoverage(light, resolveLightShadow(light instanceof Sun ? 'sun' : 'point', this.state, inputs))
+    const settings = this.withCoverage(light, resolveLightShadow(shadowKind(light), this.state, inputs))
     assertShadowMapCapacity(settings, shadowTextureLimit(this.renderer.backend))
   }
 
@@ -136,18 +154,18 @@ export class GameShadows {
     this.validatePolicy(this.state)
   }
 
-  resolve(light: Sun | PointLight): ResolvedLightShadow {
+  resolve(light: ShadowCaster): ResolvedLightShadow {
     const settings = this.effectiveSettings(light, this.requested(light))
     if (settings.enabled) this.lastValid.set(light, settings)
     return settings
   }
 
-  private requested(light: Sun | PointLight): ResolvedLightShadow {
-    const settings = resolveLightShadow(light instanceof Sun ? 'sun' : 'point', this.state, light)
+  private requested(light: ShadowCaster): ResolvedLightShadow {
+    const settings = resolveLightShadow(shadowKind(light), this.state, light)
     return this.withCoverage(light, settings)
   }
 
-  private effectiveSettings(component: Sun | PointLight, requested: ResolvedLightShadow): ResolvedLightShadow {
+  private effectiveSettings(component: ShadowCaster, requested: ResolvedLightShadow): ResolvedLightShadow {
     try {
       this.assertCapacity(requested)
       this.capacityErrors.delete(component)
@@ -177,13 +195,13 @@ export class GameShadows {
     renderer.shadowMap.enabled = this.game.space === '3d' && this.state.quality !== 'off'
     renderer.shadowMap.type = THREE.PCFShadowMap
     const lights = this.lights()
-    for (const component of this.pointShadows.keys()) {
+    for (const component of [...this.pointShadows.keys(), ...this.spotShadows.keys()]) {
       if (!lights.includes(component)) this.remove(component)
     }
     for (const component of lights) this.syncLight(component)
   }
 
-  private syncLight(component: Sun | PointLight): void {
+  private syncLight(component: ShadowCaster): void {
     const light = component.light
     if (!light) return
     const settings = this.resolve(component)
@@ -198,7 +216,7 @@ export class GameShadows {
     light.shadow.normalBias = settings.normalBias
     light.shadow.radius = settings.radius
     if (component instanceof Sun) this.fitSun(component, settings)
-    if (component instanceof PointLight && settings.enabled) this.syncPoint(component, settings)
+    else if (settings.enabled) this.syncRange(component, settings)
   }
 
   /** Prepare host overlays from the same current fit, without allocating or rendering. */
@@ -216,6 +234,12 @@ export class GameShadows {
     return fitSunShadow({ light: component.light, camera, settings, direction: component.direction })
   }
 
+  /** Point and spot shadows keep their own range, independent of the light's distance. */
+  private syncRange(component: PointLight | SpotLight, settings: ResolvedLightShadow): void {
+    if (component instanceof PointLight) this.syncPoint(component, settings)
+    else this.syncSpot(component, settings)
+  }
+
   private syncPoint(component: PointLight, settings: ResolvedLightShadow): void {
     if (!component.light) return
     let adapter = this.pointShadows.get(component)
@@ -226,7 +250,17 @@ export class GameShadows {
     adapter.sync(settings.maxDistance)
   }
 
-  private withCoverage(light: Sun | PointLight, settings: ResolvedLightShadow): ResolvedLightShadow {
+  private syncSpot(component: SpotLight, settings: ResolvedLightShadow): void {
+    if (!component.light) return
+    let adapter = this.spotShadows.get(component)
+    if (!adapter) {
+      adapter = createRangedSpotShadow(component.light)
+      this.spotShadows.set(component, adapter)
+    }
+    adapter.sync(settings.maxDistance)
+  }
+
+  private withCoverage(light: ShadowCaster, settings: ResolvedLightShadow): ResolvedLightShadow {
     const camera = this.game.camera
     const enabled = this.game.space === '3d' && settings.enabled
       && hasCoverage(light, camera instanceof THREE.PerspectiveCamera ? camera : null, settings.maxDistance)
@@ -234,10 +268,14 @@ export class GameShadows {
   }
 
   /** Notify Three's analytic light node as well as disposing the exposed target. */
-  remove(component: Sun | PointLight): void {
+  remove(component: ShadowCaster): void {
     if (component instanceof PointLight) {
       this.pointShadows.get(component)?.dispose()
       this.pointShadows.delete(component)
+    }
+    if (component instanceof SpotLight) {
+      this.spotShadows.get(component)?.dispose()
+      this.spotShadows.delete(component)
     }
     const light = component.light
     if (!light) return
@@ -255,14 +293,12 @@ export class GameShadows {
     if (!this.renderer || !this.game.backend || this.game.space !== '3d') return
     const limit = shadowTextureLimit(this.renderer.backend)
     for (const light of this.lights()) {
-      const settings = resolveLightShadow(light instanceof Sun ? 'sun' : 'point', policy, light)
+      const settings = resolveLightShadow(shadowKind(light), policy, light)
       assertShadowMapCapacity(this.withCoverage(light, settings), limit)
     }
   }
 
-  private lights(): Array<Sun | PointLight> {
-    return this.game.entities.flatMap((entity) => entity.components.filter(
-      (component): component is Sun | PointLight => component instanceof Sun || component instanceof PointLight,
-    ))
+  private lights(): ShadowCaster[] {
+    return this.game.entities.flatMap((entity) => entity.components.filter(isShadowCaster))
   }
 }

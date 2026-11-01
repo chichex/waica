@@ -29,3 +29,11 @@ it('exports the shadow policy, typed scene block, numeric metadata and helpers t
   expect(engine.shadowComponentIssues('Sun', overrides)).toEqual([])
   expect(() => engine.assertShadowMapCapacity(resolved, 4096)).not.toThrow()
 })
+
+it('exports the SpotLight component, its shadow kind and its snapshot type through the engine entry point (issue #204 CA-4)', () => {
+  const kind: engine.ShadowLightKind = 'spot'
+  const entry: engine.RuntimeSnapshotSpotLight['angle'] = 30
+  expect(engine.SpotLight.componentName).toBe('SpotLight')
+  expect(engine.resolveLightShadow(kind, { quality: 'high', maxDistance: 40 }, {}).mapSize).toBe(2048)
+  expect(entry).toBe(30)
+})

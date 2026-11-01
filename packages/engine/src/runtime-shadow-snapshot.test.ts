@@ -52,6 +52,7 @@ it('RuntimeSnapshot shadows (CA-9): reports Medium/40 and effective light defaul
     lights: [],
     shadows: { quality: 'medium', maxDistance: 40 },
     sun: [{ entity: 'Sun', id: 'entity-1', direction: [0, -1, 0], color: '#ffffff', intensity: 1, shadows: MEDIUM_SUN }],
+    spotLights: [],
     pointLights: [{
       entity: 'Lamp', id: 'entity-2', position: [2, 3, 4], color: '#ffffff', intensity: 1, distance: 9,
       shadows: { ...MEDIUM_SUN, mapSize: 512, maxDistance: 9 },
@@ -169,7 +170,7 @@ it('RuntimeSnapshot shadows (CA-9): removes 3D-only data in 2D and restores defa
 
   loadScene(game, scene3d([]), REGISTRY)
   expect(bridge.inspect().lighting).toEqual({
-    ambient: { color: '#ffffff', intensity: 1 }, lights: [], sun: [], pointLights: [],
+    ambient: { color: '#ffffff', intensity: 1 }, lights: [], sun: [], pointLights: [], spotLights: [],
     shadows: { quality: 'medium', maxDistance: 40 },
   })
   game.dispose()
@@ -194,7 +195,7 @@ it('RuntimeSnapshot shadows (CA-9): serializes only JSON data before drawing and
   const afterJson: unknown = JSON.parse(JSON.stringify(after))
   expect(after).toStrictEqual(afterJson)
   expect(after).toEqual({
-    ambient: { color: '#ffffff', intensity: 1 }, lights: [], sun: [],
+    ambient: { color: '#ffffff', intensity: 1 }, lights: [], sun: [], spotLights: [],
     shadows: { quality: 'low', maxDistance: 15 },
     pointLights: [{
       entity: 'New', id: 'entity-2', position: [0, 0, 0], color: '#ffffff', intensity: 1, distance: 0,

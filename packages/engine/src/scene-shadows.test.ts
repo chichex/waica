@@ -134,3 +134,26 @@ it('reads every scene profile from the shadows block and clamps only finite dist
   }
   expect(resolveSceneShadows({ shadows: { quality: 'off', maxDistance: 12 } })).toEqual({ quality: 'medium', maxDistance: 40 })
 })
+
+it('resolves the SpotLight profile and caps its range by a positive light distance (issue #204 CA-5, CA-6)', () => {
+  const profiles: [ShadowQuality, number][] = [['low', 512], ['medium', 1024], ['high', 2048]]
+  for (const [quality, spotSize] of profiles) {
+    expect(resolveLightShadow('spot', { quality, maxDistance: 40 }, {})).toEqual({
+      enabled: true, mapSize: spotSize, maxDistance: 40, bias: -0.0005, normalBias: 0.02, radius: 1,
+    })
+  }
+  const scene = { quality: 'medium', maxDistance: 40 } as const
+  expect(resolveLightShadow('spot', scene, { shadowMaxDistance: 2, distance: 9 }).maxDistance).toBe(2)
+  expect(resolveLightShadow('spot', scene, { shadowMaxDistance: 2, distance: 1 }).maxDistance).toBe(1)
+  expect(resolveLightShadow('spot', scene, { distance: 9 }).maxDistance).toBe(9)
+  for (const distance of [0, -1, undefined, Number.NaN, Infinity]) {
+    expect(resolveLightShadow('spot', scene, { shadowMaxDistance: 2, distance }).maxDistance).toBe(2)
+  }
+  expect(resolveLightShadow('spot', scene, { distance: 0 }).maxDistance).toBe(40)
+  expect(resolveLightShadow('spot', { quality: 'off', maxDistance: 40 }, {}).enabled).toBe(false)
+  expect(resolveLightShadow('spot', scene, { castShadows: false }).enabled).toBe(false)
+  expect(resolveLightShadow('spot', scene, { shadowMapSize: 256 }).mapSize).toBe(256)
+  // The Sun and PointLight columns stay as they were (CA-9).
+  expect(resolveLightShadow('sun', scene, { distance: 1 })).toMatchObject({ mapSize: 2048, maxDistance: 40 })
+  expect(resolveLightShadow('point', scene, { distance: 1 })).toMatchObject({ mapSize: 512, maxDistance: 1 })
+})
