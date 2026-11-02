@@ -13,6 +13,7 @@ export const THIRD_PERSON_ENTITY_ICONS: Readonly<Record<string, string>> = {
   Checkpoint: '🚩',
   GoalChest: '🏆',
   PointLight: '🔥',
+  SpotLight: '🔦',
 }
 
 /** Node-safe manifest data (issue #181 CA-23): no `new URL`, so the MCP and the CLI read it in plain Node. */

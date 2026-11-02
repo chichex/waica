@@ -61,3 +61,9 @@ it('declares every scene 3D, with Rapier gravity and an orbit camera that follow
     expect(scene.entities.some((entity) => entity.name === 'Player' && entity.prefab === 'characters/player')).toBe(true)
   }
 })
+
+it('registers the SpotLight next to the PointLight, with its own entity icon (issue #204 CA-4)', () => {
+  const names = Object.keys(THIRD_PERSON_REGISTRY_DATA.components)
+  expect(names.indexOf('SpotLight')).toBe(names.indexOf('PointLight') + 1)
+  expect(THIRD_PERSON_ENTITY_ICONS).toMatchObject({ PointLight: '🔥', SpotLight: '🔦' })
+})

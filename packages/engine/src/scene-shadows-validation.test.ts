@@ -111,3 +111,16 @@ it('requires 3D for configured scene shadows and diagnoses invalid fields even w
   ])
   expect(sceneShadowIssues({ space: '3d', shadows: { quality: 'off' } })).toEqual([])
 })
+
+it('validates SpotLight shadow overrides like the other 3D lights (issue #204 CA-3)', () => {
+  const props = Object.freeze({ castShadows: 'false', shadowMapSize: 768, shadowMaxDistance: 0, shadowBias: -0.2, shadowNormalBias: 2, shadowRadius: Infinity })
+  expect(shadowComponentIssues('SpotLight', props)).toEqual(shadowComponentIssues('PointLight', props))
+  expect(shadowComponentIssues('SpotLight', props)).toHaveLength(6)
+  expect(shadowComponentIssues('SpotLight', { castShadows: null })).toEqual([
+    { field: 'castShadows', message: 'castShadows must be a boolean; got null.' },
+  ])
+  expect(shadowComponentIssues('SpotLight', {
+    castShadows: false, shadowMapSize: null, shadowMaxDistance: null, shadowBias: 0, shadowNormalBias: 0, shadowRadius: 0,
+  })).toEqual([])
+  expect(shadowComponentIssues('SpotLight', { receiveShadows: 'bad', angle: 'wide' })).toEqual([])
+})

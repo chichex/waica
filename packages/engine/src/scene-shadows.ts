@@ -13,6 +13,9 @@ export interface ResolvedSceneShadows {
 export const SHADOW_QUALITIES: readonly ShadowQuality[] = ['off', 'low', 'medium', 'high']
 export const SHADOW_MAP_SIZES: readonly number[] = [256, 512, 1024, 2048, 4096]
 
+/** Which profile column a 3D light reads; every kind but the Sun has a luminous distance capping its shadow range. */
+export type ShadowLightKind = 'sun' | 'point' | 'spot'
+
 export type ShadowOverrideName = 'shadowMapSize' | 'shadowMaxDistance' | 'shadowBias' | 'shadowNormalBias' | 'shadowRadius'
 
 export interface LightShadowOverrides {
@@ -40,7 +43,8 @@ export const SHADOW_DEFAULTS = {
 const PROFILE_MAP_SIZES = {
   sun: { low: 1024, medium: 2048, high: 4096 },
   point: { low: 256, medium: 512, high: 1024 },
-} as const
+  spot: { low: 512, medium: 1024, high: 2048 },
+} as const satisfies Record<ShadowLightKind, Record<Exclude<ShadowQuality, 'off'>, number>>
 
 /** Nullable fields explicitly inherit the scene/preset rather than becoming zero. */
 export const SHADOW_OVERRIDE_PARAMS = {
@@ -89,14 +93,14 @@ export function resolveSceneShadows(value: unknown): ResolvedSceneShadows {
   }
 }
 
-/** Effective policy; a point light's existing distance bounds its independent shadow range. */
-export function resolveLightShadow(kind: 'sun' | 'point', scene: ResolvedSceneShadows, overrides: LightShadowOverrides & { distance?: number }): ResolvedLightShadow {
+/** Effective policy; a point or spot light's existing distance bounds its independent shadow range. */
+export function resolveLightShadow(kind: ShadowLightKind, scene: ResolvedSceneShadows, overrides: LightShadowOverrides & { distance?: number }): ResolvedLightShadow {
   const quality = scene.quality === 'off' ? 'medium' : scene.quality
   const maxDistance = normalizeShadowOverride('shadowMaxDistance', overrides.shadowMaxDistance) ?? scene.maxDistance
   return {
     enabled: scene.quality !== 'off' && normalizeShadowBoolean(overrides.castShadows),
     mapSize: normalizeShadowOverride('shadowMapSize', overrides.shadowMapSize) ?? PROFILE_MAP_SIZES[kind][quality],
-    maxDistance: kind === 'point' ? pointShadowDistance(maxDistance, overrides.distance) : maxDistance,
+    maxDistance: kind === 'sun' ? maxDistance : distanceCappedShadow(maxDistance, overrides.distance),
     bias: normalizeShadowOverride('shadowBias', overrides.shadowBias) ?? SHADOW_DEFAULTS.bias,
     normalBias: normalizeShadowOverride('shadowNormalBias', overrides.shadowNormalBias) ?? SHADOW_DEFAULTS.normalBias,
     radius: normalizeShadowOverride('shadowRadius', overrides.shadowRadius) ?? SHADOW_DEFAULTS.radius,
@@ -104,7 +108,7 @@ export function resolveLightShadow(kind: 'sun' | 'point', scene: ResolvedSceneSh
 }
 
 /** A zero/unreadable luminous distance is unlimited, never a zero shadow range. */
-function pointShadowDistance(maxDistance: number, lightDistance: number | undefined): number {
+function distanceCappedShadow(maxDistance: number, lightDistance: number | undefined): number {
   if (!isFiniteNumber(lightDistance) || lightDistance <= 0) return maxDistance
   return Math.min(maxDistance, lightDistance)
 }
@@ -159,7 +163,7 @@ function booleanIssue(field: string, value: unknown): SceneFieldIssue | null {
 
 /** Component-local field paths let callers add their prefab/entity/override context. */
 export function shadowComponentIssues(type: string, props: unknown): SceneFieldIssue[] {
-  if (!isRecord(props) || !['Sun', 'PointLight', 'Model'].includes(type)) return []
+  if (!isRecord(props) || !['Sun', 'PointLight', 'SpotLight', 'Model'].includes(type)) return []
   const issues: SceneFieldIssue[] = []
   const castIssue = booleanIssue('castShadows', props.castShadows)
   if (castIssue) issues.push(castIssue)

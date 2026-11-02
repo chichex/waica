@@ -1,8 +1,10 @@
 import * as THREE from 'three/webgpu'
 import { PointLight } from './components/point-light.js'
+import { SpotLight } from './components/spot-light.js'
 import { Sun } from './components/sun.js'
 import type { Entity } from './entity.js'
 import type { Game } from './game.js'
+import type { ShadowCaster } from './game-shadows.js'
 import type { ProjectionIssue } from './runtime-inspection.js'
 import type { Vec3Json } from './scene-camera-3d.js'
 import type { AmbientLight, PostEffectsState } from './scene-render-options.js'
@@ -54,15 +56,36 @@ export interface RuntimeSnapshotPointLight {
 }
 
 /**
+ * One live Spot Light in a 3D scene (issue #204 CA-10): its world position, the
+ * world unit direction it shines along and its look; `distance` 0 is unlimited,
+ * `angle` is the cone's half-angle in degrees.
+ */
+export interface RuntimeSnapshotSpotLight {
+  entity: string
+  id: string
+  position: Vec3Json
+  direction: Vec3Json
+  /** `#rrggbb`. */
+  color: string
+  intensity: number
+  distance: number
+  angle: number
+  penumbra: number
+  shadows: RuntimeSnapshotLightShadows
+}
+
+/**
  * `game.lighting` (issue #78 CA-12): the Ambient Light now and every live
  * Light, in logical coordinates. A 3D scene (issue #154 CA-16) adds its
- * Suns, Point Lights and shadow policy; a 2D scene's snapshot has none of these keys.
+ * Suns, Point Lights, Spot Lights (issue #204) and shadow policy; a 2D
+ * scene's snapshot has none of these keys.
  */
 export interface RuntimeSnapshotLighting {
   ambient: AmbientLight
   lights: RuntimeSnapshotLight[]
   sun?: RuntimeSnapshotSun[]
   pointLights?: RuntimeSnapshotPointLight[]
+  spotLights?: RuntimeSnapshotSpotLight[]
   shadows?: ResolvedSceneShadows
 }
 
@@ -80,7 +103,26 @@ function unit(direction: Vec3Json): Vec3Json {
   return [rounded(x), rounded(y), rounded(z)]
 }
 
-function lightShadowsSnapshot(game: Game, light: Sun | PointLight): RuntimeSnapshotLightShadows {
+function worldPosition(object: THREE.Object3D): THREE.Vector3 {
+  object.updateWorldMatrix(true, false)
+  return object.getWorldPosition(new THREE.Vector3())
+}
+
+function roundedVector({ x, y, z }: THREE.Vector3): Vec3Json {
+  return [rounded(x), rounded(y), rounded(z)]
+}
+
+function spotLightSnapshot(game: Game, component: SpotLight, light: THREE.SpotLight): Omit<RuntimeSnapshotSpotLight, 'entity' | 'id'> {
+  const { color, intensity, distance, angle, penumbra } = component
+  const at = worldPosition(light)
+  const toward = worldPosition(light.target).sub(at)
+  return {
+    position: roundedVector(at), direction: unit(toward.toArray()), color: hexOf(color),
+    intensity, distance, angle, penumbra, shadows: lightShadowsSnapshot(game, component),
+  }
+}
+
+function lightShadowsSnapshot(game: Game, light: ShadowCaster): RuntimeSnapshotLightShadows {
   return {
     ...game.shadows.resolve(light),
     requested: {
@@ -94,10 +136,11 @@ function lightShadowsSnapshot(game: Game, light: Sun | PointLight): RuntimeSnaps
   }
 }
 
-/** The Suns and Point Lights of a 3D scene's entities, in spawn order, and its shadow policy. */
-function lights3dSnapshot(game: Game, idFor: (entity: Entity) => string): Required<Pick<RuntimeSnapshotLighting, 'sun' | 'pointLights' | 'shadows'>> {
+/** The Suns, Point Lights and Spot Lights of a 3D scene's entities, in spawn order, and its shadow policy. */
+function lights3dSnapshot(game: Game, idFor: (entity: Entity) => string): Required<Pick<RuntimeSnapshotLighting, 'sun' | 'pointLights' | 'spotLights' | 'shadows'>> {
   const sun: RuntimeSnapshotSun[] = []
   const pointLights: RuntimeSnapshotPointLight[] = []
+  const spotLights: RuntimeSnapshotSpotLight[] = []
   for (const entity of game.entities) {
     for (const component of entity.components) {
       if (component instanceof Sun) {
@@ -115,11 +158,13 @@ function lights3dSnapshot(game: Game, idFor: (entity: Entity) => string): Requir
           entity: entity.name, id: idFor(entity), position, color: hexOf(color), intensity, distance,
           shadows: lightShadowsSnapshot(game, component),
         })
+      } else if (component instanceof SpotLight && component.light) {
+        spotLights.push({ entity: entity.name, id: idFor(entity), ...spotLightSnapshot(game, component, component.light) })
       }
     }
   }
   const { quality, maxDistance } = game.shadows.policy
-  return { sun, pointLights, shadows: { quality, maxDistance } }
+  return { sun, pointLights, spotLights, shadows: { quality, maxDistance } }
 }
 
 export function lightingSnapshot(game: Game, idFor: (entity: Entity) => string): RuntimeSnapshotLighting {

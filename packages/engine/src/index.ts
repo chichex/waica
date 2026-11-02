@@ -148,12 +148,8 @@ export type {
 export type { RenderBackend } from './render-readiness.js'
 export { RUNTIME_PROJECTION_LIMITS } from './runtime-inspection.js'
 export type {
-  RuntimeSnapshotLight,
-  RuntimeSnapshotLightShadows,
-  RuntimeSnapshotLighting,
-  RuntimeSnapshotPointLight,
-  RuntimeSnapshotSun,
-  RuntimeSnapshotPost,
+  RuntimeSnapshotLight, RuntimeSnapshotLightShadows, RuntimeSnapshotLighting,
+  RuntimeSnapshotPointLight, RuntimeSnapshotSpotLight, RuntimeSnapshotSun, RuntimeSnapshotPost,
 } from './runtime-lighting-snapshot.js'
 export type {
   ProjectedValue,
@@ -199,6 +195,7 @@ export type { ResolvedSceneSimulation, SceneSimulationJson } from './scene-simul
 export type { PhysicsBackend, RapierModule } from './physics-3d/rapier-module.js'
 export type { RuntimeSnapshotBody, RuntimeSnapshotPhysics } from './runtime-physics-snapshot.js'
 export { PointLight } from './components/point-light.js'
+export { SpotLight } from './components/spot-light.js'
 export { GameLighting } from './scene-lighting.js'
 export { GameShadows } from './game-shadows.js'
 export type { AmbientLightInput } from './scene-lighting.js'
@@ -213,7 +210,7 @@ export {
   SHADOW_DEFAULTS, SHADOW_MAP_SIZES, SHADOW_OVERRIDE_PARAMS, SHADOW_QUALITIES,
 } from './scene-shadows.js'
 export type {
-  LightShadowOverrides, ResolvedLightShadow, ResolvedSceneShadows, ShadowOverrideName,
+  LightShadowOverrides, ResolvedLightShadow, ResolvedSceneShadows, ShadowLightKind, ShadowOverrideName,
 } from './scene-shadows.js'
 export type {
   AmbientLight, ColorGradeEffect, PostEffectsState, SceneRenderIssue, VignetteEffect,
