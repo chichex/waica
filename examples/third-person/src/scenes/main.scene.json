@@ -628,6 +628,31 @@
       ]
     },
     {
+      "name": "Courtyard Spot",
+      "position": [
+        0,
+        5,
+        0
+      ],
+      "components": [
+        {
+          "type": "SpotLight",
+          "props": {
+            "color": "#fff2d8",
+            "intensity": 30,
+            "distance": 12,
+            "angle": 35,
+            "penumbra": 0.3,
+            "direction": [
+              0,
+              -1,
+              0
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "Checkpoint West",
       "prefab": "objects/checkpoint",
       "position": [

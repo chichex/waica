@@ -1,5 +1,5 @@
-// Issue #203 CA-17/18. No blank-frame exception: each backend owes positive pixels.
-import { disabledFlags, farCamera, independentReceivers, isolatedLight, movingCaster, staticGltf } from './runtime-e2e-shadows-cases.mjs'
+// Issue #203 CA-17/18 and issue #204 CA-15. No blank-frame exception: each backend owes positive pixels.
+import { disabledFlags, farCamera, independentReceivers, isolatedLight, movingCaster, spotWideRange, staticGltf } from './runtime-e2e-shadows-cases.mjs'
 import { animatedGltf } from './runtime-e2e-shadows-animation.mjs'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
@@ -8,8 +8,9 @@ async function runCases(context) {
   const results = {}
   const failures = []
   const cases = [
-    ['sun', () => isolatedLight(context, 'sun')], ['point', () => isolatedLight(context, 'point')],
-    ['sunFlags', () => disabledFlags(context, 'sun')], ['pointFlags', () => disabledFlags(context, 'point')],
+    ['sun', () => isolatedLight(context, 'sun')], ['point', () => isolatedLight(context, 'point')], ['spot', () => isolatedLight(context, 'spot')],
+    ['sunFlags', () => disabledFlags(context, 'sun')], ['pointFlags', () => disabledFlags(context, 'point')], ['spotFlags', () => disabledFlags(context, 'spot')],
+    ['spotWideRange', () => spotWideRange(context)],
     ['receivers', () => independentReceivers(context)], ['moving', () => movingCaster(context)],
     ['camera', () => farCamera(context)], ['gltf', () => staticGltf(context)], ['animated', () => animatedGltf(context)],
   ]

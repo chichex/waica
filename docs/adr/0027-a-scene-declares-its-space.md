@@ -31,6 +31,30 @@ Legacy browser scenarios and backend pose parity remain required on both APIs.
 Blank frames/fallback are not verification. Manual 3D renders use an isolated, checked Three 0.186 NodeFrame
 compatibility boundary; native RAF and Game Time are not advanced twice.
 
+## Spot Light amendment — issue 204
+
+A third entity light joins `Sun` and `PointLight`: `SpotLight`, a cone of light
+from its entity's position plus an offset, aimed along a local `direction` and
+bounded by `angle` (a half-angle in degrees, 1 to 89) and `penumbra`. It shares
+the shadow policy above unchanged: on by default, scene quality, nullable
+overrides, global Off and capacity checks. The profile table gains one column,
+Low 512², Medium 1024², High 2048², for a single perspective view; Sun and
+PointLight maps and behavior do not change.
+
+Its shadow range is `min(distance, shadowMaxDistance)` (the shadow reach alone
+when `distance` is 0), measured as depth along the cone's axis rather than as a
+radius, and never shortens illumination. Three 0.186 rewrites a spot shadow
+camera's far plane from `light.distance` on every update, as it did for the
+point light, so the engine replaces only that step of the shadow update and
+leaves the light's own `distance` alone; that reach into Three is version
+dependent and must be revisited with its upgrades.
+
+The runtime snapshot lists `lighting.spotLights[]`. The editor draws a wire cone
+per spot and the selected spot's shadow volume, in edit mode only. WebGL2 pixels
+are the gate; WebGPU stays opt-in (`--webgpu-shadows`) and unverified on this
+host, as in issue 203. See the
+[engine format](../../packages/engine/README.md#3d-shadows-and-migration).
+
 ## Considered Options
 
 Inferring 3D from the presence of a `Model` or a perspective camera was rejected: the same scene file would draw through two different pipelines depending on what a later edit adds, and validation would have nothing to check a component against. Keeping `z` as draw order and adding a separate depth axis was rejected because every 3D object would then need two ways to say how far away it is. Mixing 2D and 3D in one scene (2.5D: models inside an orthographic scene, two lighting systems, picking in a 2D viewport) was deferred: it needs ordering and lighting rules this block does not design, so `validate_project` keeps the engine's 2D components out of 3D scenes and its 3D components out of 2D ones until a later block decides.

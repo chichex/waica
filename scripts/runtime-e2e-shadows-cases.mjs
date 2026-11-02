@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { capturePair } from './runtime-e2e-shadows-capture.mjs'
-import { FRAME, model, POINT_POINTS, propsOf, shadowScene, SUN_POINTS } from './runtime-e2e-shadows-fixtures.mjs'
+import { FRAME, LIGHT_TYPES, model, POINTS, propsOf, shadowScene, SPOT, SPOT_POINTS, SUN_POINTS } from './runtime-e2e-shadows-fixtures.mjs'
 import { assertReceiverPair, assertUnshadowed } from './runtime-e2e-shadows-pixels.mjs'
 
 function lightOf(capture, kind) {
@@ -8,11 +8,32 @@ function lightOf(capture, kind) {
   assert.equal(lighting.lights.length, 0, 'the fixture has no 2D lighting')
   assert.equal(lighting.sun.length, kind === 'sun' ? 1 : 0, 'Sun must be isolated')
   assert.equal(lighting.pointLights.length, kind === 'point' ? 1 : 0, 'PointLight must be isolated')
-  return kind === 'sun' ? lighting.sun[0] : lighting.pointLights[0]
+  assert.equal(lighting.spotLights.length, kind === 'spot' ? 1 : 0, 'SpotLight must be isolated')
+  return { sun: lighting.sun, point: lighting.pointLights, spot: lighting.spotLights }[kind][0]
+}
+
+/**
+ * Issue #204 CA-6/CA-15, on the opaque Plate (1.5 along the axis, inside the
+ * shadow range) and the Ground (5 along it, outside the range but inside
+ * `distance` 9). The `beyond` point lies in the Caster's geometric shadow and
+ * must stay lit; `outside` lies past the cone and must stay dark, On and Off.
+ */
+function assertSpotRange(on, off, light) {
+  assert.equal(light.distance, SPOT.distance, 'the shadow range must not shorten physical light attenuation')
+  assert.equal(light.shadows.maxDistance, SPOT.range)
+  assert.equal(light.angle, SPOT.angle)
+  assert.deepEqual(light.direction, SPOT.direction)
+  assert.deepEqual(light.position, SPOT.position)
+  const beyondDelta = assertUnshadowed(on, off, 'beyond')
+  const outsideDelta = assertUnshadowed(on, off, 'outside')
+  assert.ok(off.samples.beyond.brightness >= 80, `beyond the range the cone must still light the Ground; ${JSON.stringify(off.samples)}`)
+  assert.ok(off.samples.outside.brightness <= off.samples.beyond.brightness - 40, `past the cone the Ground must stay dark, far below the lit Ground; ${JSON.stringify(off.samples)}`)
+  assert.ok(off.samples.outside.brightness <= 80, `past the cone only the ambient light may reach the Ground; ${JSON.stringify(off.samples)}`)
+  return { beyondDelta, outsideDelta, range: { physicalDistance: light.distance, shadowDistance: light.shadows.maxDistance, plateDepth: SPOT.plateDepth, groundDepth: SPOT.groundDepth } }
 }
 
 export async function isolatedLight(context, kind) {
-  const points = kind === 'sun' ? SUN_POINTS : POINT_POINTS
+  const points = POINTS[kind]
   const { on: [on], off: [off] } = await capturePair(context, { scene: shadowScene(kind), points, variant: kind })
   const enabled = lightOf(on, kind)
   const disabled = lightOf(off, kind)
@@ -28,15 +49,35 @@ export async function isolatedLight(context, kind) {
     assert.ok(controlDistance > 2 && controlDistance < 9, 'the diagonal control must be outside the Euclidean shadow radius but still lit')
     result.radialRange = { physicalDistance: enabled.distance, shadowDistance: enabled.shadows.maxDistance, controlDistance }
   }
+  if (kind === 'spot') Object.assign(result, assertSpotRange(on, off, enabled))
   return result
 }
 
+/**
+ * Issue #204 CA-6 counter-proof: widen the shadow range past the Ground (still
+ * inside `distance` 9) and the very `beyond` point that stayed lit darkens. The
+ * lit result of the range case is then the range's doing, not the fixture's.
+ */
+export async function spotWideRange(context) {
+  const scene = shadowScene('spot')
+  const wide = SPOT.groundDepth + 3
+  propsOf(scene, 'Light', 'SpotLight').shadowMaxDistance = wide
+  const { on: [on], off: [off] } = await capturePair(context, { scene, points: SPOT_POINTS, variant: 'spot-wide-range' })
+  const enabled = lightOf(on, 'spot')
+  assert.equal(enabled.shadows.maxDistance, wide)
+  assert.equal(enabled.distance, SPOT.distance)
+  const beyond = assertReceiverPair(on, off, 'beyond')
+  const plate = assertReceiverPair(on, off)
+  assertUnshadowed(on, off, 'outside')
+  return { beyondDarkening: beyond.darkening, plateDarkening: plate.darkening, controlDelta: plate.controlDelta, shadowDistance: wide, on: on.samples, off: off.samples, screenshots: [on.filename, off.filename] }
+}
+
 export async function disabledFlags(context, kind) {
-  const points = kind === 'sun' ? SUN_POINTS : POINT_POINTS
+  const points = POINTS[kind]
   const results = {}
   for (const [name, entity, type, flag] of [
     ['caster-disabled', 'Caster', 'Model', 'castShadows'],
-    ['light-disabled', 'Light', kind === 'sun' ? 'Sun' : 'PointLight', 'castShadows'],
+    ['light-disabled', 'Light', LIGHT_TYPES[kind], 'castShadows'],
   ]) {
     const scene = shadowScene(kind)
     propsOf(scene, entity, type)[flag] = false

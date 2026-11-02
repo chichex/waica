@@ -198,6 +198,10 @@ _Avoid_: directional light, sunlight, global light
 An entity-owned source of light in a 3D scene: it shines in every direction from its entity's position plus a transformed offset, reaching a distance (or without limit) and fading with decay. It casts soft PCF shadows by default, using six cubemap views and a finite Euclidean radius no larger than its positive lighting distance. Shadow reach never truncates illumination. Not the 2D **Light**, which paints a light-map.
 _Avoid_: lamp, bulb, Light
 
+**Spot Light**:
+An entity-owned cone of light in a 3D scene: it shines from its entity's position plus a transformed offset along a direction in the entity's local frame, inside a half-angle in degrees whose edge softens with a penumbra, reaching a distance (or without limit) and fading with decay. It casts soft PCF shadows by default through one perspective view over the cone, with a finite range measured as depth along its axis, no larger than its positive lighting distance. Shadow reach never truncates illumination. Not the 2D **Light**, which paints a light-map.
+_Avoid_: spotlight, flashlight, Light
+
 **Component Space**:
 The space a component class belongs to, declared on the class as `static space`: `'2d'` (it draws, collides or lights the orthographic world), `'3d'` (it needs a perspective camera) or `'both'`, which is what a component that says nothing is. `validate_project` reads it to keep each kind out of the other's scenes; project-owned components may declare it too.
 _Avoid_: dimension, mode, 2D flag
@@ -236,7 +240,7 @@ _Avoid_: AI, mob, chaser (the 2D role)
 
 **Light**:
 An entity-owned source of 2D light: a radius in logical world space (an ellipse on an isometric screen), a color, an intensity, a falloff that is smooth or split into bands, and a shadow edge that is hard or soft. Solid tiles stop it, but the face of the tile it reaches is lit. Lights brighten what Ambient Light leaves dark; they never darken.
-_Avoid_: lamp, glow (in a 3D scene the counterpart is a **Point Light**)
+_Avoid_: lamp, glow (in a 3D scene the counterparts are a **Point Light** and a **Spot Light**)
 
 **Post Effect**:
 A screen-wide pass over the finished game frame — a vignette darkening the edges, or a color grade shifting tint, contrast and saturation. Every one is off by default; a scene that uses none draws exactly as one without them. Camera Effects sit above it and are never altered by it.
