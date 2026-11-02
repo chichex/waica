@@ -1,6 +1,6 @@
 # Spec — SpotLight 3D
-<!-- Escrita el 2026-11-01 en gentle-pi. Fuente: issue #204 y grill 2026-11-01-issue-204-3d-spot-lights. Estado: draft -->
-<!-- SDD-Tracking: version=1; type=spec; state=draft; issue=chichex/waica#204; grill=2026-11-01-issue-204-3d-spot-lights; superseded-by=none -->
+<!-- Escrita el 2026-11-01 en gentle-pi. Fuente: issue #204 y grill 2026-11-01-issue-204-3d-spot-lights. Estado: implemented -->
+<!-- SDD-Tracking: version=1; type=spec; state=implemented; issue=chichex/waica#204; grill=2026-11-01-issue-204-3d-spot-lights; superseded-by=none -->
 
 ## Contexto
 
@@ -126,3 +126,17 @@ TDD unit/component para los contratos; browser solo para render e interacción r
 - **Costo:** la demo suma una vista de sombra más por actualización.
 - **WebGPU:** sigue bloqueado en este host y en CI Linux (#151). No se afirma verificado.
 - **Baselines:** cambian las de la demo third-person. No actualizarlas a ciegas.
+
+## Resultado de ejecución (2026-11-01 · rama `feat/204-spot-lights`)
+
+Seis commits, cortados por capa: `5e8859e` sdd, `4a3cbe2` engine, `8d5aaa2` MCP y archetypes, `fe96d61` editor, `22d23f6` demo, e2e y docs, `3f258d8` bench.
+
+| Check | Resultado |
+|---|---|
+| `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm test:dist` | exit 0; lint 0 errores, 0 regresiones de ratchet |
+| `pnpm test` | 486 archivos, 4708 tests, todos verdes |
+| e2e WebGL2 (invocación de `.sdd/evidence/issue-203-3d-shadows/webgl2/README.md`) | exit 0, `failures []`. Spot: ROI de sombra 207→25, controles Δ0, contraprueba de rango ancho 132→61. Editor: cono en edición, ausente en Play, historial exacto |
+| `pnpm bench --backend=webgl2 --update-baseline` y `--check` | exit 0 en dos corridas; contadores off-50 51/51, off-200 201/201, on-50 101/51, on-200 401/201 (una vista de sombra) |
+| `pnpm test:e2e` completo | exit 1 en el leg WebGPU, `runTopdownLeg` (2D): `holding right must move the player east: 0 -> 0.188`. Reproducido con el mismo valor en `origin/main` (worktree limpio): preexistente y ajeno a esta entrega |
+
+**No verificado:** WebGPU en runtime, editor y bench (I-9, como en #203). **Follow-up fuera de alcance:** en `main`, `pnpm bench --backend=webgl2 --check` falla con `no baseline for webgl2--blended-characters-50` (hueco de #205); el leg WebGPU de topdown falla en `main`.
