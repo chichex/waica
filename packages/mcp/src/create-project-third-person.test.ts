@@ -37,6 +37,18 @@ it.each(['demo', 'blank'] as const)('writes a %s project validate_project accept
   await expectProjectShadows(project, start)
 }, 120_000)
 
+// Issue #204 CA-14: the courtyard spot adds no finding of any severity, in the demo or the blank start.
+it.each(['demo', 'blank'] as const)('validates a %s project without a single finding about its SpotLight (CA-14)', async (start) => {
+  const project = await created(start)
+  const { findings } = await validateProject(project)
+
+  expect(findings.filter((finding) => /spot/i.test(JSON.stringify(finding)))).toEqual([])
+  expect(findings.filter((finding) => finding.severity === 'error')).toEqual([])
+  const scene = parseSceneJson(await readFile(path.join(project, 'src/scenes/main.scene.json'), 'utf8'))
+  const spots = scene.entities.filter((entity) => entity.components?.some((component) => component.type === 'SpotLight'))
+  expect(spots.map((entity) => entity.name)).toEqual(start === 'demo' ? ['Courtyard Spot'] : [])
+}, 120_000)
+
 it('copies the demo’s art to src/art/ and rewrites its uris there (CA-29)', async () => {
   const project = await created('demo')
 
@@ -101,4 +113,15 @@ async function expectProjectShadows(project: string, start: 'demo' | 'blank'): P
   const lights = components.filter((component) => component.type === 'Sun' || component.type === 'PointLight')
   expect(lights).toHaveLength(torches.length + 1)
   for (const light of lights) expect(light.props, light.name).toHaveProperty('castShadows', true)
+  expectProjectSpots(components, start)
+}
+
+/** Issue #204 CA-14: the demo's courtyard spot reaches the project, aimed down, with its shadows at the defaults. */
+function expectProjectSpots(components: { name: string; type: string; props?: Record<string, unknown> }[], start: 'demo' | 'blank'): void {
+  const spotLights = components.filter((component) => component.type === 'SpotLight')
+  expect(spotLights.map((component) => component.name)).toEqual(start === 'demo' ? ['Courtyard Spot'] : [])
+  for (const light of spotLights) {
+    expect(light.props, light.name).toMatchObject({ direction: [0, -1, 0] })
+    expect(light.props, light.name).not.toHaveProperty('castShadows')
+  }
 }

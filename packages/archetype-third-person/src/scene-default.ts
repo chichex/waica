@@ -36,6 +36,18 @@ function threeDScene(entities: SceneEntityJson[]): SceneJson {
 
 const SUN: SceneEntityJson = { name: 'Sun', components: [{ type: 'Sun', props: { direction: [-0.5, -1, -0.35], intensity: 2.2, castShadows: true } }] }
 
+/**
+ * The courtyard's spot light (issue #204 CA-14): over the yard's centre, above
+ * the 4-high walls, shining straight down. Its finite `distance` ends past the
+ * floor, so the editor draws its cone; its shadows keep the defaults, so the
+ * scene's policy decides them. It joins the four torches, replacing none.
+ */
+const COURTYARD_SPOT: SceneEntityJson = {
+  name: 'Courtyard Spot',
+  position: [0, 5, 0],
+  components: [{ type: 'SpotLight', props: { color: '#fff2d8', intensity: 30, distance: 12, angle: 35, penumbra: 0.3, direction: [0, -1, 0] } }],
+}
+
 /** Half the courtyard's side: 5 × 5 floor tiles of 4 units, walls on the edge. */
 const HALF = 10
 const TILE_CENTERS = [-8, -4, 0, 4, 8]
@@ -78,8 +90,8 @@ const SKELETONS: SceneEntityJson[] = [
 /**
  * The demo (issue #181 CA-26): a walled dungeon courtyard. A raised platform
  * in the north-east corner, reached by a step, holds the goal chest; three
- * Skeleton Warriors patrol its north half; two checkpoints and four wall
- * torches; the Player starts in the south half, out of every skeleton's sight
+ * Skeleton Warriors patrol its north half; two checkpoints, four wall
+ * torches and a spot light over the yard's centre; the Player starts in the south half, out of every skeleton's sight
  * (as both checkpoints are), with the camera behind it clear of the south wall.
  */
 export const THIRD_PERSON_SCENE: SceneJson = threeDScene([
@@ -94,6 +106,7 @@ export const THIRD_PERSON_SCENE: SceneJson = threeDScene([
   { name: 'Torch NE', prefab: 'tiles/torch', position: [4, 2.5, -9.5] },
   { name: 'Torch SW', prefab: 'tiles/torch', position: [-4, 2.5, 9.5], rotation: [0, 180, 0] },
   { name: 'Torch SE', prefab: 'tiles/torch', position: [4, 2.5, 9.5], rotation: [0, 180, 0] },
+  COURTYARD_SPOT,
   // Each banner hangs centred on a side wall's z 4 piece, turned like that wall to face the yard.
   { name: 'Checkpoint West', prefab: 'objects/checkpoint', position: [-BANNER_AT, 0, 4], rotation: [0, 90, 0] },
   { name: 'Checkpoint East', prefab: 'objects/checkpoint', position: [BANNER_AT, 0, 4], rotation: [0, -90, 0] },

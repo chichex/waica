@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
-import { shadowUiCapture } from './runtime-e2e-editor-shadows-capture.mjs'
-import { readShadowScene, selectShadowEntity, setShadowToggle, settleShadowFrame, showShadowSceneInspector } from './runtime-e2e-editor-shadows-project.mjs'
+import { assertSameShadowGame, shadowUiCapture } from './runtime-e2e-editor-shadows-capture.mjs'
+import { openShadowAdvanced } from './runtime-e2e-editor-shadows-controls.mjs'
+import { readShadowScene, selectShadowEntity, setShadowToggle, settleShadowFrame, showShadowSceneInspector, SPOT_PROPS, spotProps, spotRuntimeState, waitShadowSaved } from './runtime-e2e-editor-shadows-project.mjs'
 
 export async function shadowHelperState(page) {
   return page.evaluate(() => {
@@ -83,6 +84,177 @@ async function pointCoverage(context) {
   return state
 }
 
+// Issue #204 CA-16: the SpotLight in the same MemFS project. Its cone is a helper
+// object like the coverage ones, so Play must hold none of it.
+const CONE = 'waica:editor-spot-cone'
+
+async function spotCones(page) {
+  return page.evaluate((name) => {
+    const cones = []
+    globalThis.__waicaEditor.viewportGame().scene.traverse((object) => {
+      if (object.name !== name) return
+      const { x, y, z, w } = object.quaternion
+      // The cone's local +z axis, turned by its quaternion: where the wire points in the world.
+      cones.push({ visible: object.visible, position: object.position.toArray(), axis: [2 * (x * z + w * y), 2 * (y * z - w * x), 1 - 2 * (x * x + y * y)], built: object.userData.cone ?? null })
+    })
+    return cones
+  }, CONE)
+}
+
+/** The edit view's cone, fitted to the live Spot: apex at its world position, along its world direction, `distance` long and `distance * tan(angle)` wide. */
+async function assertSpotCone(page, angle) {
+  const [spot, cones] = [await spotRuntimeState(page), await spotCones(page)]
+  assert.equal(cones.length, 1, 'one SpotLight draws one cone')
+  const [cone] = cones
+  assert.equal(cone.visible, true, 'the helpers toggle is on and the Spot has a finite distance')
+  assert.deepEqual(cone.position, spot.position, 'the cone starts at the light, offset included')
+  for (const axis of [0, 1, 2]) assert.ok(Math.abs(cone.axis[axis] - spot.direction[axis]) < 1e-6, `the cone must point along the light: ${JSON.stringify({ cone, spot })}`)
+  assert.equal(cone.built.length, spot.distance)
+  assert.ok(Math.abs(cone.built.radius - spot.distance * Math.tan((angle * Math.PI) / 180)) < 1e-6, `the cone must be ${angle} degrees wide: ${JSON.stringify(cone.built)}`)
+  assert.ok(Math.abs(spot.lightAngle - angle) < 1e-6 && spot.angle === angle, 'the cone and the runtime light must agree on the angle')
+  return { cone, spot }
+}
+
+async function spotAngle(page, angle) {
+  const field = page.locator('label.ed-row-slider').filter({ hasText: 'Angle (degrees)' }).getByRole('spinbutton')
+  await field.fill(String(angle))
+  await field.press('Tab')
+  await settleShadowFrame(page)
+}
+
+/** Hierarchy focus first: Control+Z in a text field would undo the field, not the scene. */
+async function pressHistory(page, keys) {
+  await page.locator('.ed-x-subtree button.ed-x-item').filter({ hasText: /Spot$/ }).focus()
+  await page.keyboard.press(keys)
+  await settleShadowFrame(page)
+}
+
+const savedSpot = (angle, mapSize) => (scene) => {
+  const props = spotProps(scene)
+  return props.angle === angle && props.shadowMapSize === mapSize
+}
+
+async function assertSpotShadow(page, expected) {
+  const state = await spotRuntimeState(page)
+  assert.equal(state.requestedMapSize, expected.requested)
+  assert.equal(state.effective.enabled, true)
+  assert.equal(state.effective.mapSize, expected.effective)
+  assert.equal(state.effective.maxDistance, 9, 'the Spot shadow range is its distance 9, below the scene 40')
+  assert.deepEqual(state.nativeMapSize, [expected.effective, expected.effective])
+  assert.equal(state.castShadow, true)
+  return state
+}
+
+/**
+ * Edits the Spot through the inspector: its angle, then one shadow override.
+ * Each edit is its own undo step (they have distinct keys, so they never
+ * coalesce), and the inherit-then-undo round trip never leaves two edits of
+ * the same key within the history's coalescing window.
+ */
+async function editSpot(context) {
+  const { page } = context
+  assert.deepEqual(spotProps(await readShadowScene(page)), SPOT_PROPS, 'the saved Spot starts as authored')
+  const initial = await assertSpotCone(page, 30)
+  await assertSpotShadow(page, { requested: 512, effective: 512 })
+  await shadowUiCapture(context, 'spot-cone-angle30')
+
+  context.stage = 'Spot:angle30->50'
+  await spotAngle(page, 50)
+  await waitShadowSaved(page, savedSpot(50, 512), 'Spot angle 50')
+  await assertSameShadowGame(page, true)
+  const wide = await assertSpotCone(page, 50)
+  await shadowUiCapture(context, 'spot-cone-angle50')
+
+  context.stage = 'Spot:map512->inherit'
+  await openShadowAdvanced(page)
+  const group = page.getByRole('group', { name: 'Shadow map size', exact: true })
+  await group.getByRole('button', { name: 'Inherit scene for Shadow map size', exact: true }).click()
+  await waitShadowSaved(page, savedSpot(50, null), 'Spot map inherited')
+  await assertSameShadowGame(page, true)
+  const inherited = await assertSpotShadow(page, { requested: null, effective: 1024 })
+  assert.match(await group.innerText(), /Inherited from scene.*Effective: 1024/s, 'the Spot profile at Medium is 1024, half the Sun')
+  await shadowUiCapture(context, 'spot-map-inherited1024')
+  await pressHistory(page, 'Control+z')
+  await waitShadowSaved(page, savedSpot(50, 512), 'undo inherit')
+  await assertSpotShadow(page, { requested: 512, effective: 512 })
+  await page.evaluate(() => { globalThis.__waicaShadowObservedGame = globalThis.__waicaEditor.viewportGame() })
+
+  context.stage = 'Spot:map512->2048'
+  await openShadowAdvanced(page)
+  await group.getByRole('combobox', { name: 'Shadow map size', exact: true }).selectOption('2048')
+  await waitShadowSaved(page, savedSpot(50, 2048), 'Spot map 2048')
+  await assertSameShadowGame(page, true)
+  const override = await assertSpotShadow(page, { requested: 2048, effective: 2048 })
+  await shadowUiCapture(context, 'spot-map-override2048')
+  return { initial, wide, inherited, override }
+}
+
+/** Undo and redo walk the angle and the override, each landing on the exact saved JSON and runtime. */
+async function spotHistory(context) {
+  const { page } = context
+  context.stage = 'Spot:history'
+  await pressHistory(page, 'Control+z')
+  await waitShadowSaved(page, savedSpot(50, 512), 'undo map')
+  const undoMap = await assertSpotShadow(page, { requested: 512, effective: 512 })
+  await pressHistory(page, 'Control+z')
+  const saved = await waitShadowSaved(page, savedSpot(30, 512), 'undo angle')
+  assert.deepEqual(spotProps(saved), SPOT_PROPS, 'undoing every edit must restore the authored Spot exactly')
+  const undone = await assertSpotCone(page, 30)
+  await pressHistory(page, 'Control+Shift+z')
+  await waitShadowSaved(page, savedSpot(50, 512), 'redo angle')
+  await pressHistory(page, 'Control+Shift+z')
+  await waitShadowSaved(page, savedSpot(50, 2048), 'redo map')
+  const redoMap = await assertSpotShadow(page, { requested: 2048, effective: 2048 })
+  const redone = await assertSpotCone(page, 50)
+  // History rebuilds the stage; whatever follows observes the new Game.
+  await page.evaluate(() => { globalThis.__waicaShadowObservedGame = globalThis.__waicaEditor.viewportGame() })
+  return { undoMap, undone, redoMap, redone }
+}
+
+async function spotHelpersToggle(context) {
+  const { page } = context
+  await setShadowToggle(page, 'Show helpers', false)
+  const hidden = await spotCones(page)
+  assert.deepEqual(hidden.map((cone) => cone.visible), [false], 'the helpers toggle hides the cone')
+  await setShadowToggle(page, 'Show helpers', true)
+  await assertSpotCone(page, 50)
+  return hidden
+}
+
+async function spotPlay(context) {
+  const { page } = context
+  const authored = await readShadowScene(page)
+  await page.getByRole('button', { name: '▶ Play', exact: true }).click()
+  await page.getByRole('button', { name: '⏹ Stop', exact: true }).waitFor()
+  await page.waitForFunction(() => globalThis.__waicaEditor.viewportGame()?.find('Spot') !== undefined)
+  await settleShadowFrame(page)
+  assert.deepEqual(await spotCones(page), [], 'Play must contain no spot cone object, not merely an invisible one')
+  assert.deepEqual((await shadowHelperState(page)).editorObjectNames, [])
+  await page.getByRole('button', { name: '⏹ Stop', exact: true }).click()
+  await page.getByRole('button', { name: '▶ Play', exact: true }).waitFor()
+  await settleShadowFrame(page)
+  await selectShadowEntity(page, 'Spot')
+  const back = await assertSpotCone(page, 50)
+  assert.deepEqual(await readShadowScene(page), authored, 'Play/Stop must not alter the saved Spot')
+  return back
+}
+
+async function spotLightFlow(context) {
+  const { page } = context
+  // Earlier history steps rebuilt the stage: from here on, only the Spot's own edits may not.
+  await page.evaluate(() => { globalThis.__waicaShadowObservedGame = globalThis.__waicaEditor.viewportGame() })
+  await setShadowToggle(page, 'Show helpers', true)
+  await selectShadowEntity(page, 'Spot')
+  const selected = await assertVisibleCoverage(page, 'spot')
+  const edits = await editSpot(context)
+  const history = await spotHistory(context)
+  const toggle = await spotHelpersToggle(context)
+  const coverage = await assertVisibleCoverage(page, 'spot')
+  await shadowUiCapture(context, 'selected-spot-cone-and-coverage')
+  const play = await spotPlay(context)
+  return { selected, edits, history, toggle, coverage, play }
+}
+
 async function helpersOffAndSelection(context) {
   const { page } = context
   await setShadowToggle(page, 'Show helpers', false)
@@ -147,7 +319,8 @@ export async function exerciseShadowHelpers(context) {
   const visibility = await helpersOffAndSelection(context)
   const orbit = await orbitSelectedSun(context)
   const point = await pointCoverage(context)
+  const spot = await spotLightFlow(context)
   const globalOff = await globalOffCoverage(context)
   const play = await playWithoutCoverage(context)
-  return { selectedSun, visibility, orbit, point, globalOff, ...play }
+  return { selectedSun, visibility, orbit, point, spot, globalOff, ...play }
 }
