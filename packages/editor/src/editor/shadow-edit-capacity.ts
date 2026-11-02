@@ -1,4 +1,4 @@
-import { authoringDefaults, isPerspectiveCamera, normalizeShadowBoolean, normalizeShadowOverride, PointLight, resolveEntityComponents, resolveLightShadow, resolvePerspectiveCamera, resolveSceneShadows, Sun, type ComponentClass, type Game, type LightShadowOverrides, type PrefabJson, type ResolvedSceneShadows, type SceneComponentJson, type SceneJson } from '@waica/engine'
+import { authoringDefaults, isPerspectiveCamera, normalizeShadowBoolean, normalizeShadowOverride, PointLight, resolveEntityComponents, resolveLightShadow, resolvePerspectiveCamera, resolveSceneShadows, SpotLight, Sun, type ComponentClass, type Game, type LightShadowOverrides, type PrefabJson, type ResolvedSceneShadows, type SceneComponentJson, type SceneJson, type ShadowLightKind } from '@waica/engine'
 import type { ViewportAccess } from './use-viewport-handle'
 
 type ShadowEdit = { prefabs: Record<string, PrefabJson>; types: readonly string[] }
@@ -11,10 +11,11 @@ interface ShadowComposition {
   params: Game['paramOverrides'][string] | undefined
 }
 
-function shadowKind(Class: ComponentClass | undefined): 'sun' | 'point' | null {
+function shadowKind(Class: ComponentClass | undefined): ShadowLightKind | null {
   if (!Class) return null
   if (Class === Sun || Class.prototype instanceof Sun) return 'sun'
   if (Class === PointLight || Class.prototype instanceof PointLight) return 'point'
+  if (Class === SpotLight || Class.prototype instanceof SpotLight) return 'spot'
   return null
 }
 

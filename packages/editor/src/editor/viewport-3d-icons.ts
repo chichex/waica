@@ -1,12 +1,12 @@
 // Icons of the 3D edit view (issue #173 CA-14): a billboard of constant screen
-// size for every Sun, PointLight and entity with no Model, and one for the
-// scene camera at its JSON position, so a click can select what has no mesh.
-// They are the extra targets raycastPick tests beside the Model roots.
-import { Model, PointLight, resolvePerspectiveCamera, Sun, THREE, type Entity, type Game, type PickTarget } from '@waica/engine'
+// size for every Sun, PointLight, SpotLight and entity with no Model, and one
+// for the scene camera at its JSON position, so a click can select what has no
+// mesh. They are the extra targets raycastPick tests beside the Model roots.
+import { Model, PointLight, resolvePerspectiveCamera, SpotLight, Sun, THREE, type Entity, type Game, type PickTarget } from '@waica/engine'
 import type { ViewportLive } from './viewport-live'
 import { addOverlay } from './viewport-selection-gizmos'
 
-type IconKind = 'sun' | 'light' | 'entity' | 'camera'
+type IconKind = 'sun' | 'light' | 'spot' | 'entity' | 'camera'
 
 /** The icon's share of the viewport height (a sprite without size attenuation). */
 const ICON_SIZE = 0.045
@@ -15,6 +15,7 @@ const ICON_NAME = 'waica:editor-icon'
 const GLYPHS: Readonly<Record<IconKind, { glyph: string; color: string }>> = {
   sun: { glyph: '☀', color: '#ffc857' },
   light: { glyph: '◉', color: '#ffc857' },
+  spot: { glyph: '▼', color: '#ffc857' },
   entity: { glyph: '◇', color: '#d8d8e8' },
   camera: { glyph: '▣', color: '#7fd3ff' },
 }
@@ -44,6 +45,7 @@ function iconMaterial(kind: IconKind): THREE.SpriteMaterial {
 function iconKindOf(entity: Entity): IconKind | null {
   if (entity.components.some((component) => component instanceof Sun)) return 'sun'
   if (entity.components.some((component) => component instanceof PointLight)) return 'light'
+  if (entity.components.some((component) => component instanceof SpotLight)) return 'spot'
   if (!entity.components.some((component) => component instanceof Model)) return 'entity'
   return new THREE.Box3().setFromObject(entity.node).isEmpty() ? 'entity' : null
 }

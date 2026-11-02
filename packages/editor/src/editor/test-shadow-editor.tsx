@@ -1,7 +1,7 @@
 import { act, render } from '@testing-library/react'
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import { expect, vi } from 'vitest'
-import { PointLight, resolveSceneSpace, Sun, type SceneJson, type SceneRegistry } from '@waica/engine'
+import { PointLight, resolveSceneSpace, SpotLight, Sun, type SceneJson, type SceneRegistry } from '@waica/engine'
 import { defined } from '../../../engine/src/test-support'
 import { MemFS } from '../fs/project-fs'
 import { createCommits, type EditorCore } from './editor-commits'
@@ -51,7 +51,7 @@ export function resetShadowEditor(): void {
   vi.stubGlobal('confirm', () => true)
 }
 
-export async function openShadowEditor(scene: SceneJson = SCENE, prefabProps: Record<string, unknown> = { shadowMapSize: 1024, distance: 9 }, options: { components?: SceneRegistry['components']; prefabType?: 'PointLight' | 'Sun' } = {}) {
+export async function openShadowEditor(scene: SceneJson = SCENE, prefabProps: Record<string, unknown> = { shadowMapSize: 1024, distance: 9 }, options: { components?: SceneRegistry['components']; prefabType?: 'PointLight' | 'Sun' | 'SpotLight' } = {}) {
   const fs = new MemFS('shadow-live', {
     'src/game.json': JSON.stringify({ waicaGame: 1, archetype: 'platformer' }),
     [MAIN]: JSON.stringify(scene),
@@ -60,8 +60,8 @@ export async function openShadowEditor(scene: SceneJson = SCENE, prefabProps: Re
   saveWorkspace(fs.name, MAIN, { kind: 'scene', path: MAIN })
   const view = render(<Harness fs={fs} components={options.components ?? {}} />, { reactStrictMode: true })
   await vi.waitFor(() => expect(current?.viewport()?.game()?.space).toBe(resolveSceneSpace(scene.render)))
-  if (options.prefabType === 'Sun') await vi.waitFor(() => expect(current?.viewport()?.game()?.find('Lamp')?.get(Sun)).toBeDefined())
-  else await vi.waitFor(() => expect(current?.viewport()?.game()?.find('Lamp')?.get(PointLight)).toBeDefined())
+  const light = { Sun, PointLight, SpotLight }[options.prefabType ?? 'PointLight']
+  await vi.waitFor(() => expect(current?.viewport()?.game()?.find('Lamp')?.components.some((component) => component instanceof light)).toBe(true))
   await act(async () => { await defined(current?.viewport()?.game()).ready() })
   return { fs, ...view }
 }
@@ -77,3 +77,4 @@ export async function readShadowScene(fs: MemFS): Promise<SceneJson> {
 }
 
 export const liveLamp = (): PointLight => defined(defined(current?.viewport()?.game()?.find('Lamp')).get(PointLight))
+export const liveSpot = (): SpotLight => defined(defined(current?.viewport()?.game()?.find('Lamp')).get(SpotLight))
