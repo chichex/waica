@@ -188,3 +188,30 @@ it('keeps Sun and PointLight profiles beside a SpotLight (issue #204 CA-9)', asy
   expect(defined(spot.light).shadow.mapSize.toArray()).toEqual([1024, 1024])
   expect(defined(spot.light).shadow.camera.far).toBe(40)
 })
+
+it('prepares the spot shadow camera from the current range before any render, and none when Off (issue #204 CA-7)', async () => {
+  const { game } = await ready3dGame()
+  loadScene(game, scene3d([]), registryOf({ SpotLight }))
+  const entity = game.spawn('Beam')
+  entity.position.set(0, 5, 0)
+  const spot = entity.add(SpotLight, { distance: 9, shadowMaxDistance: 2, angle: 30 })
+  const light = defined(spot.light)
+
+  const camera = game.shadows.prepareSpotCamera(spot)
+
+  expect(camera).toBe(light.shadow.camera)
+  expect([light.shadow.camera.near, light.shadow.camera.far]).toEqual([0.02, 2])
+  expect(light.shadow.camera.fov).toBeCloseTo(60, 9)
+  expect(new THREE.Vector3(0, 3.5, 0).project(defined(camera)).z).toBeLessThanOrEqual(1)
+  expect(new THREE.Vector3(0, 0, 0).project(defined(camera)).z).toBeGreaterThan(1)
+  expect(light.distance).toBe(9)
+  expect(fakeRendering.draws).toEqual([])
+  expect(fakeRendering.renderTargets).toEqual([])
+  spot.angle = 45
+  spot.shadowMaxDistance = 5
+  expect(game.shadows.prepareSpotCamera(spot)?.far).toBe(5)
+  expect(light.shadow.camera.fov).toBeCloseTo(90, 9)
+  game.shadows.quality = 'off'
+  expect(game.shadows.prepareSpotCamera(spot)).toBeNull()
+  game.dispose()
+})

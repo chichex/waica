@@ -1,8 +1,9 @@
 // The helpers of the 3D edit view (issue #173 CA-17), behind the 👁 toggle:
 // the scene camera's frustum (its real fov, near, far and aspect), each Sun's
-// direction, each PointLight's range and each Collider's shape (sensors alike).
+// direction, each PointLight's range, each SpotLight's cone and each Collider's
+// shape (sensors alike).
 // They are drawn from the scene JSON and the live components every frame.
-import { Collider, placePerspectiveCamera, PointLight, resolvePerspectiveCamera, Sun, THREE, type Component, type Entity, type Game } from '@waica/engine'
+import { Collider, placePerspectiveCamera, PointLight, resolvePerspectiveCamera, SpotLight, Sun, THREE, type Component, type Entity, type Game } from '@waica/engine'
 import type { ViewportLive } from './viewport-live'
 import { addOverlay } from './viewport-selection-gizmos'
 
@@ -10,6 +11,14 @@ export const HELPER_COLOR = 0xffc857
 const COLLIDER_COLOR = 0x6fe3a5
 const SUN_ARROW_LENGTH = 2
 const CIRCLE_SEGMENTS = 48
+const CONE_SPOKES = 8
+/** The axis a unit wire cone points along before it is aimed at a light's direction. */
+const CONE_AXIS = new THREE.Vector3(0, 0, 1)
+
+/** The amber line material of the light helpers, so a range, a cone and a shadow coverage read as one family. */
+export function helperLineMaterial(): THREE.LineBasicMaterial {
+  return new THREE.LineBasicMaterial({ color: HELPER_COLOR, transparent: true, opacity: 0.6 })
+}
 
 /** Three unit great circles (XY, XZ, YZ): a wire sphere that stays light. */
 export function wireSphere(): THREE.BufferGeometry {
@@ -20,6 +29,17 @@ export function wireSphere(): THREE.BufferGeometry {
     points.push(Math.cos(a), 0, Math.sin(a), Math.cos(b), 0, Math.sin(b))
     points.push(0, Math.cos(a), Math.sin(a), 0, Math.cos(b), Math.sin(b))
   }
+  return new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(points, 3))
+}
+
+/** A wire cone with its apex at the origin and its axis along +Z: `length` deep, `radius` wide at its base. */
+function wireCone(length: number, radius: number): THREE.BufferGeometry {
+  const points: number[] = []
+  const rim = (turn: number): [number, number, number] => [radius * Math.cos(turn * Math.PI * 2), radius * Math.sin(turn * Math.PI * 2), length]
+  for (let index = 0; index < CIRCLE_SEGMENTS; index += 1) {
+    points.push(...rim(index / CIRCLE_SEGMENTS), ...rim((index + 1) / CIRCLE_SEGMENTS))
+  }
+  for (let spoke = 0; spoke < CONE_SPOKES; spoke += 1) points.push(0, 0, 0, ...rim(spoke / CONE_SPOKES))
   return new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(points, 3))
 }
 
@@ -121,6 +141,37 @@ function wireMatches(holder: THREE.Object3D, collider: Collider): boolean {
   )
 }
 
+/** Puts `cone` on the spot's world light and aims it along the world direction to its target, rebuilding its wire when its size changed. */
+function fitCone(cone: THREE.LineSegments, spot: SpotLight, light: THREE.SpotLight): void {
+  const length = spot.distance
+  const radius = length * Math.tan(THREE.MathUtils.degToRad(spot.angle))
+  const built = cone.userData.cone as { length: number; radius: number } | undefined
+  if (built?.length !== length || built.radius !== radius) {
+    cone.geometry.dispose()
+    cone.geometry = wireCone(length, radius)
+    cone.userData.cone = { length, radius }
+  }
+  light.getWorldPosition(cone.position)
+  const axis = light.target.getWorldPosition(new THREE.Vector3()).sub(cone.position).normalize()
+  cone.quaternion.setFromUnitVectors(CONE_AXIS, axis)
+}
+
+/** Each SpotLight's wire cone, rebuilt when its angle or distance change; like the range sphere, an unlimited spot (distance 0) has none (issue #204 inference I-4). */
+function createSpotCones(game: Game) {
+  const place = perComponent<SpotLight, THREE.LineSegments>(game, () => {
+    const cone = new THREE.LineSegments(new THREE.BufferGeometry(), helperLineMaterial())
+    cone.name = 'waica:editor-spot-cone'
+    return cone
+  })
+  return (visible: boolean): void => {
+    for (const { component, object } of place(liveComponents(game, SpotLight))) {
+      const { light } = component
+      object.visible = visible && component.distance > 0 && light !== null
+      if (object.visible && light) fitCone(object, component, light)
+    }
+  }
+}
+
 /** Each Collider's wire, rebuilt when its shape changes, riding its entity's world transform. */
 function createColliderWires(game: Game) {
   const place = perComponent<Collider, THREE.Group>(game, () => {
@@ -157,10 +208,11 @@ export function createHelpers3d(game: Game) {
     return arrow
   })
   const ranges = perComponent<PointLight, THREE.LineSegments>(game, () => {
-    const range = new THREE.LineSegments(sphere, new THREE.LineBasicMaterial({ color: HELPER_COLOR, transparent: true, opacity: 0.6 }))
+    const range = new THREE.LineSegments(sphere, helperLineMaterial())
     range.name = 'waica:editor-light-range'
     return range
   })
+  const cones = createSpotCones(game)
   const colliders = createColliderWires(game)
   return {
     sync(live: ViewportLive, visible: boolean): void {
@@ -176,6 +228,7 @@ export function createHelpers3d(game: Game) {
         component.light?.getWorldPosition(object.position)
         object.scale.setScalar(component.distance)
       }
+      cones(visible)
       colliders(visible)
     },
   }
