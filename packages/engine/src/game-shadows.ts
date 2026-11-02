@@ -235,6 +235,19 @@ export class GameShadows {
   }
 
   /** Point and spot shadows keep their own range, independent of the light's distance. */
+  /** Prepare host overlays from the spot's current range and cone, without allocating or rendering. */
+  prepareSpotCamera(component: SpotLight): THREE.PerspectiveCamera | null {
+    const light = component.light
+    if (!light) return null
+    const settings = this.resolve(component)
+    if (!settings.enabled) return null
+    this.syncSpot(component, settings)
+    light.updateWorldMatrix(true, false)
+    light.target.updateWorldMatrix(true, false)
+    light.shadow.updateMatrices(light)
+    return light.shadow.camera
+  }
+
   private syncRange(component: PointLight | SpotLight, settings: ResolvedLightShadow): void {
     if (component instanceof PointLight) this.syncPoint(component, settings)
     else this.syncSpot(component, settings)

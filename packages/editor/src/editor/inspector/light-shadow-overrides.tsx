@@ -6,6 +6,7 @@ import {
   SHADOW_OVERRIDE_PARAMS,
   type ResolvedLightShadow,
   type SceneComponentJson,
+  type ShadowLightKind,
   type ShadowOverrideName,
 } from '@waica/engine'
 import type { ComponentPropHandlers } from './ComponentCard'
@@ -21,12 +22,17 @@ const EFFECTIVE_KEYS = {
   shadowNormalBias: 'normalBias', shadowRadius: 'radius',
 } as const satisfies Record<ShadowOverrideName, keyof ResolvedLightShadow>
 
+/** The shadow profile column each light component resolves its defaults from. */
+const LIGHT_KINDS: Readonly<Record<string, ShadowLightKind>> = { Sun: 'sun', PointLight: 'point', SpotLight: 'spot' }
+
+const lightKind = (type: string): ShadowLightKind | undefined => Object.hasOwn(LIGHT_KINDS, type) ? LIGHT_KINDS[type] : undefined
+
 export function isLightShadowOverride(type: string, key: string): key is ShadowOverrideName {
-  return (type === 'Sun' || type === 'PointLight') && Object.hasOwn(SHADOW_OVERRIDE_PARAMS, key)
+  return lightKind(type) !== undefined && Object.hasOwn(SHADOW_OVERRIDE_PARAMS, key)
 }
 
 export function isLightShadowFlag(type: string, key: string): boolean {
-  return (type === 'Sun' || type === 'PointLight') && key === 'castShadows'
+  return lightKind(type) !== undefined && key === 'castShadows'
 }
 
 function storedValue(value: unknown): string {
@@ -166,7 +172,9 @@ export function LightShadowOverrides({ comp, names, overridden, ...handlers }: C
   const context = useContext(LightShadowContext)
   const [open, setOpen] = useState(false)
   const id = useId()
-  const effective = resolveLightShadow(comp.type === 'Sun' ? 'sun' : 'point', context.scene, comp.props ?? {})
+  const kind = lightKind(comp.type)
+  if (!kind) return null
+  const effective = resolveLightShadow(kind, context.scene, comp.props ?? {})
   const spaceHint = context.preview ? ' · 2D preview' : context.space === '2d' ? " · 2D scene: shadows need render.space '3d'" : ''
   return (
     <div className="ed-param-block">
