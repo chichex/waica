@@ -1,0 +1,43 @@
+{
+  "scenario": "shadows-spot-on-200",
+  "commit": "fe96d61",
+  "backend": "webgl2",
+  "host": {
+    "platform": "linux",
+    "cpus": 8,
+    "chrome": "Google Chrome 150.0.7871.186",
+    "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+  },
+  "counters": {
+    "drawCalls": 401,
+    "meshes": 201,
+    "visibleMeshes": 201,
+    "geometries": 201,
+    "materials": 201,
+    "textures": 0,
+    "textureSources": 0,
+    "entitiesSpawned": 202,
+    "entitiesDestroyed": 0,
+    "materialsCreated": 201,
+    "geometriesCreated": 201
+  },
+  "timings": {
+    "frames": 60,
+    "medianMs": 11.400000000372529,
+    "p95Ms": 14.699999999254942,
+    "overBudget": false,
+    "gcPauses": {
+      "count": 3,
+      "totalMs": 1.289
+    }
+  },
+  "shadow": {
+    "composition": "spot",
+    "quality": "medium",
+    "enabled": true,
+    "casters": 200,
+    "lights": 1,
+    "warmupFrames": 5,
+    "measuredFrames": 60
+  }
+}

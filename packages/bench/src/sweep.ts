@@ -37,6 +37,10 @@ export const SCENARIOS = [
   'shadows-four-point-off-200',
   'shadows-four-point-on-50',
   'shadows-four-point-on-200',
+  'shadows-spot-off-50',
+  'shadows-spot-off-200',
+  'shadows-spot-on-50',
+  'shadows-spot-on-200',
   'blended-characters-50',
   'blended-characters-200',
 ] as const
@@ -56,6 +60,8 @@ export type ScenarioKind =
   | 'shadows-point-on'
   | 'shadows-four-point-off'
   | 'shadows-four-point-on'
+  | 'shadows-spot-off'
+  | 'shadows-spot-on'
   | 'blended-characters'
 
 export interface SweepEntry {
@@ -93,6 +99,10 @@ export const SWEEP: Record<ScenarioName, SweepEntry> = {
   'shadows-four-point-off-200': { kind: 'shadows-four-point-off', n: 200 },
   'shadows-four-point-on-50': { kind: 'shadows-four-point-on', n: 50 },
   'shadows-four-point-on-200': { kind: 'shadows-four-point-on', n: 200 },
+  'shadows-spot-off-50': { kind: 'shadows-spot-off', n: 50 },
+  'shadows-spot-off-200': { kind: 'shadows-spot-off', n: 200 },
+  'shadows-spot-on-50': { kind: 'shadows-spot-on', n: 50 },
+  'shadows-spot-on-200': { kind: 'shadows-spot-on', n: 200 },
   'blended-characters-50': { kind: 'blended-characters', n: 50 },
   'blended-characters-200': { kind: 'blended-characters', n: 200 },
 }

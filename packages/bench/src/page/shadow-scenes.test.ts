@@ -67,3 +67,41 @@ describe('point-light shadow controls', () => {
     expect(off.perStep).toBe(on.perStep)
   })
 })
+
+describe('spot-light shadow pair (issue #204 CA-17, I-7)', () => {
+  it.each([50, 200])('authors a spot pair with %i casters, differing only in scene shadow quality', (n) => {
+    const off = shadowScene(n, 'spot', false)
+    const on = shadowScene(n, 'spot', true)
+
+    expect(off.scene.render?.shadows).toEqual({ quality: 'off', maxDistance: 40 })
+    expect(on.scene.render?.shadows).toEqual({ quality: 'medium', maxDistance: 40 })
+    expect({ ...off.scene, render: { ...off.scene.render, shadows: { ...off.scene.render?.shadows, quality: 'medium' } } }).toEqual(on.scene)
+    expect(off.registry).toEqual(on.registry)
+    expect(off.preload).toEqual(on.preload)
+    expect(off.steps).toBe(60)
+    expect(off.warmupFrames).toBe(5)
+    expect(off.shadow).toEqual({ composition: 'spot', enabled: false, quality: 'off', casters: n, lights: 1, warmupFrames: 5, measuredFrames: 60 })
+    expect(on.shadow).toEqual({ composition: 'spot', enabled: true, quality: 'medium', casters: n, lights: 1, warmupFrames: 5, measuredFrames: 60 })
+    for (const plan of [off, on]) {
+      const spots = plan.scene.entities.filter((entity) => propsOf(entity, 'SpotLight'))
+      expect(spots).toHaveLength(1)
+      expect(spots[0]?.position).toEqual([0, 10, 0])
+      expect(propsOf(spots[0], 'SpotLight')).toMatchObject({ castShadows: true, direction: [0, -1, 0], angle: 55, distance: 30, decay: 2 })
+      expect(propsOf(spots[0], 'SpotLight')?.intensity).toBeGreaterThan(0)
+      expect(plan.scene.entities.some((entity) => propsOf(entity, 'Sun') || propsOf(entity, 'PointLight'))).toBe(false)
+      expect(Object.keys(plan.registry.components)).toContain('SpotLight')
+    }
+  })
+
+  it.each([50, 200])('shares its %i casters, receiver, camera and ambient with the Sun and Point pairs', (n) => {
+    const spot = shadowScene(n, 'spot', true).scene
+    const lightNames = new Set(['Sun', 'PointLight', 'SpotLight'])
+    const withoutLights = (scene: typeof spot) => scene.entities.filter((entity) => !entity.components?.some((component) => lightNames.has(component.type)))
+    for (const other of ['sun', 'point', 'four-point'] as const) {
+      const scene = shadowScene(n, other, true).scene
+      expect(withoutLights(spot)).toEqual(withoutLights(scene))
+      expect(spot.camera).toEqual(scene.camera)
+      expect(spot.render).toEqual(scene.render)
+    }
+  })
+})

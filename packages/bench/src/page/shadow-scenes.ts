@@ -1,4 +1,4 @@
-import { Animator, Model, PointLight, StateMachine, Sun, type SceneEntityJson } from '@waica/engine'
+import { Animator, Model, PointLight, SpotLight, StateMachine, Sun, type SceneEntityJson } from '@waica/engine'
 import rigUrl from '../../../engine/fixtures/rig.glb?url'
 import { SHADOW_MEASURED_FRAMES, SHADOW_WARMUP_FRAMES, type ShadowWorkloadInfo } from '../shadow-workload.ts'
 import type { ScenarioPlan } from './scenarios.ts'
@@ -25,6 +25,12 @@ function shadowLights(composition: ShadowWorkloadInfo['composition']): SceneEnti
   if (composition === 'sun') return [{
     name: 'Daylight',
     components: [{ type: 'Sun', props: { direction: [-0.5, -1, -0.35], intensity: 3, castShadows: true } }],
+  }]
+  // Issue #204 CA-17: one spot straight down over the grid; its cone and finite range cover every caster.
+  if (composition === 'spot') return [{
+    name: 'Spotlight',
+    position: [0, 10, 0],
+    components: [{ type: 'SpotLight', props: { distance: 30, intensity: 300, decay: 2, angle: 55, direction: [0, -1, 0], castShadows: true } }],
   }]
   const positions: Array<[number, number, number]> = composition === 'point'
     ? [[0, 5, 0]]
@@ -53,7 +59,7 @@ export function shadowScene(n: number, composition: ShadowWorkloadInfo['composit
       camera: { kind: 'perspective', position: [0, 16, 24], target: [0, 1, 0], fov: 50 },
       entities: [receiver, ...lights, ...casters],
     },
-    registry: { components: { Model, Animator, StateMachine, Sun, PointLight } },
+    registry: { components: { Model, Animator, StateMachine, Sun, PointLight, SpotLight } },
     preload: [rigUrl],
     steps: SHADOW_MEASURED_FRAMES,
     warmupFrames: SHADOW_WARMUP_FRAMES,
