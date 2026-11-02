@@ -11,9 +11,9 @@ it.each([
 })
 
 it.each([
-  { start: 'demo', scene: ARCHETYPE.scene, modelCount: 60, torches: ['Torch NW', 'Torch NE', 'Torch SW', 'Torch SE'] },
-  { start: 'blank', scene: ARCHETYPE.blankScene, modelCount: 2, torches: [] },
-])('keeps every Model, Sun and torch in the resolved $start shadow topology', ({ scene, modelCount, torches }) => {
+  { start: 'demo', scene: ARCHETYPE.scene, modelCount: 60, torches: ['Torch NW', 'Torch NE', 'Torch SW', 'Torch SE'], spots: ['Courtyard Spot'] },
+  { start: 'blank', scene: ARCHETYPE.blankScene, modelCount: 2, torches: [], spots: [] },
+])('keeps every Model, Sun, torch and spot in the resolved $start shadow topology', ({ scene, modelCount, torches, spots }) => {
   const components = scene.entities.flatMap((entity) =>
     resolveEntityComponents(entity, ARCHETYPE.prefabs).map((component) => ({ name: entity.name, ...component })),
   )
@@ -26,6 +26,10 @@ it.each([
   expect(suns.map((component) => component.name)).toEqual(['Sun'])
   expect(points.map((component) => component.name)).toEqual(torches)
   for (const light of [...suns, ...points]) expect(light.props, light.name).toHaveProperty('castShadows', true)
+  // Issue #204 CA-14: the spot leaves its shadows at the defaults, so the scene policy decides (on, Medium).
+  const spotLights = components.filter((component) => component.type === 'SpotLight')
+  expect(spotLights.map((component) => component.name)).toEqual(spots)
+  for (const light of spotLights) expect(light.props, light.name).not.toHaveProperty('castShadows')
 })
 
 it.each(Object.entries(ARCHETYPE.prefabs))('publishes both explicit Model shadow flags in the %s prefab', (_ref, prefab) => {

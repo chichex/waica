@@ -31,23 +31,28 @@ npx @waica/cli            # New project → 3D → Third person
   point; dying fades out and back in on the floor in front of it with full
   health (the Checkpoint's `spawnOffset`).
 - **The demo.** A walled courtyard with columns, wall torches (Point
-  Lights), three skeletons, two checkpoint banners on the side walls and the
+  Lights), a spot light hanging over its centre, three skeletons, two checkpoint banners on the side walls and the
   goal chest on a raised platform: reach it to win. The blank start is a
   ground plane, a Sun and the playable Knight.
 
 ## Shadows
 
 Demo and blank explicitly use `render.shadows: { quality: 'medium', maxDistance: 40 }`.
-Every Model casts/receives; the Sun and all four demo torches cast. Static and
+Every Model casts/receives; the Sun, all four demo torches and the courtyard
+spot cast. Static and
 animated glTF assets retain their materials and gameplay.
 
-Profiles (Sun / PointLight per face): Low 1024²/256², Medium 2048²/512²,
-High 4096²/1024². Set `render.shadows.quality: 'off'` to restore the previous
+Profiles (Sun / PointLight per face / SpotLight): Low 1024²/256²/512²,
+Medium 2048²/512²/1024², High 4096²/1024²/2048². Set `render.shadows.quality: 'off'` to restore the previous
 shadow-free image/cost. Existing 3D scenes change; 2D projects do not.
 
 Sun follows the active camera within finite reach. Torch shadows use the smaller
-of lighting distance and shadow reach, without shortening illumination. Each
-PointLight can add six views, hence 25 for four torches plus Sun. No FPS-based
+of lighting distance and shadow reach, without shortening illumination. The
+courtyard spot (`Courtyard Spot`, 5 above the yard's centre, shining straight
+down in a 35° cone, distance 12, shadows at their defaults) shades the floor it
+lights and whoever crosses it; its shadow reaches 12 along its axis, the whole
+way to the floor. Each PointLight can add six views and the spot one, hence 25
+for four torches plus Sun, 26 with the spot. No FPS-based
 light caps or universal frame-rate guarantee are introduced.
 
 The editor exposes scene quality/reach and nullable per-light overrides. `null`

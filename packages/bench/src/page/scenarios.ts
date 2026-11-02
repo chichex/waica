@@ -121,6 +121,8 @@ export const PLAN_BY_KIND: Record<ScenarioKind, (n: number) => ScenarioPlan> = {
   'shadows-point-on': (n) => shadowScene(n, 'point', true),
   'shadows-four-point-off': (n) => shadowScene(n, 'four-point', false),
   'shadows-four-point-on': (n) => shadowScene(n, 'four-point', true),
+  'shadows-spot-off': (n) => shadowScene(n, 'spot', false),
+  'shadows-spot-on': (n) => shadowScene(n, 'spot', true),
   'blended-characters': blendedCharacters,
 }
 

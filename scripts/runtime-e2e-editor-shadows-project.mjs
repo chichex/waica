@@ -6,6 +6,9 @@ export const SHADOW_SCENE_PATH = 'src/scenes/main.scene.json'
 export const SHADOW_SUN_PATH = 'src/objects/shadow-sun.object.json'
 const PROJECT = 'waica-editor-shadows'
 
+/** The Spot's authored props (issue #204 CA-16): off, so it never changes a pixel oracle, with a finite reach so its cone shows. */
+export const SPOT_PROPS = { intensity: 0, distance: 9, angle: 30, shadowMapSize: 512 }
+
 export function shadowProjectFiles(files) {
   const scene = {
     waicaScene: 3,
@@ -16,6 +19,7 @@ export function shadowProjectFiles(files) {
       { name: 'Caster', position: [0, 1, 0], components: [{ type: 'Model', props: { shape: 'box', size: 2 } }] },
       { name: 'Sun', prefab: 'objects/shadow-sun', overrides: { Sun: { shadowMapSize: 512 } } },
       { name: 'Point', position: [-3, 2, 0], components: [{ type: 'PointLight', props: { intensity: 0, distance: 9, shadowMaxDistance: 2 } }] },
+      { name: 'Spot', position: [3, 4, -3], components: [{ type: 'SpotLight', props: SPOT_PROPS }] },
     ],
   }
   const prefab = { waicaPrefab: 1, type: 'object', components: [{ type: 'Sun', props: { direction: [1, -2, 1], intensity: 2, shadowMapSize: 1024 } }] }
@@ -30,7 +34,7 @@ export async function openShadowProject(page, files) {
   await page.evaluate(({ project, files }) => globalThis.__waicaEditor.openMemoryProject(project, files), { project: PROJECT, files })
   await page.waitForFunction(() => {
     const game = globalThis.__waicaEditor.viewportGame()
-    return game?.backend && game.find('Caster') && game.find('Point') && game.find('Sun')
+    return game?.backend && game.find('Caster') && game.find('Point') && game.find('Sun') && game.find('Spot')
   }, null, { timeout: 30_000 })
   await settleShadowFrame(page)
 }
@@ -57,6 +61,8 @@ export async function waitShadowSaved(page, check, description) {
 }
 
 export const sunOverrides = (scene) => scene.entities.find((entity) => entity.name === 'Sun').overrides?.Sun ?? {}
+
+export const spotProps = (scene) => scene.entities.find((entity) => entity.name === 'Spot').components.find((component) => component.type === 'SpotLight').props
 
 export async function selectShadowEntity(page, name) {
   await page.locator('.ed-x-subtree button.ed-x-item').filter({ hasText: new RegExp(`^[^A-Za-z]*${name}$`) }).click()
@@ -85,5 +91,22 @@ export async function shadowRuntimeState(page) {
       return { requested: Object.fromEntries(['shadowMapSize', 'shadowMaxDistance', 'shadowBias', 'shadowNormalBias', 'shadowRadius'].map((key) => [key, component[key]])), effective: game.shadows.resolve(component), nativeMapSize: component.light.shadow.mapSize.toArray(), castShadow: component.light.castShadow }
     }
     return { backend: game.backend, policy: game.shadows.policy, sun: light('Sun', 'Sun'), point: light('Point', 'PointLight') }
+  })
+}
+
+// Read-only observation of the Spot (issue #204 CA-16): world pose, cone and the shadow it resolves.
+export async function spotRuntimeState(page) {
+  return page.evaluate(() => {
+    const game = globalThis.__waicaEditor.viewportGame()
+    const component = game.find('Spot').components.find((item) => item.constructor.componentName === 'SpotLight')
+    const { light } = component
+    const at = light.getWorldPosition(light.position.clone())
+    const toward = light.target.getWorldPosition(light.target.position.clone()).sub(at).normalize()
+    return {
+      angle: component.angle, lightAngle: (light.angle * 180) / Math.PI, distance: component.distance,
+      position: at.toArray(), direction: toward.toArray(),
+      requestedMapSize: component.shadowMapSize, effective: game.shadows.resolve(component),
+      nativeMapSize: light.shadow.mapSize.toArray(), castShadow: light.castShadow,
+    }
   })
 }

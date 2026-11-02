@@ -121,15 +121,18 @@ function assertGlbLoaded({ booted, swapped }) {
   assert.deepEqual(swapped, { pending: 0, loaded: DEMO_ASSETS, failed: 0 }, `the swap must leave every glb loaded; ${JSON.stringify({ booted, swapped })}`)
 }
 
-/** The snapshot of the demo: space, the orbit camera following the Player, a Model per level piece, the Sun and four torches. */
+/** The snapshot of the demo: space, the orbit camera following the Player, a Model per level piece, the Sun, four torches and the courtyard spot (issue #204 CA-14). */
 function assertSnapshot(snapshot, scene) {
   assert.equal(snapshot.scene, SCENE)
   assert.equal(snapshot.space, '3d')
   assert.deepEqual({ ...snapshot.view, position: undefined, target: undefined }, { kind: 'perspective', position: undefined, target: undefined, fov: 55, follow: 'Player', yaw: 0, pitch: 20, distance: 6, distanceActual: 6 })
   const models = snapshot.entities.filter((entity) => entity.components.some((component) => component.type === 'Model'))
-  assert.equal(models.length, scene.entities.length - 1, 'every entity but the Sun draws a Model')
+  assert.equal(models.length, scene.entities.length - 2, 'every entity but the Sun and the Courtyard Spot draws a Model')
   assert.equal(snapshot.lighting.sun.length, 1)
   assert.equal(snapshot.lighting.pointLights.length, 4, 'the four wall torches light the courtyard')
+  assert.equal(snapshot.lighting.spotLights.length, 1, 'one spot light shines down on the courtyard centre')
+  const [spot] = snapshot.lighting.spotLights
+  assert.deepEqual({ entity: spot.entity, position: spot.position, direction: spot.direction, distance: spot.distance, shadows: spot.shadows.enabled }, { entity: 'Courtyard Spot', position: [0, 5, 0], direction: [0, -1, 0], distance: 12, shadows: true }, 'the spot hangs over the yard centre, points down and casts shadows by default')
   assert.deepEqual(snapshot.lighting.lights, [], 'a 3D scene has none of the 2D Lights')
 }
 

@@ -1,4 +1,4 @@
-// Issue #203 CA-17/I-12: project-owned, opaque, isolated light fixtures.
+// Issue #203 CA-17/I-12 and issue #204 CA-15: project-owned, opaque, isolated light fixtures.
 import { writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
@@ -7,11 +7,52 @@ export const FRAME = 13
 export const SUN_POINTS = { shadow: [1.5, 0, 1.5], control: [-4, 0, 2] }
 export const POINT_POINTS = { shadow: [0, 0, 0], control: [0.5, 0, 0.5] }
 
+/**
+ * Issue #204 CA-15/CA-6. One SpotLight 1.5 above an opaque Plate, pointing down;
+ * 5 below it, along the same axis, lies an opaque Ground. Its `distance` is 9
+ * and its shadow range 2, so the Plate (depth 1.5) is inside the range and the
+ * Ground (depth 5) is lit but outside it. The Caster (depth 0.75, 0.4 wide)
+ * shadows the Plate under it, and would shadow the Ground's `beyond` point if
+ * the range reached it. The cone's half-angle is 45 degrees: `control` and
+ * `beyond` lie well inside it, `outside` lies past it on the Ground.
+ */
+export const SPOT = {
+  position: [0, 1.5, 0], direction: [0, -1, 0], angle: 45, distance: 9, range: 2,
+  plateDepth: 1.5, groundDepth: 5, casterDepth: 0.75, casterSize: 0.4,
+}
+export const SPOT_POINTS = {
+  shadow: [0, 0, 0], control: [0.8, 0, 0],
+  beyond: [0.7, -3.5, 0.7], outside: [-6.5, -3.5, 0],
+}
+export const POINTS = { sun: SUN_POINTS, point: POINT_POINTS, spot: SPOT_POINTS }
+export const LIGHT_TYPES = { sun: 'Sun', point: 'PointLight', spot: 'SpotLight' }
+
 export function model(name, position, props) {
   return { name, position, components: [{ type: 'Model', props }] }
 }
 
+function spotScene() {
+  const [x, y, z] = SPOT.position
+  return {
+    waicaScene: 3,
+    render: { space: '3d', shadows: { quality: 'medium' }, lighting: { ambient: { intensity: 0.15 } } },
+    camera: { kind: 'perspective', position: [0, 3, 12], target: [0, -1.5, 0], fov: 55 },
+    entities: [
+      { name: 'Diagnostics', components: [{ type: 'ShadowDiagnostics' }] },
+      model('Ground', [x, y - SPOT.groundDepth, z], { shape: 'plane', size: 30, castShadows: false }),
+      // Mid grey: 1.5 from the light, a white Plate would clip at 255 and hide a faint shadow edge.
+      model('Plate', [x, y - SPOT.plateDepth, z], { shape: 'plane', size: 2.4, color: '#808080', castShadows: false }),
+      model('Caster', [x, y - SPOT.casterDepth, z], { shape: 'box', size: SPOT.casterSize }),
+      { name: 'Light', position: SPOT.position, components: [{
+        type: 'SpotLight',
+        props: { castShadows: true, intensity: 20, distance: SPOT.distance, shadowMaxDistance: SPOT.range, angle: SPOT.angle, direction: SPOT.direction },
+      }] },
+    ],
+  }
+}
+
 export function shadowScene(kind = 'sun') {
+  if (kind === 'spot') return spotScene()
   const point = kind === 'point'
   return {
     waicaScene: 3,
@@ -34,7 +75,7 @@ export function propsOf(scene, name, type = 'Model') {
 }
 
 // Generated application code: public engine imports, not a renderer or bridge fake.
-const MAIN = `import { Animator, Component, Game, Model, PointLight, StateMachine, Sun, THREE } from '@waica/engine'
+const MAIN = `import { Animator, Component, Game, Model, PointLight, SpotLight, StateMachine, Sun, THREE } from '@waica/engine'
 import scene from './scenes/main.scene.json'
 
 const browserErrors = []
@@ -69,7 +110,7 @@ const game = new Game({ canvas, resolution: { width: 640, height: 360 }, backgro
 game.registerSceneCatalog({
   scenes: { main: scene },
   registry: {
-    components: { Animator, Model, PointLight, StateMachine, Sun, ShadowMover, ShadowTeleport, ShadowDiagnostics },
+    components: { Animator, Model, PointLight, SpotLight, StateMachine, Sun, ShadowMover, ShadowTeleport, ShadowDiagnostics },
     resolveAsset: (uri) => uri.startsWith('src/') ? '/' + uri : uri,
   },
 })

@@ -3,6 +3,12 @@ import { PLAN_BY_KIND } from './page/scenarios.ts'
 import { SCENARIOS } from './results.ts'
 import { SWEEP, cellSize } from './sweep.ts'
 
+/** Issue #204 CA-17: the spot pair, with the same 50 and 200 casters as the Sun and Point pairs. */
+const SPOT_PAIR = {
+  'shadows-spot-off-50': { kind: 'shadows-spot-off', n: 50 }, 'shadows-spot-off-200': { kind: 'shadows-spot-off', n: 200 },
+  'shadows-spot-on-50': { kind: 'shadows-spot-on', n: 50 }, 'shadows-spot-on-200': { kind: 'shadows-spot-on', n: 200 },
+}
+
 describe('SWEEP', () => {
   it('lists every scenario id with its kind and size', () => {
     expect(SWEEP).toEqual({
@@ -29,6 +35,7 @@ describe('SWEEP', () => {
       'shadows-point-on-50': { kind: 'shadows-point-on', n: 50 }, 'shadows-point-on-200': { kind: 'shadows-point-on', n: 200 },
       'shadows-four-point-off-50': { kind: 'shadows-four-point-off', n: 50 }, 'shadows-four-point-off-200': { kind: 'shadows-four-point-off', n: 200 },
       'shadows-four-point-on-50': { kind: 'shadows-four-point-on', n: 50 }, 'shadows-four-point-on-200': { kind: 'shadows-four-point-on', n: 200 },
+      ...SPOT_PAIR,
       'blended-characters-50': { kind: 'blended-characters', n: 50 },
       'blended-characters-200': { kind: 'blended-characters', n: 200 },
     })
@@ -36,10 +43,12 @@ describe('SWEEP', () => {
 
   it('runs the scenarios in sweep order, and every one has a plan', () => {
     expect(SCENARIOS).toEqual(Object.keys(SWEEP))
-    expect(SCENARIOS).toHaveLength(31)
-    expect(new Set(SCENARIOS).size).toBe(31)
-    // Issue #205 CA-25: the blended pair closes the sweep, after the seventeen historical and the twelve shadow scenarios.
-    expect(SCENARIOS.slice(29)).toEqual(['blended-characters-50', 'blended-characters-200'])
+    expect(SCENARIOS).toHaveLength(35)
+    expect(new Set(SCENARIOS).size).toBe(35)
+    // Issue #204 CA-17: the spot pair follows the twelve Sun/Point shadow scenarios.
+    expect(SCENARIOS.slice(29, 33)).toEqual(['shadows-spot-off-50', 'shadows-spot-off-200', 'shadows-spot-on-50', 'shadows-spot-on-200'])
+    // Issue #205 CA-25: the blended pair closes the sweep, after the seventeen historical, the twelve shadow and the four spot scenarios.
+    expect(SCENARIOS.slice(33)).toEqual(['blended-characters-50', 'blended-characters-200'])
     for (const name of SCENARIOS) expect(PLAN_BY_KIND[SWEEP[name].kind]).toBeTypeOf('function')
   })
 })

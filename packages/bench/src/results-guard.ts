@@ -108,7 +108,7 @@ function backendAt(fields: Fields): ScenarioResult['backend'] {
 function parseShadow(value: unknown): ShadowWorkloadInfo {
   const fields = record(value, 'shadow')
   const composition = fields.composition
-  if (composition !== 'sun' && composition !== 'point' && composition !== 'four-point') {
+  if (composition !== 'sun' && composition !== 'point' && composition !== 'four-point' && composition !== 'spot') {
     throw new Error('bench: invalid result: shadow.composition')
   }
   const quality = fields.quality
