@@ -27,6 +27,10 @@ const SHADOW_CASES = [
   ['shadows-four-point-off-200', 'four-point', false, 'off', 200, 4],
   ['shadows-four-point-on-50', 'four-point', true, 'medium', 50, 4],
   ['shadows-four-point-on-200', 'four-point', true, 'medium', 200, 4],
+  ['shadows-spot-off-50', 'spot', false, 'off', 50, 1],
+  ['shadows-spot-off-200', 'spot', false, 'off', 200, 1],
+  ['shadows-spot-on-50', 'spot', true, 'medium', 50, 1],
+  ['shadows-spot-on-200', 'spot', true, 'medium', 200, 1],
 ] as const
 
 function result(backend: ScenarioResult['backend'] = 'webgl2', scenario: ScenarioName = 'static-sprites-1000'): ScenarioResult {

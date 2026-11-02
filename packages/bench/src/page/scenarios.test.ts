@@ -17,14 +17,18 @@ describe('shadow scenarios in the benchmark sweep', () => {
       'shadows-point-off-50', 'shadows-point-off-200', 'shadows-point-on-50', 'shadows-point-on-200',
       'shadows-four-point-off-50', 'shadows-four-point-off-200', 'shadows-four-point-on-50', 'shadows-four-point-on-200',
     ])
+    // Issue #204 CA-17: one spot pair with the same 50/200 casters, after them and before the blended pair.
+    expect(SCENARIOS.slice(29, 33)).toEqual([
+      'shadows-spot-off-50', 'shadows-spot-off-200', 'shadows-spot-on-50', 'shadows-spot-on-200',
+    ])
   })
 
   it('resolves every shadow id to its authored composition, activation and workload size', () => {
     const names = SCENARIOS.filter((candidate) => candidate.startsWith('shadows-'))
-    expect(names).toHaveLength(12)
+    expect(names).toHaveLength(16)
     for (const name of names) {
       const plan = planFor(name)
-      const composition = name.includes('four-point') ? 'four-point' : name.includes('sun') ? 'sun' : 'point'
+      const composition = name.includes('four-point') ? 'four-point' : name.includes('spot') ? 'spot' : name.includes('sun') ? 'sun' : 'point'
       const enabled = name.includes('-on-')
       expect(plan.shadow).toEqual({
         composition, enabled, quality: enabled ? 'medium' : 'off',

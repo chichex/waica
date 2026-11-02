@@ -26,11 +26,11 @@ it never modifies another remote checkout. An inaccessible host is not a pass.
 
 ## Shadow workloads
 
-The historical 17 workloads remain, plus twelve paired shadow cases: 50/200 casters,
-one Sun / one PointLight / four PointLights, each with an Off control that preserves
+The historical 17 workloads remain, plus sixteen paired shadow cases: 50/200 casters,
+one Sun / one PointLight / four PointLights / one SpotLight, each with an Off control that preserves
 the exact lights, illumination, content, camera and input. At least one caster is
-an animated glTF. Medium/40 is the active configuration; Sun maps 2048² and Point
-512² per face. Five render-only warmup frames stay outside the measured window of
+an animated glTF. Medium/40 is the active configuration; Sun maps 2048², Spot 1024²
+(one perspective view) and Point 512² per face. Five render-only warmup frames stay outside the measured window of
 60 GPU-synchronized Simulation Steps. Results carry the actual backend/adapter,
 quality, lights and casters. Pair timing deltas are informational.
 
@@ -61,6 +61,17 @@ a retained GPU leak. Actual program counts and all texture, target, buffer,
 geometry and non-source storage counters must match equivalent checkpoints.
 The original real leak (program count 19→21) was corrected by retiring clone-local
 Object3D render state, without disposing cached glTF geometry/materials.
+
+### Spot pair (issue #204)
+
+`shadows-spot-{off,on}-{50,200}` reuse the Sun and Point pairs' casters, receiver,
+camera and ambient light; only the light differs: one SpotLight at (0, 10, 0)
+pointing down, angle 55°, distance 30, whose cone and shadow range (the lower of
+`distance` and the scene's 40, measured along the cone's axis) cover every caster.
+WebGL2 counters at Medium: 101 and 401 draw calls with 50 and 200 casters, one
+shadow view over the 51 and 201 meshes, against 51 and 201 with shadows Off. The
+baselines were recorded with `pnpm bench --backend=webgl2 --update-baseline`, then
+`--check` matched every counter in a second run of the same commit.
 
 ### Recorded WebGL2 run
 

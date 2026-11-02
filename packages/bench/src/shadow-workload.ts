@@ -4,7 +4,7 @@ export const SHADOW_RESOURCE_SCENARIO = 'shadows-sun-on-50'
 
 /** Authored shadow workload metadata, safe to import from Node or the page. */
 export interface ShadowWorkloadInfo {
-  composition: 'sun' | 'point' | 'four-point'
+  composition: 'sun' | 'point' | 'four-point' | 'spot'
   enabled: boolean
   quality: 'off' | 'medium'
   casters: number

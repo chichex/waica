@@ -37,6 +37,10 @@ const SHADOW_CASES = [
   ['shadows-four-point-off-200', 'four-point', false, 'off', 200, 4],
   ['shadows-four-point-on-50', 'four-point', true, 'medium', 50, 4],
   ['shadows-four-point-on-200', 'four-point', true, 'medium', 200, 4],
+  ['shadows-spot-off-50', 'spot', false, 'off', 50, 1],
+  ['shadows-spot-off-200', 'spot', false, 'off', 200, 1],
+  ['shadows-spot-on-50', 'spot', true, 'medium', 50, 1],
+  ['shadows-spot-on-200', 'spot', true, 'medium', 200, 1],
 ] as const
 
 function matrixResult(scenario: ScenarioName, backend: ScenarioResult['backend'] = 'webgl2'): ScenarioResult {
@@ -103,6 +107,15 @@ const measured = { ...valid, scenario: 'shadows-four-point-on-200', timings: { .
 
 it.each(SCENARIOS.filter((scenario) => scenario.startsWith('shadows-')))('requires workload metadata for %s', (scenario) => {
   expect(() => parseScenarioResult({ ...valid, scenario, timings: { ...valid.timings, frames: 60 } })).toThrow(/shadow/)
+})
+
+it('accepts the spot composition on its own workload and rejects it anywhere else (issue #204 CA-17)', () => {
+  const spot = { composition: 'spot', enabled: true, quality: 'medium', casters: 50, lights: 1, warmupFrames: 5, measuredFrames: 60 }
+  const result = { ...valid, scenario: 'shadows-spot-on-50', timings: { ...valid.timings, frames: 60 }, shadow: spot }
+  expect(parseScenarioResult(result)).toEqual(result)
+  expect(() => parseScenarioResult({ ...result, shadow: { ...spot, composition: 'point' } })).toThrow(/shadow/)
+  expect(() => parseScenarioResult({ ...result, shadow: { ...spot, lights: 4 } })).toThrow(/shadow/)
+  expect(() => parseScenarioResult({ ...result, scenario: 'shadows-point-on-50' })).toThrow(/shadow/)
 })
 
 it.each(Object.keys(shadow))('requires shadow.%s when metadata is present', (key) => {

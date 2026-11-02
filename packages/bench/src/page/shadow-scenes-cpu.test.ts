@@ -10,7 +10,7 @@ vi.mock(
     (await import('../../../engine/src/test-renderer.js')).withFakeRenderer(await importOriginal<Record<string, unknown>>()),
 )
 
-import { Animator, Model, PointLight, Sun, THREE, loadScene, type Game } from '@waica/engine'
+import { Animator, Model, PointLight, SpotLight, Sun, THREE, loadScene, type Game } from '@waica/engine'
 import { GltfModelBackend } from '../../../engine/src/assets/model-backend.js'
 import { meshesUnder, ready3dGame, runtimeBridgeOf, use3dTestEnvironment } from '../../../engine/src/test-game-3d.js'
 import { renderFrame, type AnyMesh } from '../../../engine/src/test-sprite-batches.js'
@@ -63,6 +63,30 @@ function casterBounds(game: Game): THREE.Box3[] {
   })
 }
 
+/** Issue #204 CA-17: each spot's shadow volume as the renderer uses it (cone fov, range far) and its cone axis. */
+function spotVolumes(game: Game) {
+  return game.entities.flatMap((entity) => {
+    const component = entity.get(SpotLight)
+    const shadow = component ? game.shadows.prepareSpotCamera(component) : null
+    if (!component?.light || !shadow) return []
+    const volume = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(shadow.projectionMatrix, shadow.matrixWorldInverse))
+    const at = component.light.getWorldPosition(new THREE.Vector3())
+    const axis = component.light.target.getWorldPosition(new THREE.Vector3()).sub(at).normalize()
+    return [{ at, axis, volume, angle: component.angle, range: game.shadows.resolve(component).maxDistance }]
+  })
+}
+
+function spotViolations(point: THREE.Vector3, index: number, spots: ReturnType<typeof spotVolumes>): string[] {
+  return spots.flatMap((spot) => {
+    const way = point.clone().sub(spot.at)
+    return [
+      spot.volume.containsPoint(point) ? [] : [`caster ${index} outside Spot shadow volume`],
+      THREE.MathUtils.radToDeg(way.angleTo(spot.axis)) < spot.angle ? [] : [`caster ${index} outside Spot cone`],
+      way.dot(spot.axis) < spot.range ? [] : [`caster ${index} beyond Spot shadow range`],
+    ].flat()
+  })
+}
+
 function assertCovered(game: Game, bounds: readonly THREE.Box3[]): void {
   const camera = game.camera
   if (!(camera instanceof THREE.PerspectiveCamera)) throw new Error('expected the perspective workload camera')
@@ -83,13 +107,16 @@ function assertCovered(game: Game, bounds: readonly THREE.Box3[]): void {
   // matcher and a world-matrix traversal for each vertex/light combination.
   const violations: string[] = []
   const require = (condition: boolean, detail: string): void => { if (!condition) violations.push(detail) }
+  const spots = spotVolumes(game)
   for (const light of points) require(frustum.containsPoint(light), 'light outside view')
+  for (const spot of spots) require(frustum.containsPoint(spot.at), 'spot outside view')
   for (const [index, box] of bounds.entries()) {
     for (const point of corners(box)) {
       require(frustum.containsPoint(point), `caster ${index} outside view`)
       require(-point.clone().applyMatrix4(camera.matrixWorldInverse).z < 40, `caster ${index} beyond depth 40`)
       for (const sun of suns) require(sun.containsPoint(point), `caster ${index} outside Sun coverage`)
       for (const light of points) require(point.distanceTo(light) < 30, `caster ${index} outside PointLight coverage`)
+      violations.push(...spotViolations(point, index, spots))
     }
   }
   expect(violations).toEqual([])
@@ -122,7 +149,7 @@ function logicalPose(game: Game) {
 
 describe('real glb shadow workload CPU invariants (no GPU)', () => {
   it.each([
-    ['sun', 50], ['sun', 200], ['point', 50], ['point', 200], ['four-point', 50], ['four-point', 200],
+    ['sun', 50], ['sun', 200], ['point', 50], ['point', 200], ['four-point', 50], ['four-point', 200], ['spot', 50], ['spot', 200],
   ] as const)('keeps all %s/%i casters visible, covered and pose-identical through the measured frames', async (composition, n) => {
     const off = await readyWorkload(composition, n, false)
     const on = await readyWorkload(composition, n, true)
@@ -150,7 +177,7 @@ describe('real glb shadow workload CPU invariants (no GPU)', () => {
       expect(defined(skin).skeleton.bones.map((bone) => bone.quaternion.toArray())).not.toEqual(initial)
       expect(on.bridge.inspect().simulationTime).toBe(1)
       expect(off.bridge.inspect().simulationTime).toBe(1)
-      const lights = on.game.entities.flatMap((entity) => entity.get(Sun)?.light ?? entity.get(PointLight)?.light ?? [])
+      const lights = on.game.entities.flatMap((entity) => entity.get(Sun)?.light ?? entity.get(PointLight)?.light ?? entity.get(SpotLight)?.light ?? [])
       expect(lights).toHaveLength(composition === 'four-point' ? 4 : 1)
       expect(lights.every((light) => light.visible && light.castShadow && light.intensity > 0)).toBe(true)
     } finally {
