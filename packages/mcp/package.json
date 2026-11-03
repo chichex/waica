@@ -34,7 +34,7 @@
     "playwright-core": "^1.64.1"
   },
   "devDependencies": {
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "@waica/editor": "workspace:^"
   }
 }
