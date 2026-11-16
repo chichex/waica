@@ -1,3 +1,5 @@
+/* Design tokens: the editor's colors, type, corners, elevation and motion. Rules
+   below reference them; see ../DESIGN_SYSTEM.md for what each one is for. */
 :root {
   --bg: #101018;
   --bg-panel: #14141f;
@@ -12,6 +14,96 @@
   /* Editing-context accents: scene/instance = amber, prefab = violet, ui = green. */
   --ctx-prefab: #8d79f0;
   --ctx-ui: #06d6a0;
+
+  /* Surfaces and lines beyond the base palette. */
+  --bg-field: #0e0e16;
+  --bg-stage: #1a1a2e;
+  --bg-overlay: rgba(20, 20, 31, 0.85);
+  --bg-inset: #00000055;
+  --bg-label: #000a;
+  --checker-dark: #16161f;
+  --scrim: rgba(6, 6, 12, 0.72);
+  --scrim-strong: #05050bcc;
+  --hover-tint: #ffffff0d;
+  --badge-tint: #ffffff12;
+  --cell-line: rgba(255, 255, 255, 0.18);
+  --cell-text: rgba(255, 255, 255, 0.45);
+  --text-on-accent: #14141f;
+  --ok: #06d6a0;
+  /* Accent tints: selection, drop zones, the scene context and warnings. */
+  --accent-tint-faint: #ffb70311;
+  --accent-tint: #ffb70322;
+  --accent-edge: #ffb70355;
+  --accent-marquee: rgba(255, 183, 3, 0.08);
+  --accent-warn-bg: rgba(255, 183, 3, 0.09);
+  --accent-warn-line: rgba(255, 183, 3, 0.5);
+  --accent-cell-drawing: rgba(255, 183, 3, 0.12);
+  --accent-cell-hover: rgba(255, 183, 3, 0.18);
+  --accent-cell-on: rgba(255, 183, 3, 0.28);
+  --accent-2-tint: #8ecae622;
+  --ctx-prefab-tint: #8d79f022;
+  --ctx-prefab-frame: #8d79f055;
+  --ctx-prefab-edge: #8d79f0aa;
+  --ctx-ui-tint: #06d6a022;
+  --ctx-ui-edge: #06d6a066;
+  --danger-tint: #e6394611;
+  --danger-line: #e6394655;
+
+  /* Typography. */
+  --font-sans: system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, monospace;
+  --font-mono-code: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-size-8: 8px;
+  --font-size-9: 9px;
+  --font-size-10: 10px;
+  --font-size-11: 11px;
+  --font-size-11-5: 11.5px;
+  --font-size-12: 12px;
+  --font-size-12-5: 12.5px;
+  --font-size-13: 13px;
+  --font-size-14: 14px;
+  --font-size-15: 15px;
+  --font-size-16: 16px;
+  --font-size-18: 18px;
+  --font-size-22: 22px;
+  --font-size-26: 26px;
+  --font-size-40: 40px;
+  --weight-regular: 400;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --leading: 1.45;
+  --leading-snug: 1.35;
+  --tracking-title: 0.04em;
+  --tracking-badge: 0.05em;
+  --tracking-label: 0.06em;
+  --tracking-label-wide: 0.08em;
+
+  /* Corners. */
+  --radius-3: 3px;
+  --radius-4: 4px;
+  --radius-5: 5px;
+  --radius-6: 6px;
+  --radius-7: 7px;
+  --radius-8: 8px;
+  --radius-9: 9px;
+  --radius-10: 10px;
+  --radius-12: 12px;
+  --radius-14: 14px;
+  --radius-16: 16px;
+  --radius-99: 99px;
+  --radius-pill: 999px;
+  --radius-circle: 50%;
+
+  /* Elevation and motion. */
+  --shadow-modal: 0 18px 60px rgba(0, 0, 0, 0.55);
+  --shadow-menu: 0 12px 32px #00000073;
+  --shadow-cell-text: 0 1px 2px rgba(0, 0, 0, 0.8);
+  --z-sticky: 1;
+  --z-picker: 10;
+  --z-marquee: 40;
+  --z-menu: 100;
+  --z-modal: 10000;
+  --duration-fast: 0.15s;
 }
 
 * {
@@ -25,7 +117,7 @@ body,
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font: 14px/1.45 system-ui, -apple-system, sans-serif;
+  font: var(--font-size-14)/var(--leading) var(--font-sans);
 }
 
 button,
@@ -44,14 +136,14 @@ select {
 }
 
 .home-hero h1 {
-  font-size: 40px;
+  font-size: var(--font-size-40);
   margin: 0 0 8px;
 }
 
 .home-hero p {
   color: var(--text-dim);
   margin: 0 0 36px;
-  font-size: 16px;
+  font-size: var(--font-size-16);
 }
 
 .home-resume {
@@ -62,11 +154,11 @@ select {
   text-align: left;
   margin: 0 0 14px;
   padding: 16px 20px;
-  border-radius: 14px;
+  border-radius: var(--radius-14);
   border: 1px solid var(--accent);
   background: var(--bg-panel);
   cursor: pointer;
-  transition: transform 0.15s;
+  transition: transform var(--duration-fast);
 }
 
 .home-resume:hover {
@@ -81,7 +173,7 @@ select {
 
 .home-resume-text span {
   color: var(--text-dim);
-  font-size: 13px;
+  font-size: var(--font-size-13);
 }
 
 .home-cards {
@@ -97,11 +189,11 @@ select {
   gap: 8px;
   text-align: left;
   padding: 20px;
-  border-radius: 14px;
+  border-radius: var(--radius-14);
   border: 1px solid var(--line);
   background: var(--bg-panel);
   cursor: pointer;
-  transition: border-color 0.15s, transform 0.15s;
+  transition: border-color var(--duration-fast), transform var(--duration-fast);
 }
 
 .home-card:hover:not(:disabled) {
@@ -115,19 +207,19 @@ select {
 }
 
 .home-card-icon {
-  font-size: 26px;
+  font-size: var(--font-size-26);
 }
 
 .home-card span:last-child {
   color: var(--text-dim);
-  font-size: 13px;
+  font-size: var(--font-size-13);
 }
 
 .home-warn,
 .home-busy {
   margin-top: 22px;
   color: var(--text-dim);
-  font-size: 13px;
+  font-size: var(--font-size-13);
 }
 
 .home-recents {
@@ -135,9 +227,9 @@ select {
 }
 
 .home-recents h2 {
-  font-size: 14px;
+  font-size: var(--font-size-14);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-label-wide);
   color: var(--text-dim);
 }
 
@@ -146,7 +238,7 @@ select {
   align-items: stretch;
   width: 100%;
   margin: 6px 0;
-  border-radius: 10px;
+  border-radius: var(--radius-10);
   border: 1px solid var(--line);
   background: var(--bg-panel);
 }
@@ -160,7 +252,7 @@ select {
   text-align: left;
   padding: 10px 14px;
   border: none;
-  border-radius: 10px 0 0 10px;
+  border-radius: var(--radius-10) 0 0 var(--radius-10);
   background: transparent;
   cursor: pointer;
 }
@@ -176,18 +268,18 @@ select {
 
 .home-recent-delete {
   border-radius: 0;
-  font-size: 13px;
+  font-size: var(--font-size-13);
   opacity: 0.7;
 }
 
 .home-recent-remove {
-  border-radius: 0 10px 10px 0;
+  border-radius: 0 var(--radius-10) var(--radius-10) 0;
 }
 
 /* The 🗑 glyph ignores `color`, so its hover reads as the danger tint the
    rest of the editor uses for destructive actions. */
 .home-recent-delete:hover:not(:disabled) {
-  background: #e6394611;
+  background: var(--danger-tint);
   opacity: 1;
 }
 
@@ -207,12 +299,12 @@ select {
 .picker-backdrop {
   position: fixed;
   inset: 0;
-  background: #05050bcc;
+  background: var(--scrim-strong);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
-  z-index: 10;
+  z-index: var(--z-picker);
 }
 
 .picker {
@@ -221,7 +313,7 @@ select {
   overflow-y: auto;
   background: var(--bg-panel);
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: var(--radius-16);
   padding: 18px 20px 20px;
 }
 
@@ -238,7 +330,7 @@ select {
   gap: 4px;
   padding: 4px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-10);
   background: var(--bg);
   margin-bottom: 14px;
 }
@@ -246,10 +338,10 @@ select {
 .picker-dim {
   padding: 5px 18px;
   border: none;
-  border-radius: 7px;
+  border-radius: var(--radius-7);
   background: transparent;
   color: var(--text-dim);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   cursor: pointer;
 }
 
@@ -271,11 +363,11 @@ select {
   gap: 6px;
   text-align: left;
   padding: 14px;
-  border-radius: 12px;
+  border-radius: var(--radius-12);
   border: 1px solid var(--line);
   background: var(--bg-panel-2);
   cursor: pointer;
-  transition: border-color 0.15s, transform 0.15s;
+  transition: border-color var(--duration-fast), transform var(--duration-fast);
 }
 
 .picker-card:hover:not(:disabled) {
@@ -289,21 +381,21 @@ select {
 }
 
 .picker-card-icon {
-  font-size: 22px;
+  font-size: var(--font-size-22);
 }
 
 .picker-card span:last-child {
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--font-size-12);
 }
 
 .picker-chip {
   font-style: normal;
-  font-size: 10px;
+  font-size: var(--font-size-10);
   margin-left: 6px;
   padding: 1px 7px;
-  border-radius: 99px;
-  background: #ffb70322;
+  border-radius: var(--radius-99);
+  background: var(--accent-tint);
   color: var(--accent);
   vertical-align: middle;
   white-space: nowrap;
@@ -312,13 +404,13 @@ select {
 .picker-foot {
   margin: 14px 0 0;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--font-size-12);
 }
 
 .picker-name label {
   display: block;
   color: var(--text-dim);
-  font-size: 13px;
+  font-size: var(--font-size-13);
 }
 
 .picker-name input {
@@ -327,9 +419,9 @@ select {
   margin-top: 8px;
   padding: 9px 12px;
   border: 1px solid var(--line);
-  border-radius: 9px;
-  background: #0e0e16;
-  font-size: 15px;
+  border-radius: var(--radius-9);
+  background: var(--bg-field);
+  font-size: var(--font-size-15);
 }
 
 .picker-name input:focus {
@@ -340,7 +432,7 @@ select {
 .picker-name-err {
   margin: 8px 0 0;
   color: var(--danger);
-  font-size: 12px;
+  font-size: var(--font-size-12);
 }
 
 .picker-start {
@@ -357,11 +449,11 @@ select {
   gap: 6px;
   text-align: left;
   padding: 12px 14px;
-  border-radius: 12px;
+  border-radius: var(--radius-12);
   border: 1px solid var(--line);
   background: var(--bg-panel-2);
   cursor: pointer;
-  transition: border-color 0.15s;
+  transition: border-color var(--duration-fast);
 }
 
 .picker-start-card.is-on {
@@ -370,13 +462,13 @@ select {
 
 .picker-start-card span:last-child {
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--font-size-12);
 }
 
 .picker-name-hint {
   margin: 10px 0 0;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--font-size-12);
 }
 
 .picker-name-hint code {
@@ -392,11 +484,11 @@ select {
 
 .picker-create {
   padding: 8px 18px;
-  border-radius: 9px;
+  border-radius: var(--radius-9);
   border: 1px solid var(--accent);
   background: var(--accent);
-  color: #14141f;
-  font-weight: 700;
+  color: var(--text-on-accent);
+  font-weight: var(--weight-bold);
   cursor: pointer;
 }
 
@@ -423,7 +515,7 @@ select {
 }
 
 .ed-brand {
-  font-weight: 700;
+  font-weight: var(--weight-bold);
 }
 
 .ed-project {
@@ -432,11 +524,11 @@ select {
 
 .ed-demo-chip {
   font-style: normal;
-  font-size: 11px;
+  font-size: var(--font-size-11);
   margin-left: 8px;
   padding: 2px 8px;
-  border-radius: 99px;
-  background: #8ecae622;
+  border-radius: var(--radius-99);
+  background: var(--accent-2-tint);
   color: var(--accent-2);
 }
 
@@ -446,7 +538,7 @@ select {
 
 .ed-scene-select {
   padding: 6px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-8);
   border: 1px solid var(--line);
   background: var(--bg-panel);
   cursor: pointer;
@@ -463,11 +555,11 @@ select {
 
 .ed-play {
   padding: 6px 16px;
-  border-radius: 8px;
+  border-radius: var(--radius-8);
   border: 1px solid var(--accent);
   background: var(--accent);
-  color: #14141f;
-  font-weight: 700;
+  color: var(--text-on-accent);
+  font-weight: var(--weight-bold);
   cursor: pointer;
 }
 
@@ -477,7 +569,7 @@ select {
 }
 
 .ed-save {
-  font-size: 12px;
+  font-size: var(--font-size-12);
   color: var(--text-dim);
 }
 
@@ -514,7 +606,7 @@ select {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: #1a1a2e;
+  background: var(--bg-stage);
 }
 
 /* Breadcrumb over the center pane: what you're editing, and the way back. */
@@ -527,19 +619,19 @@ select {
   padding: 4px 10px;
   background: var(--bg-panel-2);
   border-bottom: 1px solid var(--line);
-  font-size: 12.5px;
+  font-size: var(--font-size-12-5);
 }
 
 .ed-crumbs.is-ctx-scene {
-  box-shadow: inset 0 -2px 0 #ffb70355;
+  box-shadow: inset 0 -2px 0 var(--accent-edge);
 }
 
 .ed-crumbs.is-ctx-prefab {
-  box-shadow: inset 0 -2px 0 #8d79f0aa;
+  box-shadow: inset 0 -2px 0 var(--ctx-prefab-edge);
 }
 
 .ed-crumbs.is-ctx-ui {
-  box-shadow: inset 0 -2px 0 #06d6a066;
+  box-shadow: inset 0 -2px 0 var(--ctx-ui-edge);
 }
 
 .ed-crumb {
@@ -548,10 +640,10 @@ select {
   gap: 5px;
   padding: 3px 8px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-6);
   background: transparent;
   color: var(--text-dim);
-  font-size: 12.5px;
+  font-size: var(--font-size-12-5);
   white-space: nowrap;
 }
 
@@ -560,13 +652,13 @@ button.ed-crumb {
 }
 
 button.ed-crumb:hover {
-  background: #ffffff0d;
+  background: var(--hover-tint);
   color: var(--text);
 }
 
 .ed-crumb.is-current {
   color: var(--text);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -582,7 +674,7 @@ button.ed-crumb:hover {
 .ed-crumb-sep {
   color: var(--text-dim);
   opacity: 0.6;
-  font-size: 10px;
+  font-size: var(--font-size-10);
   flex: none;
 }
 
@@ -590,12 +682,12 @@ button.ed-crumb:hover {
   flex: none;
   margin-left: 6px;
   padding: 1px 8px;
-  border-radius: 99px;
-  font-size: 11px;
+  border-radius: var(--radius-99);
+  font-size: var(--font-size-11);
 }
 
 .ed-crumb-chip.is-prefab {
-  background: #8d79f022;
+  background: var(--ctx-prefab-tint);
   color: var(--ctx-prefab);
 }
 
@@ -614,7 +706,7 @@ button.ed-crumb:hover {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  box-shadow: inset 0 0 0 2px #8d79f055;
+  box-shadow: inset 0 0 0 2px var(--ctx-prefab-frame);
 }
 
 .ed-vp-hint {
@@ -624,7 +716,7 @@ button.ed-crumb:hover {
   align-items: center;
   justify-content: center;
   color: var(--text-dim);
-  font-size: 13px;
+  font-size: var(--font-size-13);
   opacity: 0.7;
   text-align: center;
   padding: 0 24px;
@@ -680,10 +772,10 @@ button.ed-crumb:hover {
   width: 30px;
   height: 30px;
   border: 1px solid var(--line);
-  border-radius: 6px;
-  background: rgba(20, 20, 31, 0.85);
+  border-radius: var(--radius-6);
+  background: var(--bg-overlay);
   color: var(--text);
-  font-size: 14px;
+  font-size: var(--font-size-14);
   line-height: 1;
   cursor: pointer;
 }
@@ -723,17 +815,17 @@ button.ed-crumb:hover {
   align-items: center;
   gap: 2px;
   color: var(--text-dim);
-  font-size: 13px;
+  font-size: var(--font-size-13);
 }
 
 .ed-vp-tools input {
   width: 56px;
   height: 30px;
   border: 1px solid var(--line);
-  border-radius: 6px;
-  background: rgba(20, 20, 31, 0.85);
+  border-radius: var(--radius-6);
+  background: var(--bg-overlay);
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--font-size-12);
   padding: 0 6px;
 }
 
@@ -756,9 +848,9 @@ button.ed-crumb:hover {
   min-width: 240px;
   min-height: 130px;
   padding: 24px;
-  border-radius: 10px;
+  border-radius: var(--radius-10);
   border: 1px solid var(--line);
-  background: repeating-conic-gradient(#1d1d2b 0% 25%, #16161f 0% 50%) 0 0 / 22px 22px;
+  background: repeating-conic-gradient(var(--bg-panel-2) 0% 25%, var(--checker-dark) 0% 50%) 0 0 / 22px 22px;
 }
 
 .ed-checker img {
@@ -768,7 +860,7 @@ button.ed-crumb:hover {
 }
 
 .ed-art-caption {
-  font-size: 12px;
+  font-size: var(--font-size-12);
   color: var(--text-dim);
 }
 
@@ -777,11 +869,11 @@ button.ed-crumb:hover {
 .ed-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 10000;
+  z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(6, 6, 12, 0.72);
+  background: var(--scrim);
 }
 
 .ed-modal {
@@ -790,9 +882,9 @@ button.ed-crumb:hover {
   width: min(920px, 92vw);
   max-height: 88vh;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-12);
   background: var(--bg-panel);
-  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+  box-shadow: var(--shadow-modal);
 }
 
 .ed-modal-head {
@@ -801,9 +893,9 @@ button.ed-crumb:hover {
   justify-content: space-between;
   padding: 10px 14px;
   border-bottom: 1px solid var(--line);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-size: var(--font-size-12);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-title);
 }
 
 .ed-modal-body {
@@ -830,23 +922,23 @@ button.ed-crumb:hover {
 
 .ed-primary {
   padding: 5px 16px;
-  border-radius: 6px;
+  border-radius: var(--radius-6);
   border: 1px solid var(--accent);
   background: var(--accent);
-  color: #14141f;
-  font-weight: 700;
-  font-size: 12px;
+  color: var(--text-on-accent);
+  font-weight: var(--weight-bold);
+  font-size: var(--font-size-12);
 }
 
 .ed-wide {
   width: 100%;
   margin-top: 6px;
   padding: 6px;
-  border-radius: 6px;
+  border-radius: var(--radius-6);
   border: 1px solid var(--line);
   background: transparent;
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--font-size-12);
 }
 
 .ed-warn {
@@ -857,12 +949,12 @@ button.ed-crumb:hover {
 .ed-warn-card {
   margin: 6px 0;
   padding: 8px 10px;
-  border: 1px solid rgba(255, 183, 3, 0.5);
-  border-radius: 8px;
-  background: rgba(255, 183, 3, 0.09);
+  border: 1px solid var(--accent-warn-line);
+  border-radius: var(--radius-8);
+  background: var(--accent-warn-bg);
   color: var(--gold);
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: var(--font-size-12);
+  line-height: var(--leading);
 }
 
 .ed-anim-picker {
@@ -871,7 +963,7 @@ button.ed-crumb:hover {
   gap: 10px;
   padding: 14px;
   border: 1px dashed var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-10);
 }
 
 .ed-anim-picker.is-dropping {
@@ -888,10 +980,10 @@ button.ed-crumb:hover {
   width: 100%;
   padding: 5px 8px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-6);
   background: transparent;
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--font-size-12);
 }
 
 .ed-art-search:focus {
@@ -903,7 +995,7 @@ button.ed-crumb:hover {
 .ed-panel .ed-art-search {
   width: auto;
   margin: 2px 8px 6px;
-  font-size: 11px;
+  font-size: var(--font-size-11);
   display: block;
 }
 
@@ -919,7 +1011,7 @@ button.ed-crumb:hover {
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 4px;
-  font-size: 11px;
+  font-size: var(--font-size-11);
   color: var(--text-dim);
 }
 
@@ -940,10 +1032,10 @@ button.ed-crumb:hover {
   gap: 4px;
   padding: 8px 4px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-8);
   background: transparent;
   color: var(--text-dim);
-  font-size: 10px;
+  font-size: var(--font-size-10);
 }
 
 .ed-anim-thumb img {
@@ -962,7 +1054,7 @@ button.ed-crumb:hover {
 /* Art pickers group thumbs under one header per folder. */
 .ed-art-group-head {
   margin-bottom: 6px;
-  font-size: 11px;
+  font-size: var(--font-size-11);
   color: var(--text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -978,7 +1070,7 @@ button.ed-crumb:hover {
   margin-top: 6px;
   padding: 6px 8px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-8);
   background: none;
   color: inherit;
   font: inherit;
@@ -1002,7 +1094,7 @@ button.ed-crumb:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: var(--font-size-11);
   color: var(--text-dim);
 }
 
@@ -1034,7 +1126,7 @@ button.ed-crumb:hover {
 
 .ed-row.ed-anim-slicerow span {
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--font-size-11);
 }
 
 .ed-row.ed-anim-slicerow input[type='number'] {
@@ -1066,23 +1158,23 @@ button.ed-crumb:hover {
 }
 
 .ed-sheet-cell {
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid var(--cell-line);
   background: transparent;
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 10px;
+  color: var(--cell-text);
+  font-size: var(--font-size-10);
   padding: 0;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  text-shadow: var(--shadow-cell-text);
 }
 
 .ed-sheet-cell:hover {
-  background: rgba(255, 183, 3, 0.18);
+  background: var(--accent-cell-hover);
 }
 
 .ed-sheet-cell.is-on {
   border-color: var(--accent);
-  background: rgba(255, 183, 3, 0.28);
+  background: var(--accent-cell-on);
   color: var(--accent);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
 }
 
 /* Explicit-cells overlay: detected/hand-drawn frame rects over the image. */
@@ -1120,7 +1212,7 @@ button.ed-crumb:hover {
 
 .ed-sheet-cellbox.is-drawing {
   border: 1px dashed var(--accent);
-  background: rgba(255, 183, 3, 0.12);
+  background: var(--accent-cell-drawing);
   pointer-events: none;
 }
 
@@ -1132,10 +1224,10 @@ button.ed-crumb:hover {
   height: 14px;
   padding: 0;
   border: 1px solid var(--line);
-  border-radius: 50%;
-  background: #14141f;
+  border-radius: var(--radius-circle);
+  background: var(--bg-panel);
   color: var(--text-dim);
-  font-size: 8px;
+  font-size: var(--font-size-8);
   line-height: 1;
   cursor: pointer;
 }
@@ -1150,7 +1242,7 @@ button.ed-crumb:hover {
   width: 8px;
   height: 8px;
   border: 1px solid var(--accent);
-  background: #14141f;
+  background: var(--bg-panel);
 }
 
 .ed-cell-handle.is-nw {
@@ -1193,9 +1285,9 @@ button.ed-crumb:hover {
 /* Viewport marquee selection (Cmd/Ctrl-drag on empty space). */
 .ed-marquee {
   position: fixed;
-  z-index: 40;
+  z-index: var(--z-marquee);
   border: 1px dashed var(--accent);
-  background: rgba(255, 183, 3, 0.08);
+  background: var(--accent-marquee);
   pointer-events: none;
 }
 
@@ -1203,7 +1295,7 @@ button.ed-crumb:hover {
   margin: 8px 0;
   padding: 6px 8px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-8);
 }
 
 .ed-clip.is-active {
@@ -1214,7 +1306,7 @@ button.ed-crumb:hover {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
+  font-size: var(--font-size-11);
   color: var(--text-dim);
 }
 
@@ -1242,11 +1334,11 @@ button.ed-crumb:hover {
 
 .ed-frame-chip {
   padding: 2px 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--line);
-  background: #0e0e16;
+  background: var(--bg-field);
   color: var(--text);
-  font-size: 11px;
+  font-size: var(--font-size-11);
 }
 
 .ed-frame-chip.is-invalid {
@@ -1280,7 +1372,7 @@ button.ed-crumb:hover {
 }
 
 .ed-clip-ok {
-  color: #06d6a0;
+  color: var(--ok);
 }
 
 .ed-clip-missing {
@@ -1299,21 +1391,21 @@ button.ed-crumb:hover {
   justify-content: space-between;
   gap: 8px;
   padding: 9px 12px;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--font-size-11);
+  font-weight: var(--weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-label-wide);
   color: var(--text-dim);
   position: sticky;
   top: 0;
   background: var(--bg-panel);
-  z-index: 1;
+  z-index: var(--z-sticky);
 }
 
 .ed-hint {
   color: var(--text-dim);
-  font-size: 12px;
-  font-weight: 400;
+  font-size: var(--font-size-12);
+  font-weight: var(--weight-regular);
   text-transform: none;
   letter-spacing: 0;
 }
@@ -1324,11 +1416,11 @@ button.ed-crumb:hover {
 
 .ed-mini {
   padding: 3px 9px;
-  border-radius: 6px;
+  border-radius: var(--radius-6);
   border: 1px solid var(--line);
   background: var(--bg-panel-2);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--font-size-12);
 }
 
 .ed-mini:hover:not(:disabled) {
@@ -1369,20 +1461,20 @@ button.ed-crumb:hover {
   margin: 0 8px;
   padding: 4px 8px;
   border: none;
-  border-radius: 7px;
+  border-radius: var(--radius-7);
   background: transparent;
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--font-size-13);
   text-align: left;
   cursor: pointer;
 }
 
 .ed-x-item:hover {
-  background: #ffffff0d;
+  background: var(--hover-tint);
 }
 
 .ed-x-item.is-selected {
-  background: #ffb70322;
+  background: var(--accent-tint);
   color: var(--gold);
 }
 
@@ -1400,19 +1492,19 @@ button.ed-crumb:hover {
   width: 12px;
   flex: none;
   color: var(--text-dim);
-  font-size: 10px;
+  font-size: var(--font-size-10);
 }
 
 /* "starts visible in the open scene" marker on UI piece rows */
 .ed-x-flag {
   margin-left: auto;
   color: var(--gold);
-  font-size: 8px;
+  font-size: var(--font-size-8);
 }
 
 .ed-x-subtree {
   margin: 2px 0 4px;
-  transition: opacity 0.15s;
+  transition: opacity var(--duration-fast);
 }
 
 /* The center pane is showing something else: the scene isn't what you're editing. */
@@ -1428,7 +1520,7 @@ button.ed-crumb:hover {
   margin-left: 28px;
   width: calc(100% - 36px);
   padding: 3px 8px;
-  font-size: 12.5px;
+  font-size: var(--font-size-12-5);
 }
 
 /* entities grouped in a folder: one more indent step */
@@ -1441,7 +1533,7 @@ button.ed-crumb:hover {
 .ed-x-count {
   margin-left: auto;
   color: var(--text-dim);
-  font-size: 10px;
+  font-size: var(--font-size-10);
 }
 
 /* inline rename (double-click / F2) */
@@ -1456,8 +1548,8 @@ button.ed-crumb:hover {
   min-width: 0;
   padding: 1px 5px;
   border: 1px solid var(--accent);
-  border-radius: 4px;
-  background: #00000055;
+  border-radius: var(--radius-4);
+  background: var(--bg-inset);
   color: var(--text);
   font: inherit;
   outline: none;
@@ -1481,7 +1573,7 @@ button.ed-crumb:hover {
 .ed-x-dropend {
   height: 12px;
   margin: 0 8px 0 28px;
-  border-radius: 6px;
+  border-radius: var(--radius-6);
 }
 
 .ed-x-dropend.is-drop-before {
@@ -1491,17 +1583,17 @@ button.ed-crumb:hover {
 .ed-x-group-head {
   margin: 2px 12px 2px;
   color: var(--text-dim);
-  font-size: 10px;
-  font-weight: 700;
+  font-size: var(--font-size-10);
+  font-weight: var(--weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-label-wide);
 }
 
 .ed-x-empty {
   margin: 0 8px 6px;
   padding: 4px 8px;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--font-size-12);
   font-style: italic;
 }
 
@@ -1510,7 +1602,7 @@ button.ed-crumb:hover {
   margin: 0 8px 6px;
   padding: 4px 8px;
   color: var(--accent);
-  font-size: 12px;
+  font-size: var(--font-size-12);
 }
 
 /* one nesting step for a recursive folder tree (e.g. the Art panel) */
@@ -1537,10 +1629,10 @@ button.ed-crumb:hover {
   height: 20px;
   padding: 0;
   border: 1px solid var(--line);
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   background: var(--bg-panel-2);
   color: var(--text-dim);
-  font-size: 10px;
+  font-size: var(--font-size-10);
   line-height: 1;
   cursor: pointer;
 }
@@ -1563,7 +1655,7 @@ button.ed-crumb:hover {
 .ed-panel.is-dropping {
   outline: 2px dashed var(--accent);
   outline-offset: -4px;
-  background: #ffb70311;
+  background: var(--accent-tint-faint);
 }
 
 /* context menu */
@@ -1571,7 +1663,7 @@ button.ed-crumb:hover {
 .ed-ctx-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: var(--z-menu);
 }
 
 .ed-ctx {
@@ -1579,9 +1671,9 @@ button.ed-crumb:hover {
   min-width: 170px;
   padding: 5px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-10);
   background: var(--bg-panel-2);
-  box-shadow: 0 12px 32px #00000073;
+  box-shadow: var(--shadow-menu);
 }
 
 .ed-ctx-item {
@@ -1591,16 +1683,16 @@ button.ed-crumb:hover {
   width: 100%;
   padding: 5px 10px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-6);
   background: transparent;
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--font-size-13);
   text-align: left;
   cursor: pointer;
 }
 
 .ed-ctx-item:hover:not(:disabled) {
-  background: #ffffff0d;
+  background: var(--hover-tint);
 }
 
 .ed-ctx-item:disabled {
@@ -1613,7 +1705,7 @@ button.ed-crumb:hover {
 }
 
 .ed-ctx-item.is-danger:hover:not(:disabled) {
-  background: #e6394611;
+  background: var(--danger-tint);
 }
 
 .ed-ctx-sep {
@@ -1640,7 +1732,7 @@ button.ed-crumb:hover {
   padding: 8px 10px;
   border: 1px solid var(--line);
   border-left: 3px solid var(--text-dim);
-  border-radius: 8px;
+  border-radius: var(--radius-8);
   background: var(--bg-panel-2);
 }
 
@@ -1660,8 +1752,8 @@ button.ed-crumb:hover {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: var(--font-size-13);
+  font-weight: var(--weight-bold);
 }
 
 .ed-ins-ctx-name {
@@ -1674,35 +1766,35 @@ button.ed-crumb:hover {
   margin-left: auto;
   flex: none;
   padding: 1px 8px;
-  border-radius: 99px;
-  background: #ffffff12;
+  border-radius: var(--radius-99);
+  background: var(--badge-tint);
   color: var(--text-dim);
-  font-size: 10px;
-  font-weight: 700;
+  font-size: var(--font-size-10);
+  font-weight: var(--weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-badge);
 }
 
 .ed-ins-ctx.is-scene .ed-ins-ctx-badge {
-  background: #ffb70322;
+  background: var(--accent-tint);
   color: var(--accent);
 }
 
 .ed-ins-ctx.is-prefab .ed-ins-ctx-badge {
-  background: #8d79f022;
+  background: var(--ctx-prefab-tint);
   color: var(--ctx-prefab);
 }
 
 .ed-ins-ctx.is-ui .ed-ins-ctx-badge {
-  background: #06d6a022;
+  background: var(--ctx-ui-tint);
   color: var(--ctx-ui);
 }
 
 .ed-ins-ctx-scope {
   margin-top: 4px;
   color: var(--text-dim);
-  font-size: 11.5px;
-  line-height: 1.35;
+  font-size: var(--font-size-11-5);
+  line-height: var(--leading-snug);
 }
 
 /* multi-selection: the picked entities, listed read-only */
@@ -1715,7 +1807,7 @@ button.ed-crumb:hover {
   align-items: center;
   gap: 8px;
   padding: 2px 0;
-  font-size: 12.5px;
+  font-size: var(--font-size-12-5);
 }
 
 /* Bulk override actions on an instance banner: reset all / apply all. */
@@ -1729,10 +1821,10 @@ button.ed-crumb:hover {
   flex: 1;
   padding: 3px 8px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-6);
   background: var(--bg-panel);
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--font-size-12);
   cursor: pointer;
 }
 
@@ -1752,7 +1844,7 @@ button.ed-crumb:hover {
   gap: 8px;
   align-items: center;
   margin: 4px 0;
-  font-size: 13px;
+  font-size: var(--font-size-13);
 }
 
 .ed-row span {
@@ -1784,7 +1876,7 @@ button.ed-crumb:hover {
   width: min(460px, 100%);
   background: var(--bg-panel);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-12);
   padding: 6px 18px 16px;
 }
 
@@ -1799,7 +1891,7 @@ button.ed-crumb:hover {
 
 .ed-keys-row {
   margin: 8px 0;
-  font-size: 13px;
+  font-size: var(--font-size-13);
 }
 
 .ed-keys-action {
@@ -1816,11 +1908,11 @@ button.ed-crumb:hover {
 
 .ed-key-chip,
 .ed-key-add {
-  background: #0e0e16;
+  background: var(--bg-field);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-6);
   padding: 3px 8px;
-  font-size: 12px;
+  font-size: var(--font-size-12);
   cursor: pointer;
 }
 
@@ -1873,19 +1965,19 @@ button.ed-crumb:hover {
 .ed-stat-add input {
   flex: 1;
   min-width: 0;
-  background: #0e0e16;
+  background: var(--bg-field);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-6);
   padding: 4px 7px;
-  font-size: 12px;
+  font-size: var(--font-size-12);
 }
 
 .ed-stat-add select {
-  background: #0e0e16;
+  background: var(--bg-field);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-6);
   padding: 4px;
-  font-size: 12px;
+  font-size: var(--font-size-12);
 }
 
 /* Params with a declared range: label | slider | number. */
@@ -1903,11 +1995,11 @@ button.ed-crumb:hover {
 .ed-row input[type='text'],
 .ed-row select {
   width: 100%;
-  background: #0e0e16;
+  background: var(--bg-field);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-6);
   padding: 4px 7px;
-  font-size: 12px;
+  font-size: var(--font-size-12);
 }
 
 /* Native selects render washed-out on dark backgrounds: draw our own. */
@@ -1966,8 +2058,8 @@ button.ed-crumb:hover {
   grid-column: 2;
   display: grid;
   gap: 2px;
-  font-size: 11px;
-  line-height: 1.35;
+  font-size: var(--font-size-11);
+  line-height: var(--leading-snug);
 }
 
 .ed-param-block > .ed-param-diagnostics {
@@ -1998,10 +2090,10 @@ button.ed-crumb:hover {
   flex: none;
   padding: 0 6px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-6);
   background: var(--bg-panel-2);
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--font-size-11);
   cursor: pointer;
 }
 
@@ -2021,7 +2113,7 @@ button.ed-crumb:hover {
   align-items: center;
   gap: 8px;
   padding: 2px 0;
-  font-size: 12px;
+  font-size: var(--font-size-12);
 }
 
 .ed-clip-override-name {
@@ -2044,11 +2136,11 @@ button.ed-crumb:hover {
 
 .ed-clip-override input[type='number'] {
   width: 56px;
-  background: #0e0e16;
+  background: var(--bg-field);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-6);
   padding: 4px 7px;
-  font-size: 12px;
+  font-size: var(--font-size-12);
 }
 
 .ed-clip-override.is-missing .ed-clip-override-name {
@@ -2060,7 +2152,7 @@ button.ed-crumb:hover {
   margin: 6px 0;
   padding: 6px 8px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-6);
   background: var(--bg-panel-2);
 }
 
@@ -2069,7 +2161,7 @@ button.ed-crumb:hover {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  font-size: 12px;
+  font-size: var(--font-size-12);
   color: var(--text);
 }
 
@@ -2082,7 +2174,7 @@ button.ed-crumb:hover {
   align-items: center;
   gap: 8px;
   padding: 2px 0;
-  font-size: 12px;
+  font-size: var(--font-size-12);
 }
 
 .ed-blend-point label {
@@ -2102,9 +2194,9 @@ button.ed-crumb:hover {
   min-width: 0;
   background: var(--bg);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-6);
   padding: 4px 7px;
-  font-size: 12px;
+  font-size: var(--font-size-12);
   color: var(--text);
 }
 
@@ -2125,22 +2217,22 @@ button.ed-crumb:hover {
   width: 100%;
   height: 26px;
   border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #0e0e16;
+  border-radius: var(--radius-6);
+  background: var(--bg-field);
   padding: 2px;
 }
 
 .ed-obj {
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--font-size-12);
 }
 
 .ed-ro {
-  background: #0e0e16;
+  background: var(--bg-field);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-6);
   padding: 4px 7px;
-  font-size: 12px;
+  font-size: var(--font-size-12);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2155,10 +2247,10 @@ button.ed-crumb:hover {
   margin: 6px 0 2px;
   padding: 2px 8px;
   border: 1px dashed var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-6);
   background: transparent;
   color: var(--text-dim);
-  font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: var(--font-size-12) var(--font-mono-code);
   cursor: pointer;
 }
 
@@ -2171,7 +2263,7 @@ button.ed-crumb:hover {
   display: inline-block;
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   background: var(--accent);
   margin-left: 6px;
   vertical-align: middle;
@@ -2182,10 +2274,10 @@ button.ed-crumb:hover {
   margin-left: 5px;
   padding: 0 5px;
   border: 1px solid var(--line);
-  border-radius: 5px;
+  border-radius: var(--radius-5);
   background: var(--bg-panel-2);
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--font-size-11);
   line-height: 16px;
   cursor: pointer;
   vertical-align: middle;
@@ -2213,9 +2305,9 @@ button.ed-crumb:hover {
   align-items: center;
   justify-content: space-between;
   min-height: 22px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: var(--font-size-11);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--text-dim);
   border-bottom: 1px solid var(--line);
@@ -2286,7 +2378,7 @@ button.ed-crumb:hover {
   margin: 6px 0;
   padding: 6px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-8);
   background: var(--bg-panel-2);
   color: var(--text-dim);
   cursor: pointer;
@@ -2317,7 +2409,7 @@ button.ed-crumb:hover {
   aspect-ratio: 1;
   min-width: 0;
   border: 1px solid var(--line);
-  border-radius: 5px;
+  border-radius: var(--radius-5);
   background-repeat: no-repeat;
   image-rendering: pixelated;
   cursor: pointer;
@@ -2333,16 +2425,16 @@ button.ed-crumb:hover {
   right: 2px;
   bottom: 1px;
   padding: 0 2px;
-  border-radius: 3px;
-  background: #000a;
+  border-radius: var(--radius-3);
+  background: var(--bg-label);
   color: white;
-  font-size: 9px;
+  font-size: var(--font-size-9);
 }
 
 .ed-comp {
   margin: 12px 0;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-10);
   padding: 8px 10px;
 }
 
@@ -2351,9 +2443,9 @@ button.ed-crumb:hover {
   justify-content: space-between;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: var(--font-size-11);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--accent-2);
   margin-bottom: 4px;
@@ -2364,8 +2456,8 @@ button.ed-crumb:hover {
   align-items: center;
   gap: 5px;
   margin-left: auto;
-  font-size: 10px;
-  font-weight: 600;
+  font-size: var(--font-size-10);
+  font-weight: var(--weight-semibold);
   letter-spacing: normal;
   text-transform: none;
   white-space: nowrap;
@@ -2373,7 +2465,7 @@ button.ed-crumb:hover {
 
 .ed-update-badge {
   border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--line));
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 1px 6px;
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
@@ -2396,27 +2488,27 @@ button.ed-crumb:hover {
 
 .ed-add-comp select {
   flex: 1;
-  background: #0e0e16;
+  background: var(--bg-field);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-6);
   padding: 5px;
-  font-size: 12px;
+  font-size: var(--font-size-12);
 }
 
 .ed-danger {
   width: 100%;
   margin-top: 8px;
   padding: 7px;
-  border-radius: 8px;
-  border: 1px solid #e6394655;
+  border-radius: var(--radius-8);
+  border: 1px solid var(--danger-line);
   background: transparent;
   color: var(--danger);
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--font-size-13);
 }
 
 .ed-danger:hover {
-  background: #e6394611;
+  background: var(--danger-tint);
 }
 
 /* code pane */
@@ -2439,14 +2531,14 @@ button.ed-crumb:hover {
 
 .ed-code-path {
   flex: 1;
-  font-size: 12px;
+  font-size: var(--font-size-12);
   color: var(--text-dim);
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
 }
 
 .ed-code-path b {
   color: var(--text);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 
 .ed-empty {
@@ -2479,7 +2571,7 @@ button.ed-crumb:hover {
   position: relative;
   flex: 1;
   min-width: 0;
-  background: #1a1a2e;
+  background: var(--bg-stage);
 }
 
 .ed-ui-stage {
@@ -2524,7 +2616,7 @@ button.ed-crumb:hover {
   gap: 8px;
   padding: 8px 10px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-10);
   cursor: pointer;
 }
 
@@ -2533,15 +2625,15 @@ button.ed-crumb:hover {
 }
 
 .ed-role-name {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: var(--font-size-12);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--accent-2);
 }
 
 .ed-role-desc {
-  font-size: 12px;
+  font-size: var(--font-size-12);
   color: var(--text-dim);
 }
 
@@ -2559,9 +2651,9 @@ button.ed-crumb:hover {
 
 /* The character's role in the inspector card — fixed at birth, not a picker. */
 .ed-role-fixed {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: var(--font-size-12);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--accent-2);
 }
@@ -2587,11 +2679,11 @@ button.ed-crumb:hover {
   flex: 1;
   min-width: 0;
   text-align: left;
-  background: #0e0e16;
+  background: var(--bg-field);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-6);
   padding: 4px 8px;
-  font-size: 12px;
+  font-size: var(--font-size-12);
   cursor: pointer;
 }
 
@@ -2600,7 +2692,7 @@ button.ed-crumb:hover {
 }
 
 .ed-sm-issue {
-  font-size: 12px;
+  font-size: var(--font-size-12);
   opacity: 0.75;
   cursor: help;
 }
@@ -2621,11 +2713,11 @@ button.ed-crumb:hover {
 .ed-sm-edge input {
   flex: 1;
   min-width: 0;
-  background: #0e0e16;
+  background: var(--bg-field);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-6);
   padding: 4px 6px;
-  font-size: 12px;
+  font-size: var(--font-size-12);
 }
 
 .ed-sm-edge select.is-broken {
@@ -2644,23 +2736,23 @@ button.ed-crumb:hover {
   margin: 12vh auto;
   padding: 24px;
   border: 1px solid var(--danger);
-  border-radius: 8px;
+  border-radius: var(--radius-8);
   background: var(--bg-panel);
   color: var(--text);
 }
 
 .ed-crash h2 {
   margin: 0 0 12px;
-  font-size: 18px;
+  font-size: var(--font-size-18);
 }
 
 .ed-crash-msg {
   padding: 10px 12px;
-  border-radius: 6px;
+  border-radius: var(--radius-6);
   background: var(--bg-panel-2);
   color: var(--danger);
-  font-family: ui-monospace, monospace;
-  font-size: 13px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-13);
   overflow-wrap: anywhere;
 }
 
@@ -2706,7 +2798,7 @@ button.ed-crumb:hover {
   float: left;
   min-width: 80px;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--font-size-12);
 }
 
 .ed-export-check {
@@ -2726,15 +2818,15 @@ button.ed-crumb:hover {
   min-width: 0;
   padding: 6px 8px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-6);
   background: var(--bg);
   color: var(--text);
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
 }
 
 .ed-export-copy {
   min-width: 56px;
-  font-size: 12px;
+  font-size: var(--font-size-12);
   color: var(--accent-2);
 }
 
@@ -2744,5 +2836,5 @@ button.ed-crumb:hover {
 
 .ed-export-guide {
   color: var(--accent-2);
-  font-size: 12px;
+  font-size: var(--font-size-12);
 }
