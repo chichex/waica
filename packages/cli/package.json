@@ -36,10 +36,10 @@
     "yazl": "^3.3.1"
   },
   "devDependencies": {
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "@types/yazl": "^3.3.1",
     "@waica/editor": "workspace:^",
     "@waica/mcp": "workspace:^",
-    "electron": "45.0.0"
+    "electron": "45.3.2"
   }
 }
