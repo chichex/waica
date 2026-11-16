@@ -1,5 +1,5 @@
 # Coding policies — waica
-<!-- Generado por /coding-policies el 2026-09-28. Regenerar con /coding-policies; "Ajustes de este proyecto" se preserva. -->
+<!-- Generado el 2026-09-28 y mantenido a mano desde entonces. "Ajustes de este proyecto" registra las decisiones locales. -->
 <!-- coding-policies: generated=2026-09-28; baseline=clean-code@2026-09-14; stacks=typescript@2026-09-14,react@2026-09-14,node@2026-09-14 -->
 
 ## Clean Code y SOLID
@@ -325,7 +325,7 @@
 
 ## Ajustes de este proyecto
 <!-- coding-policies:ajustes:start -->
-Decided in the 2026-09-28 compliance grill (`.sdd/grills/2026-09-28-coding-policies-compliance.md`, issue #100). The policy text above stays in Spanish; these adjustments are written in English like the rest of the repository.
+Decided in the 2026-09-28 coding policies compliance review ([handoff](https://github.com/chichex/waica/blob/6c57a63a5c55ee0f209b86a7ae760246ee3374e6/.sdd/grills/2026-09-28-coding-policies-compliance.md), issue #100). The policy text above stays in Spanish; these adjustments are written in English like the rest of the repository.
 
 - **Language.** Code, comments, UI strings, tests, docs and commit messages are written in English. This convention lives here instead of `CLAUDE.md`.
 - **Enforcement.** Every MUST rule whose gate names a lint rule runs at `error` in `pnpm lint` (ESLint flat config in `packages/lint`); every SHOULD rule runs at `warn` and is held to `packages/lint/lint-baseline.json` by a per-file, per-rule ratchet: a change may remove warnings but never add them. `packages/lint/README.md` maps each policy line to its rule and severity.
