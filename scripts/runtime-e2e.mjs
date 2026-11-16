@@ -272,13 +272,18 @@ function jsonText(result) {
   return JSON.parse(text.text)
 }
 
-async function call(client, name, args, timeout = 60_000) {
+export async function call(client, name, args, timeout = 60_000) {
   const result = plainResult(await client.callTool(
     { name, arguments: args },
     undefined,
     { timeout },
   ))
   if (name === 'start_project' && result.isError === undefined) assertLegBackend(client, result.structuredContent)
+  // Issue #262: a step that fails part-way (a frame that cannot draw) must fail the leg with
+  // its own error, never leave a later position assertion to report fewer Simulation Steps.
+  if (name === 'control_runtime' && args.operation === 'step') {
+    assert.equal(result.isError, undefined, `control_runtime step failed: ${JSON.stringify(result.structuredContent ?? result.content)}`)
+  }
   return result
 }
 
