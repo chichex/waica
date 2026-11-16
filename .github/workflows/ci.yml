@@ -1,6 +1,6 @@
 name: CI
 
-# Pull-request gate: the local verification ladder from .sdd/project.md, run
+# Pull-request gate: the local verification ladder from AGENTS.md, run
 # on every PR against main so the ladder is no longer only a local habit.
 on:
   pull_request:

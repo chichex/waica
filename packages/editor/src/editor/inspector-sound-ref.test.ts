@@ -10,7 +10,7 @@ import { defined } from '../../../engine/src/test-support'
 
 /**
  * A component with ref: 'sound' (Health.hurtSound, MeleeAttack.swingSound —
- * see .sdd/specs/issue-67-engine-audio-subsystem.md CA-17) must render as a
+ * see https://github.com/chichex/waica/blob/6c57a63a5c55ee0f209b86a7ae760246ee3374e6/.sdd/specs/issue-67-engine-audio-subsystem.md CA-17) must render as a
  * picker over the project's sounds, exactly like the pre-existing
  * prefab/stat/action/clip refs, not as free text.
  */

@@ -1,2 +1,2 @@
-@.sdd/project.md
-@.sdd/coding-policies.md
+@AGENTS.md
+@docs/coding-policies.md
