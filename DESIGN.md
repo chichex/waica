@@ -2,7 +2,7 @@
 
 > Status: **living draft**. Decisions made on 2026-07-18 in the initial design session.
 > Name: **Waica**, after Ayrton's childhood dog — she's the engine's natural mascot (logo).
-> Handles verified 2026-07-18: `waica` and `create-waica` free on npm (`@waica` scope with no packages), `waica` org free on GitHub, `waica.dev` / `.io` / `.games` unregistered (`waica.org` taken by an unrelated third party).
+> Handles verified 2026-07-18: `waica` and `create-waica` free on npm (`@waica` scope with no packages), `waica` org free on GitHub, `waica.dev` / `.io` / `.games` unregistered (`waica.org` taken by an unrelated third party). The `@waica` npm scope now holds the published packages. A `waica` GitHub organization and the `waica.dev` domain were not registered: they remain a future plan, with no date set; the repository lives at `github.com/chichex/waica`.
 
 ## 1. Vision
 
