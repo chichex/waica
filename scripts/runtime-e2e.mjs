@@ -272,6 +272,21 @@ function jsonText(result) {
   return JSON.parse(text.text)
 }
 
+/**
+ * Issue #262: the browser, not the engine. On the Linux bench host, Chrome for Testing 148 and
+ * Chrome 150 (SwiftShader WebGPU adapter) throw this from three's attribute upload a few frames
+ * into the top-down leg; Chrome for Testing 153 on the same host and CI's Chrome 157 pass that leg.
+ */
+const BROWSER_CANNOT_MAP_GPU_BUFFERS = /createBuffer failed, size \(\d+\) is too large for the implementation when mappedAtCreation == true/
+
+/** Why a failed step fails the leg: a browser without usable WebGPU is named as such, never skipped. */
+function stepFailureMessage(result) {
+  const detail = JSON.stringify(result.structuredContent ?? result.content)
+  if (!BROWSER_CANNOT_MAP_GPU_BUFFERS.test(detail)) return `control_runtime step failed: ${detail}`
+  return 'WebGPU not available on this host: this browser cannot create a mapped GPU buffer (seen with Chrome 148 and 150; '
+    + `Chrome 153 and later pass, issue #262). Update the browser to verify the WebGPU leg here. The step failed with: ${detail}`
+}
+
 export async function call(client, name, args, timeout = 60_000) {
   const result = plainResult(await client.callTool(
     { name, arguments: args },
@@ -281,8 +296,8 @@ export async function call(client, name, args, timeout = 60_000) {
   if (name === 'start_project' && result.isError === undefined) assertLegBackend(client, result.structuredContent)
   // Issue #262: a step that fails part-way (a frame that cannot draw) must fail the leg with
   // its own error, never leave a later position assertion to report fewer Simulation Steps.
-  if (name === 'control_runtime' && args.operation === 'step') {
-    assert.equal(result.isError, undefined, `control_runtime step failed: ${JSON.stringify(result.structuredContent ?? result.content)}`)
+  if (name === 'control_runtime' && args.operation === 'step' && result.isError !== undefined) {
+    assert.fail(stepFailureMessage(result))
   }
   return result
 }

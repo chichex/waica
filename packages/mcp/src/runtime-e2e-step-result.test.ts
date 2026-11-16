@@ -34,6 +34,22 @@ it('fails a leg on a failed step, showing the error the Runtime Bridge returned 
   expect(seen.error).toContain('GPUDevice.createBuffer: the device was lost')
 })
 
+it('names a browser that cannot map a GPU buffer as WebGPU not available on this host, and still fails (issue #262)', () => {
+  const message = "Failed to execute 'createBuffer' on 'GPUDevice': createBuffer failed, size (3072) is too large for the implementation when mappedAtCreation == true"
+  const hostFailure = {
+    isError: true,
+    content: [{ type: 'text', text: message }],
+    structuredContent: { error: { code: 'runtime-operation-failed', stage: 'control', message } },
+  }
+
+  const seen = callWith({ project_path: '/p', operation: 'step', frames: 30 }, hostFailure)
+
+  expect(seen.value).toBeUndefined()
+  expect(seen.error).toMatch(/^WebGPU not available on this host/)
+  expect(seen.error).toContain('#262')
+  expect(seen.error).toContain(message)
+})
+
 it('hands a successful step back to the leg unchanged', () => {
   const stepped = { content: [], structuredContent: { mode: 'paused', frame: 30 } }
 
