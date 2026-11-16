@@ -27,9 +27,9 @@ to 9.
 
 ## Rule map
 
-Every rule of `.sdd/coding-policies.md` whose gate names a lint rule maps to
+Every rule of `docs/coding-policies.md` whose gate names a lint rule maps to
 the ESLint rule and severity below: MUST lines run at `error`, SHOULD lines at
-`warn` under the ratchet. `Lnn` is the line in `.sdd/coding-policies.md`. The
+`warn` under the ratchet. `Lnn` is the line in `docs/coding-policies.md`. The
 representative file is where `packages/lint/src/config.test.ts` resolves the
 config to check the severity.
 

@@ -12,7 +12,7 @@ export function objectRecord(value: unknown): Record<string, unknown> {
  * Own enumerable fields of a fresh instance — the raw internal-state model,
  * superseded for the public authoring surface by @waica/engine's
  * authoringDefaults (list_components/CA-3, editor classDefaults/CA-4; see
- * `.sdd/specs/waica-mcp.md` CA-B2 and issue #21). Still correct for its
+ * https://github.com/chichex/waica/blob/6c57a63a5c55ee0f209b86a7ae760246ee3374e6/.sdd/specs/waica-mcp.md CA-B2 and issue #21). Still correct for its
  * remaining callers here: validating a component's own declared param
  * defaults and describing project-owned components, neither of which is
  * the public-authoring-surface question authoringDefaults answers.
