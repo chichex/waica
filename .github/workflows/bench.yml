@@ -1,0 +1,45 @@
+name: Bench check
+
+# On demand only: runs the benchmark's WebGL2 sweep on a clean runner and
+# compares its deterministic counters with packages/bench/baselines/, so a
+# missing or drifted baseline (issue #261) shows up without the Linux bench
+# host. Timings are informational and never fail it. Start it from the UI
+# (Actions → Bench check → Run workflow) or with:
+#
+#   gh workflow run bench.yml --repo chichex/waica --ref <branch>
+#
+# It does not record baselines: those still come from chichex-linux with
+# `pnpm bench:remote --update-baseline` (packages/bench/README.md).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    name: bench --backend=webgl2 --check
+    runs-on: ubuntu-latest
+    # Each scenario has its own 5 min deadline inside the harness; the whole
+    # sweep takes a few minutes on the 8-core bench host.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      # No version input: pnpm/action-setup reads the packageManager field
+      # from the root package.json.
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Needs the runner's system Google Chrome, like the browser e2e. The
+      # counters should not depend on the renderer (the bench host matched on
+      # SwiftShader and on its GPU); a run here is what checks that on GitHub.
+      - name: Compare WebGL2 counters with the baselines
+        run: pnpm bench --backend=webgl2 --check
