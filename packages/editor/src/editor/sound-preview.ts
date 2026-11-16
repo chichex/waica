@@ -1,6 +1,6 @@
 /**
  * Editor-owned sound preview (CA-18 of
- * .sdd/specs/issue-67-engine-audio-subsystem.md), deliberately independent
+ * https://github.com/chichex/waica/blob/6c57a63a5c55ee0f209b86a7ae760246ee3374e6/.sdd/specs/issue-67-engine-audio-subsystem.md), deliberately independent
  * of game.audio: in edit mode game.simulate is false and the engine's own
  * AudioContext is suspended (ADR 0013), so routing a library preview through
  * it would need a suspend bypass that exists only for the editor. This is a

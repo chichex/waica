@@ -43,7 +43,7 @@ describe('Runtime harness documentation', () => {
     },
   )
 
-  it.each(['packages/mcp/README.md', '.sdd/specs/waica-mcp.md'])(
+  it.each(['packages/mcp/README.md'])(
     '%s records the per-entry validation boundary and its limits',
     async (file) => {
       const source = await text(file)
@@ -83,20 +83,18 @@ describe('Runtime harness documentation', () => {
     expect(source).toContain('`analog-actions`')
   })
 
-  it('marks the old exclusion superseded and records the observed browser gate', async () => {
-    const [oldSpec, contract, context, bridgeAdr, deterministicAdr] = await Promise.all([
-      text('.sdd/specs/waica-mcp.md'),
-      text('.sdd/project.md'),
+  it('records the observed browser gate in AGENTS.md', async () => {
+    const [agents, context, bridgeAdr, deterministicAdr] = await Promise.all([
+      text('AGENTS.md'),
       text('CONTEXT.md'),
       text('docs/adr/0005-runtime-bridge-is-engine-owned-and-session-scoped.md'),
       text('docs/adr/0006-run-sessions-start-paused-and-advance-deterministically.md'),
     ])
-    expect(oldSpec).toMatch(/run\/bridge\/screenshot.*superseded.*#24/is)
-    expect(contract).toMatch(/`pnpm test:e2e`/)
+    expect(agents).toMatch(/`pnpm test:e2e`/)
     // A concrete observed version, not an exact build: Chrome auto-updates,
-    // and the contract re-records whatever version the last refresh saw.
-    expect(contract).toMatch(/Chrome \d+\.\d+\.\d+\.\d+/)
-    expect(contract).toMatch(/scripted browser e2e/i)
+    // and AGENTS.md records whatever version the last recorded run saw.
+    expect(agents).toMatch(/Chrome \d+\.\d+\.\d+\.\d+/)
+    expect(agents).toMatch(/scripted browser e2e/i)
     for (const term of ['Run Session', 'Runtime Bridge', 'Runtime Snapshot']) {
       expect(context).toContain(term)
     }

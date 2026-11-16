@@ -11,7 +11,7 @@ import { defined } from '../../../engine/src/test-support'
 
 /**
  * CA-17 (the library learns audio) and CA-18 (preview, editor-owned, disabled
- * in play mode) — see .sdd/specs/issue-67-engine-audio-subsystem.md. The
+ * in play mode) — see https://github.com/chichex/waica/blob/6c57a63a5c55ee0f209b86a7ae760246ee3374e6/.sdd/specs/issue-67-engine-audio-subsystem.md. The
  * preview path is deliberately independent of game.audio (spec decision 19):
  * onPreviewSound is the injectable seam this test exercises, matching how
  * ADR 0013 made the engine's own audio backend testable.

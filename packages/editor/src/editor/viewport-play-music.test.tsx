@@ -65,7 +65,7 @@ function render(root: Root, box: HandleBox, options: RenderOptions = {}): void {
  * does on boot — so the same project has music under `pnpm dev` and in an
  * MCP Run Session, but none when Play is pressed inside the editor, even
  * though the combat sounds (carried on prefab props) still play there.
- * See .sdd/specs/issue-67-engine-audio-subsystem.md CA-17/CA-18/CA-19.
+ * See https://github.com/chichex/waica/blob/6c57a63a5c55ee0f209b86a7ae760246ee3374e6/.sdd/specs/issue-67-engine-audio-subsystem.md CA-17/CA-18/CA-19.
  */
 describe('Viewport Play-mode music (review finding 2)', () => {
   let container: HTMLDivElement

@@ -1,4 +1,4 @@
-// ESLint flat config for the waica monorepo. It enforces .sdd/coding-policies.md:
+// ESLint flat config for the waica monorepo. It enforces docs/coding-policies.md:
 // every MUST rule that names a lint gate runs at `error`, every SHOULD rule at
 // `warn` under the committed ratchet (lint-baseline.json). README.md maps each
 // policy line to the rule and severity below.

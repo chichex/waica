@@ -8,7 +8,7 @@ import { componentDefaults, componentKeys } from './Inspector'
  * any defaults logic (issue #21). For each platformer registry component,
  * with no props set, this is the exact row set componentKeys +
  * componentDefaults resolve to today. Must stay byte-identical afterwards —
- * see CA-5 of .sdd/specs/list-components-authoring-defaults (issue body).
+ * see CA-5 of the list-components authoring defaults spec in issue #21's body.
  * Issue #22 added Health and OutOfBounds and emptied Respawnable. The
  * isometric foundations spec intentionally adds anchorX/anchorY to both
  * appearance components; every other pre-existing row remains untouched.
