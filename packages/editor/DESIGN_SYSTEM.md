@@ -2,9 +2,9 @@
 
 The editor's look, written down. It was always in `src/styles.css`; this file names
 its parts and gives the reason for each. The source of truth is the `:root` block at
-the top of [`src/styles.css`](./src/styles.css): every color, type, corner, elevation
-and motion value the editor draws with is a custom property there, and the rules
-below it only reference them.
+the top of [`src/styles.css`](./src/styles.css): every color, type, spacing, corner,
+elevation and motion value the editor draws with is a custom property there, and the
+rules below it only reference them.
 
 The editor is a dense, dark tool UI that sits around a game canvas. Three ideas
 shape every choice:
@@ -134,11 +134,24 @@ The UI is flat; only things that float above the page cast a shadow.
 
 ## Spacing
 
-Spacing is still written as literals in the rules; it is the one family not yet
-tokenized. The rhythm it follows: `4`, `6` and `8` px between and inside controls
-(the most common gaps and paddings), `10`, `12` and `14` px for panel and card
-padding, `2` px half steps and odd values (`3`, `5`, `7`, `9`) for optical alignment of
-small glyphs, and `18`–`48` px only on the home screen and the picker.
+`padding`, `margin` and `gap` read a `--space-N` token, named by its pixel value like the
+type and corner scales: `--space-1` through `--space-10`, then `12`, `14`, `16`, `18`,
+`20`, `22`, `24`, `26`, `28`, `36`, `44` and `48`.
+
+| Steps | Role |
+|---|---|
+| `--space-4`, `--space-6`, `--space-8` | The default gaps and paddings between and inside controls: the most used. |
+| `--space-10`, `--space-12`, `--space-14` | Panel, card and modal padding. |
+| `--space-1`, `--space-2`, `--space-3`, `--space-5`, `--space-7`, `--space-9` | Half steps and odd values that align small glyphs optically. |
+| `--space-16` to `--space-24` | Button and card padding (`16`, `18`, `20`), the picker, the project pane and backdrops (`24`), the room for a select's arrow (`22`). |
+| `--space-26` | The role list nested under its card. |
+| `--space-28`, `--space-44` | Explorer indentation: a nested row, and a row inside a folder. |
+| `--space-36`, `--space-48` | The home screen only. |
+
+Three spacing values stay literal on purpose: `calc(100% - 110px)` lines Inspector
+diagnostics up with the 110 px label column (a layout width), `-2px` pulls the role list
+up against its header (an optical nudge), and `9vh` / `12vh` place the home and crash
+screens relative to the window.
 
 ## Pieces
 
@@ -181,9 +194,9 @@ the feature that renders it. The main ones:
 - A tint of a palette hue is a derived token next to its hue, not a new hex in a rule.
 - Keep the three context hues for context. Amber also means "primary"; violet and
   green mean nothing else.
-- Left as literals on purpose: resets (`0`, `normal`), `line-height: 1` on glyph
+- Left as literals on purpose: resets (`0`, `normal`, `auto`), `line-height: 1` on glyph
   buttons and `16px` on the reset button (they size a box, not text), layout
-  dimensions (widths, heights, offsets), and spacing until it is tokenized.
+  dimensions (widths, heights, offsets), and the three spacing values above.
 - The `#ffffff` values in `SceneLightingOptions.tsx` are scene data defaults (a light's
   color), not editor styling.
 - Two generation gates watch the `.tsx` files: hex colors outside the tokens and inline
