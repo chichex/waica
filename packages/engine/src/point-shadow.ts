@@ -41,9 +41,10 @@ export function createRangedPointShadow(light: THREE.PointLight): RangedPointSha
   const center = uniform(proxy.position)
   const radius = uniform(0)
   // Fn parameters are proxy arrays: nested functions need a fresh named-argument object.
-  const filterNode: PointShadowFilterCallback = Fn(({ depthTexture, bd3D, dp, shadow: filterShadow }: Parameters<typeof PointShadowFilter>[0]) =>
+  // Three 0.187's stock PCF compares each sample at its own depth, from the fragment's distance to the light, not one shared dp.
+  const filterNode: PointShadowFilterCallback = Fn(({ depthTexture, bd3D, distance, shadow: filterShadow }: Parameters<typeof PointShadowFilter>[0]) =>
     positionWorld.sub(center).length().lessThanEqual(radius).select(
-      PointShadowFilter({ depthTexture, bd3D, dp, shadow: filterShadow }), float(1),
+      PointShadowFilter({ depthTexture, bd3D, distance, shadow: filterShadow }), float(1),
     ),
   )
   const unlinkHooks = installShadowHooks(shadow, node, filterNode)

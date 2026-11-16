@@ -83,7 +83,7 @@ baselines are committed without rewriting historical files.
 
 The same-Game resource exercise passed ten cycles and 121 checkpoints, with zero
 outgoing-owner shadow storage. Full recording/check JSON, raw memory values and
-timings are in `.sdd/evidence/issue-203-3d-shadows/bench/`. Four PointLights and 200
+timings are in [`.sdd/evidence/issue-203-3d-shadows/bench/`](https://github.com/chichex/waica/tree/6c57a63a5c55ee0f209b86a7ae760246ee3374e6/.sdd/evidence/issue-203-3d-shadows/bench) (removed from the tree; the link is the last commit that has it). Four PointLights and 200
 casters measured median 33.2 ms/p95 41.4 ms on this software renderer; timings and
 the Off-pair deltas are informational, not portability or frame-rate guarantees.
 
@@ -94,7 +94,7 @@ remote measurement was not performed because SSH preflight did not trust that
 host key. No SSH configuration was changed.
 
 WebGL2 runtime/editor visual captures are in
-`.sdd/evidence/issue-203-3d-shadows/webgl2/`. Positive WebGPU visuals and resource
+[`.sdd/evidence/issue-203-3d-shadows/webgl2/`](https://github.com/chichex/waica/tree/6c57a63a5c55ee0f209b86a7ae760246ee3374e6/.sdd/evidence/issue-203-3d-shadows/webgl2). Positive WebGPU visuals and resource
 baselines are not positively verified on this host. On 2026-10-17 the user withdrew
 CA-18/21 from this delivery; H-1/H-2 remain optional future verification, not gates.
 No tests or backend support were removed. Blank frames, fallback and issue-151

@@ -124,7 +124,7 @@ from `packages/engine/package.json` at build time, not written down anywhere.
 
 ## 3. Ladder, then PR
 
-The contract (`.sdd/project.md`) requires the full local ladder before any PR
+`AGENTS.md` requires the full local ladder before any PR
 and forbids pushing to `main` directly:
 
 1. `pnpm typecheck && pnpm test && pnpm test:dist` — all green or stop.

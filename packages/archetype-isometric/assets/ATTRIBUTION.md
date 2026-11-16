@@ -123,7 +123,7 @@ frames: the dungeon e2e samples the flame there.
 - **Original**, not sourced from Puny Characters or the hawkbirdtree tileset:
   a flat gold rhombus (translucent fill, brighter outline), generated
   programmatically at 2026-08-30 for the point-and-click feature (CA-8/CA-9
-  of `.sdd/specs/point-and-click-grid-role.md`) — CC0, same terms as the
+  of [`.sdd/specs/point-and-click-grid-role.md`](https://github.com/chichex/waica/blob/6c57a63a5c55ee0f209b86a7ae760246ee3374e6/.sdd/specs/point-and-click-grid-role.md), removed from the tree) — CC0, same terms as the
   rest of this archetype's own art.
 - `waica-iso-click-marker.png`: 32×16 (matches the 2:1 diamond aspect of the
   ground tileset, halved), transparent background.
